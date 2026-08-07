@@ -1,0 +1,13 @@
+<div class="brebo-shell">
+  <header class="brebo-header">
+    <div class="brebo-brand">BREBO OFFICE</div>
+    {% if page.header %}{{ page.header }}{% endif %}
+    {% if page.primary_menu %}{{ page.primary_menu }}{% endif %}
+  </header>
+  {% if page.highlighted %}<div class="brebo-highlighted">{{ page.highlighted }}</div>{% endif %}
+  <main class="brebo-main">
+    {% if page.sidebar %}<aside class="brebo-sidebar">{{ page.sidebar }}</aside>{% endif %}
+    <section class="brebo-content">{{ page.content }}</section>
+  </main>
+  {% if page.footer %}<footer class="brebo-footer">{{ page.footer }}</footer>{% endif %}
+</div>

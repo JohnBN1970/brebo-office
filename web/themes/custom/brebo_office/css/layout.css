@@ -1,0 +1,8 @@
+.brebo-shell { min-height: 100vh; display: grid; grid-template-rows: auto 1fr auto; }
+.brebo-header { min-height: 72px; padding: 0 24px; display: flex; align-items: center; gap: 24px; color: #fff; background: var(--brebo-purple-900); }
+.brebo-brand { font-size: 1.125rem; font-weight: 700; letter-spacing: .02em; }
+.brebo-main { width: min(1520px, 100%); margin: 0 auto; padding: 24px; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 24px; }
+.brebo-sidebar { min-width: 0; }
+.brebo-content { min-width: 0; }
+.brebo-footer { padding: 20px 24px; color: var(--brebo-gray-700); text-align: center; }
+@media (max-width: 900px) { .brebo-main { grid-template-columns: 1fr; padding: 16px; } }

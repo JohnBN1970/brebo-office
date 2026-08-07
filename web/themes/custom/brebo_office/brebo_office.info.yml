@@ -1,0 +1,14 @@
+name: BREBO Office
+type: theme
+description: 'Applicatietheme voor BREBO Office.'
+core_version_requirement: ^11
+base theme: false
+libraries:
+  - brebo_office/global
+regions:
+  header: Header
+  primary_menu: Hoofdnavigatie
+  sidebar: Zijbalk
+  highlighted: Meldingen
+  content: Inhoud
+  footer: Footer
