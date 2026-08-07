@@ -1,0 +1,26 @@
+:root {
+  --brebo-purple-900: #3f1657;
+  --brebo-purple-700: #5b2a78;
+  --brebo-purple-100: #f2eef5;
+  --brebo-green-700: #1f6b3a;
+  --brebo-green-100: #e5f2e9;
+  --brebo-amber-700: #7a5a00;
+  --brebo-amber-100: #fff2cc;
+  --brebo-red-700: #9b1c1c;
+  --brebo-red-100: #f7dddd;
+  --brebo-gray-950: #211d24;
+  --brebo-gray-700: #5c5660;
+  --brebo-gray-300: #d8d3da;
+  --brebo-gray-100: #f6f4f7;
+  --brebo-white: #fff;
+  --brebo-radius: 8px;
+  --brebo-shadow: 0 8px 24px rgb(35 20 43 / 8%);
+}
+* { box-sizing: border-box; }
+html { font-family: Roboto, Arial, sans-serif; color: var(--brebo-gray-950); background: var(--brebo-gray-100); }
+body { margin: 0; font-size: 16px; line-height: 1.5; }
+a { color: var(--brebo-purple-700); }
+h1, h2, h3 { line-height: 1.2; color: var(--brebo-purple-900); }
+h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
+h2 { font-size: 1.5rem; }
+:focus-visible { outline: 3px solid #8d5cab; outline-offset: 2px; }
