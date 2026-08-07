@@ -30,6 +30,14 @@
 .brebo-checklist li:last-child { border-bottom: 0; }
 .brebo-checklist li > span { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: var(--brebo-purple-700); background: var(--brebo-purple-100); font-size: .8rem; font-weight: 800; }
 .brebo-checklist li.is-done > span { color: var(--brebo-green-700); background: var(--brebo-green-100); }
-.brebo-drupal-content { margin-top: 24px; }
+.brebo-shell--login { background: linear-gradient(135deg, var(--brebo-gray-100), var(--brebo-purple-100)); }
+.brebo-login { width: min(560px, calc(100% - 32px)); margin: auto; padding: 56px 0 72px; }
+.brebo-login__intro { margin-bottom: 22px; text-align: center; }
+.brebo-login__intro h1 { margin: 6px 0 10px; }
+.brebo-login__intro p:last-child { margin: 0; color: var(--brebo-gray-700); }
+.brebo-login__form { padding: 32px; }
+.brebo-login__form h1 { display: none; }
+.brebo-login__form .form-actions { margin-bottom: 0; }
+.brebo-login__form input[type="submit"] { width: 100%; }
 @media (max-width: 1000px) { .brebo-kpis { grid-template-columns: repeat(2, 1fr); } .brebo-dashboard__grid { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .brebo-header { padding: 0 16px; } .brebo-environment, .brebo-topnav { display: none; } .brebo-dashboard { padding: 24px 16px 36px; } .brebo-dashboard__intro { align-items: start; flex-direction: column; } .brebo-kpis { grid-template-columns: 1fr; } .brebo-flow { grid-template-columns: 1fr; gap: 18px; } .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 18px); right: auto; bottom: auto; } }
+@media (max-width: 700px) { .brebo-header { padding: 0 16px; } .brebo-environment, .brebo-topnav { display: none; } .brebo-dashboard { padding: 24px 16px 36px; } .brebo-dashboard__intro { align-items: start; flex-direction: column; } .brebo-kpis { grid-template-columns: 1fr; } .brebo-flow { grid-template-columns: 1fr; gap: 18px; } .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 18px); right: auto; bottom: auto; } .brebo-login__form { padding: 24px; } }
