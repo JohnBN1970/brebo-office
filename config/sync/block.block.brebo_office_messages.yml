@@ -1,0 +1,22 @@
+uuid: 482fa8c5-abcd-4adc-8253-004ba46a2cb5
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - brebo_office
+_core:
+  default_config_hash: aeqlWs7HwctZeZC7ADcbxfqehJzBRfZKmuZz3DsH3_4
+id: brebo_office_messages
+theme: brebo_office
+region: highlighted
+weight: 0
+provider: null
+plugin: system_messages_block
+settings:
+  id: system_messages_block
+  label: 'Status messages'
+  label_display: '0'
+  provider: system
+visibility: {  }

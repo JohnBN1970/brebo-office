@@ -1,0 +1,22 @@
+uuid: b881dbfd-48af-45c9-94b3-8eebe5531b2f
+langcode: en
+status: true
+dependencies:
+  theme:
+    - brebo_office
+_core:
+  default_config_hash: T0wbI6qVdThbbIqXDZFg_1VZ3_ittXBdEoUH7d7ux_E
+id: brebo_office_local_tasks
+theme: brebo_office
+region: content
+weight: -20
+provider: null
+plugin: local_tasks_block
+settings:
+  id: local_tasks_block
+  label: Tabs
+  label_display: '0'
+  provider: core
+  primary: true
+  secondary: true
+visibility: {  }

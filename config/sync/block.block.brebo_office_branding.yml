@@ -1,0 +1,25 @@
+uuid: 62b5f8d2-78d8-4e88-a2b5-e90faf17d750
+langcode: en
+status: true
+dependencies:
+  module:
+    - system
+  theme:
+    - brebo_office
+_core:
+  default_config_hash: sG8t_FghbUscJ-GrnQ8zs_vx5YM4bJCfntrK-J5HcAY
+id: brebo_office_branding
+theme: brebo_office
+region: header
+weight: 0
+provider: null
+plugin: system_branding_block
+settings:
+  id: system_branding_block
+  label: 'Site branding'
+  label_display: '0'
+  provider: system
+  use_site_logo: true
+  use_site_name: true
+  use_site_slogan: true
+visibility: {  }
