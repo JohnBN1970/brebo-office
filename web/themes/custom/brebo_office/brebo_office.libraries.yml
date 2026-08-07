@@ -1,5 +1,5 @@
 global:
-  version: 0.1.0
+  version: 0.2.0
   css:
     base:
       css/base.css: {}
@@ -7,3 +7,4 @@ global:
       css/layout.css: {}
     component:
       css/components.css: {}
+      css/dashboard.css: {}
