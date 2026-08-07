@@ -1,0 +1,64 @@
+<div class="brebo-shell">
+  <header class="brebo-header">
+    <a class="brebo-brand" href="{{ path('<front>') }}" aria-label="BREBO Office startpagina">
+      <span class="brebo-brand__mark" aria-hidden="true">B</span>
+      <span>BREBO <strong>OFFICE</strong></span>
+    </a>
+    {% if page.primary_menu %}<nav class="brebo-topnav" aria-label="Hoofdnavigatie">{{ page.primary_menu }}</nav>{% endif %}
+    <div class="brebo-header__meta">
+      <span class="brebo-environment">SANDBOX</span>
+      {% if page.header %}{{ page.header }}{% endif %}
+    </div>
+  </header>
+
+  {% if page.highlighted %}<div class="brebo-highlighted">{{ page.highlighted }}</div>{% endif %}
+
+  <main class="brebo-dashboard">
+    <section class="brebo-dashboard__intro">
+      <div>
+        <p class="brebo-eyebrow">BEDRIJFSBUREAU</p>
+        <h1>Goedemorgen. Waar pakken we de regie?</h1>
+        <p>Centraal overzicht van projecten, kwaliteit en acties.</p>
+      </div>
+      <a class="button brebo-button--primary" href="#">Nieuw project</a>
+    </section>
+
+    <section class="brebo-kpis" aria-label="Projectoverzicht">
+      <article class="brebo-kpi"><span>Actieve projecten</span><strong>0</strong><small>Gereed voor eerste invoer</small></article>
+      <article class="brebo-kpi"><span>Open acties</span><strong>0</strong><small>Geen achterstallige acties</small></article>
+      <article class="brebo-kpi"><span>Kwaliteitscontroles</span><strong>0</strong><small>Nog geen controles gepland</small></article>
+      <article class="brebo-kpi"><span>Afwijkingen</span><strong>0</strong><small>Geen open afwijkingen</small></article>
+    </section>
+
+    <section class="brebo-dashboard__grid">
+      <article class="brebo-card brebo-workflow">
+        <div class="brebo-section-heading">
+          <div><p class="brebo-eyebrow">OBJECTMODEL</p><h2>Eerste functionele route</h2></div>
+          <span class="brebo-status brebo-status--ready">Basis gereed</span>
+        </div>
+        <ol class="brebo-flow">
+          <li><span>1</span><div><strong>Project</strong><small>Opdracht en projectkader</small></div></li>
+          <li><span>2</span><div><strong>Cluster</strong><small>Gebouwdeel of werkgebied</small></div></li>
+          <li><span>3</span><div><strong>Woning</strong><small>Zelfstandig object</small></div></li>
+          <li><span>4</span><div><strong>Productpositie</strong><small>Te controleren onderdeel</small></div></li>
+        </ol>
+      </article>
+
+      <aside class="brebo-card brebo-next-actions">
+        <div class="brebo-section-heading"><div><p class="brebo-eyebrow">VOLGENDE STAPPEN</p><h2>Inrichting</h2></div></div>
+        <ul class="brebo-checklist">
+          <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Themafundering</strong><small>BREBO Office actief</small></div></li>
+          <li><span aria-hidden="true">2</span><div><strong>Objecttypen</strong><small>Project tot productpositie</small></div></li>
+          <li><span aria-hidden="true">3</span><div><strong>Intake en N.V.T.</strong><small>Niet-relevante onderdelen negeren</small></div></li>
+          <li><span aria-hidden="true">4</span><div><strong>Fotorapportage</strong><small>Bewijs per object vastleggen</small></div></li>
+        </ul>
+      </aside>
+    </section>
+
+    {% if page.content %}
+      <section class="brebo-card brebo-drupal-content" aria-label="Drupal-inhoud">{{ page.content }}</section>
+    {% endif %}
+  </main>
+
+  {% if page.footer %}<footer class="brebo-footer">{{ page.footer }}</footer>{% endif %}
+</div>
