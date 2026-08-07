@@ -1,0 +1,43 @@
+# Composer
+# Composer
+/vendor/
+
+# Drupal core en Composer-beheerde uitbreidingen
+/web/core/
+/web/modules/contrib/
+/web/themes/contrib/
+/web/profiles/contrib/
+
+# Drupal runtimebestanden
+/web/sites/*/files/
+/web/sites/*/private/
+/web/sites/simpletest/
+
+# Omgevingsspecifieke en geheime instellingen
+/web/sites/*/settings.php
+/web/sites/*/settings.local.php
+.env
+.env.*
+/web/sites/development.services.yml
+
+# Tijdelijke bestanden en caches
+.phpunit.result.cache
+/.phpunit.cache/
+*.log
+*.tmp
+*.swp
+*~
+
+# Back-ups en exports
+*.sql
+*.sql.gz
+*.tar
+*.tar.gz
+*.zip
+/backups/
+
+# Besturingssysteem en editors
+.DS_Store
+Thumbs.db
+/.idea/
+/.vscode/
