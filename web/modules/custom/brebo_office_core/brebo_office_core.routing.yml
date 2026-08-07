@@ -1,0 +1,7 @@
+brebo_office_core.dashboard:
+  path: '/office'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dashboard'
+    _title: 'BREBO Office'
+  requirements:
+    _access: 'TRUE'

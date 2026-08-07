@@ -1,0 +1,7 @@
+name: BREBO Office Core
+type: module
+description: 'Kernroutes en applicatielogica voor BREBO Office.'
+package: BREBO
+core_version_requirement: ^11
+dependencies:
+  - drupal:user
