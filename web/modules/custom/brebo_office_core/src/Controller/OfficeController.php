@@ -50,7 +50,12 @@ final class OfficeController extends ControllerBase {
       if (!$node instanceof NodeInterface) {
         continue;
       }
-      $status = $this->fieldValue($node, 'field_brebo_status');
+      $status_field = match ($bundle) {
+        'brebo_verification' => 'field_brebo_control_result',
+        'brebo_deviation' => 'field_brebo_deviation_status',
+        default => 'field_brebo_status',
+      };
+      $status = $this->fieldValue($node, $status_field);
       $view_url = $bundle === 'brebo_dwelling'
         ? Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()])
         : $node->toUrl();
@@ -284,6 +289,14 @@ final class OfficeController extends ControllerBase {
           (bool) $verification->get('field_brebo_blocks_release')->value
             ? (string) $this->t('Ja')
             : (string) $this->t('Nee'),
+          ['data' => (string) $verification->get('field_brebo_control_result')->value === 'Afwijking'
+            ? Link::fromTextAndUrl(
+              $this->t('Afwijking openen'),
+              Url::fromRoute('node.add', ['node_type' => 'brebo_deviation'], [
+                'query' => ['control' => $verification->id()],
+              ])
+            )->toRenderable()
+            : '—'],
           ['data' => Link::fromTextAndUrl(
             $this->t('Bewerken'),
             Url::fromRoute('entity.node.edit_form', ['node' => $verification->id()])
@@ -306,6 +319,7 @@ final class OfficeController extends ControllerBase {
           $this->t('Datum'),
           $this->t('Controleur'),
           $this->t('Blokkering'),
+          $this->t('Afwijking'),
           $this->t('Actie'),
         ],
         '#rows' => $control_rows,
@@ -323,6 +337,7 @@ final class OfficeController extends ControllerBase {
       'tags' => array_merge($node->getCacheTags(), [
         'node_list:brebo_product_position',
         'node_list:brebo_verification',
+        'node_list:brebo_deviation',
       ]),
     ];
 
