@@ -59,6 +59,20 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     if (isset($form['title'])) {
       $form['title']['#access'] = FALSE;
     }
+
+    if ($node->isNew()) {
+      $package_id = (int) \Drupal::request()->query->get('package', 0);
+      $package = $package_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($package_id)
+        : NULL;
+      if ($package instanceof NodeInterface
+        && $package->bundle() === 'brebo_work_package'
+        && $package->access('view')
+        && isset($form['field_brebo_package_ref']['widget'][0]['target_id'])) {
+        $form['field_brebo_package_ref']['widget'][0]['target_id']['#default_value'] = $package;
+      }
+    }
+
     if (isset($form['field_brebo_gate_type']['widget'][0]['value'])) {
       $current_type = $form['field_brebo_gate_type']['widget'][0]['value']['#default_value'] ?? 'Documenten';
       $form['field_brebo_gate_type']['widget'][0]['value'] = [

@@ -53,11 +53,14 @@ final class OfficeController extends ControllerBase {
       $status_field = match ($bundle) {
         'brebo_verification' => 'field_brebo_control_result',
         'brebo_deviation' => 'field_brebo_deviation_status',
+        'brebo_work_package' => 'field_brebo_package_status',
+        'brebo_release_gate' => 'field_brebo_gate_result',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
+        'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
         'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
         default => $node->toUrl(),
       };
@@ -349,6 +352,156 @@ final class OfficeController extends ControllerBase {
 
 
 
+
+
+
+  /**
+   * Returns the work package dashboard title.
+   */
+  public function workPackageDashboardTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_work_package') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  /**
+   * Builds the work package and release-gate dashboard.
+   */
+  public function workPackageDashboard(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_work_package') {
+      throw new NotFoundHttpException();
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $gate_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_release_gate')
+      ->condition('field_brebo_package_ref.target_id', $node->id())
+      ->sort('field_brebo_gate_type')
+      ->execute();
+    $gates = $storage->loadMultiple($gate_ids);
+    $positions = $node->get('field_brebo_package_positions')->referencedEntities();
+    $blocked = 0;
+    $approved = 0;
+    $gate_rows = [];
+
+    foreach ($gates as $gate) {
+      if (!$gate instanceof NodeInterface) {
+        continue;
+      }
+      $is_blocking = (bool) $gate->get('field_brebo_gate_blocks')->value;
+      $blocked += $is_blocking ? 1 : 0;
+      $approved += $this->fieldValue($gate, 'field_brebo_gate_result') === 'Akkoord' ? 1 : 0;
+      $gate_rows[] = [
+        $this->fieldValue($gate, 'field_brebo_gate_type'),
+        (bool) $gate->get('field_brebo_gate_applicable')->value
+          ? (string) $this->t('Ja')
+          : (string) $this->t('Nee'),
+        $this->fieldValue($gate, 'field_brebo_gate_result'),
+        $is_blocking ? (string) $this->t('Geblokkeerd') : (string) $this->t('Vrij'),
+        $this->fieldValue($gate, 'field_brebo_gate_assessment'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Beoordelen'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $gate->id()])
+        )->toRenderable()],
+      ];
+    }
+
+    $position_rows = [];
+    foreach ($positions as $position) {
+      if (!$position instanceof NodeInterface) {
+        continue;
+      }
+      $position_rows[] = [
+        ['data' => Link::fromTextAndUrl($position->label(), $position->toUrl())->toRenderable()],
+        $this->fieldValue($position, 'field_brebo_position_code'),
+        $this->fieldValue($position, 'field_brebo_product_type'),
+        $this->fieldValue($position, 'field_brebo_position_location'),
+        $this->fieldValue($position, 'field_brebo_status'),
+      ];
+    }
+
+    $project = $node->get('field_brebo_project_ref')->entity;
+    $cluster = $node->get('field_brebo_cluster_ref')->entity;
+    $owner = $node->get('field_brebo_package_owner')->entity;
+    $release_ready = count($gates) > 0 && $blocked === 0;
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Werkpakket bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'add_gate' => [
+          '#type' => 'link',
+          '#title' => $this->t('Vrijgavepoort toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_release_gate'], [
+            'query' => ['package' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'package' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Code'), $this->t('Project'), $this->t('Cluster'),
+          $this->t('Discipline'), $this->t('Verantwoordelijke'), $this->t('Status'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_package_code'),
+          $project ? $project->label() : '—',
+          $cluster ? $cluster->label() : '—',
+          $this->fieldValue($node, 'field_brebo_discipline'),
+          $owner ? $owner->label() : '—',
+          $this->fieldValue($node, 'field_brebo_package_status'),
+        ]],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Productposities'), $this->t('Poorten'),
+          $this->t('Akkoord'), $this->t('Blokkerend'), $this->t('Vrijgave mogelijk'),
+        ],
+        '#rows' => [[
+          count($positions), count($gates), $approved, $blocked,
+          $release_ready ? $this->t('Ja') : $this->t('Nee'),
+        ]],
+      ],
+      'gates_heading' => ['#markup' => '<h2>' . $this->t('Vrijgavepoorten') . '</h2>'],
+      'gates' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Domein'), $this->t('Van toepassing'), $this->t('Resultaat'),
+          $this->t('Vrijgave'), $this->t('Onderbouwing'), $this->t('Actie'),
+        ],
+        '#rows' => $gate_rows,
+        '#empty' => $this->t('Nog geen vrijgavepoorten.'),
+      ],
+      'positions_heading' => ['#markup' => '<h2>' . $this->t('Productposities') . '</h2>'],
+      'positions' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Positie'), $this->t('Code'), $this->t('Producttype'),
+          $this->t('Locatie'), $this->t('Status'),
+        ],
+        '#rows' => $position_rows,
+        '#empty' => $this->t('Geen productposities gekoppeld.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node_list:brebo_work_package',
+          'node_list:brebo_release_gate',
+          'node_list:brebo_product_position',
+        ],
+      ],
+    ];
+  }
 
   /**
    * Returns the project dashboard title.
