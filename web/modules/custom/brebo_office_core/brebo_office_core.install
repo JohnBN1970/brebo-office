@@ -1344,3 +1344,300 @@ function brebo_office_core_update_11010(): string {
 
   return 'Calculatie-, element-, regel- en opslagfundering met stel- en verrekenposten aangemaakt.';
 }
+
+
+/**
+ * Adds controlled provisional sums, quantity settlements and work budgets.
+ */
+function brebo_office_core_update_11011(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_line',
+    'Calculatieregel',
+    'Prijsregel met posttype, kostensoort, hoeveelheid en prijsherkomst.',
+    [
+      'field_brebo_line_sequence' => [
+        'label' => 'Regelvolgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [], 'description' => 'Vaste sorteervolgorde binnen het element.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 11,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_norm_hours' => [
+        'label' => 'Normuren per eenheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Begrote arbeidsnorm per calculatie-eenheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 12,
+      ],
+      'field_brebo_budget_hours' => [
+        'label' => 'Gebudgetteerde uren', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Contracthoeveelheid maal normuren; basis voor de werkbegroting.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 13,
+      ],
+      'field_brebo_tariff_group' => [
+        'label' => 'Tariefgroep', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Bijvoorbeeld A, E of een BREBO-tariefgroep.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+      ],
+      'field_brebo_labor_rate' => [
+        'label' => 'Intern uurtarief', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Kostprijstarief voor de berekende arbeidsuren.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 15,
+      ],
+      'field_brebo_vat_rate' => [
+        'label' => 'Btw-percentage', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Btw-percentage dat op deze regel van toepassing is.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 16,
+        'default_value' => [['value' => '21.0000']],
+      ],
+      'field_brebo_markup_applicable' => [
+        'label' => 'Opnemen in opslaggrondslag', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Bepaalt expliciet of algemene opslagen over deze regel worden berekend.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 17,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_line_memo' => [
+        'label' => 'Memo / rubricering', 'type' => 'string_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Uitvoeringsmemo, kostendrager of rapportagerubriek.',
+        'widget' => 'string_textarea', 'formatter' => 'basic_string', 'weight' => 18,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_provisional_sum',
+    'Stelpost',
+    'Beheerde en aantoonbaar af te rekenen stelpost binnen een calculatie.',
+    [
+      'field_brebo_calc_line_ref' => [
+        'label' => 'Calculatieregel', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calc_line' => 'brebo_calc_line']]],
+        'description' => 'De calculatieregel waarop deze stelpost is gebaseerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_provisional_scope' => [
+        'label' => 'Inbegrepen scope', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Exacte omschrijving van wat in het stelpostbedrag is inbegrepen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 2,
+      ],
+      'field_brebo_provisional_exclusions' => [
+        'label' => 'Uitsluitingen', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Werk, leveringen of risico’s die nadrukkelijk niet zijn inbegrepen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 3,
+      ],
+      'field_brebo_budget_amount' => [
+        'label' => 'Stelpostbedrag', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'In contract of calculatie opgenomen budgetbedrag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 4,
+      ],
+      'field_brebo_final_cost' => [
+        'label' => 'Definitieve kostprijs', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Werkelijk geaccordeerde kostprijs.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_final_sales' => [
+        'label' => 'Definitieve verkoopwaarde', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Definitief met de opdrachtgever af te rekenen bedrag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_decision_date' => [
+        'label' => 'Uiterste beslisdatum', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_responsible_user' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Verantwoordelijke voor besluitvorming en afrekening.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 8,
+      ],
+      'field_brebo_provisional_status' => [
+        'label' => 'Stelpoststatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Open tot definitief afgerekend.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+        'default_value' => [['value' => 'Open']],
+      ],
+      'field_brebo_settlement_notes' => [
+        'label' => 'Besluit en afrekening', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Offertes, besluit, onderbouwing en wijze van verrekening.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 10,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_quantity_settlement',
+    'Hoeveelheidsverrekening',
+    'Controleerbare berekening van meer- of minderhoeveelheden tegen een overeengekomen verrekenprijs.',
+    [
+      'field_brebo_calc_line_ref' => [
+        'label' => 'Verrekenregel', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calc_line' => 'brebo_calc_line']]],
+        'description' => 'Calculatieregel van het type Verrekenpost.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_measured_quantity' => [
+        'label' => 'Gemeten hoeveelheid', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Werkelijk aantoonbaar gemeten hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 2,
+      ],
+      'field_brebo_approved_quantity' => [
+        'label' => 'Goedgekeurde hoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Door bevoegde partij geaccordeerde hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 3,
+      ],
+      'field_brebo_settlement_rate' => [
+        'label' => 'Verrekenprijs per eenheid', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Contractueel overeengekomen prijs voor de meer- of minderhoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 4,
+      ],
+      'field_brebo_quantity_delta' => [
+        'label' => 'Hoeveelheidsverschil', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Goedgekeurde hoeveelheid minus contracthoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_settlement_amount' => [
+        'label' => 'Verrekenbedrag', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Hoeveelheidsverschil maal verrekenprijs.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_measurement_source' => [
+        'label' => 'Meetstaat en bewijs', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Herkomst, meetmethode, datum en bewijs van de hoeveelheid.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 7,
+      ],
+      'field_brebo_settlement_status' => [
+        'label' => 'Verrekenstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Gemeten, ingediend, akkoord of afgewezen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+        'default_value' => [['value' => 'Gemeten']],
+      ],
+      'field_brebo_approved_by' => [
+        'label' => 'Goedgekeurd door', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Bevoegde interne goedkeurder.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 9,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_work_budget',
+    'Werkbegroting',
+    'Bevroren uitvoeringsbudget afgeleid van een goedgekeurde calculatie.',
+    [
+      'field_brebo_calculation_ref' => [
+        'label' => 'Broncalculatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']]],
+        'description' => 'Goedgekeurde calculatie waarop deze werkbegroting is gebaseerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_package_ref' => [
+        'label' => 'Werkpakket', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_package' => 'brebo_work_package']]],
+        'description' => 'Werkpakket waarop de uitvoering wordt bewaakt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_budget_version' => [
+        'label' => 'Werkbegrotingsversie', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Versie van de bevroren uitvoeringsbasis.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => '1.0']],
+      ],
+      'field_brebo_budget_status' => [
+        'label' => 'Werkbegrotingsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, Bevroren, In uitvoering of Afgesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_baseline_date' => [
+        'label' => 'Peildatum uitvoeringsbasis', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum waarop uren, materialen en budgetten zijn bevroren.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_work_budget_line',
+    'Werkbegrotingsregel',
+    'Uitvoerbare regel met uren-, materiaal- en voortgangsbudget zonder commerciële verkoopinformatie.',
+    [
+      'field_brebo_work_budget_ref' => [
+        'label' => 'Werkbegroting', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_budget' => 'brebo_work_budget']]],
+        'description' => 'Bovenliggende werkbegroting.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_calc_line_ref' => [
+        'label' => 'Bronregel', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calc_line' => 'brebo_calc_line']]],
+        'description' => 'Herleidbare bronregel uit de goedgekeurde calculatie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_budget_hours' => [
+        'label' => 'Gebudgetteerde uren', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Aan uitvoering vrijgegeven arbeidsuren.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 3,
+      ],
+      'field_brebo_actual_hours' => [
+        'label' => 'Werkelijke uren', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Geboekte en goedgekeurde uren.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 4,
+      ],
+      'field_brebo_material_description' => [
+        'label' => 'Benodigd materiaal', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Uitvoerderslijst met materiaal, specificatie en bestelnotities.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 5,
+      ],
+      'field_brebo_material_quantity' => [
+        'label' => 'Materiaalhoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Benodigde materiaalhoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_material_unit' => [
+        'label' => 'Materiaaleenheid', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16], 'description' => 'Bijvoorbeeld st, m, m², l of kg.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_required_date' => [
+        'label' => 'Benodigd op', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Uiterste datum waarop personeel en materiaal beschikbaar moeten zijn.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_execution_status' => [
+        'label' => 'Uitvoeringsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Te plannen, Besteld, In uitvoering, Gereed of Afgesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+        'default_value' => [['value' => 'Te plannen']],
+      ],
+      'field_brebo_responsible_user' => [
+        'label' => 'Uitvoeringsverantwoordelijke', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Uitvoerder of werkvoorbereider die deze regel bewaakt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 10,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_provisional_sum', 'brebo_quantity_settlement', 'brebo_work_budget', 'brebo_work_budget_line'] as $bundle) {
+        foreach (["create $bundle content", "edit own $bundle content", "edit any $bundle content", "view $bundle revisions"] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Stelpostbeheer, berekende hoeveelheidsverrekening en bevriesbare werkbegrotingen aangemaakt.';
+}
