@@ -215,3 +215,12 @@ brebo_office_core.project_routes:
     bundle: 'brebo_route_item'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.regie_actions:
+  path: '/office/regie-acties'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::regieActions'
+    _title: 'Regie-acties'
+  requirements:
+    _permission: 'access content'
