@@ -153,6 +153,13 @@ foreach ($lineDefinitions as $code => $definition) {
   $line->set('field_brebo_vat_rate', $definition['vat']);
   $line->set('field_brebo_markup_applicable', $definition['markup']);
   $line->set('field_brebo_line_memo', $code);
+  if ($code === 'TEST-MATERIAAL' && $line->hasField('field_brebo_material_code')) {
+    $line->set('field_brebo_material_code', 'MAT-VERF-001');
+    $line->set('field_brebo_material_spec', 'Watergedragen aflak, wit, overeengekomen kwaliteit.');
+    $line->set('field_brebo_waste_percent', '5.0000');
+    $line->set('field_brebo_pack_quantity', '10.0000');
+    $line->set('field_brebo_preferred_supplier', 'BREBO testleverancier');
+  }
   $line->setNewRevision(TRUE);
   $line->setRevisionLogMessage('Proefcalculatieregel ingericht of bijgewerkt.');
   $line->save();
