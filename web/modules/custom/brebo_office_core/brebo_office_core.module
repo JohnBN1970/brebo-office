@@ -1,0 +1,85 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for node forms.
+ */
+function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
+  $node = $form_state->getFormObject()->getEntity();
+  if (!$node instanceof NodeInterface || !str_starts_with($node->bundle(), 'brebo_')) {
+    return;
+  }
+
+  $labels = [
+    'brebo_project' => 'Projectnaam',
+    'brebo_cluster' => 'Clusternaam',
+    'brebo_dwelling' => 'Woningnaam',
+    'brebo_product_position' => 'Productpositie',
+  ];
+  if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
+    $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
+  }
+
+  if (isset($form['field_brebo_status']['widget'][0]['value'])) {
+    $current = $form['field_brebo_status']['widget'][0]['value']['#default_value'] ?? 'Concept';
+    $form['field_brebo_status']['widget'][0]['value'] = [
+      '#type' => 'select',
+      '#title' => $form['field_brebo_status']['widget']['#title'] ?? 'Status',
+      '#default_value' => $current,
+      '#options' => [
+        'Concept' => 'Concept',
+        'Intake' => 'Intake',
+        'Voorbereiding' => 'Voorbereiding',
+        'In uitvoering' => 'In uitvoering',
+        'Oplevering' => 'Oplevering',
+        'Afgerond' => 'Afgerond',
+        'Vervallen' => 'Vervallen',
+      ],
+      '#required' => TRUE,
+    ];
+  }
+
+  if (isset($form['field_brebo_na_reason']['widget'])) {
+    $form['field_brebo_na_reason']['widget']['#states'] = [
+      'visible' => [
+        ':input[name="field_brebo_not_applicable[value]"]' => ['checked' => TRUE],
+      ],
+    ];
+  }
+
+  foreach (['promote', 'sticky'] as $technical_field) {
+    if (isset($form[$technical_field])) {
+      $form[$technical_field]['#access'] = FALSE;
+    }
+  }
+}
+
+/**
+ * Implements hook_preprocess_page().
+ */
+function brebo_office_core_preprocess_page(array &$variables): void {
+  if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.dashboard'
+    || \Drupal::currentUser()->isAnonymous()) {
+    return;
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $bundles = [
+    'projects' => 'brebo_project',
+    'clusters' => 'brebo_cluster',
+    'dwellings' => 'brebo_dwelling',
+    'positions' => 'brebo_product_position',
+  ];
+
+  foreach ($bundles as $key => $bundle) {
+    $variables['brebo_counts'][$key] = (int) $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', $bundle)
+      ->count()
+      ->execute();
+  }
+}
