@@ -2,8 +2,8 @@
 
 declare(strict_types=1);
 
-use Drupal\Core\Entity\Display\EntityFormDisplay;
-use Drupal\Core\Entity\Display\EntityViewDisplay;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
