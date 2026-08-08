@@ -141,3 +141,16 @@ brebo_office_core.calculation_dashboard:
     parameters:
       node:
         type: entity:node
+
+
+brebo_office_core.generate_work_budget:
+  path: '/office/calculaties/{node}/werkbegroting-maken'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\GenerateWorkBudgetForm'
+    _title: 'Werkbegroting maken'
+  requirements:
+    _permission: 'create brebo_work_budget content'
+  options:
+    parameters:
+      node:
+        type: entity:node
