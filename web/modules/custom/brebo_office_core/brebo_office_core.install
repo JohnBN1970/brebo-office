@@ -1007,3 +1007,135 @@ function brebo_office_core_update_11008(): string {
 
   return 'Afwijkingsobject met verantwoordelijkheid, deadline, herstelbewijs en verplichte hercontrole aangemaakt.';
 }
+
+
+/**
+ * Creates work packages and auditable release gates.
+ */
+function brebo_office_core_update_11009(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_work_package',
+    'Werkpakket',
+    'Bestuurbare bundel van scope, productposities en uitvoeringsvoorwaarden.',
+    [
+      'field_brebo_package_code' => [
+        'label' => 'Werkpakketcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Unieke code binnen het project.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Bovenliggend project.', 'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_cluster_ref' => [
+        'label' => 'Cluster', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_cluster' => 'brebo_cluster']]],
+        'description' => 'Optioneel cluster waarop het werkpakket betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_package_positions' => [
+        'label' => 'Productposities', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_product_position' => 'brebo_product_position']]],
+        'description' => 'Productposities die gezamenlijk worden voorbereid en uitgevoerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 4, 'cardinality' => -1,
+      ],
+      'field_brebo_discipline' => [
+        'label' => 'Discipline', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 128], 'description' => 'Bijvoorbeeld beglazing, kozijnen of schilderwerk.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_package_status' => [
+        'label' => 'Werkpakketstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Actuele bestuurlijke status.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_package_owner' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Eigenaar van voorbereiding en vrijgave.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 7,
+      ],
+      'field_brebo_planned_start' => [
+        'label' => 'Geplande start', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_planned_end' => [
+        'label' => 'Gepland gereed', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_package_scope' => [
+        'label' => 'Scope', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Afbakening, resultaat en bijzonderheden van het werkpakket.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 10,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_release_gate',
+    'Vrijgavepoort',
+    'Herleidbare beoordeling van een voorwaarde voor vrijgave van een werkpakket.',
+    [
+      'field_brebo_package_ref' => [
+        'label' => 'Werkpakket', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_package' => 'brebo_work_package']]],
+        'description' => 'Werkpakket waarop deze vrijgavepoort betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_gate_type' => [
+        'label' => 'Poorttype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Besturingsdomein dat wordt beoordeeld.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_gate_applicable' => [
+        'label' => 'Van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Schakel uit wanneer deze poort gemotiveerd niet van toepassing is.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 3,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_gate_result' => [
+        'label' => 'Poortresultaat', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Niet beoordeeld, akkoord, afwijking of N.V.T.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Niet beoordeeld']],
+      ],
+      'field_brebo_gate_assessment' => [
+        'label' => 'Beoordeling en onderbouwing', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Bewijs, motivering, bevinding en eventuele vervolgactie.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 5,
+      ],
+      'field_brebo_gate_blocks' => [
+        'label' => 'Blokkeert werkpakket', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Wordt automatisch bepaald uit toepasselijkheid en resultaat.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 1]],
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_work_package', 'brebo_release_gate'] as $bundle) {
+        foreach ([
+          "create $bundle content", "edit own $bundle content",
+          "edit any $bundle content", "view $bundle revisions",
+        ] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Werkpakketten en domeinoverstijgende vrijgavepoorten aangemaakt.';
+}
