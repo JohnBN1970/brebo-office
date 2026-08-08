@@ -1,7 +1,7 @@
 brebo_office_core.dashboard:
   path: '/office'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::dashboard'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dashboard'
     _title: 'BREBO Office'
   requirements:
     _access: 'TRUE'
@@ -9,7 +9,7 @@ brebo_office_core.dashboard:
 brebo_office_core.projects:
   path: '/office/projecten'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Projecten'
     bundle: 'brebo_project'
   requirements:
@@ -18,7 +18,7 @@ brebo_office_core.projects:
 brebo_office_core.clusters:
   path: '/office/clusters'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Clusters'
     bundle: 'brebo_cluster'
   requirements:
@@ -27,7 +27,7 @@ brebo_office_core.clusters:
 brebo_office_core.dwellings:
   path: '/office/woningen'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Woningen'
     bundle: 'brebo_dwelling'
   requirements:
@@ -36,8 +36,8 @@ brebo_office_core.dwellings:
 brebo_office_core.dwelling_dossier:
   path: '/office/woningen/{node}'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::dwellingDossier'
-    _title_callback: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::dwellingDossierTitle'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossier'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossierTitle'
   requirements:
     _entity_access: 'node.view'
   options:
@@ -48,7 +48,7 @@ brebo_office_core.dwelling_dossier:
 brebo_office_core.positions:
   path: '/office/productposities'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Productposities'
     bundle: 'brebo_product_position'
   requirements:
