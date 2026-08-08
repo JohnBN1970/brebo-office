@@ -109,6 +109,31 @@ final class OfficeController extends ControllerBase {
       ->execute();
     $positions = $storage->loadMultiple($position_ids);
 
+    $verifications = [];
+    $latest_controls = [];
+    $open_blocks = 0;
+    if ($position_ids) {
+      $verification_ids = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_verification')
+        ->condition('field_brebo_position_ref.target_id', array_values($position_ids), 'IN')
+        ->sort('created', 'DESC')
+        ->execute();
+
+      foreach ($verification_ids as $verification_id) {
+        $verification = $storage->load($verification_id);
+        if (!$verification instanceof NodeInterface) {
+          continue;
+        }
+        $verifications[] = $verification;
+        $position_id = (int) $verification->get('field_brebo_position_ref')->target_id;
+        $latest_controls[$position_id] ??= $verification;
+        if ((bool) $verification->get('field_brebo_blocks_release')->value) {
+          $open_blocks++;
+        }
+      }
+    }
+
     usort($positions, function (NodeInterface $left, NodeInterface $right): int {
       return [
         $this->fieldValue($left, 'field_brebo_facade'),
@@ -147,6 +172,10 @@ final class OfficeController extends ControllerBase {
       $photo_label = $photo_count === 1
         ? (string) $this->t('1 foto')
         : (string) $this->t('@count foto’s', ['@count' => $photo_count]);
+      $latest_control = $latest_controls[(int) $position->id()] ?? NULL;
+      $control_result = $latest_control instanceof NodeInterface
+        ? $this->fieldValue($latest_control, 'field_brebo_control_result')
+        : (string) $this->t('Niet gecontroleerd');
 
       $groups[$facade][] = [
         ['data' => Link::fromTextAndUrl(
@@ -160,6 +189,13 @@ final class OfficeController extends ControllerBase {
         $this->fieldValue($position, 'field_brebo_requirement'),
         $status,
         $photo_label,
+        $control_result,
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Controle toevoegen'),
+          Url::fromRoute('node.add', ['node_type' => 'brebo_verification'], [
+            'query' => ['position' => $position->id()],
+          ])
+        )->toRenderable()],
         ['data' => Link::fromTextAndUrl(
           $this->t('Bewerken'),
           Url::fromRoute('entity.node.edit_form', ['node' => $position->id()])
@@ -186,12 +222,14 @@ final class OfficeController extends ControllerBase {
       ],
       'summary' => [
         '#type' => 'table',
-        '#header' => [$this->t('Woningcode'), $this->t('Adres'), $this->t('Status'), $this->t('Posities'), $this->t('Met foto’s'), $this->t('N.V.T.')],
+        '#header' => [$this->t('Woningcode'), $this->t('Adres'), $this->t('Status'), $this->t('Posities'), $this->t('Controles'), $this->t('Open blokkeringen'), $this->t('Met foto’s'), $this->t('N.V.T.')],
         '#rows' => [[
           $this->fieldValue($node, 'field_brebo_dwelling_code'),
           $this->fieldValue($node, 'field_brebo_address'),
           $this->fieldValue($node, 'field_brebo_status'),
           count($positions),
+          count($verifications),
+          $open_blocks,
           $with_photos,
           $not_applicable,
         ]],
@@ -223,10 +261,54 @@ final class OfficeController extends ControllerBase {
             $this->t('Eis'),
             $this->t('Status'),
             $this->t('Foto’s'),
+            $this->t('Laatste controle'),
+            $this->t('Controle'),
             $this->t('Actie'),
           ],
           '#rows' => $rows,
         ],
+      ];
+    }
+
+    if ($verifications) {
+      $control_rows = [];
+      foreach ($verifications as $verification) {
+        $position = $verification->get('field_brebo_position_ref')->entity;
+        $control_rows[] = [
+          ['data' => Link::fromTextAndUrl($verification->label(), $verification->toUrl())->toRenderable()],
+          $position instanceof NodeInterface ? $this->fieldValue($position, 'field_brebo_position_code') : '—',
+          $this->fieldValue($verification, 'field_brebo_control_result'),
+          $this->fieldValue($verification, 'field_brebo_control_source'),
+          \Drupal::service('date.formatter')->format($verification->getCreatedTime(), 'short'),
+          $verification->getOwner()?->getDisplayName() ?? '—',
+          (bool) $verification->get('field_brebo_blocks_release')->value
+            ? (string) $this->t('Ja')
+            : (string) $this->t('Nee'),
+          ['data' => Link::fromTextAndUrl(
+            $this->t('Bewerken'),
+            Url::fromRoute('entity.node.edit_form', ['node' => $verification->id()])
+          )->toRenderable()],
+        ];
+      }
+
+      $build['controls_heading'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Controlehistorie'),
+      ];
+      $build['controls'] = [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Controle'),
+          $this->t('Positie'),
+          $this->t('Resultaat'),
+          $this->t('Bron'),
+          $this->t('Datum'),
+          $this->t('Controleur'),
+          $this->t('Blokkering'),
+          $this->t('Actie'),
+        ],
+        '#rows' => $control_rows,
       ];
     }
 
