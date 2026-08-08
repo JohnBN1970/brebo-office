@@ -55,10 +55,10 @@ final class OfficeController extends ControllerBase {
         ? Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()])
         : $node->toUrl();
       $rows[] = [
-        Link::fromTextAndUrl($node->label(), $view_url)->toRenderable(),
+        ['data' => Link::fromTextAndUrl($node->label(), $view_url)->toRenderable()],
         $status,
         \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short'),
-        Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable(),
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable()],
       ];
     }
 
@@ -149,10 +149,10 @@ final class OfficeController extends ControllerBase {
         : (string) $this->t('@count foto’s', ['@count' => $photo_count]);
 
       $groups[$facade][] = [
-        Link::fromTextAndUrl(
+        ['data' => Link::fromTextAndUrl(
           $this->fieldValue($position, 'field_brebo_position_code'),
           $position->toUrl()
-        )->toRenderable(),
+        )->toRenderable()],
         $this->fieldValue($position, 'field_brebo_quantity'),
         $this->fieldValue($position, 'field_brebo_width_mm'),
         $this->fieldValue($position, 'field_brebo_height_mm'),
@@ -160,10 +160,10 @@ final class OfficeController extends ControllerBase {
         $this->fieldValue($position, 'field_brebo_requirement'),
         $status,
         $photo_label,
-        Link::fromTextAndUrl(
+        ['data' => Link::fromTextAndUrl(
           $this->t('Bewerken'),
           Url::fromRoute('entity.node.edit_form', ['node' => $position->id()])
-        )->toRenderable(),
+        )->toRenderable()],
       ];
     }
 
