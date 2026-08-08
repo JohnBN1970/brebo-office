@@ -62,3 +62,12 @@ brebo_office_core.verifications:
     bundle: 'brebo_verification'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.deviations:
+  path: '/office/afwijkingen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Afwijkingen'
+    bundle: 'brebo_deviation'
+  requirements:
+    _permission: 'access content'
