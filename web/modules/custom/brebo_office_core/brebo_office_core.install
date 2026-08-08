@@ -358,7 +358,7 @@ function _brebo_office_core_create_node_bundle(
         'entity_type' => 'node',
         'type' => $definition['type'],
         'settings' => $definition['storage'],
-        'cardinality' => 1,
+        'cardinality' => $definition['cardinality'] ?? 1,
       ])->save();
     }
 
@@ -705,4 +705,167 @@ function brebo_office_core_update_11006(): string {
   }
 
   return 'Gestructureerde glasgegevens aan Productpositie toegevoegd.';
+}
+
+
+/**
+ * Creates auditable document controls and verifications.
+ */
+function brebo_office_core_update_11007(): string {
+  $default_image = [
+    'uuid' => NULL,
+    'alt' => '',
+    'title' => '',
+    'width' => NULL,
+    'height' => NULL,
+  ];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_verification',
+    'Controle en verificatie',
+    'Herleidbare document-, uitvoerings- of oplevercontrole op een productpositie.',
+    [
+      'field_brebo_position_ref' => [
+        'label' => 'Productpositie',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => [
+            'target_bundles' => [
+              'brebo_product_position' => 'brebo_product_position',
+            ],
+          ],
+        ],
+        'description' => 'De productpositie waarop deze controle betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 1,
+      ],
+      'field_brebo_control_type' => [
+        'label' => 'Controletype',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Documentcontrole, uitvoeringscontrole of oplevercontrole.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 2,
+        'default_value' => [['value' => 'Documentcontrole']],
+      ],
+      'field_brebo_control_source' => [
+        'label' => 'Gecontroleerde bron',
+        'type' => 'string',
+        'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Documentnaam, versienummer, tekening, bestellijst of andere leidende bron.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 3,
+      ],
+      'field_brebo_control_result' => [
+        'label' => 'Controleresultaat',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele uitkomst van deze controle.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 4,
+        'default_value' => [['value' => 'Niet gecontroleerd']],
+      ],
+      'field_brebo_finding' => [
+        'label' => 'Bevinding',
+        'type' => 'text_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Leg vast wat is gecontroleerd en welke bevinding is gedaan.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 5,
+      ],
+      'field_brebo_required_action' => [
+        'label' => 'Vereiste vervolgactie',
+        'type' => 'text_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Verplichte herstel-, correctie- of verificatieactie bij een afwijking.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 6,
+      ],
+      'field_brebo_evidence' => [
+        'label' => 'Bewijsfoto’s',
+        'type' => 'image',
+        'required' => FALSE,
+        'storage' => [
+          'uri_scheme' => 'public',
+          'default_image' => $default_image,
+        ],
+        'field_settings' => [
+          'file_directory' => 'brebo-office/verifications',
+          'file_extensions' => 'png gif jpg jpeg webp',
+          'max_filesize' => '20 MB',
+          'max_resolution' => '',
+          'min_resolution' => '',
+          'alt_field' => TRUE,
+          'alt_field_required' => FALSE,
+          'title_field' => TRUE,
+          'title_field_required' => FALSE,
+          'default_image' => $default_image,
+        ],
+        'description' => 'Foto’s of afbeeldingen die de controle-uitkomst aantoonbaar onderbouwen.',
+        'widget' => 'image_image',
+        'formatter' => 'image',
+        'weight' => 7,
+        'cardinality' => -1,
+      ],
+      'field_brebo_blocks_release' => [
+        'label' => 'Blokkeert vrijgave',
+        'type' => 'boolean',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Wordt automatisch geactiveerd zolang deze controle een afwijking bevat.',
+        'widget' => 'boolean_checkbox',
+        'formatter' => 'boolean',
+        'weight' => 8,
+        'default_value' => [['value' => 0]],
+      ],
+    ],
+  );
+
+  $role_permissions = [
+    'brebo_projectleider' => [
+      'create brebo_verification content',
+      'edit own brebo_verification content',
+      'edit any brebo_verification content',
+      'view brebo_verification revisions',
+      'revert brebo_verification revisions',
+    ],
+    'brebo_werkvoorbereider' => [
+      'create brebo_verification content',
+      'edit own brebo_verification content',
+      'edit any brebo_verification content',
+      'view brebo_verification revisions',
+    ],
+    'brebo_kwaliteitsmanager' => [
+      'create brebo_verification content',
+      'edit own brebo_verification content',
+      'edit any brebo_verification content',
+      'view brebo_verification revisions',
+      'revert brebo_verification revisions',
+    ],
+  ];
+
+  foreach ($role_permissions as $role_id => $permissions) {
+    if ($role = Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Controle- en verificatieobject met auditgegevens, bewijs en vrijgaveblokkering aangemaakt.';
 }

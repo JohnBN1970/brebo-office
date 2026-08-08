@@ -19,9 +19,61 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_cluster' => 'Clusternaam',
     'brebo_dwelling' => 'Woningnaam',
     'brebo_product_position' => 'Productpositie',
+    'brebo_verification' => 'Controle',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
+  }
+
+  if ($node->bundle() === 'brebo_verification') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe controle');
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+
+    if (isset($form['field_brebo_control_type']['widget'][0]['value'])) {
+      $current_type = $form['field_brebo_control_type']['widget'][0]['value']['#default_value'] ?? 'Documentcontrole';
+      $form['field_brebo_control_type']['widget'][0]['value'] = [
+        '#type' => 'select',
+        '#title' => 'Controletype',
+        '#default_value' => $current_type,
+        '#options' => [
+          'Documentcontrole' => 'Documentcontrole',
+          'Uitvoeringscontrole' => 'Uitvoeringscontrole',
+          'Oplevercontrole' => 'Oplevercontrole',
+        ],
+        '#required' => TRUE,
+      ];
+    }
+
+    if (isset($form['field_brebo_control_result']['widget'][0]['value'])) {
+      $current_result = $form['field_brebo_control_result']['widget'][0]['value']['#default_value'] ?? 'Niet gecontroleerd';
+      $form['field_brebo_control_result']['widget'][0]['value'] = [
+        '#type' => 'select',
+        '#title' => 'Controleresultaat',
+        '#default_value' => $current_result,
+        '#options' => [
+          'Niet gecontroleerd' => 'Niet gecontroleerd',
+          'Akkoord' => 'Akkoord',
+          'Afwijking' => 'Afwijking',
+          'N.V.T.' => 'N.V.T.',
+        ],
+        '#required' => TRUE,
+      ];
+    }
+
+    if (isset($form['field_brebo_required_action']['widget'])) {
+      $form['field_brebo_required_action']['widget']['#states'] = [
+        'visible' => [
+          ':input[name="field_brebo_control_result[0][value]"]' => ['value' => 'Afwijking'],
+        ],
+      ];
+    }
+    if (isset($form['field_brebo_blocks_release'])) {
+      $form['field_brebo_blocks_release']['#access'] = FALSE;
+    }
   }
 
   if (isset($form['field_brebo_status']['widget'][0]['value'])) {
@@ -114,6 +166,34 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
       'parent' => 'field_brebo_dwelling_ref',
     ],
   ];
+  if ($node->bundle() === 'brebo_verification') {
+    $type = (string) $form_state->getValue(['field_brebo_control_type', 0, 'value']);
+    $source = trim((string) $form_state->getValue(['field_brebo_control_source', 0, 'value']));
+    $result = (string) $form_state->getValue(['field_brebo_control_result', 0, 'value']);
+    $finding = trim((string) $form_state->getValue(['field_brebo_finding', 0, 'value']));
+    $action = trim((string) $form_state->getValue(['field_brebo_required_action', 0, 'value']));
+
+    if ($type === 'Documentcontrole' && $source === '') {
+      $form_state->setErrorByName(
+        'field_brebo_control_source',
+        t('Vul bij een documentcontrole de gecontroleerde bron en versie in.'),
+      );
+    }
+    if ($result === 'Afwijking' && $finding === '') {
+      $form_state->setErrorByName(
+        'field_brebo_finding',
+        t('Beschrijf de geconstateerde afwijking.'),
+      );
+    }
+    if ($result === 'Afwijking' && $action === '') {
+      $form_state->setErrorByName(
+        'field_brebo_required_action',
+        t('Leg de vereiste vervolgactie vast voordat u de afwijking opslaat.'),
+      );
+    }
+    return;
+  }
+
   $definition = $definitions[$node->bundle()] ?? NULL;
   if (!$definition) {
     return;
@@ -159,4 +239,22 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
       );
     }
   }
+}
+
+
+/**
+ * Implements hook_node_presave().
+ */
+function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_verification') {
+    return;
+  }
+
+  $type = $node->get('field_brebo_control_type')->value ?: 'Controle';
+  $position = $node->get('field_brebo_position_ref')->entity;
+  $position_label = $position instanceof NodeInterface ? $position->label() : 'productpositie';
+  $node->setTitle($type . ' — ' . $position_label);
+
+  $result = (string) $node->get('field_brebo_control_result')->value;
+  $node->set('field_brebo_blocks_release', $result === 'Afwijking' ? 1 : 0);
 }
