@@ -1,31 +1,37 @@
-<div class="brebo-shell{% if not logged_in %} brebo-shell--login{% endif %}">
+<div class="brebo-shell{{ logged_in ? ' brebo-shell--authenticated' : ' brebo-shell--guest' }}">
   <header class="brebo-header">
-    <a class="brebo-brand" href="{{ path('<front>') }}" aria-label="BREBO Office startpagina">
-      <span class="brebo-brand__mark" aria-hidden="true">B</span>
-      <span>BREBO <strong>OFFICE</strong></span>
-    </a>
-    {% if logged_in %}
-      <nav class="brebo-topnav" aria-label="Hoofdnavigatie">
-        <ul>
-          <li><a href="{{ path('brebo_office_core.projects') }}">Projecten</a></li>
-          <li><a href="{{ path('brebo_office_core.clusters') }}">Clusters</a></li>
-          <li><a href="{{ path('brebo_office_core.dwellings') }}">Woningen</a></li>
-          <li><a href="{{ path('brebo_office_core.positions') }}">Productposities</a></li>
-        </ul>
-      </nav>
-    {% endif %}
-    <div class="brebo-header__meta"><span class="brebo-environment">SANDBOX</span></div>
+    <div class="brebo-header__inner">
+      <a class="brebo-brand" href="{{ path('brebo_office_core.dashboard') }}" aria-label="BREBO Office start">
+        <span class="brebo-brand__mark" aria-hidden="true">B</span>
+        <span class="brebo-brand__name"><b>BREBO</b><span>OFFICE</span></span>
+      </a>
+      {% if logged_in %}
+        <nav class="brebo-appnav" aria-label="Hoofdnavigatie">
+          <a href="{{ path('brebo_office_core.dashboard') }}">Overzicht</a>
+          <a href="{{ path('brebo_office_core.projects') }}">Projecten</a>
+          <a href="{{ path('brebo_office_core.regie_actions') }}">Regie</a>
+          <a href="{{ path('brebo_office_core.calculations') }}">Calculaties</a>
+          <a href="{{ path('brebo_office_core.quality_dashboard') }}">Kwaliteit</a>
+        </nav>
+        <div class="brebo-header__meta">
+          <span class="brebo-environment">SANDBOX</span>
+          <a class="brebo-user-link" href="{{ path('user.page') }}" aria-label="Mijn account">JB</a>
+        </div>
+      {% endif %}
+    </div>
   </header>
 
-  {% if page.highlighted %}<div class="brebo-highlighted">{{ page.highlighted }}</div>{% endif %}
+  {% if page.highlighted %}
+    <div class="brebo-highlighted"><div class="brebo-highlighted__inner">{{ page.highlighted }}</div></div>
+  {% endif %}
 
   {% if logged_in %}
     <main class="brebo-dashboard">
       <section class="brebo-dashboard__intro">
         <div>
-          <p class="brebo-eyebrow">BEDRIJFSBUREAU</p>
+          <p class="brebo-eyebrow">DIGITAAL BEDRIJFSBUREAU</p>
           <h1>Goedemorgen. Waar pakken we de regie?</h1>
-          <p>Centraal overzicht van projecten, objecten, kwaliteit en bewijs.</p>
+          <p>Projecten besturen vanuit één actueel kader voor proces, geld, kwaliteit en bewijs.</p>
         </div>
         <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
       </section>
@@ -34,42 +40,44 @@
         <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Opdracht en projectkader</small></a>
         <a class="brebo-kpi" href="{{ path('brebo_office_core.clusters') }}"><span>Clusters</span><strong>{{ brebo_counts.clusters|default(0) }}</strong><small>Gebouwdelen en werkgebieden</small></a>
         <a class="brebo-kpi" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ brebo_counts.dwellings|default(0) }}</strong><small>Zelfstandige objecten</small></a>
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met bewijs</small></a>
+        <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met controle en bewijs</small></a>
       </section>
 
       <section class="brebo-dashboard__grid">
         <article class="brebo-card brebo-workflow">
           <div class="brebo-section-heading">
-            <div><p class="brebo-eyebrow">OBJECTMODEL</p><h2>Eerste functionele route</h2></div>
-            <span class="brebo-status brebo-status--ready">Werkend model</span>
+            <div><p class="brebo-eyebrow">BESTURINGSKETEN</p><h2>Van opdracht naar aantoonbaar resultaat</h2></div>
+            <span class="brebo-status brebo-status--ready">Operationeel</span>
           </div>
           <ol class="brebo-flow">
-            <li><span>1</span><div><strong>Project</strong><small>Opdracht en projectkader</small></div></li>
-            <li><span>2</span><div><strong>Cluster</strong><small>Gebouwdeel of werkgebied</small></div></li>
-            <li><span>3</span><div><strong>Woning</strong><small>Zelfstandig object</small></div></li>
-            <li><span>4</span><div><strong>Productpositie</strong><small>Onderdeel, N.V.T. en fotobewijs</small></div></li>
+            <li><span>1</span><div><strong>Projectkader</strong><small>Soort, rol, geld en inkoop</small></div></li>
+            <li><span>2</span><div><strong>Projectroute</strong><small>Automatische stappen en producten</small></div></li>
+            <li><span>3</span><div><strong>Regie-acties</strong><small>Eigenaar, termijn en blokkering</small></div></li>
+            <li><span>4</span><div><strong>Bewijs</strong><small>Controle, besluit en vrijgave</small></div></li>
           </ol>
         </article>
 
         <aside class="brebo-card brebo-next-actions">
-          <div class="brebo-section-heading"><div><p class="brebo-eyebrow">MVP-STATUS</p><h2>Fundering</h2></div></div>
+          <div class="brebo-section-heading"><div><p class="brebo-eyebrow">SYSTEEMSTATUS</p><h2>Digitale regie</h2></div></div>
           <ul class="brebo-checklist">
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Objectketen</strong><small>Vier gekoppelde niveaus</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Vaste statussen</strong><small>Eenduidige processtand</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Intake en N.V.T.</strong><small>Niet-relevante onderdelen vastleggen</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Fotorapportage</strong><small>Bewijs per productpositie</small></div></li>
+            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Projectbesturing</strong><small>Vier onafhankelijke assen</small></div></li>
+            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Automatische routes</strong><small>Passend bij de projectsoort</small></div></li>
+            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Centrale actielijst</strong><small>Termijnen, blokkeringen en eigenaarschap</small></div></li>
+            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Audit en bewijs</strong><small>N.V.T., afwijkingen en besluitvorming</small></div></li>
           </ul>
         </aside>
       </section>
     </main>
   {% else %}
-    <main class="brebo-login">
-      <section class="brebo-login__intro">
-        <p class="brebo-eyebrow">VEILIGE WERKOMGEVING</p>
-        <h1>Welkom bij BREBO Office</h1>
-        <p>Log in om projecten, acties en kwaliteitscontroles te beheren.</p>
+    <main class="brebo-main brebo-main--full">
+      <section class="brebo-content">
+        <div class="brebo-login__intro">
+          <p class="brebo-eyebrow">VEILIGE WERKOMGEVING</p>
+          <h1>Welkom bij BREBO Office</h1>
+          <p>Log in om projecten, acties en kwaliteitscontroles te beheren.</p>
+        </div>
+        <section class="brebo-card brebo-login__form" aria-label="Inloggen">{{ page.content }}</section>
       </section>
-      <section class="brebo-card brebo-login__form" aria-label="Inloggen">{{ page.content }}</section>
     </main>
   {% endif %}
 
