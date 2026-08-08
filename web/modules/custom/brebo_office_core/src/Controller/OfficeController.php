@@ -56,6 +56,7 @@ final class OfficeController extends ControllerBase {
         'brebo_work_package' => 'field_brebo_package_status',
         'brebo_release_gate' => 'field_brebo_gate_result',
         'brebo_calculation' => 'field_brebo_calc_status',
+        'brebo_work_budget' => 'field_brebo_budget_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
@@ -63,6 +64,7 @@ final class OfficeController extends ControllerBase {
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
         'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
         'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
+        'brebo_work_budget' => Url::fromRoute('brebo_office_core.work_budget_dashboard', ['node' => $node->id()]),
         'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
         default => $node->toUrl(),
       };
@@ -83,6 +85,7 @@ final class OfficeController extends ControllerBase {
           '#title' => $this->t('Nieuw @type', ['@type' => mb_strtolower((string) $this->entityTypeManager()->getStorage('node_type')->load($bundle)?->label())]),
           '#url' => Url::fromRoute('node.add', ['node_type' => $bundle]),
           '#attributes' => ['class' => ['button']],
+          '#access' => $bundle !== 'brebo_work_budget',
         ],
       ],
       'table' => [
@@ -1341,6 +1344,196 @@ final class OfficeController extends ControllerBase {
       ],
     ];
   }
+
+  /**
+   * Returns the work-budget dashboard title.
+   */
+  public function workBudgetDashboardTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_work_budget') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  /**
+   * Builds the execution-only work-budget dashboard.
+   */
+  public function workBudgetDashboard(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_work_budget') {
+      throw new NotFoundHttpException();
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $line_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_work_budget_line')
+      ->condition('field_brebo_work_budget_ref.target_id', $node->id())
+      ->execute();
+    $lines = $storage->loadMultiple($line_ids);
+
+    uasort($lines, static function (NodeInterface $left, NodeInterface $right): int {
+      $left_source = $left->get('field_brebo_calc_line_ref')->entity;
+      $right_source = $right->get('field_brebo_calc_line_ref')->entity;
+      $left_sequence = $left_source instanceof NodeInterface
+        ? (int) $left_source->get('field_brebo_line_sequence')->value
+        : 0;
+      $right_sequence = $right_source instanceof NodeInterface
+        ? (int) $right_source->get('field_brebo_line_sequence')->value
+        : 0;
+      return $left_sequence <=> $right_sequence;
+    });
+
+    $budget_hours = 0.0;
+    $actual_hours = 0.0;
+    $execution_rows = [];
+    $material_rows = [];
+
+    foreach ($lines as $line) {
+      if (!$line instanceof NodeInterface) {
+        continue;
+      }
+      $source = $line->get('field_brebo_calc_line_ref')->entity;
+      $responsible = $line->get('field_brebo_responsible_user')->entity;
+      $line_budget_hours = (float) $line->get('field_brebo_budget_hours')->value;
+      $line_actual_hours = (float) $line->get('field_brebo_actual_hours')->value;
+      $budget_hours += $line_budget_hours;
+      $actual_hours += $line_actual_hours;
+
+      $description = $source instanceof NodeInterface
+        ? $this->fieldValue($source, 'field_brebo_line_description')
+        : $line->label();
+      $category = $source instanceof NodeInterface
+        ? $this->fieldValue($source, 'field_brebo_cost_category')
+        : '—';
+      $post_type = $source instanceof NodeInterface
+        ? $this->fieldValue($source, 'field_brebo_line_post_type')
+        : '—';
+
+      $execution_rows[] = [
+        $description,
+        $category,
+        $post_type,
+        number_format($line_budget_hours, 2, ',', '.'),
+        number_format($line_actual_hours, 2, ',', '.'),
+        number_format($line_budget_hours - $line_actual_hours, 2, ',', '.'),
+        $this->fieldValue($line, 'field_brebo_required_date'),
+        $responsible ? $responsible->label() : '—',
+        $this->fieldValue($line, 'field_brebo_execution_status'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bijwerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $line->id()])
+        )->toRenderable()],
+      ];
+
+      if (!$line->get('field_brebo_material_description')->isEmpty()) {
+        $material_rows[] = [
+          $this->fieldValue($line, 'field_brebo_material_description'),
+          number_format((float) $line->get('field_brebo_material_quantity')->value, 2, ',', '.'),
+          $this->fieldValue($line, 'field_brebo_material_unit'),
+          $this->fieldValue($line, 'field_brebo_required_date'),
+          $this->fieldValue($line, 'field_brebo_execution_status'),
+        ];
+      }
+    }
+
+    $calculation = $node->get('field_brebo_calculation_ref')->entity;
+    $package = $node->get('field_brebo_package_ref')->entity;
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Werkbegroting beheren'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'all' => [
+          '#type' => 'link',
+          '#title' => $this->t('Alle werkbegrotingen'),
+          '#url' => Url::fromRoute('brebo_office_core.work_budgets'),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'identity' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Versie'), $this->t('Status'), $this->t('Peildatum'),
+          $this->t('Broncalculatie'), $this->t('Werkpakket'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_budget_version'),
+          $this->fieldValue($node, 'field_brebo_budget_status'),
+          $this->fieldValue($node, 'field_brebo_baseline_date'),
+          $calculation instanceof NodeInterface
+            ? Link::fromTextAndUrl(
+              $calculation->label(),
+              Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $calculation->id()])
+            )->toRenderable()
+            : '—',
+          $package instanceof NodeInterface
+            ? Link::fromTextAndUrl(
+              $package->label(),
+              Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $package->id()])
+            )->toRenderable()
+            : '—',
+        ]],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Uitvoeringsregels'), $this->t('Budgeturen'),
+          $this->t('Werkelijke uren'), $this->t('Resterende uren'),
+          $this->t('Materiaalregels'),
+        ],
+        '#rows' => [[
+          count($execution_rows),
+          number_format($budget_hours, 2, ',', '.'),
+          number_format($actual_hours, 2, ',', '.'),
+          number_format($budget_hours - $actual_hours, 2, ',', '.'),
+          count($material_rows),
+        ]],
+      ],
+      'execution_heading' => ['#markup' => '<h2>' . $this->t('Uitvoerderslijst') . '</h2>'],
+      'execution' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Werkzaamheden'), $this->t('Kostensoort'), $this->t('Posttype'),
+          $this->t('Budgeturen'), $this->t('Werkelijk'), $this->t('Resterend'),
+          $this->t('Benodigd op'), $this->t('Verantwoordelijke'),
+          $this->t('Status'), $this->t('Actie'),
+        ],
+        '#rows' => $execution_rows,
+        '#empty' => $this->t('Deze werkbegroting bevat nog geen uitvoeringsregels.'),
+      ],
+      'materials_heading' => ['#markup' => '<h2>' . $this->t('Materialenlijst') . '</h2>'],
+      'materials' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Materiaal'), $this->t('Hoeveelheid'), $this->t('Eenheid'),
+          $this->t('Benodigd op'), $this->t('Status'),
+        ],
+        '#rows' => $material_rows,
+        '#empty' => $this->t('Er zijn nog geen materiaalregels opgenomen.'),
+      ],
+      'commercial_notice' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--status']],
+        'text' => [
+          '#markup' => $this->t('Deze uitvoerdersweergave bevat bewust geen verkoopprijzen, opslagen of marges.'),
+        ],
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node:' . $node->id(),
+          'node_list:brebo_work_budget_line',
+        ],
+      ],
+    ];
+  }
+
 
   /**
    * Applies ordered fixed or percentage adjustments to a value.

@@ -154,3 +154,25 @@ brebo_office_core.generate_work_budget:
     parameters:
       node:
         type: entity:node
+
+
+brebo_office_core.work_budgets:
+  path: '/office/werkbegrotingen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Werkbegrotingen'
+    bundle: 'brebo_work_budget'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.work_budget_dashboard:
+  path: '/office/werkbegrotingen/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::workBudgetDashboard'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::workBudgetDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
