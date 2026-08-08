@@ -205,3 +205,13 @@ brebo_office_core.budget_changes:
     bundle: 'brebo_budget_change'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.project_routes:
+  path: '/office/projectroutes'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Projectroutes'
+    bundle: 'brebo_route_item'
+  requirements:
+    _permission: 'access content'
