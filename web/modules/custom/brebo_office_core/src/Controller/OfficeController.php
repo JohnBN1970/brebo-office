@@ -1129,6 +1129,14 @@ final class OfficeController extends ControllerBase {
       }
     }
 
+    foreach ($adjustments_by_target as &$target_adjustments) {
+      usort($target_adjustments, static function (NodeInterface $left, NodeInterface $right): int {
+        return (int) $left->get('field_brebo_adjust_sequence')->value
+          <=> (int) $right->get('field_brebo_adjust_sequence')->value;
+      });
+    }
+    unset($target_adjustments);
+
     $lines_by_element = [];
     foreach ($lines as $line) {
       if ($line instanceof NodeInterface) {
@@ -1268,7 +1276,9 @@ final class OfficeController extends ControllerBase {
         ],
         'add_adjustment' => [
           '#type' => 'link', '#title' => $this->t('Opslag toevoegen'),
-          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_calc_adjustment']),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_calc_adjustment'], [
+            'query' => ['target' => $node->id()],
+          ]),
           '#attributes' => ['class' => ['button']],
         ],
       ],
