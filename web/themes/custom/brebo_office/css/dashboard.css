@@ -1,47 +1,50 @@
-.brebo-brand { color: #fff; text-decoration: none; display: inline-flex; align-items: center; gap: 12px; white-space: nowrap; }
-.brebo-brand__mark { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 10px; color: var(--brebo-purple-900); background: #fff; font-size: 1.25rem; font-weight: 900; }
-.brebo-brand strong { font-weight: 400; opacity: .82; }
-.brebo-header__meta { margin-left: auto; display: flex; align-items: center; gap: 16px; }
-.brebo-environment { padding: 5px 9px; border: 1px solid rgb(255 255 255 / 35%); border-radius: 999px; font-size: .7rem; font-weight: 700; letter-spacing: .1em; }
-.brebo-topnav ul { display: flex; gap: 18px; margin: 0; padding: 0; list-style: none; }
-.brebo-topnav a { color: #fff; text-decoration: none; }
-.brebo-dashboard { width: min(1520px, 100%); margin: 0 auto; padding: 36px 24px 48px; }
-.brebo-dashboard__intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
-.brebo-dashboard__intro h1 { margin: 4px 0 8px; }
-.brebo-dashboard__intro p:last-child { margin: 0; color: var(--brebo-gray-700); }
-.brebo-eyebrow { margin: 0; color: var(--brebo-purple-700); font-size: .75rem; font-weight: 800; letter-spacing: .12em; }
-.brebo-button--primary { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
-.brebo-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin-bottom: 24px; }
-.brebo-kpi { padding: 22px; border: 1px solid var(--brebo-gray-300); border-radius: var(--brebo-radius); background: #fff; box-shadow: var(--brebo-shadow); }
-.brebo-kpi > span, .brebo-kpi small { display: block; color: var(--brebo-gray-700); }
-.brebo-kpi strong { display: block; margin: 8px 0 4px; color: var(--brebo-purple-900); font-size: 2.25rem; line-height: 1; }
-.brebo-dashboard__grid { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(300px, .8fr); gap: 24px; }
-.brebo-section-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 22px; }
+.brebo-content table { width: 100%; margin: 0 0 24px; border-collapse: separate; border-spacing: 0; border: 1px solid var(--brebo-border); border-radius: var(--brebo-radius); background: #fff; box-shadow: var(--brebo-shadow-sm); overflow: hidden; }
+.brebo-content th, .brebo-content td { padding: 11px 13px; border: 0; border-bottom: 1px solid #e7e2e9; text-align: left; vertical-align: top; }
+.brebo-content th { color: #fff; background: var(--brebo-purple-700); font-size: .78rem; font-weight: 900; letter-spacing: .025em; text-transform: uppercase; white-space: nowrap; }
+.brebo-content tbody tr:last-child td { border-bottom: 0; }
+.brebo-content tbody tr:nth-child(even) { background: #faf9fb; }
+.brebo-content tbody tr:hover { background: var(--brebo-purple-100); }
+.brebo-content td a { font-weight: 700; }
+.brebo-dashboard { width: min(1520px, 100%); margin: 0 auto; padding: 30px 0 20px; }
+.brebo-dashboard__intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 24px; }
+.brebo-dashboard__intro h1 { margin: 4px 0 7px; }
+.brebo-dashboard__intro p:last-child { margin: 0; color: var(--brebo-muted); }
+.brebo-eyebrow { margin: 0; color: var(--brebo-purple-700); font-size: .72rem; font-weight: 900; letter-spacing: .13em; text-transform: uppercase; }
+.brebo-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 22px; }
+.brebo-kpi { position: relative; min-height: 132px; padding: 20px; border: 1px solid var(--brebo-border); border-radius: var(--brebo-radius); color: inherit; background: #fff; text-decoration: none; box-shadow: var(--brebo-shadow-sm); overflow: hidden; transition: transform .15s ease, border-color .15s ease, box-shadow .15s ease; }
+.brebo-kpi::before { content: ""; position: absolute; top: 0; right: 0; left: 0; height: 4px; background: var(--brebo-purple-700); }
+.brebo-kpi:hover { transform: translateY(-3px); border-color: #bbaac4; box-shadow: var(--brebo-shadow); }
+.brebo-kpi > span, .brebo-kpi small { display: block; color: var(--brebo-muted); }
+.brebo-kpi strong { display: block; margin: 10px 0 5px; color: var(--brebo-purple-950); font-size: 2.15rem; line-height: 1; }
+.brebo-dashboard__grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(300px, .8fr); gap: 20px; }
+.brebo-section-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
 .brebo-section-heading h2 { margin: 4px 0 0; }
+.brebo-status { display: inline-flex; align-items: center; min-height: 25px; padding: 3px 9px; border-radius: 999px; font-size: .76rem; font-weight: 900; }
+.brebo-status--ready { color: var(--brebo-green-700); background: var(--brebo-green-100); }
+.brebo-status--open { color: var(--brebo-amber-700); background: var(--brebo-amber-100); }
+.brebo-status--blocked { color: var(--brebo-red-700); background: var(--brebo-red-100); }
+.brebo-status--na { color: var(--brebo-purple-700); background: var(--brebo-purple-100); }
 .brebo-flow, .brebo-checklist { margin: 0; padding: 0; list-style: none; }
 .brebo-flow { display: grid; grid-template-columns: repeat(4, 1fr); }
-.brebo-flow li { position: relative; display: flex; gap: 12px; min-width: 0; padding-right: 16px; }
-.brebo-flow li:not(:last-child)::after { content: ""; position: absolute; z-index: 0; top: 17px; left: 36px; right: 0; height: 2px; background: var(--brebo-gray-300); }
-.brebo-flow li > span { position: relative; z-index: 1; flex: 0 0 36px; width: 36px; height: 36px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--brebo-purple-700); font-weight: 800; }
-.brebo-flow li div { position: relative; z-index: 1; min-width: 0; padding-top: 6px; background: #fff; }
+.brebo-flow li { position: relative; display: flex; gap: 11px; min-width: 0; padding-right: 14px; }
+.brebo-flow li:not(:last-child)::after { content: ""; position: absolute; z-index: 0; top: 16px; left: 34px; right: 0; height: 2px; background: var(--brebo-border); }
+.brebo-flow li > span { position: relative; z-index: 1; flex: 0 0 34px; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; color: #fff; background: var(--brebo-purple-700); font-weight: 900; }
+.brebo-flow li div { position: relative; z-index: 1; min-width: 0; padding-top: 5px; background: #fff; }
 .brebo-flow strong, .brebo-flow small, .brebo-checklist strong, .brebo-checklist small { display: block; }
-.brebo-flow small, .brebo-checklist small { margin-top: 3px; color: var(--brebo-gray-700); }
-.brebo-checklist li { display: flex; gap: 12px; padding: 14px 0; border-bottom: 1px solid var(--brebo-gray-300); }
+.brebo-flow small, .brebo-checklist small { margin-top: 3px; color: var(--brebo-muted); }
+.brebo-checklist li { display: flex; gap: 11px; padding: 12px 0; border-bottom: 1px solid var(--brebo-border); }
 .brebo-checklist li:last-child { border-bottom: 0; }
-.brebo-checklist li > span { flex: 0 0 30px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 50%; color: var(--brebo-purple-700); background: var(--brebo-purple-100); font-size: .8rem; font-weight: 800; }
+.brebo-checklist li > span { flex: 0 0 29px; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 50%; color: var(--brebo-purple-700); background: var(--brebo-purple-100); font-size: .76rem; font-weight: 900; }
 .brebo-checklist li.is-done > span { color: var(--brebo-green-700); background: var(--brebo-green-100); }
-.brebo-shell--login { background: linear-gradient(135deg, var(--brebo-gray-100), var(--brebo-purple-100)); }
-.brebo-login { width: min(560px, calc(100% - 32px)); margin: auto; padding: 56px 0 72px; }
-.brebo-login__intro { margin-bottom: 22px; text-align: center; }
-.brebo-login__intro h1 { margin: 6px 0 10px; }
-.brebo-login__intro p:last-child { margin: 0; color: var(--brebo-gray-700); }
-.brebo-login__form { padding: 32px; }
-.brebo-login__form h1 { display: none; }
-.brebo-login__form .form-actions { margin-bottom: 0; }
-.brebo-login__form input[type="submit"] { width: 100%; }
-@media (max-width: 1000px) { .brebo-kpis { grid-template-columns: repeat(2, 1fr); } .brebo-dashboard__grid { grid-template-columns: 1fr; } }
-@media (max-width: 700px) { .brebo-header { padding: 0 16px; } .brebo-environment, .brebo-topnav { display: none; } .brebo-dashboard { padding: 24px 16px 36px; } .brebo-dashboard__intro { align-items: start; flex-direction: column; } .brebo-kpis { grid-template-columns: 1fr; } .brebo-flow { grid-template-columns: 1fr; gap: 18px; } .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 18px); right: auto; bottom: auto; } .brebo-login__form { padding: 24px; } }
-
-.brebo-kpi { color: inherit; text-decoration: none; transition: transform .15s ease, border-color .15s ease; }
-.brebo-kpi:hover { transform: translateY(-2px); border-color: var(--brebo-purple-700); }
-.brebo-list-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
+.brebo-shell--guest { background: linear-gradient(135deg, var(--brebo-canvas), var(--brebo-purple-100)); }
+.brebo-shell--guest .brebo-main { width: min(620px, 100%); place-items: center; padding-top: 64px; }
+.brebo-shell--guest .brebo-content { width: 100%; }
+@media (max-width: 1100px) { .brebo-kpis { grid-template-columns: repeat(2, 1fr); } .brebo-dashboard__grid { grid-template-columns: 1fr; } }
+@media (max-width: 760px) {
+  .brebo-content { overflow-x: auto; }
+  .brebo-content table { min-width: 720px; }
+  .brebo-kpis { grid-template-columns: 1fr; }
+  .brebo-dashboard__intro { align-items: start; flex-direction: column; }
+  .brebo-flow { grid-template-columns: 1fr; gap: 16px; }
+  .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 16px); right: auto; }
+}
