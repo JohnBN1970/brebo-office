@@ -27,6 +27,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_calc_element' => 'Calculatie-element',
     'brebo_calc_line' => 'Calculatieregel',
     'brebo_calc_adjustment' => 'Opslag of correctie',
+    'brebo_provisional_sum' => 'Stelpost',
+    'brebo_quantity_settlement' => 'Hoeveelheidsverrekening',
+    'brebo_work_budget' => 'Werkbegroting',
+    'brebo_work_budget_line' => 'Werkbegrotingsregel',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
@@ -63,9 +67,23 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         ];
       }
     }
-    if (isset($form['field_brebo_direct_cost'])) {
-      $form['field_brebo_direct_cost']['#access'] = FALSE;
+    foreach (['field_brebo_direct_cost', 'field_brebo_budget_hours'] as $calculated_field) {
+      if (isset($form[$calculated_field])) {
+        $form[$calculated_field]['#access'] = FALSE;
+      }
     }
+  }
+
+  if ($node->bundle() === 'brebo_quantity_settlement') {
+    foreach (['field_brebo_quantity_delta', 'field_brebo_settlement_amount'] as $calculated_field) {
+      if (isset($form[$calculated_field])) {
+        $form[$calculated_field]['#access'] = FALSE;
+      }
+    }
+  }
+
+  if ($node->bundle() === 'brebo_provisional_sum' && isset($form['field_brebo_settle_difference'])) {
+    $form['field_brebo_settle_difference']['#access'] = FALSE;
   }
 
   if ($node->bundle() === 'brebo_calc_adjustment') {
@@ -362,6 +380,30 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if ($node->bundle() === 'brebo_quantity_settlement') {
+    $line_id = (int) $form_state->getValue(['field_brebo_calc_line_ref', 0, 'target_id']);
+    $line = $line_id > 0 ? \Drupal::entityTypeManager()->getStorage('node')->load($line_id) : NULL;
+    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line'
+      || (string) $line->get('field_brebo_line_post_type')->value !== 'Verrekenpost') {
+      $form_state->setErrorByName('field_brebo_calc_line_ref', t('Selecteer een calculatieregel van het type Verrekenpost.'));
+    }
+    $status = (string) $form_state->getValue(['field_brebo_settlement_status', 0, 'value']);
+    $approved = $form_state->getValue(['field_brebo_approved_quantity', 0, 'value']);
+    if ($status === 'Akkoord' && ($approved === NULL || $approved === '')) {
+      $form_state->setErrorByName('field_brebo_approved_quantity', t('Een akkoord bevonden verrekening vereist een goedgekeurde hoeveelheid.'));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_provisional_sum') {
+    $status = (string) $form_state->getValue(['field_brebo_provisional_status', 0, 'value']);
+    $final_sales = $form_state->getValue(['field_brebo_final_sales', 0, 'value']);
+    if ($status === 'Afgerekend' && ($final_sales === NULL || $final_sales === '')) {
+      $form_state->setErrorByName('field_brebo_final_sales', t('Vul de definitieve verkoopwaarde in voordat de stelpost wordt afgerekend.'));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
     if ($value < 0) {
@@ -531,7 +573,43 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
   if ($node->bundle() === 'brebo_calc_line') {
     $quantity = (float) $node->get('field_brebo_contract_quantity')->value;
     $unit_price = (float) $node->get('field_brebo_unit_price')->value;
+    $norm_hours = $node->hasField('field_brebo_norm_hours')
+      ? (float) $node->get('field_brebo_norm_hours')->value
+      : 0.0;
     $node->set('field_brebo_direct_cost', number_format($quantity * $unit_price, 4, '.', ''));
+    if ($node->hasField('field_brebo_budget_hours')) {
+      $node->set('field_brebo_budget_hours', number_format($quantity * $norm_hours, 4, '.', ''));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_quantity_settlement') {
+    $line = $node->get('field_brebo_calc_line_ref')->entity;
+    $contract_quantity = $line instanceof NodeInterface
+      ? (float) $line->get('field_brebo_contract_quantity')->value
+      : 0.0;
+    $approved_value = $node->get('field_brebo_approved_quantity')->value;
+    $quantity = ($approved_value !== NULL && $approved_value !== '')
+      ? (float) $approved_value
+      : (float) $node->get('field_brebo_measured_quantity')->value;
+    $rate = (float) $node->get('field_brebo_settlement_rate')->value;
+    $delta = $quantity - $contract_quantity;
+    $node->set('field_brebo_quantity_delta', number_format($delta, 4, '.', ''));
+    $node->set('field_brebo_settlement_amount', number_format($delta * $rate, 4, '.', ''));
+    $node->setTitle('Verrekening — ' . ($line instanceof NodeInterface ? $line->label() : 'calculatieregel'));
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_provisional_sum') {
+    $line = $node->get('field_brebo_calc_line_ref')->entity;
+    $node->setTitle('Stelpost — ' . ($line instanceof NodeInterface ? $line->label() : 'calculatieregel'));
+    if ($node->hasField('field_brebo_settle_difference')) {
+      $budget = (float) $node->get('field_brebo_budget_amount')->value;
+      $final = $node->get('field_brebo_final_sales')->value;
+      $node->set('field_brebo_settle_difference', ($final === NULL || $final === '')
+        ? NULL
+        : number_format((float) $final - $budget, 4, '.', ''));
+    }
     return;
   }
 

@@ -1281,6 +1281,13 @@ final class OfficeController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+        'generate_work_budget' => [
+          '#type' => 'link', '#title' => $this->t('Werkbegroting maken'),
+          '#url' => Url::fromRoute('brebo_office_core.generate_work_budget', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+          '#access' => in_array($this->fieldValue($node, 'field_brebo_calc_status'), ['Vastgesteld', 'Definitief budget'], TRUE)
+            && $node->access('update'),
+        ],
       ],
       'calculation' => [
         '#type' => 'table',
