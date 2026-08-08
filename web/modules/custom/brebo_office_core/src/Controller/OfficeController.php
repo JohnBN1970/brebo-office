@@ -1386,7 +1386,7 @@ final class OfficeController extends ControllerBase {
     $budget_hours = 0.0;
     $actual_hours = 0.0;
     $execution_rows = [];
-    $material_rows = [];
+    $material_groups = [];
 
     foreach ($lines as $line) {
       if (!$line instanceof NodeInterface) {
@@ -1426,14 +1426,51 @@ final class OfficeController extends ControllerBase {
       ];
 
       if (!$line->get('field_brebo_material_description')->isEmpty()) {
-        $material_rows[] = [
-          $this->fieldValue($line, 'field_brebo_material_description'),
-          number_format((float) $line->get('field_brebo_material_quantity')->value, 2, ',', '.'),
-          $this->fieldValue($line, 'field_brebo_material_unit'),
-          $this->fieldValue($line, 'field_brebo_required_date'),
-          $this->fieldValue($line, 'field_brebo_execution_status'),
+        $code = $this->fieldValue($line, 'field_brebo_material_code');
+        $specification = $this->fieldValue($line, 'field_brebo_material_spec');
+        $unit = $this->fieldValue($line, 'field_brebo_material_unit');
+        $waste = (float) $line->get('field_brebo_waste_percent')->value;
+        $pack = (float) $line->get('field_brebo_pack_quantity')->value;
+        $supplier = $this->fieldValue($line, 'field_brebo_preferred_supplier');
+        $location = $this->fieldValue($line, 'field_brebo_delivery_location');
+        $key = json_encode([$code, $specification, $unit, $waste, $pack, $supplier, $location]);
+        $material_groups[$key] ??= [
+          'code' => $code,
+          'description' => $this->fieldValue($line, 'field_brebo_material_description'),
+          'specification' => $specification,
+          'unit' => $unit,
+          'waste' => $waste,
+          'pack' => $pack,
+          'supplier' => $supplier,
+          'location' => $location,
+          'net' => 0.0,
+          'sources' => 0,
+          'status' => $this->fieldValue($line, 'field_brebo_order_status'),
         ];
+        $material_groups[$key]['net'] += (float) $line->get('field_brebo_material_quantity')->value;
+        $material_groups[$key]['sources']++;
       }
+    }
+
+    $material_rows = [];
+    foreach ($material_groups as $material) {
+      $gross = $material['net'] * (1 + ($material['waste'] / 100));
+      $packages = $material['pack'] > 0 ? (int) ceil($gross / $material['pack']) : NULL;
+      $material_rows[] = [
+        $material['code'],
+        $material['description'],
+        $material['specification'],
+        number_format($material['net'], 2, ',', '.'),
+        number_format($material['waste'], 2, ',', '.') . '%',
+        number_format($gross, 2, ',', '.'),
+        $material['unit'],
+        $material['pack'] > 0 ? number_format($material['pack'], 2, ',', '.') : '—',
+        $packages ?? '—',
+        $material['supplier'],
+        $material['location'],
+        $material['status'],
+        $material['sources'],
+      ];
     }
 
     $calculation = $node->get('field_brebo_calculation_ref')->entity;
@@ -1507,12 +1544,15 @@ final class OfficeController extends ControllerBase {
         '#rows' => $execution_rows,
         '#empty' => $this->t('Deze werkbegroting bevat nog geen uitvoeringsregels.'),
       ],
-      'materials_heading' => ['#markup' => '<h2>' . $this->t('Materialenlijst') . '</h2>'],
+      'materials_heading' => ['#markup' => '<h2>' . $this->t('Cumulatieve materiaal- en bestellijst — werkvoorbereiding') . '</h2>'],
       'materials' => [
         '#type' => 'table',
         '#header' => [
-          $this->t('Materiaal'), $this->t('Hoeveelheid'), $this->t('Eenheid'),
-          $this->t('Benodigd op'), $this->t('Status'),
+          $this->t('Code'), $this->t('Materiaal'), $this->t('Specificatie'),
+          $this->t('Netto'), $this->t('Verlies'), $this->t('Bruto'),
+          $this->t('Eenheid'), $this->t('Per verpakking'), $this->t('Verpakkingen'),
+          $this->t('Leverancier'), $this->t('Afleverlocatie'), $this->t('Bestelstatus'),
+          $this->t('Bronregels'),
         ],
         '#rows' => $material_rows,
         '#empty' => $this->t('Er zijn nog geen materiaalregels opgenomen.'),

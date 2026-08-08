@@ -86,6 +86,14 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     $form['field_brebo_settle_difference']['#access'] = FALSE;
   }
 
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    foreach (['field_brebo_gross_quantity', 'field_brebo_package_count'] as $calculated_field) {
+      if (isset($form[$calculated_field])) {
+        $form[$calculated_field]['#access'] = FALSE;
+      }
+    }
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     if ($node->isNew()) {
       $target_id = (int) \Drupal::request()->query->get('target', 0);
@@ -404,6 +412,16 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    $net = (float) $form_state->getValue(['field_brebo_material_quantity', 0, 'value']);
+    $waste = (float) $form_state->getValue(['field_brebo_waste_percent', 0, 'value']);
+    $pack = (float) $form_state->getValue(['field_brebo_pack_quantity', 0, 'value']);
+    if ($net < 0 || $waste < 0 || $pack < 0) {
+      $form_state->setErrorByName('field_brebo_material_quantity', t('Materiaalhoeveelheid, verlies en verpakkingshoeveelheid mogen niet negatief zijn.'));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
     if ($value < 0) {
@@ -613,6 +631,16 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
     return;
   }
 
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    $net = (float) $node->get('field_brebo_material_quantity')->value;
+    $waste = (float) $node->get('field_brebo_waste_percent')->value;
+    $pack = (float) $node->get('field_brebo_pack_quantity')->value;
+    $gross = $net * (1 + ($waste / 100));
+    $node->set('field_brebo_gross_quantity', number_format($gross, 4, '.', ''));
+    $node->set('field_brebo_package_count', $pack > 0 ? (int) ceil($gross / $pack) : NULL);
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $target = $node->get('field_brebo_adjust_target')->entity;
     $direction = (string) $node->get('field_brebo_adjust_direction')->value;
@@ -675,6 +703,7 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
 function brebo_office_core_node_insert(NodeInterface $node): void {
   _brebo_office_core_sync_deviation_block($node);
   _brebo_office_core_sync_quantity_settlement($node);
+  _brebo_office_core_sync_material_source($node);
 }
 
 /**
@@ -683,6 +712,7 @@ function brebo_office_core_node_insert(NodeInterface $node): void {
 function brebo_office_core_node_update(NodeInterface $node): void {
   _brebo_office_core_sync_deviation_block($node);
   _brebo_office_core_sync_quantity_settlement($node);
+  _brebo_office_core_sync_material_source($node);
 }
 
 /**
@@ -733,4 +763,46 @@ function _brebo_office_core_sync_quantity_settlement(NodeInterface $node): void 
   $line->setNewRevision(TRUE);
   $line->setRevisionLogMessage('Goedgekeurde hoeveelheid overgenomen uit verrekening ' . $node->id() . '.');
   $line->save();
+}
+
+
+/**
+ * Synchronizes coded calculation materials to existing work-budget lines.
+ */
+function _brebo_office_core_sync_material_source(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_calc_line'
+    || (string) $node->get('field_brebo_cost_category')->value !== 'Materiaal'
+    || !$node->hasField('field_brebo_material_code')) {
+    return;
+  }
+
+  $ids = \Drupal::entityQuery('node')
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_work_budget_line')
+    ->condition('field_brebo_calc_line_ref.target_id', $node->id())
+    ->execute();
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  foreach ($storage->loadMultiple($ids) as $work_line) {
+    if (!$work_line instanceof NodeInterface) {
+      continue;
+    }
+    $work_line->set('field_brebo_material_description', $node->get('field_brebo_line_description')->value);
+    $work_line->set('field_brebo_material_quantity', $node->get('field_brebo_contract_quantity')->value);
+    $work_line->set('field_brebo_material_unit', $node->get('field_brebo_unit')->value);
+    foreach ([
+      'field_brebo_material_code',
+      'field_brebo_material_spec',
+      'field_brebo_waste_percent',
+      'field_brebo_pack_quantity',
+      'field_brebo_preferred_supplier',
+    ] as $field_name) {
+      if ($work_line->hasField($field_name)) {
+        $work_line->set($field_name, $node->get($field_name)->value);
+      }
+    }
+    $work_line->setNewRevision(TRUE);
+    $work_line->setRevisionLogMessage('Materiaalgegevens gesynchroniseerd uit calculatieregel ' . $node->id() . '.');
+    $work_line->save();
+  }
 }

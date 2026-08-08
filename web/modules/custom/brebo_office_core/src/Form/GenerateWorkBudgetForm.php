@@ -148,6 +148,18 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
         $values['field_brebo_material_description'] = $description;
         $values['field_brebo_material_quantity'] = $line->get('field_brebo_contract_quantity')->value;
         $values['field_brebo_material_unit'] = $line->get('field_brebo_unit')->value;
+        foreach ([
+          'field_brebo_material_code',
+          'field_brebo_material_spec',
+          'field_brebo_waste_percent',
+          'field_brebo_pack_quantity',
+          'field_brebo_preferred_supplier',
+        ] as $material_field) {
+          if ($line->hasField($material_field)) {
+            $values[$material_field] = $line->get($material_field)->value;
+          }
+        }
+        $values['field_brebo_order_status'] = 'Niet besteld';
       }
 
       $work_line = $storage->create($values);
