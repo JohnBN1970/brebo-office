@@ -7,6 +7,7 @@ use Drupal\Core\Entity\Entity\EntityViewDisplay;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
+use Drupal\user\Entity\Role;
 
 /**
  * Creates the first BREBO Office object: Project.
@@ -469,4 +470,81 @@ function brebo_office_core_update_11003(): string {
   );
 
   return 'N.V.T.-registratie en fotorapportage aan Productpositie toegevoegd.';
+}
+
+
+/**
+ * Creates the initial BREBO Office operational roles.
+ */
+function brebo_office_core_update_11004(): string {
+  $bundles = [
+    'brebo_project',
+    'brebo_cluster',
+    'brebo_dwelling',
+    'brebo_product_position',
+  ];
+
+  $projectleider = [
+    'access content',
+    'access content overview',
+  ];
+  $werkvoorbereider = [
+    'access content',
+    'access content overview',
+  ];
+  foreach ($bundles as $bundle) {
+    $projectleider = array_merge($projectleider, [
+      "create $bundle content",
+      "edit own $bundle content",
+      "edit any $bundle content",
+      "delete own $bundle content",
+      "delete any $bundle content",
+      "view $bundle revisions",
+      "revert $bundle revisions",
+    ]);
+    $werkvoorbereider = array_merge($werkvoorbereider, [
+      "create $bundle content",
+      "edit own $bundle content",
+      "edit any $bundle content",
+      "view $bundle revisions",
+    ]);
+  }
+
+  $roles = [
+    'brebo_projectleider' => [
+      'label' => 'BREBO Projectleider',
+      'permissions' => $projectleider,
+    ],
+    'brebo_werkvoorbereider' => [
+      'label' => 'BREBO Werkvoorbereider',
+      'permissions' => $werkvoorbereider,
+    ],
+    'brebo_kwaliteitsmanager' => [
+      'label' => 'BREBO Kwaliteitsmanager',
+      'permissions' => [
+        'access content',
+        'access content overview',
+        'create brebo_product_position content',
+        'edit own brebo_product_position content',
+        'edit any brebo_product_position content',
+        'view brebo_project revisions',
+        'view brebo_cluster revisions',
+        'view brebo_dwelling revisions',
+        'view brebo_product_position revisions',
+      ],
+    ],
+  ];
+
+  foreach ($roles as $role_id => $definition) {
+    $role = Role::load($role_id) ?: Role::create([
+      'id' => $role_id,
+      'label' => $definition['label'],
+    ]);
+    foreach (array_unique($definition['permissions']) as $permission) {
+      $role->grantPermission($permission);
+    }
+    $role->save();
+  }
+
+  return 'BREBO Projectleider, Werkvoorbereider en Kwaliteitsmanager aangemaakt.';
 }
