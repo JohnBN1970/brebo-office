@@ -33,6 +33,19 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       $form['title']['#access'] = FALSE;
     }
 
+    if ($node->isNew()) {
+      $position_id = (int) \Drupal::request()->query->get('position', 0);
+      $position = $position_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($position_id)
+        : NULL;
+      if ($position instanceof NodeInterface
+        && $position->bundle() === 'brebo_product_position'
+        && $position->access('view')
+        && isset($form['field_brebo_position_ref']['widget'][0]['target_id'])) {
+        $form['field_brebo_position_ref']['widget'][0]['target_id']['#default_value'] = $position;
+      }
+    }
+
     if (isset($form['field_brebo_control_type']['widget'][0]['value'])) {
       $current_type = $form['field_brebo_control_type']['widget'][0]['value']['#default_value'] ?? 'Documentcontrole';
       $form['field_brebo_control_type']['widget'][0]['value'] = [
