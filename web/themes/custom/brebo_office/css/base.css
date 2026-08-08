@@ -1,26 +1,36 @@
 :root {
+  --brebo-purple-950: #2b0d3c;
   --brebo-purple-900: #3f1657;
-  --brebo-purple-700: #5b2a78;
-  --brebo-purple-100: #f2eef5;
-  --brebo-green-700: #1f6b3a;
-  --brebo-green-100: #e5f2e9;
-  --brebo-amber-700: #7a5a00;
+  --brebo-purple-700: #652b83;
+  --brebo-purple-600: #743493;
+  --brebo-purple-100: #f1eaf5;
+  --brebo-green-700: #167044;
+  --brebo-green-100: #e3f4eb;
+  --brebo-amber-700: #8a5a00;
   --brebo-amber-100: #fff2cc;
-  --brebo-red-700: #9b1c1c;
-  --brebo-red-100: #f7dddd;
-  --brebo-gray-950: #211d24;
-  --brebo-gray-700: #5c5660;
-  --brebo-gray-300: #d8d3da;
-  --brebo-gray-100: #f6f4f7;
-  --brebo-white: #fff;
-  --brebo-radius: 8px;
-  --brebo-shadow: 0 8px 24px rgb(35 20 43 / 8%);
+  --brebo-red-700: #a6272f;
+  --brebo-red-100: #fde7e8;
+  --brebo-ink: #211829;
+  --brebo-muted: #6f6675;
+  --brebo-border: #ddd7e1;
+  --brebo-surface: #ffffff;
+  --brebo-canvas: #f5f3f6;
+  --brebo-radius-sm: 7px;
+  --brebo-radius: 12px;
+  --brebo-radius-lg: 18px;
+  --brebo-shadow-sm: 0 1px 2px rgb(31 17 38 / 5%);
+  --brebo-shadow: 0 10px 30px rgb(44 20 56 / 8%);
 }
 * { box-sizing: border-box; }
-html { font-family: Roboto, Arial, sans-serif; color: var(--brebo-gray-950); background: var(--brebo-gray-100); }
-body { margin: 0; font-size: 16px; line-height: 1.5; }
-a { color: var(--brebo-purple-700); }
-h1, h2, h3 { line-height: 1.2; color: var(--brebo-purple-900); }
-h1 { font-size: clamp(1.75rem, 3vw, 2.5rem); }
-h2 { font-size: 1.5rem; }
-:focus-visible { outline: 3px solid #8d5cab; outline-offset: 2px; }
+html { min-height: 100%; font-family: Roboto, Arial, sans-serif; color: var(--brebo-ink); background: var(--brebo-canvas); }
+body { min-height: 100%; margin: 0; font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
+a { color: var(--brebo-purple-700); text-decoration-thickness: 1px; text-underline-offset: 2px; }
+a:hover { color: var(--brebo-purple-950); }
+h1, h2, h3, h4 { color: var(--brebo-purple-950); line-height: 1.2; letter-spacing: -.015em; }
+h1 { margin: 0 0 22px; font-size: clamp(1.8rem, 3vw, 2.55rem); }
+h2 { margin: 30px 0 15px; font-size: 1.35rem; }
+h3 { font-size: 1.08rem; }
+p { margin-top: 0; }
+img { max-width: 100%; height: auto; }
+:focus-visible { outline: 3px solid #b985d2; outline-offset: 3px; }
+::selection { color: #fff; background: var(--brebo-purple-700); }
