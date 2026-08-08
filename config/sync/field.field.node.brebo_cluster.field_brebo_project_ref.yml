@@ -1,0 +1,24 @@
+uuid: 6679c2fe-2223-45d8-b5fc-39cb866d8eae
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_cluster
+    - node.type.brebo_project
+id: node.brebo_cluster.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_cluster
+label: Project
+description: 'Het project waartoe dit cluster behoort.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

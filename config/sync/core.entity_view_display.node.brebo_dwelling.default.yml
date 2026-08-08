@@ -1,0 +1,68 @@
+uuid: 2c44f11b-ee3a-41dc-b862-ca7ba058b199
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_dwelling.field_brebo_address
+    - field.field.node.brebo_dwelling.field_brebo_cluster_ref
+    - field.field.node.brebo_dwelling.field_brebo_description
+    - field.field.node.brebo_dwelling.field_brebo_dwelling_code
+    - field.field.node.brebo_dwelling.field_brebo_status
+    - node.type.brebo_dwelling
+  module:
+    - text
+    - user
+id: node.brebo_dwelling.default
+targetEntityType: node
+bundle: brebo_dwelling
+mode: default
+content:
+  field_brebo_address:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_cluster_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_dwelling_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

@@ -1,0 +1,18 @@
+uuid: 83cff8d4-fe8b-4088-8da8-21f860b234b4
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_not_applicable
+field_name: field_brebo_not_applicable
+entity_type: node
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

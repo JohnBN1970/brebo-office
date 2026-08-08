@@ -1,0 +1,19 @@
+uuid: 04445913-06e3-4dc5-adad-7c396dc75d36
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_location
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_location
+field_name: field_brebo_location
+entity_type: node
+bundle: brebo_project
+label: Projectlocatie
+description: 'Adres of locatieaanduiding van het project.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

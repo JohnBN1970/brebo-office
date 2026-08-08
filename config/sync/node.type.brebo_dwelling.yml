@@ -1,0 +1,11 @@
+uuid: f5dea120-e5ee-487f-afef-2b39f32012c4
+langcode: nl
+status: true
+dependencies: {  }
+name: Woning
+type: brebo_dwelling
+description: 'Zelfstandig inspectie- en uitvoeringsobject binnen een cluster.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

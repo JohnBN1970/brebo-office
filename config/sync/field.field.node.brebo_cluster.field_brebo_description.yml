@@ -1,0 +1,22 @@
+uuid: 0e3b0cd7-ab3c-4fd4-9a68-4ab814d2e511
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_cluster
+  module:
+    - text
+id: node.brebo_cluster.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_cluster
+label: Clusteromschrijving
+description: 'Afbakening en bijzonderheden van het cluster.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

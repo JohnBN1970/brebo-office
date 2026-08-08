@@ -1,0 +1,26 @@
+uuid: a21a579a-1e8e-4baa-b0ce-70b4874a4eb6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - node.type.brebo_cluster
+    - node.type.brebo_dwelling
+    - node.type.brebo_product_position
+    - node.type.brebo_project
+  module:
+    - node
+    - system
+id: brebo_kwaliteitsmanager
+label: 'BREBO Kwaliteitsmanager'
+weight: 4
+is_admin: false
+permissions:
+  - 'access content'
+  - 'access content overview'
+  - 'create brebo_product_position content'
+  - 'edit any brebo_product_position content'
+  - 'edit own brebo_product_position content'
+  - 'view brebo_cluster revisions'
+  - 'view brebo_dwelling revisions'
+  - 'view brebo_product_position revisions'
+  - 'view brebo_project revisions'

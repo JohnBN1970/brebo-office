@@ -1,0 +1,22 @@
+uuid: 66f3c32c-a6ed-43af-a392-f1c46f85f7ae
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_dwelling
+  module:
+    - text
+id: node.brebo_dwelling.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_dwelling
+label: Woningomschrijving
+description: 'Objectkenmerken en bijzonderheden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,11 @@
+uuid: 0a0f0ab0-20c8-43a8-abba-1ddc6a94b4c3
+langcode: nl
+status: true
+dependencies: {  }
+name: Productpositie
+type: brebo_product_position
+description: 'Individueel te inspecteren, calculeren of uitvoeren bouwdeel.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

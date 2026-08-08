@@ -1,0 +1,14 @@
+uuid: 4d96645d-d4eb-4969-bb91-7f883458d25f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_projectleider
+  module:
+    - user
+id: user_remove_role_action.brebo_projectleider
+label: 'De rol BREBO Projectleider verwijderen van de geselecteerde gebruikers(s)'
+type: user
+plugin: user_remove_role_action
+configuration:
+  rid: brebo_projectleider

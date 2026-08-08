@@ -1,0 +1,58 @@
+uuid: fbd5d299-3e9e-4c52-8b73-d3436b747414
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_cluster.field_brebo_cluster_code
+    - field.field.node.brebo_cluster.field_brebo_description
+    - field.field.node.brebo_cluster.field_brebo_project_ref
+    - field.field.node.brebo_cluster.field_brebo_status
+    - node.type.brebo_cluster
+  module:
+    - text
+    - user
+id: node.brebo_cluster.default
+targetEntityType: node
+bundle: brebo_cluster
+mode: default
+content:
+  field_brebo_cluster_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_project_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

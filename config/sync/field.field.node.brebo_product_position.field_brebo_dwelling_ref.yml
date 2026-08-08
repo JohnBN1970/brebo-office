@@ -1,0 +1,24 @@
+uuid: 649025c1-c240-4f42-bd93-171a1effc651
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_dwelling_ref
+    - node.type.brebo_dwelling
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_dwelling_ref
+field_name: field_brebo_dwelling_ref
+entity_type: node
+bundle: brebo_product_position
+label: Woning
+description: 'De woning waartoe deze productpositie behoort.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_dwelling: brebo_dwelling
+field_type: entity_reference

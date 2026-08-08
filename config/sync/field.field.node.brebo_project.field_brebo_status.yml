@@ -1,0 +1,21 @@
+uuid: 205a4985-5d0b-452a-b173-a3ec8caf31b3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_status
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_status
+field_name: field_brebo_status
+entity_type: node
+bundle: brebo_project
+label: Projectstatus
+description: 'Bijvoorbeeld concept, actief, opgeleverd of afgesloten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Concept
+default_value_callback: ''
+settings: {  }
+field_type: string

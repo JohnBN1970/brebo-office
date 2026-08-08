@@ -1,0 +1,23 @@
+uuid: 0af18366-03b4-4401-827c-1d68ee540c08
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_not_applicable
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_not_applicable
+field_name: field_brebo_not_applicable
+entity_type: node
+bundle: brebo_product_position
+label: 'Niet van toepassing'
+description: 'Markeer dit onderdeel wanneer het binnen deze woning niet van toepassing is.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

@@ -1,0 +1,14 @@
+uuid: 98d39f7f-8798-4752-a97b-5b173070475a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_kwaliteitsmanager
+  module:
+    - user
+id: user_add_role_action.brebo_kwaliteitsmanager
+label: 'De rol BREBO Kwaliteitsmanager toewijzen aan de geselecteerde gebruiker(s)'
+type: user
+plugin: user_add_role_action
+configuration:
+  rid: brebo_kwaliteitsmanager

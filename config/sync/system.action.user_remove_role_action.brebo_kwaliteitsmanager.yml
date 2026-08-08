@@ -1,0 +1,14 @@
+uuid: 9a0755be-dc18-4b4c-8597-e98b0dbd67b3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_kwaliteitsmanager
+  module:
+    - user
+id: user_remove_role_action.brebo_kwaliteitsmanager
+label: 'De rol BREBO Kwaliteitsmanager verwijderen van de geselecteerde gebruikers(s)'
+type: user
+plugin: user_remove_role_action
+configuration:
+  rid: brebo_kwaliteitsmanager

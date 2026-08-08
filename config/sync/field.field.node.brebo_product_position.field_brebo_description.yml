@@ -1,0 +1,22 @@
+uuid: f5dce52e-f6f7-4031-924c-2104510227c5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_product_position
+  module:
+    - text
+id: node.brebo_product_position.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_product_position
+label: Positieomschrijving
+description: 'Kenmerken, maatvoering en bijzonderheden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

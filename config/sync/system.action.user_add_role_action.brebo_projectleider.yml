@@ -1,0 +1,14 @@
+uuid: fc5577cd-39a7-42e0-ae53-66cddb957345
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_projectleider
+  module:
+    - user
+id: user_add_role_action.brebo_projectleider
+label: 'De rol BREBO Projectleider toewijzen aan de geselecteerde gebruiker(s)'
+type: user
+plugin: user_add_role_action
+configuration:
+  rid: brebo_projectleider

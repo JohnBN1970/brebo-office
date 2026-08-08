@@ -1,0 +1,19 @@
+uuid: 5d9afb8b-d1df-4300-a9a9-12cd55e8a395
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_position_code
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_position_code
+field_name: field_brebo_position_code
+entity_type: node
+bundle: brebo_product_position
+label: Positiecode
+description: 'Unieke positiecode binnen de woning.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

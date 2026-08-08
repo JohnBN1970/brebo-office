@@ -1,0 +1,35 @@
+uuid: e7cde0ed-ab23-430f-9d4b-2ae235258a51
+langcode: nl
+status: true
+dependencies:
+  config:
+    - node.type.brebo_cluster
+    - node.type.brebo_dwelling
+    - node.type.brebo_product_position
+    - node.type.brebo_project
+  module:
+    - node
+    - system
+id: brebo_werkvoorbereider
+label: 'BREBO Werkvoorbereider'
+weight: 3
+is_admin: false
+permissions:
+  - 'access content'
+  - 'access content overview'
+  - 'create brebo_cluster content'
+  - 'create brebo_dwelling content'
+  - 'create brebo_product_position content'
+  - 'create brebo_project content'
+  - 'edit any brebo_cluster content'
+  - 'edit any brebo_dwelling content'
+  - 'edit any brebo_product_position content'
+  - 'edit any brebo_project content'
+  - 'edit own brebo_cluster content'
+  - 'edit own brebo_dwelling content'
+  - 'edit own brebo_product_position content'
+  - 'edit own brebo_project content'
+  - 'view brebo_cluster revisions'
+  - 'view brebo_dwelling revisions'
+  - 'view brebo_product_position revisions'
+  - 'view brebo_project revisions'

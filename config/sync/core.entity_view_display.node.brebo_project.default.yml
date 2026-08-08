@@ -1,0 +1,69 @@
+uuid: b5d8cdd3-8432-4bfa-ac7d-3dbe4bc426aa
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_project.field_brebo_client
+    - field.field.node.brebo_project.field_brebo_description
+    - field.field.node.brebo_project.field_brebo_location
+    - field.field.node.brebo_project.field_brebo_project_code
+    - field.field.node.brebo_project.field_brebo_status
+    - node.type.brebo_project
+  module:
+    - text
+    - user
+id: node.brebo_project.default
+targetEntityType: node
+bundle: brebo_project
+mode: default
+content:
+  field_brebo_client:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_location:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_project_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

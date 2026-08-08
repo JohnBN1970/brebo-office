@@ -1,0 +1,19 @@
+uuid: 91ca8ae6-fb61-44a7-94ff-c026902f1701
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_client
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_client
+field_name: field_brebo_client
+entity_type: node
+bundle: brebo_project
+label: Opdrachtgever
+description: 'Opdrachtgever van het project.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

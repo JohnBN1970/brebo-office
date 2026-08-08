@@ -1,0 +1,21 @@
+uuid: 48c9e9d7-a8cc-4c40-8552-d7ce9b49676f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_status
+    - node.type.brebo_dwelling
+id: node.brebo_dwelling.field_brebo_status
+field_name: field_brebo_status
+entity_type: node
+bundle: brebo_dwelling
+label: Woningstatus
+description: 'Actuele status van de woning.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Concept
+default_value_callback: ''
+settings: {  }
+field_type: string

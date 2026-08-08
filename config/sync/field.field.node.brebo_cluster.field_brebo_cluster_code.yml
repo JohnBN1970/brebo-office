@@ -1,0 +1,19 @@
+uuid: 6b525125-6ea3-4a9d-a31b-84a7bff1fcec
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_cluster_code
+    - node.type.brebo_cluster
+id: node.brebo_cluster.field_brebo_cluster_code
+field_name: field_brebo_cluster_code
+entity_type: node
+bundle: brebo_cluster
+label: Clustercode
+description: 'Unieke code binnen het bovenliggende project.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

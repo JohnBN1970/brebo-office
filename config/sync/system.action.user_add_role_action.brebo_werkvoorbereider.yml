@@ -1,0 +1,14 @@
+uuid: 77d56dc1-3474-44a1-8395-a5526af8759e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_werkvoorbereider
+  module:
+    - user
+id: user_add_role_action.brebo_werkvoorbereider
+label: 'De rol BREBO Werkvoorbereider toewijzen aan de geselecteerde gebruiker(s)'
+type: user
+plugin: user_add_role_action
+configuration:
+  rid: brebo_werkvoorbereider

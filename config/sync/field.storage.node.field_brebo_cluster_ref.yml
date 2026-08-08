@@ -1,0 +1,19 @@
+uuid: c3513834-7251-4c8f-8f43-468b19cc3527
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_cluster_ref
+field_name: field_brebo_cluster_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

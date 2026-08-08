@@ -1,0 +1,14 @@
+uuid: 0805c01d-d163-49b0-aeb8-f2edfc1c97eb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - user.role.brebo_werkvoorbereider
+  module:
+    - user
+id: user_remove_role_action.brebo_werkvoorbereider
+label: 'De rol BREBO Werkvoorbereider verwijderen van de geselecteerde gebruikers(s)'
+type: user
+plugin: user_remove_role_action
+configuration:
+  rid: brebo_werkvoorbereider

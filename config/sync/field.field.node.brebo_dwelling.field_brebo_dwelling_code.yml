@@ -1,0 +1,19 @@
+uuid: 2310207b-a6b8-4ce2-bae2-74681593d1f0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_dwelling_code
+    - node.type.brebo_dwelling
+id: node.brebo_dwelling.field_brebo_dwelling_code
+field_name: field_brebo_dwelling_code
+entity_type: node
+bundle: brebo_dwelling
+label: Woningcode
+description: 'Unieke woningcode binnen het cluster.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string
