@@ -21,9 +21,67 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_product_position' => 'Productpositie',
     'brebo_verification' => 'Controle',
     'brebo_deviation' => 'Afwijking',
+    'brebo_work_package' => 'Werkpakket',
+    'brebo_release_gate' => 'Vrijgavepoort',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
+  }
+
+
+  if ($node->bundle() === 'brebo_work_package') {
+    if (isset($form['field_brebo_package_status']['widget'][0]['value'])) {
+      $current = $form['field_brebo_package_status']['widget'][0]['value']['#default_value'] ?? 'Concept';
+      $form['field_brebo_package_status']['widget'][0]['value'] = [
+        '#type' => 'select', '#title' => 'Werkpakketstatus', '#default_value' => $current,
+        '#options' => [
+          'Concept' => 'Concept',
+          'Voorbereiding' => 'Voorbereiding',
+          'Vrijgave geblokkeerd' => 'Vrijgave geblokkeerd',
+          'Vrijgegeven' => 'Vrijgegeven',
+          'In uitvoering' => 'In uitvoering',
+          'Gereed' => 'Gereed',
+          'Afgesloten' => 'Afgesloten',
+        ], '#required' => TRUE,
+      ];
+    }
+    foreach (['field_brebo_planned_start', 'field_brebo_planned_end'] as $date_field) {
+      if (isset($form[$date_field]['widget'][0]['value'])) {
+        $form[$date_field]['widget'][0]['value']['#type'] = 'date';
+      }
+    }
+  }
+
+  if ($node->bundle() === 'brebo_release_gate') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe vrijgavepoort');
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+    if (isset($form['field_brebo_gate_type']['widget'][0]['value'])) {
+      $current_type = $form['field_brebo_gate_type']['widget'][0]['value']['#default_value'] ?? 'Documenten';
+      $form['field_brebo_gate_type']['widget'][0]['value'] = [
+        '#type' => 'select', '#title' => 'Poorttype', '#default_value' => $current_type,
+        '#options' => array_combine(
+          ['Documenten', 'Calculatie', 'Financiën', 'Veiligheid', 'Kwaliteit', 'Planning', 'Inkoop'],
+          ['Documenten', 'Calculatie', 'Financiën', 'Veiligheid', 'Kwaliteit', 'Planning', 'Inkoop'],
+        ), '#required' => TRUE,
+      ];
+    }
+    if (isset($form['field_brebo_gate_result']['widget'][0]['value'])) {
+      $current_result = $form['field_brebo_gate_result']['widget'][0]['value']['#default_value'] ?? 'Niet beoordeeld';
+      $form['field_brebo_gate_result']['widget'][0]['value'] = [
+        '#type' => 'select', '#title' => 'Poortresultaat', '#default_value' => $current_result,
+        '#options' => [
+          'Niet beoordeeld' => 'Niet beoordeeld', 'Akkoord' => 'Akkoord',
+          'Afwijking' => 'Afwijking', 'N.V.T.' => 'N.V.T.',
+        ], '#required' => TRUE,
+      ];
+    }
+    if (isset($form['field_brebo_gate_blocks'])) {
+      $form['field_brebo_gate_blocks']['#access'] = FALSE;
+    }
   }
 
   if ($node->bundle() === 'brebo_deviation') {
@@ -227,6 +285,46 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
       'parent' => 'field_brebo_dwelling_ref',
     ],
   ];
+
+  if ($node->bundle() === 'brebo_release_gate') {
+    $applicable = (bool) $form_state->getValue(['field_brebo_gate_applicable', 'value']);
+    $result = (string) $form_state->getValue(['field_brebo_gate_result', 0, 'value']);
+    $assessment = trim((string) $form_state->getValue(['field_brebo_gate_assessment', 0, 'value']));
+    if ((!$applicable || in_array($result, ['Afwijking', 'N.V.T.'], TRUE)) && $assessment === '') {
+      $form_state->setErrorByName(
+        'field_brebo_gate_assessment',
+        t('Onderbouw een afwijking of N.V.T.-besluit aantoonbaar.'),
+      );
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_work_package') {
+    $status = (string) $form_state->getValue(['field_brebo_package_status', 0, 'value']);
+    if ($status === 'Vrijgegeven' && !$node->isNew()) {
+      $blocking = \Drupal::entityQuery('node')
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_release_gate')
+        ->condition('field_brebo_package_ref.target_id', $node->id())
+        ->condition('field_brebo_gate_blocks', 1)
+        ->count()
+        ->execute();
+      $gate_count = \Drupal::entityQuery('node')
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_release_gate')
+        ->condition('field_brebo_package_ref.target_id', $node->id())
+        ->count()
+        ->execute();
+      if ($gate_count === 0 || $blocking > 0) {
+        $form_state->setErrorByName(
+          'field_brebo_package_status',
+          t('Vrijgave is pas mogelijk wanneer alle toepasselijke vrijgavepoorten akkoord of gemotiveerd N.V.T. zijn.'),
+        );
+      }
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_deviation') {
     $status = (string) $form_state->getValue(['field_brebo_deviation_status', 0, 'value']);
     $recheck_id = (int) $form_state->getValue(['field_brebo_recheck_ref', 0, 'target_id']);
@@ -326,6 +424,17 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_release_gate') {
+    $type = (string) $node->get('field_brebo_gate_type')->value;
+    $package = $node->get('field_brebo_package_ref')->entity;
+    $node->setTitle($type . ' — ' . ($package instanceof NodeInterface ? $package->label() : 'werkpakket'));
+    $applicable = (bool) $node->get('field_brebo_gate_applicable')->value;
+    $result = (string) $node->get('field_brebo_gate_result')->value;
+    $blocks = $applicable && !in_array($result, ['Akkoord', 'N.V.T.'], TRUE);
+    $node->set('field_brebo_gate_blocks', $blocks ? 1 : 0);
+    return;
+  }
+
   if ($node->bundle() === 'brebo_deviation') {
     $control = $node->get('field_brebo_control_ref')->entity;
     $control_label = $control instanceof NodeInterface ? $control->label() : 'controle';
