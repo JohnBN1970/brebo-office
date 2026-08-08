@@ -80,7 +80,7 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
         '@version' => $version,
       ]));
       if ($budget instanceof NodeInterface) {
-        $form_state->setRedirect('entity.node.canonical', ['node' => $budget->id()]);
+        $form_state->setRedirect('brebo_office_core.work_budget_dashboard', ['node' => $budget->id()]);
       }
       return;
     }
@@ -161,7 +161,7 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
       '@version' => $version,
       '@count' => $created,
     ]));
-    $form_state->setRedirect('entity.node.canonical', ['node' => $budget->id()]);
+    $form_state->setRedirect('brebo_office_core.work_budget_dashboard', ['node' => $budget->id()]);
   }
 
 }
