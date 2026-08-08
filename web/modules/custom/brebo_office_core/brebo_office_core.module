@@ -31,6 +31,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_quantity_settlement' => 'Hoeveelheidsverrekening',
     'brebo_work_budget' => 'Werkbegroting',
     'brebo_work_budget_line' => 'Werkbegrotingsregel',
+    'brebo_rfq' => 'Prijsaanvraag',
+    'brebo_rfq_line' => 'Prijsaanvraagregel',
+    'brebo_supplier_quote' => 'Leveranciersofferte',
+    'brebo_quote_line' => 'Offerteprijsregel',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
@@ -84,6 +88,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
 
   if ($node->bundle() === 'brebo_provisional_sum' && isset($form['field_brebo_settle_difference'])) {
     $form['field_brebo_settle_difference']['#access'] = FALSE;
+  }
+
+  if ($node->bundle() === 'brebo_quote_line' && isset($form['field_brebo_quoted_total'])) {
+    $form['field_brebo_quoted_total']['#access'] = FALSE;
   }
 
   if ($node->bundle() === 'brebo_work_budget_line') {
@@ -422,6 +430,24 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if ($node->bundle() === 'brebo_quote_line') {
+    $quantity = (float) $form_state->getValue(['field_brebo_quoted_quantity', 0, 'value']);
+    $price = (float) $form_state->getValue(['field_brebo_quoted_unit_price', 0, 'value']);
+    if ($quantity < 0 || $price < 0) {
+      $form_state->setErrorByName('field_brebo_quoted_quantity', t('Geoffreerde hoeveelheid en eenheidsprijs mogen niet negatief zijn.'));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_supplier_quote') {
+    $selected = (bool) $form_state->getValue(['field_brebo_quote_selected', 'value']);
+    $reason = trim((string) $form_state->getValue(['field_brebo_choice_reason', 0, 'value']));
+    if ($selected && $reason === '') {
+      $form_state->setErrorByName('field_brebo_choice_reason', t('Een geselecteerde aanbieding vereist een gemotiveerd selectiebesluit.'));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
     if ($value < 0) {
@@ -638,6 +664,28 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
     $gross = $net * (1 + ($waste / 100));
     $node->set('field_brebo_gross_quantity', number_format($gross, 4, '.', ''));
     $node->set('field_brebo_package_count', $pack > 0 ? (int) ceil($gross / $pack) : NULL);
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_quote_line') {
+    $quantity = (float) $node->get('field_brebo_quoted_quantity')->value;
+    $price = (float) $node->get('field_brebo_quoted_unit_price')->value;
+    $node->set('field_brebo_quoted_total', number_format($quantity * $price, 4, '.', ''));
+    $request_line = $node->get('field_brebo_rfq_line_ref')->entity;
+    $node->setTitle('Prijsregel — ' . ($request_line instanceof NodeInterface ? $request_line->label() : 'aanvraagregel'));
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_supplier_quote') {
+    $supplier = (string) $node->get('field_brebo_supplier_name')->value;
+    $number = (string) $node->get('field_brebo_quote_number')->value;
+    $node->setTitle(trim($supplier . ($number !== '' ? ' — ' . $number : '')));
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_rfq') {
+    $code = (string) $node->get('field_brebo_rfq_code')->value;
+    $node->setTitle('Prijsaanvraag ' . $code);
     return;
   }
 

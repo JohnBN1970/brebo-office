@@ -176,3 +176,22 @@ brebo_office_core.work_budget_dashboard:
     parameters:
       node:
         type: entity:node
+
+
+brebo_office_core.rfqs:
+  path: '/office/prijsaanvragen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Prijsaanvragen'
+    bundle: 'brebo_rfq'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.supplier_quotes:
+  path: '/office/leveranciersoffertes'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Leveranciersoffertes'
+    bundle: 'brebo_supplier_quote'
+  requirements:
+    _permission: 'access content'

@@ -1739,3 +1739,253 @@ function brebo_office_core_update_11013(): string {
 
   return 'Materiaalcodering, verlies, verpakkingen, leverancier en bestelbewaking toegevoegd.';
 }
+
+
+/**
+ * Creates unified price requests for calculation and procurement.
+ */
+function brebo_office_core_update_11014(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle('brebo_rfq', 'Prijsaanvraag',
+    'Centrale offerte- of prijsaanvraag voor calculatie of definitieve inkoop.', [
+      'field_brebo_rfq_code' => [
+        'label' => 'Aanvraagcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Unieke code van de prijsaanvraag.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Project waarvoor prijzen worden aangevraagd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_calculation_ref' => [
+        'label' => 'Calculatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']]],
+        'description' => 'Optionele calculatie waarvoor de prijs als bron kan dienen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_work_budget_ref' => [
+        'label' => 'Werkbegroting', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_budget' => 'brebo_work_budget']]],
+        'description' => 'Optionele werkbegroting voor definitieve inkoop.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_rfq_phase' => [
+        'label' => 'Fase', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Calculatie of Definitieve inkoop.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Calculatie']],
+      ],
+      'field_brebo_rfq_scope' => [
+        'label' => 'Aanvraagscope', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Werk, hoeveelheden, documenten, uitgangspunten en gewenste prijsopbouw.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 6,
+      ],
+      'field_brebo_rfq_issue_date' => [
+        'label' => 'Aanvraagdatum', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_rfq_deadline' => [
+        'label' => 'Uiterste reactiedatum', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum waarop aanbiedingen uiterlijk binnen moeten zijn.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_rfq_status' => [
+        'label' => 'Aanvraagstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept tot Gegund of Vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_responsible_user' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Calculator, inkoper of werkvoorbereider die de aanvraag beheert.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 10,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_rfq_line', 'Prijsaanvraagregel',
+    'Afgebakende materiaal-, onderaannemings- of werkregel binnen een prijsaanvraag.', [
+      'field_brebo_rfq_ref' => [
+        'label' => 'Prijsaanvraag', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_rfq' => 'brebo_rfq']]],
+        'description' => 'Bovenliggende prijsaanvraag.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_calc_line_ref' => [
+        'label' => 'Calculatieregel', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calc_line' => 'brebo_calc_line']]],
+        'description' => 'Optionele bron- of doelregel in de calculatie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_budget_line_ref' => [
+        'label' => 'Werkbegrotingsregel', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_budget_line' => 'brebo_work_budget_line']]],
+        'description' => 'Optionele materiaal- of uitvoeringsbron in de werkbegroting.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_material_code' => [
+        'label' => 'Materiaal- of prestatiecode', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64], 'description' => 'Code voor vergelijking en herleidbaarheid.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_line_description' => [
+        'label' => 'Omschrijving', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255], 'description' => 'Eenduidig te prijzen levering of prestatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_material_spec' => [
+        'label' => 'Specificatie', 'type' => 'string_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Kwaliteit, kleur, maat, uitvoering en overige eisen.',
+        'widget' => 'string_textarea', 'formatter' => 'basic_string', 'weight' => 6,
+      ],
+      'field_brebo_requested_quantity' => [
+        'label' => 'Aangevraagde hoeveelheid', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Te offreren hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_requested_unit' => [
+        'label' => 'Eenheid', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Bijvoorbeeld st, m, m², uur of post.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_required_date' => [
+        'label' => 'Benodigd op', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Gewenste lever- of startdatum.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_supplier_quote', 'Leveranciersofferte',
+    'Ontvangen aanbieding met commerciële voorwaarden en expliciet selectiebesluit.', [
+      'field_brebo_rfq_ref' => [
+        'label' => 'Prijsaanvraag', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_rfq' => 'brebo_rfq']]],
+        'description' => 'Prijsaanvraag waarop deze aanbieding antwoord geeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_supplier_name' => [
+        'label' => 'Leverancier', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255], 'description' => 'Naam van leverancier of onderaannemer.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_quote_number' => [
+        'label' => 'Offertenummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64], 'description' => 'Referentie van de aanbieder.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_quote_date' => [
+        'label' => 'Offertedatum', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_valid_until' => [
+        'label' => 'Geldig tot', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Einde geldigheidsduur.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_delivery_days' => [
+        'label' => 'Levertijd in dagen', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [], 'description' => 'Opgegeven kalenderdagen na opdracht.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 6,
+      ],
+      'field_brebo_quote_total' => [
+        'label' => 'Totaal exclusief btw', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Totaal van de ontvangen aanbieding.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_payment_terms' => [
+        'label' => 'Betalingsvoorwaarden', 'type' => 'string_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Termijnen, betaaltermijn en zekerheden.',
+        'widget' => 'string_textarea', 'formatter' => 'basic_string', 'weight' => 8,
+      ],
+      'field_brebo_quote_conditions' => [
+        'label' => 'Inbegrepen, uitgesloten en voorwaarden', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Scopeverschillen en commerciële of technische voorwaarden.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 9,
+      ],
+      'field_brebo_quote_status' => [
+        'label' => 'Offertestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Ontvangen, Beoordeeld, Geselecteerd of Afgewezen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+        'default_value' => [['value' => 'Ontvangen']],
+      ],
+      'field_brebo_quote_selected' => [
+        'label' => 'Geselecteerd', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Expliciet vastgelegd selectiebesluit.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 11,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_choice_reason' => [
+        'label' => 'Motivering keuze', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Waarom deze aanbieding wel of niet is gekozen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_quote_line', 'Offerteprijsregel',
+    'Vergelijkbare prijsregel uit een ontvangen leveranciersofferte.', [
+      'field_brebo_quote_ref' => [
+        'label' => 'Leveranciersofferte', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_supplier_quote' => 'brebo_supplier_quote']]],
+        'description' => 'Bovenliggende leveranciersofferte.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_rfq_line_ref' => [
+        'label' => 'Aanvraagregel', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_rfq_line' => 'brebo_rfq_line']]],
+        'description' => 'De aanvraagregel waarop deze prijs betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_quoted_quantity' => [
+        'label' => 'Geoffreerde hoeveelheid', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Hoeveelheid waarop de prijs is gebaseerd.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 3,
+      ],
+      'field_brebo_quoted_unit' => [
+        'label' => 'Eenheid', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Eenheid van de aanbieding.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_quoted_unit_price' => [
+        'label' => 'Eenheidsprijs exclusief btw', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Vergelijkbare prijs per eenheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_quoted_total' => [
+        'label' => 'Regeltotaal exclusief btw', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Automatisch: hoeveelheid maal eenheidsprijs.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_quote_line_notes' => [
+        'label' => 'Regelvoorwaarden', 'type' => 'string_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Afwijkingen, alternatieven en opmerkingen bij deze prijsregel.',
+        'widget' => 'string_textarea', 'formatter' => 'basic_string', 'weight' => 7,
+      ],
+    ]);
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_rfq', 'brebo_rfq_line', 'brebo_supplier_quote', 'brebo_quote_line'] as $bundle) {
+        foreach (["create $bundle content", "edit own $bundle content", "edit any $bundle content", "view $bundle revisions"] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Centrale prijsaanvragen, aanvraagregels, leveranciersoffertes en vergelijkbare prijsregels aangemaakt.';
+}
