@@ -1664,3 +1664,78 @@ function brebo_office_core_update_11012(): string {
 
   return 'Automatisch stelpostverschil aan het stelpostobject toegevoegd.';
 }
+
+
+/**
+ * Adds coded and cumulatively orderable material planning.
+ */
+function brebo_office_core_update_11013(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  $material_source_fields = [
+    'field_brebo_material_code' => [
+      'label' => 'Materiaalcode', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 64], 'description' => 'Unieke artikel-, BREBO- of leverancierscode voor cumulatie.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 19,
+    ],
+    'field_brebo_material_spec' => [
+      'label' => 'Materiaalspecificatie', 'type' => 'string_long', 'required' => FALSE,
+      'storage' => [], 'description' => 'Kwaliteit, kleur, maat, uitvoering en overige onderscheidende kenmerken.',
+      'widget' => 'string_textarea', 'formatter' => 'basic_string', 'weight' => 20,
+    ],
+    'field_brebo_waste_percent' => [
+      'label' => 'Verliespercentage', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => $decimal, 'description' => 'Snij-, breuk- of verwerkingsverlies over de nettohoeveelheid.',
+      'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 21,
+      'default_value' => [['value' => '0.0000']],
+    ],
+    'field_brebo_pack_quantity' => [
+      'label' => 'Hoeveelheid per verpakking', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => $decimal, 'description' => 'Leverbare hoeveelheid per doos, bus, rol, pallet of andere verpakking.',
+      'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 22,
+    ],
+    'field_brebo_preferred_supplier' => [
+      'label' => 'Voorkeursleverancier', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 255], 'description' => 'Voorgestelde leverancier of contractpartner.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 23,
+    ],
+  ];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_line',
+    'Calculatieregel',
+    'Prijsregel met posttype, kostensoort, hoeveelheid en prijsherkomst.',
+    $material_source_fields,
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_work_budget_line',
+    'Werkbegrotingsregel',
+    'Uitvoerbare regel met uren-, materiaal- en voortgangsbudget zonder commerciële verkoopinformatie.',
+    $material_source_fields + [
+      'field_brebo_gross_quantity' => [
+        'label' => 'Bruto bestelbehofte', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Automatisch: nettohoeveelheid inclusief verlies.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 24,
+      ],
+      'field_brebo_package_count' => [
+        'label' => 'Aantal verpakkingen', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [], 'description' => 'Automatisch naar boven afgerond op leverbare verpakkingen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 25,
+      ],
+      'field_brebo_order_status' => [
+        'label' => 'Bestelstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Niet besteld tot volledig geleverd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 26,
+        'default_value' => [['value' => 'Niet besteld']],
+      ],
+      'field_brebo_delivery_location' => [
+        'label' => 'Afleverlocatie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255], 'description' => 'Bouwplaats, magazijn, woning, cluster of andere afleverlocatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 27,
+      ],
+    ],
+  );
+
+  return 'Materiaalcodering, verlies, verpakkingen, leverancier en bestelbewaking toegevoegd.';
+}
