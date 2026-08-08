@@ -155,7 +155,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     }
     foreach (['field_brebo_route_code', 'field_brebo_route_kind', 'field_brebo_route_sequence', 'field_brebo_route_required', 'field_brebo_route_source_kind'] as $canonical_field) {
       if (isset($form[$canonical_field])) {
-        $form[$canonical_field]['#disabled'] = TRUE;
+        $form[$canonical_field]['#access'] = FALSE;
       }
     }
   }
@@ -572,7 +572,7 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
 
   if ($node->bundle() === 'brebo_route_item') {
     $status = (string) $form_state->getValue(['field_brebo_route_status', 0, 'value']);
-    $applicable = (bool) $form_state->getValue(['field_brebo_route_applicable', 'value']);
+    $applicable = (bool) $form_state->getValue(['field_brebo_route_applicable', 0, 'value']);
     $nvt_reason = trim((string) $form_state->getValue(['field_brebo_route_nvt_reason', 0, 'value']));
     $evidence = trim((string) $form_state->getValue(['field_brebo_route_evidence', 0, 'value']));
     if ((!$applicable || $status === 'N.V.T.') && $nvt_reason === '') {
