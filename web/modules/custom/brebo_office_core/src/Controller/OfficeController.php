@@ -55,12 +55,14 @@ final class OfficeController extends ControllerBase {
         'brebo_deviation' => 'field_brebo_deviation_status',
         'brebo_work_package' => 'field_brebo_package_status',
         'brebo_release_gate' => 'field_brebo_gate_result',
+        'brebo_calculation' => 'field_brebo_calc_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
         'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
+        'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
         'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
         default => $node->toUrl(),
       };
@@ -1063,6 +1065,299 @@ final class OfficeController extends ControllerBase {
 
     $build['#cache'] = ['max-age' => 0];
     return $build;
+  }
+
+
+
+  /**
+   * Returns the calculation dashboard title.
+   */
+  public function calculationDashboardTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_calculation') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  /**
+   * Builds a calculation dashboard with hierarchical adjustments.
+   */
+  public function calculationDashboard(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_calculation') {
+      throw new NotFoundHttpException();
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $element_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $node->id())
+      ->sort('field_brebo_element_sequence')
+      ->execute();
+    $elements = $storage->loadMultiple($element_ids);
+
+    $line_ids = $element_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_calc_line')
+        ->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')
+        ->execute()
+      : [];
+    $lines = $storage->loadMultiple($line_ids);
+
+    $package = $node->get('field_brebo_package_ref')->entity;
+    $target_ids = array_values(array_unique(array_merge(
+      [(int) $node->id()],
+      $package instanceof NodeInterface ? [(int) $package->id()] : [],
+      array_map('intval', array_values($element_ids)),
+      array_map('intval', array_values($line_ids)),
+    )));
+    $adjustment_ids = $target_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_calc_adjustment')
+        ->condition('field_brebo_adjust_target.target_id', $target_ids, 'IN')
+        ->sort('field_brebo_adjust_sequence')
+        ->execute()
+      : [];
+
+    $adjustments_by_target = [];
+    foreach ($storage->loadMultiple($adjustment_ids) as $adjustment) {
+      if ($adjustment instanceof NodeInterface) {
+        $target_id = (int) $adjustment->get('field_brebo_adjust_target')->target_id;
+        $adjustments_by_target[$target_id][] = $adjustment;
+      }
+    }
+
+    $lines_by_element = [];
+    foreach ($lines as $line) {
+      if ($line instanceof NodeInterface) {
+        $element_id = (int) $line->get('field_brebo_calc_element_ref')->target_id;
+        $lines_by_element[$element_id][] = $line;
+      }
+    }
+
+    $contract_element_totals = [];
+    $forecast_element_totals = [];
+    $calculation_contract_breakdown = [];
+    $calculation_forecast_breakdown = [];
+    $element_rows = [];
+    $line_rows = [];
+    $post_totals = [];
+
+    foreach ($elements as $element) {
+      if (!$element instanceof NodeInterface) {
+        continue;
+      }
+      $contract_current = 0.0;
+      $forecast_current = 0.0;
+      $contract_breakdown = [];
+      $forecast_breakdown = [];
+
+      foreach ($lines_by_element[(int) $element->id()] ?? [] as $line) {
+        $quantity = (float) $line->get('field_brebo_contract_quantity')->value;
+        $actual_raw = $line->get('field_brebo_actual_quantity')->value;
+        $post_type = $this->fieldValue($line, 'field_brebo_line_post_type');
+        $forecast_quantity = $post_type === 'Verrekenpost' && $actual_raw !== NULL && $actual_raw !== ''
+          ? (float) $actual_raw
+          : $quantity;
+        $unit_price = (float) $line->get('field_brebo_unit_price')->value;
+        $category = $this->fieldValue($line, 'field_brebo_cost_category');
+        $contract_direct = $quantity * $unit_price;
+        $forecast_direct = $forecast_quantity * $unit_price;
+
+        [$contract_line_total] = $this->applyAdjustments(
+          $contract_direct,
+          [$category => $contract_direct],
+          $adjustments_by_target[(int) $line->id()] ?? [],
+        );
+        [$forecast_line_total] = $this->applyAdjustments(
+          $forecast_direct,
+          [$category => $forecast_direct],
+          $adjustments_by_target[(int) $line->id()] ?? [],
+        );
+
+        $contract_current += $contract_line_total;
+        $forecast_current += $forecast_line_total;
+        $contract_breakdown[$category] = ($contract_breakdown[$category] ?? 0.0) + $contract_direct;
+        $forecast_breakdown[$category] = ($forecast_breakdown[$category] ?? 0.0) + $forecast_direct;
+        $post_totals[$post_type] = ($post_totals[$post_type] ?? 0.0) + $forecast_line_total;
+
+        $line_rows[] = [
+          $this->fieldValue($element, 'field_brebo_element_code'),
+          $this->fieldValue($line, 'field_brebo_line_description'),
+          $post_type,
+          $category,
+          $this->money($contract_line_total),
+          $this->money($forecast_line_total),
+          $this->money($forecast_line_total - $contract_line_total),
+          ['data' => Link::fromTextAndUrl(
+            $this->t('Bewerken'),
+            Url::fromRoute('entity.node.edit_form', ['node' => $line->id()])
+          )->toRenderable()],
+        ];
+      }
+
+      [$contract_element_total] = $this->applyAdjustments(
+        $contract_current,
+        $contract_breakdown,
+        $adjustments_by_target[(int) $element->id()] ?? [],
+      );
+      [$forecast_element_total] = $this->applyAdjustments(
+        $forecast_current,
+        $forecast_breakdown,
+        $adjustments_by_target[(int) $element->id()] ?? [],
+      );
+      $contract_element_totals[] = $contract_element_total;
+      $forecast_element_totals[] = $forecast_element_total;
+      foreach ($contract_breakdown as $category => $value) {
+        $calculation_contract_breakdown[$category] = ($calculation_contract_breakdown[$category] ?? 0.0) + $value;
+      }
+      foreach ($forecast_breakdown as $category => $value) {
+        $calculation_forecast_breakdown[$category] = ($calculation_forecast_breakdown[$category] ?? 0.0) + $value;
+      }
+      $element_rows[] = [
+        ['data' => Link::fromTextAndUrl($element->label(), $element->toUrl())->toRenderable()],
+        $this->fieldValue($element, 'field_brebo_element_code'),
+        count($lines_by_element[(int) $element->id()] ?? []),
+        $this->money($contract_element_total),
+        $this->money($forecast_element_total),
+        $this->money($forecast_element_total - $contract_element_total),
+      ];
+    }
+
+    $contract_total = array_sum($contract_element_totals);
+    $forecast_total = array_sum($forecast_element_totals);
+    if ($package instanceof NodeInterface) {
+      [$contract_total] = $this->applyAdjustments(
+        $contract_total,
+        $calculation_contract_breakdown,
+        $adjustments_by_target[(int) $package->id()] ?? [],
+      );
+      [$forecast_total] = $this->applyAdjustments(
+        $forecast_total,
+        $calculation_forecast_breakdown,
+        $adjustments_by_target[(int) $package->id()] ?? [],
+      );
+    }
+    [$contract_total] = $this->applyAdjustments(
+      $contract_total,
+      $calculation_contract_breakdown,
+      $adjustments_by_target[(int) $node->id()] ?? [],
+    );
+    [$forecast_total] = $this->applyAdjustments(
+      $forecast_total,
+      $calculation_forecast_breakdown,
+      $adjustments_by_target[(int) $node->id()] ?? [],
+    );
+
+    $post_rows = [];
+    ksort($post_totals);
+    foreach ($post_totals as $post_type => $value) {
+      $post_rows[] = [$post_type, $this->money($value)];
+    }
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link', '#title' => $this->t('Calculatie bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'add_adjustment' => [
+          '#type' => 'link', '#title' => $this->t('Opslag toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_calc_adjustment']),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'calculation' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Code'), $this->t('Versie'), $this->t('Status'), $this->t('Prijspeildatum'), $this->t('Werkpakket')],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_calc_code'),
+          $this->fieldValue($node, 'field_brebo_calc_version'),
+          $this->fieldValue($node, 'field_brebo_calc_status'),
+          $this->fieldValue($node, 'field_brebo_price_date'),
+          $package ? $package->label() : '—',
+        ]],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Elementen'), $this->t('Regels'), $this->t('Contractwaarde'), $this->t('Actuele prognose'), $this->t('Verschil')],
+        '#rows' => [[
+          count($elements), count($lines), $this->money($contract_total),
+          $this->money($forecast_total), $this->money($forecast_total - $contract_total),
+        ]],
+      ],
+      'elements_heading' => ['#markup' => '<h2>' . $this->t('Elementen') . '</h2>'],
+      'elements' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Element'), $this->t('Code'), $this->t('Regels'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
+        '#rows' => $element_rows, '#empty' => $this->t('Nog geen calculatie-elementen.'),
+      ],
+      'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
+      'posts' => [
+        '#type' => 'table', '#header' => [$this->t('Posttype'), $this->t('Actuele prognose')],
+        '#rows' => $post_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
+      ],
+      'lines_heading' => ['#markup' => '<h2>' . $this->t('Calculatieregels') . '</h2>'],
+      'lines' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Element'), $this->t('Omschrijving'), $this->t('Posttype'), $this->t('Kostensoort'),
+          $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'), $this->t('Actie'),
+        ],
+        '#rows' => $line_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node_list:brebo_calculation', 'node_list:brebo_calc_element',
+          'node_list:brebo_calc_line', 'node_list:brebo_calc_adjustment',
+        ],
+      ],
+    ];
+  }
+
+  /**
+   * Applies ordered fixed or percentage adjustments to a value.
+   */
+  private function applyAdjustments(float $current, array $direct_breakdown, array $adjustments): array {
+    $adjustment_total = 0.0;
+    foreach ($adjustments as $adjustment) {
+      if (!$adjustment instanceof NodeInterface) {
+        continue;
+      }
+      $method = $this->fieldValue($adjustment, 'field_brebo_adjust_method');
+      $direction = $this->fieldValue($adjustment, 'field_brebo_adjust_direction');
+      $base_name = $this->fieldValue($adjustment, 'field_brebo_adjust_base');
+      $value = (float) $adjustment->get('field_brebo_adjust_value')->value;
+      $cumulative = (bool) $adjustment->get('field_brebo_adjust_cumulative')->value;
+      $sign = $direction === 'Korting' ? -1.0 : 1.0;
+
+      if ($method === 'Vast bedrag') {
+        $amount = $value;
+      }
+      else {
+        $base = $base_name === 'Alle directe kosten'
+          ? ($cumulative ? $current : array_sum($direct_breakdown))
+          : ($direct_breakdown[$base_name] ?? 0.0);
+        $amount = $base * ($value / 100);
+      }
+      $signed_amount = $sign * $amount;
+      $current += $signed_amount;
+      $adjustment_total += $signed_amount;
+    }
+    return [$current, $adjustment_total];
+  }
+
+  /**
+   * Formats a monetary value for the Dutch interface.
+   */
+  private function money(float $value): string {
+    return '€ ' . number_format($value, 2, ',', '.');
   }
 
   /**
