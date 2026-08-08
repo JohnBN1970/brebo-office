@@ -20,9 +20,57 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_dwelling' => 'Woningnaam',
     'brebo_product_position' => 'Productpositie',
     'brebo_verification' => 'Controle',
+    'brebo_deviation' => 'Afwijking',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
+  }
+
+  if ($node->bundle() === 'brebo_deviation') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe afwijking');
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+
+    $control_id = (int) \Drupal::request()->query->get('control', 0);
+    $control = $control_id > 0
+      ? \Drupal::entityTypeManager()->getStorage('node')->load($control_id)
+      : NULL;
+    if ($node->isNew()
+      && $control instanceof NodeInterface
+      && $control->bundle() === 'brebo_verification'
+      && $control->access('view')
+      && isset($form['field_brebo_control_ref']['widget'][0]['target_id'])) {
+      $form['field_brebo_control_ref']['widget'][0]['target_id']['#default_value'] = $control;
+    }
+
+    if (isset($form['field_brebo_deviation_status']['widget'][0]['value'])) {
+      $current_status = $form['field_brebo_deviation_status']['widget'][0]['value']['#default_value'] ?? 'Open';
+      $form['field_brebo_deviation_status']['widget'][0]['value'] = [
+        '#type' => 'select',
+        '#title' => 'Afwijkingsstatus',
+        '#default_value' => $current_status,
+        '#options' => [
+          'Open' => 'Open',
+          'In behandeling' => 'In behandeling',
+          'Gereed voor hercontrole' => 'Gereed voor hercontrole',
+          'Gesloten' => 'Gesloten',
+        ],
+        '#required' => TRUE,
+      ];
+    }
+    if (isset($form['field_brebo_due_date']['widget'][0]['value'])) {
+      $form['field_brebo_due_date']['widget'][0]['value']['#type'] = 'date';
+    }
+    if (isset($form['field_brebo_recheck_ref']['widget'])) {
+      $form['field_brebo_recheck_ref']['widget']['#states'] = [
+        'visible' => [
+          ':input[name="field_brebo_deviation_status[0][value]"]' => ['value' => 'Gesloten'],
+        ],
+      ];
+    }
   }
 
   if ($node->bundle() === 'brebo_verification') {
@@ -179,6 +227,25 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
       'parent' => 'field_brebo_dwelling_ref',
     ],
   ];
+  if ($node->bundle() === 'brebo_deviation') {
+    $status = (string) $form_state->getValue(['field_brebo_deviation_status', 0, 'value']);
+    $recheck_id = (int) $form_state->getValue(['field_brebo_recheck_ref', 0, 'target_id']);
+    if ($status === 'Gesloten') {
+      $recheck = $recheck_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($recheck_id)
+        : NULL;
+      if (!$recheck instanceof NodeInterface
+        || $recheck->bundle() !== 'brebo_verification'
+        || (string) $recheck->get('field_brebo_control_result')->value !== 'Akkoord') {
+        $form_state->setErrorByName(
+          'field_brebo_recheck_ref',
+          t('Een afwijking kan alleen worden gesloten met een hercontrole waarvan het resultaat Akkoord is.'),
+        );
+      }
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_verification') {
     $type = (string) $form_state->getValue(['field_brebo_control_type', 0, 'value']);
     $source = trim((string) $form_state->getValue(['field_brebo_control_source', 0, 'value']));
@@ -259,6 +326,13 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_deviation') {
+    $control = $node->get('field_brebo_control_ref')->entity;
+    $control_label = $control instanceof NodeInterface ? $control->label() : 'controle';
+    $node->setTitle('Afwijking — ' . $control_label);
+    return;
+  }
+
   if ($node->bundle() !== 'brebo_verification') {
     return;
   }
@@ -269,5 +343,62 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
   $node->setTitle($type . ' — ' . $position_label);
 
   $result = (string) $node->get('field_brebo_control_result')->value;
-  $node->set('field_brebo_blocks_release', $result === 'Afwijking' ? 1 : 0);
+  $blocks_release = $result === 'Afwijking';
+
+  if ($blocks_release && !$node->isNew()) {
+    $deviation_query = \Drupal::entityQuery('node')
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_deviation')
+      ->condition('field_brebo_control_ref.target_id', $node->id());
+    $deviation_count = (int) (clone $deviation_query)->count()->execute();
+    if ($deviation_count > 0) {
+      $open_count = (int) $deviation_query
+        ->condition('field_brebo_deviation_status', 'Gesloten', '<>')
+        ->count()
+        ->execute();
+      $blocks_release = $open_count > 0;
+    }
+  }
+
+  $node->set('field_brebo_blocks_release', $blocks_release ? 1 : 0);
+}
+
+
+/**
+ * Implements hook_node_insert().
+ */
+function brebo_office_core_node_insert(NodeInterface $node): void {
+  _brebo_office_core_sync_deviation_block($node);
+}
+
+/**
+ * Implements hook_node_update().
+ */
+function brebo_office_core_node_update(NodeInterface $node): void {
+  _brebo_office_core_sync_deviation_block($node);
+}
+
+/**
+ * Synchronizes release blocking after a deviation changes.
+ */
+function _brebo_office_core_sync_deviation_block(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_deviation') {
+    return;
+  }
+
+  $control = $node->get('field_brebo_control_ref')->entity;
+  if (!$control instanceof NodeInterface) {
+    return;
+  }
+
+  $open = \Drupal::entityQuery('node')
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_deviation')
+    ->condition('field_brebo_control_ref.target_id', $control->id())
+    ->condition('field_brebo_deviation_status', 'Gesloten', '<>')
+    ->count()
+    ->execute();
+
+  $control->set('field_brebo_blocks_release', $open > 0 ? 1 : 0);
+  $control->save();
 }
