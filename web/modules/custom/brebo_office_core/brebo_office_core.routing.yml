@@ -53,3 +53,12 @@ brebo_office_core.positions:
     bundle: 'brebo_product_position'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.verifications:
+  path: '/office/controles'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Controles en verificaties'
+    bundle: 'brebo_verification'
+  requirements:
+    _permission: 'access content'
