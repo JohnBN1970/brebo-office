@@ -1187,8 +1187,12 @@ final class OfficeController extends ControllerBase {
 
         $contract_current += $contract_line_total;
         $forecast_current += $forecast_line_total;
-        $contract_breakdown[$category] = ($contract_breakdown[$category] ?? 0.0) + $contract_direct;
-        $forecast_breakdown[$category] = ($forecast_breakdown[$category] ?? 0.0) + $forecast_direct;
+        $markup_applicable = !$line->hasField('field_brebo_markup_applicable')
+          || (bool) $line->get('field_brebo_markup_applicable')->value;
+        if ($markup_applicable) {
+          $contract_breakdown[$category] = ($contract_breakdown[$category] ?? 0.0) + $contract_direct;
+          $forecast_breakdown[$category] = ($forecast_breakdown[$category] ?? 0.0) + $forecast_direct;
+        }
         $post_totals[$post_type] = ($post_totals[$post_type] ?? 0.0) + $forecast_line_total;
 
         $line_rows[] = [
