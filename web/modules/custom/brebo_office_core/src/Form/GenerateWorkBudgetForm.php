@@ -38,7 +38,7 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
 
   public function getCancelUrl(): Url {
     return $this->calculation
-      ? Url::fromRoute('brebo_office_core.calculation_detail', ['node' => $this->calculation->id()])
+      ? Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $this->calculation->id()])
       : Url::fromRoute('brebo_office_core.calculations');
   }
 
