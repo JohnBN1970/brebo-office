@@ -2170,3 +2170,106 @@ function brebo_office_core_update_11015(): string {
 
   return 'Vier onafhankelijke projectassen, werkpakketverfijning, plafond- en mandaatbeheer vastgesteld.';
 }
+
+
+/**
+ * Creates auditable project routes and required products per project type.
+ */
+function brebo_office_core_update_11016(): string {
+  _brebo_office_core_create_node_bundle('brebo_route_item', 'Projectrouteonderdeel',
+    'Automatisch geactiveerde processtap, product, controle of besluit binnen een projectroute.', [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Project waarvoor dit routeonderdeel geldt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_route_code' => [
+        'label' => 'Routecode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Stabiele code van het procesonderdeel of vereiste product.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_route_kind' => [
+        'label' => 'Onderdeelsoort', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Processtap, Product, Controle of Besluit.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_route_description' => [
+        'label' => 'Resultaat of vereiste', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Wat aantoonbaar gereed of vastgesteld moet zijn.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 4,
+      ],
+      'field_brebo_route_sequence' => [
+        'label' => 'Volgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [], 'description' => 'Volgorde binnen de projectroute.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 5,
+      ],
+      'field_brebo_route_required' => [
+        'label' => 'Standaard verplicht', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Canoniek verplicht voor deze projectsoort.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_route_applicable' => [
+        'label' => 'Van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Mag gemotiveerd op N.V.T. worden gezet.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 7,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_route_status' => [
+        'label' => 'Routestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Niet gestart, In uitvoering, Ter beoordeling, Gereed, Geblokkeerd of N.V.T.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+        'default_value' => [['value' => 'Niet gestart']],
+      ],
+      'field_brebo_route_owner' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Persoon die het onderdeel oplevert of laat vaststellen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 9,
+      ],
+      'field_brebo_route_due' => [
+        'label' => 'Streefdatum', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+      ],
+      'field_brebo_route_evidence' => [
+        'label' => 'Onderbouwing of bewijs', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Document, besluit, controlebewijs of verwijzing waarmee gereed aantoonbaar is.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 11,
+      ],
+      'field_brebo_route_nvt_reason' => [
+        'label' => 'Motivering N.V.T.', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Verplicht wanneer dit onderdeel niet van toepassing wordt verklaard.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+      ],
+      'field_brebo_route_source_kind' => [
+        'label' => 'Bronprojectsoort', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Projectsoort waardoor dit onderdeel is geactiveerd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 13,
+      ],
+    ]);
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (["create brebo_route_item content", "edit own brebo_route_item content", "edit any brebo_route_item content", "view brebo_route_item revisions"] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if ($project instanceof \Drupal\node\NodeInterface) {
+      brebo_office_core_sync_project_route($project);
+    }
+  }
+
+  return 'Dynamische, auditeerbare projectroutes en vereiste producten per projectsoort aangemaakt.';
+}
