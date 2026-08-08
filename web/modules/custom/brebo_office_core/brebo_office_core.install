@@ -1,0 +1,134 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Display\EntityFormDisplay;
+use Drupal\Core\Entity\Display\EntityViewDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\Entity\NodeType;
+
+/**
+ * Creates the first BREBO Office object: Project.
+ */
+function brebo_office_core_update_11001(): string {
+  $bundle = 'brebo_project';
+
+  if (!NodeType::load($bundle)) {
+    NodeType::create([
+      'type' => $bundle,
+      'name' => 'Project',
+      'description' => 'Centraal projectobject binnen BREBO Office.',
+      'new_revision' => TRUE,
+      'preview_mode' => 0,
+      'display_submitted' => FALSE,
+    ])->save();
+  }
+
+  $fields = [
+    'field_brebo_project_code' => [
+      'label' => 'Projectcode',
+      'type' => 'string',
+      'required' => TRUE,
+      'storage' => ['max_length' => 32],
+      'description' => 'Unieke BREBO-projectcode.',
+      'widget' => 'string_textfield',
+      'weight' => 1,
+    ],
+    'field_brebo_client' => [
+      'label' => 'Opdrachtgever',
+      'type' => 'string',
+      'required' => TRUE,
+      'storage' => ['max_length' => 255],
+      'description' => 'Opdrachtgever van het project.',
+      'widget' => 'string_textfield',
+      'weight' => 2,
+    ],
+    'field_brebo_location' => [
+      'label' => 'Projectlocatie',
+      'type' => 'string',
+      'required' => TRUE,
+      'storage' => ['max_length' => 255],
+      'description' => 'Adres of locatieaanduiding van het project.',
+      'widget' => 'string_textfield',
+      'weight' => 3,
+    ],
+    'field_brebo_status' => [
+      'label' => 'Projectstatus',
+      'type' => 'string',
+      'required' => TRUE,
+      'storage' => ['max_length' => 64],
+      'description' => 'Bijvoorbeeld concept, actief, opgeleverd of afgesloten.',
+      'widget' => 'string_textfield',
+      'weight' => 4,
+      'default_value' => [['value' => 'Concept']],
+    ],
+    'field_brebo_description' => [
+      'label' => 'Projectomschrijving',
+      'type' => 'text_long',
+      'required' => FALSE,
+      'storage' => [],
+      'description' => 'Korte omschrijving van opdracht, scope en bijzonderheden.',
+      'widget' => 'text_textarea',
+      'weight' => 5,
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', $bundle, $field_name)) {
+      $field = FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => $definition['required'],
+      ]);
+      if (isset($definition['default_value'])) {
+        $field->setDefaultValue($definition['default_value']);
+      }
+      $field->save();
+    }
+  }
+
+  $form_display = EntityFormDisplay::load("node.$bundle.default") ?: EntityFormDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => $bundle,
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  foreach ($fields as $field_name => $definition) {
+    $form_display->setComponent($field_name, [
+      'type' => $definition['widget'],
+      'weight' => $definition['weight'],
+    ]);
+  }
+  $form_display->save();
+
+  $view_display = EntityViewDisplay::load("node.$bundle.default") ?: EntityViewDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => $bundle,
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  foreach ($fields as $field_name => $definition) {
+    $view_display->setComponent($field_name, [
+      'type' => $definition['type'] === 'text_long' ? 'text_default' : 'string',
+      'label' => 'above',
+      'weight' => $definition['weight'],
+    ]);
+  }
+  $view_display->save();
+
+  return 'Projectobject met basisvelden en revisies aangemaakt.';
+}
