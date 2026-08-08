@@ -130,7 +130,7 @@ final class OfficeController extends ControllerBase {
 
       $facade = $this->fieldValue($position, 'field_brebo_facade');
       if ($facade === '—') {
-        $facade = $this->t('Niet ingedeeld')->render();
+        $facade = (string) $this->t('Niet ingedeeld');
       }
 
       $is_not_applicable = !$position->get('field_brebo_not_applicable')->isEmpty()
@@ -142,11 +142,11 @@ final class OfficeController extends ControllerBase {
       $with_photos += $photo_count > 0 ? 1 : 0;
 
       $status = $is_not_applicable
-        ? $this->t('N.V.T.')->render()
+        ? (string) $this->t('N.V.T.')
         : $this->fieldValue($position, 'field_brebo_status');
       $photo_label = $photo_count === 1
-        ? $this->t('1 foto')->render()
-        : $this->t('@count foto’s', ['@count' => $photo_count])->render();
+        ? (string) $this->t('1 foto')
+        : (string) $this->t('@count foto’s', ['@count' => $photo_count]);
 
       $groups[$facade][] = [
         Link::fromTextAndUrl(
