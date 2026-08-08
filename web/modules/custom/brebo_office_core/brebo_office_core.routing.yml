@@ -5,3 +5,39 @@ brebo_office_core.dashboard:
     _title: 'BREBO Office'
   requirements:
     _access: 'TRUE'
+
+brebo_office_core.projects:
+  path: '/office/projecten'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Projecten'
+    bundle: 'brebo_project'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.clusters:
+  path: '/office/clusters'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Clusters'
+    bundle: 'brebo_cluster'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.dwellings:
+  path: '/office/woningen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Woningen'
+    bundle: 'brebo_dwelling'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.positions:
+  path: '/office/productposities'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Productposities'
+    bundle: 'brebo_product_position'
+  requirements:
+    _permission: 'access content'

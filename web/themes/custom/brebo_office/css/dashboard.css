@@ -41,3 +41,7 @@
 .brebo-login__form input[type="submit"] { width: 100%; }
 @media (max-width: 1000px) { .brebo-kpis { grid-template-columns: repeat(2, 1fr); } .brebo-dashboard__grid { grid-template-columns: 1fr; } }
 @media (max-width: 700px) { .brebo-header { padding: 0 16px; } .brebo-environment, .brebo-topnav { display: none; } .brebo-dashboard { padding: 24px 16px 36px; } .brebo-dashboard__intro { align-items: start; flex-direction: column; } .brebo-kpis { grid-template-columns: 1fr; } .brebo-flow { grid-template-columns: 1fr; gap: 18px; } .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 18px); right: auto; bottom: auto; } .brebo-login__form { padding: 24px; } }
+
+.brebo-kpi { color: inherit; text-decoration: none; transition: transform .15s ease, border-color .15s ease; }
+.brebo-kpi:hover { transform: translateY(-2px); border-color: var(--brebo-purple-700); }
+.brebo-list-actions { display: flex; justify-content: flex-end; margin-bottom: 18px; }
