@@ -87,3 +87,15 @@ brebo_office_core.quality_report:
     _title: 'BREBO kwaliteitsrapportage'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.project_dashboard:
+  path: '/office/projecten/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboard'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node

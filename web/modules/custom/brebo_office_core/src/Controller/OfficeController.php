@@ -56,9 +56,11 @@ final class OfficeController extends ControllerBase {
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
-      $view_url = $bundle === 'brebo_dwelling'
-        ? Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()])
-        : $node->toUrl();
+      $view_url = match ($bundle) {
+        'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
+        'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
+        default => $node->toUrl(),
+      };
       $rows[] = [
         ['data' => Link::fromTextAndUrl($node->label(), $view_url)->toRenderable()],
         $status,
@@ -345,6 +347,228 @@ final class OfficeController extends ControllerBase {
   }
 
 
+
+
+
+  /**
+   * Returns the project dashboard title.
+   */
+  public function projectDashboardTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_project') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  /**
+   * Builds the project-wide steering dashboard.
+   */
+  public function projectDashboard(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_project') {
+      throw new NotFoundHttpException();
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $cluster_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_cluster')
+      ->condition('field_brebo_project_ref.target_id', $node->id())
+      ->execute();
+    $clusters = $storage->loadMultiple($cluster_ids);
+
+    $dwelling_ids = $cluster_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_dwelling')
+        ->condition('field_brebo_cluster_ref.target_id', array_values($cluster_ids), 'IN')
+        ->execute()
+      : [];
+    $dwellings = $storage->loadMultiple($dwelling_ids);
+
+    $position_ids = $dwelling_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_product_position')
+        ->condition('field_brebo_dwelling_ref.target_id', array_values($dwelling_ids), 'IN')
+        ->execute()
+      : [];
+    $positions = $storage->loadMultiple($position_ids);
+
+    $control_ids = $position_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_verification')
+        ->condition('field_brebo_position_ref.target_id', array_values($position_ids), 'IN')
+        ->execute()
+      : [];
+    $controls = $storage->loadMultiple($control_ids);
+
+    $open_deviations = $control_ids
+      ? (int) $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_deviation')
+        ->condition('field_brebo_control_ref.target_id', array_values($control_ids), 'IN')
+        ->condition('field_brebo_deviation_status', 'Gesloten', '<>')
+        ->count()
+        ->execute()
+      : 0;
+
+    $positions_by_dwelling = [];
+    $position_types = [];
+    foreach ($positions as $position) {
+      if (!$position instanceof NodeInterface) {
+        continue;
+      }
+      $dwelling_id = (int) $position->get('field_brebo_dwelling_ref')->target_id;
+      $positions_by_dwelling[$dwelling_id][] = (int) $position->id();
+      $type = $this->fieldValue($position, 'field_brebo_product_type');
+      $position_types[$type] = ($position_types[$type] ?? 0) + 1;
+    }
+
+    $controls_by_position = [];
+    $blocked_by_position = [];
+    $approved = 0;
+    foreach ($controls as $control) {
+      if (!$control instanceof NodeInterface) {
+        continue;
+      }
+      $position_id = (int) $control->get('field_brebo_position_ref')->target_id;
+      $controls_by_position[$position_id][] = (int) $control->id();
+      if ((bool) $control->get('field_brebo_blocks_release')->value) {
+        $blocked_by_position[$position_id] = TRUE;
+      }
+      if ($this->fieldValue($control, 'field_brebo_control_result') === 'Akkoord') {
+        $approved++;
+      }
+    }
+
+    $cluster_rows = [];
+    foreach ($clusters as $cluster) {
+      if (!$cluster instanceof NodeInterface) {
+        continue;
+      }
+      $cluster_dwelling_ids = [];
+      foreach ($dwellings as $dwelling) {
+        if ($dwelling instanceof NodeInterface
+          && (int) $dwelling->get('field_brebo_cluster_ref')->target_id === (int) $cluster->id()) {
+          $cluster_dwelling_ids[] = (int) $dwelling->id();
+        }
+      }
+      $cluster_position_count = 0;
+      foreach ($cluster_dwelling_ids as $dwelling_id) {
+        $cluster_position_count += count($positions_by_dwelling[$dwelling_id] ?? []);
+      }
+      $cluster_rows[] = [
+        ['data' => Link::fromTextAndUrl($cluster->label(), $cluster->toUrl())->toRenderable()],
+        $this->fieldValue($cluster, 'field_brebo_cluster_code'),
+        $this->fieldValue($cluster, 'field_brebo_status'),
+        count($cluster_dwelling_ids),
+        $cluster_position_count,
+      ];
+    }
+
+    $dwelling_rows = [];
+    foreach ($dwellings as $dwelling) {
+      if (!$dwelling instanceof NodeInterface) {
+        continue;
+      }
+      $dwelling_position_ids = $positions_by_dwelling[(int) $dwelling->id()] ?? [];
+      $control_count = 0;
+      $blocked_count = 0;
+      foreach ($dwelling_position_ids as $position_id) {
+        $control_count += count($controls_by_position[$position_id] ?? []);
+        $blocked_count += isset($blocked_by_position[$position_id]) ? 1 : 0;
+      }
+      $cluster = $dwelling->get('field_brebo_cluster_ref')->entity;
+      $dwelling_rows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $dwelling->label(),
+          Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $dwelling->id()])
+        )->toRenderable()],
+        $cluster instanceof NodeInterface ? $cluster->label() : '—',
+        $this->fieldValue($dwelling, 'field_brebo_status'),
+        count($dwelling_position_ids),
+        $control_count,
+        $blocked_count,
+      ];
+    }
+
+    $type_rows = [];
+    ksort($position_types);
+    foreach ($position_types as $type => $quantity) {
+      $type_rows[] = [$type, $quantity];
+    }
+
+    return [
+      'project' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Projectcode'),
+          $this->t('Opdrachtgever'),
+          $this->t('Locatie'),
+          $this->t('Status'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_project_code'),
+          $this->fieldValue($node, 'field_brebo_client'),
+          $this->fieldValue($node, 'field_brebo_location'),
+          $this->fieldValue($node, 'field_brebo_status'),
+        ]],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Clusters'),
+          $this->t('Woningen'),
+          $this->t('Productposities'),
+          $this->t('Controles'),
+          $this->t('Akkoord'),
+          $this->t('Open afwijkingen'),
+          $this->t('Geblokkeerde posities'),
+        ],
+        '#rows' => [[
+          count($clusters),
+          count($dwellings),
+          count($positions),
+          count($controls),
+          $approved,
+          $open_deviations,
+          count($blocked_by_position),
+        ]],
+      ],
+      'clusters_heading' => ['#markup' => '<h2>' . $this->t('Clusters') . '</h2>'],
+      'clusters' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Cluster'), $this->t('Code'), $this->t('Status'), $this->t('Woningen'), $this->t('Productposities')],
+        '#rows' => $cluster_rows,
+        '#empty' => $this->t('Nog geen clusters.'),
+      ],
+      'dwellings_heading' => ['#markup' => '<h2>' . $this->t('Woningen') . '</h2>'],
+      'dwellings' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Woning'), $this->t('Cluster'), $this->t('Status'), $this->t('Posities'), $this->t('Controles'), $this->t('Geblokkeerd')],
+        '#rows' => $dwelling_rows,
+        '#empty' => $this->t('Nog geen woningen.'),
+      ],
+      'types_heading' => ['#markup' => '<h2>' . $this->t('Producttypen') . '</h2>'],
+      'types' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Producttype'), $this->t('Aantal posities')],
+        '#rows' => $type_rows,
+        '#empty' => $this->t('Nog geen productposities.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node_list:brebo_cluster',
+          'node_list:brebo_dwelling',
+          'node_list:brebo_product_position',
+          'node_list:brebo_verification',
+          'node_list:brebo_deviation',
+        ],
+      ],
+    ];
+  }
 
   /**
    * Builds the central BREBO quality dashboard.
