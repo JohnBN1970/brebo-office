@@ -60,6 +60,7 @@ final class OfficeController extends ControllerBase {
         'brebo_rfq' => 'field_brebo_rfq_status',
         'brebo_supplier_quote' => 'field_brebo_quote_status',
         'brebo_budget_change' => 'field_brebo_change_status',
+        'brebo_route_item' => 'field_brebo_route_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
@@ -698,6 +699,49 @@ final class OfficeController extends ControllerBase {
     $procurement_allowed = !$node->get('field_brebo_procurement_allowed')->isEmpty()
       && (bool) $node->get('field_brebo_procurement_allowed')->value;
 
+    $route_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_route_item')
+      ->condition('field_brebo_project_ref.target_id', $node->id())
+      ->sort('field_brebo_route_sequence', 'ASC')
+      ->execute();
+    $route_rows = [];
+    $route_counts = ['Gereed' => 0, 'Actief' => 0, 'Geblokkeerd' => 0, 'N.V.T.' => 0];
+    foreach ($storage->loadMultiple($route_ids) as $route_item) {
+      if (!$route_item instanceof NodeInterface) {
+        continue;
+      }
+      $status = $this->fieldValue($route_item, 'field_brebo_route_status');
+      $applicable = (bool) $route_item->get('field_brebo_route_applicable')->value;
+      if (!$applicable || in_array($status, ['N.V.T.', 'Vervallen'], TRUE)) {
+        $route_counts['N.V.T.']++;
+      }
+      elseif ($status === 'Gereed') {
+        $route_counts['Gereed']++;
+      }
+      elseif ($status === 'Geblokkeerd') {
+        $route_counts['Geblokkeerd']++;
+      }
+      else {
+        $route_counts['Actief']++;
+      }
+      $owner = $route_item->get('field_brebo_route_owner')->entity;
+      $route_rows[] = [
+        $this->fieldValue($route_item, 'field_brebo_route_sequence'),
+        $this->fieldValue($route_item, 'field_brebo_route_code'),
+        $this->fieldValue($route_item, 'field_brebo_route_kind'),
+        $this->fieldValue($route_item, 'field_brebo_route_description'),
+        $applicable ? $this->t('Ja') : $this->t('Nee'),
+        $status,
+        $owner ? $owner->label() : '—',
+        $this->fieldValue($route_item, 'field_brebo_route_due'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bijwerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $route_item->id()])
+        )->toRenderable()],
+      ];
+    }
+
     return [
       'actions' => [
         '#type' => 'container',
@@ -782,6 +826,31 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_disciplines'),
         ]],
       ],
+      'route_heading' => [
+        '#markup' => '<h2>' . $this->t('Automatische projectroute') . '</h2>',
+      ],
+      'route_summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Routeonderdelen'), $this->t('Gereed'), $this->t('Actief'),
+          $this->t('Geblokkeerd'), $this->t('N.V.T. of vervallen'),
+        ],
+        '#rows' => [[
+          count($route_rows), $route_counts['Gereed'], $route_counts['Actief'],
+          $route_counts['Geblokkeerd'], $route_counts['N.V.T.'],
+        ]],
+      ],
+      'route' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Volgorde'), $this->t('Code'), $this->t('Soort'),
+          $this->t('Vereist resultaat'), $this->t('Van toepassing'),
+          $this->t('Status'), $this->t('Verantwoordelijke'),
+          $this->t('Streefdatum'), $this->t('Actie'),
+        ],
+        '#rows' => $route_rows,
+        '#empty' => $this->t('Nog geen projectroute geactiveerd. Sla het project opnieuw op of voer de database-update uit.'),
+      ],
       'summary' => [
         '#type' => 'table',
         '#header' => [
@@ -832,6 +901,7 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_product_position',
           'node_list:brebo_verification',
           'node_list:brebo_deviation',
+          'node_list:brebo_route_item',
         ],
       ],
     ];
