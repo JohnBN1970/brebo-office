@@ -1466,18 +1466,18 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_budget_version'),
           $this->fieldValue($node, 'field_brebo_budget_status'),
           $this->fieldValue($node, 'field_brebo_baseline_date'),
-          $calculation instanceof NodeInterface
+          ['data' => $calculation instanceof NodeInterface
             ? Link::fromTextAndUrl(
               $calculation->label(),
               Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $calculation->id()])
             )->toRenderable()
-            : '—',
-          $package instanceof NodeInterface
+            : '—'],
+          ['data' => $package instanceof NodeInterface
             ? Link::fromTextAndUrl(
               $package->label(),
               Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $package->id()])
             )->toRenderable()
-            : '—',
+            : '—'],
         ]],
       ],
       'summary' => [
