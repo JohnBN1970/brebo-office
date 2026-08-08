@@ -33,6 +33,18 @@ brebo_office_core.dwellings:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.dwelling_dossier:
+  path: '/office/woningen/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossier'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossierTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.positions:
   path: '/office/productposities'
   defaults:
