@@ -51,6 +51,8 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     ];
   }
 
+  $form['#validate'][] = 'brebo_office_core_node_form_validate';
+
   foreach (['promote', 'sticky'] as $technical_field) {
     if (isset($form[$technical_field])) {
       $form[$technical_field]['#access'] = FALSE;
@@ -81,5 +83,80 @@ function brebo_office_core_preprocess_page(array &$variables): void {
       ->condition('type', $bundle)
       ->count()
       ->execute();
+  }
+}
+
+
+/**
+ * Validates BREBO hierarchy codes and N.V.T. registration.
+ */
+function brebo_office_core_node_form_validate(array &$form, FormStateInterface $form_state): void {
+  $node = $form_state->getFormObject()->getEntity();
+  if (!$node instanceof NodeInterface) {
+    return;
+  }
+
+  $definitions = [
+    'brebo_project' => [
+      'code' => 'field_brebo_project_code',
+      'parent' => NULL,
+    ],
+    'brebo_cluster' => [
+      'code' => 'field_brebo_cluster_code',
+      'parent' => 'field_brebo_project_ref',
+    ],
+    'brebo_dwelling' => [
+      'code' => 'field_brebo_dwelling_code',
+      'parent' => 'field_brebo_cluster_ref',
+    ],
+    'brebo_product_position' => [
+      'code' => 'field_brebo_position_code',
+      'parent' => 'field_brebo_dwelling_ref',
+    ],
+  ];
+  $definition = $definitions[$node->bundle()] ?? NULL;
+  if (!$definition) {
+    return;
+  }
+
+  $code = trim((string) $form_state->getValue([$definition['code'], 0, 'value']));
+  if ($code !== '') {
+    $query = \Drupal::entityQuery('node')
+      ->accessCheck(FALSE)
+      ->condition('type', $node->bundle())
+      ->condition($definition['code'], $code);
+    if ($definition['parent']) {
+      $parent_id = $form_state->getValue([$definition['parent'], 0, 'target_id']);
+      if ($parent_id) {
+        $query->condition($definition['parent'] . '.target_id', $parent_id);
+      }
+    }
+    if (!$node->isNew()) {
+      $query->condition('nid', $node->id(), '<>');
+    }
+    if ($query->count()->execute() > 0) {
+      $form_state->setErrorByName(
+        $definition['code'],
+        t('Deze code bestaat al binnen hetzelfde bovenliggende object.'),
+      );
+    }
+  }
+
+  if ($node->bundle() === 'brebo_product_position') {
+    $not_applicable = (bool) $form_state->getValue([
+      'field_brebo_not_applicable',
+      'value',
+    ]);
+    $reason = trim((string) $form_state->getValue([
+      'field_brebo_na_reason',
+      0,
+      'value',
+    ]));
+    if ($not_applicable && $reason === '') {
+      $form_state->setErrorByName(
+        'field_brebo_na_reason',
+        t('Vul een reden in wanneer de productpositie niet van toepassing is.'),
+      );
+    }
   }
 }
