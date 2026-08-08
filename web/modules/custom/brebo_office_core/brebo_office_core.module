@@ -69,6 +69,19 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   }
 
   if ($node->bundle() === 'brebo_calc_adjustment') {
+    if ($node->isNew()) {
+      $target_id = (int) \Drupal::request()->query->get('target', 0);
+      $target = $target_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($target_id)
+        : NULL;
+      if ($target instanceof NodeInterface
+        && in_array($target->bundle(), ['brebo_calculation', 'brebo_calc_element', 'brebo_calc_line', 'brebo_work_package'], TRUE)
+        && $target->access('view')
+        && isset($form['field_brebo_adjust_target']['widget'][0]['target_id'])) {
+        $form['field_brebo_adjust_target']['widget'][0]['target_id']['#default_value'] = $target;
+      }
+    }
+
     foreach ([
       'field_brebo_adjust_method' => ['Percentage', 'Vast bedrag'],
       'field_brebo_adjust_direction' => ['Opslag', 'Korting'],
