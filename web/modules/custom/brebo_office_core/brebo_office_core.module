@@ -36,6 +36,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_supplier_quote' => 'Leveranciersofferte',
     'brebo_quote_line' => 'Offerteprijsregel',
     'brebo_budget_change' => 'Budgetwijzigingsbesluit',
+    'brebo_route_item' => 'Projectrouteonderdeel',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
@@ -139,6 +140,22 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     ] as $field_name) {
       if (isset($form[$field_name])) {
         $form[$field_name]['#description'] = 'Leeg laten betekent: projectinstelling overnemen.';
+      }
+    }
+  }
+
+  if ($node->bundle() === 'brebo_route_item') {
+    if (isset($form['field_brebo_route_status']['widget'][0]['value'])) {
+      $current = $form['field_brebo_route_status']['widget'][0]['value']['#default_value'] ?? 'Niet gestart';
+      $statuses = ['Niet gestart', 'In uitvoering', 'Ter beoordeling', 'Gereed', 'Geblokkeerd', 'N.V.T.', 'Vervallen'];
+      $form['field_brebo_route_status']['widget'][0]['value'] = [
+        '#type' => 'select', '#title' => 'Routestatus', '#default_value' => $current,
+        '#options' => array_combine($statuses, $statuses), '#required' => TRUE,
+      ];
+    }
+    foreach (['field_brebo_route_code', 'field_brebo_route_kind', 'field_brebo_route_sequence', 'field_brebo_route_required', 'field_brebo_route_source_kind'] as $canonical_field) {
+      if (isset($form[$canonical_field])) {
+        $form[$canonical_field]['#disabled'] = TRUE;
       }
     }
   }
@@ -549,6 +566,20 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     $reason = trim((string) $form_state->getValue(['field_brebo_choice_reason', 0, 'value']));
     if ($selected && $reason === '') {
       $form_state->setErrorByName('field_brebo_choice_reason', t('Een geselecteerde aanbieding vereist een gemotiveerd selectiebesluit.'));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_route_item') {
+    $status = (string) $form_state->getValue(['field_brebo_route_status', 0, 'value']);
+    $applicable = (bool) $form_state->getValue(['field_brebo_route_applicable', 'value']);
+    $nvt_reason = trim((string) $form_state->getValue(['field_brebo_route_nvt_reason', 0, 'value']));
+    $evidence = trim((string) $form_state->getValue(['field_brebo_route_evidence', 0, 'value']));
+    if ((!$applicable || $status === 'N.V.T.') && $nvt_reason === '') {
+      $form_state->setErrorByName('field_brebo_route_nvt_reason', t('Leg vast waarom dit routeonderdeel niet van toepassing is.'));
+    }
+    if ($status === 'Gereed' && $evidence === '') {
+      $form_state->setErrorByName('field_brebo_route_evidence', t('Een gereed routeonderdeel vereist onderbouwing of bewijs.'));
     }
     return;
   }
@@ -986,5 +1017,193 @@ function _brebo_office_core_sync_material_source(NodeInterface $node): void {
     $work_line->setNewRevision(TRUE);
     $work_line->setRevisionLogMessage('Materiaalgegevens gesynchroniseerd uit calculatieregel ' . $node->id() . '.');
     $work_line->save();
+  }
+}
+
+
+/**
+ * Returns the canonical process route for a project type.
+ */
+function brebo_office_core_project_route_matrix(string $project_kind): array {
+  $common = [
+    ['GOV-01', 'Besluit', 'Opdracht, scope en beoogd resultaat zijn bevestigd.'],
+    ['GOV-02', 'Besluit', 'BREBO-rol, verrekenwijze, inkooppositie, mandaat en plafond zijn vastgesteld.'],
+    ['DOC-01', 'Product', 'Ontvangen opdrachtstukken zijn geregistreerd en op bruikbaarheid beoordeeld.'],
+    ['RSK-01', 'Controle', 'Projectrisico’s, afhankelijkheden en ontbrekende informatie zijn vastgelegd.'],
+  ];
+  $routes = [
+    'Adviesproject' => [
+      ['ADV-10', 'Processtap', 'Adviesvraag en beoordelingskader zijn afgebakend.'],
+      ['ADV-20', 'Product', 'Onderzoeks- en broninformatie is verzameld en beoordeeld.'],
+      ['ADV-30', 'Product', 'Conceptadvies met oorzaak, gevolg, risico en handelingsopties is opgesteld.'],
+      ['ADV-40', 'Besluit', 'Reactie opdrachtgever en afwijkende inzichten zijn verwerkt.'],
+      ['ADV-50', 'Product', 'Definitief advies is vastgesteld en overgedragen.'],
+    ],
+    'Inspectie/Onderzoek' => [
+      ['INS-10', 'Product', 'Opname- of onderzoeksplan met scope en methode is vastgesteld.'],
+      ['INS-20', 'Processtap', 'Opname of onderzoek is aantoonbaar uitgevoerd.'],
+      ['INS-30', 'Product', 'Bevindingen, foto’s, metingen en bronverwijzingen zijn geregistreerd.'],
+      ['INS-40', 'Controle', 'Bevindingen zijn technisch en redactioneel geverifieerd.'],
+      ['INS-50', 'Product', 'Definitieve inspectie- of onderzoeksrapportage is vrijgegeven.'],
+    ],
+    'MJOP' => [
+      ['MJO-10', 'Product', 'Objectafbakening en beschikbare gebouwinformatie zijn vastgesteld.'],
+      ['MJO-20', 'Processtap', 'Conditieopname en hoeveelheden zijn geregistreerd.'],
+      ['MJO-30', 'Product', 'Maatregelen, cycli en gevolgen van uitstel zijn uitgewerkt.'],
+      ['MJO-40', 'Product', 'Kostprijs, verwachte aannemersprijs en reserveringsprijs zijn onderscheiden.'],
+      ['MJO-50', 'Product', 'Scenario’s, onzekerheden en managementsamenvatting zijn opgesteld.'],
+      ['MJO-60', 'Controle', 'MJOP is inhoudelijk gecontroleerd en definitief vrijgegeven.'],
+    ],
+    'Projectmanagement' => [
+      ['REG-10', 'Product', 'Projectplan, overlegstructuur en verantwoordelijkheden zijn vastgesteld.'],
+      ['REG-20', 'Product', 'Planning, budget en besluitmomenten zijn ingericht.'],
+      ['REG-30', 'Processtap', 'Inkoop, uitvoering en wijzigingen worden binnen mandaat geregisseerd.'],
+      ['REG-40', 'Controle', 'Kwaliteit, veiligheid, financiën en voortgang worden periodiek bewaakt.'],
+      ['REG-50', 'Product', 'Voortgangs- en besluitrapportages zijn actueel.'],
+      ['REG-60', 'Product', 'Oplevering, overdracht en projectevaluatie zijn afgerond.'],
+    ],
+    'Planmatig onderhoud' => [
+      ['PMO-10', 'Product', 'Opname, hoeveelheden en onderhoudsscope zijn vastgesteld.'],
+      ['PMO-20', 'Product', 'Calculatie en contractbegroting zijn vastgesteld.'],
+      ['PMO-30', 'Processtap', 'Werkvoorbereiding, inkoop en uitvoeringsplanning zijn vrijgegeven.'],
+      ['PMO-40', 'Processtap', 'Uitvoering wordt per object en productpositie geregistreerd.'],
+      ['PMO-50', 'Controle', 'Kwaliteit, veiligheid en afwijkingen worden aantoonbaar beheerst.'],
+      ['PMO-60', 'Product', 'Oplevering, fotorapportage en revisiedossier zijn vrijgegeven.'],
+    ],
+    'Renovatie' => [
+      ['REN-10', 'Product', 'Bestaande toestand, ontwerpuitgangspunten en vergunningsbehoefte zijn vastgesteld.'],
+      ['REN-20', 'Product', 'Ontwerp, technische uitwerking en hoeveelheden zijn vrijgegeven.'],
+      ['REN-30', 'Product', 'Calculatie, contractbegroting en inkoopstrategie zijn vastgesteld.'],
+      ['REN-40', 'Processtap', 'Werkvoorbereiding en uitvoeringsfasering zijn vrijgegeven.'],
+      ['REN-50', 'Controle', 'Uitvoering, kwaliteit, veiligheid en wijzigingen worden beheerst.'],
+      ['REN-60', 'Product', 'Oplever-, revisie- en onderhoudsdossier zijn overgedragen.'],
+    ],
+    'Verduurzaming' => [
+      ['VDZ-10', 'Product', 'Energetische uitgangssituatie en doelprestatie zijn vastgesteld.'],
+      ['VDZ-20', 'Product', 'Maatregelen, samenhang, risico’s en vergunningseisen zijn uitgewerkt.'],
+      ['VDZ-30', 'Product', 'Businesscase, subsidies en prestatieonderbouwing zijn vastgesteld.'],
+      ['VDZ-40', 'Processtap', 'Werkvoorbereiding, inkoop en bewonersaanpak zijn vrijgegeven.'],
+      ['VDZ-50', 'Controle', 'Uitvoering en prestatiekritische details worden gecontroleerd.'],
+      ['VDZ-60', 'Product', 'Prestatiebewijs, oplevering en gebruiksinstructies zijn overgedragen.'],
+    ],
+    'Hybride project' => [
+      ['HYB-10', 'Besluit', 'Per werkpakket is vastgesteld of BREBO adviseert, regisseert of uitvoert.'],
+      ['HYB-20', 'Product', 'Integrale scope-, verantwoordelijkheids- en raakvlakkenmatrix is vastgesteld.'],
+      ['HYB-30', 'Processtap', 'Advies-, regie- en uitvoeringsproducten worden per werkpakket beheerst.'],
+      ['HYB-40', 'Controle', 'Onafhankelijke controle en vrijgave zijn organisatorisch geborgd.'],
+      ['HYB-50', 'Product', 'Integrale eindrapportage en overdracht zijn afgerond.'],
+    ],
+    'Uitvoeringsproject' => [
+      ['UIT-10', 'Product', 'Opname, scope, hoeveelheden en contractstukken zijn vastgesteld.'],
+      ['UIT-20', 'Product', 'Calculatie en werkbegroting zijn vastgesteld.'],
+      ['UIT-30', 'Processtap', 'Werkvoorbereiding, inkoop, planning en veiligheidsmaatregelen zijn vrijgegeven.'],
+      ['UIT-40', 'Processtap', 'Uitvoering en voortgang worden per object geregistreerd.'],
+      ['UIT-50', 'Controle', 'Kwaliteit, veiligheid, afwijkingen en herstel worden beheerst.'],
+      ['UIT-60', 'Product', 'Oplevering, fotorapportage en revisiedossier zijn vrijgegeven.'],
+    ],
+  ];
+  $specific = $routes[$project_kind] ?? $routes['Uitvoeringsproject'];
+  $sequence = 10;
+  $route = [];
+  foreach (array_merge($common, $specific) as [$code, $kind, $description]) {
+    $route[] = ['code' => $code, 'kind' => $kind, 'description' => $description, 'sequence' => $sequence];
+    $sequence += 10;
+  }
+  return $route;
+}
+
+/**
+ * Adds missing route items and retires items from a previous project type.
+ */
+function brebo_office_core_sync_project_route(NodeInterface $project): void {
+  if ($project->bundle() !== 'brebo_project' || !$project->hasField('field_brebo_project_kind')) {
+    return;
+  }
+  $project_kind = trim((string) $project->get('field_brebo_project_kind')->value);
+  if ($project_kind === '' || !$project->id()) {
+    return;
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $existing_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_route_item')
+    ->condition('field_brebo_project_ref.target_id', $project->id())
+    ->execute();
+  $existing = $storage->loadMultiple($existing_ids);
+  $expected = [];
+  foreach (brebo_office_core_project_route_matrix($project_kind) as $definition) {
+    $expected[$definition['code']] = $definition;
+  }
+
+  $seen = [];
+  foreach ($existing as $item) {
+    if (!$item instanceof NodeInterface) {
+      continue;
+    }
+    $code = (string) $item->get('field_brebo_route_code')->value;
+    if (isset($expected[$code])) {
+      $seen[$code] = TRUE;
+      $changed = FALSE;
+      foreach ([
+        'field_brebo_route_kind' => $expected[$code]['kind'],
+        'field_brebo_route_description' => $expected[$code]['description'],
+        'field_brebo_route_sequence' => $expected[$code]['sequence'],
+        'field_brebo_route_source_kind' => $project_kind,
+      ] as $field => $value) {
+        if ((string) $item->get($field)->value !== (string) $value) {
+          $item->set($field, $value);
+          $changed = TRUE;
+        }
+      }
+      if ($changed) {
+        $item->save();
+      }
+    }
+    elseif ((bool) $item->get('field_brebo_route_applicable')->value) {
+      $item->set('field_brebo_route_applicable', 0);
+      $item->set('field_brebo_route_status', 'Vervallen');
+      $item->set('field_brebo_route_nvt_reason', 'Automatisch vervallen door wijziging van projectsoort naar ' . $project_kind . '.');
+      $item->save();
+    }
+  }
+
+  foreach ($expected as $code => $definition) {
+    if (isset($seen[$code])) {
+      continue;
+    }
+    $storage->create([
+      'type' => 'brebo_route_item',
+      'title' => $code . ' — ' . $definition['description'],
+      'status' => 1,
+      'uid' => $project->getOwnerId(),
+      'field_brebo_project_ref' => ['target_id' => $project->id()],
+      'field_brebo_route_code' => $code,
+      'field_brebo_route_kind' => $definition['kind'],
+      'field_brebo_route_description' => $definition['description'],
+      'field_brebo_route_sequence' => $definition['sequence'],
+      'field_brebo_route_required' => 1,
+      'field_brebo_route_applicable' => 1,
+      'field_brebo_route_status' => 'Niet gestart',
+      'field_brebo_route_source_kind' => $project_kind,
+    ])->save();
+  }
+}
+
+/**
+ * Implements hook_entity_insert().
+ */
+function brebo_office_core_entity_insert(\Drupal\Core\Entity\EntityInterface $entity): void {
+  if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_project') {
+    brebo_office_core_sync_project_route($entity);
+  }
+}
+
+/**
+ * Implements hook_entity_update().
+ */
+function brebo_office_core_entity_update(\Drupal\Core\Entity\EntityInterface $entity): void {
+  if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_project') {
+    brebo_office_core_sync_project_route($entity);
   }
 }
