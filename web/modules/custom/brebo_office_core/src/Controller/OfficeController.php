@@ -473,6 +473,221 @@ final class OfficeController extends ControllerBase {
     ];
   }
 
+
+
+  /**
+   * Builds a live, printable quality report from current project data.
+   */
+  public function qualityReport(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $verification_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_verification')
+      ->sort('created', 'ASC')
+      ->execute();
+    $deviation_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_deviation')
+      ->sort('created', 'ASC')
+      ->execute();
+
+    $controls = $storage->loadMultiple($verification_ids);
+    $deviations = $storage->loadMultiple($deviation_ids);
+    $approved = 0;
+    $rejected = 0;
+    $not_applicable = 0;
+    $blocked = 0;
+    $control_rows = [];
+    $evidence = [];
+
+    foreach ($controls as $control) {
+      if (!$control instanceof NodeInterface) {
+        continue;
+      }
+      $result = $this->fieldValue($control, 'field_brebo_control_result');
+      $approved += $result === 'Akkoord' ? 1 : 0;
+      $rejected += $result === 'Afwijking' ? 1 : 0;
+      $not_applicable += $result === 'N.V.T.' ? 1 : 0;
+      $is_blocked = (bool) $control->get('field_brebo_blocks_release')->value;
+      $blocked += $is_blocked ? 1 : 0;
+
+      $position = $control->get('field_brebo_position_ref')->entity;
+      $dwelling = $position instanceof NodeInterface
+        ? $position->get('field_brebo_dwelling_ref')->entity
+        : NULL;
+      $cluster = $dwelling instanceof NodeInterface
+        ? $dwelling->get('field_brebo_cluster_ref')->entity
+        : NULL;
+      $project = $cluster instanceof NodeInterface
+        ? $cluster->get('field_brebo_project_ref')->entity
+        : NULL;
+
+      $control_rows[] = [
+        $project instanceof NodeInterface ? $project->label() : '—',
+        $dwelling instanceof NodeInterface
+          ? $this->fieldValue($dwelling, 'field_brebo_dwelling_code')
+          : '—',
+        $position instanceof NodeInterface
+          ? $this->fieldValue($position, 'field_brebo_position_code')
+          : '—',
+        $this->fieldValue($control, 'field_brebo_control_type'),
+        $this->fieldValue($control, 'field_brebo_control_source'),
+        $result,
+        $control->getOwner()?->getDisplayName() ?? '—',
+        \Drupal::service('date.formatter')->format($control->getCreatedTime(), 'short'),
+        $is_blocked ? (string) $this->t('Geblokkeerd') : (string) $this->t('Vrij'),
+      ];
+
+      if ($control->hasField('field_brebo_evidence')
+        && !$control->get('field_brebo_evidence')->isEmpty()) {
+        $evidence['control_' . $control->id()] = [
+          '#type' => 'details',
+          '#title' => $this->t('@control — bewijs', ['@control' => $control->label()]),
+          '#open' => TRUE,
+          'images' => $control->get('field_brebo_evidence')->view([
+            'type' => 'image',
+            'label' => 'hidden',
+            'settings' => ['image_style' => 'medium'],
+          ]),
+        ];
+      }
+    }
+
+    $open_deviations = 0;
+    $deviation_rows = [];
+    foreach ($deviations as $deviation) {
+      if (!$deviation instanceof NodeInterface) {
+        continue;
+      }
+      $status = $this->fieldValue($deviation, 'field_brebo_deviation_status');
+      $open_deviations += $status !== 'Gesloten' ? 1 : 0;
+      $control = $deviation->get('field_brebo_control_ref')->entity;
+      $position = $control instanceof NodeInterface
+        ? $control->get('field_brebo_position_ref')->entity
+        : NULL;
+      $responsible = $deviation->get('field_brebo_responsible')->entity;
+      $recheck = $deviation->get('field_brebo_recheck_ref')->entity;
+
+      $deviation_rows[] = [
+        $deviation->label(),
+        $position instanceof NodeInterface
+          ? $this->fieldValue($position, 'field_brebo_position_code')
+          : '—',
+        $status,
+        $responsible ? $responsible->label() : '—',
+        $this->fieldValue($deviation, 'field_brebo_due_date'),
+        $this->fieldValue($deviation, 'field_brebo_corrective_action'),
+        $recheck instanceof NodeInterface
+          ? $this->fieldValue($recheck, 'field_brebo_control_result')
+          : '—',
+      ];
+
+      if ($deviation->hasField('field_brebo_recovery_evidence')
+        && !$deviation->get('field_brebo_recovery_evidence')->isEmpty()) {
+        $evidence['deviation_' . $deviation->id()] = [
+          '#type' => 'details',
+          '#title' => $this->t('@deviation — herstelbewijs', [
+            '@deviation' => $deviation->label(),
+          ]),
+          '#open' => TRUE,
+          'images' => $deviation->get('field_brebo_recovery_evidence')->view([
+            'type' => 'image',
+            'label' => 'hidden',
+            'settings' => ['image_style' => 'medium'],
+          ]),
+        ];
+      }
+    }
+
+    $build = [
+      'metadata' => [
+        '#type' => 'table',
+        '#rows' => [
+          [$this->t('Rapport'), $this->t('BREBO kwaliteitsrapportage')],
+          [$this->t('Status'), $this->t('Live – actuele databasegegevens')],
+          [$this->t('Gegenereerd'), \Drupal::service('date.formatter')->format(time(), 'long')],
+          [$this->t('Gegenereerd door'), $this->currentUser()->getDisplayName()],
+        ],
+      ],
+      'summary_heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Managementsamenvatting'),
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Controles'),
+          $this->t('Akkoord'),
+          $this->t('Afwijkend'),
+          $this->t('N.V.T.'),
+          $this->t('Open afwijkingen'),
+          $this->t('Geblokkeerde vrijgaven'),
+        ],
+        '#rows' => [[
+          count($controls),
+          $approved,
+          $rejected,
+          $not_applicable,
+          $open_deviations,
+          $blocked,
+        ]],
+      ],
+      'controls_heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Controleoverzicht'),
+      ],
+      'controls' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Project'),
+          $this->t('Woning'),
+          $this->t('Positie'),
+          $this->t('Type'),
+          $this->t('Bron en versie'),
+          $this->t('Resultaat'),
+          $this->t('Controleur'),
+          $this->t('Datum'),
+          $this->t('Vrijgave'),
+        ],
+        '#rows' => $control_rows,
+        '#empty' => $this->t('Er zijn nog geen controles geregistreerd.'),
+      ],
+      'deviations_heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Afwijkingen en herstel'),
+      ],
+      'deviations' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Afwijking'),
+          $this->t('Positie'),
+          $this->t('Status'),
+          $this->t('Verantwoordelijke'),
+          $this->t('Deadline'),
+          $this->t('Herstelactie'),
+          $this->t('Hercontrole'),
+        ],
+        '#rows' => $deviation_rows,
+        '#empty' => $this->t('Er zijn geen afwijkingen geregistreerd.'),
+      ],
+    ];
+
+    if ($evidence) {
+      $build['evidence_heading'] = [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Foto- en herstelbewijs'),
+      ];
+      $build['evidence'] = $evidence;
+    }
+
+    $build['#cache'] = ['max-age' => 0];
+    return $build;
+  }
+
   /**
    * Returns a scalar field value or a visible empty-state marker.
    */

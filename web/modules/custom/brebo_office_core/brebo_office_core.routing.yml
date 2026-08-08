@@ -79,3 +79,11 @@ brebo_office_core.quality_dashboard:
     _title: 'Kwaliteitsdashboard'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.quality_report:
+  path: '/office/rapportages/kwaliteit'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::qualityReport'
+    _title: 'BREBO kwaliteitsrapportage'
+  requirements:
+    _permission: 'access content'
