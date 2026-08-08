@@ -344,6 +344,135 @@ final class OfficeController extends ControllerBase {
     return $build;
   }
 
+
+
+  /**
+   * Builds the central BREBO quality dashboard.
+   */
+  public function qualityDashboard(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+
+    $count = static function (string $bundle, array $conditions = []) use ($storage): int {
+      $query = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', $bundle);
+      foreach ($conditions as [$field, $value, $operator]) {
+        $query->condition($field, $value, $operator);
+      }
+      return (int) $query->count()->execute();
+    };
+
+    $control_total = $count('brebo_verification');
+    $approved = $count('brebo_verification', [
+      ['field_brebo_control_result', 'Akkoord', '='],
+    ]);
+    $control_deviations = $count('brebo_verification', [
+      ['field_brebo_control_result', 'Afwijking', '='],
+    ]);
+    $blocked = $count('brebo_verification', [
+      ['field_brebo_blocks_release', 1, '='],
+    ]);
+    $open_total = $count('brebo_deviation', [
+      ['field_brebo_deviation_status', 'Gesloten', '<>'],
+    ]);
+
+    $open_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_deviation')
+      ->condition('field_brebo_deviation_status', 'Gesloten', '<>')
+      ->sort('field_brebo_due_date', 'ASC')
+      ->execute();
+
+    $today = date('Y-m-d');
+    $overdue = 0;
+    $rows = [];
+    foreach ($storage->loadMultiple($open_ids) as $deviation) {
+      if (!$deviation instanceof NodeInterface) {
+        continue;
+      }
+      $control = $deviation->get('field_brebo_control_ref')->entity;
+      $position = $control instanceof NodeInterface
+        ? $control->get('field_brebo_position_ref')->entity
+        : NULL;
+      $deadline = $this->fieldValue($deviation, 'field_brebo_due_date');
+      $is_overdue = $deadline !== '—' && $deadline < $today;
+      $overdue += $is_overdue ? 1 : 0;
+      $responsible = $deviation->get('field_brebo_responsible')->entity;
+
+      $rows[] = [
+        ['data' => Link::fromTextAndUrl($deviation->label(), $deviation->toUrl())->toRenderable()],
+        $position instanceof NodeInterface
+          ? $this->fieldValue($position, 'field_brebo_position_code')
+          : '—',
+        $this->fieldValue($deviation, 'field_brebo_deviation_status'),
+        $responsible ? $responsible->label() : '—',
+        $deadline,
+        $is_overdue ? (string) $this->t('Te laat') : (string) $this->t('Binnen termijn'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bewerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $deviation->id()])
+        )->toRenderable()],
+        ['data' => $position instanceof NodeInterface
+          ? Link::fromTextAndUrl(
+            $this->t('Hercontrole toevoegen'),
+            Url::fromRoute('node.add', ['node_type' => 'brebo_verification'], [
+              'query' => ['position' => $position->id()],
+            ])
+          )->toRenderable()
+          : '—'],
+      ];
+    }
+
+    return [
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Controles'),
+          $this->t('Akkoord'),
+          $this->t('Afwijkend'),
+          $this->t('Open afwijkingen'),
+          $this->t('Vrijgave geblokkeerd'),
+          $this->t('Te laat'),
+        ],
+        '#rows' => [[
+          $control_total,
+          $approved,
+          $control_deviations,
+          $open_total,
+          $blocked,
+          $overdue,
+        ]],
+      ],
+      'heading' => [
+        '#type' => 'html_tag',
+        '#tag' => 'h2',
+        '#value' => $this->t('Open afwijkingen'),
+      ],
+      'deviations' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Afwijking'),
+          $this->t('Productpositie'),
+          $this->t('Status'),
+          $this->t('Verantwoordelijke'),
+          $this->t('Deadline'),
+          $this->t('Termijn'),
+          $this->t('Actie'),
+          $this->t('Hercontrole'),
+        ],
+        '#rows' => $rows,
+        '#empty' => $this->t('Er zijn geen open afwijkingen.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node_list:brebo_verification',
+          'node_list:brebo_deviation',
+        ],
+      ],
+    ];
+  }
+
   /**
    * Returns a scalar field value or a visible empty-state marker.
    */
