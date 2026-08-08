@@ -65,7 +65,7 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
       return;
     }
 
-    $storage = $this->entityTypeManager()->getStorage('node');
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
     $version = (string) $calculation->get('field_brebo_calc_version')->value;
     $existing = $storage->getQuery()
       ->accessCheck(FALSE)
