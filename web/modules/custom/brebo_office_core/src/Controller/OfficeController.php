@@ -89,7 +89,7 @@ final class OfficeController extends ControllerBase {
           '#title' => $this->t('Nieuw @type', ['@type' => mb_strtolower((string) $this->entityTypeManager()->getStorage('node_type')->load($bundle)?->label())]),
           '#url' => Url::fromRoute('node.add', ['node_type' => $bundle]),
           '#attributes' => ['class' => ['button']],
-          '#access' => $bundle !== 'brebo_work_budget',
+          '#access' => !in_array($bundle, ['brebo_work_budget', 'brebo_route_item'], TRUE),
         ],
       ],
       'table' => [
