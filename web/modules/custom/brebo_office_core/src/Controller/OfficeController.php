@@ -752,6 +752,12 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'regie_actions' => [
+          '#type' => 'link',
+          '#title' => $this->t('Centrale regie-acties'),
+          '#url' => Url::fromRoute('brebo_office_core.regie_actions'),
+          '#attributes' => ['class' => ['button']],
+        ],
         'budget_change' => [
           '#type' => 'link',
           '#title' => $this->t('Budgetwijzigingsbesluit toevoegen'),
@@ -903,6 +909,113 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_deviation',
           'node_list:brebo_route_item',
         ],
+      ],
+    ];
+  }
+
+  /**
+   * Builds the cross-project route action list for daily steering.
+   */
+  public function regieActions(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_route_item')
+      ->condition('field_brebo_route_applicable', 1)
+      ->condition('field_brebo_route_status', ['Gereed', 'N.V.T.', 'Vervallen'], 'NOT IN')
+      ->sort('field_brebo_route_due', 'ASC')
+      ->sort('field_brebo_route_sequence', 'ASC')
+      ->execute();
+
+    $today = date('Y-m-d');
+    $rows = [];
+    $overdue = 0;
+    $blocked = 0;
+    $unassigned = 0;
+    $mine = 0;
+    foreach ($storage->loadMultiple($ids) as $item) {
+      if (!$item instanceof NodeInterface) {
+        continue;
+      }
+      $project = $item->get('field_brebo_project_ref')->entity;
+      $owner = $item->get('field_brebo_route_owner')->entity;
+      $due = $this->fieldValue($item, 'field_brebo_route_due');
+      $status = $this->fieldValue($item, 'field_brebo_route_status');
+      $is_overdue = $due !== '—' && $due < $today;
+      $is_blocked = $status === 'Geblokkeerd';
+      $is_unassigned = !$owner;
+      $is_mine = $owner && (int) $owner->id() === (int) $this->currentUser()->id();
+      $overdue += $is_overdue ? 1 : 0;
+      $blocked += $is_blocked ? 1 : 0;
+      $unassigned += $is_unassigned ? 1 : 0;
+      $mine += $is_mine ? 1 : 0;
+
+      $attention = [];
+      if ($is_blocked) {
+        $attention[] = (string) $this->t('Geblokkeerd');
+      }
+      if ($is_overdue) {
+        $attention[] = (string) $this->t('Te laat');
+      }
+      if ($is_unassigned) {
+        $attention[] = (string) $this->t('Niet toegewezen');
+      }
+      if (!$attention) {
+        $attention[] = (string) $this->t('Binnen termijn');
+      }
+
+      $rows[] = [
+        ['data' => $project instanceof NodeInterface
+          ? Link::fromTextAndUrl(
+            $project->label(),
+            Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()])
+          )->toRenderable()
+          : '—'],
+        $this->fieldValue($item, 'field_brebo_route_code'),
+        $this->fieldValue($item, 'field_brebo_route_kind'),
+        $this->fieldValue($item, 'field_brebo_route_description'),
+        $owner ? $owner->label() : '—',
+        $due,
+        $status,
+        implode(', ', $attention),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bijwerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $item->id()])
+        )->toRenderable()],
+      ];
+    }
+
+    return [
+      'intro' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--status']],
+        'text' => [
+          '#markup' => $this->t('Centrale actielijst over alle actieve projectroutes. Afgeronde, N.V.T.-verklaarde en vervallen onderdelen worden niet getoond.'),
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Open'), $this->t('Mijn acties'), $this->t('Te laat'),
+          $this->t('Geblokkeerd'), $this->t('Niet toegewezen'),
+        ],
+        '#rows' => [[count($rows), $mine, $overdue, $blocked, $unassigned]],
+      ],
+      'heading' => ['#markup' => '<h2>' . $this->t('Open regie-acties') . '</h2>'],
+      'actions' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Project'), $this->t('Code'), $this->t('Soort'),
+          $this->t('Vereist resultaat'), $this->t('Verantwoordelijke'),
+          $this->t('Streefdatum'), $this->t('Status'),
+          $this->t('Aandacht'), $this->t('Actie'),
+        ],
+        '#rows' => $rows,
+        '#empty' => $this->t('Er zijn geen open route-acties.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions', 'user'],
+        'tags' => ['node_list:brebo_route_item', 'node_list:brebo_project'],
       ],
     ];
   }
