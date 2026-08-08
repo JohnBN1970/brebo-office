@@ -55,7 +55,7 @@ final class OfficeController extends ControllerBase {
       $rows[] = [
         Link::fromTextAndUrl($node->label(), $node->toUrl())->toRenderable(),
         $status,
-        $this->dateFormatter()->format($node->getChangedTime(), 'short'),
+        \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short'),
         Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable(),
       ];
     }
