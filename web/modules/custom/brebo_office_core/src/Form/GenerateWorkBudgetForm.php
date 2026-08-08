@@ -23,17 +23,17 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
   }
 
   public function getQuestion(): string {
-    return $this->t('Werkbegroting maken van @calculation?', [
+    return (string) $this->t('Werkbegroting maken van @calculation?', [
       '@calculation' => $this->calculation?->label() ?? $this->t('deze calculatie'),
     ]);
   }
 
   public function getDescription(): string {
-    return $this->t('BREBO Office bevriest de uitvoeringsbasis en maakt per calculatieregel een werkbegrotingsregel. Verkoopprijzen, opslagen en marge worden niet naar de uitvoerdersregels gekopieerd.');
+    return (string) $this->t('BREBO Office bevriest de uitvoeringsbasis en maakt per calculatieregel een werkbegrotingsregel. Verkoopprijzen, opslagen en marge worden niet naar de uitvoerdersregels gekopieerd.');
   }
 
   public function getConfirmText(): string {
-    return $this->t('Werkbegroting maken');
+    return (string) $this->t('Werkbegroting maken');
   }
 
   public function getCancelUrl(): Url {
