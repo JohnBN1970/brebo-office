@@ -1,5 +1,5 @@
 uuid: 4cefe927-1c94-466e-97be-27da2831bbe4
-langcode: en
+langcode: nl
 status: true
 dependencies:
   config:
@@ -18,7 +18,7 @@ provider: null
 plugin: 'system_menu_block:admin'
 settings:
   id: 'system_menu_block:admin'
-  label: Administration
+  label: Beheer
   label_display: visible
   provider: system
   level: 1

@@ -1,5 +1,5 @@
 uuid: 7b00f2ec-cf0d-4882-9347-d5ad240195af
-langcode: en
+langcode: nl
 status: true
 dependencies:
   theme:
@@ -14,7 +14,7 @@ provider: null
 plugin: local_tasks_block
 settings:
   id: local_tasks_block
-  label: Tabs
+  label: Tabbladen
   label_display: '0'
   provider: core
   primary: true

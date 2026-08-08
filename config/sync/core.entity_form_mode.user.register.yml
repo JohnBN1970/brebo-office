@@ -1,5 +1,5 @@
 uuid: 1ba10cf0-e30e-4741-a056-7937c5f322b5
-langcode: en
+langcode: nl
 status: true
 dependencies:
   module:
@@ -7,7 +7,7 @@ dependencies:
 _core:
   default_config_hash: 1TFiplNN7Wmj_DtVLLLP-NLPYpZJdAswKY-vTrYgFyo
 id: user.register
-label: Register
+label: Registreren
 description: null
 targetEntityType: user
 cache: true

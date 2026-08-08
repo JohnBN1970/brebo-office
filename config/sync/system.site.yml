@@ -2,13 +2,13 @@ _core:
   default_config_hash: HlN7eAN2N4JIHsYv56V4E7sqC9bS609KwvGFjyD_mgk
 langcode: nl
 uuid: 1a116ebe-3e9f-4ec8-867f-666781403b7d
-name: Drupal
-mail: ''
+name: 'BREBO Office'
+mail: john.boon@brebobv.nl
 slogan: ''
 page:
   403: ''
   404: ''
-  front: /user/login
+  front: /office
 admin_compact_mode: false
 weight_select_max: 100
 default_langcode: nl

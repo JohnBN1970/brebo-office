@@ -1,5 +1,5 @@
 uuid: f2eb82e6-6b21-4f2a-8854-9b0f2de005bc
-langcode: en
+langcode: nl
 status: true
 dependencies:
   module:
@@ -7,7 +7,7 @@ dependencies:
 _core:
   default_config_hash: N0RDBTqiK4dKoN4p4oW2j0SGWycdHyALUe9M-Ofp89U
 id: node_promote_action
-label: 'Promote content to front page'
+label: 'Inhoud op de voorpagina zichtbaar maken'
 type: node
 plugin: node_promote_action
 configuration: {  }
