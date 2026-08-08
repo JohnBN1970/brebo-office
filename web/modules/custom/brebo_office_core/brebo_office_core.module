@@ -343,7 +343,24 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
   $node->setTitle($type . ' — ' . $position_label);
 
   $result = (string) $node->get('field_brebo_control_result')->value;
-  $node->set('field_brebo_blocks_release', $result === 'Afwijking' ? 1 : 0);
+  $blocks_release = $result === 'Afwijking';
+
+  if ($blocks_release && !$node->isNew()) {
+    $deviation_query = \Drupal::entityQuery('node')
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_deviation')
+      ->condition('field_brebo_control_ref.target_id', $node->id());
+    $deviation_count = (int) (clone $deviation_query)->count()->execute();
+    if ($deviation_count > 0) {
+      $open_count = (int) $deviation_query
+        ->condition('field_brebo_deviation_status', 'Gesloten', '<>')
+        ->count()
+        ->execute();
+      $blocks_release = $open_count > 0;
+    }
+  }
+
+  $node->set('field_brebo_blocks_release', $blocks_release ? 1 : 0);
 }
 
 
