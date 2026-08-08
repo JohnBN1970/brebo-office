@@ -23,11 +23,66 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_deviation' => 'Afwijking',
     'brebo_work_package' => 'Werkpakket',
     'brebo_release_gate' => 'Vrijgavepoort',
+    'brebo_calculation' => 'Calculatie',
+    'brebo_calc_element' => 'Calculatie-element',
+    'brebo_calc_line' => 'Calculatieregel',
+    'brebo_calc_adjustment' => 'Opslag of correctie',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
   }
 
+
+
+  if ($node->bundle() === 'brebo_calculation') {
+    if (isset($form['field_brebo_price_date']['widget'][0]['value'])) {
+      $form['field_brebo_price_date']['widget'][0]['value']['#type'] = 'date';
+    }
+    if (isset($form['field_brebo_calc_status']['widget'][0]['value'])) {
+      $current = $form['field_brebo_calc_status']['widget'][0]['value']['#default_value'] ?? 'Concept';
+      $form['field_brebo_calc_status']['widget'][0]['value'] = [
+        '#type' => 'select', '#title' => 'Calculatiestatus', '#default_value' => $current,
+        '#options' => array_combine(
+          ['Concept', 'Ter beoordeling', 'Vastgesteld', 'Definitief budget', 'Vervallen'],
+          ['Concept', 'Ter beoordeling', 'Vastgesteld', 'Definitief budget', 'Vervallen'],
+        ), '#required' => TRUE,
+      ];
+    }
+  }
+
+  if ($node->bundle() === 'brebo_calc_line') {
+    foreach ([
+      'field_brebo_line_post_type' => ['Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk'],
+      'field_brebo_cost_category' => ['Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'],
+    ] as $field_name => $options) {
+      if (isset($form[$field_name]['widget'][0]['value'])) {
+        $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? reset($options);
+        $form[$field_name]['widget'][0]['value'] = [
+          '#type' => 'select', '#title' => $form[$field_name]['widget']['#title'] ?? '',
+          '#default_value' => $current, '#options' => array_combine($options, $options), '#required' => TRUE,
+        ];
+      }
+    }
+    if (isset($form['field_brebo_direct_cost'])) {
+      $form['field_brebo_direct_cost']['#access'] = FALSE;
+    }
+  }
+
+  if ($node->bundle() === 'brebo_calc_adjustment') {
+    foreach ([
+      'field_brebo_adjust_method' => ['Percentage', 'Vast bedrag'],
+      'field_brebo_adjust_direction' => ['Opslag', 'Korting'],
+      'field_brebo_adjust_base' => ['Alle directe kosten', 'Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'],
+    ] as $field_name => $options) {
+      if (isset($form[$field_name]['widget'][0]['value'])) {
+        $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? reset($options);
+        $form[$field_name]['widget'][0]['value'] = [
+          '#type' => 'select', '#title' => $form[$field_name]['widget']['#title'] ?? '',
+          '#default_value' => $current, '#options' => array_combine($options, $options), '#required' => TRUE,
+        ];
+      }
+    }
+  }
 
   if ($node->bundle() === 'brebo_work_package') {
     if (isset($form['field_brebo_package_status']['widget'][0]['value'])) {
@@ -51,6 +106,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       }
     }
   }
+
 
   if ($node->bundle() === 'brebo_release_gate') {
     if ($node->isNew()) {
@@ -281,6 +337,27 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if ($node->bundle() === 'brebo_calc_line') {
+    $quantity = (float) $form_state->getValue(['field_brebo_contract_quantity', 0, 'value']);
+    $unit_price = (float) $form_state->getValue(['field_brebo_unit_price', 0, 'value']);
+    if ($quantity < 0) {
+      $form_state->setErrorByName('field_brebo_contract_quantity', t('De contracthoeveelheid mag niet negatief zijn.'));
+    }
+    if ($unit_price < 0) {
+      $form_state->setErrorByName('field_brebo_unit_price', t('De eenheidsprijs mag niet negatief zijn.'));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_calc_adjustment') {
+    $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
+    if ($value < 0) {
+      $form_state->setErrorByName('field_brebo_adjust_value', t('Gebruik Richting voor opslag of korting; de waarde zelf moet positief zijn.'));
+    }
+    return;
+  }
+
+
   $definitions = [
     'brebo_project' => [
       'code' => 'field_brebo_project_code',
@@ -438,6 +515,20 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_calc_line') {
+    $quantity = (float) $node->get('field_brebo_contract_quantity')->value;
+    $unit_price = (float) $node->get('field_brebo_unit_price')->value;
+    $node->set('field_brebo_direct_cost', number_format($quantity * $unit_price, 4, '.', ''));
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_calc_adjustment') {
+    $target = $node->get('field_brebo_adjust_target')->entity;
+    $direction = (string) $node->get('field_brebo_adjust_direction')->value;
+    $node->setTitle($direction . ' — ' . ($target instanceof NodeInterface ? $target->label() : 'calculatiedoel'));
+    return;
+  }
+
   if ($node->bundle() === 'brebo_release_gate') {
     $type = (string) $node->get('field_brebo_gate_type')->value;
     $package = $node->get('field_brebo_package_ref')->entity;

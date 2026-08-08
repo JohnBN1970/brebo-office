@@ -1139,3 +1139,208 @@ function brebo_office_core_update_11009(): string {
 
   return 'Werkpakketten en domeinoverstijgende vrijgavepoorten aangemaakt.';
 }
+
+
+/**
+ * Creates the calculation, element, line and adjustment foundation.
+ */
+function brebo_office_core_update_11010(): string {
+  $decimal = ['precision' => 14, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle('brebo_calculation', 'Calculatie',
+    'Revisiegeschikte calculatie gekoppeld aan een werkpakket.', [
+      'field_brebo_calc_code' => [
+        'label' => 'Calculatiecode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Unieke calculatiecode.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_package_ref' => [
+        'label' => 'Werkpakket', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_package' => 'brebo_work_package']]],
+        'description' => 'Werkpakket waarvoor wordt gecalculeerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_calc_version' => [
+        'label' => 'Versie', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Bijvoorbeeld 1.0.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => '1.0']],
+      ],
+      'field_brebo_calc_status' => [
+        'label' => 'Calculatiestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Concept tot definitief budget.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_price_date' => [
+        'label' => 'Prijspeildatum', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_calc_description' => [
+        'label' => 'Uitgangspunten', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Scope, bronnen, uitsluitingen en aannames.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 6,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_calc_element', 'Calculatie-element',
+    'Element of elementgroep binnen een calculatie.', [
+      'field_brebo_calculation_ref' => [
+        'label' => 'Calculatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']]],
+        'description' => 'Bovenliggende calculatie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_element_code' => [
+        'label' => 'Elementcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'BREBO-, NLSfB- of projectspecifieke code.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_element_positions' => [
+        'label' => 'Productposities', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_product_position' => 'brebo_product_position']]],
+        'description' => 'Objecten waarop dit calculatie-element betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 3, 'cardinality' => -1,
+      ],
+      'field_brebo_element_sequence' => [
+        'label' => 'Volgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [], 'description' => 'Sorteervolgorde binnen de calculatie.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 4,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_element_scope' => [
+        'label' => 'Elementomschrijving', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Afbakening en uitgangspunten.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 5,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_calc_line', 'Calculatieregel',
+    'Prijsregel met posttype, kostensoort, hoeveelheid en prijsherkomst.', [
+      'field_brebo_calc_element_ref' => [
+        'label' => 'Calculatie-element', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calc_element' => 'brebo_calc_element']]],
+        'description' => 'Bovenliggend element.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_line_post_type' => [
+        'label' => 'Posttype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Vast, stelpost, verrekenpost, optie, alternatief of wijziging.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+        'default_value' => [['value' => 'Vaste post']],
+      ],
+      'field_brebo_cost_category' => [
+        'label' => 'Kostensoort', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Arbeid, materiaal, materieel, onderaanneming of overig.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_line_description' => [
+        'label' => 'Regelomschrijving', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255], 'description' => 'Te prijzen prestatie of levering.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_contract_quantity' => [
+        'label' => 'Contracthoeveelheid', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Begrote of contractuele hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+        'default_value' => [['value' => '1.0000']],
+      ],
+      'field_brebo_actual_quantity' => [
+        'label' => 'Goedgekeurde werkelijke hoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Voor verrekening goedgekeurde werkelijke hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_unit' => [
+        'label' => 'Eenheid', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Bijvoorbeeld st, m, m², uur of post.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_unit_price' => [
+        'label' => 'Eenheidsprijs kostprijs', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Kostprijs per eenheid vóór opslagen.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 8,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_direct_cost' => [
+        'label' => 'Directe kosten', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Automatisch: contracthoeveelheid maal eenheidsprijs.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 9,
+      ],
+      'field_brebo_price_source' => [
+        'label' => 'Prijsbron', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255], 'description' => 'Leverancier, offerte, normbestand of historische bron.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_calc_adjustment', 'Calculatie-opslag of correctie',
+    'Herleidbare opslag, korting of vast bedrag op ieder calculatieniveau.', [
+      'field_brebo_adjust_target' => [
+        'label' => 'Doel', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [
+          'brebo_calculation' => 'brebo_calculation', 'brebo_calc_element' => 'brebo_calc_element',
+          'brebo_calc_line' => 'brebo_calc_line', 'brebo_work_package' => 'brebo_work_package',
+        ]]],
+        'description' => 'Regel, element, werkpakket of calculatie waarop de correctie werkt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_adjust_method' => [
+        'label' => 'Methode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Percentage of vast bedrag.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_adjust_direction' => [
+        'label' => 'Richting', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16], 'description' => 'Opslag of korting.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_adjust_base' => [
+        'label' => 'Grondslag', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Alle kosten of een specifieke kostensoort.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Alle directe kosten']],
+      ],
+      'field_brebo_adjust_value' => [
+        'label' => 'Waarde', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Percentage of vast bedrag volgens de gekozen methode.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_adjust_sequence' => [
+        'label' => 'Rekenvolgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [], 'description' => 'Lagere waarden worden eerst berekend.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 6,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_adjust_cumulative' => [
+        'label' => 'Cumulatief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [], 'description' => 'Laat deze correctie bewust voortbouwen op eerdere correcties.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 7,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_adjust_reason' => [
+        'label' => 'Reden en prijsherkomst', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Onderbouwing van grondslag, percentage of bedrag.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 8,
+      ],
+    ]);
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_calculation', 'brebo_calc_element', 'brebo_calc_line', 'brebo_calc_adjustment'] as $bundle) {
+        foreach (["create $bundle content", "edit own $bundle content", "edit any $bundle content", "view $bundle revisions"] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Calculatie-, element-, regel- en opslagfundering met stel- en verrekenposten aangemaakt.';
+}
