@@ -435,6 +435,30 @@ final class OfficeController extends ControllerBase {
     $owner = $node->get('field_brebo_package_owner')->entity;
     $release_ready = count($gates) > 0 && $blocked === 0;
 
+    $effective_setting = function (string $field_name) use ($node, $project): array {
+      if ($node->hasField($field_name) && !$node->get($field_name)->isEmpty()) {
+        $value = (string) $node->get($field_name)->value;
+        return [$value, (string) $this->t('Afwijkend werkpakket')];
+      }
+      if ($project instanceof NodeInterface) {
+        return [$this->fieldValue($project, $field_name), (string) $this->t('Overgenomen van project')];
+      }
+      return ['—', (string) $this->t('Niet vastgesteld')];
+    };
+
+    $package_operating_rows = [];
+    foreach ([
+      'BREBO-rol' => 'field_brebo_service_role',
+      'Verrekenwijze' => 'field_brebo_settlement_method',
+      'Inkooppositie' => 'field_brebo_procurement_position',
+      'Mandaatgrens' => 'field_brebo_mandate_limit',
+      'Plafondtype' => 'field_brebo_ceiling_type',
+      'Plafondbedrag' => 'field_brebo_ceiling_amount',
+    ] as $label => $field_name) {
+      [$value, $source] = $effective_setting($field_name);
+      $package_operating_rows[] = [$this->t($label), $value, $source];
+    }
+
     return [
       'actions' => [
         '#type' => 'container',
@@ -468,6 +492,14 @@ final class OfficeController extends ControllerBase {
           $owner ? $owner->label() : '—',
           $this->fieldValue($node, 'field_brebo_package_status'),
         ]],
+      ],
+      'operating_model_heading' => [
+        '#markup' => '<h2>' . $this->t('Besturing van dit werkpakket') . '</h2>',
+      ],
+      'operating_model' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Instelling'), $this->t('Effectieve waarde'), $this->t('Bron')],
+        '#rows' => $package_operating_rows,
       ],
       'summary' => [
         '#type' => 'table',
@@ -660,7 +692,31 @@ final class OfficeController extends ControllerBase {
       $type_rows[] = [$type, $quantity];
     }
 
+    $ceiling_type = $this->fieldValue($node, 'field_brebo_ceiling_type');
+    $ceiling_amount = $this->fieldValue($node, 'field_brebo_ceiling_amount');
+    $mandate_limit = $this->fieldValue($node, 'field_brebo_mandate_limit');
+    $procurement_allowed = !$node->get('field_brebo_procurement_allowed')->isEmpty()
+      && (bool) $node->get('field_brebo_procurement_allowed')->value;
+
     return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Projectinstellingen bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'budget_change' => [
+          '#type' => 'link',
+          '#title' => $this->t('Budgetwijzigingsbesluit toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_budget_change'], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
       'project' => [
         '#type' => 'table',
         '#header' => [
@@ -674,6 +730,56 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_client'),
           $this->fieldValue($node, 'field_brebo_location'),
           $this->fieldValue($node, 'field_brebo_status'),
+        ]],
+      ],
+      'operating_model_heading' => [
+        '#markup' => '<h2>' . $this->t('Projectbesturing') . '</h2>',
+      ],
+      'operating_model' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Projectsoort'),
+          $this->t('BREBO-rol'),
+          $this->t('Verrekenwijze'),
+          $this->t('Inkooppositie'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_project_kind'),
+          $this->fieldValue($node, 'field_brebo_service_role'),
+          $this->fieldValue($node, 'field_brebo_settlement_method'),
+          $this->fieldValue($node, 'field_brebo_procurement_position'),
+        ]],
+      ],
+      'procurement' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Selecteert'),
+          $this->t('Contracteert'),
+          $this->t('Kostendrager'),
+          $this->t('Factuurontvanger'),
+          $this->t('Inkoop toegestaan'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_selector_party'),
+          $this->fieldValue($node, 'field_brebo_contracting_party'),
+          $this->fieldValue($node, 'field_brebo_cost_bearer'),
+          $this->fieldValue($node, 'field_brebo_invoice_recipient'),
+          $procurement_allowed ? $this->t('Ja') : $this->t('Nee'),
+        ]],
+      ],
+      'authority' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Mandaatgrens'),
+          $this->t('Plafondtype'),
+          $this->t('Plafondbedrag'),
+          $this->t('Disciplines'),
+        ],
+        '#rows' => [[
+          $mandate_limit,
+          $ceiling_type,
+          $ceiling_type === 'Geen plafond' ? $this->t('Niet van toepassing') : $ceiling_amount,
+          $this->fieldValue($node, 'field_brebo_disciplines'),
         ]],
       ],
       'summary' => [
