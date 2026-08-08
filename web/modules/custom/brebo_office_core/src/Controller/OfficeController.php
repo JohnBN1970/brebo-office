@@ -59,6 +59,7 @@ final class OfficeController extends ControllerBase {
         'brebo_work_budget' => 'field_brebo_budget_status',
         'brebo_rfq' => 'field_brebo_rfq_status',
         'brebo_supplier_quote' => 'field_brebo_quote_status',
+        'brebo_budget_change' => 'field_brebo_change_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);

@@ -1989,3 +1989,184 @@ function brebo_office_core_update_11014(): string {
 
   return 'Centrale prijsaanvragen, aanvraagregels, leveranciersoffertes en vergelijkbare prijsregels aangemaakt.';
 }
+
+
+/**
+ * Establishes the canonical project operating model and budget authority.
+ */
+function brebo_office_core_update_11015(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  $operating_fields = [
+    'field_brebo_project_kind' => [
+      'label' => 'Projectsoort', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 64], 'description' => 'Bijvoorbeeld MJOP, advies, renovatie, onderhoud of verduurzaming.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      'default_value' => [['value' => 'Uitvoeringsproject']],
+    ],
+    'field_brebo_service_role' => [
+      'label' => 'Rol van BREBO', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 32], 'description' => 'Advies, Regie, Eigen uitvoering of Hybride.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      'default_value' => [['value' => 'Eigen uitvoering']],
+    ],
+    'field_brebo_settlement_method' => [
+      'label' => 'Standaardafrekenvorm', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 64], 'description' => 'Honorarium, Aanneemsom, Eenheidsprijzen, Regiewerk of Combinatie.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      'default_value' => [['value' => 'Aanneemsom']],
+    ],
+    'field_brebo_procurement_position' => [
+      'label' => 'Inkooppositie', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 64], 'description' => 'Door BREBO, namens opdrachtgever, door opdrachtgever of per werkpakket.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      'default_value' => [['value' => 'Door BREBO']],
+    ],
+    'field_brebo_selector_party' => [
+      'label' => 'Selecterende partij', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 128], 'description' => 'Partij die offertes vergelijkt en een selectie voorbereidt.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+      'default_value' => [['value' => 'BREBO']],
+    ],
+    'field_brebo_contracting_party' => [
+      'label' => 'Contracterende partij', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 128], 'description' => 'Partij die juridisch opdracht verstrekt.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+      'default_value' => [['value' => 'BREBO']],
+    ],
+    'field_brebo_cost_bearer' => [
+      'label' => 'Kostendrager', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 128], 'description' => 'Partij voor wier rekening de inkoop of prestatie komt.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+      'default_value' => [['value' => 'BREBO']],
+    ],
+    'field_brebo_invoice_recipient' => [
+      'label' => 'Factuurontvanger', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 128], 'description' => 'Partij waaraan de leverancier factureert.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 13,
+      'default_value' => [['value' => 'BREBO']],
+    ],
+    'field_brebo_procurement_allowed' => [
+      'label' => 'BREBO mag inkopen', 'type' => 'boolean', 'required' => FALSE,
+      'storage' => [], 'description' => 'Bevoegdheid staat los van de advies-, regie- of uitvoeringsrol.',
+      'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 14,
+      'default_value' => [['value' => 1]],
+    ],
+    'field_brebo_mandate_limit' => [
+      'label' => 'Inkoopmandaat tot', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => $decimal, 'description' => 'Maximaal bedrag dat BREBO zonder aanvullende goedkeuring mag contracteren.',
+      'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 15,
+    ],
+    'field_brebo_ceiling_type' => [
+      'label' => 'Budget- of plafondtype', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 32], 'description' => 'Geen plafond, Indicatief budget, Waarschuwingsgrens of Hard plafond.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 16,
+      'default_value' => [['value' => 'Geen plafond']],
+    ],
+    'field_brebo_ceiling_amount' => [
+      'label' => 'Plafondbedrag', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => $decimal, 'description' => 'Financiële grens behorend bij het gekozen plafondtype.',
+      'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 17,
+    ],
+    'field_brebo_disciplines' => [
+      'label' => 'Disciplines', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 64], 'description' => 'Een of meer betrokken vakdisciplines.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 18,
+      'cardinality' => -1,
+    ],
+  ];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_project',
+    'Project',
+    'Centraal projectobject binnen BREBO Office.',
+    $operating_fields,
+  );
+
+  $package_overrides = $operating_fields;
+  foreach ($package_overrides as &$definition) {
+    $definition['required'] = FALSE;
+    unset($definition['default_value']);
+    $definition['description'] = 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.';
+  }
+  unset($definition);
+  unset($package_overrides['field_brebo_project_kind'], $package_overrides['field_brebo_disciplines']);
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_work_package',
+    'Werkpakket',
+    'Beheersbaar pakket van werk en vrijgavebesluiten binnen een project.',
+    $package_overrides,
+  );
+
+  _brebo_office_core_create_node_bundle('brebo_budget_change', 'Budgetwijzigingsbesluit',
+    'Formeel en herleidbaar besluit waarmee een budget, mandaat of plafond wordt gewijzigd.', [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Project waarop het besluit betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_package_ref' => [
+        'label' => 'Werkpakket', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_work_package' => 'brebo_work_package']]],
+        'description' => 'Optioneel specifiek werkpakket.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_change_type' => [
+        'label' => 'Wijzigingstype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Budgetverhoging, Plafondwijziging of Mandaatwijziging.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_original_amount' => [
+        'label' => 'Oorspronkelijk bedrag', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Vastgelegde grens vóór dit besluit.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 4,
+      ],
+      'field_brebo_change_amount' => [
+        'label' => 'Wijzigingsbedrag', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => $decimal, 'description' => 'Positieve of negatieve wijziging.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_new_amount' => [
+        'label' => 'Nieuwe grens', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Automatisch: oorspronkelijk bedrag plus wijzigingsbedrag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_change_reason' => [
+        'label' => 'Motivering', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [], 'description' => 'Aanleiding, consequenties en onderbouwing van het besluit.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 7,
+      ],
+      'field_brebo_decision_date' => [
+        'label' => 'Besluitdatum', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 10], 'description' => 'Datum in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_approved_by' => [
+        'label' => 'Goedgekeurd door', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Bevoegde interne goedkeurder; opdrachtgeverbesluit wordt in de motivering vastgelegd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 9,
+      ],
+      'field_brebo_change_status' => [
+        'label' => 'Besluitstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, Ter goedkeuring, Goedgekeurd of Afgewezen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+        'default_value' => [['value' => 'Concept']],
+      ],
+    ]);
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (["create brebo_budget_change content", "edit own brebo_budget_change content", "edit any brebo_budget_change content", "view brebo_budget_change revisions"] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Vier onafhankelijke projectassen, werkpakketverfijning, plafond- en mandaatbeheer vastgesteld.';
+}

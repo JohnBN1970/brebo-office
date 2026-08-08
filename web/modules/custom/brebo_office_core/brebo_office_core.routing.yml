@@ -195,3 +195,13 @@ brebo_office_core.supplier_quotes:
     bundle: 'brebo_supplier_quote'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.budget_changes:
+  path: '/office/budgetwijzigingen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Budgetwijzigingsbesluiten'
+    bundle: 'brebo_budget_change'
+  requirements:
+    _permission: 'access content'

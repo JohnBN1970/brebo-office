@@ -35,12 +35,45 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_rfq_line' => 'Prijsaanvraagregel',
     'brebo_supplier_quote' => 'Leveranciersofferte',
     'brebo_quote_line' => 'Offerteprijsregel',
+    'brebo_budget_change' => 'Budgetwijzigingsbesluit',
   ];
   if (isset($form['title']['widget'][0]['value'], $labels[$node->bundle()])) {
     $form['title']['widget'][0]['value']['#title'] = $labels[$node->bundle()];
   }
 
 
+
+
+
+  foreach ([
+    'field_brebo_project_kind' => [
+      'Adviesproject', 'Inspectie/Onderzoek', 'MJOP', 'Projectmanagement',
+      'Planmatig onderhoud', 'Renovatie', 'Verduurzaming', 'Uitvoeringsproject', 'Hybride project',
+    ],
+    'field_brebo_service_role' => ['Advies', 'Regie', 'Eigen uitvoering', 'Hybride'],
+    'field_brebo_settlement_method' => ['Honorarium', 'Aanneemsom', 'Eenheidsprijzen', 'Regiewerk', 'Combinatie'],
+    'field_brebo_procurement_position' => ['Door BREBO', 'Namens opdrachtgever', 'Door opdrachtgever', 'Per werkpakket'],
+    'field_brebo_ceiling_type' => ['Geen plafond', 'Indicatief budget', 'Waarschuwingsgrens', 'Hard plafond'],
+  ] as $field_name => $options) {
+    if (isset($form[$field_name]['widget'][0]['value'])) {
+      $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? '';
+      $select_options = array_combine($options, $options);
+      if ($node->bundle() === 'brebo_work_package') {
+        $select_options = ['' => '- Projectinstelling overnemen -'] + $select_options;
+      }
+      $form[$field_name]['widget'][0]['value'] = [
+        '#type' => 'select',
+        '#title' => $form[$field_name]['widget']['#title'] ?? '',
+        '#default_value' => $current,
+        '#options' => $select_options,
+        '#required' => $node->bundle() === 'brebo_project',
+      ];
+    }
+  }
+
+  if ($node->bundle() === 'brebo_budget_change' && isset($form['field_brebo_new_amount'])) {
+    $form['field_brebo_new_amount']['#access'] = FALSE;
+  }
 
   if ($node->bundle() === 'brebo_calculation') {
     if (isset($form['field_brebo_price_date']['widget'][0]['value'])) {
@@ -448,6 +481,26 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if (in_array($node->bundle(), ['brebo_project', 'brebo_work_package'], TRUE)) {
+    $ceiling_type = (string) $form_state->getValue(['field_brebo_ceiling_type', 0, 'value']);
+    $ceiling = $form_state->getValue(['field_brebo_ceiling_amount', 0, 'value']);
+    $mandate = $form_state->getValue(['field_brebo_mandate_limit', 0, 'value']);
+    if ($ceiling_type !== '' && $ceiling_type !== 'Geen plafond' && ($ceiling === NULL || $ceiling === '' || (float) $ceiling <= 0)) {
+      $form_state->setErrorByName('field_brebo_ceiling_amount', t('Vul bij dit plafondtype een positief grensbedrag in.'));
+    }
+    if ($mandate !== NULL && $mandate !== '' && (float) $mandate < 0) {
+      $form_state->setErrorByName('field_brebo_mandate_limit', t('Het mandaatbedrag mag niet negatief zijn.'));
+    }
+  }
+
+  if ($node->bundle() === 'brebo_budget_change') {
+    $change = (float) $form_state->getValue(['field_brebo_change_amount', 0, 'value']);
+    if ($change == 0.0) {
+      $form_state->setErrorByName('field_brebo_change_amount', t('Een budgetwijziging mag niet nul zijn.'));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
     if ($value < 0) {
@@ -686,6 +739,15 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
   if ($node->bundle() === 'brebo_rfq') {
     $code = (string) $node->get('field_brebo_rfq_code')->value;
     $node->setTitle('Prijsaanvraag ' . $code);
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_budget_change') {
+    $original = (float) $node->get('field_brebo_original_amount')->value;
+    $change = (float) $node->get('field_brebo_change_amount')->value;
+    $node->set('field_brebo_new_amount', number_format($original + $change, 4, '.', ''));
+    $project = $node->get('field_brebo_project_ref')->entity;
+    $node->setTitle((string) $node->get('field_brebo_change_type')->value . ' — ' . ($project instanceof NodeInterface ? $project->label() : 'project'));
     return;
   }
 
