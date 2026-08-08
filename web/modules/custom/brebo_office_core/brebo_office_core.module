@@ -86,6 +86,14 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     $form['field_brebo_settle_difference']['#access'] = FALSE;
   }
 
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    foreach (['field_brebo_gross_quantity', 'field_brebo_package_count'] as $calculated_field) {
+      if (isset($form[$calculated_field])) {
+        $form[$calculated_field]['#access'] = FALSE;
+      }
+    }
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     if ($node->isNew()) {
       $target_id = (int) \Drupal::request()->query->get('target', 0);
@@ -404,6 +412,16 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
     return;
   }
 
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    $net = (float) $form_state->getValue(['field_brebo_material_quantity', 0, 'value']);
+    $waste = (float) $form_state->getValue(['field_brebo_waste_percent', 0, 'value']);
+    $pack = (float) $form_state->getValue(['field_brebo_pack_quantity', 0, 'value']);
+    if ($net < 0 || $waste < 0 || $pack < 0) {
+      $form_state->setErrorByName('field_brebo_material_quantity', t('Materiaalhoeveelheid, verlies en verpakkingshoeveelheid mogen niet negatief zijn.'));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_adjustment') {
     $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
     if ($value < 0) {
@@ -610,6 +628,16 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
         ? NULL
         : number_format((float) $final - $budget, 4, '.', ''));
     }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_work_budget_line') {
+    $net = (float) $node->get('field_brebo_material_quantity')->value;
+    $waste = (float) $node->get('field_brebo_waste_percent')->value;
+    $pack = (float) $node->get('field_brebo_pack_quantity')->value;
+    $gross = $net * (1 + ($waste / 100));
+    $node->set('field_brebo_gross_quantity', number_format($gross, 4, '.', ''));
+    $node->set('field_brebo_package_count', $pack > 0 ? (int) ceil($gross / $pack) : NULL);
     return;
   }
 
