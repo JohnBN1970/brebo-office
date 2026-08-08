@@ -71,6 +71,78 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     }
   }
 
+  if ($node->bundle() === 'brebo_project') {
+    $form['brebo_operating_model_intro'] = [
+      '#type' => 'container',
+      '#weight' => 5,
+      '#attributes' => ['class' => ['messages', 'messages--status']],
+      'text' => [
+        '#markup' => '<strong>Projectbesturing</strong><br>Leg de vier assen afzonderlijk vast. Projectsoort, BREBO-rol, verrekenwijze en inkooppositie worden nooit automatisch uit elkaar afgeleid.',
+      ],
+    ];
+
+    $project_field_settings = [
+      'field_brebo_project_kind' => [10, 'Bepaalt de aard van de opdracht en welke procesroute beschikbaar is.'],
+      'field_brebo_service_role' => [11, 'De rol van BREBO: advies, regie, eigen uitvoering of een hybride combinatie.'],
+      'field_brebo_settlement_method' => [12, 'De financiële afrekening van de opdracht; onafhankelijk van de BREBO-rol.'],
+      'field_brebo_procurement_position' => [13, 'Bepaalt vanuit welke positie goederen en diensten worden ingekocht.'],
+      'field_brebo_selector_party' => [20, 'Partij die de leverancier of dienstverlener selecteert.'],
+      'field_brebo_contracting_party' => [21, 'Partij die juridisch de opdracht verstrekt.'],
+      'field_brebo_cost_bearer' => [22, 'Partij voor wier rekening de inkoop komt.'],
+      'field_brebo_invoice_recipient' => [23, 'Partij die de leveranciersfactuur ontvangt.'],
+      'field_brebo_procurement_allowed' => [24, 'Ook bij advies en regie kan BREBO binnen het vastgestelde mandaat diensten inkopen.'],
+      'field_brebo_mandate_limit' => [25, 'Maximaal bedrag waarbinnen BREBO zonder aanvullend besluit mag handelen.'],
+      'field_brebo_ceiling_type' => [30, 'Kies geen plafond, een indicatief budget, een waarschuwingsgrens of een hard plafond.'],
+      'field_brebo_ceiling_amount' => [31, 'Het bij het gekozen plafondtype behorende bedrag.'],
+      'field_brebo_disciplines' => [40, 'Disciplines waarop deze projectafspraak betrekking heeft.'],
+    ];
+    foreach ($project_field_settings as $field_name => [$weight, $description]) {
+      if (isset($form[$field_name])) {
+        $form[$field_name]['#weight'] = $weight;
+        $form[$field_name]['#description'] = $description;
+      }
+    }
+
+    if (isset($form['field_brebo_ceiling_amount']['widget'][0]['value'])) {
+      $form['field_brebo_ceiling_amount']['widget'][0]['value']['#states'] = [
+        'visible' => [
+          ':input[name="field_brebo_ceiling_type[0][value]"]' => ['!value' => 'Geen plafond'],
+        ],
+        'required' => [
+          ':input[name="field_brebo_ceiling_type[0][value]"]' => ['!value' => 'Geen plafond'],
+        ],
+      ];
+    }
+  }
+
+  if ($node->bundle() === 'brebo_work_package') {
+    $form['brebo_inheritance_intro'] = [
+      '#type' => 'container',
+      '#weight' => 5,
+      '#attributes' => ['class' => ['messages', 'messages--warning']],
+      'text' => [
+        '#markup' => '<strong>Overerving vanuit project</strong><br>Laat een besturingsveld leeg om de projectinstelling over te nemen. Kies alleen een afwijkende waarde wanneer dit werkpakket aantoonbaar anders wordt bestuurd.',
+      ],
+    ];
+    foreach ([
+      'field_brebo_service_role',
+      'field_brebo_settlement_method',
+      'field_brebo_procurement_position',
+      'field_brebo_selector_party',
+      'field_brebo_contracting_party',
+      'field_brebo_cost_bearer',
+      'field_brebo_invoice_recipient',
+      'field_brebo_procurement_allowed',
+      'field_brebo_mandate_limit',
+      'field_brebo_ceiling_type',
+      'field_brebo_ceiling_amount',
+    ] as $field_name) {
+      if (isset($form[$field_name])) {
+        $form[$field_name]['#description'] = 'Leeg laten betekent: projectinstelling overnemen.';
+      }
+    }
+  }
+
   if ($node->bundle() === 'brebo_budget_change' && isset($form['field_brebo_new_amount'])) {
     $form['field_brebo_new_amount']['#access'] = FALSE;
   }
