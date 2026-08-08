@@ -56,6 +56,7 @@ final class OfficeController extends ControllerBase {
         'brebo_work_package' => 'field_brebo_package_status',
         'brebo_release_gate' => 'field_brebo_gate_result',
         'brebo_calculation' => 'field_brebo_calc_status',
+        'brebo_work_budget' => 'field_brebo_budget_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
@@ -63,6 +64,7 @@ final class OfficeController extends ControllerBase {
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
         'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
         'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
+        'brebo_work_budget' => Url::fromRoute('brebo_office_core.work_budget_dashboard', ['node' => $node->id()]),
         'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
         default => $node->toUrl(),
       };
@@ -83,6 +85,7 @@ final class OfficeController extends ControllerBase {
           '#title' => $this->t('Nieuw @type', ['@type' => mb_strtolower((string) $this->entityTypeManager()->getStorage('node_type')->load($bundle)?->label())]),
           '#url' => Url::fromRoute('node.add', ['node_type' => $bundle]),
           '#attributes' => ['class' => ['button']],
+          '#access' => $bundle !== 'brebo_work_budget',
         ],
       ],
       'table' => [
