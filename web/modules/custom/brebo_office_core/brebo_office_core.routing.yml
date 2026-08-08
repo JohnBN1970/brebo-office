@@ -120,3 +120,24 @@ brebo_office_core.work_package_dashboard:
     parameters:
       node:
         type: entity:node
+
+brebo_office_core.calculations:
+  path: '/office/calculaties'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Calculaties'
+    bundle: 'brebo_calculation'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.calculation_dashboard:
+  path: '/office/calculaties/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboard'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
