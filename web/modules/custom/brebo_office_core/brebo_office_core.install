@@ -594,3 +594,115 @@ function brebo_office_core_update_11005(): string {
 
   return 'Metadata van het lege standaardbeeld voor fotorapportage genormaliseerd.';
 }
+
+
+/**
+ * Adds structured glass-order data to Productpositie.
+ */
+function brebo_office_core_update_11006(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_product_position',
+    'Productpositie',
+    'Individueel te inspecteren, calculeren of uitvoeren bouwdeel.',
+    [
+      'field_brebo_facade' => [
+        'label' => 'Gevel / ruimte',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Bronrubriek, bijvoorbeeld Achtergevel of Linkerslaapkamer.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 3,
+      ],
+      'field_brebo_quantity' => [
+        'label' => 'Aantal',
+        'type' => 'integer',
+        'required' => TRUE,
+        'storage' => [],
+        'description' => 'Aantal gelijke exemplaren binnen deze productpositie.',
+        'widget' => 'number',
+        'formatter' => 'number_integer',
+        'weight' => 6,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_width_mm' => [
+        'label' => 'Breedte (mm)',
+        'type' => 'integer',
+        'required' => TRUE,
+        'storage' => [],
+        'description' => 'Breedtemaat volgens de leidende bestellijst.',
+        'widget' => 'number',
+        'formatter' => 'number_integer',
+        'weight' => 7,
+      ],
+      'field_brebo_height_mm' => [
+        'label' => 'Hoogte (mm)',
+        'type' => 'integer',
+        'required' => TRUE,
+        'storage' => [],
+        'description' => 'Hoogtemaat volgens de leidende bestellijst.',
+        'widget' => 'number',
+        'formatter' => 'number_integer',
+        'weight' => 8,
+      ],
+      'field_brebo_glass_build' => [
+        'label' => 'Glasopbouw',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Exacte glasopbouw volgens de leidende bestellijst.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 9,
+      ],
+      'field_brebo_requirement' => [
+        'label' => 'Eis',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Prestatie-eis volgens de leidende bestellijst.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 10,
+      ],
+    ],
+  );
+
+  $weights = [
+    'field_brebo_position_code' => 1,
+    'field_brebo_dwelling_ref' => 2,
+    'field_brebo_facade' => 3,
+    'field_brebo_product_type' => 4,
+    'field_brebo_position_location' => 5,
+    'field_brebo_quantity' => 6,
+    'field_brebo_width_mm' => 7,
+    'field_brebo_height_mm' => 8,
+    'field_brebo_glass_build' => 9,
+    'field_brebo_requirement' => 10,
+    'field_brebo_status' => 11,
+    'field_brebo_description' => 12,
+    'field_brebo_not_applicable' => 13,
+    'field_brebo_na_reason' => 14,
+    'field_brebo_photos' => 15,
+  ];
+
+  foreach ([
+    EntityFormDisplay::load('node.brebo_product_position.default'),
+    EntityViewDisplay::load('node.brebo_product_position.default'),
+  ] as $display) {
+    if (!$display) {
+      continue;
+    }
+    foreach ($weights as $field_name => $weight) {
+      $component = $display->getComponent($field_name);
+      if ($component) {
+        $component['weight'] = $weight;
+        $display->setComponent($field_name, $component);
+      }
+    }
+    $display->save();
+  }
+
+  return 'Gestructureerde glasgegevens aan Productpositie toegevoegd.';
+}
