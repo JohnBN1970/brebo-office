@@ -99,3 +99,24 @@ brebo_office_core.project_dashboard:
     parameters:
       node:
         type: entity:node
+
+brebo_office_core.work_packages:
+  path: '/office/werkpakketten'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Werkpakketten'
+    bundle: 'brebo_work_package'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.work_package_dashboard:
+  path: '/office/werkpakketten/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::workPackageDashboard'
+    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::workPackageDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
