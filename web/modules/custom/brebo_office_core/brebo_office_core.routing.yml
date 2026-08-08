@@ -71,3 +71,11 @@ brebo_office_core.deviations:
     bundle: 'brebo_deviation'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.quality_dashboard:
+  path: '/office/kwaliteit'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::qualityDashboard'
+    _title: 'Kwaliteitsdashboard'
+  requirements:
+    _permission: 'access content'
