@@ -108,26 +108,6 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   }
 
 
-  if ($node->bundle() === 'brebo_calc_line') {
-    $quantity = (float) $form_state->getValue(['field_brebo_contract_quantity', 0, 'value']);
-    $unit_price = (float) $form_state->getValue(['field_brebo_unit_price', 0, 'value']);
-    if ($quantity < 0) {
-      $form_state->setErrorByName('field_brebo_contract_quantity', t('De contracthoeveelheid mag niet negatief zijn.'));
-    }
-    if ($unit_price < 0) {
-      $form_state->setErrorByName('field_brebo_unit_price', t('De eenheidsprijs mag niet negatief zijn.'));
-    }
-    return;
-  }
-
-  if ($node->bundle() === 'brebo_calc_adjustment') {
-    $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
-    if ($value < 0) {
-      $form_state->setErrorByName('field_brebo_adjust_value', t('Gebruik Richting voor opslag of korting; de waarde zelf moet positief zijn.'));
-    }
-    return;
-  }
-
   if ($node->bundle() === 'brebo_release_gate') {
     if ($node->isNew()) {
       $node->setTitle('Nieuwe vrijgavepoort');
@@ -356,6 +336,27 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
   if (!$node instanceof NodeInterface) {
     return;
   }
+
+  if ($node->bundle() === 'brebo_calc_line') {
+    $quantity = (float) $form_state->getValue(['field_brebo_contract_quantity', 0, 'value']);
+    $unit_price = (float) $form_state->getValue(['field_brebo_unit_price', 0, 'value']);
+    if ($quantity < 0) {
+      $form_state->setErrorByName('field_brebo_contract_quantity', t('De contracthoeveelheid mag niet negatief zijn.'));
+    }
+    if ($unit_price < 0) {
+      $form_state->setErrorByName('field_brebo_unit_price', t('De eenheidsprijs mag niet negatief zijn.'));
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_calc_adjustment') {
+    $value = (float) $form_state->getValue(['field_brebo_adjust_value', 0, 'value']);
+    if ($value < 0) {
+      $form_state->setErrorByName('field_brebo_adjust_value', t('Gebruik Richting voor opslag of korting; de waarde zelf moet positief zijn.'));
+    }
+    return;
+  }
+
 
   $definitions = [
     'brebo_project' => [
