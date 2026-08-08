@@ -674,6 +674,7 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
  */
 function brebo_office_core_node_insert(NodeInterface $node): void {
   _brebo_office_core_sync_deviation_block($node);
+  _brebo_office_core_sync_quantity_settlement($node);
 }
 
 /**
@@ -681,6 +682,7 @@ function brebo_office_core_node_insert(NodeInterface $node): void {
  */
 function brebo_office_core_node_update(NodeInterface $node): void {
   _brebo_office_core_sync_deviation_block($node);
+  _brebo_office_core_sync_quantity_settlement($node);
 }
 
 /**
@@ -706,4 +708,29 @@ function _brebo_office_core_sync_deviation_block(NodeInterface $node): void {
 
   $control->set('field_brebo_blocks_release', $open > 0 ? 1 : 0);
   $control->save();
+}
+
+
+/**
+ * Synchronizes an approved quantity settlement to its calculation line.
+ */
+function _brebo_office_core_sync_quantity_settlement(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_quantity_settlement'
+    || (string) $node->get('field_brebo_settlement_status')->value !== 'Akkoord') {
+    return;
+  }
+
+  $line = $node->get('field_brebo_calc_line_ref')->entity;
+  $approved = $node->get('field_brebo_approved_quantity')->value;
+  if (!$line instanceof NodeInterface
+    || $line->bundle() !== 'brebo_calc_line'
+    || $approved === NULL
+    || $approved === '') {
+    return;
+  }
+
+  $line->set('field_brebo_actual_quantity', $approved);
+  $line->setNewRevision(TRUE);
+  $line->setRevisionLogMessage('Goedgekeurde hoeveelheid overgenomen uit verrekening ' . $node->id() . '.');
+  $line->save();
 }
