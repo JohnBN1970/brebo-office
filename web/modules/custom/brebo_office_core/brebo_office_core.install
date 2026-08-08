@@ -81,7 +81,7 @@ function brebo_office_core_update_11001(): string {
         'entity_type' => 'node',
         'type' => $definition['type'],
         'settings' => $definition['storage'],
-        'cardinality' => 1,
+        'cardinality' => $definition['cardinality'] ?? 1,
       ])->save();
     }
 
@@ -406,4 +406,67 @@ function _brebo_office_core_create_node_bundle(
     ]);
   }
   $view_display->save();
+}
+
+
+/**
+ * Adds applicability and photographic evidence to product positions.
+ */
+function brebo_office_core_update_11003(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_product_position',
+    'Productpositie',
+    'Individueel te inspecteren, calculeren of uitvoeren bouwdeel.',
+    [
+      'field_brebo_not_applicable' => [
+        'label' => 'Niet van toepassing',
+        'type' => 'boolean',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Markeer dit onderdeel wanneer het binnen deze woning niet van toepassing is.',
+        'widget' => 'boolean_checkbox',
+        'formatter' => 'boolean',
+        'weight' => 7,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_na_reason' => [
+        'label' => 'Reden niet van toepassing',
+        'type' => 'string_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Leg kort vast waarom dit onderdeel niet van toepassing is.',
+        'widget' => 'string_textarea',
+        'formatter' => 'basic_string',
+        'weight' => 8,
+      ],
+      'field_brebo_photos' => [
+        'label' => 'Fotorapportage',
+        'type' => 'image',
+        'required' => FALSE,
+        'storage' => [
+          'uri_scheme' => 'public',
+          'default_image' => [],
+        ],
+        'field_settings' => [
+          'file_directory' => 'brebo-office/photos',
+          'file_extensions' => 'png gif jpg jpeg webp',
+          'max_filesize' => '20 MB',
+          'max_resolution' => '',
+          'min_resolution' => '',
+          'alt_field' => TRUE,
+          'alt_field_required' => FALSE,
+          'title_field' => TRUE,
+          'title_field_required' => FALSE,
+          'default_image' => [],
+        ],
+        'description' => 'Upload overzichts- en detailfoto’s als bewijs bij deze productpositie.',
+        'widget' => 'image_image',
+        'formatter' => 'image',
+        'weight' => 9,
+        'cardinality' => -1,
+      ],
+    ],
+  );
+
+  return 'N.V.T.-registratie en fotorapportage aan Productpositie toegevoegd.';
 }
