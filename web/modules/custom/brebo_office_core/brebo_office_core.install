@@ -1641,3 +1641,26 @@ function brebo_office_core_update_11011(): string {
 
   return 'Stelpostbeheer, berekende hoeveelheidsverrekening en bevriesbare werkbegrotingen aangemaakt.';
 }
+
+
+/**
+ * Adds the calculated settlement difference to provisional sums.
+ */
+function brebo_office_core_update_11012(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_provisional_sum',
+    'Stelpost',
+    'Beheerde en aantoonbaar af te rekenen stelpost binnen een calculatie.',
+    [
+      'field_brebo_settle_difference' => [
+        'label' => 'Verschil ten opzichte van stelpost', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal, 'description' => 'Automatisch: definitieve verkoopwaarde minus stelpostbedrag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 11,
+      ],
+    ],
+  );
+
+  return 'Automatisch stelpostverschil aan het stelpostobject toegevoegd.';
+}
