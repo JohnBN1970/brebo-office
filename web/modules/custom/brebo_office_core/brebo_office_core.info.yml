@@ -4,4 +4,7 @@ description: 'Kernroutes en applicatielogica voor BREBO Office.'
 package: BREBO
 core_version_requirement: ^11
 dependencies:
+  - drupal:field
+  - drupal:node
+  - drupal:text
   - drupal:user
