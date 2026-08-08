@@ -869,3 +869,141 @@ function brebo_office_core_update_11007(): string {
 
   return 'Controle- en verificatieobject met auditgegevens, bewijs en vrijgaveblokkering aangemaakt.';
 }
+
+
+/**
+ * Creates managed deviations with corrective action and reinspection.
+ */
+function brebo_office_core_update_11008(): string {
+  $default_image = [
+    'uuid' => NULL,
+    'alt' => '',
+    'title' => '',
+    'width' => NULL,
+    'height' => NULL,
+  ];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_deviation',
+    'Afwijking',
+    'Beheerde afwijking met verantwoordelijke, herstelactie, bewijs en hercontrole.',
+    [
+      'field_brebo_control_ref' => [
+        'label' => 'Broncontrole',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_verification' => 'brebo_verification']],
+        ],
+        'description' => 'De controle waarbij deze afwijking is vastgesteld.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 1,
+      ],
+      'field_brebo_deviation_status' => [
+        'label' => 'Afwijkingsstatus',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Open, in behandeling, gereed voor hercontrole of gesloten.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 2,
+        'default_value' => [['value' => 'Open']],
+      ],
+      'field_brebo_responsible' => [
+        'label' => 'Verantwoordelijke',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Persoon die de correctie aantoonbaar moet laten uitvoeren.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 3,
+      ],
+      'field_brebo_due_date' => [
+        'label' => 'Deadline',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 10],
+        'description' => 'Uiterste datum voor herstel in de vorm JJJJ-MM-DD.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 4,
+      ],
+      'field_brebo_corrective_action' => [
+        'label' => 'Herstel- of correctieactie',
+        'type' => 'text_long',
+        'required' => TRUE,
+        'storage' => [],
+        'description' => 'De concrete maatregel waarmee de afwijking wordt opgelost.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 5,
+      ],
+      'field_brebo_recovery_evidence' => [
+        'label' => 'Herstelbewijs',
+        'type' => 'image',
+        'required' => FALSE,
+        'storage' => ['uri_scheme' => 'public', 'default_image' => $default_image],
+        'field_settings' => [
+          'file_directory' => 'brebo-office/deviations',
+          'file_extensions' => 'png gif jpg jpeg webp',
+          'max_filesize' => '20 MB',
+          'max_resolution' => '',
+          'min_resolution' => '',
+          'alt_field' => TRUE,
+          'alt_field_required' => FALSE,
+          'title_field' => TRUE,
+          'title_field_required' => FALSE,
+          'default_image' => $default_image,
+        ],
+        'description' => 'Foto’s die het uitgevoerde herstel aantoonbaar maken.',
+        'widget' => 'image_image',
+        'formatter' => 'image',
+        'weight' => 6,
+        'cardinality' => -1,
+      ],
+      'field_brebo_recheck_ref' => [
+        'label' => 'Hercontrole',
+        'type' => 'entity_reference',
+        'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_verification' => 'brebo_verification']],
+        ],
+        'description' => 'Akkoord bevonden hercontrole waarmee de afwijking mag worden gesloten.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 7,
+      ],
+    ],
+  );
+
+  foreach ([
+    'brebo_projectleider' => TRUE,
+    'brebo_werkvoorbereider' => FALSE,
+    'brebo_kwaliteitsmanager' => TRUE,
+  ] as $role_id => $may_close) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_deviation content',
+        'edit own brebo_deviation content',
+        'edit any brebo_deviation content',
+        'view brebo_deviation revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      if ($may_close) {
+        $role->grantPermission('revert brebo_deviation revisions');
+      }
+      $role->save();
+    }
+  }
+
+  return 'Afwijkingsobject met verantwoordelijkheid, deadline, herstelbewijs en verplichte hercontrole aangemaakt.';
+}
