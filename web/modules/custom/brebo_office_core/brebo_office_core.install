@@ -1420,7 +1420,7 @@ function brebo_office_core_update_11011(): string {
         'storage' => [], 'description' => 'Exacte omschrijving van wat in het stelpostbedrag is inbegrepen.',
         'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 2,
       ],
-      'field_brebo_provisional_exclusions' => [
+      'field_brebo_prov_exclusions' => [
         'label' => 'Uitsluitingen', 'type' => 'text_long', 'required' => FALSE,
         'storage' => [], 'description' => 'Werk, leveringen of risico’s die nadrukkelijk niet zijn inbegrepen.',
         'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 3,
