@@ -132,3 +132,278 @@ function brebo_office_core_update_11001(): string {
 
   return 'Projectobject met basisvelden en revisies aangemaakt.';
 }
+
+
+/**
+ * Creates Cluster, Woning and Productpositie with parent relationships.
+ */
+function brebo_office_core_update_11002(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_cluster',
+    'Cluster',
+    'Gebouwdeel, bouwblok of werkgebied binnen een BREBO-project.',
+    [
+      'field_brebo_cluster_code' => [
+        'label' => 'Clustercode',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Unieke code binnen het bovenliggende project.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 1,
+      ],
+      'field_brebo_project_ref' => [
+        'label' => 'Project',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']],
+        ],
+        'description' => 'Het project waartoe dit cluster behoort.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 2,
+      ],
+      'field_brebo_status' => [
+        'label' => 'Clusterstatus',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele status van het cluster.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 3,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Clusteromschrijving',
+        'type' => 'text_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Afbakening en bijzonderheden van het cluster.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 4,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_dwelling',
+    'Woning',
+    'Zelfstandig inspectie- en uitvoeringsobject binnen een cluster.',
+    [
+      'field_brebo_dwelling_code' => [
+        'label' => 'Woningcode',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Unieke woningcode binnen het cluster.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 1,
+      ],
+      'field_brebo_cluster_ref' => [
+        'label' => 'Cluster',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_cluster' => 'brebo_cluster']],
+        ],
+        'description' => 'Het cluster waartoe deze woning behoort.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 2,
+      ],
+      'field_brebo_address' => [
+        'label' => 'Adres',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Straat, huisnummer, postcode en plaats.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 3,
+      ],
+      'field_brebo_status' => [
+        'label' => 'Woningstatus',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele status van de woning.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 4,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Woningomschrijving',
+        'type' => 'text_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Objectkenmerken en bijzonderheden.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 5,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_product_position',
+    'Productpositie',
+    'Individueel te inspecteren, calculeren of uitvoeren bouwdeel.',
+    [
+      'field_brebo_position_code' => [
+        'label' => 'Positiecode',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Unieke positiecode binnen de woning.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 1,
+      ],
+      'field_brebo_dwelling_ref' => [
+        'label' => 'Woning',
+        'type' => 'entity_reference',
+        'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_dwelling' => 'brebo_dwelling']],
+        ],
+        'description' => 'De woning waartoe deze productpositie behoort.',
+        'widget' => 'entity_reference_autocomplete',
+        'formatter' => 'entity_reference_label',
+        'weight' => 2,
+      ],
+      'field_brebo_product_type' => [
+        'label' => 'Producttype',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Bijvoorbeeld kozijn, deur, glasvlak of geveldeel.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 3,
+      ],
+      'field_brebo_position_location' => [
+        'label' => 'Positie / locatie',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Bijvoorbeeld voorgevel, eerste verdieping, links.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 4,
+      ],
+      'field_brebo_status' => [
+        'label' => 'Positiestatus',
+        'type' => 'string',
+        'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele status van de productpositie.',
+        'widget' => 'string_textfield',
+        'formatter' => 'string',
+        'weight' => 5,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Positieomschrijving',
+        'type' => 'text_long',
+        'required' => FALSE,
+        'storage' => [],
+        'description' => 'Kenmerken, maatvoering en bijzonderheden.',
+        'widget' => 'text_textarea',
+        'formatter' => 'text_default',
+        'weight' => 6,
+      ],
+    ],
+  );
+
+  return 'Cluster, Woning en Productpositie met bovenliggende relaties aangemaakt.';
+}
+
+/**
+ * Creates a revision-enabled node bundle with configured fields and displays.
+ */
+function _brebo_office_core_create_node_bundle(
+  string $bundle,
+  string $name,
+  string $description,
+  array $fields,
+): void {
+  if (!NodeType::load($bundle)) {
+    NodeType::create([
+      'type' => $bundle,
+      'name' => $name,
+      'description' => $description,
+      'new_revision' => TRUE,
+      'preview_mode' => 0,
+      'display_submitted' => FALSE,
+    ])->save();
+  }
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', $bundle, $field_name)) {
+      $field = FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => $definition['required'],
+        'settings' => $definition['field_settings'] ?? [],
+      ]);
+      if (isset($definition['default_value'])) {
+        $field->setDefaultValue($definition['default_value']);
+      }
+      $field->save();
+    }
+  }
+
+  $form_display = EntityFormDisplay::load("node.$bundle.default") ?: EntityFormDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => $bundle,
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  foreach ($fields as $field_name => $definition) {
+    $form_display->setComponent($field_name, [
+      'type' => $definition['widget'],
+      'weight' => $definition['weight'],
+    ]);
+  }
+  $form_display->save();
+
+  $view_display = EntityViewDisplay::load("node.$bundle.default") ?: EntityViewDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => $bundle,
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  foreach ($fields as $field_name => $definition) {
+    $view_display->setComponent($field_name, [
+      'type' => $definition['formatter'],
+      'label' => 'above',
+      'weight' => $definition['weight'],
+    ]);
+  }
+  $view_display->save();
+}
