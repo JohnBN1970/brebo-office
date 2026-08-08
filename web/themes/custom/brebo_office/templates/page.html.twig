@@ -1,13 +1,41 @@
-<div class="brebo-shell">
+<div class="brebo-shell{{ logged_in ? ' brebo-shell--authenticated' : ' brebo-shell--guest' }}">
   <header class="brebo-header">
-    <div class="brebo-brand">BREBO OFFICE</div>
-    {% if page.header %}{{ page.header }}{% endif %}
-    {% if page.primary_menu %}{{ page.primary_menu }}{% endif %}
+    <div class="brebo-header__inner">
+      <a class="brebo-brand" href="{{ path('brebo_office_core.dashboard') }}" aria-label="BREBO Office start">
+        <span class="brebo-brand__mark" aria-hidden="true">B</span>
+        <span class="brebo-brand__name"><b>BREBO</b><span>OFFICE</span></span>
+      </a>
+
+      {% if logged_in %}
+        <nav class="brebo-appnav" aria-label="Hoofdnavigatie">
+          <a href="{{ path('brebo_office_core.dashboard') }}">Overzicht</a>
+          <a href="{{ path('brebo_office_core.projects') }}">Projecten</a>
+          <a href="{{ path('brebo_office_core.regie_actions') }}">Regie</a>
+          <a href="{{ path('brebo_office_core.calculations') }}">Calculaties</a>
+          <a href="{{ path('brebo_office_core.quality_dashboard') }}">Kwaliteit</a>
+        </nav>
+        <div class="brebo-header__meta">
+          <span class="brebo-environment">SANDBOX</span>
+          <a class="brebo-user-link" href="{{ path('entity.user.canonical', {'user': user.id}) }}" aria-label="Mijn account">JB</a>
+        </div>
+      {% endif %}
+    </div>
   </header>
-  {% if page.highlighted %}<div class="brebo-highlighted">{{ page.highlighted }}</div>{% endif %}
-  <main class="brebo-main">
-    {% if page.sidebar %}<aside class="brebo-sidebar">{{ page.sidebar }}</aside>{% endif %}
-    <section class="brebo-content">{{ page.content }}</section>
+
+  {% if page.highlighted %}
+    <div class="brebo-highlighted"><div class="brebo-highlighted__inner">{{ page.highlighted }}</div></div>
+  {% endif %}
+
+  <main class="brebo-main{{ page.sidebar ? '' : ' brebo-main--full' }}">
+    {% if page.sidebar %}
+      <aside class="brebo-sidebar">{{ page.sidebar }}</aside>
+    {% endif %}
+    <section class="brebo-content">
+      {{ page.content }}
+    </section>
   </main>
-  {% if page.footer %}<footer class="brebo-footer">{{ page.footer }}</footer>{% endif %}
+
+  {% if page.footer %}
+    <footer class="brebo-footer">{{ page.footer }}</footer>
+  {% endif %}
 </div>
