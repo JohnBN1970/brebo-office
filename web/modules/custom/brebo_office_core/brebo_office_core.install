@@ -446,7 +446,13 @@ function brebo_office_core_update_11003(): string {
         'required' => FALSE,
         'storage' => [
           'uri_scheme' => 'public',
-          'default_image' => [],
+          'default_image' => [
+            'uuid' => NULL,
+            'alt' => '',
+            'title' => '',
+            'width' => NULL,
+            'height' => NULL,
+          ],
         ],
         'field_settings' => [
           'file_directory' => 'brebo-office/photos',
@@ -458,7 +464,13 @@ function brebo_office_core_update_11003(): string {
           'alt_field_required' => FALSE,
           'title_field' => TRUE,
           'title_field_required' => FALSE,
-          'default_image' => [],
+          'default_image' => [
+            'uuid' => NULL,
+            'alt' => '',
+            'title' => '',
+            'width' => NULL,
+            'height' => NULL,
+          ],
         ],
         'description' => 'Upload overzichts- en detailfoto’s als bewijs bij deze productpositie.',
         'widget' => 'image_image',
@@ -547,4 +559,38 @@ function brebo_office_core_update_11004(): string {
   }
 
   return 'BREBO Projectleider, Werkvoorbereider en Kwaliteitsmanager aangemaakt.';
+}
+
+
+/**
+ * Normalizes empty default-image metadata created by update 11003.
+ */
+function brebo_office_core_update_11005(): string {
+  $default_image = [
+    'uuid' => NULL,
+    'alt' => '',
+    'title' => '',
+    'width' => NULL,
+    'height' => NULL,
+  ];
+
+  $storage = FieldStorageConfig::loadByName('node', 'field_brebo_photos');
+  if ($storage) {
+    $settings = $storage->getSettings();
+    $settings['default_image'] = $default_image;
+    $storage->setSettings($settings)->save();
+  }
+
+  $field = FieldConfig::loadByName(
+    'node',
+    'brebo_product_position',
+    'field_brebo_photos',
+  );
+  if ($field) {
+    $settings = $field->getSettings();
+    $settings['default_image'] = $default_image;
+    $field->setSettings($settings)->save();
+  }
+
+  return 'Metadata van het lege standaardbeeld voor fotorapportage genormaliseerd.';
 }
