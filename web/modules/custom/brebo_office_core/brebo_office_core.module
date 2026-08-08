@@ -712,6 +712,7 @@ function brebo_office_core_node_insert(NodeInterface $node): void {
 function brebo_office_core_node_update(NodeInterface $node): void {
   _brebo_office_core_sync_deviation_block($node);
   _brebo_office_core_sync_quantity_settlement($node);
+  _brebo_office_core_sync_material_source($node);
 }
 
 /**
