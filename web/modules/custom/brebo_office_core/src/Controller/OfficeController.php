@@ -768,12 +768,61 @@ final class OfficeController extends ControllerBase {
         ],
       ],
       'dashboard_tabs' => [
-        '#markup' => '<div class="brebo-project-tabs" role="tablist" aria-label="Projectdashboard" data-brebo-tabs>'
-          . '<button type="button" class="is-active" role="tab" aria-selected="true" data-brebo-tab="overview">Overzicht</button>'
-          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="governance">Besturing</button>'
-          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="route">Route &amp; acties</button>'
-          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="objects">Objecten</button>'
-          . '</div>',
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-project-tabs'],
+          'role' => 'tablist',
+          'aria-label' => $this->t('Projectdashboard'),
+          'data-brebo-tabs' => 'true',
+        ],
+        'overview' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Overzicht'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'true',
+            'data-brebo-tab' => 'overview',
+            'class' => ['is-active'],
+          ],
+        ],
+        'governance' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Besturing'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'false',
+            'data-brebo-tab' => 'governance',
+            'class' => [],
+          ],
+        ],
+        'route' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Route & acties'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'false',
+            'data-brebo-tab' => 'route',
+            'class' => [],
+          ],
+        ],
+        'objects' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Objecten'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'false',
+            'data-brebo-tab' => 'objects',
+            'class' => [],
+          ],
+        ],
         '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
       'project' => [
