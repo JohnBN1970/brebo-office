@@ -401,7 +401,17 @@ final class CalculationGridForm extends FormBase {
         continue;
       }
 
+      $target_recipe_id = (int) ($values['recipe'] ?? $element->id());
+      $target_recipe = $storage->load($target_recipe_id);
+      if (!$target_recipe instanceof NodeInterface
+        || $target_recipe->bundle() !== 'brebo_calc_element'
+        || (int) $target_recipe->get('field_brebo_calculation_ref')->target_id !== $calculation_id) {
+        $target_recipe_id = (int) $element->id();
+      }
+
       $mapping = [
+        'sequence' => 'field_brebo_line_sequence',
+        'recipe' => 'field_brebo_calc_element_ref',
         'description' => 'field_brebo_line_description',
         'post_type' => 'field_brebo_line_post_type',
         'category' => 'field_brebo_cost_category',
@@ -416,7 +426,7 @@ final class CalculationGridForm extends FormBase {
       ];
       $dirty = FALSE;
       foreach ($mapping as $key => $field_name) {
-        $new_value = $values[$key] ?? NULL;
+        $new_value = $key === 'recipe' ? $target_recipe_id : ($values[$key] ?? NULL);
         if ($new_value === '') {
           $new_value = NULL;
         }
@@ -436,9 +446,129 @@ final class CalculationGridForm extends FormBase {
 
     $this->messenger()->addStatus($this->formatPlural(
       $changed,
-      '1 calculatieregel opgeslagen.',
-      '@count calculatieregels opgeslagen.',
+      '1 ingrediënt opgeslagen.',
+      '@count ingrediënten opgeslagen.',
     ));
+    $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
+  }
+
+
+  /**
+   * Adds a blank ingredient to the selected recipe.
+   */
+  public function addIngredient(array &$form, FormStateInterface $form_state): void {
+    $calculation_id = (int) $form_state->getValue('calculation_id');
+    $recipe_id = (int) $form_state->getValue([
+      'structure_actions',
+      'ingredient',
+      'new_line_recipe',
+    ]);
+    $storage = $this->entityTypeManager->getStorage('node');
+    $recipe = $storage->load($recipe_id);
+    if (!$recipe instanceof NodeInterface
+      || $recipe->bundle() !== 'brebo_calc_element'
+      || (int) $recipe->get('field_brebo_calculation_ref')->target_id !== $calculation_id) {
+      $this->messenger()->addError($this->t('Kies eerst een geldig recept.'));
+      $form_state->setRebuild();
+      return;
+    }
+
+    $last_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_line')
+      ->condition('field_brebo_calc_element_ref.target_id', $recipe_id)
+      ->sort('field_brebo_line_sequence', 'DESC')
+      ->range(0, 1)
+      ->execute();
+    $last = $last_ids ? $storage->load(reset($last_ids)) : NULL;
+    $sequence = $last instanceof NodeInterface
+      ? (int) ($last->get('field_brebo_line_sequence')->value ?? 0) + 10
+      : 10;
+
+    $line = $storage->create([
+      'type' => 'brebo_calc_line',
+      'title' => 'Nieuwe werkregel',
+      'status' => 1,
+      'uid' => $this->currentUser()->id(),
+      'field_brebo_calc_element_ref' => ['target_id' => $recipe_id],
+      'field_brebo_line_sequence' => $sequence,
+      'field_brebo_line_post_type' => 'Vaste post',
+      'field_brebo_cost_category' => 'Overig',
+      'field_brebo_line_description' => 'Nieuwe werkregel',
+      'field_brebo_contract_quantity' => '1.0000',
+      'field_brebo_unit' => 'post',
+      'field_brebo_unit_price' => '0.0000',
+      'field_brebo_hours_input_mode' => 'Normuren',
+    ]);
+    $line->save();
+
+    $this->messenger()->addStatus($this->t('Nieuwe werkregel aan @recipe toegevoegd.', [
+      '@recipe' => $recipe->label(),
+    ]));
+    $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
+  }
+
+  /**
+   * Adds a zone-bound recipe header to the calculation.
+   */
+  public function addRecipe(array &$form, FormStateInterface $form_state): void {
+    $calculation_id = (int) $form_state->getValue('calculation_id');
+    $values = $form_state->getValue(['structure_actions', 'recipe'], []);
+    $component_id = (int) ($values['component'] ?? 0);
+    $code = trim((string) ($values['code'] ?? ''));
+    $description = trim((string) ($values['description'] ?? ''));
+    $storage = $this->entityTypeManager->getStorage('node');
+    $component = $storage->load($component_id);
+
+    if (!$component instanceof NodeInterface
+      || $component->bundle() !== 'brebo_calc_component'
+      || (int) $component->get('field_brebo_calculation_ref')->target_id !== $calculation_id
+      || $code === ''
+      || $description === '') {
+      $this->messenger()->addError($this->t('Kies een hoofdcomponent en vul receptcode en recepthoofdregel in.'));
+      $form_state->setRebuild();
+      return;
+    }
+
+    $last_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $calculation_id)
+      ->sort('field_brebo_element_sequence', 'DESC')
+      ->range(0, 1)
+      ->execute();
+    $last = $last_ids ? $storage->load(reset($last_ids)) : NULL;
+    $sequence = $last instanceof NodeInterface
+      ? (int) ($last->get('field_brebo_element_sequence')->value ?? 0) + 10
+      : 10;
+
+    $recipe_values = [
+      'type' => 'brebo_calc_element',
+      'title' => $description,
+      'status' => 1,
+      'uid' => $this->currentUser()->id(),
+      'field_brebo_calculation_ref' => ['target_id' => $calculation_id],
+      'field_brebo_calc_component_ref' => ['target_id' => $component_id],
+      'field_brebo_element_code' => $code,
+      'field_brebo_element_sequence' => $sequence,
+      'field_brebo_element_scope' => $description,
+      'field_brebo_recipe_quantity' => (string) ($values['quantity'] ?? '1.0000'),
+      'field_brebo_recipe_unit' => trim((string) ($values['unit'] ?? 'post')) ?: 'post',
+    ];
+    $zone_id = (int) ($values['zone'] ?? 0);
+    if ($zone_id > 0) {
+      $zone = $storage->load($zone_id);
+      if ($zone instanceof NodeInterface && $zone->bundle() === 'brebo_building_zone') {
+        $recipe_values['field_brebo_technical_zone_ref'] = ['target_id' => $zone_id];
+      }
+    }
+
+    $recipe = $storage->create($recipe_values);
+    $recipe->save();
+
+    $this->messenger()->addStatus($this->t('Recept @recipe toegevoegd.', [
+      '@recipe' => $description,
+    ]));
     $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
   }
 
