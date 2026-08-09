@@ -63,7 +63,20 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     if (isset($form[$field_name]['widget'][0]['value'])) {
       $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? '';
       $select_options = array_combine($options, $options);
-      if ($node->bundle() === 'brebo_project_scope') {
+      if ($node->bundle() === 'brebo_work_package') {
+        $select_options = ['' => '- Projectinstelling overnemen -'] + $select_options;
+      }
+      $form[$field_name]['widget'][0]['value'] = [
+        '#type' => 'select',
+        '#title' => $form[$field_name]['widget']['#title'] ?? '',
+        '#default_value' => $current,
+        '#options' => $select_options,
+        '#required' => $node->bundle() === 'brebo_project',
+      ];
+    }
+  }
+
+  if ($node->bundle() === 'brebo_project_scope') {
     $form['brebo_scope_intro'] = [
       '#type' => 'container',
       '#weight' => 4,
@@ -77,15 +90,15 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       foreach ([
         'project' => ['brebo_project', 'field_brebo_project_ref'],
         'building' => ['brebo_building', 'field_brebo_building_ref'],
-      ] as $query_key => [$expected_bundle, $field_name]) {
+      ] as $query_key => [$expected_bundle, $scope_field_name]) {
         $target_id = (int) \Drupal::request()->query->get($query_key, 0);
         $target = $target_id > 0
           ? \Drupal::entityTypeManager()->getStorage('node')->load($target_id)
           : NULL;
         if ($target instanceof NodeInterface
           && $target->bundle() === $expected_bundle
-          && isset($form[$field_name]['widget'][0]['target_id'])) {
-          $form[$field_name]['widget'][0]['target_id']['#default_value'] = $target;
+          && isset($form[$scope_field_name]['widget'][0]['target_id'])) {
+          $form[$scope_field_name]['widget'][0]['target_id']['#default_value'] = $target;
         }
       }
     }
@@ -99,23 +112,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       'field_brebo_scope_positions' => 22,
       'field_brebo_scope_status' => 30,
       'field_brebo_scope_notes' => 40,
-    ] as $field_name => $weight) {
-      if (isset($form[$field_name])) {
-        $form[$field_name]['#weight'] = $weight;
+    ] as $scope_field_name => $weight) {
+      if (isset($form[$scope_field_name])) {
+        $form[$scope_field_name]['#weight'] = $weight;
       }
-    }
-  }
-
-  if ($node->bundle() === 'brebo_work_package') {
-        $select_options = ['' => '- Projectinstelling overnemen -'] + $select_options;
-      }
-      $form[$field_name]['widget'][0]['value'] = [
-        '#type' => 'select',
-        '#title' => $form[$field_name]['widget']['#title'] ?? '',
-        '#default_value' => $current,
-        '#options' => $select_options,
-        '#required' => $node->bundle() === 'brebo_project',
-      ];
     }
   }
 
