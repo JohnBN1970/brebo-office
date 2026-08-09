@@ -56,6 +56,15 @@ final class OfferVersionForm extends FormBase {
     }
 
     $calculation_code = (string) ($node->get('field_brebo_calc_code')->value ?? ('CALC-' . $node->id()));
+    $submitted_input = $form_state->getUserInput();
+    $preserved_values = (array) ($form_state->get('offer_form_values') ?? []);
+    $form_value = static function (string $key, mixed $default = NULL) use ($submitted_input, $preserved_values): mixed {
+      if (array_key_exists($key, $submitted_input)) {
+        return $submitted_input[$key];
+      }
+      return $preserved_values[$key] ?? $default;
+    };
+
     $form['intro'] = [
       '#markup' => '<p>' . $this->t('Maak een vaste commerciële offerteversie. Na opslaan blijven layout, teksten en fiscale instellingen gekoppeld aan deze versie.') . '</p>',
     ];
@@ -67,14 +76,14 @@ final class OfferVersionForm extends FormBase {
       '#type' => 'textfield',
       '#title' => $this->t('Offertenummer'),
       '#required' => TRUE,
-      '#default_value' => $calculation_code . '-OFF-' . str_pad((string) $next_version, 2, '0', STR_PAD_LEFT),
+      '#default_value' => $form_value('offer_number', $calculation_code . '-OFF-' . str_pad((string) $next_version, 2, '0', STR_PAD_LEFT)),
       '#maxlength' => 64,
     ];
     $form['identity']['offer_version'] = [
       '#type' => 'number',
       '#title' => $this->t('Versienummer'),
       '#required' => TRUE,
-      '#default_value' => $next_version,
+      '#default_value' => $form_value('offer_version', $next_version),
       '#min' => 1,
     ];
     $form['identity']['offer_status'] = [
@@ -89,11 +98,12 @@ final class OfferVersionForm extends FormBase {
         'Afgewezen' => $this->t('Afgewezen'),
         'Vervallen' => $this->t('Vervallen'),
       ],
-      '#default_value' => 'Concept',
+      '#default_value' => $form_value('offer_status', 'Concept'),
     ];
     $form['identity']['valid_until'] = [
       '#type' => 'date',
       '#title' => $this->t('Geldig tot'),
+      '#default_value' => $form_value('valid_until', ''),
     ];
 
     $form['presentation'] = [
@@ -112,7 +122,7 @@ final class OfferVersionForm extends FormBase {
         'VvE' => $this->t('VvE-/bewonersvriendelijk'),
         'Maatwerk' => $this->t('Maatwerk'),
       ],
-      '#default_value' => 'Zakelijk',
+      '#default_value' => $form_value('offer_layout', 'Zakelijk'),
     ];
     $form['presentation']['price_detail'] = [
       '#type' => 'select',
@@ -125,7 +135,7 @@ final class OfferVersionForm extends FormBase {
         'Regie' => $this->t('Regie-/eenheidsprijzenstaat'),
         'Maatwerk' => $this->t('Maatwerk'),
       ],
-      '#default_value' => 'Halfopen',
+      '#default_value' => $form_value('price_detail', 'Halfopen'),
     ];
 
     $form['generator'] = [
@@ -144,7 +154,7 @@ final class OfferVersionForm extends FormBase {
         'Overheid' => $this->t('Overheid / aanbestedende dienst'),
         'Particulier' => $this->t('Particulier'),
       ],
-      '#default_value' => 'Zakelijk',
+      '#default_value' => $form_value('client_type', 'Zakelijk'),
     ];
     $form['generator']['work_type'] = [
       '#type' => 'select',
@@ -162,7 +172,7 @@ final class OfferVersionForm extends FormBase {
         'Combinatieproject' => $this->t('Combinatieproject'),
         'Maatwerk' => $this->t('Maatwerk'),
       ],
-      '#default_value' => 'Planmatig onderhoud',
+      '#default_value' => $form_value('work_type', 'Planmatig onderhoud'),
     ];
     $form['generator']['writing_style'] = [
       '#type' => 'select',
@@ -174,7 +184,7 @@ final class OfferVersionForm extends FormBase {
         'Technisch' => $this->t('Technisch en formeel'),
         'Bewonersvriendelijk' => $this->t('Bewonersvriendelijk'),
       ],
-      '#default_value' => 'Zakelijk',
+      '#default_value' => $form_value('writing_style', 'Zakelijk'),
     ];
     $form['generator']['generate'] = [
       '#type' => 'submit',
@@ -197,7 +207,7 @@ final class OfferVersionForm extends FormBase {
         '#type' => 'textarea',
         '#title' => $label,
         '#rows' => 6,
-        '#default_value' => (string) ($form_state->getValue($key) ?? ''),
+        '#default_value' => (string) $form_value($key, ''),
       ];
     }
 
@@ -243,7 +253,7 @@ final class OfferVersionForm extends FormBase {
             'Stelpost' => $this->t('Stelpost'),
             'Verrekenpost' => $this->t('Verrekenpost'),
           ],
-          '#default_value' => $line['suggested_type'],
+          '#default_value' => $preserved_values['post_structure']['lines'][$line_id]['post_type'] ?? $line['suggested_type'],
         ];
       }
     }
@@ -262,11 +272,12 @@ final class OfferVersionForm extends FormBase {
         'Vrijgesteld' => $this->t('Btw vrijgesteld'),
         'Niet van toepassing' => $this->t('Niet van toepassing'),
       ],
-      '#default_value' => 'Belast',
+      '#default_value' => $form_value('vat_default', 'Belast'),
     ];
     $form['tax']['g_account_on'] = [
       '#type' => 'checkbox',
       '#title' => $this->t('G-rekening van toepassing'),
+      '#default_value' => (bool) $form_value('g_account_on', FALSE),
     ];
     $form['tax']['g_account_pct'] = [
       '#type' => 'number',
@@ -274,6 +285,7 @@ final class OfferVersionForm extends FormBase {
       '#min' => 0,
       '#max' => 100,
       '#step' => 0.01,
+      '#default_value' => $form_value('g_account_pct', ''),
       '#states' => [
         'visible' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
         'required' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
@@ -288,6 +300,7 @@ final class OfferVersionForm extends FormBase {
         'Aanneemsom' => $this->t('Aanneemsom'),
         'Vaste grondslag' => $this->t('Overeengekomen vaste grondslag'),
       ],
+      '#default_value' => $form_value('g_account_base'),
       '#states' => [
         'visible' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
         'required' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
@@ -297,6 +310,7 @@ final class OfferVersionForm extends FormBase {
       '#type' => 'textfield',
       '#title' => $this->t('G-rekeningnummer (IBAN)'),
       '#maxlength' => 64,
+      '#default_value' => $form_value('g_account_iban', ''),
       '#states' => [
         'visible' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
         'required' => [':input[name="g_account_on"]' => ['checked' => TRUE]],
@@ -323,19 +337,22 @@ final class OfferVersionForm extends FormBase {
    * Generates editable commercial texts without changing calculation data.
    */
   public function generateConceptTexts(array &$form, FormStateInterface $form_state): void {
+    // This button deliberately skips validation. Read and preserve the complete
+    // raw input so a rebuild cannot reset identity, presentation or tax values.
+    $input = $form_state->getUserInput();
     $texts = $this->buildConceptTexts(
-      (string) $form_state->getValue('client_type'),
-      (string) $form_state->getValue('work_type'),
-      (string) $form_state->getValue('writing_style'),
-      (string) $form_state->getValue('offer_layout'),
-      (string) $form_state->getValue('price_detail'),
+      (string) ($input['client_type'] ?? 'Zakelijk'),
+      (string) ($input['work_type'] ?? 'Planmatig onderhoud'),
+      (string) ($input['writing_style'] ?? 'Zakelijk'),
+      (string) ($input['offer_layout'] ?? 'Zakelijk'),
+      (string) ($input['price_detail'] ?? 'Halfopen'),
     );
 
-    $input = $form_state->getUserInput();
     foreach ($texts as $key => $text) {
-      $form_state->setValue($key, $text);
       $input[$key] = $text;
+      $form_state->setValue($key, $text);
     }
+    $form_state->set('offer_form_values', $input);
     $form_state->setUserInput($input);
     $form_state->setRebuild(TRUE);
     $this->messenger()->addStatus($this->t('De conceptteksten zijn gegenereerd. Controleer en bewerk ze vóór het opslaan.'));
