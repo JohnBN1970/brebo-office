@@ -564,6 +564,7 @@ final class OfficeController extends ControllerBase {
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],
+        'max-age' => 0,
         'tags' => [
           'node_list:brebo_work_package',
           'node_list:brebo_release_gate',
@@ -2954,6 +2955,30 @@ final class OfficeController extends ControllerBase {
       }
     }
 
+    $chat_rows = [];
+    $database = \Drupal::database();
+    if ($database->schema()->tableExists('brebo_calculation_chat')) {
+      $chat_query = $database->select('brebo_calculation_chat', 'c');
+      $chat_query->fields('c', ['uid', 'message', 'created']);
+      $chat_query->condition('calculation_id', (int) $node->id());
+      $chat_query->orderBy('created', 'DESC');
+      $chat_query->range(0, 20);
+      $chat_messages = array_reverse($chat_query->execute()->fetchAll());
+      $chat_users = $this->entityTypeManager()->getStorage('user')->loadMultiple(array_unique(array_map(
+        static fn (object $message): int => (int) $message->uid,
+        $chat_messages,
+      )));
+      foreach ($chat_messages as $message) {
+        $chat_user = $chat_users[(int) $message->uid] ?? NULL;
+        $chat_name = $chat_user ? (string) $chat_user->getDisplayName() : (string) $this->t('Onbekend');
+        $chat_rows[] = [
+          \Drupal::service('date.formatter')->format((int) $message->created, 'short'),
+          $chat_name,
+          (string) $message->message,
+        ];
+      }
+    }
+
     $activity_items = [];
     $activity_sources = array_merge([$node], array_values($components), array_values($elements), array_values($lines));
     foreach ($activity_sources as $activity_node) {
@@ -3117,6 +3142,26 @@ final class OfficeController extends ControllerBase {
             '#markup' => $this->t('Gelijktijdig werken is beveiligd: opslaan stopt wanneer een recept of calculatieregel na het openen door een andere gebruiker is gewijzigd.'),
           ],
         ],
+        'chat_heading' => [
+          '#markup' => '<h2>' . $this->t('Calculatiechat') . '</h2>',
+        ],
+        'chat' => [
+          '#type' => 'table',
+          '#attributes' => ['class' => ['brebo-calculation-chat']],
+          '#header' => [
+            $this->t('Datum'),
+            $this->t('Gebruiker'),
+            $this->t('Bericht'),
+          ],
+          '#rows' => $chat_rows,
+          '#empty' => $this->t('Nog geen berichten bij deze calculatie.'),
+        ],
+        'chat_form' => $node->access('update')
+          ? $this->formBuilder()->getForm(
+            \Drupal\brebo_office_core\Form\CalculationChatForm::class,
+            $node,
+          )
+          : [],
         'history_heading' => [
           '#markup' => '<h2>' . $this->t('Recente dossieractiviteit') . '</h2>',
         ],
