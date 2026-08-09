@@ -262,6 +262,12 @@ final class CalculationGridForm extends FormBase {
       $recipe_forecast = 0.0;
       $recipe_hours = 0.0;
       foreach ($lines_by_element[$element_id] ?? [] as $recipe_line) {
+        $line_type = $recipe_line->hasField('field_brebo_line_type')
+          ? (string) ($recipe_line->get('field_brebo_line_type')->value ?? 'Calculatieregel')
+          : 'Calculatieregel';
+        if ($line_type === 'Notitie') {
+          continue;
+        }
         $quantity = (float) ($recipe_line->get('field_brebo_contract_quantity')->value ?? 0);
         $actual = $recipe_line->get('field_brebo_actual_quantity')->value;
         $unit_price = (float) ($recipe_line->get('field_brebo_unit_price')->value ?? 0);
