@@ -3027,6 +3027,15 @@ final class OfficeController extends ControllerBase {
       $owner_name = (string) $this->t('Onbekend');
     }
 
+    $sales_raw = $node->hasField('field_brebo_sales_price')
+      ? $node->get('field_brebo_sales_price')->value
+      : NULL;
+    $sales_price = $sales_raw !== NULL && $sales_raw !== '' ? (float) $sales_raw : NULL;
+    $expected_profit = $sales_price !== NULL ? $sales_price - $forecast_total : NULL;
+    $margin_percent = $sales_price !== NULL && $sales_price > 0.0
+      ? ($expected_profit / $sales_price) * 100
+      : NULL;
+
     $build = [
       '#attributes' => ['class' => ['brebo-calculation-workspace']],
       'actions' => [
@@ -3099,6 +3108,9 @@ final class OfficeController extends ControllerBase {
           '#header' => [
             $this->t('Kostprijs'),
             $this->t('Actuele prognose'),
+            $this->t('Verkoopprijs'),
+            $this->t('Verwachte winst'),
+            $this->t('Winstmarge'),
             $this->t('Totaaluren'),
             $this->t('Open regels'),
             $this->t('Aandacht'),
@@ -3107,6 +3119,9 @@ final class OfficeController extends ControllerBase {
           '#rows' => [[
             $this->money($contract_total),
             $this->money($forecast_total),
+            $sales_price !== NULL ? $this->money($sales_price) : (string) $this->t('Niet vastgesteld'),
+            $expected_profit !== NULL ? $this->money($expected_profit) : '—',
+            $margin_percent !== NULL ? number_format($margin_percent, 1, ',', '.') . '%' : '—',
             number_format($total_budget_hours, 2, ',', '.'),
             $open_line_count,
             $attention_line_count,
@@ -3180,9 +3195,11 @@ final class OfficeController extends ControllerBase {
         ],
         'margin_notice' => [
           '#type' => 'container',
-          '#attributes' => ['class' => ['messages', 'messages--warning']],
+          '#attributes' => ['class' => ['messages', $sales_price !== NULL ? 'messages--status' : 'messages--warning']],
           'text' => [
-            '#markup' => $this->t('Verkoopprijs en winstmarge worden hier toegevoegd zodra de commerciële prijsopbouw als afzonderlijke, controleerbare laag is ingericht. Tot dat moment toont dit dashboard uitsluitend de betrouwbare kostprijs en prognose.'),
+            '#markup' => $sales_price !== NULL
+              ? $this->t('De winstmarge is berekend als verkoopprijs minus actuele kostprijsprognose, gedeeld door de verkoopprijs.')
+              : $this->t('Nog geen commerciële verkoopprijs vastgesteld. Vul deze in via Calculatie bewerken; winst en marge worden daarna automatisch berekend.'),
           ],
         ],
       ],
