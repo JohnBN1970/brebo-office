@@ -1,0 +1,6 @@
+brebo_article.import:
+  title: 'Artikelcatalogus importeren'
+  description: 'Importeer SALES005-prijscatalogi in BREBO Artikelbeheer.'
+  route_name: brebo_article.import
+  parent: system.admin_content
+  weight: 30
