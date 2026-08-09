@@ -621,7 +621,7 @@ final class OfficeController extends ControllerBase {
     $longitude = $this->fieldValue($node, 'field_brebo_longitude');
     $has_coordinates = $latitude !== '—' && $longitude !== '—';
 
-    return [
+    $build = [
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
@@ -639,6 +639,43 @@ final class OfficeController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+      ],
+      'dashboard_tabs' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-project-tabs'],
+          'role' => 'tablist',
+          'aria-label' => $this->t('Gebouwdossier'),
+          'data-brebo-tabs' => 'true',
+        ],
+        'overview' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Overzicht'),
+          '#attributes' => [
+            'type' => 'button', 'role' => 'tab', 'aria-selected' => 'true',
+            'data-brebo-tab' => 'overview', 'class' => ['is-active'],
+          ],
+        ],
+        'history' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Projecthistorie'),
+          '#attributes' => [
+            'type' => 'button', 'role' => 'tab', 'aria-selected' => 'false',
+            'data-brebo-tab' => 'history', 'class' => [],
+          ],
+        ],
+        'structure' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Gebouwstructuur'),
+          '#attributes' => [
+            'type' => 'button', 'role' => 'tab', 'aria-selected' => 'false',
+            'data-brebo-tab' => 'structure', 'class' => [],
+          ],
+        ],
+        '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
       'identity' => [
         '#type' => 'table',
@@ -700,6 +737,30 @@ final class OfficeController extends ControllerBase {
         ],
       ],
     ];
+
+    $tab_panels = [
+      'identity' => 'overview',
+      'map' => 'overview',
+      'summary' => 'overview',
+      'projects_heading' => 'history',
+      'projects' => 'history',
+      'clusters_heading' => 'structure',
+      'clusters' => 'structure',
+    ];
+    foreach ($tab_panels as $key => $tab_id) {
+      $content = $build[$key];
+      $build[$key] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-tab-panel'],
+          'data-brebo-tab-panel' => $tab_id,
+          'role' => 'tabpanel',
+        ],
+        'content' => $content,
+      ];
+    }
+
+    return $build;
   }
 
   /**
