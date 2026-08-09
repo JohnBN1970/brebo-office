@@ -3779,3 +3779,66 @@ function brebo_office_core_update_11025(): string {
   return 'Communicatiekanalen, groepen, gesprekken, bronbestanden, transcripties en AI-mandaat als één controleerbaar model ingericht.';
 }
 
+/**
+ * Adds the controlled communication review and establishment gate.
+ */
+function brebo_office_core_update_11026(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Projectcommunicatie',
+    'Kanaalonafhankelijk, auditeerbaar communicatie-, besluit- en opvolgdossier.',
+    [
+      'field_brebo_source_hash' => [
+        'label' => 'Bronintegriteit (SHA-256)', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Controlewaarde waarmee aantoonbaar blijft dat het oorspronkelijke bronbestand niet ongemerkt is gewijzigd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 35,
+      ],
+      'field_brebo_extract_version' => [
+        'label' => 'Extractieversie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Versie van prompt, model of verwerkingsroute waarmee het AI-concept is gemaakt.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 36,
+      ],
+      'field_brebo_reviewed_by' => [
+        'label' => 'Gecontroleerd door', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user', 'handler_settings' => []],
+        'description' => 'Bevoegde gebruiker die transcriptie, koppelingen, besluiten en acties inhoudelijk heeft gecontroleerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 37,
+      ],
+      'field_brebo_reviewed_at' => [
+        'label' => 'Gecontroleerd op', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Datum en tijd van de menselijke inhoudelijke controle.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 38,
+      ],
+      'field_brebo_reviewer_note' => [
+        'label' => 'Controleverklaring', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Correcties, onzekerheden en motivering voor vaststelling of verwerping.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 39,
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_communication')->execute();
+  foreach ($storage->loadMultiple($ids) as $communication) {
+    if (!$communication instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    if ($communication->get('field_brebo_formal_status')->isEmpty()) {
+      $communication->set('field_brebo_formal_status', 'Bron');
+    }
+    if ($communication->get('field_brebo_ai_status')->isEmpty()) {
+      $communication->set('field_brebo_ai_status', 'Niet verwerkt');
+    }
+    $communication->setNewRevision(TRUE);
+    $communication->setRevisionLogMessage('Communicatieverwerkingspoort toegepast door update 11026.');
+    $communication->save();
+  }
+
+  return 'Bronintegriteit, AI-herkomst, menselijke controle en formele vaststelling als verplichte verwerkingspoort gefundeerd.';
+}
+
