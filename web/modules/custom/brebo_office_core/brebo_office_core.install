@@ -2273,3 +2273,55 @@ function brebo_office_core_update_11016(): string {
 
   return 'Dynamische, auditeerbare projectroutes en vereiste producten per projectsoort aangemaakt.';
 }
+
+
+/**
+ * Backfills canonical governance for projects created before update 11015.
+ */
+function brebo_office_core_update_11017(): string {
+  $defaults = [
+    'field_brebo_project_kind' => 'Uitvoeringsproject',
+    'field_brebo_service_role' => 'Eigen uitvoering',
+    'field_brebo_settlement_method' => 'Aanneemsom',
+    'field_brebo_procurement_position' => 'Door BREBO',
+    'field_brebo_selector_party' => 'BREBO',
+    'field_brebo_contracting_party' => 'BREBO',
+    'field_brebo_cost_bearer' => 'BREBO',
+    'field_brebo_invoice_recipient' => 'BREBO',
+    'field_brebo_procurement_allowed' => 1,
+    'field_brebo_ceiling_type' => 'Geen plafond',
+  ];
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $updated = 0;
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $changed = FALSE;
+    foreach ($defaults as $field_name => $value) {
+      if ($project->hasField($field_name) && $project->get($field_name)->isEmpty()) {
+        $project->set($field_name, $value);
+        $changed = TRUE;
+      }
+    }
+    if ($changed) {
+      $project->setNewRevision(TRUE);
+      $project->setRevisionLogMessage('Canonieke projectbesturing aangevuld door update 11017.');
+      $project->save();
+      $updated++;
+    }
+    else {
+      brebo_office_core_sync_project_route($project);
+    }
+  }
+
+  return sprintf(
+    'Projectbesturing voor %d bestaande projecten aangevuld; automatische projectroutes gesynchroniseerd.',
+    $updated,
+  );
+}
