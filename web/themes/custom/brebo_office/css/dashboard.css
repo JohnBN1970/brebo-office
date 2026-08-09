@@ -80,3 +80,15 @@
   .brebo-flow { grid-template-columns: 1fr; gap: 16px; }
   .brebo-flow li:not(:last-child)::after { width: 2px; height: calc(100% + 16px); right: auto; }
 }
+
+/* Authoritative building location and PDOK aerial imagery. */
+.brebo-building-map.has-location { min-height: 420px; padding: 0; justify-content: stretch; background: #2a2630; isolation: isolate; }
+.brebo-building-map.has-location::before,
+.brebo-building-map.has-location::after { display: none; }
+.brebo-building-map__tiles { position: absolute; inset: 0; z-index: 0; overflow: hidden; background: #d8d3db; }
+.brebo-building-map__tiles img { position: absolute; width: 33.5%; height: 33.5%; object-fit: cover; }
+.brebo-building-map__overlay { position: relative; z-index: 2; width: 100%; margin-top: auto; padding: 72px 30px 28px; background: linear-gradient(180deg, transparent, rgb(32 12 42 / 88%)); }
+.brebo-building-map__marker { position: absolute; z-index: 3; top: 50%; left: 50%; width: 34px; height: 34px; border: 7px solid #fff; border-radius: 50% 50% 50% 0; background: var(--brebo-red-700); box-shadow: 0 5px 18px rgb(0 0 0 / 38%); transform: translate(-50%, -85%) rotate(-45deg); }
+.brebo-building-map__marker::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
+.brebo-building-map__attribution { position: absolute !important; z-index: 4 !important; right: 10px; bottom: 8px; margin: 0 !important; padding: 4px 7px; border-radius: 4px; color: #28172f !important; background: rgb(255 255 255 / 84%); font-size: .68rem; }
+
