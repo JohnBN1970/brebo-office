@@ -1788,6 +1788,26 @@ final class OfficeController extends ControllerBase {
       'communication_heading' => [
         '#markup' => '<h2>' . $this->t('Communicatiedossier opdrachtgever en ketenpartijen') . '</h2>',
       ],
+      'communication_actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'live_voice' => [
+          '#type' => 'link',
+          '#title' => $this->t('Live opname starten'),
+          '#url' => Url::fromRoute('brebo_office_core.live_voice', [], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'voice_upload' => [
+          '#type' => 'link',
+          '#title' => $this->t('Opnamebestand inladen'),
+          '#url' => Url::fromRoute('brebo_office_core.voice_intake', [], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
       'communication_summary' => [
         '#type' => 'table',
         '#header' => [
@@ -1995,6 +2015,7 @@ final class OfficeController extends ControllerBase {
       'requirements' => 'scope',
       'scope_principle' => 'scope',
       'communication_heading' => 'communication',
+      'communication_actions' => 'communication',
       'communication_summary' => 'communication',
       'communications' => 'communication',
       'communication_principle' => 'communication',
