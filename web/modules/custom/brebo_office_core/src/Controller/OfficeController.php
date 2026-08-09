@@ -222,81 +222,6 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
-    $route_total = count($route_rows);
-    $blocked_positions = count($blocked_by_position);
-    $quality_attention = $open_deviations + $blocked_positions;
-    $object_total = count($clusters) + count($dwellings) + count($positions);
-
-    $route_signal = $route_total === 0
-      ? ['neutral', $this->t('Nog niet ingericht')]
-      : ($route_counts['Geblokkeerd'] > 0
-        ? ['danger', $this->t('@count geblokkeerd', ['@count' => $route_counts['Geblokkeerd']])]
-        : ($route_counts['Actief'] > 0
-          ? ['attention', $this->t('@count actief', ['@count' => $route_counts['Actief']])]
-          : ['good', $this->t('Route op orde')]));
-    $quality_signal = $quality_attention > 0
-      ? ['danger', $this->t('@count signaal/signalen', ['@count' => $quality_attention])]
-      : (count($controls) === 0
-        ? ['neutral', $this->t('Nog niet gecontroleerd')]
-        : ($approved < count($controls)
-          ? ['attention', $this->t('Controle loopt')]
-          : ['good', $this->t('Aantoonbaar op orde')]));
-    $evidence_signal = count($controls) === 0
-      ? ['neutral', $this->t('Nog geen bewijs')]
-      : ($approved === count($controls)
-        ? ['good', $this->t('Volledig akkoord')]
-        : ['attention', $this->t('@approved van @total akkoord', [
-          '@approved' => $approved,
-          '@total' => count($controls),
-        ])]);
-    $object_signal = $object_total === 0
-      ? ['neutral', $this->t('Nog geen objecten')]
-      : (count($clusters) > 0 && count($dwellings) > 0 && count($positions) > 0
-        ? ['good', $this->t('Objectketen gevuld')]
-        : ['attention', $this->t('Objectketen onvolledig')]);
-    $deviation_signal = $open_deviations > 0
-      ? ['danger', $this->t('@count open', ['@count' => $open_deviations])]
-      : ['good', $this->t('Geen open afwijkingen')];
-    $release_signal = $blocked_positions > 0
-      ? ['danger', $this->t('@count positie(s) geblokkeerd', ['@count' => $blocked_positions])]
-      : (count($positions) === 0
-        ? ['neutral', $this->t('Nog niet beoordeeld')]
-        : (count($controls) === 0
-          ? ['attention', $this->t('Controle vereist')]
-          : ['good', $this->t('Geen blokkering')]));
-
-    $status_card = function (
-      string $label,
-      string $value,
-      string $description,
-      array $signal,
-      Url $url
-    ): array {
-      return [
-        '#type' => 'link',
-        '#title' => [
-          'top' => [
-            '#type' => 'container',
-            '#attributes' => ['class' => ['brebo-signal-card__top']],
-            'label' => ['#markup' => '<span class="brebo-signal-card__label">' . $label . '</span>'],
-            'light' => [
-              '#markup' => '<span class="brebo-traffic-light brebo-traffic-light--' . $signal[0] . '" aria-hidden="true"></span>',
-            ],
-          ],
-          'value' => ['#markup' => '<strong>' . $value . '</strong>'],
-          'description' => ['#markup' => '<span class="brebo-signal-card__description">' . $description . '</span>'],
-          'status' => [
-            '#markup' => '<span class="brebo-signal-card__status brebo-signal-card__status--' . $signal[0] . '">' . $signal[1] . '</span>',
-          ],
-        ],
-        '#url' => $url,
-        '#attributes' => [
-          'class' => ['brebo-signal-card', 'brebo-signal-card--' . $signal[0]],
-          'aria-label' => $label . ': ' . $signal[1],
-        ],
-      ];
-    };
-
     $build = [
       'actions' => [
         '#type' => 'container',
@@ -816,6 +741,81 @@ final class OfficeController extends ControllerBase {
         )->toRenderable()],
       ];
     }
+
+    $route_total = count($route_rows);
+    $blocked_positions = count($blocked_by_position);
+    $quality_attention = $open_deviations + $blocked_positions;
+    $object_total = count($clusters) + count($dwellings) + count($positions);
+
+    $route_signal = $route_total === 0
+      ? ['neutral', $this->t('Nog niet ingericht')]
+      : ($route_counts['Geblokkeerd'] > 0
+        ? ['danger', $this->t('@count geblokkeerd', ['@count' => $route_counts['Geblokkeerd']])]
+        : ($route_counts['Actief'] > 0
+          ? ['attention', $this->t('@count actief', ['@count' => $route_counts['Actief']])]
+          : ['good', $this->t('Route op orde')]));
+    $quality_signal = $quality_attention > 0
+      ? ['danger', $this->t('@count signaal/signalen', ['@count' => $quality_attention])]
+      : (count($controls) === 0
+        ? ['neutral', $this->t('Nog niet gecontroleerd')]
+        : ($approved < count($controls)
+          ? ['attention', $this->t('Controle loopt')]
+          : ['good', $this->t('Aantoonbaar op orde')]));
+    $evidence_signal = count($controls) === 0
+      ? ['neutral', $this->t('Nog geen bewijs')]
+      : ($approved === count($controls)
+        ? ['good', $this->t('Volledig akkoord')]
+        : ['attention', $this->t('@approved van @total akkoord', [
+          '@approved' => $approved,
+          '@total' => count($controls),
+        ])]);
+    $object_signal = $object_total === 0
+      ? ['neutral', $this->t('Nog geen objecten')]
+      : (count($clusters) > 0 && count($dwellings) > 0 && count($positions) > 0
+        ? ['good', $this->t('Objectketen gevuld')]
+        : ['attention', $this->t('Objectketen onvolledig')]);
+    $deviation_signal = $open_deviations > 0
+      ? ['danger', $this->t('@count open', ['@count' => $open_deviations])]
+      : ['good', $this->t('Geen open afwijkingen')];
+    $release_signal = $blocked_positions > 0
+      ? ['danger', $this->t('@count positie(s) geblokkeerd', ['@count' => $blocked_positions])]
+      : (count($positions) === 0
+        ? ['neutral', $this->t('Nog niet beoordeeld')]
+        : (count($controls) === 0
+          ? ['attention', $this->t('Controle vereist')]
+          : ['good', $this->t('Geen blokkering')]));
+
+    $status_card = function (
+      string $label,
+      string $value,
+      string $description,
+      array $signal,
+      Url $url
+    ): array {
+      return [
+        '#type' => 'link',
+        '#title' => [
+          'top' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-signal-card__top']],
+            'label' => ['#markup' => '<span class="brebo-signal-card__label">' . $label . '</span>'],
+            'light' => [
+              '#markup' => '<span class="brebo-traffic-light brebo-traffic-light--' . $signal[0] . '" aria-hidden="true"></span>',
+            ],
+          ],
+          'value' => ['#markup' => '<strong>' . $value . '</strong>'],
+          'description' => ['#markup' => '<span class="brebo-signal-card__description">' . $description . '</span>'],
+          'status' => [
+            '#markup' => '<span class="brebo-signal-card__status brebo-signal-card__status--' . $signal[0] . '">' . $signal[1] . '</span>',
+          ],
+        ],
+        '#url' => $url,
+        '#attributes' => [
+          'class' => ['brebo-signal-card', 'brebo-signal-card--' . $signal[0]],
+          'aria-label' => $label . ': ' . $signal[1],
+        ],
+      ];
+    };
 
     $build = [
       'actions' => [
