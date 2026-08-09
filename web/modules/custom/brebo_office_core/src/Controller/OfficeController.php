@@ -2798,7 +2798,7 @@ final class OfficeController extends ControllerBase {
     $attention_line_count = 0;
     $blocked_line_count = 0;
     $category_totals = [];
-    $line_markup_total = 0.0;
+    $commercial_markup_total = 0.0;
 
 
     foreach ($elements as $element) {
@@ -2856,7 +2856,7 @@ final class OfficeController extends ControllerBase {
           [$category => $forecast_direct],
           $adjustments_by_target[(int) $line->id()] ?? [],
         );
-        $line_markup_total += $forecast_line_total - $forecast_direct;
+        $commercial_markup_total += $forecast_line_total - $forecast_direct;
 
         $contract_current += $contract_line_total;
         $forecast_current += $forecast_line_total;
@@ -2902,11 +2902,12 @@ final class OfficeController extends ControllerBase {
         $contract_breakdown,
         $adjustments_by_target[(int) $element->id()] ?? [],
       );
-      [$forecast_element_total] = $this->applyAdjustments(
+      [$forecast_element_total, $forecast_element_markup] = $this->applyAdjustments(
         $forecast_current,
         $forecast_breakdown,
         $adjustments_by_target[(int) $element->id()] ?? [],
       );
+      $commercial_markup_total += $forecast_element_markup;
       $element_id = (int) $element->id();
       $contract_element_totals[] = $contract_element_total;
       $forecast_element_totals[] = $forecast_element_total;
@@ -2945,22 +2946,24 @@ final class OfficeController extends ControllerBase {
         $calculation_contract_breakdown,
         $adjustments_by_target[(int) $package->id()] ?? [],
       );
-      [$forecast_total] = $this->applyAdjustments(
+      [$forecast_total, $package_markup] = $this->applyAdjustments(
         $forecast_total,
         $calculation_forecast_breakdown,
         $adjustments_by_target[(int) $package->id()] ?? [],
       );
+      $commercial_markup_total += $package_markup;
     }
     [$contract_total] = $this->applyAdjustments(
       $contract_total,
       $calculation_contract_breakdown,
       $adjustments_by_target[(int) $node->id()] ?? [],
     );
-    [$forecast_total] = $this->applyAdjustments(
+    [$forecast_total, $calculation_markup] = $this->applyAdjustments(
       $forecast_total,
       $calculation_forecast_breakdown,
       $adjustments_by_target[(int) $node->id()] ?? [],
     );
+    $commercial_markup_total += $calculation_markup;
 
     $component_rows = [];
     $assigned_element_ids = [];
@@ -3128,20 +3131,21 @@ final class OfficeController extends ControllerBase {
       ? (float) ($node->get('field_brebo_com_adjustment')->value ?? 0)
       : 0.0;
 
-    // Regelopslagen zitten al in de actuele prognose. Haal ze eerst uit
-    // de grondslag, zodat ze wel als bruto winst tellen maar nooit dubbel.
-    $direct_cost_total = $forecast_total - $line_markup_total;
+    // Commerciële opslagen op regel-, recept-, werkpakket- en calculatieniveau
+    // zitten al in de prognose. Haal ze uit de kostprijsgrondslag, zodat ze
+    // precies één keer als bruto winst meetellen.
+    $direct_cost_total = $forecast_total - $commercial_markup_total;
     $general_cost = $direct_cost_total * $general_cost_pct / 100;
     $risk_cost = $direct_cost_total * $risk_pct / 100;
     $profit_cost = $direct_cost_total * $profit_pct / 100;
     $tail_cost_total = $general_cost + $risk_cost + $profit_cost + $commercial_adjustment;
-    $gross_profit = $line_markup_total + $tail_cost_total;
+    $gross_profit = $commercial_markup_total + $tail_cost_total;
     $sales_price = $direct_cost_total + $gross_profit;
     $margin_percent = $sales_price > 0.0
       ? ($gross_profit / $sales_price) * 100
       : 0.0;
     $tail_cost_rows = [
-      [$this->t('Bruto winst uit regelopslagen'), '—', $this->money($line_markup_total)],
+      [$this->t('Bruto winst uit opslagen'), '—', $this->money($commercial_markup_total)],
       [$this->t('Algemene kosten'), number_format($general_cost_pct, 2, ',', '.') . '%', $this->money($general_cost)],
       [$this->t('Projectrisico'), number_format($risk_pct, 2, ',', '.') . '%', $this->money($risk_cost)],
       [$this->t('Winst'), number_format($profit_pct, 2, ',', '.') . '%', $this->money($profit_cost)],
@@ -3314,7 +3318,7 @@ final class OfficeController extends ControllerBase {
           '#type' => 'container',
           '#attributes' => ['class' => ['messages', 'messages--status']],
           'text' => [
-            '#markup' => $this->t('Bruto winst bestaat uit regelopslagen plus de vastgestelde staartkosten. Notitieregels tellen nooit financieel mee; verdisconteerde regels blijven intern volledig meetellen.'),
+            '#markup' => $this->t('Bruto winst bestaat uit commerciële opslagen op alle calculatieniveaus plus de vastgestelde staartkosten. Notitieregels tellen nooit financieel mee; verdisconteerde regels blijven intern volledig meetellen.'),
           ],
         ],
       ],
@@ -4011,7 +4015,8 @@ final class OfficeController extends ControllerBase {
           $breakdown[$category] = ($breakdown[$category] ?? 0.0) + $direct;
         }
       }
-      [$element_total] = $this->applyAdjustments($current, $breakdown, $adjustments[(int) $element->id()] ?? []);
+      [$element_total, $element_markup] = $this->applyAdjustments($current, $breakdown, $adjustments[(int) $element->id()] ?? []);
+      $line_markup += $element_markup;
       $forecast_elements[] = $element_total;
       foreach ($breakdown as $category => $value) {
         $calculation_breakdown[$category] = ($calculation_breakdown[$category] ?? 0.0) + $value;
@@ -4019,9 +4024,11 @@ final class OfficeController extends ControllerBase {
     }
     $forecast = array_sum($forecast_elements);
     if ($package instanceof NodeInterface) {
-      [$forecast] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $package->id()] ?? []);
+      [$forecast, $package_markup] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $package->id()] ?? []);
+      $line_markup += $package_markup;
     }
-    [$forecast] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $calculation->id()] ?? []);
+    [$forecast, $calculation_markup] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $calculation->id()] ?? []);
+    $line_markup += $calculation_markup;
     $direct_cost = $forecast - $line_markup;
     $general = $direct_cost * (float) ($calculation->get('field_brebo_general_cost_pct')->value ?? 0) / 100;
     $risk = $direct_cost * (float) ($calculation->get('field_brebo_risk_pct')->value ?? 0) / 100;
