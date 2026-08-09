@@ -256,17 +256,43 @@ final class CalculationGridForm extends FormBase {
       $recipe_unit_price = $recipe_quantity > 0 ? $recipe_contract / $recipe_quantity : 0.0;
       $recipe_key = 'recipe_' . $element_id;
       $form['grid'][$recipe_key]['heading'] = [
-        '#markup' => '<div class="brebo-recipe-heading">'
-          . '<span class="brebo-recipe-heading__code"><small>NLSfB ' . htmlspecialchars($component_code) . '</small><strong>'
-          . htmlspecialchars((string) $element->get('field_brebo_element_code')->value) . '</strong></span>'
-          . '<span class="brebo-recipe-heading__title"><small>Recepthoofdregel</small><strong>' . htmlspecialchars((string) $element->label()) . '</strong>'
-          . '<em>' . htmlspecialchars($zone_label) . '</em></span>'
-          . '<span><small>Hoeveelheid</small><strong>' . number_format($recipe_quantity, 2, ',', '.') . ' ' . htmlspecialchars($recipe_unit) . '</strong></span>'
-          . '<span><small>Uren</small><strong>' . number_format($recipe_hours, 2, ',', '.') . '</strong></span>'
-          . '<span><small>Kostprijs/recept</small><strong>€ ' . number_format($recipe_unit_price, 2, ',', '.') . '</strong></span>'
-          . '<span><small>Totaal</small><strong>€ ' . number_format($recipe_contract, 2, ',', '.') . '</strong></span>'
-          . '</div>',
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-recipe-heading']],
         '#wrapper_attributes' => ['colspan' => 15],
+        'identity' => [
+          '#markup' => '<span class="brebo-recipe-heading__code"><small>NLSfB ' . htmlspecialchars($component_code) . '</small><strong>'
+            . htmlspecialchars((string) $element->get('field_brebo_element_code')->value) . '</strong></span>'
+            . '<span class="brebo-recipe-heading__title"><small>Recepthoofdregel</small><strong>'
+            . htmlspecialchars((string) $element->label()) . '</strong></span>',
+        ],
+        'zone' => [
+          '#type' => 'select',
+          '#title' => $this->t('Technische zone'),
+          '#default_value' => $zone instanceof NodeInterface ? (int) $zone->id() : 0,
+          '#options' => $zone_options,
+        ],
+        'quantity' => [
+          '#type' => 'number',
+          '#title' => $this->t('Recepthoeveelheid'),
+          '#default_value' => $recipe_quantity,
+          '#step' => '0.0001',
+          '#min' => 0,
+        ],
+        'unit' => [
+          '#type' => 'textfield',
+          '#title' => $this->t('Eenheid'),
+          '#default_value' => $recipe_unit,
+          '#maxlength' => 16,
+        ],
+        'hours' => [
+          '#markup' => '<span><small>Uren</small><strong>' . number_format($recipe_hours, 2, ',', '.') . '</strong></span>',
+        ],
+        'price' => [
+          '#markup' => '<span><small>Kostprijs/recept</small><strong>€ ' . number_format($recipe_unit_price, 2, ',', '.') . '</strong></span>',
+        ],
+        'total' => [
+          '#markup' => '<span><small>Totaal</small><strong>€ ' . number_format($recipe_contract, 2, ',', '.') . '</strong></span>',
+        ],
       ];
       $form['grid'][$recipe_key]['#attributes']['class'] = [
         'brebo-recipe-row',
@@ -391,6 +417,26 @@ final class CalculationGridForm extends FormBase {
     $changed = 0;
 
     foreach ($form_state->getValue('grid', []) as $line_id => $values) {
+      if (str_starts_with((string) $line_id, 'recipe_')) {
+        $recipe_id = (int) substr((string) $line_id, 7);
+        $recipe = $storage->load($recipe_id);
+        $heading = $values['heading'] ?? [];
+        if ($recipe instanceof NodeInterface
+          && $recipe->bundle() === 'brebo_calc_element'
+          && (int) $recipe->get('field_brebo_calculation_ref')->target_id === $calculation_id
+          && $recipe->access('update')) {
+          $zone_id = (int) ($heading['zone'] ?? 0);
+          $recipe->set('field_brebo_technical_zone_ref', $zone_id > 0 ? ['target_id' => $zone_id] : NULL);
+          $recipe->set('field_brebo_recipe_quantity', (string) ($heading['quantity'] ?? '0'));
+          $recipe->set('field_brebo_recipe_unit', trim((string) ($heading['unit'] ?? 'post')) ?: 'post');
+          $recipe->setNewRevision(TRUE);
+          $recipe->setRevisionLogMessage('Receptlocatie en hoeveelheid vanuit de calculatiewerkbank bijgewerkt.');
+          $recipe->save();
+          $changed++;
+        }
+        continue;
+      }
+
       $line = $storage->load((int) $line_id);
       if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line' || !$line->access('update')) {
         continue;
