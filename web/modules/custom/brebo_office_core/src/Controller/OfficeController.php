@@ -3107,6 +3107,39 @@ final class OfficeController extends ControllerBase {
       }
     }
 
+    $offer_version_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_offer_version')
+      ->condition('field_brebo_calculation_ref.target_id', $node->id())
+      ->sort('field_brebo_offer_version', 'DESC')
+      ->execute();
+    $offer_version_rows = [];
+    foreach ($storage->loadMultiple($offer_version_ids) as $offer_version) {
+      if (!$offer_version instanceof NodeInterface) {
+        continue;
+      }
+      $g_account = $offer_version->hasField('field_brebo_g_account_on')
+        && (bool) $offer_version->get('field_brebo_g_account_on')->value;
+      $offer_version_rows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $this->fieldValue($offer_version, 'field_brebo_offer_number') . ' · v' . $this->fieldValue($offer_version, 'field_brebo_offer_version'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $offer_version->id()])
+        )->toRenderable()],
+        $this->fieldValue($offer_version, 'field_brebo_offer_status'),
+        $this->fieldValue($offer_version, 'field_brebo_offer_layout'),
+        $this->fieldValue($offer_version, 'field_brebo_price_detail'),
+        $this->fieldValue($offer_version, 'field_brebo_vat_default'),
+        $g_account
+          ? $this->fieldValue($offer_version, 'field_brebo_g_account_pct') . '%'
+          : (string) $this->t('Nee'),
+        $this->fieldValue($offer_version, 'field_brebo_valid_until'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bewerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $offer_version->id()])
+        )->toRenderable()],
+      ];
+    }
+
     $post_rows = [];
     ksort($post_totals);
     foreach ($post_totals as $post_type => $value) {
@@ -3278,6 +3311,13 @@ final class OfficeController extends ControllerBase {
             'query' => ['target' => $node->id()],
           ]),
           '#attributes' => ['class' => ['button']],
+        ],
+        'create_offer' => [
+          '#type' => 'link', '#title' => $this->t('Nieuwe offerteversie'),
+          '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+          '#access' => $node->access('update')
+            && $this->currentUser()->hasPermission('create brebo_offer_version content'),
         ],
         'generate_work_budget' => [
           '#type' => 'link', '#title' => $this->t('Werkbegroting maken'),
@@ -3517,6 +3557,25 @@ final class OfficeController extends ControllerBase {
         '#rows' => $offer_rows,
         '#empty' => $this->t('Nog geen zichtbare offerteregels.'),
       ],
+      'offer_versions_heading' => ['#markup' => '<h2>' . $this->t('Offerteversies') . '</h2>'],
+      'offer_versions_action' => [
+        '#type' => 'link',
+        '#title' => $this->t('Nieuwe offerteversie'),
+        '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()]),
+        '#attributes' => ['class' => ['button', 'button--primary']],
+        '#access' => $node->access('update')
+          && $this->currentUser()->hasPermission('create brebo_offer_version content'),
+      ],
+      'offer_versions' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Offerte'), $this->t('Status'), $this->t('Layout'),
+          $this->t('Prijsdetail'), $this->t('Btw'), $this->t('G-rekening'),
+          $this->t('Geldig tot'), $this->t('Actie'),
+        ],
+        '#rows' => $offer_version_rows,
+        '#empty' => $this->t('Nog geen vaste offerteversies.'),
+      ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
       'posts' => [
         '#type' => 'table', '#attributes' => ['class' => ['brebo-calc-posts']], '#header' => [$this->t('Posttype'), $this->t('Actuele prognose')],
@@ -3551,6 +3610,7 @@ final class OfficeController extends ControllerBase {
         'tags' => [
           'node_list:brebo_calculation', 'node_list:brebo_calc_component',
           'node_list:brebo_calc_element', 'node_list:brebo_calc_line', 'node_list:brebo_calc_adjustment',
+          'node_list:brebo_offer_version',
         ],
       ],
     ];
@@ -3575,6 +3635,9 @@ final class OfficeController extends ControllerBase {
       'offer_heading' => 'calc-offer',
       'offer_notice' => 'calc-offer',
       'offer' => 'calc-offer',
+      'offer_versions_heading' => 'calc-offer',
+      'offer_versions_action' => 'calc-offer',
+      'offer_versions' => 'calc-offer',
     ] as $key => $tab_id) {
       $content = $build[$key];
       $build[$key] = [
