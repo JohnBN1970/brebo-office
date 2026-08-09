@@ -15,6 +15,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   }
 
   $labels = [
+    'brebo_building' => 'Gebouwnaam',
     'brebo_project' => 'Projectnaam',
     'brebo_cluster' => 'Clusternaam',
     'brebo_dwelling' => 'Woningnaam',
@@ -73,6 +74,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   }
 
   if ($node->bundle() === 'brebo_project') {
+    if (isset($form['field_brebo_building_refs'])) {
+      $form['field_brebo_building_refs']['#weight'] = 6;
+      $form['field_brebo_building_refs']['#description'] = 'Koppel één of meer permanente gebouwen aan deze tijdelijke projectscope.';
+    }
     $form['brebo_operating_model_intro'] = [
       '#type' => 'container',
       '#weight' => 5,
@@ -481,6 +486,7 @@ function brebo_office_core_preprocess_page(array &$variables): void {
 
   $storage = \Drupal::entityTypeManager()->getStorage('node');
   $bundles = [
+    'buildings' => 'brebo_building',
     'projects' => 'brebo_project',
     'clusters' => 'brebo_cluster',
     'dwellings' => 'brebo_dwelling',
@@ -614,6 +620,10 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
 
 
   $definitions = [
+    'brebo_building' => [
+      'code' => 'field_brebo_building_code',
+      'parent' => NULL,
+    ],
     'brebo_project' => [
       'code' => 'field_brebo_project_code',
       'parent' => NULL,
