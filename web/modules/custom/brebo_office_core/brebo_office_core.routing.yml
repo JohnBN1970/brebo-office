@@ -15,6 +15,16 @@ brebo_office_core.buildings:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.building_zones:
+  path: '/office/gebouwzones'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Technische gebouwzones'
+    bundle: 'brebo_building_zone'
+  requirements:
+    _permission: 'access content'
+
+
 brebo_office_core.building_dashboard:
   path: '/office/gebouwen/{node}'
   defaults:
