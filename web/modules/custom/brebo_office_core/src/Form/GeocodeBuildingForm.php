@@ -103,7 +103,7 @@ final class GeocodeBuildingForm extends FormBase {
     }
     catch (GuzzleException | \JsonException $exception) {
       $this->messenger()->addError($this->t('PDOK kon nu niet worden geraadpleegd. Probeer het later opnieuw.'));
-      $this->getLogger('brebo_office_core')->error('PDOK-geocoding mislukt: @message', ['@message' => $exception->getMessage()]);
+      \Drupal::logger('brebo_office_core')->error('PDOK-geocoding mislukt: @message', ['@message' => $exception->getMessage()]);
       return;
     }
 
