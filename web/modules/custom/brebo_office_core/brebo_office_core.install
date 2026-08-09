@@ -2967,3 +2967,207 @@ function brebo_office_core_update_11021(): string {
 
   return 'Universele voortgangs-, stoplicht- en ketenvereisten gefundeerd.';
 }
+
+
+/**
+ * Creates the auditable client and project communication dossier.
+ */
+function brebo_office_core_update_11022(): string {
+  \Drupal::service('module_installer')->install(['datetime', 'file']);
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Projectcommunicatie',
+    'Auditeerbaar communicatie-, besluit- en opvolgdossier gekoppeld aan project en scope.',
+    [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']],
+        ],
+        'description' => 'Project waarop deze communicatie betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Permanent gebouw waarop het bericht of besluit betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_comm_scope_target' => [
+        'label' => 'Scopeobject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => []],
+        'description' => 'Optioneel: technische zone, woning, productpositie, werkpakket of ander dossierobject.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_comm_direction' => [
+        'label' => 'Richting', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Inkomend, uitgaand of intern vastgelegd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Uitgaand']],
+      ],
+      'field_brebo_comm_channel' => [
+        'label' => 'Kanaal', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'E-mail, telefoongesprek, overleg, brief, portaal of mondeling.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'E-mail']],
+      ],
+      'field_brebo_comm_type' => [
+        'label' => 'Communicatietype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Vraag, antwoord, informatie, instructie, besluit, goedkeuring, wijziging of afspraak.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+        'default_value' => [['value' => 'Informatie']],
+      ],
+      'field_brebo_comm_datetime' => [
+        'label' => 'Datum en tijd', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Moment waarop het contact plaatsvond of het bericht is verzonden/ontvangen.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 7,
+      ],
+      'field_brebo_external_party' => [
+        'label' => 'Externe organisatie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Opdrachtgever, hoofdaannemer, leverancier, adviseur of andere ketenpartij.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_external_contact' => [
+        'label' => 'Contactpersoon', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Naam, functie en eventueel e-mailadres van de contactpersoon.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_comm_subject' => [
+        'label' => 'Onderwerp', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Korte herkenbare omschrijving van het contactmoment.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+      ],
+      'field_brebo_comm_summary' => [
+        'label' => 'Samenvatting', 'type' => 'text_long', 'required' => TRUE,
+        'storage' => [],
+        'description' => 'Feitelijke inhoud, context en gemaakte afspraken.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 11,
+      ],
+      'field_brebo_comm_decision' => [
+        'label' => 'Besluit of instructie', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Het concrete besluit, de opdracht, toezegging of vereiste uitkomst.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+      ],
+      'field_brebo_response_required' => [
+        'label' => 'Reactie vereist', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Markeer wanneer antwoord, akkoord of bevestiging noodzakelijk is.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 13,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_due_date' => [
+        'label' => 'Reactietermijn', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Uiterste datum voor antwoord, akkoord of bevestiging.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 14,
+      ],
+      'field_brebo_comm_status' => [
+        'label' => 'Opvolgstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Vastgelegd, wacht op reactie, beantwoord, bevestigd, vervallen of gesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 15,
+        'default_value' => [['value' => 'Vastgelegd']],
+      ],
+      'field_brebo_responsible_user' => [
+        'label' => 'BREBO-eigenaar', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user', 'handler_settings' => []],
+        'description' => 'Verantwoordelijke voor antwoord, opvolging of dossiervorming.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 16,
+      ],
+      'field_brebo_comm_impact' => [
+        'label' => 'Impactgebieden', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Bijvoorbeeld scope, planning, financieel, kwaliteit, veiligheid, inkoop of bewoners.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 17,
+      ],
+      'field_brebo_financial_impact' => [
+        'label' => 'Financiële impact', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 14, 'scale' => 2],
+        'description' => 'Geschatte positieve of negatieve financiële impact exclusief btw.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 18,
+      ],
+      'field_brebo_schedule_days' => [
+        'label' => 'Planningseffect in dagen', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geschatte versnelling of vertraging in kalenderdagen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 19,
+      ],
+      'field_brebo_mandate_confirmed' => [
+        'label' => 'Bevoegdheid bevestigd', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'De afzender of beslisser was bevoegd om deze instructie of goedkeuring te geven.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 20,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_written_required' => [
+        'label' => 'Schriftelijke bevestiging vereist', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Mondelinge afspraak of instructie moet nog schriftelijk worden bevestigd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 21,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_written_received' => [
+        'label' => 'Schriftelijk bevestigd', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'De vereiste schriftelijke bevestiging is ontvangen en vastgelegd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 22,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_comm_requirement' => [
+        'label' => 'Gekoppelde vereiste', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_scope_requirement' => 'brebo_scope_requirement']],
+        ],
+        'description' => 'Statusonderdeel of ketenafhankelijkheid die door deze communicatie wordt onderbouwd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 23,
+      ],
+      'field_brebo_comm_attachments' => [
+        'label' => 'Bijlagen en bewijs', 'type' => 'file', 'required' => FALSE,
+        'storage' => ['target_type' => 'file', 'display_field' => FALSE, 'display_default' => FALSE, 'uri_scheme' => 'private'],
+        'field_settings' => [
+          'file_directory' => 'brebo-office/communication/[date:custom:Y]/[date:custom:m]',
+          'file_extensions' => 'pdf doc docx xls xlsx csv txt jpg jpeg png webp eml msg',
+          'max_filesize' => '25 MB',
+          'description_field' => TRUE,
+        ],
+        'description' => 'E-mailbestand, brief, verslag, offerte, tekening, foto of ander bewijsstuk.',
+        'widget' => 'file_generic', 'formatter' => 'file_default', 'weight' => 24, 'cardinality' => -1,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_communication content',
+        'edit own brebo_communication content',
+        'edit any brebo_communication content',
+        'view brebo_communication revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Controleerbaar communicatie-, besluit- en opvolgdossier voor opdrachtgever en ketenpartijen aangemaakt.';
+}
