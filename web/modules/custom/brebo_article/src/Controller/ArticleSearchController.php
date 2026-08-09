@@ -79,6 +79,7 @@ final class ArticleSearchController extends ControllerBase {
         'catalog_import_id' => (int) $row->catalog_import_id,
         'code' => $row->code,
         'description' => $row->description,
+        'cost_category' => $row->cost_category,
         'supplier' => $row->supplier_name,
         'supplier_article_no' => $row->supplier_article_no,
         'gtin' => $row->gtin,
