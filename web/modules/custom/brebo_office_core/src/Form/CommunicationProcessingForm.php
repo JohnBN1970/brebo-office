@@ -151,6 +151,12 @@ final class CommunicationProcessingForm extends FormBase {
       '#type' => 'actions',
       '#attributes' => ['class' => ['brebo-processing-workbench__wide']],
     ];
+    $form['actions']['start_ai'] = [
+      '#type' => 'submit',
+      '#name' => 'start_ai',
+      '#value' => $this->t('AI-verwerking starten'),
+      '#button_type' => 'primary',
+    ];
     $form['actions']['save'] = [
       '#type' => 'submit',
       '#name' => 'save_concept',
@@ -192,6 +198,29 @@ final class CommunicationProcessingForm extends FormBase {
       return;
     }
     $node = $this->communication;
+    $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? 'save_concept');
+
+    if ($trigger === 'start_ai') {
+      $has_source = $node->hasField('field_brebo_source_files') && !$node->get('field_brebo_source_files')->isEmpty();
+      $has_transcript = trim((string) $form_state->getValue('transcript')) !== '';
+      if (!$has_source && !$has_transcript) {
+        $this->messenger()->addError($this->t('Voeg eerst een opnamebestand of transcriptie toe.'));
+        return;
+      }
+      if ($has_transcript) {
+        $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
+      }
+      $node->set('field_brebo_ai_status', 'Wachtrij');
+      $node->set('field_brebo_formal_status', 'Bron');
+      $node->set('field_brebo_process_log', 'In wachtrij geplaatst voor automatische transcriptie en BREBO-extractie.');
+      $node->setNewRevision(TRUE);
+      $node->setRevisionLogMessage('Communicatie in de gecontroleerde AI-verwerkingswachtrij geplaatst.');
+      $node->save();
+      \Drupal::queue('brebo_communication_ai')->createItem(['nid' => (int) $node->id()]);
+      $this->messenger()->addStatus($this->t('Communicatie staat in de AI-wachtrij. De uitkomst wordt altijd ter menselijke controle aangeboden.'));
+      $form_state->setRebuild(TRUE);
+      return;
+    }
     $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
     $node->set('field_brebo_ai_summary', (string) $form_state->getValue('summary'));
     $node->set('field_brebo_ai_decisions', (string) $form_state->getValue('decisions'));
@@ -202,7 +231,6 @@ final class CommunicationProcessingForm extends FormBase {
     $node->set('field_brebo_reviewer_note', (string) $form_state->getValue('reviewer_note'));
     $node->set('field_brebo_processed_at', gmdate('Y-m-d\TH:i:s'));
 
-    $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? 'save_concept');
     if ($trigger === 'mark_review') {
       $node->set('field_brebo_ai_status', 'Controle vereist');
       $node->set('field_brebo_formal_status', 'AI-concept');
