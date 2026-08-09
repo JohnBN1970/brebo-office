@@ -350,3 +350,16 @@ brebo_office_core.live_voice:
   requirements:
     _permission: 'create brebo_communication content'
 
+
+
+brebo_office_core.communication_processing:
+  path: '/office/communicatie/{node}/verwerken'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\CommunicationProcessingForm'
+    _title: 'Communicatie verwerken en vaststellen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
