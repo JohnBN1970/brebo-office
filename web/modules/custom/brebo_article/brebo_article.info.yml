@@ -1,0 +1,7 @@
+name: BREBO Artikelbeheer
+type: module
+description: 'Centrale artikelstam, leverancierscatalogi, prijzen en calculatiesnapshots.'
+package: BREBO
+core_version_requirement: ^11
+dependencies:
+  - drupal:node
