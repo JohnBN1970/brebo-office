@@ -17,6 +17,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   $labels = [
     'brebo_building' => 'Gebouwnaam',
     'brebo_project' => 'Projectnaam',
+    'brebo_project_scope' => 'Projectscope',
     'brebo_cluster' => 'Clusternaam',
     'brebo_dwelling' => 'Woningnaam',
     'brebo_product_position' => 'Productpositie',
@@ -56,6 +57,8 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'field_brebo_settlement_method' => ['Honorarium', 'Aanneemsom', 'Eenheidsprijzen', 'Regiewerk', 'Combinatie'],
     'field_brebo_procurement_position' => ['Door BREBO', 'Namens opdrachtgever', 'Door opdrachtgever', 'Per werkpakket'],
     'field_brebo_ceiling_type' => ['Geen plafond', 'Indicatief budget', 'Waarschuwingsgrens', 'Hard plafond'],
+    'field_brebo_scope_mode' => ['Volledig gebouw', 'Geselecteerde gebouwdelen', 'Geselecteerde woningen', 'Geselecteerde productposities', 'Geselecteerde objecten'],
+    'field_brebo_scope_status' => ['Concept', 'Vastgesteld', 'In uitvoering', 'Afgesloten'],
   ] as $field_name => $options) {
     if (isset($form[$field_name]['widget'][0]['value'])) {
       $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? '';
@@ -70,6 +73,56 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         '#options' => $select_options,
         '#required' => $node->bundle() === 'brebo_project',
       ];
+    }
+  }
+
+  if ($node->bundle() === 'brebo_project_scope') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe projectscope');
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+
+    $form['brebo_scope_intro'] = [
+      '#type' => 'container',
+      '#weight' => 4,
+      '#attributes' => ['class' => ['messages', 'messages--status']],
+      'text' => [
+        '#markup' => '<strong>Projectscope per gebouw</strong><br>Kies het permanente gebouw en leg daarna exact vast welke gebouwdelen, woningen en productposities binnen deze tijdelijke opdracht vallen.',
+      ],
+    ];
+
+    if ($node->isNew()) {
+      foreach ([
+        'project' => ['brebo_project', 'field_brebo_project_ref'],
+        'building' => ['brebo_building', 'field_brebo_building_ref'],
+      ] as $query_key => [$expected_bundle, $scope_field_name]) {
+        $target_id = (int) \Drupal::request()->query->get($query_key, 0);
+        $target = $target_id > 0
+          ? \Drupal::entityTypeManager()->getStorage('node')->load($target_id)
+          : NULL;
+        if ($target instanceof NodeInterface
+          && $target->bundle() === $expected_bundle
+          && isset($form[$scope_field_name]['widget'][0]['target_id'])) {
+          $form[$scope_field_name]['widget'][0]['target_id']['#default_value'] = $target;
+        }
+      }
+    }
+
+    foreach ([
+      'field_brebo_project_ref' => 5,
+      'field_brebo_building_ref' => 6,
+      'field_brebo_scope_mode' => 10,
+      'field_brebo_scope_clusters' => 20,
+      'field_brebo_scope_dwellings' => 21,
+      'field_brebo_scope_positions' => 22,
+      'field_brebo_scope_status' => 30,
+      'field_brebo_scope_notes' => 40,
+    ] as $scope_field_name => $weight) {
+      if (isset($form[$scope_field_name])) {
+        $form[$scope_field_name]['#weight'] = $weight;
+      }
     }
   }
 
@@ -791,6 +844,15 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_project_scope') {
+    $project = $node->get('field_brebo_project_ref')->entity;
+    $building = $node->get('field_brebo_building_ref')->entity;
+    $node->setTitle(($project instanceof NodeInterface ? $project->label() : 'Project')
+      . ' — '
+      . ($building instanceof NodeInterface ? $building->label() : 'gebouwscope'));
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_line') {
     $quantity = (float) $node->get('field_brebo_contract_quantity')->value;
     $unit_price = (float) $node->get('field_brebo_unit_price')->value;

@@ -2517,3 +2517,174 @@ function brebo_office_core_update_11018(): string {
   );
 }
 
+/**
+ * Creates explicit project scope selections within permanent buildings.
+ */
+function brebo_office_core_update_11019(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_project_scope',
+    'Projectscope per gebouw',
+    'Tijdelijke en auditeerbare selectie van objecten binnen één gebouw voor één project.',
+    [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']],
+        ],
+        'description' => 'Tijdelijk project waarvoor deze gebouwscope geldt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Permanent gebouw waarbinnen de projectscope wordt geselecteerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_scope_mode' => [
+        'label' => 'Scopewijze', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Volledig gebouw of geselecteerde objecten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => 'Geselecteerde objecten']],
+      ],
+      'field_brebo_scope_clusters' => [
+        'label' => 'Geselecteerde gebouwdelen', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_cluster' => 'brebo_cluster']],
+        ],
+        'description' => 'Gebouwdelen of clusters die binnen de projectscope vallen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 4, 'cardinality' => -1,
+      ],
+      'field_brebo_scope_dwellings' => [
+        'label' => 'Geselecteerde woningen', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_dwelling' => 'brebo_dwelling']],
+        ],
+        'description' => 'Woningen of ruimten die binnen de projectscope vallen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 5, 'cardinality' => -1,
+      ],
+      'field_brebo_scope_positions' => [
+        'label' => 'Geselecteerde productposities', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_product_position' => 'brebo_product_position']],
+        ],
+        'description' => 'Individuele productposities die binnen de projectscope vallen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 6, 'cardinality' => -1,
+      ],
+      'field_brebo_scope_status' => [
+        'label' => 'Scopestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Concept, Vastgesteld, In uitvoering of Afgesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_scope_notes' => [
+        'label' => 'Scopeafbakening en uitsluitingen', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Motivering, uitsluitingen, N.V.T.-verklaringen en bijzonderheden.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 8,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_project_scope content',
+        'edit own brebo_project_scope content',
+        'edit any brebo_project_scope content',
+        'view brebo_project_scope revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $created = 0;
+
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof \Drupal\node\NodeInterface || !$project->hasField('field_brebo_building_refs')) {
+      continue;
+    }
+
+    foreach ($project->get('field_brebo_building_refs')->referencedEntities() as $building) {
+      if (!$building instanceof \Drupal\node\NodeInterface) {
+        continue;
+      }
+
+      $existing = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_project_scope')
+        ->condition('field_brebo_project_ref.target_id', $project->id())
+        ->condition('field_brebo_building_ref.target_id', $building->id())
+        ->execute();
+      if ($existing) {
+        continue;
+      }
+
+      $cluster_ids = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_cluster')
+        ->condition('field_brebo_building_ref.target_id', $building->id())
+        ->execute();
+      $dwelling_ids = $cluster_ids
+        ? $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_dwelling')
+          ->condition('field_brebo_cluster_ref.target_id', array_values($cluster_ids), 'IN')
+          ->execute()
+        : [];
+      $position_ids = $dwelling_ids
+        ? $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_product_position')
+          ->condition('field_brebo_dwelling_ref.target_id', array_values($dwelling_ids), 'IN')
+          ->execute()
+        : [];
+
+      $scope = \Drupal\node\Entity\Node::create([
+        'type' => 'brebo_project_scope',
+        'title' => $project->label() . ' - ' . $building->label(),
+        'field_brebo_project_ref' => ['target_id' => $project->id()],
+        'field_brebo_building_ref' => ['target_id' => $building->id()],
+        'field_brebo_scope_mode' => 'Geselecteerde objecten',
+        'field_brebo_scope_clusters' => array_map(static fn ($id): array => ['target_id' => $id], array_values($cluster_ids)),
+        'field_brebo_scope_dwellings' => array_map(static fn ($id): array => ['target_id' => $id], array_values($dwelling_ids)),
+        'field_brebo_scope_positions' => array_map(static fn ($id): array => ['target_id' => $id], array_values($position_ids)),
+        'field_brebo_scope_status' => 'Concept',
+        'field_brebo_scope_notes' => 'Automatisch als selectieve scope aangemaakt; inhoudelijk vaststellen voor planning en uitvoering.',
+        'uid' => $project->getOwnerId(),
+        'status' => 1,
+      ]);
+      $scope->save();
+      $created++;
+    }
+  }
+
+  return sprintf(
+    'Projectscope per gebouw gefundeerd; %d bestaande gebouwkoppeling(en) als selectieve scope aangemaakt.',
+    $created,
+  );
+}
+

@@ -61,6 +61,7 @@ final class OfficeController extends ControllerBase {
         'brebo_supplier_quote' => 'field_brebo_quote_status',
         'brebo_budget_change' => 'field_brebo_change_status',
         'brebo_route_item' => 'field_brebo_route_status',
+        'brebo_project_scope' => 'field_brebo_scope_status',
         default => 'field_brebo_status',
       };
       $status = $this->fieldValue($node, $status_field);
@@ -495,6 +496,37 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_package_status'),
         ]],
       ],
+      'scope_heading' => [
+        '#markup' => '<h2>' . $this->t('Projectscope per gebouw') . '</h2>',
+      ],
+      'scope_summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Gebouwen in scope'), $this->t('Gebouwdelen'),
+          $this->t('Woningen'), $this->t('Productposities'),
+        ],
+        '#rows' => [[
+          count($scoped_building_ids), count($scoped_cluster_ids),
+          count($scoped_dwelling_ids), count($scoped_position_ids),
+        ]],
+      ],
+      'scopes' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Scope'), $this->t('Gebouw'), $this->t('Selectiewijze'),
+          $this->t('Gebouwdelen'), $this->t('Woningen'),
+          $this->t('Productposities'), $this->t('Status'), $this->t('Actie'),
+        ],
+        '#rows' => $scope_rows,
+        '#empty' => $this->t('Nog geen gebouwscope vastgelegd.'),
+      ],
+      'scope_principle' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--status']],
+        'text' => [
+          '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> het gebouw vormt het permanente dossier. Dit project bepaalt per gebouw exact welke objecten tijdelijk tot de scope behoren.'),
+        ],
+      ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Besturing van dit werkpakket') . '</h2>',
       ],
@@ -825,6 +857,66 @@ final class OfficeController extends ControllerBase {
       }
     }
 
+    $scope_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_project_scope')
+      ->condition('field_brebo_project_ref.target_id', $node->id())
+      ->sort('changed', 'DESC')
+      ->execute();
+    $scope_rows = [];
+    $scoped_building_ids = [];
+    $scoped_cluster_ids = [];
+    $scoped_dwelling_ids = [];
+    $scoped_position_ids = [];
+    foreach ($storage->loadMultiple($scope_ids) as $scope) {
+      if (!$scope instanceof NodeInterface) {
+        continue;
+      }
+      $building = $scope->get('field_brebo_building_ref')->entity;
+      $scope_clusters = $scope->get('field_brebo_scope_clusters')->referencedEntities();
+      $scope_dwellings = $scope->get('field_brebo_scope_dwellings')->referencedEntities();
+      $scope_positions = $scope->get('field_brebo_scope_positions')->referencedEntities();
+      if ($building instanceof NodeInterface) {
+        $scoped_building_ids[(int) $building->id()] = TRUE;
+      }
+      foreach ($scope_clusters as $item) {
+        if ($item instanceof NodeInterface) {
+          $scoped_cluster_ids[(int) $item->id()] = TRUE;
+        }
+      }
+      foreach ($scope_dwellings as $item) {
+        if ($item instanceof NodeInterface) {
+          $scoped_dwelling_ids[(int) $item->id()] = TRUE;
+        }
+      }
+      foreach ($scope_positions as $item) {
+        if ($item instanceof NodeInterface) {
+          $scoped_position_ids[(int) $item->id()] = TRUE;
+        }
+      }
+      $scope_rows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $scope->label(),
+          Url::fromRoute('entity.node.edit_form', ['node' => $scope->id()])
+        )->toRenderable()],
+        ['data' => $building instanceof NodeInterface
+          ? Link::fromTextAndUrl(
+            $building->label(),
+            Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $building->id()])
+          )->toRenderable()
+          : '—'],
+        $this->fieldValue($scope, 'field_brebo_scope_mode'),
+        count($scope_clusters),
+        count($scope_dwellings),
+        count($scope_positions),
+        $this->fieldValue($scope, 'field_brebo_scope_status'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bewerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $scope->id()])
+        )->toRenderable()],
+      ];
+    }
+
     $cluster_ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_cluster')
@@ -1089,6 +1181,14 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'add_scope' => [
+          '#type' => 'link',
+          '#title' => $this->t('Projectscope toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_project_scope'], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'regie_actions' => [
           '#type' => 'link',
           '#title' => $this->t('Centrale regie-acties'),
@@ -1133,6 +1233,18 @@ final class OfficeController extends ControllerBase {
             'role' => 'tab',
             'aria-selected' => 'false',
             'data-brebo-tab' => 'governance',
+            'class' => [],
+          ],
+        ],
+        'scope' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Scope & planning'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'false',
+            'data-brebo-tab' => 'scope',
             'class' => [],
           ],
         ],
@@ -1343,6 +1455,7 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_verification',
           'node_list:brebo_deviation',
           'node_list:brebo_route_item',
+          'node_list:brebo_project_scope',
         ],
       ],
     ];
@@ -1352,6 +1465,10 @@ final class OfficeController extends ControllerBase {
       'buildings_heading' => 'overview',
       'buildings' => 'overview',
       'summary' => 'overview',
+      'scope_heading' => 'scope',
+      'scope_summary' => 'scope',
+      'scopes' => 'scope',
+      'scope_principle' => 'scope',
       'operating_model_heading' => 'governance',
       'operating_model' => 'governance',
       'procurement' => 'governance',
