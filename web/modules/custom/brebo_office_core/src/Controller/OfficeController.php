@@ -375,7 +375,7 @@ final class OfficeController extends ControllerBase {
     }
 
     $build['#cache'] = [
-      'contexts' => ['user.permissions'],
+      'contexts' => ['user.permissions', 'url.query_args:comm_view'],
       'tags' => array_merge($node->getCacheTags(), [
         'node_list:brebo_product_position',
         'node_list:brebo_verification',
