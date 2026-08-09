@@ -134,15 +134,29 @@ final class CalculationGridForm extends FormBase {
     ];
     $form['structure_actions']['ingredient']['new_line_recipe'] = [
       '#type' => 'select',
-      '#title' => $this->t('Ingrediënt toevoegen aan recept'),
+      '#title' => $this->t('Regel toevoegen aan recept'),
       '#options' => $element_options,
       '#empty_option' => $this->t('- Kies recept -'),
     ];
+    $form['structure_actions']['ingredient']['new_line_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Regeltype'),
+      '#options' => [
+        'Calculatieregel' => $this->t('Calculatieregel'),
+        'Verdisconteerd' => $this->t('Verdisconteerde regel'),
+        'Notitie' => $this->t('Notitieregel'),
+      ],
+      '#default_value' => 'Calculatieregel',
+    ];
     $form['structure_actions']['ingredient']['add_line'] = [
       '#type' => 'submit',
-      '#value' => $this->t('Werkregel toevoegen'),
+      '#value' => $this->t('Regel toevoegen'),
       '#submit' => ['::addIngredient'],
-      '#limit_validation_errors' => [['structure_actions', 'ingredient', 'new_line_recipe'], ['calculation_id']],
+      '#limit_validation_errors' => [
+        ['structure_actions', 'ingredient', 'new_line_recipe'],
+        ['structure_actions', 'ingredient', 'new_line_type'],
+        ['calculation_id'],
+      ],
       '#button_type' => 'primary',
       '#disabled' => !$element_options,
     ];
@@ -203,6 +217,7 @@ final class CalculationGridForm extends FormBase {
         $this->t('Volgorde'),
         $this->t('Recept'),
         $this->t('Status'),
+        $this->t('Regeltype'),
         $this->t('Omschrijving'),
         $this->t('Posttype'),
         $this->t('Kostensoort'),
@@ -266,7 +281,7 @@ final class CalculationGridForm extends FormBase {
           'class' => ['brebo-recipe-heading'],
           'data-recipe-heading' => $element_id,
         ],
-        '#wrapper_attributes' => ['colspan' => 16],
+        '#wrapper_attributes' => ['colspan' => 17],
         'identity' => [
           '#type' => 'container',
           '#attributes' => ['class' => ['brebo-recipe-heading__identity']],
@@ -361,6 +376,37 @@ final class CalculationGridForm extends FormBase {
             'N.v.t.' => $this->t('⚫ N.v.t.'),
           ],
           '#attributes' => ['class' => ['brebo-line-status']],
+        ];
+        $line_type = $line->hasField('field_brebo_line_type')
+          ? (string) ($line->get('field_brebo_line_type')->value ?? 'Calculatieregel')
+          : 'Calculatieregel';
+        $note_visibility = $line->hasField('field_brebo_note_visibility')
+          ? (string) ($line->get('field_brebo_note_visibility')->value ?? 'Intern')
+          : 'Intern';
+        $form['grid'][$id]['line_type'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-line-type']],
+          'type' => [
+            '#type' => 'select',
+            '#title' => '',
+            '#title_display' => 'invisible',
+            '#default_value' => $line_type,
+            '#options' => [
+              'Calculatieregel' => $this->t('Calculatie'),
+              'Verdisconteerd' => $this->t('Verdisconteerd'),
+              'Notitie' => $this->t('Notitie'),
+            ],
+          ],
+          'visibility' => [
+            '#type' => 'select',
+            '#title' => $this->t('Zichtbaarheid notitie'),
+            '#title_display' => 'invisible',
+            '#default_value' => $note_visibility,
+            '#options' => [
+              'Intern' => $this->t('Intern'),
+              'Offerte' => $this->t('Op offerte/print'),
+            ],
+          ],
         ];
         $form['grid'][$id]['description'] = [
           '#type' => 'container',
@@ -581,6 +627,12 @@ final class CalculationGridForm extends FormBase {
         'labor_rate' => 'field_brebo_labor_rate',
         'unit_price' => 'field_brebo_unit_price',
       ];
+      $line_type_values = $values['line_type'] ?? [];
+      $values['line_type_value'] = $line_type_values['type'] ?? 'Calculatieregel';
+      $values['note_visibility'] = $line_type_values['visibility'] ?? 'Intern';
+      $mapping['line_type_value'] = 'field_brebo_line_type';
+      $mapping['note_visibility'] = 'field_brebo_note_visibility';
+
       $dirty = FALSE;
       foreach ($mapping as $key => $field_name) {
         $new_value = $key === 'recipe' ? $target_recipe_id : ($values[$key] ?? NULL);
@@ -708,6 +760,14 @@ final class CalculationGridForm extends FormBase {
       'ingredient',
       'new_line_recipe',
     ]);
+    $line_type = (string) $form_state->getValue([
+      'structure_actions',
+      'ingredient',
+      'new_line_type',
+    ]);
+    if (!in_array($line_type, ['Calculatieregel', 'Verdisconteerd', 'Notitie'], TRUE)) {
+      $line_type = 'Calculatieregel';
+    }
     $storage = $this->entityTypeManager->getStorage('node');
     $recipe = $storage->load($recipe_id);
     if (!$recipe instanceof NodeInterface
@@ -745,10 +805,13 @@ final class CalculationGridForm extends FormBase {
       'field_brebo_unit_price' => '0.0000',
       'field_brebo_hours_input_mode' => 'Normuren',
       'field_brebo_line_status' => 'Niet beoordeeld',
+      'field_brebo_line_type' => $line_type,
+      'field_brebo_note_visibility' => 'Intern',
     ]);
     $line->save();
 
-    $this->messenger()->addStatus($this->t('Nieuwe werkregel aan @recipe toegevoegd.', [
+    $this->messenger()->addStatus($this->t('Nieuwe @type aan @recipe toegevoegd.', [
+      '@type' => strtolower($line_type),
       '@recipe' => $recipe->label(),
     ]));
     $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
