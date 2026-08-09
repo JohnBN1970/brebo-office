@@ -46,9 +46,16 @@
         });
 
         var requested = window.location.hash.replace('#tab-', '');
-        var initial = buttons.some(function (button) {
+        var requestedExists = buttons.some(function (button) {
           return button.getAttribute('data-brebo-tab') === requested;
-        }) ? requested : 'overview';
+        });
+        var activeButton = buttons.find(function (button) {
+          return button.classList.contains('is-active')
+            || button.getAttribute('aria-selected') === 'true';
+        });
+        var initial = requestedExists
+          ? requested
+          : (activeButton || buttons[0]).getAttribute('data-brebo-tab');
         activate(initial, false);
       });
     }
