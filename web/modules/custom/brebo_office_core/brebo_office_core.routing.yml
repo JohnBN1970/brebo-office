@@ -324,3 +324,13 @@ brebo_office_core.settings:
     _title: 'Instellingen'
   requirements:
     _permission: 'administer site configuration'
+
+brebo_office_core.communication_channels:
+  path: '/office/communicatie/kanalen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Communicatiekanalen en groepen'
+    bundle: 'brebo_comm_channel'
+  requirements:
+    _permission: 'access content'
+
