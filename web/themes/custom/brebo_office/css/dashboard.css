@@ -134,3 +134,97 @@
   .brebo-calc-totalbar { right: 10px; bottom: 10px; left: 10px; overflow-x: auto; }
   .brebo-calc-totalbar > span { min-width: 130px; }
 }
+
+
+/* Direct-entry calculation grid. */
+.brebo-calc-grid-form {
+  max-width: 100%;
+  overflow-x: auto;
+  padding: 2px 2px 86px;
+  scrollbar-color: var(--brebo-purple-500) #eee8f0;
+  scrollbar-width: thin;
+}
+.brebo-calc-grid__intro {
+  position: sticky;
+  left: 0;
+  margin: 0 0 12px;
+  color: var(--brebo-ink-muted);
+}
+.brebo-calc-grid {
+  width: max-content;
+  min-width: 1900px;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+.brebo-calc-grid th {
+  position: sticky;
+  top: 116px;
+  z-index: 3;
+  white-space: nowrap;
+}
+.brebo-calc-grid td {
+  min-width: 92px;
+  padding: 5px;
+  vertical-align: middle;
+  background-clip: padding-box;
+}
+.brebo-calc-grid td:nth-child(1),
+.brebo-calc-grid td:nth-child(2) {
+  min-width: 78px;
+  font-weight: 800;
+}
+.brebo-calc-grid td:nth-child(3) { min-width: 330px; }
+.brebo-calc-grid td:nth-child(4),
+.brebo-calc-grid td:nth-child(5),
+.brebo-calc-grid td:nth-child(9) { min-width: 145px; }
+.brebo-calc-grid .form-item { margin: 0; }
+.brebo-calc-grid input,
+.brebo-calc-grid select {
+  width: 100%;
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 8px;
+  border: 1px solid #d7cfdc;
+  border-radius: 6px;
+  color: var(--brebo-ink);
+  background: #fff;
+  font: inherit;
+  font-size: .82rem;
+}
+.brebo-calc-grid input:focus,
+.brebo-calc-grid select:focus {
+  outline: 3px solid rgb(111 45 139 / 18%);
+  border-color: var(--brebo-purple-600);
+  box-shadow: none;
+}
+.brebo-calc-grid input[type="number"] {
+  min-width: 105px;
+  text-align: right;
+}
+.brebo-calc-grid__money {
+  display: block;
+  min-width: 112px;
+  text-align: right;
+  white-space: nowrap;
+  font-weight: 800;
+}
+.brebo-calc-grid__actions {
+  position: sticky;
+  z-index: 8;
+  left: 0;
+  bottom: 12px;
+  display: flex;
+  width: max-content;
+  margin: 14px 0 0;
+  padding: 8px;
+  border-radius: 12px;
+  background: rgb(248 246 249 / 94%);
+  box-shadow: var(--brebo-shadow-md);
+  backdrop-filter: blur(10px);
+}
+.brebo-calc-grid__actions .button { margin: 0; }
+@media (max-width: 900px) {
+  .brebo-calc-grid th { top: 104px; }
+  .brebo-calc-grid-form { margin-right: -12px; margin-left: -12px; padding-right: 12px; padding-left: 12px; }
+}
