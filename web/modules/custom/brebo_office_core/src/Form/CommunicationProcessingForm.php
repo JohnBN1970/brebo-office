@@ -38,6 +38,7 @@ final class CommunicationProcessingForm extends FormBase {
       throw new AccessDeniedHttpException();
     }
     $this->communication = $node;
+    $form['#attributes']['class'][] = 'brebo-processing-workbench';
 
     $project = $node->get('field_brebo_project_ref')->entity;
     $source_files = [];
@@ -49,7 +50,7 @@ final class CommunicationProcessingForm extends FormBase {
 
     $form['context'] = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['brebo-processing-context']],
+      '#attributes' => ['class' => ['brebo-processing-context', 'brebo-processing-workbench__wide']],
       'title' => ['#markup' => '<h2>' . $node->label() . '</h2>'],
       'meta' => [
         '#theme' => 'item_list',
@@ -66,6 +67,7 @@ final class CommunicationProcessingForm extends FormBase {
       '#type' => 'details',
       '#title' => $this->t('Bron en integriteit'),
       '#open' => TRUE,
+      '#attributes' => ['class' => ['brebo-processing-workbench__wide']],
       'files' => [
         '#theme' => 'item_list',
         '#title' => $this->t('Bronbestanden'),
@@ -88,6 +90,7 @@ final class CommunicationProcessingForm extends FormBase {
       '#title' => $this->t('Transcriptie'),
       '#default_value' => $this->value($node, 'field_brebo_transcript', ''),
       '#rows' => 14,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-workbench__wide']],
       '#description' => $this->t('De volledige controleerbare weergave van het gesprek of overleg.'),
     ];
     $form['summary'] = [
@@ -95,24 +98,28 @@ final class CommunicationProcessingForm extends FormBase {
       '#title' => $this->t('Samenvatting'),
       '#default_value' => $this->value($node, 'field_brebo_ai_summary', ''),
       '#rows' => 5,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['decisions'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Besluiten en toezeggingen'),
       '#default_value' => $this->value($node, 'field_brebo_ai_decisions', ''),
       '#rows' => 5,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['actions_text'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Acties, eigenaars en termijnen'),
       '#default_value' => $this->value($node, 'field_brebo_ai_actions', ''),
       '#rows' => 5,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['risks'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Risico’s en onzekerheden'),
       '#default_value' => $this->value($node, 'field_brebo_ai_risks', ''),
       '#rows' => 5,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['confidence'] = [
       '#type' => 'number',
@@ -122,12 +129,14 @@ final class CommunicationProcessingForm extends FormBase {
       '#max' => 100,
       '#step' => 0.01,
       '#description' => $this->t('Technische indicatie; menselijke controle blijft verplicht.'),
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['process_log'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Verwerkings- en controlenotitie'),
       '#default_value' => $this->value($node, 'field_brebo_process_log', ''),
       '#rows' => 4,
+      '#wrapper_attributes' => ['class' => ['brebo-processing-card']],
     ];
     $form['reviewer_note'] = [
       '#type' => 'textarea',
@@ -135,9 +144,13 @@ final class CommunicationProcessingForm extends FormBase {
       '#default_value' => $this->value($node, 'field_brebo_reviewer_note', ''),
       '#rows' => 4,
       '#description' => $this->t('Leg correcties, onzekerheden en de motivering voor vaststelling vast.'),
+      '#wrapper_attributes' => ['class' => ['brebo-processing-workbench__wide']],
     ];
 
-    $form['actions'] = ['#type' => 'actions'];
+    $form['actions'] = [
+      '#type' => 'actions',
+      '#attributes' => ['class' => ['brebo-processing-workbench__wide']],
+    ];
     $form['actions']['save'] = [
       '#type' => 'submit',
       '#name' => 'save_concept',
