@@ -20,6 +20,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_project' => 'Projectnaam',
     'brebo_project_scope' => 'Projectscope',
     'brebo_scope_requirement' => 'Procesvereiste',
+    'brebo_communication' => 'Communicatie',
     'brebo_cluster' => 'Clusternaam',
     'brebo_dwelling' => 'Woningnaam',
     'brebo_product_position' => 'Productpositie',
@@ -63,6 +64,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'field_brebo_zone_type' => ['Gevel', 'Gevelbeuk', 'Gevelcel', 'Dakvlak', 'Galerijzone', 'Balkonzone', 'Trappenhuis', 'Algemene ruimte', 'Terreinzone', 'Overige werkzone'],
     'field_brebo_requirement_type' => ['Werkzaamheid', 'Bewijs', 'Controle', 'Vrijgave', 'Ketenafhankelijkheid'],
     'field_brebo_requirement_status' => ['Niet gestart', 'In uitvoering', 'Wacht op extern', 'Ter beoordeling', 'Gereed', 'Geblokkeerd', 'Afgekeurd', 'N.V.T.'],
+    'field_brebo_comm_direction' => ['Inkomend', 'Uitgaand', 'Intern vastgelegd'],
+    'field_brebo_comm_channel' => ['E-mail', 'Telefoongesprek', 'Overleg', 'Brief', 'Portaal', 'Mondeling', 'Overig'],
+    'field_brebo_comm_type' => ['Vraag', 'Antwoord', 'Informatie', 'Instructie', 'Besluit', 'Goedkeuring', 'Wijziging', 'Afspraak', 'Klacht', 'Oplevering'],
+    'field_brebo_comm_status' => ['Vastgelegd', 'Wacht op reactie', 'Beantwoord', 'Bevestigd', 'Vervallen', 'Gesloten'],
     'field_brebo_scope_status' => ['Concept', 'Vastgesteld', 'In uitvoering', 'Afgesloten'],
   ] as $field_name => $options) {
     if (isset($form[$field_name]['widget'][0]['value'])) {
@@ -128,6 +133,62 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     ] as $scope_field_name => $weight) {
       if (isset($form[$scope_field_name])) {
         $form[$scope_field_name]['#weight'] = $weight;
+      }
+    }
+  }
+
+  if ($node->bundle() === 'brebo_communication') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuw communicatieitem');
+      $project_id = (int) \Drupal::request()->query->get('project', 0);
+      $project = $project_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($project_id)
+        : NULL;
+      if ($project instanceof NodeInterface
+        && $project->bundle() === 'brebo_project'
+        && isset($form['field_brebo_project_ref']['widget'][0]['target_id'])) {
+        $form['field_brebo_project_ref']['widget'][0]['target_id']['#default_value'] = $project;
+      }
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+    $form['brebo_communication_intro'] = [
+      '#type' => 'container',
+      '#weight' => 0,
+      '#attributes' => ['class' => ['messages', 'messages--status']],
+      'text' => [
+        '#markup' => '<strong>Controleerbaar communicatiedossier</strong><br>Leg vast wie wat wanneer heeft gevraagd, besloten of bevestigd en koppel dit aan het project, gebouw en zo nodig het exacte scopeobject.',
+      ],
+    ];
+    foreach ([
+      'field_brebo_project_ref' => 1,
+      'field_brebo_building_ref' => 2,
+      'field_brebo_comm_scope_target' => 3,
+      'field_brebo_comm_direction' => 4,
+      'field_brebo_comm_channel' => 5,
+      'field_brebo_comm_type' => 6,
+      'field_brebo_comm_datetime' => 7,
+      'field_brebo_external_party' => 8,
+      'field_brebo_external_contact' => 9,
+      'field_brebo_comm_subject' => 10,
+      'field_brebo_comm_summary' => 11,
+      'field_brebo_comm_decision' => 12,
+      'field_brebo_response_required' => 13,
+      'field_brebo_due_date' => 14,
+      'field_brebo_comm_status' => 15,
+      'field_brebo_responsible_user' => 16,
+      'field_brebo_comm_impact' => 17,
+      'field_brebo_financial_impact' => 18,
+      'field_brebo_schedule_days' => 19,
+      'field_brebo_mandate_confirmed' => 20,
+      'field_brebo_written_required' => 21,
+      'field_brebo_written_received' => 22,
+      'field_brebo_comm_requirement' => 23,
+      'field_brebo_comm_attachments' => 24,
+    ] as $communication_field => $weight) {
+      if (isset($form[$communication_field])) {
+        $form[$communication_field]['#weight'] = $weight;
       }
     }
   }
@@ -1343,6 +1404,27 @@ function brebo_office_core_sync_project_route(NodeInterface $project): void {
       'field_brebo_route_source_kind' => $project_kind,
     ])->save();
   }
+}
+
+/**
+ * Implements hook_entity_presave().
+ */
+function brebo_office_core_entity_presave(\Drupal\Core\Entity\EntityInterface $entity): void {
+  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_communication') {
+    return;
+  }
+
+  $subject = $entity->hasField('field_brebo_comm_subject')
+    ? trim((string) $entity->get('field_brebo_comm_subject')->value)
+    : '';
+  $party = $entity->hasField('field_brebo_external_party')
+    ? trim((string) $entity->get('field_brebo_external_party')->value)
+    : '';
+  $date = $entity->hasField('field_brebo_comm_datetime')
+    ? substr((string) $entity->get('field_brebo_comm_datetime')->value, 0, 10)
+    : '';
+  $parts = array_values(array_filter([$date, $party, $subject]));
+  $entity->setTitle($parts ? implode(' · ', $parts) : 'Communicatieitem');
 }
 
 /**
