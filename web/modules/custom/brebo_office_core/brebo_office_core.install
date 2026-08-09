@@ -4046,3 +4046,71 @@ function brebo_office_core_update_11028(): string {
 
   return 'Hoofdcomponenten en tweerichtingssturing voor norm- en totaaluren aangemaakt.';
 }
+
+
+/**
+ * Turns calculation elements into zone-bound recipe headers.
+ */
+function brebo_office_core_update_11029(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_element',
+    'Calculatierecept',
+    'Recepthoofdregel die een resultaat op een technische gebouwzone bundelt.',
+    [
+      'field_brebo_technical_zone_ref' => [
+        'label' => 'Technische zone', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building_zone' => 'brebo_building_zone']],
+        ],
+        'description' => 'Permanente technische gebouwzone waarop dit calculatierecept wordt uitgevoerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_recipe_quantity' => [
+        'label' => 'Recepthoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Hoeveelheid van het door dit recept opgeleverde resultaat.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+        'default_value' => [['value' => '1.0000']],
+      ],
+      'field_brebo_recipe_unit' => [
+        'label' => 'Recepteenheid', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Eenheid van het receptresultaat, bijvoorbeeld m², m¹, st of post.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+        'default_value' => [['value' => 'post']],
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $element_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_calc_element')
+    ->execute();
+
+  foreach ($storage->loadMultiple($element_ids) as $element) {
+    if (!$element instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $changed = FALSE;
+    if ($element->get('field_brebo_recipe_quantity')->isEmpty()) {
+      $element->set('field_brebo_recipe_quantity', '1.0000');
+      $changed = TRUE;
+    }
+    if ($element->get('field_brebo_recipe_unit')->isEmpty()) {
+      $element->set('field_brebo_recipe_unit', 'post');
+      $changed = TRUE;
+    }
+    if ($changed) {
+      $element->setNewRevision(TRUE);
+      $element->setRevisionLogMessage('Als recepthoofdregel ingericht door update 11029.');
+      $element->save();
+    }
+  }
+
+  return 'Calculatie-elementen als zonegebonden recepthoofdregels ingericht.';
+}
