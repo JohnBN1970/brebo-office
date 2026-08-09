@@ -141,3 +141,53 @@ legend, summary { color: var(--brebo-purple-950); font-weight: 900; cursor: poin
     white-space: nowrap;
   }
 }
+
+
+/* Controlled communication processing workbench. */
+.brebo-processing-workbench {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+  align-items: start;
+}
+.brebo-processing-workbench__wide {
+  grid-column: 1 / -1;
+}
+.brebo-processing-context,
+.brebo-processing-card {
+  padding: 18px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: var(--brebo-shadow-sm);
+}
+.brebo-processing-context h2 {
+  margin-top: 0;
+}
+.brebo-processing-workbench textarea {
+  width: 100%;
+  resize: vertical;
+}
+.brebo-processing-workbench .form-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 15;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 4px;
+  padding: 14px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 11px;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 -4px 18px rgb(43 17 63 / 10%);
+  backdrop-filter: blur(10px);
+}
+@media (max-width: 800px) {
+  .brebo-processing-workbench {
+    grid-template-columns: 1fr;
+  }
+  .brebo-processing-workbench__wide {
+    grid-column: auto;
+  }
+}
