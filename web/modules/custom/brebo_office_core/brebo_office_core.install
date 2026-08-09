@@ -4291,3 +4291,55 @@ function brebo_office_core_update_11033(): string {
 
   return 'Afzonderlijke commerciële verkoopprijs voor calculaties ingericht.';
 }
+
+/**
+ * Replaces the manually entered sales price with a tail-cost buildup.
+ */
+function brebo_office_core_update_11034(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_calculation',
+    'Calculatie',
+    'Controleerbare calculatie met gescheiden kostprijs- en verkooplaag.',
+    [
+      'field_brebo_general_cost_pct' => [
+        'label' => 'Algemene kosten (%)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 8, 'scale' => 4],
+        'description' => 'Percentage algemene bedrijfskosten over de actuele directe kostprijsprognose.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 20,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_risk_pct' => [
+        'label' => 'Projectrisico (%)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 8, 'scale' => 4],
+        'description' => 'Percentage projectrisico over de actuele directe kostprijsprognose.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 21,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_profit_pct' => [
+        'label' => 'Winst (%)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 8, 'scale' => 4],
+        'description' => 'Gewenst winstpercentage over de actuele directe kostprijsprognose.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 22,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_commercial_adjustment' => [
+        'label' => 'Commerciële correctie (€)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 15, 'scale' => 4],
+        'description' => 'Vaste positieve of negatieve commerciële correctie op de verkoopprijs exclusief btw.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 23,
+        'default_value' => [['value' => '0.0000']],
+      ],
+    ],
+  );
+
+  $legacy_sales_field = FieldConfig::loadByName('node', 'brebo_calculation', 'field_brebo_sales_price');
+  if ($legacy_sales_field) {
+    $legacy_sales_field
+      ->setLabel('Oude handmatige verkoopprijs')
+      ->setDescription('Historisch veld; de actuele verkoopprijs wordt voortaan berekend uit de directe kostprijs en staartkosten.')
+      ->save();
+  }
+
+  return 'Staartkosten als grondslag voor bruto winst en verkoopprijs ingericht.';
+}
+
