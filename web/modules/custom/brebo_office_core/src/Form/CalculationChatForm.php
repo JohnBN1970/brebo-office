@@ -14,11 +14,6 @@ use Drupal\node\NodeInterface;
 final class CalculationChatForm extends FormBase {
 
   /**
-   * The calculation currently being discussed.
-   */
-  private ?NodeInterface $calculation = NULL;
-
-  /**
    * {@inheritdoc}
    */
   public function getFormId(): string {
@@ -33,7 +28,6 @@ final class CalculationChatForm extends FormBase {
       return [];
     }
 
-    $this->calculation = $node;
     $form['message'] = [
       '#type' => 'textarea',
       '#title' => $this->t('Nieuw bericht'),
@@ -69,7 +63,7 @@ final class CalculationChatForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $calculation_id = (int) $form_state->get('calculation_id');
-    $calculation = $this->entityTypeManager()->getStorage('node')->load($calculation_id);
+    $calculation = \Drupal::entityTypeManager()->getStorage('node')->load($calculation_id);
     if (!$calculation instanceof NodeInterface || !$calculation->access('update')) {
       $this->messenger()->addError($this->t('U mag bij deze calculatie geen bericht plaatsen.'));
       return;
