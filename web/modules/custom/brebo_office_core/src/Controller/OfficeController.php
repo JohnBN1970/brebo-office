@@ -3168,6 +3168,7 @@ final class OfficeController extends ControllerBase {
       'summary' => 'calc-overview',
       'lines_heading' => 'calc-lines',
       'lines' => 'calc-lines',
+      'fixed_totals' => 'calc-lines',
       'components_heading' => 'calc-components',
       'components' => 'calc-components',
       'elements_heading' => 'calc-elements',
