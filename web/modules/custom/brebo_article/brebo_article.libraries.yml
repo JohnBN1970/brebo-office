@@ -1,0 +1,10 @@
+article-picker:
+  version: 1.0.0
+  css:
+    component:
+      css/article-picker.css: {}
+  js:
+    js/article-picker.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
