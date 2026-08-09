@@ -2843,6 +2843,8 @@ function brebo_office_core_update_11020(): string {
  * Creates weighted universal scope requirements and external chain dependencies.
  */
 function brebo_office_core_update_11021(): string {
+  \Drupal::service('module_installer')->install(['datetime']);
+
   _brebo_office_core_create_node_bundle(
     'brebo_scope_requirement',
     'Scopevereiste',
