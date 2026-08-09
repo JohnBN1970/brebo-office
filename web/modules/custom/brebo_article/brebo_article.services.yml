@@ -1,0 +1,12 @@
+services:
+  logger.channel.brebo_article:
+    parent: logger.channel_base
+    arguments: ['brebo_article']
+
+  brebo_article.sales005_importer:
+    class: Drupal\brebo_article\Service\Sales005Importer
+    arguments:
+      - '@database'
+      - '@datetime.time'
+      - '@file_system'
+      - '@logger.channel.brebo_article'
