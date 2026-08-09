@@ -16,3 +16,10 @@ project-tabs:
     js/project-tabs.js: {}
   dependencies:
     - core/drupal
+
+building-map:
+  version: 1.0.0
+  js:
+    js/building-map.js: {}
+  dependencies:
+    - core/drupal
