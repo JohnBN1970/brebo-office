@@ -742,7 +742,7 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
-    return [
+    $build = [
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
@@ -766,6 +766,15 @@ final class OfficeController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+      ],
+      'dashboard_tabs' => [
+        '#markup' => '<div class="brebo-project-tabs" role="tablist" aria-label="Projectdashboard" data-brebo-tabs>'
+          . '<button type="button" class="is-active" role="tab" aria-selected="true" data-brebo-tab="overview">Overzicht</button>'
+          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="governance">Besturing</button>'
+          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="route">Route &amp; acties</button>'
+          . '<button type="button" role="tab" aria-selected="false" data-brebo-tab="objects">Objecten</button>'
+          . '</div>',
+        '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
       'project' => [
         '#type' => 'table',
@@ -911,6 +920,41 @@ final class OfficeController extends ControllerBase {
         ],
       ],
     ];
+
+    $tab_panels = [
+      'project' => 'overview',
+      'summary' => 'overview',
+      'operating_model_heading' => 'governance',
+      'operating_model' => 'governance',
+      'procurement' => 'governance',
+      'authority' => 'governance',
+      'route_heading' => 'route',
+      'route_summary' => 'route',
+      'route' => 'route',
+      'clusters_heading' => 'objects',
+      'clusters' => 'objects',
+      'dwellings_heading' => 'objects',
+      'dwellings' => 'objects',
+      'types_heading' => 'objects',
+      'types' => 'objects',
+    ];
+    foreach ($tab_panels as $key => $tab_id) {
+      if (!isset($build[$key])) {
+        continue;
+      }
+      $content = $build[$key];
+      $build[$key] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-tab-panel'],
+          'data-brebo-tab-panel' => $tab_id,
+          'role' => 'tabpanel',
+        ],
+        'content' => $content,
+      ];
+    }
+
+    return $build;
   }
 
   /**
