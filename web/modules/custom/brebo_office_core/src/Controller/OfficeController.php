@@ -991,6 +991,12 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication']),
           '#attributes' => ['class' => ['button']],
         ],
+        'channels' => [
+          '#type' => 'link',
+          '#title' => $this->t('Kanalen en groepen beheren'),
+          '#url' => Url::fromRoute('brebo_office_core.communication_channels'),
+          '#attributes' => ['class' => ['button']],
+        ],
       ],
       'summary' => [
         '#type' => 'table',
