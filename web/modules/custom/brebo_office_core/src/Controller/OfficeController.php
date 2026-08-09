@@ -2644,6 +2644,14 @@ final class OfficeController extends ControllerBase {
       ->execute();
     $elements = $storage->loadMultiple($element_ids);
 
+    $component_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_calc_component')
+      ->condition('field_brebo_calculation_ref.target_id', $node->id())
+      ->sort('field_brebo_component_sequence')
+      ->execute();
+    $components = $storage->loadMultiple($component_ids);
+
     $line_ids = $element_ids
       ? $storage->getQuery()
         ->accessCheck(TRUE)
@@ -2657,6 +2665,7 @@ final class OfficeController extends ControllerBase {
     $target_ids = array_values(array_unique(array_merge(
       [(int) $node->id()],
       $package instanceof NodeInterface ? [(int) $package->id()] : [],
+      array_map('intval', array_values($component_ids)),
       array_map('intval', array_values($element_ids)),
       array_map('intval', array_values($line_ids)),
     )));
@@ -2700,6 +2709,10 @@ final class OfficeController extends ControllerBase {
     $element_rows = [];
     $line_rows = [];
     $post_totals = [];
+    $element_contract_by_id = [];
+    $element_forecast_by_id = [];
+    $element_hours_by_id = [];
+    $elements_by_component = [];
 
     foreach ($elements as $element) {
       if (!$element instanceof NodeInterface) {
@@ -2719,6 +2732,10 @@ final class OfficeController extends ControllerBase {
           : $quantity;
         $unit_price = (float) $line->get('field_brebo_unit_price')->value;
         $category = $this->fieldValue($line, 'field_brebo_cost_category');
+        $norm_hours = (float) ($line->get('field_brebo_norm_hours')->value ?? 0);
+        $budget_hours = (float) ($line->get('field_brebo_budget_hours')->value ?? 0);
+        $labor_rate = (float) ($line->get('field_brebo_labor_rate')->value ?? 0);
+        $input_mode = $this->fieldValue($line, 'field_brebo_hours_input_mode');
         $contract_direct = $quantity * $unit_price;
         $forecast_direct = $forecast_quantity * $unit_price;
 
@@ -2752,6 +2769,10 @@ final class OfficeController extends ControllerBase {
             $this->fieldValue($line, 'field_brebo_contract_quantity'),
             $this->fieldValue($line, 'field_brebo_actual_quantity'),
             $this->fieldValue($line, 'field_brebo_unit'),
+            number_format($norm_hours, 4, ',', '.'),
+            number_format($budget_hours, 2, ',', '.'),
+            $input_mode,
+            $this->money($labor_rate),
             $this->money($unit_price),
             $this->money($contract_line_total),
             $this->money($forecast_line_total),
@@ -2778,18 +2799,30 @@ final class OfficeController extends ControllerBase {
         $forecast_breakdown,
         $adjustments_by_target[(int) $element->id()] ?? [],
       );
+      $element_id = (int) $element->id();
       $contract_element_totals[] = $contract_element_total;
       $forecast_element_totals[] = $forecast_element_total;
+      $element_contract_by_id[$element_id] = $contract_element_total;
+      $element_forecast_by_id[$element_id] = $forecast_element_total;
+      $element_hours_by_id[$element_id] = array_sum(array_map(
+        static fn (NodeInterface $line): float => (float) ($line->get('field_brebo_budget_hours')->value ?? 0),
+        $lines_by_element[$element_id] ?? [],
+      ));
+      $component_id = (int) ($element->get('field_brebo_calc_component_ref')->target_id ?? 0);
+      $elements_by_component[$component_id][] = $element_id;
       foreach ($contract_breakdown as $category => $value) {
         $calculation_contract_breakdown[$category] = ($calculation_contract_breakdown[$category] ?? 0.0) + $value;
       }
       foreach ($forecast_breakdown as $category => $value) {
         $calculation_forecast_breakdown[$category] = ($calculation_forecast_breakdown[$category] ?? 0.0) + $value;
       }
+      $component = $element->get('field_brebo_calc_component_ref')->entity;
       $element_rows[] = [
+        $component instanceof NodeInterface ? $component->label() : $this->t('Niet ingedeeld'),
         ['data' => Link::fromTextAndUrl($element->label(), $element->toUrl())->toRenderable()],
         $this->fieldValue($element, 'field_brebo_element_code'),
         count($lines_by_element[(int) $element->id()] ?? []),
+        number_format($element_hours_by_id[(int) $element->id()] ?? 0, 2, ',', '.'),
         $this->money($contract_element_total),
         $this->money($forecast_element_total),
         $this->money($forecast_element_total - $contract_element_total),
@@ -2820,6 +2853,39 @@ final class OfficeController extends ControllerBase {
       $calculation_forecast_breakdown,
       $adjustments_by_target[(int) $node->id()] ?? [],
     );
+
+    $component_rows = [];
+    $assigned_element_ids = [];
+    foreach ($components as $component) {
+      if (!$component instanceof NodeInterface) {
+        continue;
+      }
+      $component_element_ids = $elements_by_component[(int) $component->id()] ?? [];
+      $assigned_element_ids = array_merge($assigned_element_ids, $component_element_ids);
+      $component_contract = array_sum(array_intersect_key($element_contract_by_id, array_flip($component_element_ids)));
+      $component_forecast = array_sum(array_intersect_key($element_forecast_by_id, array_flip($component_element_ids)));
+      $component_hours = array_sum(array_intersect_key($element_hours_by_id, array_flip($component_element_ids)));
+      $component_rows[] = [
+        $this->fieldValue($component, 'field_brebo_component_code'),
+        ['data' => Link::fromTextAndUrl($component->label(), $component->toUrl())->toRenderable()],
+        count($component_element_ids),
+        number_format($component_hours, 2, ',', '.'),
+        $this->money($component_contract),
+        $this->money($component_forecast),
+        $this->money($component_forecast - $component_contract),
+      ];
+    }
+    $unassigned = array_diff(array_keys($element_contract_by_id), $assigned_element_ids);
+    if ($unassigned) {
+      $unassigned_contract = array_sum(array_intersect_key($element_contract_by_id, array_flip($unassigned)));
+      $unassigned_forecast = array_sum(array_intersect_key($element_forecast_by_id, array_flip($unassigned)));
+      $component_rows[] = [
+        '—', $this->t('Niet ingedeeld'), count($unassigned),
+        number_format(array_sum(array_intersect_key($element_hours_by_id, array_flip($unassigned))), 2, ',', '.'),
+        $this->money($unassigned_contract), $this->money($unassigned_forecast),
+        $this->money($unassigned_forecast - $unassigned_contract),
+      ];
+    }
 
     $post_rows = [];
     ksort($post_totals);
@@ -2868,6 +2934,10 @@ final class OfficeController extends ControllerBase {
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Regels'),
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-lines'],
         ],
+        'components' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Hoofdcomponenten'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-components'],
+        ],
         'elements' => [
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Elementen'),
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-elements'],
@@ -2898,11 +2968,22 @@ final class OfficeController extends ControllerBase {
           $this->money($forecast_total), $this->money($forecast_total - $contract_total),
         ]],
       ],
+      'components_heading' => ['#markup' => '<h2>' . $this->t('Hoofdcomponenten') . '</h2>'],
+      'components' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-components']],
+        '#header' => [
+          $this->t('Code'), $this->t('Hoofdcomponent'), $this->t('Elementen'), $this->t('Totaaluren'),
+          $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'),
+        ],
+        '#rows' => $component_rows,
+        '#empty' => $this->t('Nog geen hoofdcomponenten.'),
+      ],
       'elements_heading' => ['#markup' => '<h2>' . $this->t('Elementen') . '</h2>'],
       'elements' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-elements']],
-        '#header' => [$this->t('Element'), $this->t('Code'), $this->t('Regels'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
+        '#header' => [$this->t('Hoofdcomponent'), $this->t('Element'), $this->t('Code'), $this->t('Regels'), $this->t('Totaaluren'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
         '#rows' => $element_rows, '#empty' => $this->t('Nog geen calculatie-elementen.'),
       ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
@@ -2916,7 +2997,8 @@ final class OfficeController extends ControllerBase {
         '#attributes' => ['class' => ['brebo-calc-lines']],
         '#header' => [
           $this->t('Element'), $this->t('Omschrijving'), $this->t('Posttype'), $this->t('Kostensoort'),
-          $this->t('Aantal'), $this->t('Werkelijk'), $this->t('Eenheid'), $this->t('Eenheidsprijs'),
+          $this->t('Aantal'), $this->t('Werkelijk'), $this->t('Eenheid'),
+          $this->t('Norm/u'), $this->t('Totaaluren'), $this->t('Leidend'), $this->t('Uurtarief'), $this->t('Eenheidsprijs'),
           $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'), $this->t('Actie'),
         ],
         '#rows' => $line_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
@@ -2931,8 +3013,8 @@ final class OfficeController extends ControllerBase {
       '#cache' => [
         'contexts' => ['user.permissions'],
         'tags' => [
-          'node_list:brebo_calculation', 'node_list:brebo_calc_element',
-          'node_list:brebo_calc_line', 'node_list:brebo_calc_adjustment',
+          'node_list:brebo_calculation', 'node_list:brebo_calc_component',
+          'node_list:brebo_calc_element', 'node_list:brebo_calc_line', 'node_list:brebo_calc_adjustment',
         ],
       ],
     ];
@@ -2942,6 +3024,8 @@ final class OfficeController extends ControllerBase {
       'summary' => 'calc-overview',
       'lines_heading' => 'calc-lines',
       'lines' => 'calc-lines',
+      'components_heading' => 'calc-components',
+      'components' => 'calc-components',
       'elements_heading' => 'calc-elements',
       'elements' => 'calc-elements',
       'posts_heading' => 'calc-posts',
