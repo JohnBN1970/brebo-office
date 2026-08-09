@@ -4147,3 +4147,40 @@ function brebo_office_core_update_11029(): string {
 
   return 'Calculatie-elementen als zonegebonden recepthoofdregels ingericht.';
 }
+
+
+/**
+ * Adds an accessible traffic-light status to calculation ingredients.
+ */
+function brebo_office_core_update_11030(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_line',
+    'Calculatie-ingrediënt',
+    'Werkregel of ingrediënt binnen een zonegebonden calculatierecept.',
+    [
+      'field_brebo_line_status' => [
+        'label' => 'Stoplichtstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Niet beoordeeld, groen/gereed, oranje/aandacht, rood/geblokkeerd of niet van toepassing.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 18,
+        'default_value' => [['value' => 'Niet beoordeeld']],
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $line_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_calc_line')
+    ->execute();
+  foreach ($storage->loadMultiple($line_ids) as $line) {
+    if ($line instanceof \Drupal\node\NodeInterface && $line->get('field_brebo_line_status')->isEmpty()) {
+      $line->set('field_brebo_line_status', 'Niet beoordeeld');
+      $line->setNewRevision(TRUE);
+      $line->setRevisionLogMessage('Stoplichtstatus geïnitialiseerd door update 11030.');
+      $line->save();
+    }
+  }
+
+  return 'Stoplichtstatus voor calculatie-ingrediënten ingericht.';
+}
