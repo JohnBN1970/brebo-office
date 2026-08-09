@@ -2920,6 +2920,45 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
+    $activity_items = [];
+    $activity_sources = array_merge([$node], array_values($components), array_values($elements), array_values($lines));
+    foreach ($activity_sources as $activity_node) {
+      if (!$activity_node instanceof NodeInterface) {
+        continue;
+      }
+      $activity_type = match ($activity_node->bundle()) {
+        'brebo_calculation' => (string) $this->t('Calculatie'),
+        'brebo_calc_component' => (string) $this->t('Hoofdcomponent'),
+        'brebo_calc_element' => (string) $this->t('Recept'),
+        'brebo_calc_line' => (string) $this->t('Calculatieregel'),
+        default => (string) $this->t('Onderdeel'),
+      };
+      $activity_user = method_exists($activity_node, 'getRevisionUser')
+        ? $activity_node->getRevisionUser()
+        : $activity_node->getOwner();
+      $activity_user_name = (string) ($activity_user?->getDisplayName() ?? '');
+      $activity_items[] = [
+        'changed' => $activity_node->getChangedTime(),
+        'type' => $activity_type,
+        'label' => (string) $activity_node->label(),
+        'user' => $activity_user_name !== '' ? $activity_user_name : (string) $this->t('Onbekend'),
+        'url' => $activity_node->access('view') ? $activity_node->toUrl() : NULL,
+      ];
+    }
+    usort($activity_items, static fn (array $left, array $right): int => $right['changed'] <=> $left['changed']);
+    $activity_rows = [];
+    foreach (array_slice($activity_items, 0, 10) as $activity) {
+      $activity_rows[] = [
+        \Drupal::service('date.formatter')->format($activity['changed'], 'short'),
+        $activity['type'],
+        ['data' => $activity['url'] instanceof Url
+          ? Link::fromTextAndUrl($activity['label'], $activity['url'])->toRenderable()
+          : $activity['label']],
+        $activity['user'],
+        $this->t('Gewijzigd'),
+      ];
+    }
+
     $calculation_code = $this->fieldValue($node, 'field_brebo_calc_code');
     $calculation_version = $this->fieldValue($node, 'field_brebo_calc_version');
     $calculation_status = $this->fieldValue($node, 'field_brebo_calc_status');
@@ -3022,6 +3061,22 @@ final class OfficeController extends ControllerBase {
           '#type' => 'table',
           '#header' => [$this->t('Kostensoort'), $this->t('Actuele prognose')],
           '#rows' => $category_rows,
+        ],
+        'history_heading' => [
+          '#markup' => '<h2>' . $this->t('Recente dossieractiviteit') . '</h2>',
+        ],
+        'history' => [
+          '#type' => 'table',
+          '#attributes' => ['class' => ['brebo-calculation-history']],
+          '#header' => [
+            $this->t('Datum'),
+            $this->t('Onderdeel'),
+            $this->t('Object'),
+            $this->t('Gebruiker'),
+            $this->t('Actie'),
+          ],
+          '#rows' => $activity_rows,
+          '#empty' => $this->t('Nog geen activiteit geregistreerd.'),
         ],
         'margin_notice' => [
           '#type' => 'container',
