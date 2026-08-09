@@ -37,9 +37,35 @@ final class VoiceCommunicationIntakeForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
+    $form['#attached']['library'][] = 'brebo_office_core/live_voice';
     $form['intro'] = [
       '#markup' => '<div class="messages messages--status"><strong>Voice recording als bronbewijs</strong><br>De opname wordt privé opgeslagen, voorzien van een SHA-256-controlewaarde en blijft eerst een niet-verwerkte bron. AI kan daarna een concept maken; alleen een bevoegde gebruiker kan dit formeel vaststellen.</div>',
     ];
+    $form['live_recorder'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-live-recorder']],
+      'heading' => ['#markup' => '<h2>Live opnamekamer</h2>'],
+      'explanation' => ['#markup' => '<p>Neem direct via de microfoon op. Na stoppen wordt het bestand automatisch klaargezet voor private bronregistratie.</p>'],
+      'controls' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-live-recorder__controls']],
+        'start' => [
+          '#type' => 'button',
+          '#value' => $this->t('Live opname starten'),
+          '#attributes' => ['class' => ['button', 'brebo-live-recorder__start']],
+        ],
+        'stop' => [
+          '#type' => 'button',
+          '#value' => $this->t('Opname stoppen'),
+          '#attributes' => ['class' => ['button', 'brebo-live-recorder__stop'], 'disabled' => 'disabled'],
+        ],
+      ],
+      'status' => ['#markup' => '<div class="brebo-live-recorder__status" role="status" aria-live="polite">Microfoon gereed voor gebruik.</div>'],
+      'time' => ['#markup' => '<div class="brebo-live-recorder__time">00:00:00</div>'],
+      'level' => ['#markup' => '<div class="brebo-live-recorder__meter" aria-hidden="true"><span></span></div>'],
+      'preview' => ['#markup' => '<audio class="brebo-live-recorder__preview" controls hidden></audio>'],
+    ];
+
     $form['subject'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Onderwerp'),

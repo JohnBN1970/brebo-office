@@ -1,0 +1,17 @@
+.brebo-live-recorder {
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  border: 1px solid #d8cfe0;
+  border-top: 4px solid #682a86;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(54, 14, 69, .08);
+}
+.brebo-live-recorder__controls { display: flex; gap: .75rem; flex-wrap: wrap; margin: 1rem 0; }
+.brebo-live-recorder__time { margin: .75rem 0; color: #2b073a; font-size: 2rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.brebo-live-recorder__status { color: #5f5565; font-weight: 600; }
+.brebo-live-recorder__meter { height: 12px; margin: .75rem 0; overflow: hidden; border-radius: 999px; background: #eee8f1; }
+.brebo-live-recorder__meter span { display: block; width: 0; height: 100%; background: linear-gradient(90deg, #198754, #f0ad00, #bc2d36); transition: width .08s linear; }
+.brebo-live-recorder[data-state="recording"] { border-top-color: #bc2d36; background: #fff8f8; }
+.brebo-live-recorder[data-state="recording"] .brebo-live-recorder__status { color: #a11f2b; }
+.brebo-live-recorder__preview { width: 100%; margin-top: 1rem; }
