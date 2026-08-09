@@ -3109,6 +3109,10 @@ final class OfficeController extends ControllerBase {
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Posten & opslagen'),
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-posts'],
         ],
+        'tail_costs' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Staartkosten'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-tail-costs'],
+        ],
         '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
       'dashboard' => [
@@ -3147,15 +3151,6 @@ final class OfficeController extends ControllerBase {
             $attention_line_count,
             $blocked_line_count,
           ]],
-        ],
-        'tail_cost_heading' => [
-          '#markup' => '<h2>' . $this->t('Staartkosten en bruto winst') . '</h2>',
-        ],
-        'tail_costs' => [
-          '#type' => 'table',
-          '#header' => [$this->t('Onderdeel'), $this->t('Percentage'), $this->t('Bedrag')],
-          '#rows' => $tail_cost_rows,
-          '#attributes' => ['class' => ['brebo-calculation-tail-costs']],
         ],
         'category_heading' => [
           '#markup' => '<h2>' . $this->t('Kostprijs per kostensoort') . '</h2>',
@@ -3224,11 +3219,9 @@ final class OfficeController extends ControllerBase {
         ],
         'margin_notice' => [
           '#type' => 'container',
-          '#attributes' => ['class' => ['messages', $sales_price !== NULL ? 'messages--status' : 'messages--warning']],
+          '#attributes' => ['class' => ['messages', 'messages--status']],
           'text' => [
-            '#markup' => $sales_price !== NULL
-              ? $this->t('De winstmarge is berekend als verkoopprijs minus actuele kostprijsprognose, gedeeld door de verkoopprijs.')
-              : $this->t('Nog geen commerciële verkoopprijs vastgesteld. Vul deze in via Calculatie bewerken; winst en marge worden daarna automatisch berekend.'),
+            '#markup' => $this->t('Bruto winst bestaat uit de vastgestelde staartkosten. De brutomarge is de bruto winst gedeeld door de berekende verkoopprijs.'),
           ],
         ],
       ],
@@ -3269,6 +3262,30 @@ final class OfficeController extends ControllerBase {
         '#attributes' => ['class' => ['brebo-calc-elements']],
         '#header' => [$this->t('NLSfB-hoofdcomponent'), $this->t('Recept'), $this->t('Receptcode'), $this->t('Ingrediënten'), $this->t('Totaaluren'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
         '#rows' => $element_rows, '#empty' => $this->t('Nog geen calculatie-elementen.'),
+      ],
+      'tail_costs_heading' => ['#markup' => '<h2>' . $this->t('Staartkosten en bruto winst') . '</h2>'],
+      'tail_costs_summary' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Onderdeel'), $this->t('Percentage'), $this->t('Bedrag')],
+        '#rows' => $tail_cost_rows,
+        '#attributes' => ['class' => ['brebo-calculation-tail-costs']],
+      ],
+      'tail_costs_totals' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Directe kostprijs'), $this->t('Bruto winst'), $this->t('Verkoopprijs'), $this->t('Brutomarge')],
+        '#rows' => [[
+          $this->money($forecast_total),
+          $this->money($gross_profit),
+          $this->money($sales_price),
+          number_format($margin_percent, 1, ',', '.') . '%',
+        ]],
+      ],
+      'tail_costs_edit' => [
+        '#type' => 'link',
+        '#title' => $this->t('Staartkosten bewerken'),
+        '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+        '#attributes' => ['class' => ['button', 'button--primary']],
+        '#access' => $node->access('update'),
       ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
       'posts' => [
@@ -3321,6 +3338,10 @@ final class OfficeController extends ControllerBase {
       'elements' => 'calc-elements',
       'posts_heading' => 'calc-posts',
       'posts' => 'calc-posts',
+      'tail_costs_heading' => 'calc-tail-costs',
+      'tail_costs_summary' => 'calc-tail-costs',
+      'tail_costs_totals' => 'calc-tail-costs',
+      'tail_costs_edit' => 'calc-tail-costs',
     ] as $key => $tab_id) {
       $content = $build[$key];
       $build[$key] = [
