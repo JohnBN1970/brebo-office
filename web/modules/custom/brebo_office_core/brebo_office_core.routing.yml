@@ -287,3 +287,13 @@ brebo_office_core.regie_actions:
     _title: 'Regie-acties'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.communications:
+  path: '/office/communicatie'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Communicatiedossier'
+    bundle: 'brebo_communication'
+  requirements:
+    _permission: 'access content'
