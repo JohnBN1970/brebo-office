@@ -4184,3 +4184,40 @@ function brebo_office_core_update_11030(): string {
 
   return 'Stoplichtstatus voor calculatie-ingrediënten ingericht.';
 }
+
+
+/**
+ * Stores short-lived presence for collaborative calculation editing.
+ */
+function brebo_office_core_update_11031(): string {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_presence')) {
+    $schema->createTable('brebo_calculation_presence', [
+      'description' => 'Tracks recently active users per calculation.',
+      'fields' => [
+        'calculation_id' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'uid' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'last_seen' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+      ],
+      'primary key' => ['calculation_id', 'uid'],
+      'indexes' => [
+        'calculation_active' => ['calculation_id', 'last_seen'],
+        'last_seen' => ['last_seen'],
+      ],
+    ]);
+  }
+
+  return 'Aanwezigheidsregistratie voor gelijktijdig calculeren aangemaakt.';
+}
