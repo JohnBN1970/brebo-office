@@ -3894,3 +3894,155 @@ function brebo_office_core_update_11027(): string {
 
   return 'Werkbankvelden voor transcriptie, samenvatting, besluiten, acties, risico’s en gecontroleerde vaststelling aangemaakt.';
 }
+
+
+/**
+ * Adds main calculation components and controlled labour-hour input.
+ */
+function brebo_office_core_update_11028(): string {
+  $decimal = ['precision' => 18, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_component',
+    'Calculatie-hoofdcomponent',
+    'Hoofdstuk of hoofdcomponent boven calculatie-elementen.',
+    [
+      'field_brebo_calculation_ref' => [
+        'label' => 'Calculatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']],
+        ],
+        'description' => 'Calculatie waartoe dit hoofdcomponent behoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_component_code' => [
+        'label' => 'Hoofdcomponentcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Hoofdstukcode, bijvoorbeeld 41 voor buitenwandafwerkingen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_component_sequence' => [
+        'label' => 'Volgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [], 'description' => 'Sorteervolgorde binnen de calculatie.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 3,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Omschrijving en uitgangspunten', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [], 'description' => 'Afbakening van het hoofdcomponent.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 4,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_element',
+    'Calculatie-element',
+    'Element binnen een hoofdcomponent van een calculatie.',
+    [
+      'field_brebo_calc_component_ref' => [
+        'label' => 'Hoofdcomponent', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_calc_component' => 'brebo_calc_component']],
+        ],
+        'description' => 'Hoofdstuk waaronder dit element wordt getotaliseerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_line',
+    'Calculatieregel',
+    'Prijsregel met gecontroleerde norm- of totaalureninvoer.',
+    [
+      'field_brebo_hours_input_mode' => [
+        'label' => 'Leidende ureninvoer', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 24],
+        'description' => 'Kies of normuren per eenheid of totaaluren leidend zijn.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+        'default_value' => [['value' => 'Normuren']],
+      ],
+    ],
+  );
+
+  if ($adjust_field = FieldConfig::loadByName('node', 'brebo_calc_adjustment', 'field_brebo_adjust_target')) {
+    $settings = $adjust_field->getSetting('handler_settings') ?: [];
+    $bundles = $settings['target_bundles'] ?? [];
+    $bundles['brebo_calc_component'] = 'brebo_calc_component';
+    $settings['target_bundles'] = $bundles;
+    $adjust_field->setSetting('handler_settings', $settings)->save();
+  }
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_calc_component content',
+        'edit own brebo_calc_component content',
+        'edit any brebo_calc_component content',
+        'view brebo_calc_component revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $calculation_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_calculation')
+    ->execute();
+
+  foreach ($storage->loadMultiple($calculation_ids) as $calculation) {
+    if (!$calculation instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $element_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $calculation->id())
+      ->execute();
+    $components = [];
+    foreach ($storage->loadMultiple($element_ids) as $element) {
+      if (!$element instanceof \Drupal\node\NodeInterface || !$element->get('field_brebo_calc_component_ref')->isEmpty()) {
+        continue;
+      }
+      $element_code = trim((string) $element->get('field_brebo_element_code')->value);
+      preg_match('/^[0-9]{2}/', $element_code, $match);
+      $component_code = $match[0] ?? 'ALG';
+      if (!isset($components[$component_code])) {
+        $component_ids = $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_calc_component')
+          ->condition('field_brebo_calculation_ref.target_id', $calculation->id())
+          ->condition('field_brebo_component_code', $component_code)
+          ->execute();
+        $component = $component_ids ? $storage->load(reset($component_ids)) : NULL;
+        if (!$component instanceof \Drupal\node\NodeInterface) {
+          $component = $storage->create([
+            'type' => 'brebo_calc_component',
+            'title' => $component_code === 'ALG' ? 'Algemene calculatie' : 'Hoofdcomponent ' . $component_code,
+            'status' => 1,
+            'uid' => $calculation->getOwnerId(),
+            'field_brebo_calculation_ref' => ['target_id' => $calculation->id()],
+            'field_brebo_component_code' => $component_code,
+            'field_brebo_component_sequence' => $component_code === 'ALG' ? 999 : (int) $component_code,
+          ]);
+          $component->save();
+        }
+        $components[$component_code] = $component;
+      }
+      $element->set('field_brebo_calc_component_ref', ['target_id' => $components[$component_code]->id()]);
+      $element->setNewRevision(TRUE);
+      $element->setRevisionLogMessage('Aan hoofdcomponent gekoppeld door update 11028.');
+      $element->save();
+    }
+  }
+
+  return 'Hoofdcomponenten en tweerichtingssturing voor norm- en totaaluren aangemaakt.';
+}
