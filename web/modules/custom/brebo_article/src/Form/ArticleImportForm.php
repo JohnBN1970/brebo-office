@@ -15,7 +15,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
  */
 final class ArticleImportForm extends FormBase {
 
-  public function __construct(private readonly Sales005Importer $importer) {}
+  /**
+   * The SALES005 importer.
+   */
+  protected Sales005Importer $importer;
+
+  public function __construct(Sales005Importer $importer) {
+    $this->importer = $importer;
+  }
 
   public static function create(ContainerInterface $container): static {
     return new static($container->get('brebo_article.sales005_importer'));
