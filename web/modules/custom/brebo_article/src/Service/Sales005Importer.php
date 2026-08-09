@@ -172,12 +172,20 @@ final class Sales005Importer {
   private function upsertSupplier(array $metadata): int {
     $code = $metadata['supplier_gln'] !== '' ? 'GLN-' . $metadata['supplier_gln'] : 'SALES-' . substr(hash('sha256', $metadata['supplier_name']), 0, 16);
     $now = $this->time->getRequestTime();
-    $this->database->merge('brebo_supplier')->keys(['code' => $code])->fields([
+    $supplierFields = [
       'name' => $metadata['supplier_name'],
       'branch' => $metadata['supplier_branch'],
       'active' => 1,
       'changed' => $now,
-    ])->insertFields(['created' => $now])->execute();
+    ];
+    $this->database->merge('brebo_supplier')
+      ->keys(['code' => $code])
+      ->fields($supplierFields)
+      ->insertFields([
+        'code' => $code,
+        'created' => $now,
+      ] + $supplierFields)
+      ->execute();
     return (int) $this->database->select('brebo_supplier', 's')->fields('s', ['id'])->condition('code', $code)->execute()->fetchField();
   }
 
