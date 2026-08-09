@@ -260,3 +260,121 @@
 .brebo-calc-grid select:hover {
   border-color: var(--brebo-purple-600);
 }
+
+
+/* Calculation recipes: zone-bound result headers with ingredients. */
+.brebo-calc-structure-actions {
+  position: sticky;
+  left: 0;
+  display: grid;
+  grid-template-columns: minmax(360px, 1fr) minmax(360px, 1fr);
+  gap: 14px;
+  margin-bottom: 16px;
+}
+.brebo-calc-quick-add,
+.brebo-calc-new-recipe {
+  padding: 14px;
+  border: 1px solid #ded5e2;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: var(--brebo-shadow-sm);
+}
+.brebo-calc-quick-add {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+}
+.brebo-calc-quick-add .form-item,
+.brebo-calc-new-recipe .form-item {
+  margin: 0;
+}
+.brebo-calc-new-recipe > summary {
+  color: var(--brebo-purple-800);
+  font-weight: 900;
+}
+.brebo-calc-new-recipe .details-wrapper {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(150px, 1fr));
+  gap: 10px;
+  padding-top: 12px;
+}
+.brebo-calc-new-recipe .form-item-description {
+  grid-column: span 2;
+}
+.brebo-calc-new-recipe .button {
+  align-self: end;
+  margin: 0;
+}
+.brebo-calc-recipe-grid {
+  min-width: 2050px;
+}
+.brebo-recipe-row > td {
+  padding: 0 !important;
+  border-top: 12px solid #f4f1f5 !important;
+  background: #fff !important;
+}
+.brebo-recipe-heading {
+  display: grid;
+  grid-template-columns: 150px minmax(380px, 1fr) repeat(4, minmax(145px, auto));
+  gap: 18px;
+  align-items: center;
+  min-height: 82px;
+  padding: 14px 18px;
+  color: #fff;
+  background: linear-gradient(105deg, var(--brebo-purple-900), var(--brebo-purple-700));
+  box-shadow: inset 6px 0 0 #c99bd9;
+}
+.brebo-recipe-heading > span {
+  min-width: 0;
+}
+.brebo-recipe-heading small,
+.brebo-recipe-heading strong,
+.brebo-recipe-heading em {
+  display: block;
+}
+.brebo-recipe-heading small {
+  margin-bottom: 4px;
+  color: rgb(255 255 255 / 68%);
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.brebo-recipe-heading strong {
+  color: #fff;
+  font-size: .95rem;
+  font-variant-numeric: tabular-nums;
+}
+.brebo-recipe-heading__code strong {
+  font-size: 1.22rem;
+}
+.brebo-recipe-heading__title strong {
+  overflow: hidden;
+  font-size: 1.08rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brebo-recipe-heading em {
+  margin-top: 5px;
+  overflow: hidden;
+  color: #eaddec;
+  font-size: .78rem;
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.brebo-calc-ingredient-row > td:first-child {
+  box-shadow: inset 5px 0 0 #cbb5d4;
+}
+.brebo-calc-ingredient-row > td:nth-child(3) {
+  padding-left: 14px;
+}
+.brebo-calc-recipe-grid td:nth-child(1) { min-width: 86px; }
+.brebo-calc-recipe-grid td:nth-child(2) { min-width: 230px; }
+.brebo-calc-recipe-grid td:nth-child(3) { min-width: 340px; }
+@media (max-width: 900px) {
+  .brebo-calc-structure-actions { grid-template-columns: 1fr; }
+  .brebo-calc-new-recipe .details-wrapper { grid-template-columns: 1fr; }
+  .brebo-calc-new-recipe .form-item-description { grid-column: auto; }
+}
