@@ -407,6 +407,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     foreach ([
       'field_brebo_line_post_type' => ['Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk'],
       'field_brebo_cost_category' => ['Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'],
+      'field_brebo_hours_input_mode' => ['Normuren', 'Totaaluren'],
     ] as $field_name => $options) {
       if (isset($form[$field_name]['widget'][0]['value'])) {
         $current = $form[$field_name]['widget'][0]['value']['#default_value'] ?? reset($options);
@@ -416,10 +417,20 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         ];
       }
     }
-    foreach (['field_brebo_direct_cost', 'field_brebo_budget_hours'] as $calculated_field) {
-      if (isset($form[$calculated_field])) {
-        $form[$calculated_field]['#access'] = FALSE;
-      }
+    if (isset($form['field_brebo_norm_hours']['widget'][0]['value'])) {
+      $form['field_brebo_norm_hours']['widget'][0]['value']['#states'] = [
+        'enabled' => [':input[name="field_brebo_hours_input_mode[0][value]"]' => ['value' => 'Normuren']],
+      ];
+      $form['field_brebo_norm_hours']['widget'][0]['value']['#description'] = 'Leidend bij Normuren; totaaluren worden automatisch berekend.';
+    }
+    if (isset($form['field_brebo_budget_hours']['widget'][0]['value'])) {
+      $form['field_brebo_budget_hours']['widget'][0]['value']['#states'] = [
+        'enabled' => [':input[name="field_brebo_hours_input_mode[0][value]"]' => ['value' => 'Totaaluren']],
+      ];
+      $form['field_brebo_budget_hours']['widget'][0]['value']['#description'] = 'Leidend bij Totaaluren; de norm per eenheid wordt automatisch teruggerekend.';
+    }
+    if (isset($form['field_brebo_direct_cost'])) {
+      $form['field_brebo_direct_cost']['#access'] = FALSE;
     }
   }
 
@@ -1020,10 +1031,32 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
     $norm_hours = $node->hasField('field_brebo_norm_hours')
       ? (float) $node->get('field_brebo_norm_hours')->value
       : 0.0;
-    $node->set('field_brebo_direct_cost', number_format($quantity * $unit_price, 4, '.', ''));
-    if ($node->hasField('field_brebo_budget_hours')) {
-      $node->set('field_brebo_budget_hours', number_format($quantity * $norm_hours, 4, '.', ''));
+    $budget_hours = $node->hasField('field_brebo_budget_hours')
+      ? (float) $node->get('field_brebo_budget_hours')->value
+      : 0.0;
+    $input_mode = $node->hasField('field_brebo_hours_input_mode')
+      ? (string) $node->get('field_brebo_hours_input_mode')->value
+      : 'Normuren';
+
+    if ($input_mode === 'Totaaluren') {
+      $norm_hours = $quantity > 0 ? $budget_hours / $quantity : 0.0;
+      $node->set('field_brebo_norm_hours', number_format($norm_hours, 4, '.', ''));
     }
+    else {
+      $budget_hours = $quantity * $norm_hours;
+      $node->set('field_brebo_budget_hours', number_format($budget_hours, 4, '.', ''));
+    }
+
+    $category = (string) $node->get('field_brebo_cost_category')->value;
+    $labor_rate = $node->hasField('field_brebo_labor_rate')
+      ? (float) $node->get('field_brebo_labor_rate')->value
+      : 0.0;
+    if ($category === 'Arbeid' && $labor_rate > 0) {
+      $unit_price = $norm_hours * $labor_rate;
+      $node->set('field_brebo_unit_price', number_format($unit_price, 4, '.', ''));
+    }
+
+    $node->set('field_brebo_direct_cost', number_format($quantity * $unit_price, 4, '.', ''));
     return;
   }
 
