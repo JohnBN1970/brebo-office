@@ -23,3 +23,11 @@ building-map:
     js/building-map.js: {}
   dependencies:
     - core/drupal
+
+
+calculation-grid:
+  version: 1.0.0
+  js:
+    js/calculation-grid.js: {}
+  dependencies:
+    - core/drupal
