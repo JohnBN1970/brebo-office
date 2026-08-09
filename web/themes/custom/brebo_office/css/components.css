@@ -98,3 +98,46 @@ legend, summary { color: var(--brebo-purple-950); font-weight: 900; cursor: poin
 .brebo-inline-signal--attention { color: #9a6400; }
 .brebo-inline-signal--danger { color: #b4232d; }
 .brebo-inline-signal--neutral { color: #6f6875; }
+
+
+/* Communication workspace subtabs. */
+.brebo-communication-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 0 0 20px;
+  padding: 5px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--brebo-shadow-sm);
+}
+.brebo-communication-subtabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 7px 14px;
+  border-radius: 7px;
+  color: var(--brebo-muted);
+  font-size: .86rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+.brebo-communication-subtabs a:hover {
+  color: var(--brebo-purple-950);
+  background: #f5f1f7;
+}
+.brebo-communication-subtabs a.is-active {
+  color: #fff;
+  background: var(--brebo-purple-700);
+  box-shadow: 0 3px 9px rgb(57 19 74 / 18%);
+}
+@media (max-width: 680px) {
+  .brebo-communication-subtabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .brebo-communication-subtabs a {
+    white-space: nowrap;
+  }
+}
