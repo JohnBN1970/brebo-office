@@ -7,6 +7,7 @@ namespace Drupal\brebo_office_core\Service;
 use Drupal\Core\Datetime\TimeInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\node\NodeInterface;
+use Drupal\Core\Site\Settings;
 use GuzzleHttp\ClientInterface;
 
 /** Converts a communication source into a reviewable BREBO AI concept. */
@@ -19,7 +20,7 @@ final class CommunicationAiProcessor {
   ) {}
 
   public function isConfigured(): bool {
-    return trim((string) getenv('BREBO_OPENAI_API_KEY')) !== '';
+    return $this->apiKey() !== '';
   }
 
   /** Processes one communication; formal establishment remains a human action. */
@@ -84,9 +85,9 @@ final class CommunicationAiProcessor {
       throw new \RuntimeException('Het opnamebestand is groter dan 25 MB.');
     }
     $response = $this->httpClient->request('POST', 'https://api.openai.com/v1/audio/transcriptions', [
-      'headers' => ['Authorization' => 'Bearer ' . getenv('BREBO_OPENAI_API_KEY')],
+      'headers' => ['Authorization' => 'Bearer ' . $this->apiKey()],
       'multipart' => [
-        ['name' => 'model', 'contents' => getenv('BREBO_OPENAI_TRANSCRIBE_MODEL') ?: 'gpt-transcribe'],
+        ['name' => 'model', 'contents' => Settings::get('brebo_openai_transcribe_model', getenv('BREBO_OPENAI_TRANSCRIBE_MODEL') ?: 'gpt-transcribe')],
         ['name' => 'language', 'contents' => 'nl'],
         ['name' => 'prompt', 'contents' => 'BREBO, bouw, renovatie, opdrachtgever, uitvoerder, werkvoorbereider, afwijking, scope, stelpost, verrekenpost.'],
         ['name' => 'file', 'contents' => fopen($path, 'rb'), 'filename' => $files[0]->getFilename()],
@@ -115,7 +116,7 @@ final class CommunicationAiProcessor {
     $response = $this->httpClient->request('POST', 'https://api.openai.com/v1/responses', [
       'headers' => ['Authorization' => 'Bearer ' . getenv('BREBO_OPENAI_API_KEY'), 'Content-Type' => 'application/json'],
       'json' => [
-        'model' => getenv('BREBO_OPENAI_TEXT_MODEL') ?: 'gpt-5-mini',
+        'model' => Settings::get('brebo_openai_text_model', getenv('BREBO_OPENAI_TEXT_MODEL') ?: 'gpt-5-mini'),
         'instructions' => 'Verwerk uitsluitend expliciet aanwezige feiten. Vul niets aan. Schrijf zakelijk Nederlands. Benoem onzekerheid. Een menselijke BREBO-medewerker stelt formeel vast.',
         'input' => "Maak een controleerbaar BREBO-concept van deze transcriptie:\n\n" . $transcript,
         'text' => ['format' => ['type' => 'json_schema', 'name' => 'brebo_communication_extract', 'strict' => TRUE, 'schema' => $schema]],
@@ -128,6 +129,10 @@ final class CommunicationAiProcessor {
       throw new \RuntimeException('De extractieservice gaf geen bruikbaar resultaat terug.');
     }
     return json_decode($text, TRUE, 512, JSON_THROW_ON_ERROR);
+  }
+
+  private function apiKey(): string {
+    return trim((string) Settings::get('brebo_openai_api_key', getenv('BREBO_OPENAI_API_KEY') ?: ''));
   }
 
   private function bullets(array $items): string {
