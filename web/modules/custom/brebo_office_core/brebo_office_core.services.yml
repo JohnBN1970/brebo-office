@@ -1,0 +1,4 @@
+services:
+  brebo_office_core.communication_ai_processor:
+    class: Drupal\brebo_office_core\Service\CommunicationAiProcessor
+    arguments: ['@http_client', '@file_system', '@datetime.time']
