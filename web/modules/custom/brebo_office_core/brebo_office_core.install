@@ -4322,7 +4322,7 @@ function brebo_office_core_update_11034(): string {
         'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 22,
         'default_value' => [['value' => '0.0000']],
       ],
-      'field_brebo_commercial_adjustment' => [
+      'field_brebo_com_adjustment' => [
         'label' => 'Commerciële correctie (€)', 'type' => 'decimal', 'required' => FALSE,
         'storage' => ['precision' => 15, 'scale' => 4],
         'description' => 'Vaste positieve of negatieve commerciële correctie op de verkoopprijs exclusief btw.',
