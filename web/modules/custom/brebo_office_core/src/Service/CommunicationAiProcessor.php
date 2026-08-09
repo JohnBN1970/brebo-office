@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\Datetime\TimeInterface;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\node\NodeInterface;
 use Drupal\Core\Site\Settings;
