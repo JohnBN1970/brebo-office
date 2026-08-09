@@ -2992,17 +2992,22 @@ final class OfficeController extends ControllerBase {
         '#rows' => $post_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
       ],
       'lines_heading' => ['#markup' => '<h2>' . $this->t('Calculatieregels') . '</h2>'],
-      'lines' => [
-        '#type' => 'table',
-        '#attributes' => ['class' => ['brebo-calc-lines']],
-        '#header' => [
-          $this->t('Element'), $this->t('Omschrijving'), $this->t('Posttype'), $this->t('Kostensoort'),
-          $this->t('Aantal'), $this->t('Werkelijk'), $this->t('Eenheid'),
-          $this->t('Norm/u'), $this->t('Totaaluren'), $this->t('Leidend'), $this->t('Uurtarief'), $this->t('Eenheidsprijs'),
-          $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'), $this->t('Actie'),
+      'lines' => $node->access('update')
+        ? $this->formBuilder()->getForm(
+          \Drupal\brebo_office_core\Form\CalculationGridForm::class,
+          $node,
+        )
+        : [
+          '#type' => 'table',
+          '#attributes' => ['class' => ['brebo-calc-lines']],
+          '#header' => [
+            $this->t('Element'), $this->t('Omschrijving'), $this->t('Posttype'), $this->t('Kostensoort'),
+            $this->t('Aantal'), $this->t('Werkelijk'), $this->t('Eenheid'),
+            $this->t('Norm/u'), $this->t('Totaaluren'), $this->t('Leidend'), $this->t('Uurtarief'), $this->t('Eenheidsprijs'),
+            $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'), $this->t('Actie'),
+          ],
+          '#rows' => $line_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
         ],
-        '#rows' => $line_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
-      ],
       'fixed_totals' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-calc-totalbar'], 'aria-label' => $this->t('Calculatietotalen')],
