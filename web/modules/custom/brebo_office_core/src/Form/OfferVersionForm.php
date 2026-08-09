@@ -201,6 +201,53 @@ final class OfferVersionForm extends FormBase {
       ];
     }
 
+    $offer_lines = $this->loadOfferableCalculationLines();
+    $form['post_structure'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Indeling offerteposten'),
+      '#description' => $this->t('De voorgestelde indeling volgt het posttype uit de calculatie. Controleer iedere regel. Interne kostprijzen, verdisconteerde regels en interne notities worden niet overgenomen.'),
+      '#tree' => TRUE,
+    ];
+    if (!$offer_lines) {
+      $form['post_structure']['empty'] = [
+        '#markup' => '<p>' . $this->t('Deze calculatie bevat nog geen financiële regels die in een offerte kunnen worden ingedeeld.') . '</p>',
+      ];
+    }
+    else {
+      $form['post_structure']['lines'] = [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Calculatieregel'),
+          $this->t('Aantal'),
+          $this->t('Eenheid'),
+          $this->t('Voorgestelde postsoort'),
+        ],
+      ];
+      foreach ($offer_lines as $line_id => $line) {
+        $form['post_structure']['lines'][$line_id]['description'] = [
+          '#plain_text' => $line['description'],
+        ];
+        $form['post_structure']['lines'][$line_id]['quantity'] = [
+          '#plain_text' => $line['quantity'],
+        ];
+        $form['post_structure']['lines'][$line_id]['unit'] = [
+          '#plain_text' => $line['unit'],
+        ];
+        $form['post_structure']['lines'][$line_id]['post_type'] = [
+          '#type' => 'select',
+          '#title' => $this->t('Postsoort voor @line', ['@line' => $line['description']]),
+          '#title_display' => 'invisible',
+          '#options' => [
+            'Basisaanbieding' => $this->t('Basisaanbieding'),
+            'Optie' => $this->t('Optie'),
+            'Stelpost' => $this->t('Stelpost'),
+            'Verrekenpost' => $this->t('Verrekenpost'),
+          ],
+          '#default_value' => $line['suggested_type'],
+        ];
+      }
+    }
+
     $form['tax'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Btw en G-rekening'),
@@ -379,6 +426,66 @@ final class OfferVersionForm extends FormBase {
     ];
   }
 
+  /**
+   * Loads financial calculation lines that may be shown externally.
+   *
+   * @return array<int, array{description: string, quantity: string, unit: string, suggested_type: string}>
+   *   Offerable lines keyed by calculation-line node ID.
+   */
+  private function loadOfferableCalculationLines(): array {
+    if (!$this->calculation instanceof NodeInterface) {
+      return [];
+    }
+
+    $storage = $this->entityTypeManager->getStorage('node');
+    $element_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())
+      ->sort('field_brebo_element_sequence', 'ASC')
+      ->execute();
+    if (!$element_ids) {
+      return [];
+    }
+
+    $line_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_line')
+      ->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')
+      ->condition('field_brebo_line_type', 'Calculatieregel')
+      ->sort('nid', 'ASC')
+      ->execute();
+
+    $lines = [];
+    foreach ($storage->loadMultiple($line_ids) as $line) {
+      if (!$line instanceof NodeInterface) {
+        continue;
+      }
+      $source_type = (string) ($line->get('field_brebo_line_post_type')->value ?? 'Vaste post');
+      $lines[(int) $line->id()] = [
+        'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
+        'quantity' => (string) ($line->get('field_brebo_contract_quantity')->value ?? ''),
+        'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
+        'suggested_type' => $this->mapOfferPostType($source_type),
+      ];
+    }
+    return $lines;
+  }
+
+  /**
+   * Maps an internal calculation post type to an external offer post type.
+   */
+  private function mapOfferPostType(string $source_type): string {
+    $normalized = mb_strtolower(trim($source_type));
+    return match (TRUE) {
+      str_contains($normalized, 'optie'),
+      str_contains($normalized, 'alternatief') => 'Optie',
+      str_contains($normalized, 'stelpost') => 'Stelpost',
+      str_contains($normalized, 'verreken') => 'Verrekenpost',
+      default => 'Basisaanbieding',
+    };
+  }
+
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     if ($this->calculation instanceof NodeInterface) {
       $duplicate = $this->entityTypeManager->getStorage('node')->getQuery()
@@ -447,9 +554,39 @@ final class OfferVersionForm extends FormBase {
     $offer->setRevisionLogMessage('Offerteversie gemaakt vanuit calculatie ' . $calculation->label() . '.');
     $offer->save();
 
-    $this->messenger()->addStatus($this->t('Offerteversie @number v@version is opgeslagen.', [
+    $selected_types = (array) $form_state->getValue(['post_structure', 'lines']);
+    $offer_lines = $this->loadOfferableCalculationLines();
+    $sequence = 10;
+    foreach ($offer_lines as $line_id => $line) {
+      $selected = (string) ($selected_types[$line_id]['post_type'] ?? $line['suggested_type']);
+      if (!in_array($selected, ['Basisaanbieding', 'Optie', 'Stelpost', 'Verrekenpost'], TRUE)) {
+        $selected = $line['suggested_type'];
+      }
+      $post = $storage->create([
+        'type' => 'brebo_offer_post',
+        'title' => $offer_number . ' — ' . $sequence . ' — ' . $line['description'],
+        'field_brebo_offer_version_ref' => ['target_id' => $offer->id()],
+        'field_brebo_offer_post_type' => $selected,
+        'field_brebo_offer_post_seq' => $sequence,
+        'field_brebo_offer_post_desc' => $line['description'],
+        'field_brebo_offer_quantity' => $line['quantity'] !== '' ? $line['quantity'] : NULL,
+        'field_brebo_offer_unit' => $line['unit'] !== '' ? $line['unit'] : NULL,
+        'field_brebo_in_offer_total' => $selected === 'Optie' ? 0 : 1,
+        'field_brebo_vat_treatment' => $form_state->getValue('vat_default'),
+        'field_brebo_offer_post_status' => 'Aangeboden',
+        'field_brebo_offer_post_notes' => 'Broncalculatieregel: ' . $line_id . '. Interne kostprijzen zijn niet gekopieerd.',
+        'status' => 1,
+      ]);
+      $post->setNewRevision(TRUE);
+      $post->setRevisionLogMessage('Offertepost vastgelegd bij offerteversie ' . $offer_number . ' v' . $version . '.');
+      $post->save();
+      $sequence += 10;
+    }
+
+    $this->messenger()->addStatus($this->t('Offerteversie @number v@version is opgeslagen met @count ingedeelde offerteposten.', [
       '@number' => $offer_number,
       '@version' => $version,
+      '@count' => count($offer_lines),
     ]));
     $form_state->setRedirect('entity.node.edit_form', ['node' => $offer->id()]);
   }
