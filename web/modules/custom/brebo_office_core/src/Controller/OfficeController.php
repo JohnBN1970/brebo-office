@@ -62,9 +62,12 @@ final class OfficeController extends ControllerBase {
         'brebo_budget_change' => 'field_brebo_change_status',
         'brebo_route_item' => 'field_brebo_route_status',
         'brebo_project_scope' => 'field_brebo_scope_status',
+        'brebo_organization' => 'field_brebo_org_status',
         default => 'field_brebo_status',
       };
-      $status = $this->fieldValue($node, $status_field);
+      $status = $bundle === 'brebo_contact'
+        ? ((bool) $node->get('field_brebo_contact_active')->value ? (string) $this->t('Actief') : (string) $this->t('Inactief'))
+        : $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
         'brebo_building' => Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $node->id()]),
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
@@ -82,13 +85,36 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
+    $new_label = match ($bundle) {
+      'brebo_organization' => (string) $this->t('Nieuwe organisatie'),
+      'brebo_contact' => (string) $this->t('Nieuwe contactpersoon'),
+      default => (string) $this->t('Nieuw @type', [
+        '@type' => mb_strtolower((string) $this->entityTypeManager()->getStorage('node_type')->load($bundle)?->label()),
+      ]),
+    };
+    $empty_message = match ($bundle) {
+      'brebo_organization' => (string) $this->t('Nog geen organisaties aangemaakt.'),
+      'brebo_contact' => (string) $this->t('Nog geen contactpersonen aangemaakt.'),
+      'brebo_project' => (string) $this->t('Nog geen projecten aangemaakt.'),
+      'brebo_building' => (string) $this->t('Nog geen gebouwen aangemaakt.'),
+      'brebo_work_package' => (string) $this->t('Nog geen werkpakketten aangemaakt.'),
+      'brebo_calculation' => (string) $this->t('Nog geen calculaties aangemaakt.'),
+      'brebo_work_budget' => (string) $this->t('Nog geen werkbegrotingen aangemaakt.'),
+      'brebo_rfq' => (string) $this->t('Nog geen prijsaanvragen aangemaakt.'),
+      'brebo_supplier_quote' => (string) $this->t('Nog geen leveranciersoffertes aangemaakt.'),
+      'brebo_budget_change' => (string) $this->t('Nog geen budgetwijzigingsbesluiten aangemaakt.'),
+      'brebo_project_scope' => (string) $this->t('Nog geen projectscopes aangemaakt.'),
+      'brebo_scope_requirement' => (string) $this->t('Nog geen statusonderdelen aangemaakt.'),
+      default => (string) $this->t('Nog geen gegevens aangemaakt.'),
+    };
+
     return [
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
         'add' => [
           '#type' => 'link',
-          '#title' => $this->t('Nieuw @type', ['@type' => mb_strtolower((string) $this->entityTypeManager()->getStorage('node_type')->load($bundle)?->label())]),
+          '#title' => $new_label,
           '#url' => Url::fromRoute('node.add', ['node_type' => $bundle]),
           '#attributes' => ['class' => ['button']],
           '#access' => !in_array($bundle, ['brebo_work_budget', 'brebo_route_item'], TRUE),
@@ -98,7 +124,7 @@ final class OfficeController extends ControllerBase {
         '#type' => 'table',
         '#header' => [$this->t('Naam'), $this->t('Status'), $this->t('Gewijzigd'), $this->t('Actie')],
         '#rows' => $rows,
-        '#empty' => $this->t('Nog geen objecten aangemaakt.'),
+        '#empty' => $empty_message,
       ],
       'pager' => ['#type' => 'pager'],
       '#cache' => [
