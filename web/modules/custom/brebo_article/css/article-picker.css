@@ -1,0 +1,41 @@
+.brebo-article-select {
+  display: block;
+  width: 100%;
+  margin-top: 5px;
+  padding: 6px 9px;
+  border: 1px solid #b995c8;
+  border-radius: 6px;
+  color: #552168;
+  background: #f7effa;
+  font-size: .75rem;
+  font-weight: 900;
+  cursor: pointer;
+}
+.brebo-article-select.has-article { color: #075c34; border-color: #6fc39a; background: #e8f7ef; }
+.brebo-article-picker {
+  width: min(1180px, calc(100vw - 48px));
+  max-height: calc(100vh - 48px);
+  padding: 0;
+  border: 0;
+  border-radius: 18px;
+  box-shadow: 0 24px 80px rgb(28 12 35 / 35%);
+}
+.brebo-article-picker::backdrop { background: rgb(28 12 35 / 58%); backdrop-filter: blur(3px); }
+.brebo-article-picker__shell { min-height: 620px; margin: 0; background: #f8f6f9; }
+.brebo-article-picker header { display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; color: #fff; background: linear-gradient(105deg, #3d1650, #6f2d8b); }
+.brebo-article-picker header small { color: rgb(255 255 255 / 68%); font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.brebo-article-picker header h2 { margin: 3px 0 0; color: #fff; }
+.brebo-article-picker header button { width: 40px; height: 40px; border: 1px solid rgb(255 255 255 / 35%); border-radius: 50%; color: #fff; background: transparent; font-size: 1.5rem; cursor: pointer; }
+.brebo-article-picker__filters { display: grid; grid-template-columns: minmax(360px, 1fr) 220px 220px; gap: 12px; padding: 18px 24px; background: #fff; }
+.brebo-article-picker__filters input, .brebo-article-picker__filters select { min-height: 46px; padding: 9px 12px; border: 1px solid #d7cfdc; border-radius: 8px; font: inherit; }
+.brebo-article-picker__status { padding: 10px 24px; color: #66596c; font-size: .82rem; font-weight: 800; }
+.brebo-article-picker__results { padding: 0 24px 24px; }
+.brebo-article-picker__results article { display: grid; grid-template-columns: minmax(360px, 1fr) 100px 140px 90px; gap: 16px; align-items: center; margin-bottom: 8px; padding: 13px 14px; border: 1px solid #ded5e2; border-radius: 10px; background: #fff; }
+.brebo-article-picker__results article:hover { border-color: #9f6db3; box-shadow: 0 6px 18px rgb(61 22 80 / 10%); }
+.brebo-article-picker__results small, .brebo-article-picker__results strong, .brebo-article-picker__results span { display: block; }
+.brebo-article-picker__results small { color: #7b6d80; font-size: .7rem; font-weight: 900; }
+.brebo-article-picker__results span { margin-top: 3px; color: #66596c; font-size: .78rem; }
+.brebo-article-picker__results button { padding: 9px 12px; border: 0; border-radius: 7px; color: #fff; background: #6f2d8b; font-weight: 900; cursor: pointer; }
+@media (max-width: 800px) {
+  .brebo-article-picker__filters, .brebo-article-picker__results article { grid-template-columns: 1fr; }
+}
