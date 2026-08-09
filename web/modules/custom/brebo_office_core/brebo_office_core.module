@@ -77,6 +77,13 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
   }
 
   if ($node->bundle() === 'brebo_project_scope') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe projectscope');
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+
     $form['brebo_scope_intro'] = [
       '#type' => 'container',
       '#weight' => 4,
@@ -837,6 +844,15 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_project_scope') {
+    $project = $node->get('field_brebo_project_ref')->entity;
+    $building = $node->get('field_brebo_building_ref')->entity;
+    $node->setTitle(($project instanceof NodeInterface ? $project->label() : 'Project')
+      . ' — '
+      . ($building instanceof NodeInterface ? $building->label() : 'gebouwscope'));
+    return;
+  }
+
   if ($node->bundle() === 'brebo_calc_line') {
     $quantity = (float) $node->get('field_brebo_contract_quantity')->value;
     $unit_price = (float) $node->get('field_brebo_unit_price')->value;
