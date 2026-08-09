@@ -250,6 +250,20 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
+    $category_rows = [];
+    foreach (['Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'] as $category_name) {
+      $category_rows[] = [
+        $category_name,
+        $this->money((float) ($category_totals[$category_name] ?? 0.0)),
+      ];
+    }
+
+    $calculation_code = $this->fieldValue($node, 'field_brebo_calc_code');
+    $calculation_version = $this->fieldValue($node, 'field_brebo_calc_version');
+    $calculation_status = $this->fieldValue($node, 'field_brebo_calc_status');
+    $last_changed = Drupal::service('date.formatter')->format($node->getChangedTime(), 'short');
+    $owner = $node->getOwner();
+
     $build = [
       'actions' => [
         '#type' => 'container',
@@ -2713,6 +2727,12 @@ final class OfficeController extends ControllerBase {
     $element_forecast_by_id = [];
     $element_hours_by_id = [];
     $elements_by_component = [];
+    $total_budget_hours = 0.0;
+    $open_line_count = 0;
+    $attention_line_count = 0;
+    $blocked_line_count = 0;
+    $category_totals = [];
+
 
     foreach ($elements as $element) {
       if (!$element instanceof NodeInterface) {
@@ -2738,6 +2758,19 @@ final class OfficeController extends ControllerBase {
         $input_mode = $this->fieldValue($line, 'field_brebo_hours_input_mode');
         $contract_direct = $quantity * $unit_price;
         $forecast_direct = $forecast_quantity * $unit_price;
+        $line_status = $this->fieldValue($line, 'field_brebo_line_status');
+        $total_budget_hours += $budget_hours;
+        $category_totals[$category] = ($category_totals[$category] ?? 0.0) + $forecast_direct;
+        if (!in_array($line_status, ['Groen', 'N.v.t.'], TRUE)) {
+          $open_line_count++;
+        }
+        if ($line_status === 'Oranje') {
+          $attention_line_count++;
+        }
+        elseif ($line_status === 'Rood') {
+          $blocked_line_count++;
+        }
+
 
         [$contract_line_total] = $this->applyAdjustments(
           $contract_direct,
@@ -2948,6 +2981,53 @@ final class OfficeController extends ControllerBase {
         ],
         '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
+      'dashboard' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-calculation-dashboard']],
+        'identity' => [
+          '#markup' => '<p class="brebo-calculation-dashboard__identity"><strong>'
+            . htmlspecialchars($calculation_code . ' · ' . $calculation_version . ' · ' . $calculation_status)
+            . '</strong><br><small>' . $this->t('Laatste wijziging: @date door @user', [
+              '@date' => $last_changed,
+              '@user' => $owner ? $owner->getDisplayName() : (string) $this->t('Onbekend'),
+            ]) . '</small></p>',
+        ],
+        'kpis' => [
+          '#type' => 'table',
+          '#attributes' => ['class' => ['brebo-calculation-dashboard__kpis']],
+          '#header' => [
+            $this->t('Kostprijs'),
+            $this->t('Actuele prognose'),
+            $this->t('Totaaluren'),
+            $this->t('Open regels'),
+            $this->t('Aandacht'),
+            $this->t('Geblokkeerd'),
+          ],
+          '#rows' => [[
+            $this->money($contract_total),
+            $this->money($forecast_total),
+            number_format($total_budget_hours, 2, ',', '.'),
+            $open_line_count,
+            $attention_line_count,
+            $blocked_line_count,
+          ]],
+        ],
+        'category_heading' => [
+          '#markup' => '<h2>' . $this->t('Kostprijs per kostensoort') . '</h2>',
+        ],
+        'categories' => [
+          '#type' => 'table',
+          '#header' => [$this->t('Kostensoort'), $this->t('Actuele prognose')],
+          '#rows' => $category_rows,
+        ],
+        'margin_notice' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['messages', 'messages--warning']],
+          'text' => [
+            '#markup' => $this->t('Verkoopprijs en winstmarge worden hier toegevoegd zodra de commerciële prijsopbouw als afzonderlijke, controleerbare laag is ingericht. Tot dat moment toont dit dashboard uitsluitend de betrouwbare kostprijs en prognose.'),
+          ],
+        ],
+      ],
       'calculation' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-identity']],
@@ -3025,6 +3105,7 @@ final class OfficeController extends ControllerBase {
     ];
 
     foreach ([
+      'dashboard' => 'calc-overview',
       'calculation' => 'calc-overview',
       'summary' => 'calc-overview',
       'lines_heading' => 'calc-lines',
