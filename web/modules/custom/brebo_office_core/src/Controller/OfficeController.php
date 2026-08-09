@@ -1509,6 +1509,22 @@ final class OfficeController extends ControllerBase {
       ];
     };
 
+    $lens_insight = $this->lensProjectProgress(
+      $node,
+      'Inzicht',
+      (bool) $node->get('field_brebo_lens_insight')->value,
+    );
+    $lens_control = $this->lensProjectProgress(
+      $node,
+      'Regie',
+      (bool) $node->get('field_brebo_lens_control')->value,
+    );
+    $lens_realization = $this->lensProjectProgress(
+      $node,
+      'Realisatie',
+      (bool) $node->get('field_brebo_lens_realization')->value,
+    );
+
     $build = [
       'actions' => [
         '#type' => 'container',
@@ -1654,6 +1670,34 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_location'),
           $this->fieldValue($node, 'field_brebo_status'),
         ]],
+      ],
+      'lens_heading' => [
+        '#markup' => '<h2>' . $this->t('BREBO Lens') . '</h2>',
+      ],
+      'lens' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-project-signals', 'brebo-lens-grid']],
+        'insight' => $status_card(
+          (string) $this->t('Inzicht'),
+          $lens_insight['percent'] . '%',
+          (string) $this->t('Opname, analyse, risico en advies'),
+          [$lens_insight['signal'], $lens_insight['label']],
+          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-route'])
+        ),
+        'control' => $status_card(
+          (string) $this->t('Regie'),
+          $lens_control['percent'] . '%',
+          (string) $this->t('Besluiten, communicatie, planning en geld'),
+          [$lens_control['signal'], $lens_control['label']],
+          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-communication'])
+        ),
+        'realization' => $status_card(
+          (string) $this->t('Realisatie'),
+          $lens_realization['percent'] . '%',
+          (string) $this->t('Uitvoering, bewijs, controle en oplevering'),
+          [$lens_realization['signal'], $lens_realization['label']],
+          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-objects'])
+        ),
       ],
       'buildings_heading' => [
         '#markup' => '<h2>' . $this->t('Gekoppelde gebouwen') . '</h2>',
@@ -1911,6 +1955,8 @@ final class OfficeController extends ControllerBase {
 
     $tab_panels = [
       'project' => 'overview',
+      'lens_heading' => 'overview',
+      'lens' => 'overview',
       'buildings_heading' => 'overview',
       'buildings' => 'overview',
       'summary' => 'overview',
@@ -2914,6 +2960,168 @@ final class OfficeController extends ControllerBase {
   /**
    * Applies ordered fixed or percentage adjustments to a value.
    */
+  /**
+   * Calculates one BREBO Lens domain for a project.
+   */
+  private function lensProjectProgress(
+    NodeInterface $project,
+    string $domain,
+    bool $applicable,
+  ): array {
+    if (!$applicable) {
+      return [
+        'percent' => 100,
+        'signal' => 'neutral',
+        'label' => (string) $this->t('Gemotiveerd N.V.T.'),
+        'total' => 0,
+      ];
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $total_weight = 0.0;
+    $complete_weight = 0.0;
+    $blocking = 0;
+    $overdue = 0;
+    $waiting = 0;
+    $today = date('Y-m-d');
+
+    $route_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_route_item')
+      ->condition('field_brebo_project_ref.target_id', $project->id())
+      ->condition('field_brebo_lens_domain', $domain)
+      ->execute();
+    foreach ($storage->loadMultiple($route_ids) as $item) {
+      if (!$item instanceof NodeInterface
+        || !(bool) $item->get('field_brebo_route_applicable')->value) {
+        continue;
+      }
+      $status = $this->fieldValue($item, 'field_brebo_route_status');
+      if (in_array($status, ['N.V.T.', 'Vervallen'], TRUE)) {
+        continue;
+      }
+      $total_weight += 1.0;
+      if ($status === 'Gereed') {
+        $complete_weight += 1.0;
+      }
+      elseif ($status === 'Geblokkeerd') {
+        $blocking++;
+      }
+      else {
+        $waiting++;
+      }
+      $due = $this->fieldValue($item, 'field_brebo_route_due');
+      if ($status !== 'Gereed' && $due !== '—' && $due < $today) {
+        $overdue++;
+      }
+    }
+
+    $requirement_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_scope_requirement')
+      ->condition('field_brebo_project_ref.target_id', $project->id())
+      ->condition('field_brebo_lens_domain', $domain)
+      ->execute();
+    foreach ($storage->loadMultiple($requirement_ids) as $requirement) {
+      if (!$requirement instanceof NodeInterface
+        || !(bool) $requirement->get('field_brebo_req_applicable')->value) {
+        continue;
+      }
+      $status = $this->fieldValue($requirement, 'field_brebo_requirement_status');
+      if ($status === 'N.V.T.') {
+        continue;
+      }
+      $weight = max(0.01, (float) $requirement->get('field_brebo_requirement_weight')->value);
+      $total_weight += $weight;
+      if ($status === 'Gereed') {
+        $complete_weight += $weight;
+      }
+      else {
+        $waiting++;
+      }
+      if ((bool) $requirement->get('field_brebo_req_blocking')->value
+        || in_array($status, ['Geblokkeerd', 'Afgekeurd'], TRUE)) {
+        $blocking++;
+      }
+      $due = $this->fieldValue($requirement, 'field_brebo_due_date');
+      if ($status !== 'Gereed' && $due !== '—' && $due < $today) {
+        $overdue++;
+      }
+    }
+
+    if ($domain === 'Regie') {
+      $communication_ids = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_communication')
+        ->condition('field_brebo_project_ref.target_id', $project->id())
+        ->condition('field_brebo_lens_domain', 'Regie')
+        ->execute();
+      foreach ($storage->loadMultiple($communication_ids) as $communication) {
+        if (!$communication instanceof NodeInterface) {
+          continue;
+        }
+        $response_required = (bool) $communication->get('field_brebo_response_required')->value;
+        $written_pending = (bool) $communication->get('field_brebo_written_required')->value
+          && !(bool) $communication->get('field_brebo_written_received')->value;
+        if (!$response_required && !$written_pending) {
+          continue;
+        }
+        $total_weight += 1.0;
+        $status = $this->fieldValue($communication, 'field_brebo_comm_status');
+        if (in_array($status, ['Beantwoord', 'Bevestigd', 'Gesloten'], TRUE)
+          && !$written_pending) {
+          $complete_weight += 1.0;
+        }
+        else {
+          $waiting++;
+        }
+        $due = $this->fieldValue($communication, 'field_brebo_due_date');
+        if ($due !== '—' && $due < $today
+          && !in_array($status, ['Beantwoord', 'Bevestigd', 'Vervallen', 'Gesloten'], TRUE)) {
+          $overdue++;
+        }
+        if ($written_pending && in_array($status, ['Bevestigd', 'Gesloten'], TRUE)) {
+          $blocking++;
+        }
+      }
+    }
+
+    if ($total_weight <= 0.0) {
+      return [
+        'percent' => 0,
+        'signal' => 'neutral',
+        'label' => (string) $this->t('Nog niet ingericht'),
+        'total' => 0,
+      ];
+    }
+
+    $percent = (int) round(($complete_weight / $total_weight) * 100);
+    if ($blocking > 0 || $overdue > 0) {
+      $signal = 'danger';
+      $label = $blocking > 0
+        ? (string) $this->t('@count blokkering(en)', ['@count' => $blocking])
+        : (string) $this->t('@count termijn(en) verlopen', ['@count' => $overdue]);
+    }
+    elseif ($percent === 100) {
+      $signal = 'good';
+      $label = (string) $this->t('Aantoonbaar gereed');
+    }
+    else {
+      $signal = 'attention';
+      $label = (string) $this->t('@percent% gereed · @open open', [
+        '@percent' => $percent,
+        '@open' => $waiting,
+      ]);
+    }
+
+    return [
+      'percent' => $percent,
+      'signal' => $signal,
+      'label' => $label,
+      'total' => (int) round($total_weight),
+    ];
+  }
+
   /**
    * Calculates weighted progress and the strictest signal for arbitrary nodes.
    */
