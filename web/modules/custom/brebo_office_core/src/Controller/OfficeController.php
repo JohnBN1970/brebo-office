@@ -2939,7 +2939,7 @@ final class OfficeController extends ControllerBase {
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-components'],
         ],
         'elements' => [
-          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Elementen'),
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Recepten'),
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-elements'],
         ],
         'posts' => [
@@ -2979,11 +2979,11 @@ final class OfficeController extends ControllerBase {
         '#rows' => $component_rows,
         '#empty' => $this->t('Nog geen hoofdcomponenten.'),
       ],
-      'elements_heading' => ['#markup' => '<h2>' . $this->t('Elementen') . '</h2>'],
+      'elements_heading' => ['#markup' => '<h2>' . $this->t('Recepthoofdregels') . '</h2>'],
       'elements' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-elements']],
-        '#header' => [$this->t('Hoofdcomponent'), $this->t('Element'), $this->t('Code'), $this->t('Regels'), $this->t('Totaaluren'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
+        '#header' => [$this->t('NLSfB-hoofdcomponent'), $this->t('Recept'), $this->t('Receptcode'), $this->t('Ingrediënten'), $this->t('Totaaluren'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
         '#rows' => $element_rows, '#empty' => $this->t('Nog geen calculatie-elementen.'),
       ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
