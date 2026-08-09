@@ -426,13 +426,21 @@ final class CalculationGridForm extends FormBase {
           && (int) $recipe->get('field_brebo_calculation_ref')->target_id === $calculation_id
           && $recipe->access('update')) {
           $zone_id = (int) ($heading['zone'] ?? 0);
-          $recipe->set('field_brebo_technical_zone_ref', $zone_id > 0 ? ['target_id' => $zone_id] : NULL);
-          $recipe->set('field_brebo_recipe_quantity', (string) ($heading['quantity'] ?? '0'));
-          $recipe->set('field_brebo_recipe_unit', trim((string) ($heading['unit'] ?? 'post')) ?: 'post');
-          $recipe->setNewRevision(TRUE);
-          $recipe->setRevisionLogMessage('Receptlocatie en hoeveelheid vanuit de calculatiewerkbank bijgewerkt.');
-          $recipe->save();
-          $changed++;
+          $quantity = (string) ($heading['quantity'] ?? '0');
+          $unit = trim((string) ($heading['unit'] ?? 'post')) ?: 'post';
+          $current_zone_id = (int) ($recipe->get('field_brebo_technical_zone_ref')->target_id ?? 0);
+          $recipe_dirty = $current_zone_id !== $zone_id
+            || (string) $recipe->get('field_brebo_recipe_quantity')->value !== $quantity
+            || (string) $recipe->get('field_brebo_recipe_unit')->value !== $unit;
+          if ($recipe_dirty) {
+            $recipe->set('field_brebo_technical_zone_ref', $zone_id > 0 ? ['target_id' => $zone_id] : NULL);
+            $recipe->set('field_brebo_recipe_quantity', $quantity);
+            $recipe->set('field_brebo_recipe_unit', $unit);
+            $recipe->setNewRevision(TRUE);
+            $recipe->setRevisionLogMessage('Receptlocatie en hoeveelheid vanuit de calculatiewerkbank bijgewerkt.');
+            $recipe->save();
+            $changed++;
+          }
         }
         continue;
       }
@@ -492,8 +500,8 @@ final class CalculationGridForm extends FormBase {
 
     $this->messenger()->addStatus($this->formatPlural(
       $changed,
-      '1 ingrediënt opgeslagen.',
-      '@count ingrediënten opgeslagen.',
+      '1 calculatieonderdeel opgeslagen.',
+      '@count calculatieonderdelen opgeslagen.',
     ));
     $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
   }
