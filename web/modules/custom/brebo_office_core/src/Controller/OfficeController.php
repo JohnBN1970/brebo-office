@@ -375,7 +375,7 @@ final class OfficeController extends ControllerBase {
     }
 
     $build['#cache'] = [
-      'contexts' => ['user.permissions'],
+      'contexts' => ['user.permissions', 'url.query_args:comm_view'],
       'tags' => array_merge($node->getCacheTags(), [
         'node_list:brebo_product_position',
         'node_list:brebo_verification',
@@ -1231,6 +1231,9 @@ final class OfficeController extends ControllerBase {
       ->sort('field_brebo_comm_datetime', 'DESC')
       ->execute();
     $communication_rows = [];
+    $communication_followup_rows = [];
+    $communication_processing_rows = [];
+    $communication_review_rows = [];
     $communication_open = 0;
     $communication_overdue = 0;
     $communication_financial = 0.0;
@@ -1265,7 +1268,7 @@ final class OfficeController extends ControllerBase {
         ? (string) $this->t('Te laat')
         : ($is_open ? (string) $this->t('Open') : (string) $this->t('Afgehandeld'));
 
-      $communication_rows[] = [
+      $communication_row = [
         $this->fieldValue($communication, 'field_brebo_comm_datetime'),
         $this->fieldValue($communication, 'field_brebo_comm_direction'),
         $this->fieldValue($communication, 'field_brebo_comm_channel'),
@@ -1281,6 +1284,20 @@ final class OfficeController extends ControllerBase {
         $attention,
         $owner ? $owner->label() : '—',
       ];
+      $communication_rows[] = $communication_row;
+      if ($is_open) {
+        $communication_followup_rows[] = $communication_row;
+      }
+      $ai_status = $this->fieldValue($communication, 'field_brebo_ai_status');
+      $formal_status = $this->fieldValue($communication, 'field_brebo_formal_status');
+      $reviewed = $communication->hasField('field_brebo_reviewed_by')
+        && !$communication->get('field_brebo_reviewed_by')->isEmpty();
+      if ($ai_status !== 'Verwerkt') {
+        $communication_processing_rows[] = $communication_row;
+      }
+      if ($ai_status === 'Verwerkt' && (!$reviewed || $formal_status !== 'Vastgesteld')) {
+        $communication_review_rows[] = $communication_row;
+      }
     }
 
     $cluster_ids = $storage->getQuery()
@@ -1553,6 +1570,12 @@ final class OfficeController extends ControllerBase {
       (bool) $node->get('field_brebo_lens_realization')->value,
     );
 
+    $communication_view = (string) \Drupal::request()->query->get('comm_view', 'overview');
+    $communication_views = ['overview', 'contacts', 'followup', 'processing', 'review'];
+    if (!in_array($communication_view, $communication_views, TRUE)) {
+      $communication_view = 'overview';
+    }
+
     $build = [
       'actions' => [
         '#type' => 'container',
@@ -1808,6 +1831,50 @@ final class OfficeController extends ControllerBase {
           '#attributes' => ['class' => ['button']],
         ],
       ],
+      'communication_subtabs' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-communication-subtabs']],
+        'overview' => [
+          '#type' => 'link',
+          '#title' => $this->t('Overzicht'),
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+            'query' => ['comm_view' => 'overview'], 'fragment' => 'tab-communication',
+          ]),
+          '#attributes' => ['class' => $communication_view === 'overview' ? ['is-active'] : []],
+        ],
+        'contacts' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contactmomenten'),
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+            'query' => ['comm_view' => 'contacts'], 'fragment' => 'tab-communication',
+          ]),
+          '#attributes' => ['class' => $communication_view === 'contacts' ? ['is-active'] : []],
+        ],
+        'followup' => [
+          '#type' => 'link',
+          '#title' => $this->t('Opvolging'),
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+            'query' => ['comm_view' => 'followup'], 'fragment' => 'tab-communication',
+          ]),
+          '#attributes' => ['class' => $communication_view === 'followup' ? ['is-active'] : []],
+        ],
+        'processing' => [
+          '#type' => 'link',
+          '#title' => $this->t('Verwerking & transcripties'),
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+            'query' => ['comm_view' => 'processing'], 'fragment' => 'tab-communication',
+          ]),
+          '#attributes' => ['class' => $communication_view === 'processing' ? ['is-active'] : []],
+        ],
+        'review' => [
+          '#type' => 'link',
+          '#title' => $this->t('Controle & vaststelling'),
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+            'query' => ['comm_view' => 'review'], 'fragment' => 'tab-communication',
+          ]),
+          '#attributes' => ['class' => $communication_view === 'review' ? ['is-active'] : []],
+        ],
+      ],
       'communication_summary' => [
         '#type' => 'table',
         '#header' => [
@@ -1820,6 +1887,7 @@ final class OfficeController extends ControllerBase {
           $communication_overdue,
           $this->money($communication_financial),
         ]],
+        '#access' => $communication_view === 'overview',
       ],
       'communications' => [
         '#type' => 'table',
@@ -1831,6 +1899,43 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $communication_rows,
         '#empty' => $this->t('Nog geen relevante communicatie aan dit projectdossier gekoppeld.'),
+        '#access' => $communication_view === 'contacts',
+      ],
+      'communication_followup' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
+          $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
+          $this->t('Reactie vereist'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Signaal'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $communication_followup_rows,
+        '#empty' => $this->t('Geen openstaande communicatie of reacties.'),
+        '#access' => $communication_view === 'followup',
+      ],
+      'communication_processing' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
+          $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
+          $this->t('Reactie vereist'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Signaal'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $communication_processing_rows,
+        '#empty' => $this->t('Geen opnamen of communicatie wachten op verwerking.'),
+        '#access' => $communication_view === 'processing',
+      ],
+      'communication_review' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
+          $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
+          $this->t('Reactie vereist'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Signaal'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $communication_review_rows,
+        '#empty' => $this->t('Geen communicatie wacht op menselijke controle of vaststelling.'),
+        '#access' => $communication_view === 'review',
       ],
       'communication_principle' => [
         '#type' => 'container',
@@ -1838,6 +1943,7 @@ final class OfficeController extends ControllerBase {
         'text' => [
           '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> iedere relevante communicatie wordt gekoppeld aan het object, besluit, risico of resultaat waarop zij betrekking heeft en blijft onderdeel van het controleerbare project- en gebouwdossier.'),
         ],
+        '#access' => in_array($communication_view, ['overview', 'review'], TRUE),
       ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Projectbesturing') . '</h2>',
@@ -2016,8 +2122,12 @@ final class OfficeController extends ControllerBase {
       'scope_principle' => 'scope',
       'communication_heading' => 'communication',
       'communication_actions' => 'communication',
+      'communication_subtabs' => 'communication',
       'communication_summary' => 'communication',
       'communications' => 'communication',
+      'communication_followup' => 'communication',
+      'communication_processing' => 'communication',
+      'communication_review' => 'communication',
       'communication_principle' => 'communication',
       'operating_model_heading' => 'governance',
       'operating_model' => 'governance',
