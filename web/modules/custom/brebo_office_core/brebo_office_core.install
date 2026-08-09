@@ -3402,3 +3402,124 @@ function brebo_office_core_update_11023(): string {
     $linked,
   );
 }
+
+
+/**
+ * Establishes the BREBO Lens as a measurable project steering model.
+ */
+function brebo_office_core_update_11024(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_project',
+    'Project',
+    'Centraal projectobject binnen BREBO Office.',
+    [
+      'field_brebo_lens_insight' => [
+        'label' => 'Lens Inzicht van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Opname, analyse, gebouwinformatie, risico en advies behoren tot dit project.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 20,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_lens_control' => [
+        'label' => 'Lens Regie van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Besluiten, communicatie, planning, inkoop en financiële besturing behoren tot dit project.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 21,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_lens_realization' => [
+        'label' => 'Lens Realisatie van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Uitvoering, controle, bewijs, herstel en oplevering behoren tot dit project.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 22,
+        'default_value' => [['value' => 1]],
+      ],
+    ],
+  );
+
+  $lens_field = [
+    'field_brebo_lens_domain' => [
+      'label' => 'BREBO Lens-domein', 'type' => 'string', 'required' => TRUE,
+      'storage' => ['max_length' => 16],
+      'description' => 'Inzicht, Regie of Realisatie: het primaire BREBO Lens-domein van dit onderdeel.',
+      'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 30,
+      'default_value' => [['value' => 'Regie']],
+    ],
+  ];
+  foreach ([
+    'brebo_route_item' => ['Projectrouteonderdeel', 'Bestuurbare stap binnen de automatische projectroute.'],
+    'brebo_scope_requirement' => ['Scopevereiste', 'Gewogen procesvereiste voor uitvoering, bewijs, controle, vrijgave of externe ketenafhankelijkheid.'],
+    'brebo_communication' => ['Projectcommunicatie', 'Auditeerbaar communicatie-, besluit- en opvolgdossier gekoppeld aan project en scope.'],
+    'brebo_work_package' => ['Werkpakket', 'Gebundelde uitvoeringsscope met domeinoverstijgende vrijgavepoorten.'],
+  ] as $bundle => [$name, $description]) {
+    _brebo_office_core_create_node_bundle($bundle, $name, $description, $lens_field);
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $kind = trim((string) $project->get('field_brebo_project_kind')->value);
+    $realization = !in_array($kind, ['Adviesproject', 'Inspectie/Onderzoek', 'MJOP', 'Projectmanagement'], TRUE);
+    $project->set('field_brebo_lens_insight', 1);
+    $project->set('field_brebo_lens_control', 1);
+    $project->set('field_brebo_lens_realization', $realization ? 1 : 0);
+    $project->setNewRevision(TRUE);
+    $project->setRevisionLogMessage('BREBO Lens-toepasbaarheid vastgesteld door update 11024.');
+    $project->save();
+  }
+
+  $route_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_route_item')
+    ->execute();
+  foreach ($storage->loadMultiple($route_ids) as $item) {
+    if (!$item instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $sequence = (int) $item->get('field_brebo_route_sequence')->value;
+    $domain = $sequence <= 40 ? 'Inzicht' : ($sequence <= 70 ? 'Regie' : 'Realisatie');
+    $item->set('field_brebo_lens_domain', $domain);
+    $item->setNewRevision(TRUE);
+    $item->setRevisionLogMessage('Aan BREBO Lens-domein gekoppeld door update 11024.');
+    $item->save();
+  }
+
+  $requirement_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_scope_requirement')
+    ->execute();
+  foreach ($storage->loadMultiple($requirement_ids) as $requirement) {
+    if (!$requirement instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $type = trim((string) $requirement->get('field_brebo_requirement_type')->value);
+    $domain = in_array($type, ['Werkzaamheid', 'Bewijs', 'Controle', 'Vrijgave'], TRUE)
+      ? 'Realisatie'
+      : 'Regie';
+    $requirement->set('field_brebo_lens_domain', $domain);
+    $requirement->setNewRevision(TRUE);
+    $requirement->setRevisionLogMessage('Aan BREBO Lens-domein gekoppeld door update 11024.');
+    $requirement->save();
+  }
+
+  foreach (['brebo_communication' => 'Regie', 'brebo_work_package' => 'Realisatie'] as $bundle => $domain) {
+    $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', $bundle)->execute();
+    foreach ($storage->loadMultiple($ids) as $item) {
+      if ($item instanceof \Drupal\node\NodeInterface) {
+        $item->set('field_brebo_lens_domain', $domain);
+        $item->setNewRevision(TRUE);
+        $item->setRevisionLogMessage('Aan BREBO Lens-domein gekoppeld door update 11024.');
+        $item->save();
+      }
+    }
+  }
+
+  return 'BREBO Lens Inzicht-Regie-Realisatie als meetbare projectbesturing ingericht.';
+}
