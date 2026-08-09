@@ -109,8 +109,14 @@
 .brebo-calc-lines td { padding: 10px 9px; white-space: nowrap; }
 .brebo-calc-lines th:nth-child(2),
 .brebo-calc-lines td:nth-child(2) { width: 34%; min-width: 280px; white-space: normal; }
-.brebo-calc-lines td:nth-child(n+5):nth-child(-n+11),
-.brebo-calc-lines th:nth-child(n+5):nth-child(-n+11) { text-align: right; }
+.brebo-calc-lines td:nth-child(n+5):nth-child(-n+15),
+.brebo-calc-lines th:nth-child(n+5):nth-child(-n+15) { text-align: right; }
+.brebo-calc-lines td:nth-child(10),
+.brebo-calc-lines th:nth-child(10) { text-align: left; }
+.brebo-calc-components td:nth-child(n+3),
+.brebo-calc-components th:nth-child(n+3),
+.brebo-calc-elements td:nth-child(n+4),
+.brebo-calc-elements th:nth-child(n+4) { text-align: right; font-variant-numeric: tabular-nums; }
 .brebo-calc-row { border-left: 5px solid transparent; }
 .brebo-calc-row:hover { background: var(--brebo-purple-100); }
 .brebo-calc-row--stelpost { border-left-color: var(--brebo-amber-700); background: #fff9e9; }
