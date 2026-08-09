@@ -3523,3 +3523,259 @@ function brebo_office_core_update_11024(): string {
 
   return 'BREBO Lens Inzicht-Regie-Realisatie als meetbare projectbesturing ingericht.';
 }
+
+/**
+ * Creates the channel-independent communication and voice-recording foundation.
+ */
+function brebo_office_core_update_11025(): string {
+  \Drupal::service('module_installer')->install(['datetime', 'file']);
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_comm_channel',
+    'Communicatiekanaal',
+    'Beheerde telefoonlijn, mailbox, WhatsApp-groep, overlegvorm of andere communicatie-ingang met vaste context en AI-mandaat.',
+    [
+      'field_brebo_channel_code' => [
+        'label' => 'Kanaalcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Unieke herkenbare code voor deze communicatie-ingang.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_channel_type' => [
+        'label' => 'Kanaaltype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'E-mail, WhatsApp, Zadarma, mobiel, fysiek, vergadering, video, brief, portaal of voice recording.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+        'default_value' => [['value' => 'E-mail']],
+      ],
+      'field_brebo_context_level' => [
+        'label' => 'Standaardcontext', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Organisatieoverstijgend, projectgericht, scopegericht of intern.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => 'Projectgericht']],
+      ],
+      'field_brebo_org_ref' => [
+        'label' => 'Standaardorganisatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']],
+        ],
+        'description' => 'Organisatie waaraan dit kanaal standaard is gekoppeld.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_project_ref' => [
+        'label' => 'Standaardproject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']],
+        ],
+        'description' => 'Project waaraan nieuwe contactmomenten standaard worden gekoppeld.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 5,
+      ],
+      'field_brebo_building_ref' => [
+        'label' => 'Standaardgebouw', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Permanent gebouw waaraan het kanaal standaard is gekoppeld.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 6,
+      ],
+      'field_brebo_scope_target' => [
+        'label' => 'Standaardscopeobject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => []],
+        'description' => 'Optioneel gebouwdeel, woning, werkpakket of ander scopeobject.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 7,
+      ],
+      'field_brebo_external_id' => [
+        'label' => 'Extern kanaal-ID', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Technische identificatie bij Meta, Zadarma, mailserver of ander bronsysteem.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_ai_mode' => [
+        'label' => 'AI-koppelmandaat', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Handmatig, voorstel met bevestiging of gemandateerd automatisch.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+        'default_value' => [['value' => 'Voorstel met bevestiging']],
+      ],
+      'field_brebo_capture_enabled' => [
+        'label' => 'Automatische ontvangst actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Nieuwe gebeurtenissen van dit kanaal mogen automatisch als concept worden ontvangen.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 10,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_outbound_enabled' => [
+        'label' => 'Uitgaand verzenden actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'BREBO Office mag na afzonderlijke autorisatie via dit kanaal verzenden.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 11,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_channel_status' => [
+        'label' => 'Kanaalstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Concept, test, actief, gepauzeerd of afgesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Kanaalafspraken', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Doel, deelnemers, privacyafspraken, uitzonderingen en gebruiksregels.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 13,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Projectcommunicatie',
+    'Kanaalonafhankelijk, auditeerbaar communicatie-, besluit- en opvolgdossier.',
+    [
+      'field_brebo_comm_channel_ref' => [
+        'label' => 'Communicatiekanaal of groep', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_comm_channel' => 'brebo_comm_channel']],
+        ],
+        'description' => 'Beheerde bronlijn, mailbox, groep, vergadering of opnamevorm.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_comm_context' => [
+        'label' => 'Communicatiecontext', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Organisatieoverstijgend, projectgericht, scopegericht of intern.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Projectgericht']],
+      ],
+      'field_brebo_conversation_id' => [
+        'label' => 'Gespreks- of thread-ID', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Technische sleutel waarmee berichten, gesprekken en vergaderdelen bijeen blijven.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_source_id' => [
+        'label' => 'Extern bron-ID', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Ongewijzigde unieke identificatie uit WhatsApp, Zadarma, e-mail of een ander bronsysteem.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_participants' => [
+        'label' => 'Deelnemers', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_contact' => 'brebo_contact']],
+        ],
+        'description' => 'Bekende contactpersonen die deelnamen aan gesprek, groep of vergadering.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 10, 'cardinality' => -1,
+      ],
+      'field_brebo_call_duration' => [
+        'label' => 'Gespreksduur in seconden', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Duur uit Zadarma of handmatige mobiele registratie.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 11,
+      ],
+      'field_brebo_source_files' => [
+        'label' => 'Originele bronbestanden', 'type' => 'file', 'required' => FALSE,
+        'storage' => ['uri_scheme' => 'private'],
+        'field_settings' => [
+          'file_directory' => 'brebo-office/communication/source/[date:custom:Y]-[date:custom:m]',
+          'file_extensions' => 'pdf doc docx xls xlsx csv txt eml msg wav mp3 m4a ogg mp4 jpg jpeg png webp',
+          'max_filesize' => '100 MB',
+          'description_field' => TRUE,
+        ],
+        'description' => 'Originele opname, e-mail, document, afbeelding of ander bronbewijs; privé opgeslagen.',
+        'widget' => 'file_generic', 'formatter' => 'file_default',
+        'weight' => 12, 'cardinality' => -1,
+      ],
+      'field_brebo_transcript' => [
+        'label' => 'Transcriptie', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Volledige transcriptie van gesprek, vergadering of voice recording.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 13,
+      ],
+      'field_brebo_ai_status' => [
+        'label' => 'AI-verwerkingsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Niet verwerkt, concept gemaakt, controle vereist, bevestigd of genegeerd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+        'default_value' => [['value' => 'Niet verwerkt']],
+      ],
+      'field_brebo_ai_confidence' => [
+        'label' => 'AI-betrouwbaarheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 5, 'scale' => 2],
+        'description' => 'Technische zekerheid van 0 tot en met 100; nooit een vervanging voor bevoegd vaststellen.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 15,
+      ],
+      'field_brebo_recording_consent' => [
+        'label' => 'Opnamegrondslag', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Niet opgenomen, aangekondigd, toestemming vastgelegd of beoordeling vereist.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 16,
+        'default_value' => [['value' => 'Niet opgenomen']],
+      ],
+      'field_brebo_formal_status' => [
+        'label' => 'Formele status', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Bron, AI-concept, gecontroleerd, vastgesteld of vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 17,
+        'default_value' => [['value' => 'Bron']],
+      ],
+    ],
+  );
+
+  if ($project_field = FieldConfig::loadByName('node', 'brebo_communication', 'field_brebo_project_ref')) {
+    $project_field
+      ->setRequired(FALSE)
+      ->setDescription('Optioneel project; organisatieoverstijgende en interne communicatie kan zonder project worden vastgelegd.')
+      ->save();
+  }
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_comm_channel content',
+        'edit own brebo_comm_channel content',
+        'edit any brebo_comm_channel content',
+        'view brebo_comm_channel revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $communication_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_communication')
+    ->execute();
+  foreach ($storage->loadMultiple($communication_ids) as $communication) {
+    if (!$communication instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $context = !$communication->get('field_brebo_comm_scope_target')->isEmpty()
+      ? 'Scopegericht'
+      : (!$communication->get('field_brebo_project_ref')->isEmpty() ? 'Projectgericht' : 'Organisatieoverstijgend');
+    $communication->set('field_brebo_comm_context', $context);
+    $communication->set('field_brebo_ai_status', 'Niet verwerkt');
+    $communication->set('field_brebo_formal_status', 'Bron');
+    $communication->setNewRevision(TRUE);
+    $communication->setRevisionLogMessage('Kanaalonafhankelijke communicatiefundering toegepast door update 11025.');
+    $communication->save();
+  }
+
+  return 'Communicatiekanalen, groepen, gesprekken, bronbestanden, transcripties en AI-mandaat als één controleerbaar model ingericht.';
+}
+
