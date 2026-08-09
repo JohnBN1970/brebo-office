@@ -3036,8 +3036,8 @@ final class OfficeController extends ControllerBase {
     $profit_pct = $node->hasField('field_brebo_profit_pct')
       ? (float) ($node->get('field_brebo_profit_pct')->value ?? 0)
       : 0.0;
-    $commercial_adjustment = $node->hasField('field_brebo_commercial_adjustment')
-      ? (float) ($node->get('field_brebo_commercial_adjustment')->value ?? 0)
+    $commercial_adjustment = $node->hasField('field_brebo_com_adjustment')
+      ? (float) ($node->get('field_brebo_com_adjustment')->value ?? 0)
       : 0.0;
 
     $general_cost = $forecast_total * $general_cost_pct / 100;
