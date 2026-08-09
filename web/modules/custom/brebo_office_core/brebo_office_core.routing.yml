@@ -188,7 +188,7 @@ brebo_office_core.calculation_dashboard:
 brebo_office_core.create_offer_version:
   path: '/office/calculaties/{node}/offerte-maken'
   defaults:
-    _form: '\\Drupal\\brebo_office_core\\Form\\OfferVersionForm'
+    _form: '\Drupal\brebo_office_core\Form\OfferVersionForm'
     _title: 'Nieuwe offerteversie'
   requirements:
     _permission: 'create brebo_offer_version content'
