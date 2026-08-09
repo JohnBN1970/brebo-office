@@ -2799,6 +2799,7 @@ final class OfficeController extends ControllerBase {
     $blocked_line_count = 0;
     $category_totals = [];
     $commercial_markup_total = 0.0;
+    $offer_groups = [];
 
 
     foreach ($elements as $element) {
@@ -2809,12 +2810,34 @@ final class OfficeController extends ControllerBase {
       $forecast_current = 0.0;
       $contract_breakdown = [];
       $forecast_breakdown = [];
+      $offer_component = $element->get('field_brebo_calc_component_ref')->entity;
+      $offer_component_id = $offer_component instanceof NodeInterface ? (int) $offer_component->id() : 0;
+      if (!isset($offer_groups[$offer_component_id])) {
+        $offer_groups[$offer_component_id] = [
+          'code' => $offer_component instanceof NodeInterface
+            ? $this->fieldValue($offer_component, 'field_brebo_component_code')
+            : '—',
+          'label' => $offer_component instanceof NodeInterface
+            ? (string) $offer_component->label()
+            : (string) $this->t('Niet ingedeeld'),
+          'entries' => [],
+        ];
+      }
 
       foreach ($lines_by_element[(int) $element->id()] ?? [] as $line) {
         $line_type = $line->hasField('field_brebo_line_type')
           ? (string) ($line->get('field_brebo_line_type')->value ?? 'Calculatieregel')
           : 'Calculatieregel';
         if ($line_type === 'Notitie') {
+          $note_visibility = $line->hasField('field_brebo_note_visibility')
+            ? (string) ($line->get('field_brebo_note_visibility')->value ?? 'Intern')
+            : 'Intern';
+          if ($note_visibility === 'Offerte') {
+            $offer_groups[$offer_component_id]['entries'][] = [
+              'type' => 'note',
+              'description' => $this->fieldValue($line, 'field_brebo_line_description'),
+            ];
+          }
           continue;
         }
 
@@ -2857,6 +2880,13 @@ final class OfficeController extends ControllerBase {
           $adjustments_by_target[(int) $line->id()] ?? [],
         );
         $commercial_markup_total += $forecast_line_total - $forecast_direct;
+        $offer_groups[$offer_component_id]['entries'][] = [
+          'type' => $line_type === 'Verdisconteerd' ? 'distributed' : 'visible',
+          'description' => $this->fieldValue($line, 'field_brebo_line_description'),
+          'quantity' => $this->fieldValue($line, 'field_brebo_contract_quantity'),
+          'unit' => $this->fieldValue($line, 'field_brebo_unit'),
+          'amount' => $forecast_line_total,
+        ];
 
         $contract_current += $contract_line_total;
         $forecast_current += $forecast_line_total;
@@ -2996,6 +3026,85 @@ final class OfficeController extends ControllerBase {
         $this->money($unassigned_contract), $this->money($unassigned_forecast),
         $this->money($unassigned_forecast - $unassigned_contract),
       ];
+    }
+
+    // Build the customer-facing line presentation. Distributed lines remain
+    // financial internally, but are hidden and allocated proportionally over
+    // the visible lines in the same main component. The final visible line
+    // receives the rounding remainder so the component total stays exact.
+    $offer_rows = [];
+    $offer_blockers = [];
+    foreach ($offer_groups as $offer_group) {
+      $entries = $offer_group['entries'];
+      $distributed_total = 0.0;
+      $visible_indexes = [];
+      $visible_base = 0.0;
+      foreach ($entries as $entry_index => $entry) {
+        if ($entry['type'] === 'distributed') {
+          $distributed_total += (float) $entry['amount'];
+        }
+        elseif ($entry['type'] === 'visible') {
+          $visible_indexes[] = $entry_index;
+          $visible_base += (float) $entry['amount'];
+        }
+      }
+
+      $allocations = [];
+      if (abs($distributed_total) > 0.00001 && !$visible_indexes) {
+        $offer_blockers[] = $this->t('@component bevat @amount aan verdisconteerde regels, maar geen zichtbare ontvangende regel.', [
+          '@component' => $offer_group['label'],
+          '@amount' => $this->money($distributed_total),
+        ]);
+      }
+      elseif ($visible_indexes) {
+        $allocated = 0.0;
+        $last_visible_index = end($visible_indexes);
+        foreach ($visible_indexes as $position => $entry_index) {
+          if ($entry_index === $last_visible_index) {
+            $allocation = $distributed_total - $allocated;
+          }
+          elseif (abs($visible_base) > 0.00001) {
+            $allocation = round($distributed_total * ((float) $entries[$entry_index]['amount'] / $visible_base), 2);
+          }
+          else {
+            $allocation = round($distributed_total / count($visible_indexes), 2);
+          }
+          $allocations[$entry_index] = $allocation;
+          $allocated += $allocation;
+        }
+      }
+
+      $offer_rows[] = [[
+        'data' => trim($offer_group['code'] . ' · ' . $offer_group['label'], ' ·'),
+        'colspan' => 5,
+        'class' => ['brebo-offer-component'],
+      ]];
+      foreach ($entries as $entry_index => $entry) {
+        if ($entry['type'] === 'distributed') {
+          continue;
+        }
+        if ($entry['type'] === 'note') {
+          $offer_rows[] = [[
+            'data' => $entry['description'],
+            'colspan' => 5,
+            'class' => ['brebo-offer-note'],
+          ]];
+          continue;
+        }
+        $allocation = (float) ($allocations[$entry_index] ?? 0.0);
+        $presented_total = (float) $entry['amount'] + $allocation;
+        $quantity_value = (float) str_replace(',', '.', (string) $entry['quantity']);
+        $presented_unit_price = abs($quantity_value) > 0.00001
+          ? $presented_total / $quantity_value
+          : $presented_total;
+        $offer_rows[] = [
+          $entry['description'],
+          $entry['quantity'],
+          $entry['unit'],
+          $this->money($presented_unit_price),
+          $this->money($presented_total),
+        ];
+      }
     }
 
     $post_rows = [];
@@ -3210,6 +3319,10 @@ final class OfficeController extends ControllerBase {
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Staartkosten'),
           '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-tail-costs'],
         ],
+        'offer' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Offertevoorbeeld'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-offer'],
+        ],
         '#attached' => ['library' => ['brebo_office/project-tabs']],
       ],
       'dashboard' => [
@@ -3384,6 +3497,26 @@ final class OfficeController extends ControllerBase {
         '#attributes' => ['class' => ['button', 'button--primary']],
         '#access' => $node->access('update'),
       ],
+      'offer_heading' => ['#markup' => '<h2>' . $this->t('Offerte-/printweergave') . '</h2>'],
+      'offer_notice' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', $offer_blockers ? 'messages--error' : 'messages--status']],
+        'text' => [
+          '#markup' => $offer_blockers
+            ? implode('<br>', array_map('htmlspecialchars', array_map('strval', $offer_blockers)))
+            : $this->t('Verdisconteerde regels zijn verborgen en volledig verwerkt in de zichtbare regels van hetzelfde hoofdcomponent. Interne notities zijn niet opgenomen.'),
+        ],
+      ],
+      'offer' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calculation-offer-preview']],
+        '#header' => [
+          $this->t('Omschrijving'), $this->t('Aantal'), $this->t('Eenheid'),
+          $this->t('Eenheidsprijs'), $this->t('Totaal'),
+        ],
+        '#rows' => $offer_rows,
+        '#empty' => $this->t('Nog geen zichtbare offerteregels.'),
+      ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
       'posts' => [
         '#type' => 'table', '#attributes' => ['class' => ['brebo-calc-posts']], '#header' => [$this->t('Posttype'), $this->t('Actuele prognose')],
@@ -3439,6 +3572,9 @@ final class OfficeController extends ControllerBase {
       'tail_costs_summary' => 'calc-tail-costs',
       'tail_costs_totals' => 'calc-tail-costs',
       'tail_costs_edit' => 'calc-tail-costs',
+      'offer_heading' => 'calc-offer',
+      'offer_notice' => 'calc-offer',
+      'offer' => 'calc-offer',
     ] as $key => $tab_id) {
       $content = $build[$key];
       $build[$key] = [
