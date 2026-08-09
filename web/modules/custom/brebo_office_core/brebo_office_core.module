@@ -78,6 +78,17 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       $form['field_brebo_building_refs']['#weight'] = 6;
       $form['field_brebo_building_refs']['#description'] = 'Koppel één of meer permanente gebouwen aan deze tijdelijke projectscope.';
     }
+    if ($node->isNew()) {
+      $building_id = (int) \Drupal::request()->query->get('building', 0);
+      $building = $building_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($building_id)
+        : NULL;
+      if ($building instanceof NodeInterface
+        && $building->bundle() === 'brebo_building'
+        && isset($form['field_brebo_building_refs']['widget'][0]['target_id'])) {
+        $form['field_brebo_building_refs']['widget'][0]['target_id']['#default_value'] = $building;
+      }
+    }
     $form['brebo_operating_model_intro'] = [
       '#type' => 'container',
       '#weight' => 5,
