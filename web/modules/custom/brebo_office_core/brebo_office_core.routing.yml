@@ -292,8 +292,7 @@ brebo_office_core.regie_actions:
 brebo_office_core.communications:
   path: '/office/communicatie'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'Communicatiedossier'
-    bundle: 'brebo_communication'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::communicationDashboard'
+    _title: 'Communicatie-inbox'
   requirements:
     _permission: 'access content'
