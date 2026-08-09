@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -16,6 +18,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class OfferVersionForm extends FormBase {
 
   private ?NodeInterface $calculation = NULL;
+
+  public function __construct(
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('entity_type.manager'),
+    );
+  }
 
   public function getFormId(): string {
     return 'brebo_office_offer_version';
@@ -30,7 +42,7 @@ final class OfferVersionForm extends FormBase {
     }
 
     $this->calculation = $node;
-    $storage = $this->entityTypeManager()->getStorage('node');
+    $storage = $this->entityTypeManager->getStorage('node');
     $existing_ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'brebo_offer_version')
@@ -205,7 +217,7 @@ final class OfferVersionForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     if ($this->calculation instanceof NodeInterface) {
-      $duplicate = $this->entityTypeManager()->getStorage('node')->getQuery()
+      $duplicate = $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
         ->condition('type', 'brebo_offer_version')
         ->condition('field_brebo_offer_number', trim((string) $form_state->getValue('offer_number')))
@@ -234,7 +246,7 @@ final class OfferVersionForm extends FormBase {
       return;
     }
 
-    $storage = $this->entityTypeManager()->getStorage('node');
+    $storage = $this->entityTypeManager->getStorage('node');
     $offer_number = trim((string) $form_state->getValue('offer_number'));
     $version = (int) $form_state->getValue('offer_version');
     $g_account_on = (bool) $form_state->getValue('g_account_on');
