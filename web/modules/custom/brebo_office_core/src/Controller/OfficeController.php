@@ -2925,10 +2925,8 @@ final class OfficeController extends ControllerBase {
     if ($database->schema()->tableExists('brebo_calculation_presence')) {
       $now = \Drupal::time()->getRequestTime();
       $database->merge('brebo_calculation_presence')
-        ->key([
-          'calculation_id' => (int) $node->id(),
-          'uid' => (int) $this->currentUser()->id(),
-        ])
+        ->key('calculation_id', (int) $node->id())
+        ->key('uid', (int) $this->currentUser()->id())
         ->fields(['last_seen' => $now])
         ->execute();
       $database->delete('brebo_calculation_presence')
