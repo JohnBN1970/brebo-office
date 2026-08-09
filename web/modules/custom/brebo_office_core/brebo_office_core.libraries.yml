@@ -1,0 +1,10 @@
+live_voice:
+  version: 1.x
+  js:
+    js/live-voice.js: {}
+  css:
+    component:
+      css/live-voice.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
