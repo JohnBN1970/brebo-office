@@ -4398,3 +4398,266 @@ function brebo_office_core_update_11035(): string {
 
   return 'Calculatieregels, verdisconteerde regels en interne of externe notitieregels ingericht.';
 }
+
+
+/**
+ * Creates version-bound offers and commercial offer posts.
+ */
+function brebo_office_core_update_11036(): string {
+  $decimal = ['precision' => 15, 'scale' => 4];
+  $percentage = ['precision' => 8, 'scale' => 4];
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_offer_version',
+    'Offerteversie',
+    'Onveranderlijke commerciële momentopname van een calculatie voor uitgifte aan de klant.',
+    [
+      'field_brebo_calculation_ref' => [
+        'label' => 'Calculatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']],
+        ],
+        'description' => 'Broncalculatie waarop deze offerteversie is gebaseerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_offer_number' => [
+        'label' => 'Offertenummer', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Uniek commercieel offertenummer.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_offer_version' => [
+        'label' => 'Versienummer', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [],
+        'description' => 'Oplopend versienummer binnen de offerte.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 3,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_offer_status' => [
+        'label' => 'Offertestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Concept, vastgesteld, verzonden, geaccepteerd, afgewezen of vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_offer_layout' => [
+        'label' => 'Offertelayout', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Zakelijk, compact, technisch, aanbesteding, VvE of maatwerk.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Zakelijk']],
+      ],
+      'field_brebo_price_detail' => [
+        'label' => 'Prijsdetailniveau', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Gesloten, halfopen, open, regie of maatwerk.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+        'default_value' => [['value' => 'Halfopen']],
+      ],
+      'field_brebo_offer_scope' => [
+        'label' => 'Scope', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Versiegebonden omschrijving van inbegrepen werkzaamheden en prestaties.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 7,
+      ],
+      'field_brebo_exclusions' => [
+        'label' => 'Uitsluitingen', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Versiegebonden expliciete uitsluitingen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 8,
+      ],
+      'field_brebo_work_terms' => [
+        'label' => 'Voor het werk geldende voorwaarden', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Projectspecifieke uitgangspunten, planning, betaling, garanties en voorwaarden.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 9,
+      ],
+      'field_brebo_valid_until' => [
+        'label' => 'Geldig tot', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Einddatum van de geldigheid van deze offerteversie.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 10,
+      ],
+      'field_brebo_vat_default' => [
+        'label' => 'Standaard btw-behandeling', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 24],
+        'description' => 'Belast, verlegd, vrijgesteld of niet van toepassing.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+        'default_value' => [['value' => 'Belast']],
+      ],
+      'field_brebo_g_account_on' => [
+        'label' => 'G-rekening van toepassing', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of betaling deels op de G-rekening plaatsvindt.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 12,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_g_account_pct' => [
+        'label' => 'G-rekeningpercentage', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $percentage,
+        'description' => 'Percentage van de gekozen grondslag voor betaling op de G-rekening.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 13,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_g_account_base' => [
+        'label' => 'G-rekeninggrondslag', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Bijvoorbeeld arbeid, aanneemsom of een overeengekomen vaste grondslag.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+      ],
+      'field_brebo_g_account_iban' => [
+        'label' => 'G-rekeningnummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'IBAN van de geblokkeerde rekening.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 15,
+      ],
+      'field_brebo_offer_snapshot' => [
+        'label' => 'Offertemomentopname', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Technische momentopname waarmee een uitgegeven versie reproduceerbaar blijft.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 16,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_offer_post',
+    'Offertepost',
+    'Versiegebonden basispost, optie, stelpost of verrekenpost met eigen fiscale behandeling.',
+    [
+      'field_brebo_offer_version_ref' => [
+        'label' => 'Offerteversie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_offer_version' => 'brebo_offer_version']],
+        ],
+        'description' => 'Offerteversie waartoe deze post behoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_offer_post_type' => [
+        'label' => 'Postsoort', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 24],
+        'description' => 'Basisaanbieding, optie, stelpost of verrekenpost.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+        'default_value' => [['value' => 'Basisaanbieding']],
+      ],
+      'field_brebo_offer_post_seq' => [
+        'label' => 'Volgorde', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [],
+        'description' => 'Sorteervolgorde binnen de offerteversie.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 3,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_offer_post_desc' => [
+        'label' => 'Omschrijving en scope', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Commerciële omschrijving en afbakening van deze post.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 4,
+      ],
+      'field_brebo_offer_quantity' => [
+        'label' => 'Aantal', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Aangeboden of geraamde hoeveelheid.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_offer_unit' => [
+        'label' => 'Eenheid', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Eenheid van de offertepost.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_offer_unit_price' => [
+        'label' => 'Eenheidsprijs exclusief btw', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Commerciële eenheidsprijs exclusief btw.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_offer_amount' => [
+        'label' => 'Bedrag exclusief btw', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Versiegebonden totaalbedrag van de post exclusief btw.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 8,
+      ],
+      'field_brebo_in_offer_total' => [
+        'label' => 'Opgenomen in offertotaal', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Basis- en stelposten tellen standaard mee; opties standaard niet.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 9,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_offer_markup_pct' => [
+        'label' => 'Verrekenopslag (%)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $percentage,
+        'description' => 'Vooraf overeengekomen opslag bij latere verrekening.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 10,
+        'default_value' => [['value' => '0.0000']],
+      ],
+      'field_brebo_vat_treatment' => [
+        'label' => 'Btw-behandeling', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 24],
+        'description' => 'Belast, verlegd, vrijgesteld of niet van toepassing.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+        'default_value' => [['value' => 'Belast']],
+      ],
+      'field_brebo_vat_rate' => [
+        'label' => 'Btw-tarief (%)', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $percentage,
+        'description' => 'Btw-tarief voor belaste posten.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 12,
+        'default_value' => [['value' => '21.0000']],
+      ],
+      'field_brebo_offer_post_status' => [
+        'label' => 'Akkoordstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 24],
+        'description' => 'Niet gekozen, aangeboden, akkoord, afgewezen of definitief.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 13,
+        'default_value' => [['value' => 'Aangeboden']],
+      ],
+      'field_brebo_actual_quantity' => [
+        'label' => 'Werkelijke hoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Definitief gemeten hoeveelheid voor verrekening.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 14,
+      ],
+      'field_brebo_actual_cost' => [
+        'label' => 'Werkelijke kosten', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Aantoonbare werkelijke kosten voor een stelpost.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 15,
+      ],
+      'field_brebo_settlement_amt' => [
+        'label' => 'Meer- of minderbedrag', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => $decimal,
+        'description' => 'Definitief te verrekenen positief of negatief bedrag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 16,
+      ],
+      'field_brebo_offer_post_notes' => [
+        'label' => 'Bewijsstukken en notities', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Onderbouwing, meetstaatverwijzingen en interne opmerkingen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 17,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_offer_version', 'brebo_offer_post'] as $bundle) {
+        foreach ([
+          "create $bundle content",
+          "edit own $bundle content",
+          "edit any $bundle content",
+          "view $bundle revisions",
+        ] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Versiegebonden offerte-engine met layouts, postsoorten, btw en G-rekening ingericht.';
+}
