@@ -358,7 +358,29 @@ final class CalculationGridForm extends FormBase {
           ],
           '#attributes' => ['class' => ['brebo-line-status']],
         ];
-        $form['grid'][$id]['description'] = $this->input('textfield', $line, 'field_brebo_line_description', ['#size' => 34]);
+        $description_input = $this->input('textfield', $line, 'field_brebo_line_description', ['#size' => 34]);
+        if (\Drupal::moduleHandler()->moduleExists('brebo_article')) {
+          $snapshot = \Drupal::database()->select('brebo_calculation_article_snapshot', 'snapshot')
+            ->fields('snapshot')
+            ->condition('calculation_line_id', $id)
+            ->execute()
+            ->fetchAssoc() ?: [];
+          $article_label = $snapshot
+            ? htmlspecialchars((string) $snapshot['article_code']) . ' · ' . htmlspecialchars((string) $snapshot['supplier_name'])
+            : (string) $this->t('Zoek in artikelstam');
+          $hidden = '';
+          foreach ([
+            'article_id', 'supplier_article_id', 'price_id', 'catalog_import_id',
+            'article_code', 'supplier_name', 'supplier_article_no', 'price_date',
+          ] as $snapshot_key) {
+            $hidden .= '<input type="hidden" name="grid[' . $id . '][' . $snapshot_key . ']" value="'
+              . htmlspecialchars((string) ($snapshot[$snapshot_key] ?? '')) . '">';
+          }
+          $description_input['#suffix'] = $hidden
+            . '<button type="button" class="brebo-article-select' . ($snapshot ? ' has-article' : '') . '" '
+            . 'data-brebo-article-picker>' . $article_label . '</button>';
+        }
+        $form['grid'][$id]['description'] = $description_input;
         $form['grid'][$id]['post_type'] = $this->select($line, 'field_brebo_line_post_type', [
           'Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk',
         ]);
@@ -394,6 +416,9 @@ final class CalculationGridForm extends FormBase {
     ];
     $form['#attributes']['class'][] = 'brebo-calc-grid-form';
     $form['#attached']['library'][] = 'brebo_office/calculation-grid';
+    if (\Drupal::moduleHandler()->moduleExists('brebo_article')) {
+      $form['#attached']['library'][] = 'brebo_article/article-picker';
+    }
     $form['#cache']['max-age'] = 0;
     return $form;
   }
@@ -537,6 +562,49 @@ final class CalculationGridForm extends FormBase {
         $line->setRevisionLogMessage('Calculatieregel inline bijgewerkt vanuit de calculatiewerkbank.');
         $line->save();
         $changed++;
+      }
+
+      // Validate the selected identifiers against the article database and
+      // preserve an immutable price snapshot for this calculation line.
+      $article_id = (int) ($values['article_id'] ?? 0);
+      $supplier_article_id = (int) ($values['supplier_article_id'] ?? 0);
+      $price_id = (int) ($values['price_id'] ?? 0);
+      if (\Drupal::moduleHandler()->moduleExists('brebo_article')
+        && $article_id > 0 && $supplier_article_id > 0 && $price_id > 0) {
+        $database = \Drupal::database();
+        $article_query = $database->select('brebo_supplier_article', 'sa');
+        $article_query->join('brebo_article', 'a', 'a.id = sa.article_id');
+        $article_query->join('brebo_supplier', 's', 's.id = sa.supplier_id');
+        $article_query->join('brebo_article_price', 'p', 'p.supplier_article_id = sa.id');
+        $article_query->fields('a', ['id', 'code', 'description', 'base_unit']);
+        $article_query->addField('sa', 'id', 'supplier_article_id');
+        $article_query->fields('sa', ['supplier_article_no', 'use_unit']);
+        $article_query->addField('s', 'name', 'supplier_name');
+        $article_query->addField('p', 'id', 'price_id');
+        $article_query->fields('p', ['net_price', 'valid_from', 'catalog_import_id']);
+        $article_query->condition('a.id', $article_id);
+        $article_query->condition('sa.id', $supplier_article_id);
+        $article_query->condition('p.id', $price_id);
+        if ($selected = $article_query->execute()->fetchAssoc()) {
+          $database->merge('brebo_calculation_article_snapshot')
+            ->key(['calculation_line_id' => (int) $line->id()])
+            ->fields([
+              'article_id' => (int) $selected['id'],
+              'supplier_article_id' => (int) $selected['supplier_article_id'],
+              'price_id' => (int) $selected['price_id'],
+              'article_code' => (string) $selected['code'],
+              'supplier_name' => (string) $selected['supplier_name'],
+              'supplier_article_no' => (string) $selected['supplier_article_no'],
+              'description' => (string) $selected['description'],
+              'unit' => (string) ($selected['use_unit'] ?: $selected['base_unit']),
+              'unit_price' => (string) $selected['net_price'],
+              'price_date' => (string) $selected['valid_from'],
+              'catalog_import_id' => (int) $selected['catalog_import_id'],
+              'selected_by' => (int) $this->currentUser()->id(),
+              'selected_at' => \Drupal::time()->getRequestTime(),
+            ])
+            ->execute();
+        }
       }
     }
 
