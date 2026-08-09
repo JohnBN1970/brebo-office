@@ -2618,6 +2618,85 @@ final class OfficeController extends ControllerBase {
 
 
 
+  /** Builds the portfolio dashboard for all current calculations. */
+  public function calculationPortfolio(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $status_filter = trim((string) \Drupal::request()->query->get('status', ''));
+    $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_calculation')->sort('changed', 'DESC');
+    if ($status_filter !== '') {
+      $query->condition('field_brebo_calc_status', $status_filter);
+    }
+    $calculations = $storage->loadMultiple($query->execute());
+    $rows = [];
+    $status_counts = [];
+    $direct_total = $sales_total = $gross_profit_total = 0.0;
+    $attention_count = 0;
+    foreach ($calculations as $calculation) {
+      if (!$calculation instanceof NodeInterface) {
+        continue;
+      }
+      $financials = $this->calculationPortfolioTotals($calculation);
+      $status = $this->fieldValue($calculation, 'field_brebo_calc_status');
+      $status_counts[$status] = ($status_counts[$status] ?? 0) + 1;
+      $direct_total += $financials['direct_cost'];
+      $sales_total += $financials['sales_price'];
+      $gross_profit_total += $financials['gross_profit'];
+      $package = $calculation->get('field_brebo_package_ref')->entity;
+      $project = $package instanceof NodeInterface && $package->hasField('field_brebo_project_ref')
+        ? $package->get('field_brebo_project_ref')->entity : NULL;
+      $signal = [];
+      if ($financials['line_count'] === 0) {
+        $signal[] = (string) $this->t('Geen regels');
+      }
+      if ($financials['sales_price'] <= 0.0) {
+        $signal[] = (string) $this->t('Geen verkoopprijs');
+      }
+      if (in_array($status, ['Geblokkeerd', 'Afgekeurd'], TRUE)) {
+        $signal[] = $status;
+      }
+      $attention_count += $signal ? 1 : 0;
+      $code = $this->fieldValue($calculation, 'field_brebo_calc_code');
+      $rows[] = [
+        ['data' => Link::fromTextAndUrl($code !== '—' ? $code : $calculation->label(),
+          Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $calculation->id()]))->toRenderable()],
+        $project instanceof NodeInterface ? $project->label() : '—',
+        $this->fieldValue($calculation, 'field_brebo_calc_version'), $status,
+        $this->money($financials['direct_cost']), $this->money($financials['sales_price']),
+        $this->money($financials['gross_profit']), number_format($financials['margin_percent'], 1, ',', '.') . '%',
+        (string) ($calculation->getOwner()?->getDisplayName() ?? $this->t('Onbekend')),
+        \Drupal::service('date.formatter')->format($calculation->getChangedTime(), 'short'),
+        $signal ? implode(', ', $signal) : (string) $this->t('In orde'),
+      ];
+    }
+    ksort($status_counts);
+    $status_links = [Link::fromTextAndUrl($this->t('Alle'), Url::fromRoute('brebo_office_core.calculations'))->toRenderable()];
+    foreach ($status_counts as $status => $count) {
+      $status_links[] = Link::fromTextAndUrl($this->t('@status (@count)', ['@status' => $status, '@count' => $count]),
+        Url::fromRoute('brebo_office_core.calculations', [], ['query' => ['status' => $status]]))->toRenderable();
+    }
+    $weighted_margin = $sales_total > 0.0 ? ($gross_profit_total / $sales_total) * 100 : 0.0;
+    return [
+      'actions' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-list-actions']],
+        'add' => ['#type' => 'link', '#title' => $this->t('Nieuwe calculatie'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_calculation']), '#attributes' => ['class' => ['button']]]],
+      'summary' => ['#type' => 'table', '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Calculaties'), $this->t('Directe kostprijs'), $this->t('Verkoopwaarde'),
+          $this->t('Bruto winst'), $this->t('Gewogen brutomarge'), $this->t('Aandacht')],
+        '#rows' => [[count($calculations), $this->money($direct_total), $this->money($sales_total),
+          $this->money($gross_profit_total), number_format($weighted_margin, 1, ',', '.') . '%', $attention_count]]],
+      'filters' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-list-actions']],
+        'label' => ['#markup' => '<strong>' . $this->t('Status:') . '</strong>'], 'links' => $status_links],
+      'calculations' => ['#type' => 'table',
+        '#header' => [$this->t('Calculatie'), $this->t('Project'), $this->t('Versie'), $this->t('Status'),
+          $this->t('Directe kostprijs'), $this->t('Verkoopprijs'), $this->t('Bruto winst'), $this->t('Marge'),
+          $this->t('Eigenaar'), $this->t('Gewijzigd'), $this->t('Signalering')],
+        '#rows' => $rows, '#empty' => $this->t('Geen calculaties binnen dit filter.')],
+      '#cache' => ['contexts' => ['user.permissions', 'url.query_args:status'],
+        'tags' => ['node_list:brebo_calculation', 'node_list:brebo_calc_element',
+          'node_list:brebo_calc_line', 'node_list:brebo_calc_adjustment']],
+    ];
+  }
+
   /**
    * Returns the calculation dashboard title.
    */
@@ -3869,6 +3948,89 @@ final class OfficeController extends ControllerBase {
         . '<span class="brebo-traffic-light brebo-traffic-light--' . $signal . '" aria-hidden="true"></span>'
         . '<span>' . $label . '</span></span>',
     ]];
+  }
+
+  /** Calculates portfolio figures using the detail dashboard hierarchy. */
+  private function calculationPortfolioTotals(NodeInterface $calculation): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $element_ids = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $calculation->id())->execute();
+    $elements = $storage->loadMultiple($element_ids);
+    $line_ids = $element_ids ? $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_calc_line')
+      ->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')->execute() : [];
+    $lines = $storage->loadMultiple($line_ids);
+    $package = $calculation->get('field_brebo_package_ref')->entity;
+    $target_ids = array_values(array_unique(array_merge([(int) $calculation->id()],
+      $package instanceof NodeInterface ? [(int) $package->id()] : [],
+      array_map('intval', array_values($element_ids)), array_map('intval', array_values($line_ids)))));
+    $adjustment_ids = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_calc_adjustment')
+      ->condition('field_brebo_adjust_target.target_id', $target_ids, 'IN')
+      ->sort('field_brebo_adjust_sequence')->execute();
+    $adjustments = [];
+    foreach ($storage->loadMultiple($adjustment_ids) as $adjustment) {
+      if ($adjustment instanceof NodeInterface) {
+        $adjustments[(int) $adjustment->get('field_brebo_adjust_target')->target_id][] = $adjustment;
+      }
+    }
+    $lines_by_element = [];
+    foreach ($lines as $line) {
+      if ($line instanceof NodeInterface) {
+        $lines_by_element[(int) $line->get('field_brebo_calc_element_ref')->target_id][] = $line;
+      }
+    }
+    $forecast_elements = [];
+    $calculation_breakdown = [];
+    $line_markup = 0.0;
+    $line_count = 0;
+    foreach ($elements as $element) {
+      if (!$element instanceof NodeInterface) {
+        continue;
+      }
+      $current = 0.0;
+      $breakdown = [];
+      foreach ($lines_by_element[(int) $element->id()] ?? [] as $line) {
+        $line_type = $line->hasField('field_brebo_line_type')
+          ? (string) ($line->get('field_brebo_line_type')->value ?? 'Calculatieregel') : 'Calculatieregel';
+        if ($line_type === 'Notitie') {
+          continue;
+        }
+        $line_count++;
+        $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
+        $actual = $line->get('field_brebo_actual_quantity')->value;
+        if ($this->fieldValue($line, 'field_brebo_line_post_type') === 'Verrekenpost' && $actual !== NULL && $actual !== '') {
+          $quantity = (float) $actual;
+        }
+        $direct = $quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0);
+        $category = $this->fieldValue($line, 'field_brebo_cost_category');
+        [$line_total] = $this->applyAdjustments($direct, [$category => $direct], $adjustments[(int) $line->id()] ?? []);
+        $line_markup += $line_total - $direct;
+        $current += $line_total;
+        $markup_applicable = !$line->hasField('field_brebo_markup_applicable')
+          || (bool) $line->get('field_brebo_markup_applicable')->value;
+        if ($markup_applicable) {
+          $breakdown[$category] = ($breakdown[$category] ?? 0.0) + $direct;
+        }
+      }
+      [$element_total] = $this->applyAdjustments($current, $breakdown, $adjustments[(int) $element->id()] ?? []);
+      $forecast_elements[] = $element_total;
+      foreach ($breakdown as $category => $value) {
+        $calculation_breakdown[$category] = ($calculation_breakdown[$category] ?? 0.0) + $value;
+      }
+    }
+    $forecast = array_sum($forecast_elements);
+    if ($package instanceof NodeInterface) {
+      [$forecast] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $package->id()] ?? []);
+    }
+    [$forecast] = $this->applyAdjustments($forecast, $calculation_breakdown, $adjustments[(int) $calculation->id()] ?? []);
+    $direct_cost = $forecast - $line_markup;
+    $general = $direct_cost * (float) ($calculation->get('field_brebo_general_cost_pct')->value ?? 0) / 100;
+    $risk = $direct_cost * (float) ($calculation->get('field_brebo_risk_pct')->value ?? 0) / 100;
+    $profit = $direct_cost * (float) ($calculation->get('field_brebo_profit_pct')->value ?? 0) / 100;
+    $commercial = (float) ($calculation->get('field_brebo_com_adjustment')->value ?? 0);
+    $gross_profit = $line_markup + $general + $risk + $profit + $commercial;
+    $sales_price = $direct_cost + $gross_profit;
+    return ['line_count' => $line_count, 'direct_cost' => $direct_cost, 'sales_price' => $sales_price,
+      'gross_profit' => $gross_profit, 'margin_percent' => $sales_price > 0.0 ? ($gross_profit / $sales_price) * 100 : 0.0];
   }
 
   private function applyAdjustments(float $current, array $direct_breakdown, array $adjustments): array {
