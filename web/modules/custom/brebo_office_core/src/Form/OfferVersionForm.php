@@ -58,6 +58,21 @@ final class OfferVersionForm extends FormBase {
     $calculation_code = (string) ($node->get('field_brebo_calc_code')->value ?? ('CALC-' . $node->id()));
     $submitted_input = $form_state->getUserInput();
     $preserved_values = (array) ($form_state->get('offer_form_values') ?? []);
+    if ($form_state->isRebuilding()) {
+      \Drupal::logger('brebo_offer_form_diagnostic')->notice(
+        'Generator rebuild: submitted version=@submitted_version, preserved version=@preserved_version, submitted lengths scope=@submitted_scope exclusions=@submitted_exclusions terms=@submitted_terms, preserved lengths scope=@preserved_scope exclusions=@preserved_exclusions terms=@preserved_terms.',
+        [
+          '@submitted_version' => (string) ($submitted_input['offer_version'] ?? '[missing]'),
+          '@preserved_version' => (string) ($preserved_values['offer_version'] ?? '[missing]'),
+          '@submitted_scope' => strlen((string) ($submitted_input['scope'] ?? '')),
+          '@submitted_exclusions' => strlen((string) ($submitted_input['exclusions'] ?? '')),
+          '@submitted_terms' => strlen((string) ($submitted_input['work_terms'] ?? '')),
+          '@preserved_scope' => strlen((string) ($preserved_values['scope'] ?? '')),
+          '@preserved_exclusions' => strlen((string) ($preserved_values['exclusions'] ?? '')),
+          '@preserved_terms' => strlen((string) ($preserved_values['work_terms'] ?? '')),
+        ],
+      );
+    }
     $form_value = static function (string $key, mixed $default = NULL) use ($submitted_input, $preserved_values): mixed {
       // During a generator rebuild, the preserved state contains the complete
       // submitted form plus the newly generated texts. It must take precedence
@@ -343,6 +358,16 @@ final class OfferVersionForm extends FormBase {
     // This button deliberately skips validation. Read and preserve the complete
     // raw input so a rebuild cannot reset identity, presentation or tax values.
     $input = $form_state->getUserInput();
+    \Drupal::logger('brebo_offer_form_diagnostic')->notice(
+      'Generator handler reached: version=@version, fields=@fields, incoming lengths scope=@scope exclusions=@exclusions terms=@terms.',
+      [
+        '@version' => (string) ($input['offer_version'] ?? '[missing]'),
+        '@fields' => implode(',', array_keys($input)),
+        '@scope' => strlen((string) ($input['scope'] ?? '')),
+        '@exclusions' => strlen((string) ($input['exclusions'] ?? '')),
+        '@terms' => strlen((string) ($input['work_terms'] ?? '')),
+      ],
+    );
     $texts = $this->buildConceptTexts(
       (string) ($input['client_type'] ?? 'Zakelijk'),
       (string) ($input['work_type'] ?? 'Planmatig onderhoud'),
@@ -359,6 +384,15 @@ final class OfferVersionForm extends FormBase {
     // Replace the raw POST payload as well: Drupal uses user input as the active
     // value source during rebuild, ahead of element default values.
     $form_state->setUserInput($input);
+    \Drupal::logger('brebo_offer_form_diagnostic')->notice(
+      'Generator values stored: version=@version, generated lengths scope=@scope exclusions=@exclusions terms=@terms.',
+      [
+        '@version' => (string) ($input['offer_version'] ?? '[missing]'),
+        '@scope' => strlen((string) ($input['scope'] ?? '')),
+        '@exclusions' => strlen((string) ($input['exclusions'] ?? '')),
+        '@terms' => strlen((string) ($input['work_terms'] ?? '')),
+      ],
+    );
     $form_state->setRebuild(TRUE);
     $this->messenger()->addStatus($this->t('De conceptteksten zijn gegenereerd. Controleer en bewerk ze vóór het opslaan.'));
   }
