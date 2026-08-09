@@ -1,0 +1,134 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Installatie en schema voor BREBO Artikelbeheer.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_article_schema(): array {
+  $id = ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE];
+  $created = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0];
+  $schema = [];
+
+  $schema['brebo_supplier'] = [
+    'description' => 'Leveranciers en vestigingen.',
+    'fields' => [
+      'id' => $id,
+      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'branch' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+      'created' => $created,
+      'changed' => $created,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['code' => ['code']],
+    'indexes' => ['name' => ['name']],
+  ];
+
+  $schema['brebo_catalog_import'] = [
+    'description' => 'Ongewijzigde bronregistratie van leverancierscatalogi.',
+    'fields' => [
+      'id' => $id,
+      'supplier_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'standard' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'source_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'price_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
+      'record_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'created' => $created,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['source_hash' => ['source_hash']],
+    'indexes' => ['supplier_date' => ['supplier_id', 'price_date']],
+  ];
+
+  $schema['brebo_article'] = [
+    'description' => 'Genormaliseerde BREBO-artikelstam.',
+    'fields' => [
+      'id' => $id,
+      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'search_text' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'base_unit' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'cost_category' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'Materiaal'],
+      'nlsfb_code' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+      'created' => $created,
+      'changed' => $created,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['code' => ['code']],
+    'indexes' => ['description' => [['description', 191]], 'nlsfb' => ['nlsfb_code']],
+  ];
+
+  $schema['brebo_supplier_article'] = [
+    'description' => 'Leveranciersspecifieke artikelnummers en verpakkingen.',
+    'fields' => [
+      'id' => $id,
+      'article_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'supplier_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'supplier_article_no' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'gtin' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'order_unit' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'use_unit' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'conversion_factor' => ['type' => 'numeric', 'precision' => 18, 'scale' => 6, 'not null' => TRUE, 'default' => 1],
+      'minimum_order' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 1],
+      'product_group' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'product_url' => ['type' => 'varchar', 'length' => 1024, 'not null' => FALSE],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['supplier_article' => ['supplier_id', 'supplier_article_no']],
+    'indexes' => ['article' => ['article_id'], 'gtin' => ['gtin'], 'group' => [['product_group', 191]]],
+  ];
+
+  $schema['brebo_article_price'] = [
+    'description' => 'Prijsversies en staffels per leveranciersartikel.',
+    'fields' => [
+      'id' => $id,
+      'supplier_article_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'catalog_import_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'valid_from' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'valid_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'quantity_from' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 1],
+      'net_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'gross_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 5, 'scale' => 2, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['price_version' => ['supplier_article_id', 'catalog_import_id', 'valid_from', 'quantity_from']],
+    'indexes' => ['current_price' => ['supplier_article_id', 'valid_from', 'valid_until']],
+  ];
+
+  $schema['brebo_calculation_article_snapshot'] = [
+    'description' => 'Onveranderlijke artikel- en prijsmomentopname per calculatieregel.',
+    'fields' => [
+      'calculation_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'article_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'supplier_article_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'price_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'article_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'supplier_article_no' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'unit' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'unit_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'price_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'catalog_import_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'selected_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'selected_at' => $created,
+    ],
+    'primary key' => ['calculation_line_id'],
+    'indexes' => ['article' => ['article_id'], 'supplier_article' => ['supplier_article_id']],
+  ];
+
+  return $schema;
+}
