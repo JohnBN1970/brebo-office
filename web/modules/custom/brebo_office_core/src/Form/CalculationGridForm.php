@@ -198,6 +198,7 @@ final class CalculationGridForm extends FormBase {
       '#header' => [
         $this->t('Volgorde'),
         $this->t('Recept'),
+        $this->t('Status'),
         $this->t('Omschrijving'),
         $this->t('Posttype'),
         $this->t('Kostensoort'),
@@ -257,11 +258,26 @@ final class CalculationGridForm extends FormBase {
       $recipe_key = 'recipe_' . $element_id;
       $form['grid'][$recipe_key]['heading'] = [
         '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-recipe-heading']],
-        '#wrapper_attributes' => ['colspan' => 15],
+        '#attributes' => [
+          'class' => ['brebo-recipe-heading'],
+          'data-recipe-heading' => $element_id,
+        ],
+        '#wrapper_attributes' => ['colspan' => 16],
         'identity' => [
           '#type' => 'container',
           '#attributes' => ['class' => ['brebo-recipe-heading__identity']],
+          'toggle' => [
+            '#type' => 'html_tag',
+            '#tag' => 'button',
+            '#value' => '▾',
+            '#attributes' => [
+              'type' => 'button',
+              'class' => ['brebo-recipe-toggle'],
+              'data-recipe-toggle' => $element_id,
+              'aria-expanded' => 'true',
+              'aria-label' => $this->t('Ingrediënten in- of uitklappen'),
+            ],
+          ],
           'code' => [
             '#markup' => '<span class="brebo-recipe-heading__code"><small>NLSfB ' . htmlspecialchars($component_code) . '</small><strong>'
               . htmlspecialchars((string) $element->get('field_brebo_element_code')->value) . '</strong></span>',
@@ -291,15 +307,16 @@ final class CalculationGridForm extends FormBase {
           '#maxlength' => 16,
         ],
         'hours' => [
-          '#markup' => '<span><small>Uren</small><strong>' . number_format($recipe_hours, 2, ',', '.') . '</strong></span>',
+          '#markup' => '<span><small>Uren</small><strong data-recipe-hours="' . $element_id . '">' . number_format($recipe_hours, 2, ',', '.') . '</strong></span>',
         ],
         'price' => [
-          '#markup' => '<span><small>Kostprijs/recept</small><strong>€ ' . number_format($recipe_unit_price, 2, ',', '.') . '</strong></span>',
+          '#markup' => '<span><small>Kostprijs/recept</small><strong data-recipe-price="' . $element_id . '">€ ' . number_format($recipe_unit_price, 2, ',', '.') . '</strong></span>',
         ],
         'total' => [
-          '#markup' => '<span><small>Totaal</small><strong>€ ' . number_format($recipe_contract, 2, ',', '.') . '</strong></span>',
+          '#markup' => '<span><small>Totaal</small><strong data-recipe-total="' . $element_id . '">€ ' . number_format($recipe_contract, 2, ',', '.') . '</strong></span>',
         ],
       ];
+      $form['grid'][$recipe_key]['#attributes']['data-recipe-header'] = $element_id;
       $form['grid'][$recipe_key]['#attributes']['class'] = [
         'brebo-recipe-row',
         'brebo-calc-row--nlsfb-' . ($component_bands[$component_code] % 2 === 0 ? 'even' : 'odd'),
@@ -326,6 +343,21 @@ final class CalculationGridForm extends FormBase {
           '#default_value' => $element_id,
           '#options' => $element_options,
         ];
+        $line_status = (string) ($line->get('field_brebo_line_status')->value ?? 'Niet beoordeeld');
+        $form['grid'][$id]['status'] = [
+          '#type' => 'select',
+          '#title' => '',
+          '#title_display' => 'invisible',
+          '#default_value' => $line_status,
+          '#options' => [
+            'Niet beoordeeld' => $this->t('⚪ Niet beoordeeld'),
+            'Groen' => $this->t('🟢 Gereed'),
+            'Oranje' => $this->t('🟠 Aandacht'),
+            'Rood' => $this->t('🔴 Geblokkeerd'),
+            'N.v.t.' => $this->t('⚫ N.v.t.'),
+          ],
+          '#attributes' => ['class' => ['brebo-line-status']],
+        ];
         $form['grid'][$id]['description'] = $this->input('textfield', $line, 'field_brebo_line_description', ['#size' => 34]);
         $form['grid'][$id]['post_type'] = $this->select($line, 'field_brebo_line_post_type', [
           'Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk',
@@ -341,8 +373,10 @@ final class CalculationGridForm extends FormBase {
         $form['grid'][$id]['budget_hours'] = $this->input('number', $line, 'field_brebo_budget_hours', ['#required' => FALSE]);
         $form['grid'][$id]['labor_rate'] = $this->input('number', $line, 'field_brebo_labor_rate', ['#required' => FALSE]);
         $form['grid'][$id]['unit_price'] = $this->input('number', $line, 'field_brebo_unit_price');
-        $form['grid'][$id]['contract'] = ['#markup' => '<span class="brebo-calc-grid__money">€ ' . number_format($quantity * $unit_price, 2, ',', '.') . '</span>'];
-        $form['grid'][$id]['forecast'] = ['#markup' => '<span class="brebo-calc-grid__money">€ ' . number_format($forecast_quantity * $unit_price, 2, ',', '.') . '</span>'];
+        $form['grid'][$id]['contract'] = ['#markup' => '<span class="brebo-calc-grid__money" data-live-contract>€ ' . number_format($quantity * $unit_price, 2, ',', '.') . '</span>'];
+        $form['grid'][$id]['forecast'] = ['#markup' => '<span class="brebo-calc-grid__money" data-live-forecast>€ ' . number_format($forecast_quantity * $unit_price, 2, ',', '.') . '</span>'];
+        $form['grid'][$id]['#attributes']['data-recipe-id'] = $element_id;
+        $form['grid'][$id]['#attributes']['data-line-status'] = strtolower(str_replace([' ', '.'], '-', $line_status));
         $form['grid'][$id]['#attributes']['class'] = [
           'brebo-calc-row',
           'brebo-calc-ingredient-row',
@@ -359,6 +393,7 @@ final class CalculationGridForm extends FormBase {
       '#button_type' => 'primary',
     ];
     $form['#attributes']['class'][] = 'brebo-calc-grid-form';
+    $form['#attached']['library'][] = 'brebo_office/calculation-grid';
     $form['#cache']['max-age'] = 0;
     return $form;
   }
@@ -472,6 +507,7 @@ final class CalculationGridForm extends FormBase {
       $mapping = [
         'sequence' => 'field_brebo_line_sequence',
         'recipe' => 'field_brebo_calc_element_ref',
+        'status' => 'field_brebo_line_status',
         'description' => 'field_brebo_line_description',
         'post_type' => 'field_brebo_line_post_type',
         'category' => 'field_brebo_cost_category',
@@ -559,6 +595,7 @@ final class CalculationGridForm extends FormBase {
       'field_brebo_unit' => 'post',
       'field_brebo_unit_price' => '0.0000',
       'field_brebo_hours_input_mode' => 'Normuren',
+      'field_brebo_line_status' => 'Niet beoordeeld',
     ]);
     $line->save();
 
