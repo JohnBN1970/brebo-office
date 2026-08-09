@@ -4268,3 +4268,26 @@ function brebo_office_core_update_11032(): string {
 
   return 'Calculatiechat per calculatiedossier aangemaakt.';
 }
+
+
+
+/**
+ * Adds the separately established commercial sales price to calculations.
+ */
+function brebo_office_core_update_11033(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_calculation',
+    'Calculatie',
+    'Controleerbare calculatie met gescheiden kostprijs- en verkooplaag.',
+    [
+      'field_brebo_sales_price' => [
+        'label' => 'Vastgestelde verkoopprijs', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 15, 'scale' => 4],
+        'description' => 'Commercieel vastgestelde verkoopprijs exclusief btw. Winst en marge worden automatisch berekend ten opzichte van de actuele kostprijsprognose.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 20,
+      ],
+    ],
+  );
+
+  return 'Afzonderlijke commerciële verkoopprijs voor calculaties ingericht.';
+}
