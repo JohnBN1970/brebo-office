@@ -196,7 +196,7 @@ final class OfferVersionForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Annuleren'),
-      '#url' => $node->toUrl('canonical')->setRouteParameter('node', $node->id()),
+      '#url' => \Drupal\Core\Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
       '#attributes' => ['class' => ['button']],
     ];
 
@@ -204,6 +204,18 @@ final class OfferVersionForm extends FormBase {
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    if ($this->calculation instanceof NodeInterface) {
+      $duplicate = $this->entityTypeManager()->getStorage('node')->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_offer_version')
+        ->condition('field_brebo_offer_number', trim((string) $form_state->getValue('offer_number')))
+        ->condition('field_brebo_offer_version', (int) $form_state->getValue('offer_version'))
+        ->execute();
+      if ($duplicate) {
+        $form_state->setErrorByName('offer_number', $this->t('Deze combinatie van offertenummer en versienummer bestaat al.'));
+      }
+    }
+
     if ($form_state->getValue('g_account_on')) {
       $percentage = (float) $form_state->getValue('g_account_pct');
       if ($percentage <= 0 || $percentage > 100) {
@@ -225,17 +237,6 @@ final class OfferVersionForm extends FormBase {
     $storage = $this->entityTypeManager()->getStorage('node');
     $offer_number = trim((string) $form_state->getValue('offer_number'));
     $version = (int) $form_state->getValue('offer_version');
-    $duplicate = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_offer_version')
-      ->condition('field_brebo_offer_number', $offer_number)
-      ->condition('field_brebo_offer_version', $version)
-      ->execute();
-    if ($duplicate) {
-      $form_state->setErrorByName('offer_number', $this->t('Deze combinatie van offertenummer en versienummer bestaat al.'));
-      return;
-    }
-
     $g_account_on = (bool) $form_state->getValue('g_account_on');
     $snapshot = json_encode([
       'calculation_id' => (int) $calculation->id(),
