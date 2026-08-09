@@ -403,6 +403,12 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     }
   }
 
+  if ($node->bundle() === 'brebo_calculation' && isset($form['field_brebo_sales_price'])) {
+    // Historical data is retained, but the current sales price is calculated
+    // from direct costs and the established tail-cost buildup.
+    $form['field_brebo_sales_price']['#access'] = FALSE;
+  }
+
   if ($node->bundle() === 'brebo_calc_line') {
     foreach ([
       'field_brebo_line_post_type' => ['Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk'],
