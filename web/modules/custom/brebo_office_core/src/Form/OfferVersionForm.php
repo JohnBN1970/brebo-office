@@ -356,8 +356,9 @@ final class OfferVersionForm extends FormBase {
       $form_state->setValue($key, $text);
     }
     $form_state->set('offer_form_values', $input);
-    // Do not replace the raw POST payload. The rebuilt form deliberately reads
-    // the preserved state first, so both user input and generated text survive.
+    // Replace the raw POST payload as well: Drupal uses user input as the active
+    // value source during rebuild, ahead of element default values.
+    $form_state->setUserInput($input);
     $form_state->setRebuild(TRUE);
     $this->messenger()->addStatus($this->t('De conceptteksten zijn gegenereerd. Controleer en bewerk ze vóór het opslaan.'));
   }
