@@ -296,3 +296,22 @@ brebo_office_core.communications:
     _title: 'Communicatie-inbox'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.organizations:
+  path: '/office/relaties/organisaties'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Organisaties'
+    bundle: 'brebo_organization'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.contacts:
+  path: '/office/relaties/contactpersonen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Contactpersonen'
+    bundle: 'brebo_contact'
+  requirements:
+    _permission: 'access content'

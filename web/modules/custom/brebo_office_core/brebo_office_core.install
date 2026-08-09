@@ -3171,3 +3171,234 @@ function brebo_office_core_update_11022(): string {
 
   return 'Controleerbaar communicatie-, besluit- en opvolgdossier voor opdrachtgever en ketenpartijen aangemaakt.';
 }
+
+
+/**
+ * Creates organization and contact master data and links projects and communication.
+ */
+function brebo_office_core_update_11023(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization',
+    'Organisatie',
+    'Centrale relatiekaart voor opdrachtgever, hoofdaannemer, leverancier, adviseur en overige ketenpartij.',
+    [
+      'field_brebo_org_type' => [
+        'label' => 'Relatietype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Opdrachtgever, hoofdaannemer, leverancier, adviseur, onderaannemer of overige ketenpartij.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+        'default_value' => [['value' => 'Opdrachtgever']],
+      ],
+      'field_brebo_org_number' => [
+        'label' => 'KVK- of relatienummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Officieel registratienummer of intern relatienummer.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_org_email' => [
+        'label' => 'Algemeen e-mailadres', 'type' => 'email', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Algemeen of administratief e-mailadres van de organisatie.',
+        'widget' => 'email_default', 'formatter' => 'email_mailto', 'weight' => 3,
+      ],
+      'field_brebo_org_phone' => [
+        'label' => 'Algemeen telefoonnummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Centraal telefoonnummer van de organisatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_org_address' => [
+        'label' => 'Post- of bezoekadres', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Volledig zakelijk adres.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_org_status' => [
+        'label' => 'Relatiestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Prospect, actief, geblokkeerd of historisch.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+        'default_value' => [['value' => 'Actief']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Relatienotities', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Zakelijke bijzonderheden, contractuele context en aandachtspunten.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 7,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_contact',
+    'Contactpersoon',
+    'Persoonlijke relatiekaart gekoppeld aan een organisatie en relevante projecten.',
+    [
+      'field_brebo_org_ref' => [
+        'label' => 'Organisatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']],
+        ],
+        'description' => 'Organisatie waarvoor deze contactpersoon optreedt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_contact_role' => [
+        'label' => 'Functie of projectrol', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Bijvoorbeeld uitvoerder, projectleider, inkoper, beheerder of directie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_contact_email' => [
+        'label' => 'E-mailadres', 'type' => 'email', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Zakelijk e-mailadres van de contactpersoon.',
+        'widget' => 'email_default', 'formatter' => 'email_mailto', 'weight' => 3,
+      ],
+      'field_brebo_contact_phone' => [
+        'label' => 'Telefoonnummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Zakelijk of mobiel telefoonnummer.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_contact_channel' => [
+        'label' => 'Voorkeurskanaal', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'E-mail, telefoon, Teams, portaal of anders.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'E-mail']],
+      ],
+      'field_brebo_contact_active' => [
+        'label' => 'Actief contact', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Contactpersoon is actueel en mag voor nieuwe communicatie worden geselecteerd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Contactnotities', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Mandaat, bereikbaarheid, voorkeuren en relevante zakelijke afspraken.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 7,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_project',
+    'Project',
+    'Centraal projectobject binnen BREBO Office.',
+    [
+      'field_brebo_client_org_ref' => [
+        'label' => 'Opdrachtgevende organisatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']],
+        ],
+        'description' => 'Vaste relatiekaart van de opdrachtgever; de bestaande tekstnaam blijft beschikbaar voor historie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Projectcommunicatie',
+    'Auditeerbaar communicatie-, besluit- en opvolgdossier gekoppeld aan project en scope.',
+    [
+      'field_brebo_comm_org_ref' => [
+        'label' => 'Organisatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']],
+        ],
+        'description' => 'Vaste relatiekaart van de externe organisatie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 8,
+      ],
+      'field_brebo_comm_contact_ref' => [
+        'label' => 'Contactpersoon', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_contact' => 'brebo_contact']],
+        ],
+        'description' => 'Vaste contactkaart van de persoon met wie is gecommuniceerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 9,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_organization', 'brebo_contact'] as $bundle) {
+        foreach ([
+          "create $bundle content",
+          "edit own $bundle content",
+          "edit any $bundle content",
+          "view $bundle revisions",
+        ] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $organization_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_organization')
+    ->execute();
+  $organizations = [];
+  foreach ($storage->loadMultiple($organization_ids) as $organization) {
+    if ($organization instanceof \Drupal\node\NodeInterface) {
+      $organizations[mb_strtolower(trim((string) $organization->label()))] = $organization;
+    }
+  }
+
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $created = 0;
+  $linked = 0;
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $client = trim((string) $project->get('field_brebo_client')->value);
+    if ($client === '') {
+      continue;
+    }
+    $key = mb_strtolower($client);
+    $organization = $organizations[$key] ?? NULL;
+    if (!$organization instanceof \Drupal\node\NodeInterface) {
+      $organization = \Drupal\node\Entity\Node::create([
+        'type' => 'brebo_organization',
+        'title' => $client,
+        'field_brebo_org_type' => 'Opdrachtgever',
+        'field_brebo_org_status' => 'Actief',
+        'field_brebo_description' => 'Automatisch aangemaakt uit bestaande projectgegevens door update 11023.',
+        'uid' => $project->getOwnerId(),
+        'status' => 1,
+      ]);
+      $organization->save();
+      $organizations[$key] = $organization;
+      $created++;
+    }
+    $project->set('field_brebo_client_org_ref', ['target_id' => $organization->id()]);
+    $project->setNewRevision(TRUE);
+    $project->setRevisionLogMessage('Opdrachtgever aan centrale relatiekaart gekoppeld door update 11023.');
+    $project->save();
+    $linked++;
+  }
+
+  return sprintf(
+    'Relatiekaart ingericht: %d organisatie(s) aangemaakt en %d project(en) gekoppeld.',
+    $created,
+    $linked,
+  );
+}

@@ -905,8 +905,18 @@ final class OfficeController extends ControllerBase {
         $progress = ['signal' => 'neutral', 'label' => (string) $this->t('Vastgelegd')];
       }
 
-      $party = $this->fieldValue($communication, 'field_brebo_external_party');
-      $contact = $this->fieldValue($communication, 'field_brebo_external_contact');
+      $organization = $communication->hasField('field_brebo_comm_org_ref')
+        ? $communication->get('field_brebo_comm_org_ref')->entity
+        : NULL;
+      $contact_entity = $communication->hasField('field_brebo_comm_contact_ref')
+        ? $communication->get('field_brebo_comm_contact_ref')->entity
+        : NULL;
+      $party = $organization instanceof NodeInterface
+        ? (string) $organization->label()
+        : $this->fieldValue($communication, 'field_brebo_external_party');
+      $contact = $contact_entity instanceof NodeInterface
+        ? (string) $contact_entity->label()
+        : $this->fieldValue($communication, 'field_brebo_external_contact');
       $impact = [];
       $financial = (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
       $days = (int) ($communication->get('field_brebo_schedule_days')->value ?? 0);
@@ -1185,8 +1195,18 @@ final class OfficeController extends ControllerBase {
       $communication_open += $is_open ? 1 : 0;
       $communication_overdue += $is_overdue ? 1 : 0;
       $communication_financial += (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
-      $party = $this->fieldValue($communication, 'field_brebo_external_party');
-      $contact = $this->fieldValue($communication, 'field_brebo_external_contact');
+      $organization = $communication->hasField('field_brebo_comm_org_ref')
+        ? $communication->get('field_brebo_comm_org_ref')->entity
+        : NULL;
+      $contact_entity = $communication->hasField('field_brebo_comm_contact_ref')
+        ? $communication->get('field_brebo_comm_contact_ref')->entity
+        : NULL;
+      $party = $organization instanceof NodeInterface
+        ? (string) $organization->label()
+        : $this->fieldValue($communication, 'field_brebo_external_party');
+      $contact = $contact_entity instanceof NodeInterface
+        ? (string) $contact_entity->label()
+        : $this->fieldValue($communication, 'field_brebo_external_contact');
       $attention = $is_overdue
         ? (string) $this->t('Te laat')
         : ($is_open ? (string) $this->t('Open') : (string) $this->t('Afgehandeld'));
