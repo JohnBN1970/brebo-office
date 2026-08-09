@@ -126,6 +126,12 @@ final class GenerateWorkBudgetForm extends ConfirmFormBase {
       if (!$line instanceof NodeInterface) {
         continue;
       }
+      $line_type = $line->hasField('field_brebo_line_type')
+        ? (string) ($line->get('field_brebo_line_type')->value ?? 'Calculatieregel')
+        : 'Calculatieregel';
+      if ($line_type === 'Notitie') {
+        continue;
+      }
       $post_type = (string) $line->get('field_brebo_line_post_type')->value;
       if (in_array($post_type, ['Optie', 'Alternatief'], TRUE)) {
         continue;
