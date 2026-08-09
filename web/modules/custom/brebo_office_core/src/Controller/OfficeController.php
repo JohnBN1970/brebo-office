@@ -65,6 +65,7 @@ final class OfficeController extends ControllerBase {
       };
       $status = $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
+        'brebo_building' => Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $node->id()]),
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
         'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
         'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
@@ -545,6 +546,163 @@ final class OfficeController extends ControllerBase {
   }
 
   /**
+   * Returns the building dossier title.
+   */
+  public function buildingDashboardTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_building') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  /**
+   * Builds the permanent building dossier and its project history.
+   */
+  public function buildingDashboard(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_building') {
+      throw new NotFoundHttpException();
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $project_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_project')
+      ->condition('field_brebo_building_refs.target_id', $node->id())
+      ->sort('changed', 'DESC')
+      ->execute();
+    $cluster_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_cluster')
+      ->condition('field_brebo_building_ref.target_id', $node->id())
+      ->execute();
+    $dwelling_ids = $cluster_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_dwelling')
+        ->condition('field_brebo_cluster_ref.target_id', array_values($cluster_ids), 'IN')
+        ->execute()
+      : [];
+    $position_ids = $dwelling_ids
+      ? $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_product_position')
+        ->condition('field_brebo_dwelling_ref.target_id', array_values($dwelling_ids), 'IN')
+        ->execute()
+      : [];
+
+    $project_rows = [];
+    foreach ($storage->loadMultiple($project_ids) as $project) {
+      if ($project instanceof NodeInterface) {
+        $project_rows[] = [
+          ['data' => Link::fromTextAndUrl(
+            $project->label(),
+            Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()])
+          )->toRenderable()],
+          $this->fieldValue($project, 'field_brebo_project_code'),
+          $this->fieldValue($project, 'field_brebo_project_kind'),
+          $this->fieldValue($project, 'field_brebo_status'),
+          \Drupal::service('date.formatter')->format($project->getChangedTime(), 'short'),
+        ];
+      }
+    }
+
+    $cluster_rows = [];
+    foreach ($storage->loadMultiple($cluster_ids) as $cluster) {
+      if ($cluster instanceof NodeInterface) {
+        $cluster_rows[] = [
+          ['data' => Link::fromTextAndUrl($cluster->label(), $cluster->toUrl())->toRenderable()],
+          $this->fieldValue($cluster, 'field_brebo_cluster_code'),
+          $this->fieldValue($cluster, 'field_brebo_status'),
+        ];
+      }
+    }
+
+    $latitude = $this->fieldValue($node, 'field_brebo_latitude');
+    $longitude = $this->fieldValue($node, 'field_brebo_longitude');
+    $has_coordinates = $latitude !== '—' && $longitude !== '—';
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Gebouw bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'project' => [
+          '#type' => 'link',
+          '#title' => $this->t('Nieuw project koppelen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_project'], [
+            'query' => ['building' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'identity' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Gebouwcode'), $this->t('Adres'), $this->t('Plaats'),
+          $this->t('Land'), $this->t('Status'),
+        ],
+        '#rows' => [[
+          $this->fieldValue($node, 'field_brebo_building_code'),
+          $this->fieldValue($node, 'field_brebo_address'),
+          $this->fieldValue($node, 'field_brebo_city'),
+          $this->fieldValue($node, 'field_brebo_country'),
+          $this->fieldValue($node, 'field_brebo_status'),
+        ]],
+      ],
+      'map' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-building-map', $has_coordinates ? 'has-location' : 'needs-location']],
+        'eyebrow' => ['#markup' => '<p class="brebo-eyebrow">' . $this->t('GEBOUWENKAART') . '</p>'],
+        'title' => ['#markup' => '<h2>' . ($has_coordinates
+          ? $this->t('Locatie vastgelegd')
+          : $this->t('Satellietlocatie nog vast te leggen')) . '</h2>'],
+        'description' => ['#markup' => '<p>' . ($has_coordinates
+          ? $this->t('Coördinaten: @lat, @lon. De satellietlaag wordt als afzonderlijke kaartintegratie aangesloten.', ['@lat' => $latitude, '@lon' => $longitude])
+          : $this->t('Vul het adres en straks de geocode in. Daarna toont deze kaart de satellietuitsnede van het gebouw.')) . '</p>'],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Projecten'), $this->t('Clusters'), $this->t('Woningen'), $this->t('Productposities'),
+        ],
+        '#rows' => [[count($project_ids), count($cluster_ids), count($dwelling_ids), count($position_ids)]],
+      ],
+      'projects_heading' => ['#markup' => '<h2>' . $this->t('Projecthistorie') . '</h2>'],
+      'projects' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Project'), $this->t('Code'), $this->t('Projectsoort'),
+          $this->t('Status'), $this->t('Gewijzigd'),
+        ],
+        '#rows' => $project_rows,
+        '#empty' => $this->t('Aan dit gebouw zijn nog geen projecten gekoppeld.'),
+      ],
+      'clusters_heading' => ['#markup' => '<h2>' . $this->t('Gebouwstructuur') . '</h2>'],
+      'clusters' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Cluster'), $this->t('Code'), $this->t('Status')],
+        '#rows' => $cluster_rows,
+        '#empty' => $this->t('Dit gebouw bevat nog geen clusters of gebouwdelen.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => [
+          'node:' . $node->id(),
+          'node_list:brebo_project',
+          'node_list:brebo_cluster',
+          'node_list:brebo_dwelling',
+          'node_list:brebo_product_position',
+        ],
+      ],
+    ];
+  }
+
+  /**
    * Returns the project dashboard title.
    */
   public function projectDashboardTitle(NodeInterface $node): string {
@@ -563,6 +721,25 @@ final class OfficeController extends ControllerBase {
     }
 
     $storage = $this->entityTypeManager()->getStorage('node');
+    $buildings = $node->hasField('field_brebo_building_refs')
+      ? $node->get('field_brebo_building_refs')->referencedEntities()
+      : [];
+    $building_rows = [];
+    foreach ($buildings as $building) {
+      if ($building instanceof NodeInterface) {
+        $building_rows[] = [
+          ['data' => Link::fromTextAndUrl(
+            $building->label(),
+            Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $building->id()])
+          )->toRenderable()],
+          $this->fieldValue($building, 'field_brebo_building_code'),
+          $this->fieldValue($building, 'field_brebo_address'),
+          $this->fieldValue($building, 'field_brebo_city'),
+          $this->fieldValue($building, 'field_brebo_status'),
+        ];
+      }
+    }
+
     $cluster_ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_cluster')
@@ -915,6 +1092,18 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_status'),
         ]],
       ],
+      'buildings_heading' => [
+        '#markup' => '<h2>' . $this->t('Gekoppelde gebouwen') . '</h2>',
+      ],
+      'buildings' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Gebouw'), $this->t('Code'), $this->t('Adres'),
+          $this->t('Plaats'), $this->t('Status'),
+        ],
+        '#rows' => $building_rows,
+        '#empty' => $this->t('Aan dit project is nog geen permanent gebouw gekoppeld.'),
+      ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Projectbesturing') . '</h2>',
       ],
@@ -1075,6 +1264,8 @@ final class OfficeController extends ControllerBase {
 
     $tab_panels = [
       'project' => 'overview',
+      'buildings_heading' => 'overview',
+      'buildings' => 'overview',
       'summary' => 'overview',
       'operating_model_heading' => 'governance',
       'operating_model' => 'governance',

@@ -2325,3 +2325,195 @@ function brebo_office_core_update_11017(): string {
     $updated,
   );
 }
+
+/**
+ * Establishes Building as the permanent spatial core of BREBO Office.
+ */
+function brebo_office_core_update_11018(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_building',
+    'Gebouw',
+    'Permanente bron van waarheid voor locatie, objectstructuur, historie en projecten.',
+    [
+      'field_brebo_building_code' => [
+        'label' => 'Gebouwcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Permanente unieke BREBO-gebouwcode.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_address' => [
+        'label' => 'Adres', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Straat, huisnummer en eventuele toevoeging.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_postal_code' => [
+        'label' => 'Postcode', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Postcode van het gebouw.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_city' => [
+        'label' => 'Plaats', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Plaats waarin het gebouw ligt.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_country' => [
+        'label' => 'Land', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Land waarin het gebouw ligt.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Nederland']],
+      ],
+      'field_brebo_latitude' => [
+        'label' => 'Breedtegraad', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 10, 'scale' => 7],
+        'description' => 'Geografische breedtegraad voor de gebouwenkaart.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_longitude' => [
+        'label' => 'Lengtegraad', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 10, 'scale' => 7],
+        'description' => 'Geografische lengtegraad voor de gebouwenkaart.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_status' => [
+        'label' => 'Gebouwstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele dossierstatus van het gebouw.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+        'default_value' => [['value' => 'Intake']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Gebouwomschrijving', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Kenmerken, afbakening en bijzonderheden van het gebouw.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 9,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_project',
+    'Project',
+    'Tijdelijke opdracht en bestuurlijke scope rondom één of meer gebouwen.',
+    [
+      'field_brebo_building_refs' => [
+        'label' => 'Gebouwen', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Een project kan één of meer gebouwen omvatten; een gebouw behoudt meerdere projecten in de tijd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 6, 'cardinality' => -1,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_cluster',
+    'Cluster',
+    'Gebouwdeel, bouwblok of werkgebied binnen een permanent gebouwmodel.',
+    [
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Het permanente gebouw waartoe dit cluster behoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 2,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_building content',
+        'edit own brebo_building content',
+        'edit any brebo_building content',
+        'view brebo_building revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $created = 0;
+  $linked = 0;
+
+  foreach ($storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+
+    $address = trim((string) $project->get('field_brebo_location')->value);
+    $building_ids = $address !== ''
+      ? $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_building')
+        ->condition('field_brebo_address', $address)
+        ->execute()
+      : [];
+    $building = $building_ids ? $storage->load(reset($building_ids)) : NULL;
+
+    if (!$building instanceof \Drupal\node\NodeInterface) {
+      $parts = array_map('trim', explode(',', $address));
+      $city = count($parts) > 1 ? (string) end($parts) : 'Nog vast te stellen';
+      $project_code = trim((string) $project->get('field_brebo_project_code')->value);
+      $building = \Drupal\node\Entity\Node::create([
+        'type' => 'brebo_building',
+        'title' => $project->label(),
+        'field_brebo_building_code' => substr('GB-' . ($project_code ?: $project->id()), 0, 32),
+        'field_brebo_address' => $address ?: $project->label(),
+        'field_brebo_city' => $city,
+        'field_brebo_country' => 'Nederland',
+        'field_brebo_status' => 'Intake',
+        'field_brebo_description' => 'Automatisch aangemaakt vanuit bestaand project door update 11018.',
+        'uid' => $project->getOwnerId(),
+        'status' => 1,
+      ]);
+      $building->save();
+      $created++;
+    }
+
+    $project->set('field_brebo_building_refs', [['target_id' => $building->id()]]);
+    $project->setNewRevision(TRUE);
+    $project->setRevisionLogMessage('Gebouwrelatie toegevoegd door update 11018.');
+    $project->save();
+    $linked++;
+
+    $cluster_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_cluster')
+      ->condition('field_brebo_project_ref.target_id', $project->id())
+      ->execute();
+    foreach ($storage->loadMultiple($cluster_ids) as $cluster) {
+      if ($cluster instanceof \Drupal\node\NodeInterface) {
+        $cluster->set('field_brebo_building_ref', ['target_id' => $building->id()]);
+        $cluster->setNewRevision(TRUE);
+        $cluster->setRevisionLogMessage('Onder permanent gebouw geplaatst door update 11018.');
+        $cluster->save();
+      }
+    }
+  }
+
+  return sprintf(
+    'Gebouwenkaartotheek gefundeerd: %d gebouw(en) aangemaakt en %d project(en) gekoppeld.',
+    $created,
+    $linked,
+  );
+}
+
