@@ -1877,6 +1877,7 @@ final class OfficeController extends ControllerBase {
       ],
       'communication_summary' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-comm-view'], 'data-brebo-comm-view' => 'overview'],
         '#header' => [
           $this->t('Contactmomenten'), $this->t('Open reacties'),
           $this->t('Termijn verlopen'), $this->t('Geregistreerde financiële impact'),
@@ -1887,10 +1888,10 @@ final class OfficeController extends ControllerBase {
           $communication_overdue,
           $this->money($communication_financial),
         ]],
-        '#access' => $communication_view === 'overview',
       ],
       'communications' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-comm-view'], 'data-brebo-comm-view' => 'contacts'],
         '#header' => [
           $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
           $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
@@ -1899,10 +1900,10 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $communication_rows,
         '#empty' => $this->t('Nog geen relevante communicatie aan dit projectdossier gekoppeld.'),
-        '#access' => $communication_view === 'contacts',
       ],
       'communication_followup' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-comm-view'], 'data-brebo-comm-view' => 'followup'],
         '#header' => [
           $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
           $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
@@ -1911,10 +1912,10 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $communication_followup_rows,
         '#empty' => $this->t('Geen openstaande communicatie of reacties.'),
-        '#access' => $communication_view === 'followup',
       ],
       'communication_processing' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-comm-view'], 'data-brebo-comm-view' => 'processing'],
         '#header' => [
           $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
           $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
@@ -1923,10 +1924,10 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $communication_processing_rows,
         '#empty' => $this->t('Geen opnamen of communicatie wachten op verwerking.'),
-        '#access' => $communication_view === 'processing',
       ],
       'communication_review' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-comm-view'], 'data-brebo-comm-view' => 'review'],
         '#header' => [
           $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
           $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
@@ -1935,15 +1936,16 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $communication_review_rows,
         '#empty' => $this->t('Geen communicatie wacht op menselijke controle of vaststelling.'),
-        '#access' => $communication_view === 'review',
       ],
       'communication_principle' => [
         '#type' => 'container',
-        '#attributes' => ['class' => ['messages', 'messages--status']],
+        '#attributes' => [
+          'class' => ['messages', 'messages--status', 'brebo-comm-view'],
+          'data-brebo-comm-view' => 'overview review',
+        ],
         'text' => [
           '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> iedere relevante communicatie wordt gekoppeld aan het object, besluit, risico of resultaat waarop zij betrekking heeft en blijft onderdeel van het controleerbare project- en gebouwdossier.'),
         ],
-        '#access' => in_array($communication_view, ['overview', 'review'], TRUE),
       ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Projectbesturing') . '</h2>',
