@@ -1005,9 +1005,15 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_office_core.communication_channels'),
           '#attributes' => ['class' => ['button']],
         ],
-        'voice' => [
+        'live_voice' => [
           '#type' => 'link',
-          '#title' => $this->t('Voice recording inladen'),
+          '#title' => $this->t('Live opname starten'),
+          '#url' => Url::fromRoute('brebo_office_core.live_voice'),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'voice_upload' => [
+          '#type' => 'link',
+          '#title' => $this->t('Opnamebestand inladen'),
           '#url' => Url::fromRoute('brebo_office_core.voice_intake'),
           '#attributes' => ['class' => ['button']],
         ],
