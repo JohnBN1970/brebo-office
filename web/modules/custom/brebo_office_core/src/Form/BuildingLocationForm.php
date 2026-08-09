@@ -55,22 +55,30 @@ final class BuildingLocationForm extends FormBase {
 
     $results = $form_state->get('pdok_results') ?: [];
     if ($results) {
-      $options = [];
+      $form['results'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-location-results']],
+        'heading' => [
+          '#markup' => '<h2>' . $this->t('Kies de juiste locatie') . '</h2>',
+        ],
+      ];
       foreach ($results as $id => $result) {
-        $options[$id] = $result['label'];
+        $form['results']['result_' . md5((string) $id)] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-location-result']],
+          'label' => [
+            '#markup' => '<strong>' . htmlspecialchars((string) $result['label'], ENT_QUOTES, 'UTF-8') . '</strong>',
+          ],
+          'save' => [
+            '#type' => 'submit',
+            '#value' => $this->t('Deze locatie gebruiken'),
+            '#button_type' => 'primary',
+            '#location' => $result,
+            '#submit' => ['::saveLocation'],
+            '#limit_validation_errors' => [],
+          ],
+        ];
       }
-      $form['location'] = [
-        '#type' => 'radios',
-        '#title' => $this->t('Kies de juiste locatie'),
-        '#options' => $options,
-        '#required' => TRUE,
-      ];
-      $form['save'] = [
-        '#type' => 'submit',
-        '#value' => $this->t('Locatie opslaan'),
-        '#button_type' => 'primary',
-        '#submit' => ['::saveLocation'],
-      ];
     }
 
     $form['cancel'] = [
@@ -128,15 +136,14 @@ final class BuildingLocationForm extends FormBase {
   }
 
   public function saveLocation(array &$form, FormStateInterface $form_state): void {
-    $results = $form_state->get('pdok_results') ?: [];
-    $selected = (string) $form_state->getValue('location');
-    if (!$this->building instanceof NodeInterface || !isset($results[$selected])) {
-      $this->messenger()->addError($this->t('Kies eerst een geldige locatie.'));
+    $trigger = $form_state->getTriggeringElement();
+    $location = $trigger['#location'] ?? NULL;
+    if (!$this->building instanceof NodeInterface || !is_array($location)) {
+      $this->messenger()->addError($this->t('De gekozen locatie kon niet worden verwerkt. Zoek opnieuw.'));
       $form_state->setRebuild(TRUE);
       return;
     }
 
-    $location = $results[$selected];
     $this->building->set('field_brebo_longitude', $location['longitude']);
     $this->building->set('field_brebo_latitude', $location['latitude']);
     $this->building->setNewRevision(TRUE);
