@@ -2920,6 +2920,42 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
+    $active_user_rows = [];
+    $database = \Drupal::database();
+    if ($database->schema()->tableExists('brebo_calculation_presence')) {
+      $now = \Drupal::time()->getRequestTime();
+      $database->merge('brebo_calculation_presence')
+        ->key([
+          'calculation_id' => (int) $node->id(),
+          'uid' => (int) $this->currentUser()->id(),
+        ])
+        ->fields(['last_seen' => $now])
+        ->execute();
+      $database->delete('brebo_calculation_presence')
+        ->condition('last_seen', $now - 86400, '<')
+        ->execute();
+
+      $presence_query = $database->select('brebo_calculation_presence', 'p');
+      $presence_query->leftJoin('users_field_data', 'u', 'u.uid = p.uid AND u.langcode = :langcode', [
+        ':langcode' => \Drupal::languageManager()->getDefaultLanguage()->getId(),
+      ]);
+      $presence_query->fields('p', ['uid', 'last_seen']);
+      $presence_query->addField('u', 'name', 'user_name');
+      $presence_query->condition('p.calculation_id', (int) $node->id());
+      $presence_query->condition('p.last_seen', $now - 300, '>=');
+      $presence_query->orderBy('p.last_seen', 'DESC');
+      foreach ($presence_query->execute() as $presence) {
+        $user_name = trim((string) ($presence->user_name ?? ''));
+        $active_user_rows[] = [
+          $user_name !== '' ? $user_name : (string) $this->t('Onbekend'),
+          (int) $presence->uid === (int) $this->currentUser()->id()
+            ? (string) $this->t('Uzelf')
+            : (string) $this->t('Actief'),
+          \Drupal::service('date.formatter')->format((int) $presence->last_seen, 'short'),
+        ];
+      }
+    }
+
     $activity_items = [];
     $activity_sources = array_merge([$node], array_values($components), array_values($elements), array_values($lines));
     foreach ($activity_sources as $activity_node) {
@@ -3061,6 +3097,27 @@ final class OfficeController extends ControllerBase {
           '#type' => 'table',
           '#header' => [$this->t('Kostensoort'), $this->t('Actuele prognose')],
           '#rows' => $category_rows,
+        ],
+        'active_users_heading' => [
+          '#markup' => '<h2>' . $this->t('Actieve gebruikers') . '</h2>',
+        ],
+        'active_users' => [
+          '#type' => 'table',
+          '#attributes' => ['class' => ['brebo-calculation-active-users']],
+          '#header' => [
+            $this->t('Gebruiker'),
+            $this->t('Status'),
+            $this->t('Laatst gezien'),
+          ],
+          '#rows' => $active_user_rows,
+          '#empty' => $this->t('Nog geen actieve gebruikers geregistreerd.'),
+        ],
+        'collaboration_notice' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['messages', 'messages--status']],
+          'text' => [
+            '#markup' => $this->t('Gelijktijdig werken is beveiligd: opslaan stopt wanneer een recept of calculatieregel na het openen door een andere gebruiker is gewijzigd.'),
+          ],
         ],
         'history_heading' => [
           '#markup' => '<h2>' . $this->t('Recente dossieractiviteit') . '</h2>',
