@@ -2928,11 +2928,11 @@ final class OfficeController extends ControllerBase {
         ],
         'overview' => [
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Calculatie'),
-          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'true', 'data-brebo-tab' => 'calc-overview', 'class' => ['is-active']],
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-overview'],
         ],
         'lines' => [
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Regels'),
-          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-lines'],
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'true', 'data-brebo-tab' => 'calc-lines', 'class' => ['is-active']],
         ],
         'components' => [
           '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Hoofdcomponenten'),
