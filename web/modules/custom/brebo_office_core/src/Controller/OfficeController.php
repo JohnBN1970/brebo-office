@@ -2719,6 +2719,7 @@ final class OfficeController extends ControllerBase {
     $attention_line_count = 0;
     $blocked_line_count = 0;
     $category_totals = [];
+    $line_markup_total = 0.0;
 
 
     foreach ($elements as $element) {
@@ -2731,6 +2732,13 @@ final class OfficeController extends ControllerBase {
       $forecast_breakdown = [];
 
       foreach ($lines_by_element[(int) $element->id()] ?? [] as $line) {
+        $line_type = $line->hasField('field_brebo_line_type')
+          ? (string) ($line->get('field_brebo_line_type')->value ?? 'Calculatieregel')
+          : 'Calculatieregel';
+        if ($line_type === 'Notitie') {
+          continue;
+        }
+
         $quantity = (float) $line->get('field_brebo_contract_quantity')->value;
         $actual_raw = $line->get('field_brebo_actual_quantity')->value;
         $post_type = $this->fieldValue($line, 'field_brebo_line_post_type');
@@ -2769,6 +2777,7 @@ final class OfficeController extends ControllerBase {
           [$category => $forecast_direct],
           $adjustments_by_target[(int) $line->id()] ?? [],
         );
+        $line_markup_total += $forecast_line_total - $forecast_direct;
 
         $contract_current += $contract_line_total;
         $forecast_current += $forecast_line_total;
@@ -3040,15 +3049,20 @@ final class OfficeController extends ControllerBase {
       ? (float) ($node->get('field_brebo_com_adjustment')->value ?? 0)
       : 0.0;
 
-    $general_cost = $forecast_total * $general_cost_pct / 100;
-    $risk_cost = $forecast_total * $risk_pct / 100;
-    $profit_cost = $forecast_total * $profit_pct / 100;
-    $gross_profit = $general_cost + $risk_cost + $profit_cost + $commercial_adjustment;
-    $sales_price = $forecast_total + $gross_profit;
+    // Regelopslagen zitten al in de actuele prognose. Haal ze eerst uit
+    // de grondslag, zodat ze wel als bruto winst tellen maar nooit dubbel.
+    $direct_cost_total = $forecast_total - $line_markup_total;
+    $general_cost = $direct_cost_total * $general_cost_pct / 100;
+    $risk_cost = $direct_cost_total * $risk_pct / 100;
+    $profit_cost = $direct_cost_total * $profit_pct / 100;
+    $tail_cost_total = $general_cost + $risk_cost + $profit_cost + $commercial_adjustment;
+    $gross_profit = $line_markup_total + $tail_cost_total;
+    $sales_price = $direct_cost_total + $gross_profit;
     $margin_percent = $sales_price > 0.0
       ? ($gross_profit / $sales_price) * 100
       : 0.0;
     $tail_cost_rows = [
+      [$this->t('Bruto winst uit regelopslagen'), '—', $this->money($line_markup_total)],
       [$this->t('Algemene kosten'), number_format($general_cost_pct, 2, ',', '.') . '%', $this->money($general_cost)],
       [$this->t('Projectrisico'), number_format($risk_pct, 2, ',', '.') . '%', $this->money($risk_cost)],
       [$this->t('Winst'), number_format($profit_pct, 2, ',', '.') . '%', $this->money($profit_cost)],
@@ -3221,7 +3235,7 @@ final class OfficeController extends ControllerBase {
           '#type' => 'container',
           '#attributes' => ['class' => ['messages', 'messages--status']],
           'text' => [
-            '#markup' => $this->t('Bruto winst bestaat uit de vastgestelde staartkosten. De brutomarge is de bruto winst gedeeld door de berekende verkoopprijs.'),
+            '#markup' => $this->t('Bruto winst bestaat uit regelopslagen plus de vastgestelde staartkosten. Notitieregels tellen nooit financieel mee; verdisconteerde regels blijven intern volledig meetellen.'),
           ],
         ],
       ],
@@ -3274,7 +3288,7 @@ final class OfficeController extends ControllerBase {
         '#type' => 'table',
         '#header' => [$this->t('Directe kostprijs'), $this->t('Bruto winst'), $this->t('Verkoopprijs'), $this->t('Brutomarge')],
         '#rows' => [[
-          $this->money($forecast_total),
+          $this->money($direct_cost_total),
           $this->money($gross_profit),
           $this->money($sales_price),
           number_format($margin_percent, 1, ',', '.') . '%',
