@@ -1,0 +1,7 @@
+brebo_article.search:
+  path: '/office/api/artikelen'
+  defaults:
+    _controller: '\Drupal\brebo_article\Controller\ArticleSearchController::search'
+  requirements:
+    _permission: 'access brebo articles'
+  methods: [GET]
