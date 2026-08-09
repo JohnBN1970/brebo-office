@@ -315,3 +315,12 @@ brebo_office_core.contacts:
     bundle: 'brebo_contact'
   requirements:
     _permission: 'access content'
+
+
+brebo_office_core.settings:
+  path: '/office/instellingen'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\OfficeSettingsForm'
+    _title: 'Instellingen'
+  requirements:
+    _permission: 'administer site configuration'
