@@ -116,6 +116,10 @@ final class CalculationGridForm extends FormBase {
     }
 
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => $node->id()];
+    $form['calculation_version_token'] = [
+      '#type' => 'hidden',
+      '#value' => $this->calculationVersionToken((int) $node->id()),
+    ];
     $form['intro'] = [
       '#markup' => '<p class="brebo-calc-grid__intro"><strong>Receptenwerkbank:</strong> ieder recept levert een resultaat op een technische zone; de werkregels zijn de ingrediënten.</p>',
     ];
@@ -482,6 +486,18 @@ final class CalculationGridForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    $calculation_id = (int) $form_state->getValue('calculation_id');
+    $submitted_token = (string) $form_state->getValue('calculation_version_token');
+    if ($calculation_id > 0
+      && $submitted_token !== ''
+      && !hash_equals($submitted_token, $this->calculationVersionToken($calculation_id))) {
+      $form_state->setErrorByName(
+        'calculation_version_token',
+        $this->t('Deze calculatie is na het openen door iemand anders gewijzigd. Uw invoer is niet opgeslagen. Vernieuw de pagina en controleer de nieuwste versie.')
+      );
+      return;
+    }
+
     foreach ($form_state->getValue('grid', []) as $id => $values) {
       if ((float) ($values['quantity'] ?? 0) < 0) {
         $form_state->setErrorByName("grid][$id][quantity", $this->t('Hoeveelheid mag niet negatief zijn.'));
@@ -634,6 +650,51 @@ final class CalculationGridForm extends FormBase {
       '@count calculatieonderdelen opgeslagen.',
     ));
     $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculation_id], ['fragment' => 'tab-calc-lines']);
+  }
+
+
+  /**
+   * Creates a stable version token for the complete editable calculation.
+   */
+  private function calculationVersionToken(int $calculation_id): string {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $entity_ids = [$calculation_id];
+
+    $component_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_component')
+      ->condition('field_brebo_calculation_ref.target_id', $calculation_id)
+      ->execute();
+    $element_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_calc_element')
+      ->condition('field_brebo_calculation_ref.target_id', $calculation_id)
+      ->execute();
+    $line_ids = $element_ids
+      ? $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_calc_line')
+        ->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')
+        ->execute()
+      : [];
+
+    $entity_ids = array_values(array_unique(array_map('intval', array_merge(
+      $entity_ids,
+      array_values($component_ids),
+      array_values($element_ids),
+      array_values($line_ids),
+    ))));
+    sort($entity_ids, SORT_NUMERIC);
+
+    $versions = [];
+    foreach ($storage->loadMultiple($entity_ids) as $entity) {
+      if ($entity instanceof NodeInterface) {
+        $versions[(int) $entity->id()] = $entity->getChangedTime();
+      }
+    }
+    ksort($versions, SORT_NUMERIC);
+
+    return hash('sha256', json_encode($versions, JSON_THROW_ON_ERROR));
   }
 
 
