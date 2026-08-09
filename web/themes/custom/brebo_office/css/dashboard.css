@@ -96,7 +96,11 @@
 
 /* BREBO calculation workspace prototype. */
 .brebo-calculation-workspace { padding-bottom: 92px; }
-.brebo-calculation-tabs { position: sticky; top: 64px; z-index: 12; margin-bottom: 18px; background: rgb(248 246 249 / 96%); backdrop-filter: blur(10px); }
+.brebo-calculation-tabs { position: sticky; top: 64px; z-index: 12; margin-bottom: 24px; background: rgb(248 246 249 / 98%); box-shadow: 0 8px 14px rgb(37 17 45 / 8%); backdrop-filter: blur(10px); isolation: isolate; }
+.brebo-calculation-dashboard { padding-top: 2px; }
+.brebo-calculation-dashboard__identity { margin: 0 0 18px; padding: 2px 0 0; line-height: 1.45; }
+.brebo-calculation-history td:first-child { white-space: nowrap; }
+.brebo-calculation-history td:nth-child(4) { font-weight: 700; }
 .brebo-calc-panel { min-width: 0; }
 .brebo-calc-panel h2 { margin: 22px 0 10px; }
 .brebo-calc-identity,
