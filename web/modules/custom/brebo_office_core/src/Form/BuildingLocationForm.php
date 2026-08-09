@@ -74,6 +74,7 @@ final class BuildingLocationForm extends FormBase {
             '#value' => $this->t('Deze locatie gebruiken'),
             '#button_type' => 'primary',
             '#location' => $result,
+            '#building_id' => (int) $node->id(),
             '#submit' => ['::saveLocation'],
             '#limit_validation_errors' => [],
           ],
@@ -138,20 +139,24 @@ final class BuildingLocationForm extends FormBase {
   public function saveLocation(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $location = $trigger['#location'] ?? NULL;
-    if (!$this->building instanceof NodeInterface || !is_array($location)) {
+    $building_id = (int) ($trigger['#building_id'] ?? 0);
+    $building = $building_id
+      ? \Drupal::entityTypeManager()->getStorage('node')->load($building_id)
+      : NULL;
+    if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building' || !is_array($location)) {
       $this->messenger()->addError($this->t('De gekozen locatie kon niet worden verwerkt. Zoek opnieuw.'));
       $form_state->setRebuild(TRUE);
       return;
     }
 
-    $this->building->set('field_brebo_longitude', $location['longitude']);
-    $this->building->set('field_brebo_latitude', $location['latitude']);
-    $this->building->setNewRevision(TRUE);
-    $this->building->setRevisionLogMessage('Gebouwlocatie bepaald via PDOK Locatieserver: ' . $location['label']);
-    $this->building->save();
+    $building->set('field_brebo_longitude', $location['longitude']);
+    $building->set('field_brebo_latitude', $location['latitude']);
+    $building->setNewRevision(TRUE);
+    $building->setRevisionLogMessage('Gebouwlocatie bepaald via PDOK Locatieserver: ' . $location['label']);
+    $building->save();
 
     $this->messenger()->addStatus($this->t('Locatie opgeslagen: @location', ['@location' => $location['label']]));
-    $form_state->setRedirect('brebo_office_core.building_dashboard', ['node' => $this->building->id()]);
+    $form_state->setRedirect('brebo_office_core.building_dashboard', ['node' => $building->id()]);
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
