@@ -378,3 +378,45 @@
   .brebo-calc-new-recipe .details-wrapper { grid-template-columns: 1fr; }
   .brebo-calc-new-recipe .form-item-description { grid-column: auto; }
 }
+
+
+/* Inline recipe location and output controls. */
+.brebo-recipe-heading {
+  grid-template-columns: minmax(430px, 1.5fr) minmax(220px, 1fr) 125px 90px repeat(3, minmax(125px, auto));
+}
+.brebo-recipe-heading > div {
+  min-width: 0;
+}
+.brebo-recipe-heading > div:first-child {
+  display: grid;
+  grid-template-columns: 130px minmax(260px, 1fr);
+  gap: 18px;
+  align-items: center;
+}
+.brebo-recipe-heading .form-item {
+  margin: 0;
+}
+.brebo-recipe-heading label {
+  display: block;
+  margin-bottom: 4px;
+  color: rgb(255 255 255 / 72%);
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+}
+.brebo-recipe-heading input,
+.brebo-recipe-heading select {
+  width: 100%;
+  min-height: 38px;
+  margin: 0;
+  padding: 7px 8px;
+  border: 1px solid rgb(255 255 255 / 30%);
+  border-radius: 6px;
+  color: #24102d;
+  background: #fff;
+  font: inherit;
+}
+.brebo-recipe-heading input[type="number"] {
+  text-align: right;
+}
