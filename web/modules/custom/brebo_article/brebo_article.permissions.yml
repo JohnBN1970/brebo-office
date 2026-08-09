@@ -1,0 +1,5 @@
+access brebo articles:
+  title: 'BREBO artikelen raadplegen'
+administer brebo articles:
+  title: 'BREBO artikelbeheer beheren'
+  restrict access: true
