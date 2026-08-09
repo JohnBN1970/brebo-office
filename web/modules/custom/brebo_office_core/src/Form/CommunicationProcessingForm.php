@@ -7,6 +7,7 @@ namespace Drupal\brebo_office_core\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
+use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -151,11 +152,16 @@ final class CommunicationProcessingForm extends FormBase {
       '#type' => 'actions',
       '#attributes' => ['class' => ['brebo-processing-workbench__wide']],
     ];
+    $ai_configured = trim((string) Settings::get('brebo_openai_api_key', getenv('BREBO_OPENAI_API_KEY') ?: '')) !== '';
     $form['actions']['start_ai'] = [
       '#type' => 'submit',
       '#name' => 'start_ai',
       '#value' => $this->t('AI-verwerking starten'),
       '#button_type' => 'primary',
+      '#disabled' => !$ai_configured,
+      '#description' => $ai_configured
+        ? $this->t('Maakt een controleerbaar AI-concept; formele vaststelling blijft menselijk.')
+        : $this->t('Niet geconfigureerd. Stel de privésleutel uitsluitend op de server in.'),
     ];
     $form['actions']['save'] = [
       '#type' => 'submit',
