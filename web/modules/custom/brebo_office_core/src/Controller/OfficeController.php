@@ -3027,14 +3027,34 @@ final class OfficeController extends ControllerBase {
       $owner_name = (string) $this->t('Onbekend');
     }
 
-    $sales_raw = $node->hasField('field_brebo_sales_price')
-      ? $node->get('field_brebo_sales_price')->value
-      : NULL;
-    $sales_price = $sales_raw !== NULL && $sales_raw !== '' ? (float) $sales_raw : NULL;
-    $expected_profit = $sales_price !== NULL ? $sales_price - $forecast_total : NULL;
-    $margin_percent = $sales_price !== NULL && $sales_price > 0.0
-      ? ($expected_profit / $sales_price) * 100
-      : NULL;
+    $general_cost_pct = $node->hasField('field_brebo_general_cost_pct')
+      ? (float) ($node->get('field_brebo_general_cost_pct')->value ?? 0)
+      : 0.0;
+    $risk_pct = $node->hasField('field_brebo_risk_pct')
+      ? (float) ($node->get('field_brebo_risk_pct')->value ?? 0)
+      : 0.0;
+    $profit_pct = $node->hasField('field_brebo_profit_pct')
+      ? (float) ($node->get('field_brebo_profit_pct')->value ?? 0)
+      : 0.0;
+    $commercial_adjustment = $node->hasField('field_brebo_commercial_adjustment')
+      ? (float) ($node->get('field_brebo_commercial_adjustment')->value ?? 0)
+      : 0.0;
+
+    $general_cost = $forecast_total * $general_cost_pct / 100;
+    $risk_cost = $forecast_total * $risk_pct / 100;
+    $profit_cost = $forecast_total * $profit_pct / 100;
+    $gross_profit = $general_cost + $risk_cost + $profit_cost + $commercial_adjustment;
+    $sales_price = $forecast_total + $gross_profit;
+    $margin_percent = $sales_price > 0.0
+      ? ($gross_profit / $sales_price) * 100
+      : 0.0;
+    $tail_cost_rows = [
+      [$this->t('Algemene kosten'), number_format($general_cost_pct, 2, ',', '.') . '%', $this->money($general_cost)],
+      [$this->t('Projectrisico'), number_format($risk_pct, 2, ',', '.') . '%', $this->money($risk_cost)],
+      [$this->t('Winst'), number_format($profit_pct, 2, ',', '.') . '%', $this->money($profit_cost)],
+      [$this->t('Commerciële correctie'), '—', $this->money($commercial_adjustment)],
+      [['data' => $this->t('Bruto winst'), 'colspan' => 2], $this->money($gross_profit)],
+    ];
 
     $build = [
       '#attributes' => ['class' => ['brebo-calculation-workspace']],
@@ -3109,8 +3129,8 @@ final class OfficeController extends ControllerBase {
             $this->t('Kostprijs'),
             $this->t('Actuele prognose'),
             $this->t('Verkoopprijs'),
-            $this->t('Verwachte winst'),
-            $this->t('Winstmarge'),
+            $this->t('Bruto winst'),
+            $this->t('Brutomarge'),
             $this->t('Totaaluren'),
             $this->t('Open regels'),
             $this->t('Aandacht'),
@@ -3119,14 +3139,23 @@ final class OfficeController extends ControllerBase {
           '#rows' => [[
             $this->money($contract_total),
             $this->money($forecast_total),
-            $sales_price !== NULL ? $this->money($sales_price) : (string) $this->t('Niet vastgesteld'),
-            $expected_profit !== NULL ? $this->money($expected_profit) : '—',
-            $margin_percent !== NULL ? number_format($margin_percent, 1, ',', '.') . '%' : '—',
+            $this->money($sales_price),
+            $this->money($gross_profit),
+            number_format($margin_percent, 1, ',', '.') . '%',
             number_format($total_budget_hours, 2, ',', '.'),
             $open_line_count,
             $attention_line_count,
             $blocked_line_count,
           ]],
+        ],
+        'tail_cost_heading' => [
+          '#markup' => '<h2>' . $this->t('Staartkosten en bruto winst') . '</h2>',
+        ],
+        'tail_costs' => [
+          '#type' => 'table',
+          '#header' => [$this->t('Onderdeel'), $this->t('Percentage'), $this->t('Bedrag')],
+          '#rows' => $tail_cost_rows,
+          '#attributes' => ['class' => ['brebo-calculation-tail-costs']],
         ],
         'category_heading' => [
           '#markup' => '<h2>' . $this->t('Kostprijs per kostensoort') . '</h2>',
