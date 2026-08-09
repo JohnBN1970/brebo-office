@@ -429,7 +429,7 @@ final class OfferVersionForm extends FormBase {
   /**
    * Loads financial calculation lines that may be shown externally.
    *
-   * @return array<int, array{description: string, quantity: string, unit: string, suggested_type: string}>
+   * @return array<int, array{description: string, quantity: string, unit: string, suggested_type: string, unit_price: float, amount: float}>
    *   Offerable lines keyed by calculation-line node ID.
    */
   private function loadOfferableCalculationLines(): array {
@@ -456,17 +456,43 @@ final class OfferVersionForm extends FormBase {
       ->sort('nid', 'ASC')
       ->execute();
 
+    $source_lines = $storage->loadMultiple($line_ids);
+    $direct_total = 0.0;
+    foreach ($source_lines as $source_line) {
+      if ($source_line instanceof NodeInterface) {
+        $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value
+          ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
+      }
+    }
+    $tail_pct = 0.0;
+    foreach (['field_brebo_general_cost_pct', 'field_brebo_risk_pct', 'field_brebo_profit_pct'] as $field_name) {
+      if ($this->calculation->hasField($field_name)) {
+        $tail_pct += (float) ($this->calculation->get($field_name)->value ?? 0);
+      }
+    }
+    $commercial_adjustment = $this->calculation->hasField('field_brebo_com_adjustment')
+      ? (float) ($this->calculation->get('field_brebo_com_adjustment')->value ?? 0)
+      : 0.0;
+    $sales_total = max(0.0, $direct_total * (1 + ($tail_pct / 100)) + $commercial_adjustment);
+    $factor = $direct_total > 0.0 ? $sales_total / $direct_total : 0.0;
+
     $lines = [];
-    foreach ($storage->loadMultiple($line_ids) as $line) {
+    foreach ($source_lines as $line) {
       if (!$line instanceof NodeInterface) {
         continue;
       }
       $source_type = (string) ($line->get('field_brebo_line_post_type')->value ?? 'Vaste post');
+      $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
+      $direct_cost = (float) ($line->get('field_brebo_direct_cost')->value
+        ?? ($quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0)));
+      $amount = round($direct_cost * $factor, 2);
       $lines[(int) $line->id()] = [
         'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
         'quantity' => (string) ($line->get('field_brebo_contract_quantity')->value ?? ''),
         'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
         'suggested_type' => $this->mapOfferPostType($source_type),
+        'unit_price' => $quantity > 0.0 ? round($amount / $quantity, 4) : $amount,
+        'amount' => $amount,
       ];
     }
     return $lines;
@@ -571,8 +597,11 @@ final class OfferVersionForm extends FormBase {
         'field_brebo_offer_post_desc' => $line['description'],
         'field_brebo_offer_quantity' => $line['quantity'] !== '' ? $line['quantity'] : NULL,
         'field_brebo_offer_unit' => $line['unit'] !== '' ? $line['unit'] : NULL,
+        'field_brebo_offer_unit_price' => number_format($line['unit_price'], 4, '.', ''),
+        'field_brebo_offer_amount' => number_format($line['amount'], 4, '.', ''),
         'field_brebo_in_offer_total' => $selected === 'Optie' ? 0 : 1,
         'field_brebo_vat_treatment' => $form_state->getValue('vat_default'),
+        'field_brebo_vat_rate' => $form_state->getValue('vat_default') === 'Belast' ? '21.0000' : '0.0000',
         'field_brebo_offer_post_status' => 'Aangeboden',
         'field_brebo_offer_post_notes' => 'Broncalculatieregel: ' . $line_id . '. Interne kostprijzen zijn niet gekopieerd.',
         'status' => 1,
@@ -588,7 +617,7 @@ final class OfferVersionForm extends FormBase {
       '@version' => $version,
       '@count' => count($offer_lines),
     ]));
-    $form_state->setRedirect('entity.node.edit_form', ['node' => $offer->id()]);
+    $form_state->setRedirect('brebo_office_core.offer_preview', ['node' => $offer->id()]);
   }
 
 }
