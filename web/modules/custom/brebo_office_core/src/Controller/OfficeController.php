@@ -842,6 +842,169 @@ final class OfficeController extends ControllerBase {
   }
 
   /**
+   * Builds the cross-project communication inbox.
+   */
+  public function communicationDashboard(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_communication')
+      ->sort('field_brebo_comm_datetime', 'DESC')
+      ->execute();
+
+    $today = date('Y-m-d');
+    $rows = [];
+    $urgent_rows = [];
+    $open = 0;
+    $overdue = 0;
+    $unassigned = 0;
+    $confirmation_pending = 0;
+    $financial_impact = 0.0;
+
+    foreach ($storage->loadMultiple($ids) as $communication) {
+      if (!$communication instanceof NodeInterface) {
+        continue;
+      }
+
+      $project = $communication->get('field_brebo_project_ref')->entity;
+      $target = $communication->get('field_brebo_comm_scope_target')->entity;
+      $owner = $communication->get('field_brebo_responsible_user')->entity;
+      $status = $this->fieldValue($communication, 'field_brebo_comm_status');
+      $due = $this->fieldValue($communication, 'field_brebo_due_date');
+      $response_required = (bool) $communication->get('field_brebo_response_required')->value;
+      $written_required = (bool) $communication->get('field_brebo_written_required')->value;
+      $written_received = (bool) $communication->get('field_brebo_written_received')->value;
+      $is_open = $response_required
+        && !in_array($status, ['Beantwoord', 'Bevestigd', 'Vervallen', 'Gesloten'], TRUE);
+      $is_overdue = $is_open && $due !== '—' && $due < $today;
+      $is_unassigned = $is_open && !$owner;
+      $is_confirmation_pending = $written_required && !$written_received
+        && !in_array($status, ['Vervallen', 'Gesloten'], TRUE);
+
+      $open += $is_open ? 1 : 0;
+      $overdue += $is_overdue ? 1 : 0;
+      $unassigned += $is_unassigned ? 1 : 0;
+      $confirmation_pending += $is_confirmation_pending ? 1 : 0;
+      $financial_impact += (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
+
+      if ($is_overdue || $is_confirmation_pending) {
+        $progress = [
+          'signal' => 'danger',
+          'label' => $is_overdue
+            ? (string) $this->t('Termijn verlopen')
+            : (string) $this->t('Bevestiging ontbreekt'),
+        ];
+      }
+      elseif ($is_open) {
+        $progress = ['signal' => 'attention', 'label' => (string) $this->t('Actie vereist')];
+      }
+      elseif (in_array($status, ['Beantwoord', 'Bevestigd', 'Gesloten'], TRUE)) {
+        $progress = ['signal' => 'good', 'label' => (string) $this->t('Afgehandeld')];
+      }
+      else {
+        $progress = ['signal' => 'neutral', 'label' => (string) $this->t('Vastgelegd')];
+      }
+
+      $party = $this->fieldValue($communication, 'field_brebo_external_party');
+      $contact = $this->fieldValue($communication, 'field_brebo_external_contact');
+      $impact = [];
+      $financial = (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
+      $days = (int) ($communication->get('field_brebo_schedule_days')->value ?? 0);
+      if ($financial !== 0.0) {
+        $impact[] = $this->money($financial);
+      }
+      if ($days !== 0) {
+        $impact[] = (string) $this->t('@days dag(en)', ['@days' => $days]);
+      }
+      $impact_label = $impact ? implode(' · ', $impact) : '—';
+
+      $row = [
+        $this->signalCell($progress),
+        ['data' => $project instanceof NodeInterface
+          ? Link::fromTextAndUrl(
+            $project->label(),
+            Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()])
+          )->toRenderable()
+          : '—'],
+        $this->fieldValue($communication, 'field_brebo_comm_datetime'),
+        $this->fieldValue($communication, 'field_brebo_comm_direction'),
+        ($party !== '—' || $contact !== '—') ? trim($party . ' · ' . $contact, ' ·—') : '—',
+        ['data' => Link::fromTextAndUrl(
+          $this->fieldValue($communication, 'field_brebo_comm_subject'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $communication->id()])
+        )->toRenderable()],
+        $target instanceof NodeInterface ? $target->label() : '—',
+        $due,
+        $status,
+        $impact_label,
+        $owner ? $owner->label() : '—',
+      ];
+      $rows[] = $row;
+      if ($is_overdue || $is_confirmation_pending || $is_unassigned) {
+        $urgent_rows[] = $row;
+      }
+    }
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'add' => [
+          '#type' => 'link',
+          '#title' => $this->t('Communicatie vastleggen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication']),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Contactmomenten'), $this->t('Open reacties'),
+          $this->t('Termijn verlopen'), $this->t('Niet toegewezen'),
+          $this->t('Bevestiging ontbreekt'), $this->t('Financiële impact'),
+        ],
+        '#rows' => [[
+          count($rows), $open, $overdue, $unassigned,
+          $confirmation_pending, $this->money($financial_impact),
+        ]],
+      ],
+      'urgent_heading' => [
+        '#markup' => '<h2>' . $this->t('Directe aandacht') . '</h2>',
+      ],
+      'urgent' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Signaal'), $this->t('Project'), $this->t('Datum'),
+          $this->t('Richting'), $this->t('Partij/contact'), $this->t('Onderwerp'),
+          $this->t('Scopeobject'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Impact'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $urgent_rows,
+        '#empty' => $this->t('Er zijn geen verlopen, onbevestigde of niet-toegewezen communicatieacties.'),
+      ],
+      'all_heading' => [
+        '#markup' => '<h2>' . $this->t('Volledig communicatiedossier') . '</h2>',
+      ],
+      'all' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Signaal'), $this->t('Project'), $this->t('Datum'),
+          $this->t('Richting'), $this->t('Partij/contact'), $this->t('Onderwerp'),
+          $this->t('Scopeobject'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Impact'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $rows,
+        '#empty' => $this->t('Nog geen communicatie vastgelegd.'),
+      ],
+      '#cache' => [
+        'contexts' => ['user.permissions', 'user'],
+        'tags' => ['node_list:brebo_communication', 'node_list:brebo_project'],
+        'max-age' => 300,
+      ],
+    ];
+  }
+
+  /**
    * Returns the project dashboard title.
    */
   public function projectDashboardTitle(NodeInterface $node): string {
