@@ -334,3 +334,11 @@ brebo_office_core.communication_channels:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.voice_intake:
+  path: '/office/communicatie/voice-inladen'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\VoiceCommunicationIntakeForm'
+    _title: 'Voice recording inladen'
+  requirements:
+    _permission: 'create brebo_communication content'
+
