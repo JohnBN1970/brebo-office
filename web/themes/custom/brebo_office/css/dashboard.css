@@ -420,3 +420,19 @@
 .brebo-recipe-heading input[type="number"] {
   text-align: right;
 }
+
+
+/* Keep the complete recipe summary on one convincing header row. */
+.brebo-recipe-heading {
+  grid-template-columns: minmax(520px, 1.6fr) minmax(270px, 1fr) 130px 95px repeat(3, minmax(130px, auto));
+}
+.brebo-recipe-heading__identity {
+  display: grid;
+  grid-template-columns: 135px minmax(320px, 1fr);
+  gap: 18px;
+  align-items: center;
+  min-width: 0;
+}
+.brebo-recipe-heading > .brebo-recipe-heading__identity {
+  display: grid;
+}
