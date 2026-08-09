@@ -4087,6 +4087,39 @@ function brebo_office_core_update_11029(): string {
   );
 
   $storage = \Drupal::entityTypeManager()->getStorage('node');
+
+  // Every building receives a stable root zone. More detailed façade, bay,
+  // level or dwelling zones can be added below it without changing recipes.
+  $building_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_building')
+    ->execute();
+  foreach ($storage->loadMultiple($building_ids) as $building) {
+    if (!$building instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $root_zone_ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_building_zone')
+      ->condition('field_brebo_building_ref.target_id', $building->id())
+      ->condition('field_brebo_zone_code', 'GEBOUW')
+      ->execute();
+    if (!$root_zone_ids) {
+      $root_zone = $storage->create([
+        'type' => 'brebo_building_zone',
+        'title' => $building->label() . ' — geheel gebouw',
+        'status' => 1,
+        'uid' => $building->getOwnerId(),
+        'field_brebo_building_ref' => ['target_id' => $building->id()],
+        'field_brebo_zone_code' => 'GEBOUW',
+        'field_brebo_zone_type' => 'Gebouw',
+        'field_brebo_status' => 'Ingericht',
+        'field_brebo_description' => 'Vaste technische hoofdzone voor werkzaamheden die het gehele gebouw betreffen.',
+      ]);
+      $root_zone->save();
+    }
+  }
+
   $element_ids = $storage->getQuery()
     ->accessCheck(FALSE)
     ->condition('type', 'brebo_calc_element')
