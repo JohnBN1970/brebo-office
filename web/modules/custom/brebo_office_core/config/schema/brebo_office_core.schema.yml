@@ -1,0 +1,51 @@
+brebo_office_core.settings:
+  type: config_object
+  label: 'BREBO Office instellingen'
+  mapping:
+    organization:
+      type: mapping
+      label: 'Bedrijfsidentiteit'
+      mapping:
+        trade_name: { type: string, label: 'Handelsnaam' }
+        legal_name: { type: string, label: 'Statutaire naam' }
+        registration_number: { type: string, label: 'KVK-nummer' }
+        general_email: { type: email, label: 'Algemeen e-mailadres' }
+        general_phone: { type: string, label: 'Algemeen telefoonnummer' }
+        address: { type: string, label: 'Vestigingsadres' }
+    project:
+      type: mapping
+      label: 'Projectstandaarden'
+      mapping:
+        default_project_status: { type: string, label: 'Standaard projectstatus' }
+        response_days: { type: integer, label: 'Reactietermijn' }
+        warning_days: { type: integer, label: 'Waarschuwingstermijn' }
+        project_code_prefix: { type: string, label: 'Projectcodeprefix' }
+        timezone: { type: string, label: 'Tijdzone' }
+    finance:
+      type: mapping
+      label: 'Financiële beleidsgrenzen'
+      mapping:
+        default_margin_percent: { type: float, label: 'Standaard marge' }
+        vat_high_percent: { type: float, label: 'Btw hoog' }
+        vat_low_percent: { type: float, label: 'Btw laag' }
+        management_warning_amount: { type: float, label: 'Directiesignaalbedrag' }
+    mail:
+      type: mapping
+      label: 'Mailinrichting'
+      mapping:
+        domain: { type: string, label: 'Maildomein' }
+        sender_name: { type: string, label: 'Afzendernaam' }
+        sender_address: { type: email, label: 'Afzenderadres' }
+        project_inbox: { type: email, label: 'Projectinbox' }
+        migration_status: { type: string, label: 'Migratiestatus' }
+        automatic_dossier_linking: { type: boolean, label: 'Automatische dossierkoppeling' }
+    ai:
+      type: mapping
+      label: 'AI-mandaat'
+      mapping:
+        operating_mode: { type: string, label: 'Werkwijze' }
+        financial_limit: { type: float, label: 'Financieel mandaat' }
+        create_internal_actions: { type: boolean, label: 'Interne acties aanmaken' }
+        send_external_messages: { type: boolean, label: 'Extern verzenden' }
+        change_canonical_rules: { type: boolean, label: 'Canonieke regels wijzigen' }
+        audit_retention_days: { type: integer, label: 'Bewaartermijn audittrail' }
