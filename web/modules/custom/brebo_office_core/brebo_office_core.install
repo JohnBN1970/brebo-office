@@ -2688,3 +2688,151 @@ function brebo_office_core_update_11019(): string {
   );
 }
 
+
+
+
+/**
+ * Creates permanent technical building zones and connects them to project scope.
+ */
+function brebo_office_core_update_11020(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_building_zone',
+    'Technische gebouwzone',
+    'Permanent technisch werkobject, zoals gevel, gevelbeuk, gevelcel, dakvlak of galerijzone.',
+    [
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+        ],
+        'description' => 'Permanent gebouw waartoe deze technische zone behoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_parent_zone_ref' => [
+        'label' => 'Bovenliggende zone', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building_zone' => 'brebo_building_zone']],
+        ],
+        'description' => 'Bijvoorbeeld de gevel boven een gevelbeuk of de gevelbeuk boven een gevelcel.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_zone_code' => [
+        'label' => 'Zonecode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Unieke technische code binnen het gebouw, bijvoorbeeld AG-B03-C02.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_zone_type' => [
+        'label' => 'Zonetype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Soort technische werkzone.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Gevelbeuk']],
+      ],
+      'field_brebo_orientation' => [
+        'label' => 'Oriëntatie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Ligging, bijvoorbeeld noord, achtergevel of binnenzijde.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_level_from' => [
+        'label' => 'Niveau vanaf', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Laagste bouwlaag of hoogteniveau dat door de zone wordt geraakt.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_level_to' => [
+        'label' => 'Niveau tot en met', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Hoogste bouwlaag of hoogteniveau dat door de zone wordt geraakt.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_affected_dwellings' => [
+        'label' => 'Geraakte woningen of ruimten', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_dwelling' => 'brebo_dwelling']],
+        ],
+        'description' => 'Gebruiksobjecten die deze technische zone geheel of gedeeltelijk raakt; split-level en overlap zijn toegestaan.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 8, 'cardinality' => -1,
+      ],
+      'field_brebo_affected_positions' => [
+        'label' => 'Geraakte productposities', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_product_position' => 'brebo_product_position']],
+        ],
+        'description' => 'Productposities die binnen of aan deze technische zone liggen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 9, 'cardinality' => -1,
+      ],
+      'field_brebo_zone_quantity' => [
+        'label' => 'Technische hoeveelheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 14, 'scale' => 4],
+        'description' => 'Bruto technische hoeveelheid van de zone.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 10,
+      ],
+      'field_brebo_zone_unit' => [
+        'label' => 'Eenheid', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Bijvoorbeeld m², m¹, st of vak.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+      ],
+      'field_brebo_status' => [
+        'label' => 'Zonestatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Actuele dossierstatus van de technische zone.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+        'default_value' => [['value' => 'Ingericht']],
+      ],
+      'field_brebo_description' => [
+        'label' => 'Zoneomschrijving', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Afbakening, kenmerken en technische bijzonderheden.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 13,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_project_scope',
+    'Projectscope per gebouw',
+    'Tijdelijke en auditeerbare selectie van objecten binnen één gebouw voor één project.',
+    [
+      'field_brebo_scope_zones' => [
+        'label' => 'Geselecteerde technische zones', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_building_zone' => 'brebo_building_zone']],
+        ],
+        'description' => 'Gevels, beuken, gevelcellen, dakvlakken of andere technische zones binnen deze projectscope.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label',
+        'weight' => 4, 'cardinality' => -1,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_building_zone content',
+        'edit own brebo_building_zone content',
+        'edit any brebo_building_zone content',
+        'view brebo_building_zone revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Technische gebouwzones gefundeerd en als selecteerbare projectscope beschikbaar gemaakt.';
+}
