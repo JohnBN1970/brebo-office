@@ -1,0 +1,32 @@
+organization:
+  trade_name: 'BREBO'
+  legal_name: 'BREBO Bouw en Advies B.V.'
+  registration_number: ''
+  general_email: ''
+  general_phone: ''
+  address: ''
+project:
+  default_project_status: 'Concept'
+  response_days: 5
+  warning_days: 2
+  project_code_prefix: 'BREBO'
+  timezone: 'Europe/Amsterdam'
+finance:
+  default_margin_percent: 30.0
+  vat_high_percent: 21.0
+  vat_low_percent: 9.0
+  management_warning_amount: 5000.0
+mail:
+  domain: 'brebobv.nl'
+  sender_name: 'BREBO Office'
+  sender_address: ''
+  project_inbox: ''
+  migration_status: 'zoho_active'
+  automatic_dossier_linking: true
+ai:
+  operating_mode: 'within_mandate'
+  financial_limit: 0.0
+  create_internal_actions: true
+  send_external_messages: false
+  change_canonical_rules: false
+  audit_retention_days: 2555
