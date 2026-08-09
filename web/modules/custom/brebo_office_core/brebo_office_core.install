@@ -4343,3 +4343,58 @@ function brebo_office_core_update_11034(): string {
   return 'Staartkosten als grondslag voor bruto winst en verkoopprijs ingericht.';
 }
 
+
+
+/**
+ * Adds explicit financial, distributed and note line types.
+ */
+function brebo_office_core_update_11035(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_calc_line',
+    'Calculatieregel',
+    'Financiële regel, verdisconteerde regel of notitieregel binnen een calculatierecept.',
+    [
+      'field_brebo_line_type' => [
+        'label' => 'Regeltype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Calculatieregel, verdisconteerde regel of notitieregel.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+        'default_value' => [['value' => 'Calculatieregel']],
+      ],
+      'field_brebo_note_visibility' => [
+        'label' => 'Zichtbaarheid notitie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Interne notitie of zichtbaar op offerte en print.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => 'Intern']],
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $line_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_calc_line')
+    ->execute();
+  foreach ($storage->loadMultiple($line_ids) as $line) {
+    if (!$line instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $changed = FALSE;
+    if ($line->get('field_brebo_line_type')->isEmpty()) {
+      $line->set('field_brebo_line_type', 'Calculatieregel');
+      $changed = TRUE;
+    }
+    if ($line->get('field_brebo_note_visibility')->isEmpty()) {
+      $line->set('field_brebo_note_visibility', 'Intern');
+      $changed = TRUE;
+    }
+    if ($changed) {
+      $line->setNewRevision(TRUE);
+      $line->setRevisionLogMessage('Expliciet regeltype geïnitialiseerd door update 11035.');
+      $line->save();
+    }
+  }
+
+  return 'Calculatieregels, verdisconteerde regels en interne of externe notitieregels ingericht.';
+}
