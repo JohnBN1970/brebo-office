@@ -4221,3 +4221,50 @@ function brebo_office_core_update_11031(): string {
 
   return 'Aanwezigheidsregistratie voor gelijktijdig calculeren aangemaakt.';
 }
+
+
+/**
+ * Adds persistent chat messages to each calculation dossier.
+ */
+function brebo_office_core_update_11032(): string {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_chat')) {
+    $schema->createTable('brebo_calculation_chat', [
+      'description' => 'Stores collaboration messages per calculation.',
+      'fields' => [
+        'id' => [
+          'type' => 'serial',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'calculation_id' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'uid' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+        'message' => [
+          'type' => 'text',
+          'size' => 'big',
+          'not null' => TRUE,
+        ],
+        'created' => [
+          'type' => 'int',
+          'unsigned' => TRUE,
+          'not null' => TRUE,
+        ],
+      ],
+      'primary key' => ['id'],
+      'indexes' => [
+        'calculation_created' => ['calculation_id', 'created'],
+        'uid' => ['uid'],
+      ],
+    ]);
+  }
+
+  return 'Calculatiechat per calculatiedossier aangemaakt.';
+}
