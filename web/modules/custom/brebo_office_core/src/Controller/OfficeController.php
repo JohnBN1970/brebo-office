@@ -250,20 +250,6 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
-    $category_rows = [];
-    foreach (['Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'] as $category_name) {
-      $category_rows[] = [
-        $category_name,
-        $this->money((float) ($category_totals[$category_name] ?? 0.0)),
-      ];
-    }
-
-    $calculation_code = $this->fieldValue($node, 'field_brebo_calc_code');
-    $calculation_version = $this->fieldValue($node, 'field_brebo_calc_version');
-    $calculation_status = $this->fieldValue($node, 'field_brebo_calc_status');
-    $last_changed = Drupal::service('date.formatter')->format($node->getChangedTime(), 'short');
-    $owner = $node->getOwner();
-
     $build = [
       'actions' => [
         '#type' => 'container',
@@ -2926,6 +2912,23 @@ final class OfficeController extends ControllerBase {
       $post_rows[] = [$post_type, $this->money($value)];
     }
 
+    $category_rows = [];
+    foreach (['Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig'] as $category_name) {
+      $category_rows[] = [
+        $category_name,
+        $this->money((float) ($category_totals[$category_name] ?? 0.0)),
+      ];
+    }
+
+    $calculation_code = $this->fieldValue($node, 'field_brebo_calc_code');
+    $calculation_version = $this->fieldValue($node, 'field_brebo_calc_version');
+    $calculation_status = $this->fieldValue($node, 'field_brebo_calc_status');
+    $last_changed = \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short');
+    $owner_name = (string) ($node->getOwner()?->getDisplayName() ?? '');
+    if ($owner_name === '') {
+      $owner_name = (string) $this->t('Onbekend');
+    }
+
     $build = [
       '#attributes' => ['class' => ['brebo-calculation-workspace']],
       'actions' => [
@@ -2989,7 +2992,7 @@ final class OfficeController extends ControllerBase {
             . htmlspecialchars($calculation_code . ' · ' . $calculation_version . ' · ' . $calculation_status)
             . '</strong><br><small>' . $this->t('Laatste wijziging: @date door @user', [
               '@date' => $last_changed,
-              '@user' => $owner ? $owner->getDisplayName() : (string) $this->t('Onbekend'),
+              '@user' => $owner_name,
             ]) . '</small></p>',
         ],
         'kpis' => [
