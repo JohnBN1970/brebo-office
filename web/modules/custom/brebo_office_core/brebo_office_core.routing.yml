@@ -6,6 +6,27 @@ brebo_office_core.dashboard:
   requirements:
     _access: 'TRUE'
 
+brebo_office_core.buildings:
+  path: '/office/gebouwen'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'Gebouwenkaartotheek'
+    bundle: 'brebo_building'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.building_dashboard:
+  path: '/office/gebouwen/{node}'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::buildingDashboard'
+    _title_callback: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::buildingDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.projects:
   path: '/office/projecten'
   defaults:
