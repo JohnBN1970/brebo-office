@@ -92,3 +92,39 @@
 .brebo-building-map__marker::after { content: ""; position: absolute; inset: 7px; border-radius: 50%; background: #fff; }
 .brebo-building-map__attribution { position: absolute !important; z-index: 4 !important; right: 10px; bottom: 8px; margin: 0 !important; padding: 4px 7px; border-radius: 4px; color: #28172f !important; background: rgb(255 255 255 / 84%); font-size: .68rem; }
 
+
+
+/* BREBO calculation workspace prototype. */
+.brebo-calculation-workspace { padding-bottom: 92px; }
+.brebo-calculation-tabs { position: sticky; top: 64px; z-index: 12; margin-bottom: 18px; background: rgb(248 246 249 / 96%); backdrop-filter: blur(10px); }
+.brebo-calc-panel { min-width: 0; }
+.brebo-calc-panel h2 { margin: 22px 0 10px; }
+.brebo-calc-identity,
+.brebo-calc-summary,
+.brebo-calc-elements,
+.brebo-calc-posts,
+.brebo-calc-lines { box-shadow: var(--brebo-shadow-sm); }
+.brebo-calc-lines { font-variant-numeric: tabular-nums; }
+.brebo-calc-lines th,
+.brebo-calc-lines td { padding: 10px 9px; white-space: nowrap; }
+.brebo-calc-lines th:nth-child(2),
+.brebo-calc-lines td:nth-child(2) { width: 34%; min-width: 280px; white-space: normal; }
+.brebo-calc-lines td:nth-child(n+5):nth-child(-n+11),
+.brebo-calc-lines th:nth-child(n+5):nth-child(-n+11) { text-align: right; }
+.brebo-calc-row { border-left: 5px solid transparent; }
+.brebo-calc-row:hover { background: var(--brebo-purple-100); }
+.brebo-calc-row--stelpost { border-left-color: var(--brebo-amber-700); background: #fff9e9; }
+.brebo-calc-row--verrekenpost { border-left-color: #2f6fa3; background: #f2f8fd; }
+.brebo-calc-row--normaal { border-left-color: transparent; }
+.brebo-calc-totalbar { position: fixed; z-index: 30; right: max(24px, calc((100vw - 1560px) / 2)); bottom: 18px; display: flex; gap: 4px; padding: 7px; border: 1px solid rgb(255 255 255 / 18%); border-radius: 14px; color: #fff; background: rgb(55 17 72 / 96%); box-shadow: 0 16px 40px rgb(37 17 45 / 28%); backdrop-filter: blur(14px); }
+.brebo-calc-totalbar > span { min-width: 150px; padding: 9px 14px; border-right: 1px solid rgb(255 255 255 / 16%); }
+.brebo-calc-totalbar > span:last-child { border-right: 0; }
+.brebo-calc-totalbar small,
+.brebo-calc-totalbar strong { display: block; }
+.brebo-calc-totalbar small { margin-bottom: 3px; color: rgb(255 255 255 / 70%); font-size: .7rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
+.brebo-calc-totalbar strong { color: #fff; font-size: 1rem; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) {
+  .brebo-calculation-tabs { top: 56px; overflow-x: auto; flex-wrap: nowrap; }
+  .brebo-calc-totalbar { right: 10px; bottom: 10px; left: 10px; overflow-x: auto; }
+  .brebo-calc-totalbar > span { min-width: 130px; }
+}
