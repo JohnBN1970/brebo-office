@@ -18,7 +18,7 @@ project-tabs:
     - core/drupal
 
 building-map:
-  version: 1.0.0
+  version: 1.0.1
   js:
     js/building-map.js: {}
   dependencies:

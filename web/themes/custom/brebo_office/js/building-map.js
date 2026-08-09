@@ -1,5 +1,5 @@
 /**
- * Renders a dependency-free PDOK aerial tile grid around a stored building.
+ * Renders one correctly proportioned PDOK aerial image around a building.
  */
 (function (Drupal) {
   'use strict';
@@ -18,26 +18,51 @@
           return;
         }
 
-        const zoom = 19;
-        const scale = 2 ** zoom;
-        const centerX = Math.floor(((longitude + 180) / 360) * scale);
-        const latitudeRadians = latitude * Math.PI / 180;
-        const centerY = Math.floor(
-          (1 - Math.asinh(Math.tan(latitudeRadians)) / Math.PI) / 2 * scale
+        const earthRadius = 6378137;
+        const longitudeRadians = longitude * Math.PI / 180;
+        const latitudeRadians = Math.max(
+          Math.min(latitude * Math.PI / 180, 1.4844222297453324),
+          -1.4844222297453324
         );
+        const centerX = earthRadius * longitudeRadians;
+        const centerY = earthRadius * Math.log(Math.tan(Math.PI / 4 + latitudeRadians / 2));
 
-        for (let row = -1; row <= 1; row += 1) {
-          for (let column = -1; column <= 1; column += 1) {
-            const tile = document.createElement('img');
-            tile.src = `https://service.pdok.nl/hwh/luchtfotorgb/wmts/v1_0/Actueel_orthoHR/EPSG:3857/${zoom}/${centerX + column}/${centerY + row}.jpeg`;
-            tile.alt = '';
-            tile.loading = 'eager';
-            tile.decoding = 'async';
-            tile.style.left = `${(column + 1) * 33.333333}%`;
-            tile.style.top = `${(row + 1) * 33.333333}%`;
-            canvas.appendChild(tile);
-          }
-        }
+        const displayWidth = Math.max(canvas.clientWidth, 800);
+        const displayHeight = Math.max(canvas.clientHeight, 360);
+        const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        const imageWidth = Math.min(Math.round(displayWidth * pixelRatio), 2048);
+        const imageHeight = Math.min(Math.round(displayHeight * pixelRatio), 1024);
+
+        const halfHeightMetres = 52;
+        const halfWidthMetres = halfHeightMetres * (displayWidth / displayHeight);
+        const boundingBox = [
+          centerX - halfWidthMetres,
+          centerY - halfHeightMetres,
+          centerX + halfWidthMetres,
+          centerY + halfHeightMetres
+        ].join(',');
+
+        const parameters = new URLSearchParams({
+          service: 'WMS',
+          version: '1.3.0',
+          request: 'GetMap',
+          layers: 'Actueel_orthoHR',
+          styles: '',
+          crs: 'EPSG:3857',
+          bbox: boundingBox,
+          width: String(imageWidth),
+          height: String(imageHeight),
+          format: 'image/jpeg',
+          transparent: 'false'
+        });
+
+        const aerialImage = document.createElement('img');
+        aerialImage.className = 'brebo-building-map__image';
+        aerialImage.src = `https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?${parameters.toString()}`;
+        aerialImage.alt = '';
+        aerialImage.loading = 'eager';
+        aerialImage.decoding = 'async';
+        canvas.appendChild(aerialImage);
 
         const marker = document.createElement('span');
         marker.className = 'brebo-building-map__marker';
