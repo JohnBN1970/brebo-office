@@ -27,6 +27,18 @@ brebo_office_core.building_dashboard:
       node:
         type: entity:node
 
+brebo_office_core.building_geocode:
+  path: '/office/gebouwen/{node}/locatie-bepalen'
+  defaults:
+    _form: '\\Drupal\\brebo_office_core\\Form\\GeocodeBuildingForm'
+    _title: 'Gebouwlocatie bepalen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.projects:
   path: '/office/projecten'
   defaults:
