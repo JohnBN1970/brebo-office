@@ -436,3 +436,109 @@
 .brebo-recipe-heading > .brebo-recipe-heading__identity {
   display: grid;
 }
+
+
+/* Real-time recipe grid controls. */
+.brebo-recipe-heading__identity,
+.brebo-recipe-heading > .brebo-recipe-heading__identity {
+  grid-template-columns: 38px 135px minmax(320px, 1fr);
+}
+.brebo-recipe-toggle {
+  display: inline-grid;
+  width: 34px;
+  height: 34px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgb(255 255 255 / 36%);
+  border-radius: 50%;
+  color: #fff;
+  background: rgb(255 255 255 / 10%);
+  font-size: 1.18rem;
+  cursor: pointer;
+}
+.brebo-recipe-toggle:hover,
+.brebo-recipe-toggle:focus-visible {
+  background: rgb(255 255 255 / 24%);
+  outline: 3px solid rgb(255 255 255 / 20%);
+}
+.brebo-calc-recipe-grid tr[hidden] {
+  display: none !important;
+}
+.brebo-calc-grid th {
+  overflow: visible;
+}
+.brebo-column-resizer {
+  position: absolute;
+  z-index: 5;
+  top: 0;
+  right: -4px;
+  width: 9px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+}
+.brebo-column-resizer::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  left: 4px;
+  width: 2px;
+  border-radius: 2px;
+  background: rgb(255 255 255 / 32%);
+}
+.brebo-column-resizer:hover::after {
+  background: #fff;
+}
+.brebo-calc-recipe-grid td:nth-child(3) {
+  min-width: 170px;
+}
+.brebo-calc-recipe-grid td:nth-child(4) {
+  min-width: 340px;
+}
+.brebo-line-status {
+  min-width: 150px !important;
+  font-weight: 800 !important;
+}
+.brebo-calc-ingredient-row {
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+.brebo-calc-ingredient-row[data-line-status="groen"] > td:first-child {
+  box-shadow: inset 7px 0 0 #16824b;
+}
+.brebo-calc-ingredient-row[data-line-status="oranje"] > td:first-child {
+  box-shadow: inset 7px 0 0 #d38b00;
+}
+.brebo-calc-ingredient-row[data-line-status="rood"] > td:first-child {
+  box-shadow: inset 7px 0 0 #bf2d38;
+}
+.brebo-calc-ingredient-row[data-line-status="niet-beoordeeld"] > td:first-child,
+.brebo-calc-ingredient-row[data-line-status="nvt"] > td:first-child {
+  box-shadow: inset 7px 0 0 #8b8490;
+}
+.brebo-calc-ingredient-row[data-line-status="groen"] .brebo-line-status {
+  color: #075c34;
+  border-color: #6fc39a;
+  background: #e8f7ef;
+}
+.brebo-calc-ingredient-row[data-line-status="oranje"] .brebo-line-status {
+  color: #7b4c00;
+  border-color: #e5b94f;
+  background: #fff5d8;
+}
+.brebo-calc-ingredient-row[data-line-status="rood"] .brebo-line-status {
+  color: #8f1722;
+  border-color: #e499a0;
+  background: #fff0f1;
+}
+.brebo-calc-grid-form.is-dirty .brebo-calc-grid__actions {
+  border: 2px solid #d38b00;
+}
+.brebo-calc-grid-form.is-dirty .brebo-calc-grid__actions::before {
+  content: "Wijzigingen nog niet formeel opgeslagen";
+  align-self: center;
+  margin: 0 10px 0 4px;
+  color: #7b4c00;
+  font-size: .78rem;
+  font-weight: 900;
+}
