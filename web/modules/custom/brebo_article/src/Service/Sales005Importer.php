@@ -41,7 +41,16 @@ final class Sales005Importer {
         ->condition('source_hash', $sourceHash)
         ->execute()
         ->fetchAssoc();
-      if ($existing && $existing['status'] === 'completed') {
+      if ($existing && in_array($existing['status'], ['completed', 'actief'], TRUE)) {
+        // Older importer versions stored successful catalogues as "completed",
+        // while the article search deliberately exposes only active catalogues.
+        // Promote such an import without creating duplicate price versions.
+        if ($existing['status'] === 'completed') {
+          $this->database->update('brebo_catalog_import')
+            ->fields(['status' => 'actief'])
+            ->condition('id', (int) $existing['id'])
+            ->execute();
+        }
         return [
           'status' => 'already_imported',
           'import_id' => (int) $existing['id'],
@@ -68,7 +77,7 @@ final class Sales005Importer {
 
         $counts = $this->importLines($xmlPath, $supplierId, $importId, $metadata);
         $this->database->update('brebo_catalog_import')->fields([
-          'status' => 'completed',
+          'status' => 'actief',
           'record_count' => $counts['records'],
         ])->condition('id', $importId)->execute();
 
