@@ -8,6 +8,7 @@
       {% if logged_in %}
         <nav class="brebo-appnav" aria-label="Hoofdnavigatie">
           <a href="{{ path('brebo_office_core.dashboard') }}">Overzicht</a>
+          <a href="{{ path('brebo_office_core.buildings') }}">Gebouwen</a>
           <a href="{{ path('brebo_office_core.projects') }}">Projecten</a>
           <a href="{{ path('brebo_office_core.regie_actions') }}">Regie</a>
           <a href="{{ path('brebo_office_core.calculations') }}">Calculaties</a>
@@ -37,8 +38,8 @@
       </section>
 
       <section class="brebo-kpis" aria-label="Objectoverzicht">
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Opdracht en projectkader</small></a>
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.clusters') }}"><span>Clusters</span><strong>{{ brebo_counts.clusters|default(0) }}</strong><small>Gebouwdelen en werkgebieden</small></a>
+        <a class="brebo-kpi" href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span><strong>{{ brebo_counts.buildings|default(0) }}</strong><small>Permanent gebouw- en onderhoudsdossier</small></a>
+        <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Tijdelijke opdrachten en scopes</small></a>
         <a class="brebo-kpi" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ brebo_counts.dwellings|default(0) }}</strong><small>Zelfstandige objecten</small></a>
         <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met controle en bewijs</small></a>
       </section>
