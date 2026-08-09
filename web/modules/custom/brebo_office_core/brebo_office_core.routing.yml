@@ -250,6 +250,16 @@ brebo_office_core.project_routes:
     _permission: 'access content'
 
 
+brebo_office_core.project_scopes:
+  path: '/office/projectscopes'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'Projectscopes per gebouw'
+    bundle: 'brebo_project_scope'
+  requirements:
+    _permission: 'access content'
+
+
 brebo_office_core.regie_actions:
   path: '/office/regie-acties'
   defaults:
