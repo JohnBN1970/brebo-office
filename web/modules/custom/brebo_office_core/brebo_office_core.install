@@ -3842,3 +3842,55 @@ function brebo_office_core_update_11026(): string {
   return 'Bronintegriteit, AI-herkomst, menselijke controle en formele vaststelling als verplichte verwerkingspoort gefundeerd.';
 }
 
+
+
+/**
+ * Adds the structured communication processing workbench fields.
+ */
+function brebo_office_core_update_11027(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Projectcommunicatie',
+    'Kanaalonafhankelijk, auditeerbaar communicatie-, besluit- en opvolgdossier.',
+    [
+      'field_brebo_ai_summary' => [
+        'label' => 'Samenvatting', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Gecontroleerde kern van het gesprek, overleg of bericht.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 40,
+      ],
+      'field_brebo_ai_decisions' => [
+        'label' => 'Besluiten en toezeggingen', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Expliciete besluiten, afspraken en toezeggingen met dossierwaarde.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 41,
+      ],
+      'field_brebo_ai_actions' => [
+        'label' => 'Acties en termijnen', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Vervolgacties, verantwoordelijken en genoemde termijnen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 42,
+      ],
+      'field_brebo_ai_risks' => [
+        'label' => 'Risico’s en onzekerheden', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Risico’s, afwijkingen, ontbrekende informatie en onzekerheden.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 43,
+      ],
+      'field_brebo_processed_at' => [
+        'label' => 'Verwerkt op', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Datum en tijd waarop de inhoud voor het laatst is verwerkt.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 44,
+      ],
+      'field_brebo_process_log' => [
+        'label' => 'Verwerkingslog', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Technische en inhoudelijke notitie over verwerking, correcties en uitzonderingen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 45,
+      ],
+    ],
+  );
+
+  return 'Werkbankvelden voor transcriptie, samenvatting, besluiten, acties, risico’s en gecontroleerde vaststelling aangemaakt.';
+}
