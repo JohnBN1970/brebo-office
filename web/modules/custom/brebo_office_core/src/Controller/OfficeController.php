@@ -997,6 +997,55 @@ final class OfficeController extends ControllerBase {
       ];
     }
 
+    $communication_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_communication')
+      ->condition('field_brebo_project_ref.target_id', $node->id())
+      ->sort('field_brebo_comm_datetime', 'DESC')
+      ->execute();
+    $communication_rows = [];
+    $communication_open = 0;
+    $communication_overdue = 0;
+    $communication_financial = 0.0;
+    $today = date('Y-m-d');
+    foreach ($storage->loadMultiple($communication_ids) as $communication) {
+      if (!$communication instanceof NodeInterface) {
+        continue;
+      }
+      $scope_target = $communication->get('field_brebo_comm_scope_target')->entity;
+      $owner = $communication->get('field_brebo_responsible_user')->entity;
+      $status = $this->fieldValue($communication, 'field_brebo_comm_status');
+      $response_required = (bool) $communication->get('field_brebo_response_required')->value;
+      $due = $this->fieldValue($communication, 'field_brebo_due_date');
+      $is_open = $response_required && !in_array($status, ['Beantwoord', 'Bevestigd', 'Vervallen', 'Gesloten'], TRUE);
+      $is_overdue = $is_open && $due !== '—' && $due < $today;
+      $communication_open += $is_open ? 1 : 0;
+      $communication_overdue += $is_overdue ? 1 : 0;
+      $communication_financial += (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
+      $party = $this->fieldValue($communication, 'field_brebo_external_party');
+      $contact = $this->fieldValue($communication, 'field_brebo_external_contact');
+      $attention = $is_overdue
+        ? (string) $this->t('Te laat')
+        : ($is_open ? (string) $this->t('Open') : (string) $this->t('Afgehandeld'));
+
+      $communication_rows[] = [
+        $this->fieldValue($communication, 'field_brebo_comm_datetime'),
+        $this->fieldValue($communication, 'field_brebo_comm_direction'),
+        $this->fieldValue($communication, 'field_brebo_comm_channel'),
+        ($party !== '—' || $contact !== '—') ? trim($party . ' · ' . $contact, ' ·—') : '—',
+        ['data' => Link::fromTextAndUrl(
+          $this->fieldValue($communication, 'field_brebo_comm_subject'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $communication->id()])
+        )->toRenderable()],
+        $scope_target instanceof NodeInterface ? $scope_target->label() : '—',
+        $response_required ? $this->t('Ja') : $this->t('Nee'),
+        $due,
+        $status,
+        $attention,
+        $owner ? $owner->label() : '—',
+      ];
+    }
+
     $cluster_ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_cluster')
@@ -1277,6 +1326,14 @@ final class OfficeController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+        'add_communication' => [
+          '#type' => 'link',
+          '#title' => $this->t('Communicatie vastleggen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication'], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'regie_actions' => [
           '#type' => 'link',
           '#title' => $this->t('Centrale regie-acties'),
@@ -1333,6 +1390,18 @@ final class OfficeController extends ControllerBase {
             'role' => 'tab',
             'aria-selected' => 'false',
             'data-brebo-tab' => 'scope',
+            'class' => [],
+          ],
+        ],
+        'communication' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Communicatie'),
+          '#attributes' => [
+            'type' => 'button',
+            'role' => 'tab',
+            'aria-selected' => 'false',
+            'data-brebo-tab' => 'communication',
             'class' => [],
           ],
         ],
@@ -1433,6 +1502,40 @@ final class OfficeController extends ControllerBase {
         '#attributes' => ['class' => ['messages', 'messages--status']],
         'text' => [
           '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> het gebouw vormt het permanente dossier. Dit project bepaalt per gebouw exact welke objecten tijdelijk tot de scope behoren.'),
+        ],
+      ],
+      'communication_heading' => [
+        '#markup' => '<h2>' . $this->t('Communicatiedossier opdrachtgever en ketenpartijen') . '</h2>',
+      ],
+      'communication_summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Contactmomenten'), $this->t('Open reacties'),
+          $this->t('Termijn verlopen'), $this->t('Geregistreerde financiële impact'),
+        ],
+        '#rows' => [[
+          count($communication_rows),
+          $communication_open,
+          $communication_overdue,
+          $this->money($communication_financial),
+        ]],
+      ],
+      'communications' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Datum'), $this->t('Richting'), $this->t('Kanaal'),
+          $this->t('Partij/contact'), $this->t('Onderwerp'), $this->t('Scopeobject'),
+          $this->t('Reactie vereist'), $this->t('Termijn'), $this->t('Status'),
+          $this->t('Signaal'), $this->t('BREBO-eigenaar'),
+        ],
+        '#rows' => $communication_rows,
+        '#empty' => $this->t('Nog geen relevante communicatie aan dit projectdossier gekoppeld.'),
+      ],
+      'communication_principle' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--status']],
+        'text' => [
+          '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> iedere relevante communicatie wordt gekoppeld aan het object, besluit, risico of resultaat waarop zij betrekking heeft en blijft onderdeel van het controleerbare project- en gebouwdossier.'),
         ],
       ],
       'operating_model_heading' => [
@@ -1592,6 +1695,7 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_project_scope',
           'node_list:brebo_building_zone',
           'node_list:brebo_scope_requirement',
+          'node_list:brebo_communication',
         ],
       ],
     ];
@@ -1607,6 +1711,10 @@ final class OfficeController extends ControllerBase {
       'requirements_heading' => 'scope',
       'requirements' => 'scope',
       'scope_principle' => 'scope',
+      'communication_heading' => 'communication',
+      'communication_summary' => 'communication',
+      'communications' => 'communication',
+      'communication_principle' => 'communication',
       'operating_model_heading' => 'governance',
       'operating_model' => 'governance',
       'procurement' => 'governance',
