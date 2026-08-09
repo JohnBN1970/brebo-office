@@ -5,3 +5,11 @@ brebo_article.search:
   requirements:
     _permission: 'access brebo articles'
   methods: [GET]
+
+brebo_article.import:
+  path: '/office/artikelen/importeren'
+  defaults:
+    _form: '\Drupal\brebo_article\Form\ArticleImportForm'
+    _title: 'Artikelcatalogus importeren'
+  requirements:
+    _permission: 'administer brebo articles'
