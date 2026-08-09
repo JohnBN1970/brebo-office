@@ -496,37 +496,6 @@ final class OfficeController extends ControllerBase {
           $this->fieldValue($node, 'field_brebo_package_status'),
         ]],
       ],
-      'scope_heading' => [
-        '#markup' => '<h2>' . $this->t('Projectscope per gebouw') . '</h2>',
-      ],
-      'scope_summary' => [
-        '#type' => 'table',
-        '#header' => [
-          $this->t('Gebouwen in scope'), $this->t('Gebouwdelen'),
-          $this->t('Woningen'), $this->t('Productposities'),
-        ],
-        '#rows' => [[
-          count($scoped_building_ids), count($scoped_cluster_ids),
-          count($scoped_dwelling_ids), count($scoped_position_ids),
-        ]],
-      ],
-      'scopes' => [
-        '#type' => 'table',
-        '#header' => [
-          $this->t('Scope'), $this->t('Gebouw'), $this->t('Selectiewijze'),
-          $this->t('Gebouwdelen'), $this->t('Woningen'),
-          $this->t('Productposities'), $this->t('Status'), $this->t('Actie'),
-        ],
-        '#rows' => $scope_rows,
-        '#empty' => $this->t('Nog geen gebouwscope vastgelegd.'),
-      ],
-      'scope_principle' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['messages', 'messages--status']],
-        'text' => [
-          '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> het gebouw vormt het permanente dossier. Dit project bepaalt per gebouw exact welke objecten tijdelijk tot de scope behoren.'),
-        ],
-      ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Besturing van dit werkpakket') . '</h2>',
       ],
@@ -1300,6 +1269,37 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $building_rows,
         '#empty' => $this->t('Aan dit project is nog geen permanent gebouw gekoppeld.'),
+      ],
+      'scope_heading' => [
+        '#markup' => '<h2>' . $this->t('Projectscope per gebouw') . '</h2>',
+      ],
+      'scope_summary' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Gebouwen in scope'), $this->t('Gebouwdelen'),
+          $this->t('Woningen'), $this->t('Productposities'),
+        ],
+        '#rows' => [[
+          count($scoped_building_ids), count($scoped_cluster_ids),
+          count($scoped_dwelling_ids), count($scoped_position_ids),
+        ]],
+      ],
+      'scopes' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Scope'), $this->t('Gebouw'), $this->t('Selectiewijze'),
+          $this->t('Gebouwdelen'), $this->t('Woningen'),
+          $this->t('Productposities'), $this->t('Status'), $this->t('Actie'),
+        ],
+        '#rows' => $scope_rows,
+        '#empty' => $this->t('Nog geen gebouwscope vastgelegd.'),
+      ],
+      'scope_principle' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--status']],
+        'text' => [
+          '#markup' => $this->t('<strong>Vast uitgangspunt:</strong> het gebouw vormt het permanente dossier. Dit project bepaalt per gebouw exact welke objecten tijdelijk tot de scope behoren.'),
+        ],
       ],
       'operating_model_heading' => [
         '#markup' => '<h2>' . $this->t('Projectbesturing') . '</h2>',
