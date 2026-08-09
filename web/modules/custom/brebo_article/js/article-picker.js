@@ -44,7 +44,7 @@
               }
             };
             set('description', item.description);
-            set('category', row.querySelector('[name$="[category]"]').value || 'Materiaal');
+            set('category', item.cost_category || 'Materiaal');
             set('unit', item.unit);
             set('unit_price', item.net_price);
             set('article_id', item.article_id);
@@ -58,6 +58,17 @@
             button.textContent = item.code + ' · ' + item.supplier;
             button.classList.add('has-article');
             dialog.close();
+
+            // Trigger the existing live calculation once more after every
+            // article field has been populated, so row and recipe totals use
+            // one complete and consistent set of values.
+            window.requestAnimationFrame(function () {
+              var price = row.querySelector('[name$="[unit_price]"]');
+              if (price) {
+                price.dispatchEvent(new Event('input', {bubbles: true}));
+                price.dispatchEvent(new Event('change', {bubbles: true}));
+              }
+            });
           }
 
           function search() {
