@@ -93,6 +93,10 @@ final class CalculationGridForm extends FormBase {
       '#empty' => $this->t('Nog geen calculatieregels.'),
     ];
 
+    $component_bands = [];
+    $next_component_band = 0;
+    $previous_component_code = NULL;
+
     foreach ($lines as $line) {
       if (!$line instanceof NodeInterface || !$line->access('update')) {
         continue;
@@ -101,6 +105,15 @@ final class CalculationGridForm extends FormBase {
       $component = $element instanceof NodeInterface
         ? $element->get('field_brebo_calc_component_ref')->entity
         : NULL;
+      $component_code = $component instanceof NodeInterface
+        ? (string) $component->get('field_brebo_component_code')->value
+        : '—';
+      if (!array_key_exists($component_code, $component_bands)) {
+        $component_bands[$component_code] = $next_component_band++;
+      }
+      $starts_component_group = $previous_component_code !== $component_code;
+      $previous_component_code = $component_code;
+
       $id = (int) $line->id();
       $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
       $actual = $line->get('field_brebo_actual_quantity')->value;
@@ -112,7 +125,7 @@ final class CalculationGridForm extends FormBase {
 
       $form['grid'][$id]['component'] = [
         '#markup' => $component instanceof NodeInterface
-          ? '<strong>' . htmlspecialchars((string) $component->get('field_brebo_component_code')->value) . '</strong>'
+          ? '<strong>' . htmlspecialchars($component_code) . '</strong>'
           : '—',
       ];
       $form['grid'][$id]['element'] = [
@@ -138,6 +151,10 @@ final class CalculationGridForm extends FormBase {
       $form['grid'][$id]['contract'] = ['#markup' => '<span class="brebo-calc-grid__money">€ ' . number_format($quantity * $unit_price, 2, ',', '.') . '</span>'];
       $form['grid'][$id]['forecast'] = ['#markup' => '<span class="brebo-calc-grid__money">€ ' . number_format($forecast_quantity * $unit_price, 2, ',', '.') . '</span>'];
       $form['grid'][$id]['#attributes']['class'][] = 'brebo-calc-row';
+      $form['grid'][$id]['#attributes']['class'][] = 'brebo-calc-row--nlsfb-' . ($component_bands[$component_code] % 2 === 0 ? 'even' : 'odd');
+      if ($starts_component_group) {
+        $form['grid'][$id]['#attributes']['class'][] = 'brebo-calc-row--nlsfb-start';
+      }
       $form['grid'][$id]['#attributes']['class'][] = 'brebo-calc-row--' . strtolower(str_replace([' ', '.'], '-', $post_type));
     }
 
