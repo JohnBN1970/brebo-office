@@ -140,7 +140,7 @@
 .brebo-calc-grid-form {
   max-width: 100%;
   overflow-x: auto;
-  padding: 2px 2px 86px;
+  padding: 2px 2px 54px;
   scrollbar-color: var(--brebo-purple-500) #eee8f0;
   scrollbar-width: thin;
 }
@@ -159,7 +159,7 @@
 }
 .brebo-calc-grid th {
   position: sticky;
-  top: 116px;
+  top: 0;
   z-index: 3;
   white-space: nowrap;
 }
@@ -225,7 +225,6 @@
 }
 .brebo-calc-grid__actions .button { margin: 0; }
 @media (max-width: 900px) {
-  .brebo-calc-grid th { top: 104px; }
   .brebo-calc-grid-form { margin-right: -12px; margin-left: -12px; padding-right: 12px; padding-left: 12px; }
 }
 
