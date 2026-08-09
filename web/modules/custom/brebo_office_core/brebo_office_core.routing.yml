@@ -167,9 +167,8 @@ brebo_office_core.work_package_dashboard:
 brebo_office_core.calculations:
   path: '/office/calculaties'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'Calculaties'
-    bundle: 'brebo_calculation'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::calculationPortfolio'
+    _title: 'Calculatieportefeuille'
   requirements:
     _permission: 'access content'
 
