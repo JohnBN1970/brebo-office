@@ -975,7 +975,7 @@ final class OfficeController extends ControllerBase {
         ($party !== '—' || $contact !== '—') ? trim($party . ' · ' . $contact, ' ·—') : '—',
         ['data' => Link::fromTextAndUrl(
           $this->fieldValue($communication, 'field_brebo_comm_subject'),
-          Url::fromRoute('entity.node.edit_form', ['node' => $communication->id()])
+          Url::fromRoute('brebo_office_core.communication_processing', ['node' => $communication->id()])
         )->toRenderable()],
         $target instanceof NodeInterface ? $target->label() : '—',
         $due,
@@ -1275,7 +1275,7 @@ final class OfficeController extends ControllerBase {
         ($party !== '—' || $contact !== '—') ? trim($party . ' · ' . $contact, ' ·—') : '—',
         ['data' => Link::fromTextAndUrl(
           $this->fieldValue($communication, 'field_brebo_comm_subject'),
-          Url::fromRoute('entity.node.edit_form', ['node' => $communication->id()])
+          Url::fromRoute('brebo_office_core.communication_processing', ['node' => $communication->id()])
         )->toRenderable()],
         $scope_target instanceof NodeInterface ? $scope_target->label() : '—',
         $response_required ? $this->t('Ja') : $this->t('Nee'),
@@ -1292,10 +1292,11 @@ final class OfficeController extends ControllerBase {
       $formal_status = $this->fieldValue($communication, 'field_brebo_formal_status');
       $reviewed = $communication->hasField('field_brebo_reviewed_by')
         && !$communication->get('field_brebo_reviewed_by')->isEmpty();
-      if ($ai_status !== 'Verwerkt') {
+      if (in_array($ai_status, ['Niet verwerkt', 'Concept gemaakt'], TRUE)) {
         $communication_processing_rows[] = $communication_row;
       }
-      if ($ai_status === 'Verwerkt' && (!$reviewed || $formal_status !== 'Vastgesteld')) {
+      if ($ai_status === 'Controle vereist'
+        || ($formal_status === 'AI-concept' && (!$reviewed || $formal_status !== 'Vastgesteld'))) {
         $communication_review_rows[] = $communication_row;
       }
     }
