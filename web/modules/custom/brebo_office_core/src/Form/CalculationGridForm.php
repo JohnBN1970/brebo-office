@@ -260,10 +260,16 @@ final class CalculationGridForm extends FormBase {
         '#attributes' => ['class' => ['brebo-recipe-heading']],
         '#wrapper_attributes' => ['colspan' => 15],
         'identity' => [
-          '#markup' => '<span class="brebo-recipe-heading__code"><small>NLSfB ' . htmlspecialchars($component_code) . '</small><strong>'
-            . htmlspecialchars((string) $element->get('field_brebo_element_code')->value) . '</strong></span>'
-            . '<span class="brebo-recipe-heading__title"><small>Recepthoofdregel</small><strong>'
-            . htmlspecialchars((string) $element->label()) . '</strong></span>',
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-recipe-heading__identity']],
+          'code' => [
+            '#markup' => '<span class="brebo-recipe-heading__code"><small>NLSfB ' . htmlspecialchars($component_code) . '</small><strong>'
+              . htmlspecialchars((string) $element->get('field_brebo_element_code')->value) . '</strong></span>',
+          ],
+          'title' => [
+            '#markup' => '<span class="brebo-recipe-heading__title"><small>Recepthoofdregel</small><strong>'
+              . htmlspecialchars((string) $element->label()) . '</strong></span>',
+          ],
         ],
         'zone' => [
           '#type' => 'select',
