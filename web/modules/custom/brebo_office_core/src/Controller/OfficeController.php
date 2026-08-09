@@ -631,6 +631,12 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'geocode' => [
+          '#type' => 'link',
+          '#title' => $has_coordinates ? $this->t('Locatie opnieuw bepalen') : $this->t('Locatie bepalen'),
+          '#url' => Url::fromRoute('brebo_office_core.building_geocode', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'project' => [
           '#type' => 'link',
           '#title' => $this->t('Nieuw project koppelen'),
@@ -693,14 +699,32 @@ final class OfficeController extends ControllerBase {
       ],
       'map' => [
         '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-building-map', $has_coordinates ? 'has-location' : 'needs-location']],
-        'eyebrow' => ['#markup' => '<p class="brebo-eyebrow">' . $this->t('GEBOUWENKAART') . '</p>'],
-        'title' => ['#markup' => '<h2>' . ($has_coordinates
-          ? $this->t('Locatie vastgelegd')
-          : $this->t('Satellietlocatie nog vast te leggen')) . '</h2>'],
-        'description' => ['#markup' => '<p>' . ($has_coordinates
-          ? $this->t('Coördinaten: @lat, @lon. De satellietlaag wordt als afzonderlijke kaartintegratie aangesloten.', ['@lat' => $latitude, '@lon' => $longitude])
-          : $this->t('Vul het adres en straks de geocode in. Daarna toont deze kaart de satellietuitsnede van het gebouw.')) . '</p>'],
+        '#attributes' => [
+          'class' => ['brebo-building-map', $has_coordinates ? 'has-location' : 'needs-location'],
+          'data-brebo-building-map' => $has_coordinates ? 'true' : 'false',
+          'data-latitude' => $has_coordinates ? $latitude : '',
+          'data-longitude' => $has_coordinates ? $longitude : '',
+          'aria-label' => $this->t('Luchtfoto van @building', ['@building' => $node->label()]),
+        ],
+        'tiles' => $has_coordinates ? [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-building-map__tiles'], 'aria-hidden' => 'true'],
+        ] : [],
+        'overlay' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-building-map__overlay']],
+          'eyebrow' => ['#markup' => '<p class="brebo-eyebrow">' . $this->t('GEBOUWENKAART · PDOK LUCHTFOTO') . '</p>'],
+          'title' => ['#markup' => '<h2>' . ($has_coordinates
+            ? $this->t('Officiële locatie vastgelegd')
+            : $this->t('Satellietlocatie nog vast te leggen')) . '</h2>'],
+          'description' => ['#markup' => '<p>' . ($has_coordinates
+            ? $this->t('Coördinaten: @lat, @lon. De rode markering toont de vastgelegde gebouwlocatie.', ['@lat' => $latitude, '@lon' => $longitude])
+            : $this->t('Zoek het BAG-adres en kies de juiste locatie. Daarna verschijnt hier automatisch de actuele Nederlandse luchtfoto.')) . '</p>'],
+        ],
+        'attribution' => $has_coordinates ? [
+          '#markup' => '<p class="brebo-building-map__attribution">Luchtfoto: PDOK / Beeldmateriaal Nederland · Locatie: BAG</p>',
+        ] : [],
+        '#attached' => $has_coordinates ? ['library' => ['brebo_office/building-map']] : [],
       ],
       'summary' => [
         '#type' => 'table',
