@@ -591,6 +591,34 @@ final class OfficeController extends ControllerBase {
         ->execute()
       : [];
 
+    $zone_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_building_zone')
+      ->condition('field_brebo_building_ref.target_id', $node->id())
+      ->sort('field_brebo_zone_code', 'ASC')
+      ->execute();
+    $zone_rows = [];
+    foreach ($storage->loadMultiple($zone_ids) as $zone) {
+      if (!$zone instanceof NodeInterface) {
+        continue;
+      }
+      $parent = $zone->get('field_brebo_parent_zone_ref')->entity;
+      $zone_rows[] = [
+        ['data' => Link::fromTextAndUrl($zone->label(), $zone->toUrl())->toRenderable()],
+        $this->fieldValue($zone, 'field_brebo_zone_code'),
+        $this->fieldValue($zone, 'field_brebo_zone_type'),
+        $parent instanceof NodeInterface ? $parent->label() : '—',
+        count($zone->get('field_brebo_affected_dwellings')->referencedEntities()),
+        count($zone->get('field_brebo_affected_positions')->referencedEntities()),
+        $this->fieldValue($zone, 'field_brebo_zone_quantity') . ' ' . $this->fieldValue($zone, 'field_brebo_zone_unit'),
+        $this->fieldValue($zone, 'field_brebo_status'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bewerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $zone->id()])
+        )->toRenderable()],
+      ];
+    }
+
     $project_rows = [];
     foreach ($storage->loadMultiple($project_ids) as $project) {
       if ($project instanceof NodeInterface) {
@@ -636,6 +664,14 @@ final class OfficeController extends ControllerBase {
           '#type' => 'link',
           '#title' => $has_coordinates ? $this->t('Locatie opnieuw bepalen') : $this->t('Locatie bepalen'),
           '#url' => Url::fromRoute('brebo_office_core.building_geocode', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'add_zone' => [
+          '#type' => 'link',
+          '#title' => $this->t('Technische zone toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_building_zone'], [
+            'query' => ['building' => $node->id()],
+          ]),
           '#attributes' => ['class' => ['button']],
         ],
         'project' => [
@@ -730,9 +766,9 @@ final class OfficeController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#header' => [
-          $this->t('Projecten'), $this->t('Clusters'), $this->t('Woningen'), $this->t('Productposities'),
+          $this->t('Projecten'), $this->t('Technische zones'), $this->t('Clusters'), $this->t('Woningen'), $this->t('Productposities'),
         ],
-        '#rows' => [[count($project_ids), count($cluster_ids), count($dwelling_ids), count($position_ids)]],
+        '#rows' => [[count($project_ids), count($zone_ids), count($cluster_ids), count($dwelling_ids), count($position_ids)]],
       ],
       'projects_heading' => ['#markup' => '<h2>' . $this->t('Projecthistorie') . '</h2>'],
       'projects' => [
@@ -743,6 +779,18 @@ final class OfficeController extends ControllerBase {
         ],
         '#rows' => $project_rows,
         '#empty' => $this->t('Aan dit gebouw zijn nog geen projecten gekoppeld.'),
+      ],
+      'zones_heading' => ['#markup' => '<h2>' . $this->t('Technische zones') . '</h2>'],
+      'zones' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Zone'), $this->t('Code'), $this->t('Type'),
+          $this->t('Bovenliggend'), $this->t('Geraakte woningen'),
+          $this->t('Productposities'), $this->t('Hoeveelheid'),
+          $this->t('Status'), $this->t('Actie'),
+        ],
+        '#rows' => $zone_rows,
+        '#empty' => $this->t('Dit gebouw bevat nog geen technische zones.'),
       ],
       'clusters_heading' => ['#markup' => '<h2>' . $this->t('Gebouwstructuur') . '</h2>'],
       'clusters' => [
@@ -756,6 +804,7 @@ final class OfficeController extends ControllerBase {
         'tags' => [
           'node:' . $node->id(),
           'node_list:brebo_project',
+          'node_list:brebo_building_zone',
           'node_list:brebo_cluster',
           'node_list:brebo_dwelling',
           'node_list:brebo_product_position',
@@ -769,6 +818,8 @@ final class OfficeController extends ControllerBase {
       'summary' => 'overview',
       'projects_heading' => 'history',
       'projects' => 'history',
+      'zones_heading' => 'structure',
+      'zones' => 'structure',
       'clusters_heading' => 'structure',
       'clusters' => 'structure',
     ];
@@ -834,6 +885,7 @@ final class OfficeController extends ControllerBase {
       ->execute();
     $scope_rows = [];
     $scoped_building_ids = [];
+    $scoped_zone_ids = [];
     $scoped_cluster_ids = [];
     $scoped_dwelling_ids = [];
     $scoped_position_ids = [];
@@ -842,11 +894,17 @@ final class OfficeController extends ControllerBase {
         continue;
       }
       $building = $scope->get('field_brebo_building_ref')->entity;
+      $scope_zones = $scope->get('field_brebo_scope_zones')->referencedEntities();
       $scope_clusters = $scope->get('field_brebo_scope_clusters')->referencedEntities();
       $scope_dwellings = $scope->get('field_brebo_scope_dwellings')->referencedEntities();
       $scope_positions = $scope->get('field_brebo_scope_positions')->referencedEntities();
       if ($building instanceof NodeInterface) {
         $scoped_building_ids[(int) $building->id()] = TRUE;
+      }
+      foreach ($scope_zones as $item) {
+        if ($item instanceof NodeInterface) {
+          $scoped_zone_ids[(int) $item->id()] = TRUE;
+        }
       }
       foreach ($scope_clusters as $item) {
         if ($item instanceof NodeInterface) {
@@ -875,6 +933,7 @@ final class OfficeController extends ControllerBase {
           )->toRenderable()
           : '—'],
         $this->fieldValue($scope, 'field_brebo_scope_mode'),
+        count($scope_zones),
         count($scope_clusters),
         count($scope_dwellings),
         count($scope_positions),
@@ -1276,11 +1335,11 @@ final class OfficeController extends ControllerBase {
       'scope_summary' => [
         '#type' => 'table',
         '#header' => [
-          $this->t('Gebouwen in scope'), $this->t('Gebouwdelen'),
-          $this->t('Woningen'), $this->t('Productposities'),
+          $this->t('Gebouwen in scope'), $this->t('Technische zones'),
+          $this->t('Gebouwdelen'), $this->t('Woningen'), $this->t('Productposities'),
         ],
         '#rows' => [[
-          count($scoped_building_ids), count($scoped_cluster_ids),
+          count($scoped_building_ids), count($scoped_zone_ids), count($scoped_cluster_ids),
           count($scoped_dwelling_ids), count($scoped_position_ids),
         ]],
       ],
@@ -1288,7 +1347,7 @@ final class OfficeController extends ControllerBase {
         '#type' => 'table',
         '#header' => [
           $this->t('Scope'), $this->t('Gebouw'), $this->t('Selectiewijze'),
-          $this->t('Gebouwdelen'), $this->t('Woningen'),
+          $this->t('Technische zones'), $this->t('Gebouwdelen'), $this->t('Woningen'),
           $this->t('Productposities'), $this->t('Status'), $this->t('Actie'),
         ],
         '#rows' => $scope_rows,
@@ -1456,6 +1515,7 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_deviation',
           'node_list:brebo_route_item',
           'node_list:brebo_project_scope',
+          'node_list:brebo_building_zone',
         ],
       ],
     ];
