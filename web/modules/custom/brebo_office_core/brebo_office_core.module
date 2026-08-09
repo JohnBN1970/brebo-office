@@ -19,6 +19,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'brebo_building_zone' => 'Zonenaam',
     'brebo_project' => 'Projectnaam',
     'brebo_project_scope' => 'Projectscope',
+    'brebo_scope_requirement' => 'Procesvereiste',
     'brebo_cluster' => 'Clusternaam',
     'brebo_dwelling' => 'Woningnaam',
     'brebo_product_position' => 'Productpositie',
@@ -60,6 +61,8 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'field_brebo_ceiling_type' => ['Geen plafond', 'Indicatief budget', 'Waarschuwingsgrens', 'Hard plafond'],
     'field_brebo_scope_mode' => ['Volledig gebouw', 'Geselecteerde technische zones', 'Geselecteerde gebouwdelen', 'Geselecteerde woningen', 'Geselecteerde productposities', 'Geselecteerde objecten'],
     'field_brebo_zone_type' => ['Gevel', 'Gevelbeuk', 'Gevelcel', 'Dakvlak', 'Galerijzone', 'Balkonzone', 'Trappenhuis', 'Algemene ruimte', 'Terreinzone', 'Overige werkzone'],
+    'field_brebo_requirement_type' => ['Werkzaamheid', 'Bewijs', 'Controle', 'Vrijgave', 'Ketenafhankelijkheid'],
+    'field_brebo_requirement_status' => ['Niet gestart', 'In uitvoering', 'Wacht op extern', 'Ter beoordeling', 'Gereed', 'Geblokkeerd', 'Afgekeurd', 'N.V.T.'],
     'field_brebo_scope_status' => ['Concept', 'Vastgesteld', 'In uitvoering', 'Afgesloten'],
   ] as $field_name => $options) {
     if (isset($form[$field_name]['widget'][0]['value'])) {
@@ -127,6 +130,42 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         $form[$scope_field_name]['#weight'] = $weight;
       }
     }
+  }
+
+  if ($node->bundle() === 'brebo_scope_requirement') {
+    if ($node->isNew()) {
+      $node->setTitle('Nieuwe procesvereiste');
+      foreach ([
+        'project' => ['brebo_project', 'field_brebo_project_ref'],
+        'target' => [NULL, 'field_brebo_requirement_target'],
+      ] as $query_key => [$expected_bundle, $requirement_field]) {
+        $target_id = (int) \Drupal::request()->query->get($query_key, 0);
+        $target = $target_id > 0
+          ? \Drupal::entityTypeManager()->getStorage('node')->load($target_id)
+          : NULL;
+        if ($target instanceof NodeInterface
+          && ($expected_bundle === NULL || $target->bundle() === $expected_bundle)
+          && isset($form[$requirement_field]['widget'][0]['target_id'])) {
+          $form[$requirement_field]['widget'][0]['target_id']['#default_value'] = $target;
+        }
+      }
+    }
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+    foreach (['field_brebo_due_date', 'field_brebo_last_communication'] as $date_field) {
+      if (isset($form[$date_field]['widget'][0]['value'])) {
+        $form[$date_field]['widget'][0]['value']['#type'] = 'date';
+      }
+    }
+    $form['brebo_requirement_intro'] = [
+      '#type' => 'container',
+      '#weight' => 0,
+      '#attributes' => ['class' => ['messages', 'messages--status']],
+      'text' => [
+        '#markup' => '<strong>Universele gereedheidsmotor</strong><br>Het gewicht bepaalt het percentage. Een open blokkerende vereiste bepaalt rood. Groen ontstaat uitsluitend wanneer alle toepasselijke vereisten aantoonbaar gereed zijn.',
+      ],
+    ];
   }
 
   if ($node->bundle() === 'brebo_building_zone') {
@@ -870,6 +909,13 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_scope_requirement') {
+    $target = $node->get('field_brebo_requirement_target')->entity;
+    $type = (string) $node->get('field_brebo_requirement_type')->value;
+    $node->setTitle(($type ?: 'Procesvereiste') . ' — ' . ($target instanceof NodeInterface ? $target->label() : 'scopeobject'));
+    return;
+  }
+
   if ($node->bundle() === 'brebo_project_scope') {
     $project = $node->get('field_brebo_project_ref')->entity;
     $building = $node->get('field_brebo_building_ref')->entity;

@@ -270,6 +270,16 @@ brebo_office_core.project_scopes:
     _permission: 'access content'
 
 
+brebo_office_core.scope_requirements:
+  path: '/office/statusonderdelen'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'Voortgang en ketenafhankelijkheden'
+    bundle: 'brebo_scope_requirement'
+  requirements:
+    _permission: 'access content'
+
+
 brebo_office_core.regie_actions:
   path: '/office/regie-acties'
   defaults:

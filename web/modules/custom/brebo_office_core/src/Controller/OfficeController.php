@@ -612,6 +612,8 @@ final class OfficeController extends ControllerBase {
         count($zone->get('field_brebo_affected_positions')->referencedEntities()),
         $this->fieldValue($zone, 'field_brebo_zone_quantity') . ' ' . $this->fieldValue($zone, 'field_brebo_zone_unit'),
         $this->fieldValue($zone, 'field_brebo_status'),
+        $this->progressCell($this->scopeProgress([(int) $zone->id()])),
+        $this->signalCell($this->scopeProgress([(int) $zone->id()])),
         ['data' => Link::fromTextAndUrl(
           $this->t('Bewerken'),
           Url::fromRoute('entity.node.edit_form', ['node' => $zone->id()])
@@ -787,7 +789,7 @@ final class OfficeController extends ControllerBase {
           $this->t('Zone'), $this->t('Code'), $this->t('Type'),
           $this->t('Bovenliggend'), $this->t('Geraakte woningen'),
           $this->t('Productposities'), $this->t('Hoeveelheid'),
-          $this->t('Status'), $this->t('Actie'),
+          $this->t('Status'), $this->t('Voortgang'), $this->t('Signaal'), $this->t('Actie'),
         ],
         '#rows' => $zone_rows,
         '#empty' => $this->t('Dit gebouw bevat nog geen technische zones.'),
@@ -921,6 +923,16 @@ final class OfficeController extends ControllerBase {
           $scoped_position_ids[(int) $item->id()] = TRUE;
         }
       }
+      $scope_target_ids = [(int) $scope->id()];
+      foreach ([$scope_zones, $scope_clusters, $scope_dwellings, $scope_positions] as $scope_entities) {
+        foreach ($scope_entities as $scope_entity) {
+          if ($scope_entity instanceof NodeInterface) {
+            $scope_target_ids[] = (int) $scope_entity->id();
+          }
+        }
+      }
+      $scope_progress = $this->scopeProgress(array_values(array_unique($scope_target_ids)));
+
       $scope_rows[] = [
         ['data' => Link::fromTextAndUrl(
           $scope->label(),
@@ -938,9 +950,49 @@ final class OfficeController extends ControllerBase {
         count($scope_dwellings),
         count($scope_positions),
         $this->fieldValue($scope, 'field_brebo_scope_status'),
+        $this->progressCell($scope_progress),
+        $this->signalCell($scope_progress),
         ['data' => Link::fromTextAndUrl(
           $this->t('Bewerken'),
           Url::fromRoute('entity.node.edit_form', ['node' => $scope->id()])
+        )->toRenderable()],
+      ];
+    }
+
+    $requirement_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_scope_requirement')
+      ->condition('field_brebo_project_ref.target_id', $node->id())
+      ->sort('field_brebo_due_date', 'ASC')
+      ->execute();
+    $requirement_rows = [];
+    foreach ($storage->loadMultiple($requirement_ids) as $requirement) {
+      if (!$requirement instanceof NodeInterface) {
+        continue;
+      }
+      $target = $requirement->get('field_brebo_requirement_target')->entity;
+      $owner = $requirement->get('field_brebo_responsible_user')->entity;
+      $status = $this->fieldValue($requirement, 'field_brebo_requirement_status');
+      $applicable = (bool) $requirement->get('field_brebo_req_applicable')->value;
+      $blocking = (bool) $requirement->get('field_brebo_req_blocking')->value;
+      $party = $this->fieldValue($requirement, 'field_brebo_external_party');
+      $contact = $this->fieldValue($requirement, 'field_brebo_external_contact');
+      $requirement_rows[] = [
+        ['data' => $target instanceof NodeInterface
+          ? Link::fromTextAndUrl($target->label(), $target->toUrl())->toRenderable()
+          : '—'],
+        $this->fieldValue($requirement, 'field_brebo_requirement_type'),
+        $this->fieldValue($requirement, 'field_brebo_description'),
+        $this->fieldValue($requirement, 'field_brebo_requirement_weight'),
+        $applicable ? $this->t('Ja') : $this->t('Nee'),
+        $status,
+        ($party !== '—' || $contact !== '—') ? trim($party . ' · ' . $contact, ' ·—') : '—',
+        $owner ? $owner->label() : '—',
+        $this->fieldValue($requirement, 'field_brebo_due_date'),
+        $blocking ? $this->t('Ja') : $this->t('Nee'),
+        ['data' => Link::fromTextAndUrl(
+          $this->t('Bijwerken'),
+          Url::fromRoute('entity.node.edit_form', ['node' => $requirement->id()])
         )->toRenderable()],
       ];
     }
@@ -1217,6 +1269,14 @@ final class OfficeController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+        'add_requirement' => [
+          '#type' => 'link',
+          '#title' => $this->t('Statusonderdeel toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_scope_requirement'], [
+            'query' => ['project' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'regie_actions' => [
           '#type' => 'link',
           '#title' => $this->t('Centrale regie-acties'),
@@ -1348,10 +1408,25 @@ final class OfficeController extends ControllerBase {
         '#header' => [
           $this->t('Scope'), $this->t('Gebouw'), $this->t('Selectiewijze'),
           $this->t('Technische zones'), $this->t('Gebouwdelen'), $this->t('Woningen'),
-          $this->t('Productposities'), $this->t('Status'), $this->t('Actie'),
+          $this->t('Productposities'), $this->t('Status'),
+          $this->t('Voortgang'), $this->t('Signaal'), $this->t('Actie'),
         ],
         '#rows' => $scope_rows,
         '#empty' => $this->t('Nog geen gebouwscope vastgelegd.'),
+      ],
+      'requirements_heading' => [
+        '#markup' => '<h2>' . $this->t('Voortgang, blokkeringen en ketenafhankelijkheden') . '</h2>',
+      ],
+      'requirements' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Scopeobject'), $this->t('Type'), $this->t('Vereist resultaat'),
+          $this->t('Gewicht'), $this->t('Van toepassing'), $this->t('Status'),
+          $this->t('Ketenpartij/contact'), $this->t('BREBO-eigenaar'),
+          $this->t('Streefdatum'), $this->t('Blokkeert'), $this->t('Actie'),
+        ],
+        '#rows' => $requirement_rows,
+        '#empty' => $this->t('Nog geen gewogen statusonderdelen of ketenafhankelijkheden vastgelegd.'),
       ],
       'scope_principle' => [
         '#type' => 'container',
@@ -1516,6 +1591,7 @@ final class OfficeController extends ControllerBase {
           'node_list:brebo_route_item',
           'node_list:brebo_project_scope',
           'node_list:brebo_building_zone',
+          'node_list:brebo_scope_requirement',
         ],
       ],
     ];
@@ -1528,6 +1604,8 @@ final class OfficeController extends ControllerBase {
       'scope_heading' => 'scope',
       'scope_summary' => 'scope',
       'scopes' => 'scope',
+      'requirements_heading' => 'scope',
+      'requirements' => 'scope',
       'scope_principle' => 'scope',
       'operating_model_heading' => 'governance',
       'operating_model' => 'governance',
@@ -2519,6 +2597,110 @@ final class OfficeController extends ControllerBase {
   /**
    * Applies ordered fixed or percentage adjustments to a value.
    */
+  /**
+   * Calculates weighted progress and the strictest signal for arbitrary nodes.
+   */
+  private function scopeProgress(array $target_ids): array {
+    $target_ids = array_values(array_unique(array_filter(array_map('intval', $target_ids))));
+    if (!$target_ids) {
+      return ['percent' => 0, 'signal' => 'neutral', 'label' => (string) $this->t('Nog niet ingericht'), 'total' => 0];
+    }
+
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_scope_requirement')
+      ->condition('field_brebo_requirement_target.target_id', $target_ids, 'IN')
+      ->execute();
+
+    $total_weight = 0.0;
+    $complete_weight = 0.0;
+    $blocking = 0;
+    $overdue = 0;
+    $waiting_external = 0;
+    $today = date('Y-m-d');
+    $total = 0;
+
+    foreach ($storage->loadMultiple($ids) as $requirement) {
+      if (!$requirement instanceof NodeInterface) {
+        continue;
+      }
+      $status = $this->fieldValue($requirement, 'field_brebo_requirement_status');
+      $applicable = (bool) $requirement->get('field_brebo_req_applicable')->value;
+      if (!$applicable || $status === 'N.V.T.') {
+        continue;
+      }
+      $total++;
+      $weight = max(0.01, (float) $requirement->get('field_brebo_requirement_weight')->value);
+      $total_weight += $weight;
+      if ($status === 'Gereed') {
+        $complete_weight += $weight;
+      }
+      if ($status === 'Wacht op extern') {
+        $waiting_external++;
+      }
+      $is_open = !in_array($status, ['Gereed', 'N.V.T.'], TRUE);
+      if ($is_open && ((bool) $requirement->get('field_brebo_req_blocking')->value
+        || in_array($status, ['Geblokkeerd', 'Afgekeurd'], TRUE))) {
+        $blocking++;
+      }
+      $due = $this->fieldValue($requirement, 'field_brebo_due_date');
+      if ($is_open && $due !== '—' && $due < $today) {
+        $overdue++;
+      }
+    }
+
+    if ($total_weight <= 0.0) {
+      return ['percent' => 0, 'signal' => 'neutral', 'label' => (string) $this->t('Nog niet ingericht'), 'total' => 0];
+    }
+
+    $percent = (int) round(($complete_weight / $total_weight) * 100);
+    if ($blocking > 0 || $overdue > 0) {
+      $signal = 'danger';
+      $label = $blocking > 0
+        ? (string) $this->t('@count blokkering(en)', ['@count' => $blocking])
+        : (string) $this->t('@count termijn(en) verlopen', ['@count' => $overdue]);
+    }
+    elseif ($percent === 100) {
+      $signal = 'good';
+      $label = (string) $this->t('Aantoonbaar gereed');
+    }
+    else {
+      $signal = 'attention';
+      $label = $waiting_external > 0
+        ? (string) $this->t('Wacht op extern (@count)', ['@count' => $waiting_external])
+        : (string) $this->t('In uitvoering');
+    }
+
+    return ['percent' => $percent, 'signal' => $signal, 'label' => $label, 'total' => $total];
+  }
+
+  /**
+   * Returns a compact visual progress cell.
+   */
+  private function progressCell(array $progress): array {
+    $percent = max(0, min(100, (int) ($progress['percent'] ?? 0)));
+    return ['data' => [
+      '#markup' => '<div class="brebo-progress" aria-label="' . $percent . '% gereed">'
+        . '<span class="brebo-progress__value">' . $percent . '%</span>'
+        . '<span class="brebo-progress__track"><span class="brebo-progress__bar" style="width:' . $percent . '%"></span></span>'
+        . '</div>',
+    ]];
+  }
+
+  /**
+   * Returns a compact traffic-light signal cell.
+   */
+  private function signalCell(array $progress): array {
+    $signal = (string) ($progress['signal'] ?? 'neutral');
+    $label = (string) ($progress['label'] ?? $this->t('Nog niet ingericht'));
+    return ['data' => [
+      '#markup' => '<span class="brebo-inline-signal brebo-inline-signal--' . $signal . '">'
+        . '<span class="brebo-traffic-light brebo-traffic-light--' . $signal . '" aria-hidden="true"></span>'
+        . '<span>' . $label . '</span></span>',
+    ]];
+  }
+
   private function applyAdjustments(float $current, array $direct_breakdown, array $adjustments): array {
     $adjustment_total = 0.0;
     foreach ($adjustments as $adjustment) {
