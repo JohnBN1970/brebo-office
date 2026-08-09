@@ -128,6 +128,62 @@ final class OfferVersionForm extends FormBase {
       '#default_value' => 'Halfopen',
     ];
 
+    $form['generator'] = [
+      '#type' => 'fieldset',
+      '#title' => $this->t('Conceptgenerator'),
+      '#description' => $this->t('Kies enkele parameters. De generator vult alleen conceptteksten in; bedragen en calculatieregels worden niet gewijzigd.'),
+    ];
+    $form['generator']['client_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Type opdrachtgever'),
+      '#required' => TRUE,
+      '#options' => [
+        'Woningcorporatie' => $this->t('Woningcorporatie'),
+        'VvE' => $this->t('VvE'),
+        'Zakelijk' => $this->t('Zakelijke opdrachtgever'),
+        'Overheid' => $this->t('Overheid / aanbestedende dienst'),
+        'Particulier' => $this->t('Particulier'),
+      ],
+      '#default_value' => 'Zakelijk',
+    ];
+    $form['generator']['work_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Type werk'),
+      '#required' => TRUE,
+      '#options' => [
+        'Planmatig onderhoud' => $this->t('Planmatig onderhoud'),
+        'Renovatie' => $this->t('Renovatie'),
+        'Verduurzaming' => $this->t('Verduurzaming'),
+        'ETICS gevelisolatie' => $this->t('ETICS gevelisolatie'),
+        'Schilderwerk' => $this->t('Schilderwerk'),
+        'Kozijnvervanging en beglazing' => $this->t('Kozijnvervanging en beglazing'),
+        'Gevel- en betonherstel' => $this->t('Gevel- en betonherstel'),
+        'Dak-, lood- en zinkwerk' => $this->t('Dak-, lood- en zinkwerk'),
+        'Combinatieproject' => $this->t('Combinatieproject'),
+        'Maatwerk' => $this->t('Maatwerk'),
+      ],
+      '#default_value' => 'Planmatig onderhoud',
+    ];
+    $form['generator']['writing_style'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Schrijfstijl'),
+      '#required' => TRUE,
+      '#options' => [
+        'Zakelijk' => $this->t('Zakelijk en helder'),
+        'Compact' => $this->t('Compact'),
+        'Technisch' => $this->t('Technisch en formeel'),
+        'Bewonersvriendelijk' => $this->t('Bewonersvriendelijk'),
+      ],
+      '#default_value' => 'Zakelijk',
+    ];
+    $form['generator']['generate'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('Conceptteksten genereren'),
+      '#submit' => ['::generateConceptTexts'],
+      '#limit_validation_errors' => [],
+      '#attributes' => ['class' => ['button', 'button--secondary']],
+    ];
+
     $form['texts'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Commerciële teksten'),
@@ -141,6 +197,7 @@ final class OfferVersionForm extends FormBase {
         '#type' => 'textarea',
         '#title' => $label,
         '#rows' => 6,
+        '#default_value' => (string) ($form_state->getValue($key) ?? ''),
       ];
     }
 
@@ -213,6 +270,113 @@ final class OfferVersionForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  /**
+   * Generates editable commercial texts without changing calculation data.
+   */
+  public function generateConceptTexts(array &$form, FormStateInterface $form_state): void {
+    $texts = $this->buildConceptTexts(
+      (string) $form_state->getValue('client_type'),
+      (string) $form_state->getValue('work_type'),
+      (string) $form_state->getValue('writing_style'),
+      (string) $form_state->getValue('offer_layout'),
+      (string) $form_state->getValue('price_detail'),
+    );
+
+    $input = $form_state->getUserInput();
+    foreach ($texts as $key => $text) {
+      $form_state->setValue($key, $text);
+      $input[$key] = $text;
+    }
+    $form_state->setUserInput($input);
+    $form_state->setRebuild(TRUE);
+    $this->messenger()->addStatus($this->t('De conceptteksten zijn gegenereerd. Controleer en bewerk ze vóór het opslaan.'));
+  }
+
+  /**
+   * Builds conservative offer copy from user-selected parameters.
+   *
+   * @return array{scope: string, exclusions: string, work_terms: string}
+   *   The three editable commercial text sections.
+   */
+  private function buildConceptTexts(
+    string $client_type,
+    string $work_type,
+    string $writing_style,
+    string $offer_layout,
+    string $price_detail,
+  ): array {
+    $project = $this->calculation instanceof NodeInterface
+      ? (string) $this->calculation->label()
+      : (string) $this->t('het project');
+
+    $audience = match ($client_type) {
+      'Woningcorporatie' => 'de woningcorporatie en haar bewoners',
+      'VvE' => 'de VvE, haar bestuur en bewoners',
+      'Overheid' => 'de aanbestedende dienst en betrokken gebruikers',
+      'Particulier' => 'de opdrachtgever en gebruikers van het pand',
+      default => 'de opdrachtgever en betrokken gebruikers',
+    };
+    $work_focus = match ($work_type) {
+      'Verduurzaming' => 'de overeengekomen verduurzamingsmaatregelen en de bouwkundige aansluitingen die daarvoor noodzakelijk zijn',
+      'ETICS gevelisolatie' => 'het overeengekomen ETICS-gevelisolatiesysteem, inclusief ondergrondvoorbereiding, aansluitdetails en afwerking',
+      'Schilderwerk' => 'de overeengekomen voorbehandeling, herstelwerkzaamheden en schilderafwerking',
+      'Kozijnvervanging en beglazing' => 'de overeengekomen kozijnvervanging en beglazing, inclusief de beschreven aansluitingen en afwerking',
+      'Gevel- en betonherstel' => 'het overeengekomen gevel- en betonherstel, inclusief de beschreven voorbereiding en afwerking',
+      'Dak-, lood- en zinkwerk' => 'de overeengekomen dak-, lood- en zinkwerkzaamheden en de daarbij beschreven aansluitingen',
+      'Renovatie' => 'de in de calculatie en werkomschrijving vastgelegde renovatiewerkzaamheden',
+      'Combinatieproject' => 'de samenhangende werkzaamheden die in de calculatie en werkomschrijving zijn opgenomen',
+      'Maatwerk' => 'de specifiek in de calculatie en werkomschrijving vastgelegde werkzaamheden',
+      default => 'de in de calculatie en werkomschrijving vastgelegde onderhoudswerkzaamheden',
+    };
+
+    $scope = [
+      'Deze aanbieding voor ' . $project . ' betreft ' . $work_focus . '.',
+      'De scope wordt bepaald door de bij deze offerte behorende calculatie, werkomschrijving, hoeveelheden, tekeningen en schriftelijk vastgelegde uitgangspunten. Alleen uitdrukkelijk opgenomen werkzaamheden en leveringen maken deel uit van de aanbieding.',
+    ];
+    if ($writing_style === 'Technisch') {
+      $scope[] = 'Uitvoering vindt plaats volgens de overeengekomen technische specificaties, verwerkingsvoorschriften van fabrikanten en vastgelegde keurings- en vrijgavemomenten. Afwijkingen worden vóór uitvoering schriftelijk gemeld.';
+    }
+    elseif ($writing_style === 'Bewonersvriendelijk' || $offer_layout === 'VvE') {
+      $scope[] = 'Bij de uitvoering houden wij rekening met ' . $audience . '. Bereikbaarheid, hinder en noodzakelijke toegang worden tijdig afgestemd.';
+    }
+    elseif ($writing_style !== 'Compact') {
+      $scope[] = 'Werkvolgorde, bereikbaarheid en afstemming met ' . $audience . ' worden vóór aanvang praktisch vastgelegd.';
+    }
+
+    $exclusions = [
+      'Niet opgenomen zijn werkzaamheden, leveringen en hoeveelheden die niet uitdrukkelijk in deze aanbieding of de bijbehorende calculatie zijn beschreven.',
+      'Eveneens uitgesloten zijn niet-zichtbare gebreken, asbest of andere schadelijke stoffen, constructieve gebreken en aanvullende eisen van bevoegd gezag of nutsbedrijven, tenzij deze expliciet als onderdeel of stelpost zijn opgenomen.',
+      'Herstel als gevolg van werkzaamheden door derden en wijzigingen na vaststelling van de offerte worden afzonderlijk beoordeeld en, na akkoord, als meer- of minderwerk verwerkt.',
+    ];
+    if ($writing_style === 'Compact') {
+      $exclusions = [
+        'Niet inbegrepen zijn niet expliciet omschreven werkzaamheden, verborgen gebreken, schadelijke stoffen, vergunningen en werkzaamheden door derden. Wijzigingen worden alleen na schriftelijk akkoord als meer- of minderwerk uitgevoerd.',
+      ];
+    }
+
+    $terms = [
+      'Deze aanbieding is gebaseerd op de op offertedatum beschikbare projectinformatie en blijft geldig tot de in deze offerte vermelde geldigheidsdatum.',
+      'Uitvoering is mogelijk nadat opdracht, planning, bereikbaarheid, werkterrein en noodzakelijke voorzieningen schriftelijk zijn afgestemd.',
+      'Afwijkende omstandigheden, gewijzigde hoeveelheden en aanvullende wensen worden vóór uitvoering gemeld en uitsluitend na schriftelijk akkoord verrekend.',
+      'Op deze aanbieding zijn de vermelde projectspecifieke voorwaarden en toepasselijke algemene voorwaarden van toepassing. Bij tegenstrijdigheid prevaleren de specifiek in deze offerte vastgelegde afspraken.',
+    ];
+    if ($price_detail === 'Open' || $price_detail === 'Regie') {
+      $terms[] = 'Verrekenbare hoeveelheden, uren en eenheidsprijzen worden geregistreerd en afgerekend volgens de in de aanbieding opgenomen meet- en verrekenafspraken.';
+    }
+    elseif ($price_detail === 'Gesloten') {
+      $terms[] = 'De gesloten aanneemsom geldt uitsluitend voor de omschreven scope en de vastgelegde uitgangspunten.';
+    }
+    if ($writing_style === 'Technisch') {
+      $terms[] = 'Keuringen, vrijgaven en eventuele afwijkingen worden aantoonbaar in het projectdossier vastgelegd.';
+    }
+
+    return [
+      'scope' => implode("\n\n", $scope),
+      'exclusions' => implode("\n\n", $exclusions),
+      'work_terms' => implode("\n\n", $terms),
+    ];
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
