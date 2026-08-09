@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
@@ -15,15 +16,17 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class CalculationGridForm extends FormBase {
 
   /**
-   * The calculation being edited.
+   * Constructs the inline calculation editor.
    */
-  private ?NodeInterface $calculation = NULL;
+  public function __construct(
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+  ) {}
 
   /**
    * {@inheritdoc}
    */
   public static function create(ContainerInterface $container): static {
-    return new static();
+    return new static($container->get('entity_type.manager'));
   }
 
   /**
@@ -40,13 +43,11 @@ final class CalculationGridForm extends FormBase {
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
-    $this->calculation = $node;
-
     if (!$node->access('update')) {
       return ['message' => ['#markup' => '<p>U heeft geen recht om deze calculatie te wijzigen.</p>']];
     }
 
-    $storage = $this->entityTypeManager()->getStorage('node');
+    $storage = $this->entityTypeManager->getStorage('node');
     $element_ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_calc_element')
@@ -207,7 +208,7 @@ final class CalculationGridForm extends FormBase {
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $calculation_id = (int) $form_state->getValue('calculation_id');
-    $storage = $this->entityTypeManager()->getStorage('node');
+    $storage = $this->entityTypeManager->getStorage('node');
     $changed = 0;
 
     foreach ($form_state->getValue('grid', []) as $line_id => $values) {
