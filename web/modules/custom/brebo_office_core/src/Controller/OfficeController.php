@@ -886,6 +886,9 @@ final class OfficeController extends ControllerBase {
     $unassigned = 0;
     $confirmation_pending = 0;
     $financial_impact = 0.0;
+    $unprocessed = 0;
+    $review_required = 0;
+    $established = 0;
 
     foreach ($storage->loadMultiple($ids) as $communication) {
       if (!$communication instanceof NodeInterface) {
@@ -912,6 +915,11 @@ final class OfficeController extends ControllerBase {
       $unassigned += $is_unassigned ? 1 : 0;
       $confirmation_pending += $is_confirmation_pending ? 1 : 0;
       $financial_impact += (float) ($communication->get('field_brebo_financial_impact')->value ?? 0);
+      $ai_status = $this->fieldValue($communication, 'field_brebo_ai_status');
+      $formal_status = $this->fieldValue($communication, 'field_brebo_formal_status');
+      $unprocessed += $ai_status === 'Niet verwerkt' ? 1 : 0;
+      $review_required += in_array($ai_status, ['Concept gemaakt', 'Controle vereist'], TRUE) ? 1 : 0;
+      $established += $formal_status === 'Vastgesteld' ? 1 : 0;
 
       if ($is_overdue || $is_confirmation_pending) {
         $progress = [
@@ -1003,11 +1011,13 @@ final class OfficeController extends ControllerBase {
         '#header' => [
           $this->t('Contactmomenten'), $this->t('Open reacties'),
           $this->t('Termijn verlopen'), $this->t('Niet toegewezen'),
-          $this->t('Bevestiging ontbreekt'), $this->t('Financiële impact'),
+          $this->t('Bevestiging ontbreekt'), $this->t('Niet verwerkt'),
+          $this->t('Controle vereist'), $this->t('Vastgesteld'), $this->t('Financiële impact'),
         ],
         '#rows' => [[
           count($rows), $open, $overdue, $unassigned,
-          $confirmation_pending, $this->money($financial_impact),
+          $confirmation_pending, $unprocessed, $review_required, $established,
+          $this->money($financial_impact),
         ]],
       ],
       'urgent_heading' => [
