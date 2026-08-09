@@ -358,7 +358,14 @@ final class CalculationGridForm extends FormBase {
           ],
           '#attributes' => ['class' => ['brebo-line-status']],
         ];
-        $description_input = $this->input('textfield', $line, 'field_brebo_line_description', ['#size' => 34]);
+        $form['grid'][$id]['description'] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-calculation-description']],
+          'input' => $this->input('textfield', $line, 'field_brebo_line_description', [
+            '#size' => 34,
+            '#parents' => ['grid', $id, 'description'],
+          ]),
+        ];
         if (\Drupal::moduleHandler()->moduleExists('brebo_article')) {
           $snapshot = \Drupal::database()->select('brebo_calculation_article_snapshot', 'snapshot')
             ->fields('snapshot')
@@ -366,21 +373,34 @@ final class CalculationGridForm extends FormBase {
             ->execute()
             ->fetchAssoc() ?: [];
           $article_label = $snapshot
-            ? htmlspecialchars((string) $snapshot['article_code']) . ' · ' . htmlspecialchars((string) $snapshot['supplier_name'])
-            : (string) $this->t('Zoek in artikelstam');
-          $hidden = '';
+            ? (string) $snapshot['article_code'] . ' · ' . (string) $snapshot['supplier_name']
+            : (string) $this->t('Artikel zoeken');
+
           foreach ([
             'article_id', 'supplier_article_id', 'price_id', 'catalog_import_id',
             'article_code', 'supplier_name', 'supplier_article_no', 'price_date',
           ] as $snapshot_key) {
-            $hidden .= '<input type="hidden" name="grid[' . $id . '][' . $snapshot_key . ']" value="'
-              . htmlspecialchars((string) ($snapshot[$snapshot_key] ?? '')) . '">';
+            $form['grid'][$id]['description'][$snapshot_key] = [
+              '#type' => 'hidden',
+              '#default_value' => (string) ($snapshot[$snapshot_key] ?? ''),
+              '#parents' => ['grid', $id, $snapshot_key],
+            ];
           }
-          $description_input['#suffix'] = $hidden
-            . '<button type="button" class="brebo-article-select' . ($snapshot ? ' has-article' : '') . '" '
-            . 'data-brebo-article-picker>' . $article_label . '</button>';
+          $form['grid'][$id]['description']['article_picker'] = [
+            '#type' => 'html_tag',
+            '#tag' => 'button',
+            '#value' => $article_label,
+            '#attributes' => [
+              'type' => 'button',
+              'class' => array_values(array_filter([
+                'brebo-article-select',
+                $snapshot ? 'has-article' : NULL,
+              ])),
+              'data-brebo-article-picker' => '',
+              'aria-label' => $this->t('Artikel zoeken voor deze calculatieregel'),
+            ],
+          ];
         }
-        $form['grid'][$id]['description'] = $description_input;
         $form['grid'][$id]['post_type'] = $this->select($line, 'field_brebo_line_post_type', [
           'Vaste post', 'Stelpost', 'Verrekenpost', 'Optie', 'Alternatief', 'Meer-/minderwerk',
         ]);
