@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_article\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Datetime\TimeInterface;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Psr\Log\LoggerInterface;
 
