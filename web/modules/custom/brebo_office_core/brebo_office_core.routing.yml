@@ -375,3 +375,15 @@ brebo_office_core.communication_processing:
     parameters:
       node:
         type: entity:node
+
+brebo_office_core.offer_preview:
+  path: '/office/offertes/{node}/voorbeeld'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfferPreviewController::view'
+    _title: 'Offertevoorbeeld'
+  requirements:
+    _permission: 'access content'
+  options:
+    parameters:
+      node:
+        type: entity:node
