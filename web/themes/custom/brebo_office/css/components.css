@@ -38,3 +38,11 @@ legend, summary { color: var(--brebo-purple-950); font-weight: 900; cursor: poin
 .pager a { display: grid; min-width: 36px; height: 36px; place-items: center; border: 1px solid var(--brebo-border); border-radius: 7px; background: #fff; text-decoration: none; }
 @media (max-width: 900px) { .brebo-appnav { overflow-x: auto; } .brebo-appnav a { padding: 0 9px; } }
 @media (max-width: 680px) { .brebo-appnav { display: none; } .brebo-brand__name span, .brebo-environment { display: none; } .brebo-list-actions { justify-content: flex-start; } }
+
+.brebo-project-tabs { position: sticky; z-index: 20; top: 76px; display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 22px; padding: 5px; border: 1px solid var(--brebo-border); border-radius: 11px; background: rgb(245 243 246 / 94%); box-shadow: var(--brebo-shadow-sm); backdrop-filter: blur(10px); }
+.brebo-project-tabs button { min-height: 38px; padding: 8px 15px; border: 0; border-radius: 7px; color: var(--brebo-muted); background: transparent; box-shadow: none; font-size: .88rem; }
+.brebo-project-tabs button:hover { color: var(--brebo-purple-950); background: #fff; transform: none; box-shadow: var(--brebo-shadow-sm); }
+.brebo-project-tabs button.is-active { color: #fff; background: var(--brebo-purple-700); box-shadow: 0 3px 9px rgb(57 19 74 / 18%); }
+.brebo-tab-panel[hidden] { display: none !important; }
+.brebo-tab-panel > h2:first-child, .brebo-tab-panel > .content > h2:first-child { margin-top: 6px; }
+@media (max-width: 680px) { .brebo-project-tabs { top: 66px; overflow-x: auto; flex-wrap: nowrap; } .brebo-project-tabs button { white-space: nowrap; } }
