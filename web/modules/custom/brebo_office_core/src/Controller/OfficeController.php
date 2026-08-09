@@ -269,6 +269,7 @@ final class OfficeController extends ControllerBase {
       ],
       'summary' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
         '#header' => [$this->t('Woningcode'), $this->t('Adres'), $this->t('Status'), $this->t('Posities'), $this->t('Controles'), $this->t('Open blokkeringen'), $this->t('Met foto’s'), $this->t('N.V.T.')],
         '#rows' => [[
           $this->fieldValue($node, 'field_brebo_dwelling_code'),
@@ -2743,17 +2744,27 @@ final class OfficeController extends ControllerBase {
         $post_totals[$post_type] = ($post_totals[$post_type] ?? 0.0) + $forecast_line_total;
 
         $line_rows[] = [
-          $this->fieldValue($element, 'field_brebo_element_code'),
-          $this->fieldValue($line, 'field_brebo_line_description'),
-          $post_type,
-          $category,
-          $this->money($contract_line_total),
-          $this->money($forecast_line_total),
-          $this->money($forecast_line_total - $contract_line_total),
-          ['data' => Link::fromTextAndUrl(
-            $this->t('Bewerken'),
-            Url::fromRoute('entity.node.edit_form', ['node' => $line->id()])
-          )->toRenderable()],
+          'data' => [
+            $this->fieldValue($element, 'field_brebo_element_code'),
+            $this->fieldValue($line, 'field_brebo_line_description'),
+            $post_type,
+            $category,
+            $this->fieldValue($line, 'field_brebo_contract_quantity'),
+            $this->fieldValue($line, 'field_brebo_actual_quantity'),
+            $this->fieldValue($line, 'field_brebo_unit'),
+            $this->money($unit_price),
+            $this->money($contract_line_total),
+            $this->money($forecast_line_total),
+            $this->money($forecast_line_total - $contract_line_total),
+            ['data' => Link::fromTextAndUrl(
+              $this->t('Bewerken'),
+              Url::fromRoute('entity.node.edit_form', ['node' => $line->id()])
+            )->toRenderable()],
+          ],
+          'class' => [
+            'brebo-calc-row',
+            'brebo-calc-row--' . strtolower(str_replace([' ', '.'], '-', $post_type)),
+          ],
         ];
       }
 
@@ -2816,7 +2827,8 @@ final class OfficeController extends ControllerBase {
       $post_rows[] = [$post_type, $this->money($value)];
     }
 
-    return [
+    $build = [
+      '#attributes' => ['class' => ['brebo-calculation-workspace']],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
@@ -2840,8 +2852,35 @@ final class OfficeController extends ControllerBase {
             && $node->access('update'),
         ],
       ],
+      'calculation_tabs' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-project-tabs', 'brebo-calculation-tabs'],
+          'role' => 'tablist',
+          'aria-label' => $this->t('Calculatieweergave'),
+          'data-brebo-tabs' => 'true',
+        ],
+        'overview' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Calculatie'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'true', 'data-brebo-tab' => 'calc-overview', 'class' => ['is-active']],
+        ],
+        'lines' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Regels'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-lines'],
+        ],
+        'elements' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Elementen'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-elements'],
+        ],
+        'posts' => [
+          '#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Posten & opslagen'),
+          '#attributes' => ['type' => 'button', 'role' => 'tab', 'aria-selected' => 'false', 'data-brebo-tab' => 'calc-posts'],
+        ],
+        '#attached' => ['library' => ['brebo_office/project-tabs']],
+      ],
       'calculation' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-identity']],
         '#header' => [$this->t('Code'), $this->t('Versie'), $this->t('Status'), $this->t('Prijspeildatum'), $this->t('Werkpakket')],
         '#rows' => [[
           $this->fieldValue($node, 'field_brebo_calc_code'),
@@ -2862,22 +2901,32 @@ final class OfficeController extends ControllerBase {
       'elements_heading' => ['#markup' => '<h2>' . $this->t('Elementen') . '</h2>'],
       'elements' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-elements']],
         '#header' => [$this->t('Element'), $this->t('Code'), $this->t('Regels'), $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil')],
         '#rows' => $element_rows, '#empty' => $this->t('Nog geen calculatie-elementen.'),
       ],
       'posts_heading' => ['#markup' => '<h2>' . $this->t('Posttypen') . '</h2>'],
       'posts' => [
-        '#type' => 'table', '#header' => [$this->t('Posttype'), $this->t('Actuele prognose')],
+        '#type' => 'table', '#attributes' => ['class' => ['brebo-calc-posts']], '#header' => [$this->t('Posttype'), $this->t('Actuele prognose')],
         '#rows' => $post_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
       ],
       'lines_heading' => ['#markup' => '<h2>' . $this->t('Calculatieregels') . '</h2>'],
       'lines' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-lines']],
         '#header' => [
           $this->t('Element'), $this->t('Omschrijving'), $this->t('Posttype'), $this->t('Kostensoort'),
+          $this->t('Aantal'), $this->t('Werkelijk'), $this->t('Eenheid'), $this->t('Eenheidsprijs'),
           $this->t('Contract'), $this->t('Prognose'), $this->t('Verschil'), $this->t('Actie'),
         ],
         '#rows' => $line_rows, '#empty' => $this->t('Nog geen calculatieregels.'),
+      ],
+      'fixed_totals' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-calc-totalbar'], 'aria-label' => $this->t('Calculatietotalen')],
+        'contract' => ['#markup' => '<span><small>' . $this->t('Contract') . '</small><strong>' . $this->money($contract_total) . '</strong></span>'],
+        'forecast' => ['#markup' => '<span><small>' . $this->t('Prognose') . '</small><strong>' . $this->money($forecast_total) . '</strong></span>'],
+        'difference' => ['#markup' => '<span><small>' . $this->t('Verschil') . '</small><strong>' . $this->money($forecast_total - $contract_total) . '</strong></span>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],
@@ -2887,6 +2936,30 @@ final class OfficeController extends ControllerBase {
         ],
       ],
     ];
+
+    foreach ([
+      'calculation' => 'calc-overview',
+      'summary' => 'calc-overview',
+      'lines_heading' => 'calc-lines',
+      'lines' => 'calc-lines',
+      'elements_heading' => 'calc-elements',
+      'elements' => 'calc-elements',
+      'posts_heading' => 'calc-posts',
+      'posts' => 'calc-posts',
+    ] as $key => $tab_id) {
+      $content = $build[$key];
+      $build[$key] = [
+        '#type' => 'container',
+        '#attributes' => [
+          'class' => ['brebo-tab-panel', 'brebo-calc-panel'],
+          'data-brebo-tab-panel' => $tab_id,
+          'role' => 'tabpanel',
+        ],
+        'content' => $content,
+      ];
+    }
+
+    return $build;
   }
 
   /**
