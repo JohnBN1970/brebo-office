@@ -9,7 +9,7 @@ brebo_office_core.settings:
         trade_name: { type: string, label: 'Handelsnaam' }
         legal_name: { type: string, label: 'Statutaire naam' }
         registration_number: { type: string, label: 'KVK-nummer' }
-        general_email: { type: email, label: 'Algemeen e-mailadres' }
+        general_email: { type: string, label: 'Algemeen e-mailadres' }
         general_phone: { type: string, label: 'Algemeen telefoonnummer' }
         address: { type: string, label: 'Vestigingsadres' }
     project:
@@ -35,8 +35,8 @@ brebo_office_core.settings:
       mapping:
         domain: { type: string, label: 'Maildomein' }
         sender_name: { type: string, label: 'Afzendernaam' }
-        sender_address: { type: email, label: 'Afzenderadres' }
-        project_inbox: { type: email, label: 'Projectinbox' }
+        sender_address: { type: string, label: 'Afzenderadres' }
+        project_inbox: { type: string, label: 'Projectinbox' }
         migration_status: { type: string, label: 'Migratiestatus' }
         automatic_dossier_linking: { type: boolean, label: 'Automatische dossierkoppeling' }
     ai:
