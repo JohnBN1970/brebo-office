@@ -172,7 +172,7 @@ final class Sales005Importer {
   private function upsertSupplier(array $metadata): int {
     $code = $metadata['supplier_gln'] !== '' ? 'GLN-' . $metadata['supplier_gln'] : 'SALES-' . substr(hash('sha256', $metadata['supplier_name']), 0, 16);
     $now = $this->time->getRequestTime();
-    $this->database->merge('brebo_supplier')->key(['code' => $code])->fields([
+    $this->database->merge('brebo_supplier')->keys(['code' => $code])->fields([
       'name' => $metadata['supplier_name'],
       'branch' => $metadata['supplier_branch'],
       'active' => 1,
@@ -236,7 +236,7 @@ final class Sales005Importer {
         'product_url' => mb_substr($this->value($line, 'Attachment/URLInformation/URL'), 0, 1024) ?: NULL,
         'active' => 1,
       ];
-      $this->database->merge('brebo_supplier_article')->key(['supplier_id' => $supplierId, 'supplier_article_no' => $supplierArticleNo])->fields($supplierFields)->execute();
+      $this->database->merge('brebo_supplier_article')->keys(['supplier_id' => $supplierId, 'supplier_article_no' => $supplierArticleNo])->fields($supplierFields)->execute();
       $supplierArticleId = (int) $this->database->select('brebo_supplier_article', 'sa')->fields('sa', ['id'])->condition('supplier_id', $supplierId)->condition('supplier_article_no', $supplierArticleNo)->execute()->fetchField();
 
       $priceNodes = $this->nodes($line, 'PriceInformation');
@@ -247,7 +247,7 @@ final class Sales005Importer {
         }
         $quantityFrom = $this->decimal($this->value($price, 'MinimumQuantity'), '1');
         $validFrom = $this->value($price, 'StartDatePriceInformation') ?: $metadata['price_date'];
-        $this->database->merge('brebo_article_price')->key([
+        $this->database->merge('brebo_article_price')->keys([
           'supplier_article_id' => $supplierArticleId,
           'catalog_import_id' => $importId,
           'valid_from' => $validFrom,
