@@ -215,24 +215,7 @@ final class CommunicationProcessingForm extends FormBase {
     $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? 'save_concept');
 
     if ($trigger === 'start_ai') {
-      $has_source = $node->hasField('field_brebo_source_files') && !$node->get('field_brebo_source_files')->isEmpty();
-      $has_transcript = trim((string) $form_state->getValue('transcript')) !== '';
-      if (!$has_source && !$has_transcript) {
-        $this->messenger()->addError($this->t('Voeg eerst een opnamebestand of transcriptie toe.'));
-        return;
-      }
-      if ($has_transcript) {
-        $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
-      }
-      $node->set('field_brebo_ai_status', 'Wachtrij');
-      $node->set('field_brebo_formal_status', 'Bron');
-      $node->set('field_brebo_process_log', 'In wachtrij geplaatst voor automatische transcriptie en BREBO-extractie.');
-      $node->setNewRevision(TRUE);
-      $node->setRevisionLogMessage('Communicatie in de gecontroleerde AI-verwerkingswachtrij geplaatst.');
-      $node->save();
-      \Drupal::queue('brebo_communication_ai')->createItem(['nid' => (int) $node->id()]);
-      $this->messenger()->addStatus($this->t('Communicatie staat in de AI-wachtrij. De uitkomst wordt altijd ter menselijke controle aangeboden.'));
-      $form_state->setRebuild(TRUE);
+      $this->messenger()->addError($this->t('AI-verwerking is geblokkeerd totdat de centrale BREBO Integration API beschikbaar is.'));
       return;
     }
     $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
