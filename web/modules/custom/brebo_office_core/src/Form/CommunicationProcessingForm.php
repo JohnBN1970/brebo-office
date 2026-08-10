@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_office_core\Service\IntegrationApiClientInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -14,6 +16,16 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  * Provides the controlled communication processing workbench.
  */
 final class CommunicationProcessingForm extends FormBase {
+
+  public function __construct(
+    private readonly IntegrationApiClientInterface $integrationApiClient,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('brebo_office_core.integration_api_client'),
+    );
+  }
 
   /**
    * Communication currently being processed.
@@ -162,8 +174,7 @@ final class CommunicationProcessingForm extends FormBase {
       '#name' => 'start_ai',
       '#value' => $this->t('AI-verwerking starten'),
       '#button_type' => 'primary',
-      '#disabled' => TRUE,
-      '#description' => $this->t('Tijdelijk geblokkeerd: AI-verwerking moet via de centrale BREBO Integration API lopen.'),
+      '#description' => $this->t('Maakt uitsluitend een AI-concept. Menselijke controle en formele vaststelling blijven verplicht.'),
     ];
     $form['actions']['save'] = [
       '#type' => 'submit',
@@ -193,9 +204,8 @@ final class CommunicationProcessingForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $this->restoreCommunication($form_state);
     $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? '');
-    if ($trigger === 'start_ai') {
-      $form_state->setErrorByName('start_ai', $this->t('AI-verwerking is geblokkeerd totdat de centrale BREBO Integration API beschikbaar is.'));
-      return;
+    if ($trigger === 'start_ai' && trim((string) $form_state->getValue('transcript')) === '') {
+      $form_state->setErrorByName('transcript', $this->t('Een transcriptie of berichttekst is verplicht voor AI-verwerking.'));
     }
     if ($trigger === 'formally_establish'
       && trim((string) $form_state->getValue('reviewer_note')) === '') {
@@ -215,7 +225,42 @@ final class CommunicationProcessingForm extends FormBase {
     $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? 'save_concept');
 
     if ($trigger === 'start_ai') {
-      $this->messenger()->addError($this->t('AI-verwerking is geblokkeerd totdat de centrale BREBO Integration API beschikbaar is.'));
+      $project = $node->get('field_brebo_project_ref')->entity;
+      $result = $this->integrationApiClient->analyzeCommunication([
+        'communication_id' => (int) $node->id(),
+        'project_id' => $project instanceof NodeInterface ? (int) $project->id() : NULL,
+        'channel' => $this->value($node, 'field_brebo_comm_channel', 'overig'),
+        'subject' => $node->label(),
+        'message' => (string) $form_state->getValue('transcript'),
+      ]);
+      if (($result['state'] ?? NULL) !== 'completed' || !is_array($result['analysis'] ?? NULL)) {
+        $this->messenger()->addWarning($this->analysisStateMessage((string) ($result['state'] ?? 'unknown')));
+        return;
+      }
+
+      $analysis = $result['analysis'];
+      $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
+      $node->set('field_brebo_ai_summary', $this->analysisText($analysis, ['summary', 'samenvatting']));
+      $node->set('field_brebo_ai_decisions', $this->analysisText($analysis, ['decisions', 'commitments', 'besluiten']));
+      $node->set('field_brebo_ai_actions', $this->analysisText($analysis, ['suggested_actions', 'actions', 'vervolgacties']));
+      $node->set('field_brebo_ai_risks', $this->analysisText($analysis, ['risks', 'risicos']));
+      if (isset($analysis['confidence']) && is_numeric($analysis['confidence'])) {
+        $node->set('field_brebo_ai_confidence', max(0, min(100, (float) $analysis['confidence'])));
+      }
+      $node->set('field_brebo_process_log', sprintf(
+        'Integration API-analyse %s voltooid; HTTP %s; %s ms. Uitvoer vereist menselijke controle.',
+        (string) ($result['checked_at'] ?? gmdate('c')),
+        (string) ($result['http_status'] ?? '—'),
+        (string) ($result['response_time_ms'] ?? '—'),
+      ));
+      $node->set('field_brebo_ai_status', 'Controle vereist');
+      $node->set('field_brebo_formal_status', 'AI-concept');
+      $node->set('field_brebo_processed_at', gmdate('Y-m-d\TH:i:s'));
+      $node->setNewRevision(TRUE);
+      $node->setRevisionLogMessage('AI-concept via de centrale BREBO Integration API aangemaakt; menselijke controle vereist.');
+      $node->save();
+      $this->messenger()->addStatus($this->t('AI-concept aangemaakt en gereedgezet voor menselijke controle.'));
+      $form_state->setRebuild(TRUE);
       return;
     }
     $node->set('field_brebo_transcript', (string) $form_state->getValue('transcript'));
@@ -293,6 +338,48 @@ final class CommunicationProcessingForm extends FormBase {
       return $fallback;
     }
     return (string) ($node->get($field_name)->value ?? $fallback);
+  }
+
+  /**
+   * Normalizes a scalar or list from the Integration API analysis.
+   */
+  private function analysisText(array $analysis, array $keys): string {
+    foreach ($keys as $key) {
+      if (!array_key_exists($key, $analysis)) {
+        continue;
+      }
+      $value = $analysis[$key];
+      if (is_array($value)) {
+        $lines = [];
+        foreach ($value as $item) {
+          if (is_scalar($item)) {
+            $lines[] = '- ' . trim((string) $item);
+          }
+          elseif (is_array($item)) {
+            $encoded = json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            if ($encoded !== FALSE) {
+              $lines[] = '- ' . $encoded;
+            }
+          }
+        }
+        return implode("\n", $lines);
+      }
+      if (is_scalar($value)) {
+        return trim((string) $value);
+      }
+    }
+    return '';
+  }
+
+  private function analysisStateMessage(string $state): string {
+    return match ($state) {
+      'not_configured' => (string) $this->t('De Integration API is nog niet geconfigureerd.'),
+      'invalid_input' => (string) $this->t('De communicatie is leeg, ongeldig of te lang.'),
+      'rejected' => (string) $this->t('De Integration API heeft de analyse geweigerd.'),
+      'invalid_response' => (string) $this->t('De Integration API gaf geen veilige, controleerbare respons.'),
+      'unreachable' => (string) $this->t('De Integration API is momenteel niet bereikbaar. De communicatie blijft ongewijzigd.'),
+      default => (string) $this->t('De AI-analyse kon niet worden voltooid. De communicatie blijft ongewijzigd.'),
+    };
   }
 
 }
