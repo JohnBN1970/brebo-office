@@ -1,0 +1,54 @@
+name: PHP quality gate
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'composer.json'
+      - 'composer.lock'
+      - 'web/modules/custom/**/*.php'
+      - '.github/workflows/php-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: php-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Composer and PHP validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+          tools: composer:v2
+
+      - name: Validate Composer files
+        run: composer validate --strict --no-check-publish
+
+      - name: Install locked dependencies
+        run: composer install --no-interaction --no-progress --prefer-dist
+
+      - name: Lint custom PHP
+        shell: bash
+        run: |
+          mapfile -d '' files < <(find web/modules/custom -type f -name '*.php' -print0)
+          if (( ${#files[@]} == 0 )); then
+            echo 'No custom PHP files found.'
+            exit 0
+          fi
+          for file in "${files[@]}"; do
+            php -l "$file"
+          done
