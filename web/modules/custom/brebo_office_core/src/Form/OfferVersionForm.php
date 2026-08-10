@@ -42,6 +42,9 @@ final class OfferVersionForm extends FormBase {
     }
 
     $this->calculation = $node;
+    // The form object itself is recreated for cached POST requests. Persist the
+    // calculation ID in form state so callbacks can restore their context.
+    $form_state->set('brebo_calculation_id', (int) $node->id());
     $storage = $this->entityTypeManager->getStorage('node');
     $existing_ids = $storage->getQuery()
       ->accessCheck(FALSE)
@@ -359,6 +362,7 @@ final class OfferVersionForm extends FormBase {
    * Generates editable commercial texts without changing calculation data.
    */
   public function generateConceptTexts(array &$form, FormStateInterface $form_state): void {
+    $this->restoreCalculation($form_state);
     // This button deliberately skips validation. Read and preserve the complete
     // raw input so a rebuild cannot reset identity, presentation or tax values.
     $input = $form_state->getUserInput();
@@ -575,7 +579,30 @@ final class OfferVersionForm extends FormBase {
     };
   }
 
+  /**
+   * Restores the calculation context for callbacks on a cached form POST.
+   */
+  private function restoreCalculation(FormStateInterface $form_state): ?NodeInterface {
+    if ($this->calculation instanceof NodeInterface) {
+      return $this->calculation;
+    }
+
+    $calculation_id = (int) $form_state->get('brebo_calculation_id');
+    if ($calculation_id <= 0) {
+      return NULL;
+    }
+
+    $calculation = $this->entityTypeManager->getStorage('node')->load($calculation_id);
+    if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') {
+      return NULL;
+    }
+
+    $this->calculation = $calculation;
+    return $calculation;
+  }
+
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    $this->restoreCalculation($form_state);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
       'Final validation reached: version=@version, offer=@offer, trigger=@trigger, scope_length=@scope.',
       [
@@ -610,6 +637,7 @@ final class OfferVersionForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $this->restoreCalculation($form_state);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
       'Final submit reached: version=@version, offer=@offer, errors=@errors, scope_length=@scope.',
       [
