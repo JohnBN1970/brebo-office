@@ -208,6 +208,113 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
     }
   }
 
+  public function analyzeCommunication(array $communication): array {
+    $checkedAt = gmdate('c');
+    $configuration = $this->getConfiguration();
+    if ($configuration === NULL) {
+      return $this->analysisFailure('not_configured', $checkedAt);
+    }
+
+    $communicationId = (int) ($communication['communication_id'] ?? 0);
+    $projectId = isset($communication['project_id'])
+      ? (int) $communication['project_id']
+      : NULL;
+    $channel = trim((string) ($communication['channel'] ?? ''));
+    $subject = trim((string) ($communication['subject'] ?? ''));
+    $message = trim((string) ($communication['message'] ?? ''));
+    if (
+      $communicationId <= 0 || $channel === '' || $subject === '' || $message === '' ||
+      mb_strlen($channel) > 50 || mb_strlen($subject) > 200 ||
+      mb_strlen($message) > 12000
+    ) {
+      return $this->analysisFailure('invalid_input', $checkedAt);
+    }
+
+    $started = microtime(TRUE);
+    try {
+      $response = $this->httpClient->request(
+        'POST',
+        $configuration['base_url'] . '/v1/communications/analyze',
+        [
+          'headers' => [
+            'Accept' => 'application/json',
+            'Authorization' => 'Bearer ' . $configuration['shared_secret'],
+          ],
+          'json' => [
+            'test_mode' => FALSE,
+            'contains_real_data' => TRUE,
+            'human_review_required' => TRUE,
+            'communication' => [
+              'id' => $communicationId,
+              'project_id' => $projectId,
+              'channel' => $channel,
+              'subject' => $subject,
+              'message' => $message,
+            ],
+          ],
+          'allow_redirects' => FALSE,
+          'connect_timeout' => 5.0,
+          'timeout' => 45.0,
+          'http_errors' => FALSE,
+        ],
+      );
+      $elapsed = (int) round((microtime(TRUE) - $started) * 1000);
+      $httpStatus = $response->getStatusCode();
+      if ($httpStatus < 200 || $httpStatus >= 300) {
+        return $this->analysisFailure('rejected', $checkedAt, $httpStatus, $elapsed);
+      }
+
+      $result = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
+      if (
+        !is_array($result) || ($result['status'] ?? NULL) !== 'ok' ||
+        ($result['stored'] ?? NULL) !== FALSE || ($result['sent'] ?? NULL) !== FALSE ||
+        !is_array($result['analysis'] ?? NULL) ||
+        ($result['analysis']['human_review_required'] ?? NULL) !== TRUE
+      ) {
+        $this->logger->warning('BREBO Integration API gaf een ongeldige communicatieanalyse-respons.');
+        return $this->analysisFailure('invalid_response', $checkedAt, $httpStatus, $elapsed);
+      }
+
+      return [
+        'state' => 'completed',
+        'http_status' => $httpStatus,
+        'response_time_ms' => $elapsed,
+        'checked_at' => $checkedAt,
+        'analysis' => $result['analysis'],
+      ];
+    }
+    catch (\Throwable $exception) {
+      $this->logger->warning(
+        'BREBO communicatieanalyse mislukt ({exception_class}).',
+        ['exception_class' => $exception::class],
+      );
+      return $this->analysisFailure(
+        'unreachable',
+        $checkedAt,
+        NULL,
+        (int) round((microtime(TRUE) - $started) * 1000),
+      );
+    }
+  }
+
+  /**
+   * Builds a consistent failed-analysis result.
+   */
+  private function analysisFailure(
+    string $state,
+    string $checkedAt,
+    ?int $httpStatus = NULL,
+    ?int $responseTime = NULL,
+  ): array {
+    return [
+      'state' => $state,
+      'http_status' => $httpStatus,
+      'response_time_ms' => $responseTime,
+      'checked_at' => $checkedAt,
+      'analysis' => NULL,
+    ];
+  }
+
   /**
    * Leest de API-configuratie zonder waarden te loggen of terug te geven.
    *
