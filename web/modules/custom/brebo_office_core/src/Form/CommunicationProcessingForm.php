@@ -7,7 +7,6 @@ namespace Drupal\brebo_office_core\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
-use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -32,6 +31,12 @@ final class CommunicationProcessingForm extends FormBase {
    * {@inheritdoc}
    */
   public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
+    if ($node instanceof NodeInterface && $node->bundle() === 'brebo_communication') {
+      $form_state->set('communication_nid', (int) $node->id());
+    }
+    else {
+      $node = $this->restoreCommunication($form_state);
+    }
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
       throw new NotFoundHttpException();
     }
@@ -152,16 +157,13 @@ final class CommunicationProcessingForm extends FormBase {
       '#type' => 'actions',
       '#attributes' => ['class' => ['brebo-processing-workbench__wide']],
     ];
-    $ai_configured = trim((string) Settings::get('brebo_openai_api_key', getenv('BREBO_OPENAI_API_KEY') ?: '')) !== '';
     $form['actions']['start_ai'] = [
       '#type' => 'submit',
       '#name' => 'start_ai',
       '#value' => $this->t('AI-verwerking starten'),
       '#button_type' => 'primary',
-      '#disabled' => !$ai_configured,
-      '#description' => $ai_configured
-        ? $this->t('Maakt een controleerbaar AI-concept; formele vaststelling blijft menselijk.')
-        : $this->t('Niet geconfigureerd. Stel de privésleutel uitsluitend op de server in.'),
+      '#disabled' => TRUE,
+      '#description' => $this->t('Tijdelijk geblokkeerd: AI-verwerking moet via de centrale BREBO Integration API lopen.'),
     ];
     $form['actions']['save'] = [
       '#type' => 'submit',
@@ -189,7 +191,12 @@ final class CommunicationProcessingForm extends FormBase {
    * {@inheritdoc}
    */
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    $this->restoreCommunication($form_state);
     $trigger = (string) ($form_state->getTriggeringElement()['#name'] ?? '');
+    if ($trigger === 'start_ai') {
+      $form_state->setErrorByName('start_ai', $this->t('AI-verwerking is geblokkeerd totdat de centrale BREBO Integration API beschikbaar is.'));
+      return;
+    }
     if ($trigger === 'formally_establish'
       && trim((string) $form_state->getValue('reviewer_note')) === '') {
       $form_state->setErrorByName('reviewer_note', $this->t('Een controleverklaring is verplicht bij formele vaststelling.'));
@@ -200,6 +207,7 @@ final class CommunicationProcessingForm extends FormBase {
    * {@inheritdoc}
    */
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $this->restoreCommunication($form_state);
     if (!$this->communication instanceof NodeInterface) {
       return;
     }
@@ -273,6 +281,25 @@ final class CommunicationProcessingForm extends FormBase {
     else {
       $form_state->setRedirect('brebo_office_core.communication_dashboard');
     }
+  }
+
+  /**
+   * Restores the communication context after a form rebuild.
+   */
+  private function restoreCommunication(FormStateInterface $form_state): ?NodeInterface {
+    if ($this->communication instanceof NodeInterface) {
+      return $this->communication;
+    }
+    $nid = (int) $form_state->get('communication_nid');
+    if ($nid <= 0) {
+      return NULL;
+    }
+    $node = \Drupal::entityTypeManager()->getStorage('node')->load($nid);
+    if ($node instanceof NodeInterface && $node->bundle() === 'brebo_communication') {
+      $this->communication = $node;
+      return $node;
+    }
+    return NULL;
   }
 
   /**
