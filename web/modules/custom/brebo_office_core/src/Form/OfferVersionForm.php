@@ -569,6 +569,15 @@ final class OfferVersionForm extends FormBase {
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    \\Drupal::logger('brebo_offer_form_diagnostic')->notice(
+      'Final validation reached: version=@version, offer=@offer, trigger=@trigger, scope_length=@scope.',
+      [
+        '@version' => (string) $form_state->getValue('offer_version'),
+        '@offer' => (string) $form_state->getValue('offer_number'),
+        '@trigger' => (string) ($form_state->getTriggeringElement()['#value'] ?? '[missing]'),
+        '@scope' => strlen((string) $form_state->getValue('scope')),
+      ],
+    );
     if ($this->calculation instanceof NodeInterface) {
       $duplicate = $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
@@ -594,6 +603,15 @@ final class OfferVersionForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    \\Drupal::logger('brebo_offer_form_diagnostic')->notice(
+      'Final submit reached: version=@version, offer=@offer, errors=@errors, scope_length=@scope.',
+      [
+        '@version' => (string) $form_state->getValue('offer_version'),
+        '@offer' => (string) $form_state->getValue('offer_number'),
+        '@errors' => implode(' | ', array_map('strval', $form_state->getErrors())),
+        '@scope' => strlen((string) $form_state->getValue('scope')),
+      ],
+    );
     $calculation = $this->calculation;
     if (!$calculation instanceof NodeInterface) {
       return;
