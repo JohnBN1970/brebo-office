@@ -206,6 +206,7 @@ final class OfferVersionForm extends FormBase {
     ];
     $form['generator']['generate'] = [
       '#type' => 'submit',
+      '#name' => 'generate_offer_texts',
       '#value' => $this->t('Conceptteksten genereren'),
       '#submit' => ['::generateConceptTexts'],
       '#limit_validation_errors' => [],
@@ -338,8 +339,11 @@ final class OfferVersionForm extends FormBase {
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
+      '#name' => 'save_offer_version',
       '#value' => $this->t('Offerteversie opslaan'),
       '#button_type' => 'primary',
+      '#validate' => ['::validateForm'],
+      '#submit' => ['::submitForm'],
     ];
     $form['actions']['cancel'] = [
       '#type' => 'link',
@@ -358,6 +362,9 @@ final class OfferVersionForm extends FormBase {
     // This button deliberately skips validation. Read and preserve the complete
     // raw input so a rebuild cannot reset identity, presentation or tax values.
     $input = $form_state->getUserInput();
+    // Do not preserve a clicked button as form data. Each action has its own
+    // name so the next request can only trigger the button actually clicked.
+    unset($input['op'], $input['generate_offer_texts'], $input['save_offer_version']);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
       'Generator handler reached: version=@version, fields=@fields, incoming lengths scope=@scope exclusions=@exclusions terms=@terms.',
       [
