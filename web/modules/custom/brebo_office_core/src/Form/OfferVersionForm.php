@@ -19,9 +19,13 @@ final class OfferVersionForm extends FormBase {
 
   private ?NodeInterface $calculation = NULL;
 
+  private EntityTypeManagerInterface $entityTypeManager;
+
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-  ) {}
+    EntityTypeManagerInterface $entityTypeManager,
+  ) {
+    $this->entityTypeManager = $entityTypeManager;
+  }
 
   public static function create(ContainerInterface $container): static {
     return new static(
