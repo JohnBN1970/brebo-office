@@ -1,3 +1,14 @@
 services:
   brebo_office_core.communication_ai_processor:
     class: Drupal\brebo_office_core\Service\CommunicationAiProcessor
+
+  brebo_office_core.integration_api_client:
+    class: Drupal\brebo_office_core\Service\IntegrationApiClient
+    arguments:
+      - '@http_client'
+      - '@logger.channel.brebo_office_core'
+
+  logger.channel.brebo_office_core:
+    parent: logger.channel_base
+    arguments:
+      - 'brebo_office_core'

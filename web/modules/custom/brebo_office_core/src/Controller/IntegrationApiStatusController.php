@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
-use Drupal\brebo_office_core\Service\IntegrationApiClient;
 use Drupal\brebo_office_core\Service\IntegrationApiClientInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
- * Shows the read-only central Integration API POC status.
+ * Toont de beveiligde read-only Integration API-status.
  */
 final class IntegrationApiStatusController extends ControllerBase {
 
@@ -19,14 +18,14 @@ final class IntegrationApiStatusController extends ControllerBase {
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static(new IntegrationApiClient(
-      $container->get('http_client'),
-      $container->get('logger.factory')->get('brebo_office_core'),
-    ));
+    return new static(
+      $container->get('brebo_office_core.integration_api_client'),
+    );
   }
 
   public function status(): array {
     $result = $this->client->status();
+
     $labels = [
       'healthy' => $this->t('Bereikbaar'),
       'degraded' => $this->t('Bereikbaar, status niet gezond'),
@@ -39,7 +38,7 @@ final class IntegrationApiStatusController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['messages', 'messages--status']],
         'text' => [
-          '#markup' => $this->t('Read-only POC: deze controle verzendt geen communicatie-, project- of persoonsgegevens.'),
+          '#markup' => $this->t('Read-only controle: er worden geen communicatie-, project- of persoonsgegevens verzonden.'),
         ],
       ],
       'status' => [

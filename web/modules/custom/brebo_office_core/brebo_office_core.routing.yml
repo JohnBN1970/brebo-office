@@ -395,3 +395,11 @@ brebo_office_core.integration_api_status:
     _title: 'BREBO Integration API-status'
   requirements:
     _permission: 'administer site configuration'
+
+brebo_office_core.integration_api_test:
+  path: '/office/instellingen/integration-api/test'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\IntegrationApiTestForm'
+    _title: 'Fictieve AI-communicatietest'
+  requirements:
+    _permission: 'administer site configuration'
