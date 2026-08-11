@@ -1,4 +1,4 @@
-import { SELF } from "cloudflare:test";
+import { env, SELF } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 
 const secret = "test-shared-secret-with-sufficient-length";
@@ -76,6 +76,44 @@ describe("BREBO Integration API", () => {
     const response = await signedAnalyze(JSON.stringify(request));
     expect(response.status).toBe(502);
     expect(JSON.stringify(await response.json())).not.toContain("provider output");
+  });
+
+  it("maps provider timeouts to a generic 504 without echoing communication", async () => {
+    const request = validRequest();
+    request.communication.subject = "Timeout";
+    request.communication.message = "Fictieve geheime marker MAG-NIET-LEKKEN.";
+    const response = await signedAnalyze(JSON.stringify(request));
+    expect(response.status).toBe(504);
+    expect(JSON.stringify(await response.json())).not.toContain("MAG-NIET-LEKKEN");
+  });
+
+  it("rejects unsupported media types and oversized bodies before provider use", async () => {
+    const unsupported = await SELF.fetch("https://example.test/v1/communications/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: "test",
+    });
+    expect(unsupported.status).toBe(415);
+
+    const oversized = "x".repeat(32_769);
+    const requestId = crypto.randomUUID();
+    const tooLarge = await SELF.fetch("https://example.test/v1/communications/analyze", {
+      method: "POST",
+      headers: await signedHeaders("POST", "/v1/communications/analyze", oversized, requestId),
+      body: oversized,
+    });
+    expect(tooLarge.status).toBe(413);
+  });
+
+  it("enforces rate and monthly token budgets atomically", async () => {
+    const rateGuard = env.USAGE_GUARD.getByName(`rate-${crypto.randomUUID()}`);
+    expect(await rateGuard.reserve(120, 60, 1, "2026-08", 100, 1_000)).toBe("accepted");
+    expect(await rateGuard.reserve(121, 60, 1, "2026-08", 100, 1_000)).toBe("rate_limited");
+
+    const budgetGuard = env.USAGE_GUARD.getByName(`budget-${crypto.randomUUID()}`);
+    expect(await budgetGuard.reserve(120, 60, 10, "2026-08", 600, 1_000)).toBe("accepted");
+    expect(await budgetGuard.reserve(121, 60, 10, "2026-08", 401, 1_000)).toBe("budget_exhausted");
+    expect(await budgetGuard.reserve(2_678_400, 60, 10, "2026-09", 401, 1_000)).toBe("accepted");
   });
 });
 
