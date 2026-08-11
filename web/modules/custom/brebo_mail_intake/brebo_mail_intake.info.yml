@@ -1,0 +1,12 @@
+name: 'BREBO Mail Intake'
+type: module
+description: 'Controlled migrating mail intake into the canonical BREBO communication dossier.'
+package: BREBO Office
+core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_office_core:brebo_office_core
+  - drupal:datetime
+  - drupal:field
+  - drupal:file
+  - drupal:node
+  - drupal:text

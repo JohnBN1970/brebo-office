@@ -1,0 +1,176 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\Core\Entity\Entity\EntityViewDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\Entity\NodeType;
+
+/**
+ * Implements hook_install().
+ */
+function brebo_mail_intake_install(): void {
+  $bundle = 'brebo_communication';
+  if (!NodeType::load($bundle)) {
+    throw new RuntimeException('BREBO communicatieobject ontbreekt; Mail Intake kan niet veilig worden geïnstalleerd.');
+  }
+
+  $fields = [
+    'field_brebo_intake_status' => [
+      'label' => 'Intakestatus',
+      'type' => 'string',
+      'required' => TRUE,
+      'storage' => ['max_length' => 32],
+      'description' => 'Nieuw, controle vereist, gekoppeld, verwerkt, duplicaat of genegeerd.',
+      'widget' => 'string_textfield',
+      'formatter' => 'string',
+      'weight' => 50,
+      'default_value' => [['value' => 'Nieuw']],
+    ],
+    'field_brebo_mail_classification' => [
+      'label' => 'Mailclassificatie',
+      'type' => 'string',
+      'required' => FALSE,
+      'storage' => ['max_length' => 64],
+      'description' => 'Bijvoorbeeld offerte, planning, klacht, bewonersmelding, meerwerk, inkoop, oplevering of garantie.',
+      'widget' => 'string_textfield',
+      'formatter' => 'string',
+      'weight' => 51,
+    ],
+    'field_brebo_mail_from' => [
+      'label' => 'E-mailafzender',
+      'type' => 'string',
+      'required' => FALSE,
+      'storage' => ['max_length' => 255],
+      'description' => 'Ongewijzigde afzenderweergave uit de bronmail.',
+      'widget' => 'string_textfield',
+      'formatter' => 'string',
+      'weight' => 52,
+    ],
+    'field_brebo_mail_to' => [
+      'label' => 'E-mailontvangers',
+      'type' => 'text_long',
+      'required' => FALSE,
+      'storage' => [],
+      'description' => 'Ongewijzigde ontvangerweergave uit To/Cc voor herleidbaarheid.',
+      'widget' => 'text_textarea',
+      'formatter' => 'text_default',
+      'weight' => 53,
+    ],
+    'field_brebo_match_confidence' => [
+      'label' => 'Koppelvertrouwen (%)',
+      'type' => 'decimal',
+      'required' => FALSE,
+      'storage' => ['precision' => 5, 'scale' => 2],
+      'description' => 'Technische waarschijnlijkheid van de voorgestelde gebouw-/projectkoppeling; nooit zelfstandig bewijs.',
+      'widget' => 'number',
+      'formatter' => 'number_decimal',
+      'weight' => 54,
+    ],
+    'field_brebo_match_basis' => [
+      'label' => 'Onderbouwing voorgestelde koppeling',
+      'type' => 'text_long',
+      'required' => FALSE,
+      'storage' => [],
+      'description' => 'Herleidbare kenmerken waarop een voorgestelde koppeling is gebaseerd en eventuele onzekerheden.',
+      'widget' => 'text_textarea',
+      'formatter' => 'text_default',
+      'weight' => 55,
+    ],
+    'field_brebo_suggest_building_ref' => [
+      'label' => 'Voorgesteld gebouw',
+      'type' => 'entity_reference',
+      'required' => FALSE,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => [
+        'handler' => 'default:node',
+        'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+      ],
+      'description' => 'Niet-vastgestelde gebouwsuggestie. De canonieke Gebouw-koppeling wordt pas na controle gevuld.',
+      'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label',
+      'weight' => 56,
+    ],
+    'field_brebo_suggest_project_ref' => [
+      'label' => 'Voorgesteld project',
+      'type' => 'entity_reference',
+      'required' => FALSE,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => [
+        'handler' => 'default:node',
+        'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']],
+      ],
+      'description' => 'Niet-vastgestelde projectsuggestie. De canonieke Project-koppeling wordt pas na controle gevuld.',
+      'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label',
+      'weight' => 57,
+    ],
+    'field_brebo_duplicate_of' => [
+      'label' => 'Duplicaat van',
+      'type' => 'entity_reference',
+      'required' => FALSE,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => [
+        'handler' => 'default:node',
+        'handler_settings' => ['target_bundles' => ['brebo_communication' => 'brebo_communication']],
+      ],
+      'description' => 'Bestaand communicatieobject dat dezelfde bronmail vertegenwoordigt.',
+      'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label',
+      'weight' => 58,
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', $bundle, $field_name)) {
+      $field = FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => $definition['required'],
+        'settings' => $definition['field_settings'] ?? [],
+      ]);
+      if (isset($definition['default_value'])) {
+        $field->setDefaultValue($definition['default_value']);
+      }
+      $field->save();
+    }
+  }
+
+  $form_display = EntityFormDisplay::load("node.$bundle.default");
+  if ($form_display) {
+    foreach ($fields as $field_name => $definition) {
+      $form_display->setComponent($field_name, [
+        'type' => $definition['widget'],
+        'weight' => $definition['weight'],
+      ]);
+    }
+    $form_display->save();
+  }
+
+  $view_display = EntityViewDisplay::load("node.$bundle.default");
+  if ($view_display) {
+    foreach ($fields as $field_name => $definition) {
+      $view_display->setComponent($field_name, [
+        'type' => $definition['formatter'],
+        'label' => 'above',
+        'weight' => $definition['weight'],
+      ]);
+    }
+    $view_display->save();
+  }
+}
