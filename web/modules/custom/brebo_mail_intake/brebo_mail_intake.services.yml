@@ -1,0 +1,6 @@
+services:
+  brebo_mail_intake.ingestor:
+    class: Drupal\brebo_mail_intake\Service\MailIntakeIngestor
+    arguments:
+      - '@entity_type.manager'
+      - '@current_user'
