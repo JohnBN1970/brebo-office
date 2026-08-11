@@ -16,6 +16,7 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
   public function __construct(
     private readonly ClientInterface $httpClient,
     private readonly LoggerInterface $logger,
+    private readonly IntegrationApiRequestSigner $requestSigner,
   ) {}
 
   public function status(): array {
@@ -38,10 +39,12 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
         'GET',
         $configuration['base_url'] . '/health/status',
         [
-          'headers' => [
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $configuration['shared_secret'],
-          ],
+          'headers' => $this->authenticatedHeaders(
+            'GET',
+            '/health/status',
+            '',
+            $configuration['shared_secret'],
+          ),
           'allow_redirects' => FALSE,
           'connect_timeout' => 2.0,
           'timeout' => 4.0,
@@ -116,23 +119,27 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
     $started = microtime(TRUE);
 
     try {
+      $body = $this->encodeJson([
+        'test_mode' => TRUE,
+        'contains_real_data' => FALSE,
+        'communication' => [
+          'channel' => $channel,
+          'subject' => $subject,
+          'message' => $message,
+        ],
+      ]);
       $response = $this->httpClient->request(
         'POST',
         $configuration['base_url'] . '/v1/communications/analyze',
         [
-          'headers' => [
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $configuration['shared_secret'],
-          ],
-          'json' => [
-            'test_mode' => TRUE,
-            'contains_real_data' => FALSE,
-            'communication' => [
-              'channel' => $channel,
-              'subject' => $subject,
-              'message' => $message,
-            ],
-          ],
+          'headers' => $this->authenticatedHeaders(
+            'POST',
+            '/v1/communications/analyze',
+            $body,
+            $configuration['shared_secret'],
+            TRUE,
+          ),
+          'body' => $body,
           'allow_redirects' => FALSE,
           'connect_timeout' => 5.0,
           'timeout' => 45.0,
@@ -232,26 +239,30 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
 
     $started = microtime(TRUE);
     try {
+      $body = $this->encodeJson([
+        'test_mode' => FALSE,
+        'contains_real_data' => TRUE,
+        'human_review_required' => TRUE,
+        'communication' => [
+          'id' => $communicationId,
+          'project_id' => $projectId,
+          'channel' => $channel,
+          'subject' => $subject,
+          'message' => $message,
+        ],
+      ]);
       $response = $this->httpClient->request(
         'POST',
         $configuration['base_url'] . '/v1/communications/analyze',
         [
-          'headers' => [
-            'Accept' => 'application/json',
-            'Authorization' => 'Bearer ' . $configuration['shared_secret'],
-          ],
-          'json' => [
-            'test_mode' => FALSE,
-            'contains_real_data' => TRUE,
-            'human_review_required' => TRUE,
-            'communication' => [
-              'id' => $communicationId,
-              'project_id' => $projectId,
-              'channel' => $channel,
-              'subject' => $subject,
-              'message' => $message,
-            ],
-          ],
+          'headers' => $this->authenticatedHeaders(
+            'POST',
+            '/v1/communications/analyze',
+            $body,
+            $configuration['shared_secret'],
+            TRUE,
+          ),
+          'body' => $body,
           'allow_redirects' => FALSE,
           'connect_timeout' => 5.0,
           'timeout' => 45.0,
@@ -313,6 +324,34 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
       'checked_at' => $checkedAt,
       'analysis' => NULL,
     ];
+  }
+
+  /**
+   * @return array<string, string>
+   */
+  private function authenticatedHeaders(
+    string $method,
+    string $path,
+    string $body,
+    string $sharedSecret,
+    bool $json = FALSE,
+  ): array {
+    $headers = [
+      'Accept' => 'application/json',
+      ...$this->requestSigner->sign($method, $path, $body, $sharedSecret),
+    ];
+    if ($json) {
+      $headers['Content-Type'] = 'application/json';
+    }
+
+    return $headers;
+  }
+
+  private function encodeJson(array $data): string {
+    return json_encode(
+      $data,
+      JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+    );
   }
 
   /**

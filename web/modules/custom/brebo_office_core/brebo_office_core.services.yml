@@ -7,6 +7,10 @@ services:
     arguments:
       - '@http_client'
       - '@logger.channel.brebo_office_core'
+      - '@brebo_office_core.integration_api_request_signer'
+
+  brebo_office_core.integration_api_request_signer:
+    class: Drupal\brebo_office_core\Service\IntegrationApiRequestSigner
 
   logger.channel.brebo_office_core:
     parent: logger.channel_base
