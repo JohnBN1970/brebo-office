@@ -9,6 +9,10 @@
       {
         "name": "REPLAY_GUARD",
         "class_name": "ReplayGuard"
+      },
+      {
+        "name": "USAGE_GUARD",
+        "class_name": "UsageGuard"
       }
     ]
   },
@@ -16,6 +20,10 @@
     {
       "tag": "v1",
       "new_sqlite_classes": ["ReplayGuard"]
+    },
+    {
+      "tag": "v2",
+      "new_sqlite_classes": ["UsageGuard"]
     }
   ],
   "vars": {
@@ -27,7 +35,10 @@
     "MAX_CLOCK_SKEW_SECONDS": "300",
     "REPLAY_TTL_SECONDS": "600",
     "OPENAI_TIMEOUT_MS": "30000",
-    "OPENAI_MAX_OUTPUT_TOKENS": "2000"
+    "OPENAI_MAX_OUTPUT_TOKENS": "2000",
+    "RATE_WINDOW_SECONDS": "60",
+    "MAX_ANALYSES_PER_WINDOW": "30",
+    "MONTHLY_TOKEN_BUDGET": "2000000"
   },
   "observability": {
     "enabled": true,
