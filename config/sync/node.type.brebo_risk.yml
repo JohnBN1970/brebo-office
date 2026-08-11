@@ -1,0 +1,11 @@
+uuid: d9a083e7-0c0c-41d9-9bd4-cc1df967b7a4
+langcode: nl
+status: true
+dependencies: {  }
+name: Risico
+type: brebo_risk
+description: 'Centrale risicoregistratie met oorzaak, gebeurtenis, gevolg, kans, impact, maatregel, eigenaar en restrisico.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

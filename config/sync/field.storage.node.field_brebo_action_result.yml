@@ -1,0 +1,19 @@
+uuid: 3c42e4ae-6474-4c7b-a03e-6c86ae6c921e
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_action_result
+field_name: field_brebo_action_result
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

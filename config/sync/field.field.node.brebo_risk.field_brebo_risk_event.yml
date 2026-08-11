@@ -1,0 +1,22 @@
+uuid: 567fcfbc-7b12-47ce-95c8-dd55d8dac151
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_risk_event
+    - node.type.brebo_risk
+  module:
+    - text
+id: node.brebo_risk.field_brebo_risk_event
+field_name: field_brebo_risk_event
+entity_type: node
+bundle: brebo_risk
+label: Risicogebeurtenis
+description: 'Onzekere gebeurtenis die kan optreden.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

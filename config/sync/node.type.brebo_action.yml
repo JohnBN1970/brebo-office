@@ -1,0 +1,11 @@
+uuid: c2db994a-036a-47e9-ab2d-cffee7d3c05a
+langcode: nl
+status: true
+dependencies: {  }
+name: Actie
+type: brebo_action
+description: 'Centrale auditeerbare actie met eigenaar, termijn, status, bron en resultaat.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

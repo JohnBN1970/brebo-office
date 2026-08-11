@@ -1,0 +1,22 @@
+uuid: 0d96ef4d-e88e-4838-837f-d02421268560
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_signal_description
+    - node.type.brebo_signal
+  module:
+    - text
+id: node.brebo_signal.field_brebo_signal_description
+field_name: field_brebo_signal_description
+entity_type: node
+bundle: brebo_signal
+label: Signaal
+description: 'Feitelijke waarneming, afwijking, onzekerheid of waarschuwing zonder vooraf ingevulde conclusie.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

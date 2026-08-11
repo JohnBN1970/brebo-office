@@ -3,6 +3,7 @@ langcode: nl
 status: true
 dependencies:
   config:
+    - node.type.brebo_action
     - node.type.brebo_budget_change
     - node.type.brebo_building
     - node.type.brebo_building_zone
@@ -29,8 +30,10 @@ dependencies:
     - node.type.brebo_release_gate
     - node.type.brebo_rfq
     - node.type.brebo_rfq_line
+    - node.type.brebo_risk
     - node.type.brebo_route_item
     - node.type.brebo_scope_requirement
+    - node.type.brebo_signal
     - node.type.brebo_supplier_quote
     - node.type.brebo_verification
     - node.type.brebo_work_budget
@@ -46,6 +49,7 @@ is_admin: false
 permissions:
   - 'access content'
   - 'access content overview'
+  - 'create brebo_action content'
   - 'create brebo_budget_change content'
   - 'create brebo_building content'
   - 'create brebo_building_zone content'
@@ -72,8 +76,10 @@ permissions:
   - 'create brebo_release_gate content'
   - 'create brebo_rfq content'
   - 'create brebo_rfq_line content'
+  - 'create brebo_risk content'
   - 'create brebo_route_item content'
   - 'create brebo_scope_requirement content'
+  - 'create brebo_signal content'
   - 'create brebo_supplier_quote content'
   - 'create brebo_verification content'
   - 'create brebo_work_budget content'
@@ -87,6 +93,7 @@ permissions:
   - 'delete own brebo_dwelling content'
   - 'delete own brebo_product_position content'
   - 'delete own brebo_project content'
+  - 'edit any brebo_action content'
   - 'edit any brebo_budget_change content'
   - 'edit any brebo_building content'
   - 'edit any brebo_building_zone content'
@@ -113,13 +120,16 @@ permissions:
   - 'edit any brebo_release_gate content'
   - 'edit any brebo_rfq content'
   - 'edit any brebo_rfq_line content'
+  - 'edit any brebo_risk content'
   - 'edit any brebo_route_item content'
   - 'edit any brebo_scope_requirement content'
+  - 'edit any brebo_signal content'
   - 'edit any brebo_supplier_quote content'
   - 'edit any brebo_verification content'
   - 'edit any brebo_work_budget content'
   - 'edit any brebo_work_budget_line content'
   - 'edit any brebo_work_package content'
+  - 'edit own brebo_action content'
   - 'edit own brebo_budget_change content'
   - 'edit own brebo_building content'
   - 'edit own brebo_building_zone content'
@@ -146,8 +156,10 @@ permissions:
   - 'edit own brebo_release_gate content'
   - 'edit own brebo_rfq content'
   - 'edit own brebo_rfq_line content'
+  - 'edit own brebo_risk content'
   - 'edit own brebo_route_item content'
   - 'edit own brebo_scope_requirement content'
+  - 'edit own brebo_signal content'
   - 'edit own brebo_supplier_quote content'
   - 'edit own brebo_verification content'
   - 'edit own brebo_work_budget content'
@@ -159,6 +171,7 @@ permissions:
   - 'revert brebo_product_position revisions'
   - 'revert brebo_project revisions'
   - 'revert brebo_verification revisions'
+  - 'view brebo_action revisions'
   - 'view brebo_budget_change revisions'
   - 'view brebo_building revisions'
   - 'view brebo_building_zone revisions'
@@ -185,8 +198,10 @@ permissions:
   - 'view brebo_release_gate revisions'
   - 'view brebo_rfq revisions'
   - 'view brebo_rfq_line revisions'
+  - 'view brebo_risk revisions'
   - 'view brebo_route_item revisions'
   - 'view brebo_scope_requirement revisions'
+  - 'view brebo_signal revisions'
   - 'view brebo_supplier_quote revisions'
   - 'view brebo_verification revisions'
   - 'view brebo_work_budget revisions'

@@ -1,0 +1,11 @@
+uuid: 71f2748f-7663-45a0-ab66-651bba24a5a6
+langcode: nl
+status: true
+dependencies: {  }
+name: Signaal
+type: brebo_signal
+description: 'Centrale waarneming of waarschuwing die beoordeeld en zo nodig omgezet wordt in actie, risico of controle.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

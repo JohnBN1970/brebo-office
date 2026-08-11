@@ -1,0 +1,22 @@
+uuid: fb9d31a3-9586-442e-b1c2-0f1633b13cb5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_assessment
+    - node.type.brebo_signal
+  module:
+    - text
+id: node.brebo_signal.field_brebo_assessment
+field_name: field_brebo_assessment
+entity_type: node
+bundle: brebo_signal
+label: 'Beoordeling en vervolg'
+description: 'Beoordeling, besluit over vervolg en verwijzing naar actie, risico, controle of afwijking.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

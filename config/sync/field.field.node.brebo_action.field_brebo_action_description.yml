@@ -1,0 +1,22 @@
+uuid: de76e05c-4e36-4c95-ab38-512f54451176
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_action_description
+    - node.type.brebo_action
+  module:
+    - text
+id: node.brebo_action.field_brebo_action_description
+field_name: field_brebo_action_description
+entity_type: node
+bundle: brebo_action
+label: Actieomschrijving
+description: 'Concrete uit te voeren actie en beoogd resultaat.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long
