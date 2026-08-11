@@ -6,7 +6,19 @@ declare(strict_types=1);
  * Implements hook_cron().
  */
 function brebo_mail_intake_cron(): void {
-  $adapter = \Drupal::service('brebo_mail_intake.gmail_source');
+  $source = mb_strtolower(trim((string) (getenv('BREBO_MAIL_SOURCE') ?: 'imap')));
+  $serviceId = match ($source) {
+    'gmail' => 'brebo_mail_intake.gmail_source',
+    'imap' => 'brebo_mail_intake.imap_source',
+    default => '',
+  };
+
+  if ($serviceId === '') {
+    \Drupal::logger('brebo_mail_intake')->warning('Onbekende BREBO_MAIL_SOURCE: @source', ['@source' => $source]);
+    return;
+  }
+
+  $adapter = \Drupal::service($serviceId);
   if (!$adapter->isConfigured()) {
     return;
   }
@@ -15,6 +27,9 @@ function brebo_mail_intake_cron(): void {
     \Drupal::service('brebo_mail_intake.pipeline')->processSource($adapter);
   }
   catch (\Throwable $e) {
-    \Drupal::logger('brebo_mail_intake')->error('Gmail Mail Intake mislukt: @message', ['@message' => $e->getMessage()]);
+    \Drupal::logger('brebo_mail_intake')->error('@source Mail Intake mislukt: @message', [
+      '@source' => strtoupper($source),
+      '@message' => $e->getMessage(),
+    ]);
   }
 }
