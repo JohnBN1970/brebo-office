@@ -56,8 +56,21 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
-          test -s ~/.ssh/known_hosts
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            echo "SSH host-key discovery attempt $attempt/5"
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null \
+              && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key after 5 attempts."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
           chmod 600 ~/.ssh/known_hosts
 
       - name: Build deployment archive
@@ -82,7 +95,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
 
       - name: Deploy, update and export active config
         env:
@@ -92,7 +105,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1
           export TERM=dumb
@@ -164,7 +177,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" ./brebo-active-config-sync.tgz
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" ./brebo-active-config-sync.tgz
           test -s ./brebo-active-config-sync.tgz
 
       - name: Upload active config artifact
@@ -184,4 +197,4 @@ jobs:
         shell: bash
         run: |
           set +e
-          timeout 15 ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz' || true
+          timeout 15 ssh -o ConnectTimeout=8 -o ServerAliveInterval=5 -o ServerAliveCountMax=1 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz' || true
