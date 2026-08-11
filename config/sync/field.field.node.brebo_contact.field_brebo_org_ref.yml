@@ -1,0 +1,24 @@
+uuid: 170332f7-4f8e-4561-ac34-cc5625a42d23
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_ref
+    - node.type.brebo_contact
+    - node.type.brebo_organization
+id: node.brebo_contact.field_brebo_org_ref
+field_name: field_brebo_org_ref
+entity_type: node
+bundle: brebo_contact
+label: Organisatie
+description: 'Organisatie waarvoor deze contactpersoon optreedt.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_organization: brebo_organization
+field_type: entity_reference

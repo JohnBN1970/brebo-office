@@ -1,0 +1,19 @@
+uuid: 3ec55462-0462-43f0-b5c1-64f6c343952d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_number
+    - node.type.brebo_organization
+id: node.brebo_organization.field_brebo_org_number
+field_name: field_brebo_org_number
+entity_type: node
+bundle: brebo_organization
+label: 'KVK- of relatienummer'
+description: 'Officieel registratienummer of intern relatienummer.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

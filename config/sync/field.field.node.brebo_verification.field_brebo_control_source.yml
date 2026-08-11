@@ -1,0 +1,19 @@
+uuid: a9f817d9-5b8f-4e6f-b5fd-91e1ce1746d4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_control_source
+    - node.type.brebo_verification
+id: node.brebo_verification.field_brebo_control_source
+field_name: field_brebo_control_source
+entity_type: node
+bundle: brebo_verification
+label: 'Gecontroleerde bron'
+description: 'Documentnaam, versienummer, tekening, bestellijst of andere leidende bron.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

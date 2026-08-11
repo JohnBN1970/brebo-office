@@ -1,0 +1,22 @@
+uuid: 27bcff48-f4e3-4303-972d-b3accd756f4c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_decisions
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_ai_decisions
+field_name: field_brebo_ai_decisions
+entity_type: node
+bundle: brebo_communication
+label: 'Besluiten en toezeggingen'
+description: 'Expliciete besluiten, afspraken en toezeggingen met dossierwaarde.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

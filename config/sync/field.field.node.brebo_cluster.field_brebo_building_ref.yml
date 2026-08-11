@@ -1,0 +1,24 @@
+uuid: 9b820a01-6995-44c6-8915-45153a26f6fb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_cluster
+id: node.brebo_cluster.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_cluster
+label: Gebouw
+description: 'Verplicht permanent gebouw waartoe dit cluster behoort.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

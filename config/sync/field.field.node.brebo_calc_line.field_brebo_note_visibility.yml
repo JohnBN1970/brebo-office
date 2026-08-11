@@ -1,0 +1,21 @@
+uuid: 0cf4604b-80a6-43f9-a2bf-b4a10e6923db
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_note_visibility
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_note_visibility
+field_name: field_brebo_note_visibility
+entity_type: node
+bundle: brebo_calc_line
+label: 'Zichtbaarheid notitie'
+description: 'Interne notitie of zichtbaar op offerte en print.'
+required: false
+translatable: true
+default_value:
+  -
+    value: Intern
+default_value_callback: ''
+settings: {  }
+field_type: string

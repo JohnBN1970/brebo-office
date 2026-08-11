@@ -1,0 +1,24 @@
+uuid: e5736e58-a0a8-4497-bb22-dc926cda3d2f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_recheck_ref
+    - node.type.brebo_deviation
+    - node.type.brebo_verification
+id: node.brebo_deviation.field_brebo_recheck_ref
+field_name: field_brebo_recheck_ref
+entity_type: node
+bundle: brebo_deviation
+label: Hercontrole
+description: 'Akkoord bevonden hercontrole waarmee de afwijking mag worden gesloten.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_verification: brebo_verification
+field_type: entity_reference

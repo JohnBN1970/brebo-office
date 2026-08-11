@@ -1,0 +1,20 @@
+uuid: 792470ca-d9cc-47e0-a019-a54d52948094
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_norm_hours
+field_name: field_brebo_norm_hours
+entity_type: node
+type: decimal
+settings:
+  precision: 18
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

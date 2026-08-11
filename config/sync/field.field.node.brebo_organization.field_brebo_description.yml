@@ -1,0 +1,22 @@
+uuid: ff5eabe4-4e58-4462-8cb0-c89ae07e9f46
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_organization
+  module:
+    - text
+id: node.brebo_organization.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_organization
+label: Relatienotities
+description: 'Zakelijke bijzonderheden, contractuele context en aandachtspunten.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

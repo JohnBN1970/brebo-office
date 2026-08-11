@@ -1,0 +1,23 @@
+uuid: 9c51b6bd-a7c8-4954-b670-beda313e1e41
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_final_sales
+    - node.type.brebo_provisional_sum
+id: node.brebo_provisional_sum.field_brebo_final_sales
+field_name: field_brebo_final_sales
+entity_type: node
+bundle: brebo_provisional_sum
+label: 'Definitieve verkoopwaarde'
+description: 'Definitief met de opdrachtgever af te rekenen bedrag.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

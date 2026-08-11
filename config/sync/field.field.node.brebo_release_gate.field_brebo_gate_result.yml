@@ -1,0 +1,21 @@
+uuid: c15ef7d9-492a-46f7-9eb1-4ef2326ecf4c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gate_result
+    - node.type.brebo_release_gate
+id: node.brebo_release_gate.field_brebo_gate_result
+field_name: field_brebo_gate_result
+entity_type: node
+bundle: brebo_release_gate
+label: Poortresultaat
+description: 'Niet beoordeeld, akkoord, afwijking of N.V.T.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Niet beoordeeld'
+default_value_callback: ''
+settings: {  }
+field_type: string

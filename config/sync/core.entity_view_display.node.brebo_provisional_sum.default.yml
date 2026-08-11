@@ -1,0 +1,131 @@
+uuid: 14ac53e7-b97e-4825-9070-1cae6ea7a121
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_provisional_sum.field_brebo_budget_amount
+    - field.field.node.brebo_provisional_sum.field_brebo_calc_line_ref
+    - field.field.node.brebo_provisional_sum.field_brebo_decision_date
+    - field.field.node.brebo_provisional_sum.field_brebo_final_cost
+    - field.field.node.brebo_provisional_sum.field_brebo_final_sales
+    - field.field.node.brebo_provisional_sum.field_brebo_prov_exclusions
+    - field.field.node.brebo_provisional_sum.field_brebo_provisional_scope
+    - field.field.node.brebo_provisional_sum.field_brebo_provisional_status
+    - field.field.node.brebo_provisional_sum.field_brebo_responsible_user
+    - field.field.node.brebo_provisional_sum.field_brebo_settle_difference
+    - field.field.node.brebo_provisional_sum.field_brebo_settlement_notes
+    - node.type.brebo_provisional_sum
+  module:
+    - text
+    - user
+id: node.brebo_provisional_sum.default
+targetEntityType: node
+bundle: brebo_provisional_sum
+mode: default
+content:
+  field_brebo_budget_amount:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_calc_line_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_decision_date:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_final_cost:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_final_sales:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_prov_exclusions:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_provisional_scope:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_provisional_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_responsible_user:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_settle_difference:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  field_brebo_settlement_notes:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

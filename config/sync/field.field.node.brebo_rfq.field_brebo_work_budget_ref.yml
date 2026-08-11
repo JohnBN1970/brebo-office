@@ -1,0 +1,24 @@
+uuid: 5e342418-56a8-4c43-b329-99d8cd3d2ae1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_work_budget_ref
+    - node.type.brebo_rfq
+    - node.type.brebo_work_budget
+id: node.brebo_rfq.field_brebo_work_budget_ref
+field_name: field_brebo_work_budget_ref
+entity_type: node
+bundle: brebo_rfq
+label: Werkbegroting
+description: 'Optionele werkbegroting voor definitieve inkoop.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_work_budget: brebo_work_budget
+field_type: entity_reference

@@ -1,0 +1,23 @@
+uuid: 8d214d98-2cf3-4fe9-a4b9-53917dda1b47
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_blocks_release
+    - node.type.brebo_verification
+id: node.brebo_verification.field_brebo_blocks_release
+field_name: field_brebo_blocks_release
+entity_type: node
+bundle: brebo_verification
+label: 'Blokkeert vrijgave'
+description: 'Wordt automatisch geactiveerd zolang deze controle een afwijking bevat.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

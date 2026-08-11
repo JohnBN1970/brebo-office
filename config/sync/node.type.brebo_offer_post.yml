@@ -1,0 +1,11 @@
+uuid: 3245163c-4342-498e-be38-b1ee65b7ad4d
+langcode: nl
+status: true
+dependencies: {  }
+name: Offertepost
+type: brebo_offer_post
+description: 'Versiegebonden basispost, optie, stelpost of verrekenpost met eigen fiscale behandeling.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

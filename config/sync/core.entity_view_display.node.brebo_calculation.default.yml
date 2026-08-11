@@ -1,0 +1,138 @@
+uuid: 376461bb-07eb-4200-921a-83fa8aa34e0f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_calculation.field_brebo_calc_code
+    - field.field.node.brebo_calculation.field_brebo_calc_description
+    - field.field.node.brebo_calculation.field_brebo_calc_status
+    - field.field.node.brebo_calculation.field_brebo_calc_version
+    - field.field.node.brebo_calculation.field_brebo_com_adjustment
+    - field.field.node.brebo_calculation.field_brebo_general_cost_pct
+    - field.field.node.brebo_calculation.field_brebo_package_ref
+    - field.field.node.brebo_calculation.field_brebo_price_date
+    - field.field.node.brebo_calculation.field_brebo_profit_pct
+    - field.field.node.brebo_calculation.field_brebo_risk_pct
+    - field.field.node.brebo_calculation.field_brebo_sales_price
+    - node.type.brebo_calculation
+  module:
+    - text
+    - user
+id: node.brebo_calculation.default
+targetEntityType: node
+bundle: brebo_calculation
+mode: default
+content:
+  field_brebo_calc_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_calc_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_calc_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_calc_version:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_com_adjustment:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 23
+    region: content
+  field_brebo_general_cost_pct:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 20
+    region: content
+  field_brebo_package_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_price_date:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_profit_pct:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 22
+    region: content
+  field_brebo_risk_pct:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 21
+    region: content
+  field_brebo_sales_price:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 20
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

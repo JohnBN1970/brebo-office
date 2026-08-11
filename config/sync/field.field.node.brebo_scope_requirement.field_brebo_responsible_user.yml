@@ -1,0 +1,21 @@
+uuid: 4e524e50-a454-4872-abcd-ef4591907a43
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_scope_requirement
+label: BREBO-verantwoordelijke
+description: 'Interne eigenaar van opvolging en bewijs.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

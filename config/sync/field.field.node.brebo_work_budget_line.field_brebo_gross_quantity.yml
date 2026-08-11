@@ -1,0 +1,23 @@
+uuid: ccfdbe7e-7cb2-4782-8a61-01095898aed0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gross_quantity
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_gross_quantity
+field_name: field_brebo_gross_quantity
+entity_type: node
+bundle: brebo_work_budget_line
+label: 'Bruto bestelbehofte'
+description: 'Automatisch: nettohoeveelheid inclusief verlies.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

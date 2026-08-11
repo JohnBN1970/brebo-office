@@ -1,0 +1,22 @@
+uuid: b5d41a97-c4ad-4366-867f-0518d8700991
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_choice_reason
+    - node.type.brebo_supplier_quote
+  module:
+    - text
+id: node.brebo_supplier_quote.field_brebo_choice_reason
+field_name: field_brebo_choice_reason
+entity_type: node
+bundle: brebo_supplier_quote
+label: 'Motivering keuze'
+description: 'Waarom deze aanbieding wel of niet is gekozen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

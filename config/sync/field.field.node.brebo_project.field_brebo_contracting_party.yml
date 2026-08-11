@@ -1,0 +1,21 @@
+uuid: e83b236e-ad0f-4cdf-a1d6-bb995c0dfc4b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contracting_party
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_contracting_party
+field_name: field_brebo_contracting_party
+entity_type: node
+bundle: brebo_project
+label: 'Contracterende partij'
+description: 'Partij die juridisch opdracht verstrekt.'
+required: true
+translatable: true
+default_value:
+  -
+    value: BREBO
+default_value_callback: ''
+settings: {  }
+field_type: string

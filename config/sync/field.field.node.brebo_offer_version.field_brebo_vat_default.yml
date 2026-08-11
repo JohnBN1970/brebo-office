@@ -1,0 +1,21 @@
+uuid: b6b1bfda-e57d-4183-bffb-ff6dfa9a0143
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_vat_default
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_vat_default
+field_name: field_brebo_vat_default
+entity_type: node
+bundle: brebo_offer_version
+label: 'Standaard btw-behandeling'
+description: 'Belast, verlegd, vrijgesteld of niet van toepassing.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Belast
+default_value_callback: ''
+settings: {  }
+field_type: string

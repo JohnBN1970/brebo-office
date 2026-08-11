@@ -1,0 +1,22 @@
+uuid: 0b4fc78b-0b15-46ea-9e37-fc7f1507d84a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_adjust_reason
+    - node.type.brebo_calc_adjustment
+  module:
+    - text
+id: node.brebo_calc_adjustment.field_brebo_adjust_reason
+field_name: field_brebo_adjust_reason
+entity_type: node
+bundle: brebo_calc_adjustment
+label: 'Reden en prijsherkomst'
+description: 'Onderbouwing van grondslag, percentage of bedrag.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

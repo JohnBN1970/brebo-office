@@ -1,0 +1,24 @@
+uuid: b1ef056a-72bb-41d1-a9e3-43945251cc1b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_project_scope
+label: Gebouw
+description: 'Permanent gebouw waarbinnen de projectscope wordt geselecteerd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

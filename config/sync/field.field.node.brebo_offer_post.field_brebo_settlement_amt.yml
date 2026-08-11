@@ -1,0 +1,23 @@
+uuid: 9d540125-3e4e-4a1f-9d49-4b6b65c3c58a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_settlement_amt
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_settlement_amt
+field_name: field_brebo_settlement_amt
+entity_type: node
+bundle: brebo_offer_post
+label: 'Meer- of minderbedrag'
+description: 'Definitief te verrekenen positief of negatief bedrag.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

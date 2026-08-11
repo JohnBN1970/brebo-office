@@ -1,0 +1,21 @@
+uuid: 3ab0b3a9-1a72-48f3-a493-8451fc5bc082
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_execution_status
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_execution_status
+field_name: field_brebo_execution_status
+entity_type: node
+bundle: brebo_work_budget_line
+label: Uitvoeringsstatus
+description: 'Te plannen, Besteld, In uitvoering, Gereed of Afgesloten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Te plannen'
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -3,10 +3,23 @@ langcode: nl
 status: true
 dependencies:
   config:
+    - node.type.brebo_building
+    - node.type.brebo_building_zone
     - node.type.brebo_cluster
+    - node.type.brebo_comm_channel
+    - node.type.brebo_communication
+    - node.type.brebo_contact
+    - node.type.brebo_deviation
     - node.type.brebo_dwelling
+    - node.type.brebo_organization
     - node.type.brebo_product_position
     - node.type.brebo_project
+    - node.type.brebo_project_scope
+    - node.type.brebo_release_gate
+    - node.type.brebo_route_item
+    - node.type.brebo_scope_requirement
+    - node.type.brebo_verification
+    - node.type.brebo_work_package
   module:
     - node
     - system
@@ -17,10 +30,64 @@ is_admin: false
 permissions:
   - 'access content'
   - 'access content overview'
+  - 'create brebo_building content'
+  - 'create brebo_building_zone content'
+  - 'create brebo_comm_channel content'
+  - 'create brebo_communication content'
+  - 'create brebo_contact content'
+  - 'create brebo_deviation content'
+  - 'create brebo_organization content'
   - 'create brebo_product_position content'
+  - 'create brebo_project_scope content'
+  - 'create brebo_release_gate content'
+  - 'create brebo_route_item content'
+  - 'create brebo_scope_requirement content'
+  - 'create brebo_verification content'
+  - 'create brebo_work_package content'
+  - 'edit any brebo_building content'
+  - 'edit any brebo_building_zone content'
+  - 'edit any brebo_comm_channel content'
+  - 'edit any brebo_communication content'
+  - 'edit any brebo_contact content'
+  - 'edit any brebo_deviation content'
+  - 'edit any brebo_organization content'
   - 'edit any brebo_product_position content'
+  - 'edit any brebo_project_scope content'
+  - 'edit any brebo_release_gate content'
+  - 'edit any brebo_route_item content'
+  - 'edit any brebo_scope_requirement content'
+  - 'edit any brebo_verification content'
+  - 'edit any brebo_work_package content'
+  - 'edit own brebo_building content'
+  - 'edit own brebo_building_zone content'
+  - 'edit own brebo_comm_channel content'
+  - 'edit own brebo_communication content'
+  - 'edit own brebo_contact content'
+  - 'edit own brebo_deviation content'
+  - 'edit own brebo_organization content'
   - 'edit own brebo_product_position content'
+  - 'edit own brebo_project_scope content'
+  - 'edit own brebo_release_gate content'
+  - 'edit own brebo_route_item content'
+  - 'edit own brebo_scope_requirement content'
+  - 'edit own brebo_verification content'
+  - 'edit own brebo_work_package content'
+  - 'revert brebo_deviation revisions'
+  - 'revert brebo_verification revisions'
+  - 'view brebo_building revisions'
+  - 'view brebo_building_zone revisions'
   - 'view brebo_cluster revisions'
+  - 'view brebo_comm_channel revisions'
+  - 'view brebo_communication revisions'
+  - 'view brebo_contact revisions'
+  - 'view brebo_deviation revisions'
   - 'view brebo_dwelling revisions'
+  - 'view brebo_organization revisions'
   - 'view brebo_product_position revisions'
   - 'view brebo_project revisions'
+  - 'view brebo_project_scope revisions'
+  - 'view brebo_release_gate revisions'
+  - 'view brebo_route_item revisions'
+  - 'view brebo_scope_requirement revisions'
+  - 'view brebo_verification revisions'
+  - 'view brebo_work_package revisions'

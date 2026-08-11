@@ -1,0 +1,19 @@
+uuid: edaf98ce-4efe-4439-b14a-97238f08dbe8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_source_hash
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_source_hash
+field_name: field_brebo_source_hash
+entity_type: node
+bundle: brebo_communication
+label: 'Bronintegriteit (SHA-256)'
+description: 'Controlewaarde waarmee aantoonbaar blijft dat het oorspronkelijke bronbestand niet ongemerkt is gewijzigd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

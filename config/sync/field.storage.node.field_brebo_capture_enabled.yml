@@ -1,0 +1,18 @@
+uuid: a635c47b-a8af-4413-be51-99909bbc9763
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_capture_enabled
+field_name: field_brebo_capture_enabled
+entity_type: node
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

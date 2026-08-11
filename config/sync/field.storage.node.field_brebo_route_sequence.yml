@@ -1,0 +1,20 @@
+uuid: cb541159-8c77-4e48-b77f-c3380da77341
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_route_sequence
+field_name: field_brebo_route_sequence
+entity_type: node
+type: integer
+settings:
+  unsigned: false
+  size: normal
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

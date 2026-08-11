@@ -3,6 +3,7 @@ langcode: nl
 status: true
 dependencies:
   config:
+    - field.field.node.brebo_cluster.field_brebo_building_ref
     - field.field.node.brebo_cluster.field_brebo_cluster_code
     - field.field.node.brebo_cluster.field_brebo_description
     - field.field.node.brebo_cluster.field_brebo_project_ref
@@ -16,6 +17,14 @@ targetEntityType: node
 bundle: brebo_cluster
 mode: default
 content:
+  field_brebo_building_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
   field_brebo_cluster_code:
     type: string
     label: above

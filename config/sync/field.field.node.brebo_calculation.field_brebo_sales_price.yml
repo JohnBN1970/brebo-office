@@ -1,0 +1,23 @@
+uuid: b9528a08-de9f-404b-98ed-813fa673de18
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_sales_price
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_sales_price
+field_name: field_brebo_sales_price
+entity_type: node
+bundle: brebo_calculation
+label: 'Oude handmatige verkoopprijs'
+description: 'Historisch veld; de actuele verkoopprijs wordt voortaan berekend uit de directe kostprijs en staartkosten.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

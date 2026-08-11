@@ -1,0 +1,11 @@
+uuid: a58996a7-a546-46d6-9939-c50f4ccac601
+langcode: nl
+status: true
+dependencies: {  }
+name: Hoeveelheidsverrekening
+type: brebo_quantity_settlement
+description: 'Controleerbare berekening van meer- of minderhoeveelheden tegen een overeengekomen verrekenprijs.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

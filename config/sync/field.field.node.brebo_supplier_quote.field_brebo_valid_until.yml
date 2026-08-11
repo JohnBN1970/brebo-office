@@ -1,0 +1,19 @@
+uuid: 327f6552-92b4-45a6-987b-5fbc98913622
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_valid_until
+    - node.type.brebo_supplier_quote
+id: node.brebo_supplier_quote.field_brebo_valid_until
+field_name: field_brebo_valid_until
+entity_type: node
+bundle: brebo_supplier_quote
+label: 'Geldig tot'
+description: 'Einde geldigheidsduur.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

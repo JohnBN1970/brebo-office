@@ -1,0 +1,20 @@
+uuid: b222eacb-fcf6-4afc-bdeb-c2fac3496de5
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_com_adjustment
+field_name: field_brebo_com_adjustment
+entity_type: node
+type: decimal
+settings:
+  precision: 15
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

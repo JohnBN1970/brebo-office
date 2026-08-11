@@ -1,0 +1,24 @@
+uuid: 27c7f66b-e719-455a-a77d-db99b48af8fc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_affected_dwellings
+    - node.type.brebo_building_zone
+    - node.type.brebo_dwelling
+id: node.brebo_building_zone.field_brebo_affected_dwellings
+field_name: field_brebo_affected_dwellings
+entity_type: node
+bundle: brebo_building_zone
+label: 'Geraakte woningen of ruimten'
+description: 'Gebruiksobjecten die deze technische zone geheel of gedeeltelijk raakt; split-level en overlap zijn toegestaan.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_dwelling: brebo_dwelling
+field_type: entity_reference

@@ -1,0 +1,21 @@
+uuid: 0aa3e5d4-9ba6-4c5e-a2a0-a0060a54e59a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_country
+    - node.type.brebo_building
+id: node.brebo_building.field_brebo_country
+field_name: field_brebo_country
+entity_type: node
+bundle: brebo_building
+label: Land
+description: 'Land waarin het gebouw ligt.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Nederland
+default_value_callback: ''
+settings: {  }
+field_type: string

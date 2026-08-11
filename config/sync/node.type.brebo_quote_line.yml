@@ -1,0 +1,11 @@
+uuid: 39d8bd99-baf6-4e49-8bca-237eabd545b0
+langcode: nl
+status: true
+dependencies: {  }
+name: Offerteprijsregel
+type: brebo_quote_line
+description: 'Vergelijkbare prijsregel uit een ontvangen leveranciersofferte.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

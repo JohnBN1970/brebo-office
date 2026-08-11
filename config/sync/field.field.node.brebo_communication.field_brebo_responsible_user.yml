@@ -1,0 +1,21 @@
+uuid: a4738246-8050-4b37-a593-9315e7fab894
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_communication
+label: BREBO-eigenaar
+description: 'Verantwoordelijke voor antwoord, opvolging of dossiervorming.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

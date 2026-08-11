@@ -1,0 +1,24 @@
+uuid: abe8f1fe-1d1a-4ce2-969c-ad12ac6b50a9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_project
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_scope_requirement
+label: Project
+description: 'Project waarbinnen deze vereiste wordt bestuurd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

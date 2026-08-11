@@ -1,0 +1,22 @@
+uuid: ed558f91-4bb1-4895-b003-aea80f370a58
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_required_action
+    - node.type.brebo_verification
+  module:
+    - text
+id: node.brebo_verification.field_brebo_required_action
+field_name: field_brebo_required_action
+entity_type: node
+bundle: brebo_verification
+label: 'Vereiste vervolgactie'
+description: 'Verplichte herstel-, correctie- of verificatieactie bij een afwijking.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,20 @@
+uuid: 38bdb141-81a2-47e5-8e4b-cd9d3c03a535
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - user
+id: node.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+type: entity_reference
+settings:
+  target_type: user
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

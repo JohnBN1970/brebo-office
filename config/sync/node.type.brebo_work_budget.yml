@@ -1,0 +1,11 @@
+uuid: 4eb288c9-7ce0-492e-8d01-f8540b0171b9
+langcode: nl
+status: true
+dependencies: {  }
+name: Werkbegroting
+type: brebo_work_budget
+description: 'Bevroren uitvoeringsbudget afgeleid van een goedgekeurde calculatie.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

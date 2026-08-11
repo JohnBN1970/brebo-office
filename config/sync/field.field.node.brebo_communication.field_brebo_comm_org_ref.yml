@@ -1,0 +1,24 @@
+uuid: 7eb66c3e-e5b4-486d-9b4d-18224257f25f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_org_ref
+    - node.type.brebo_communication
+    - node.type.brebo_organization
+id: node.brebo_communication.field_brebo_comm_org_ref
+field_name: field_brebo_comm_org_ref
+entity_type: node
+bundle: brebo_communication
+label: Organisatie
+description: 'Vaste relatiekaart van de externe organisatie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_organization: brebo_organization
+field_type: entity_reference

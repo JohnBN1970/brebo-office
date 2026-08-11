@@ -1,0 +1,19 @@
+uuid: ce5412be-6120-4603-b68d-d18d9151a231
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_email
+    - node.type.brebo_organization
+id: node.brebo_organization.field_brebo_org_email
+field_name: field_brebo_org_email
+entity_type: node
+bundle: brebo_organization
+label: 'Algemeen e-mailadres'
+description: 'Algemeen of administratief e-mailadres van de organisatie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: email

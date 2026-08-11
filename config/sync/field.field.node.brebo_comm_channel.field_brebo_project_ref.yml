@@ -1,0 +1,24 @@
+uuid: edcd221f-e5a6-4602-bcc9-ed0fa970dc7c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_comm_channel
+    - node.type.brebo_project
+id: node.brebo_comm_channel.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_comm_channel
+label: Standaardproject
+description: 'Project waaraan nieuwe contactmomenten standaard worden gekoppeld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

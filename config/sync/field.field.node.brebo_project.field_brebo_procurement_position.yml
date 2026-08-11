@@ -1,0 +1,21 @@
+uuid: 77f13de3-3c0f-4fdd-a0a4-f2f05d3eba8b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_procurement_position
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_procurement_position
+field_name: field_brebo_procurement_position
+entity_type: node
+bundle: brebo_project
+label: Inkooppositie
+description: 'Door BREBO, namens opdrachtgever, door opdrachtgever of per werkpakket.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Door BREBO'
+default_value_callback: ''
+settings: {  }
+field_type: string

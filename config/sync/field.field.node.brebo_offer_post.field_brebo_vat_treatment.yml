@@ -1,0 +1,21 @@
+uuid: 08656661-4fb0-4e9b-91a6-e5fb463f60ac
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_vat_treatment
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_vat_treatment
+field_name: field_brebo_vat_treatment
+entity_type: node
+bundle: brebo_offer_post
+label: Btw-behandeling
+description: 'Belast, verlegd, vrijgesteld of niet van toepassing.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Belast
+default_value_callback: ''
+settings: {  }
+field_type: string

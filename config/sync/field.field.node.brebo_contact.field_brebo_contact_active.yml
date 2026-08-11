@@ -1,0 +1,23 @@
+uuid: e118bb93-7a89-4376-8e41-6f6b2a4e4a5b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contact_active
+    - node.type.brebo_contact
+id: node.brebo_contact.field_brebo_contact_active
+field_name: field_brebo_contact_active
+entity_type: node
+bundle: brebo_contact
+label: 'Actief contact'
+description: 'Contactpersoon is actueel en mag voor nieuwe communicatie worden geselecteerd.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

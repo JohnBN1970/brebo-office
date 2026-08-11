@@ -1,0 +1,19 @@
+uuid: 32a63059-142e-4213-a044-8886a498ebaa
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contact_email
+    - node.type.brebo_contact
+id: node.brebo_contact.field_brebo_contact_email
+field_name: field_brebo_contact_email
+entity_type: node
+bundle: brebo_contact
+label: E-mailadres
+description: 'Zakelijk e-mailadres van de contactpersoon.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: email

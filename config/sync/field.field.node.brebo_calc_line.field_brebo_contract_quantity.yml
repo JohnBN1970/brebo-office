@@ -1,0 +1,25 @@
+uuid: 1408ab4e-49e9-4ee4-afc5-9800328eb531
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contract_quantity
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_contract_quantity
+field_name: field_brebo_contract_quantity
+entity_type: node
+bundle: brebo_calc_line
+label: Contracthoeveelheid
+description: 'Begrote of contractuele hoeveelheid.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 1.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

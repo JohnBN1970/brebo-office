@@ -1,0 +1,20 @@
+uuid: 50cfa1e1-66cb-4c06-ba49-71c209bd98e3
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_zone_quantity
+field_name: field_brebo_zone_quantity
+entity_type: node
+type: decimal
+settings:
+  precision: 14
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

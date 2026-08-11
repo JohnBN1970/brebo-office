@@ -1,0 +1,22 @@
+uuid: 322542f6-1219-40ce-a728-0b04774f1491
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_settlement_notes
+    - node.type.brebo_provisional_sum
+  module:
+    - text
+id: node.brebo_provisional_sum.field_brebo_settlement_notes
+field_name: field_brebo_settlement_notes
+entity_type: node
+bundle: brebo_provisional_sum
+label: 'Besluit en afrekening'
+description: 'Offertes, besluit, onderbouwing en wijze van verrekening.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,22 @@
+uuid: a7542387-1a10-40ae-b2ab-72566a11878a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_reviewer_note
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_reviewer_note
+field_name: field_brebo_reviewer_note
+entity_type: node
+bundle: brebo_communication
+label: Controleverklaring
+description: 'Correcties, onzekerheden en motivering voor vaststelling of verwerping.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

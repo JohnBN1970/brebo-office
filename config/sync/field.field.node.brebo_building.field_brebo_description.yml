@@ -1,0 +1,22 @@
+uuid: 548a9c57-7c84-4b20-91b1-bcca2cc3bdc9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_building
+  module:
+    - text
+id: node.brebo_building.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_building
+label: Gebouwomschrijving
+description: 'Kenmerken, afbakening en bijzonderheden van het gebouw.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

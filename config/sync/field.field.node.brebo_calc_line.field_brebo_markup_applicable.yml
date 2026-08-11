@@ -1,0 +1,23 @@
+uuid: 46736d8c-770e-4533-9934-164f49692c19
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_markup_applicable
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_markup_applicable
+field_name: field_brebo_markup_applicable
+entity_type: node
+bundle: brebo_calc_line
+label: 'Opnemen in opslaggrondslag'
+description: 'Bepaalt expliciet of algemene opslagen over deze regel worden berekend.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

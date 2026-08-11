@@ -1,0 +1,19 @@
+uuid: 61e8a9c5-a5aa-4bad-8442-3b23f3e1c2cc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_g_account_base
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_g_account_base
+field_name: field_brebo_g_account_base
+entity_type: node
+bundle: brebo_offer_version
+label: G-rekeninggrondslag
+description: 'Bijvoorbeeld arbeid, aanneemsom of een overeengekomen vaste grondslag.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,24 @@
+uuid: fa4f86bb-a8f4-45e5-9357-e3ccd05022dc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_budget_change
+    - node.type.brebo_project
+id: node.brebo_budget_change.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_budget_change
+label: Project
+description: 'Project waarop het besluit betrekking heeft.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

@@ -1,0 +1,25 @@
+uuid: 15b12e96-4a42-4f78-b5d7-b60c990d184e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_unit_price
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_unit_price
+field_name: field_brebo_unit_price
+entity_type: node
+bundle: brebo_calc_line
+label: 'Eenheidsprijs kostprijs'
+description: 'Kostprijs per eenheid vóór opslagen.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

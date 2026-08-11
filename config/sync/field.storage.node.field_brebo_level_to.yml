@@ -1,0 +1,21 @@
+uuid: 8b828dd1-520d-4c2c-9a8a-f0c013be2ffb
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_level_to
+field_name: field_brebo_level_to
+entity_type: node
+type: string
+settings:
+  max_length: 32
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

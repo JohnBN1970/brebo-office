@@ -1,0 +1,19 @@
+uuid: 40399c51-c237-45a9-91ba-840763337da6
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_change_reason
+field_name: field_brebo_change_reason
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

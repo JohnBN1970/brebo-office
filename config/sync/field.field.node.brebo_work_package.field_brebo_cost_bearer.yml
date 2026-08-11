@@ -1,0 +1,19 @@
+uuid: 08f0883b-485e-440e-b549-0588caaa1304
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_cost_bearer
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_cost_bearer
+field_name: field_brebo_cost_bearer
+entity_type: node
+bundle: brebo_work_package
+label: Kostendrager
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

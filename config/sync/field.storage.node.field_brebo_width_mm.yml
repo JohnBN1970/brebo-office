@@ -1,0 +1,20 @@
+uuid: 8f4a7612-9fa6-4992-8c17-dd6b8e99983c
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_width_mm
+field_name: field_brebo_width_mm
+entity_type: node
+type: integer
+settings:
+  unsigned: false
+  size: normal
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

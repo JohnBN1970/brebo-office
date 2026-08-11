@@ -1,0 +1,21 @@
+uuid: 0be278e7-a360-473b-923a-09dd0e623986
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_mode
+    - node.type.brebo_comm_channel
+id: node.brebo_comm_channel.field_brebo_ai_mode
+field_name: field_brebo_ai_mode
+entity_type: node
+bundle: brebo_comm_channel
+label: AI-koppelmandaat
+description: 'Handmatig, voorstel met bevestiging of gemandateerd automatisch.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Voorstel met bevestiging'
+default_value_callback: ''
+settings: {  }
+field_type: string

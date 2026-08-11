@@ -1,0 +1,100 @@
+uuid: 284735ee-ccb2-4ca4-afb3-bcb80b173c35
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_verification.field_brebo_blocks_release
+    - field.field.node.brebo_verification.field_brebo_control_result
+    - field.field.node.brebo_verification.field_brebo_control_source
+    - field.field.node.brebo_verification.field_brebo_control_type
+    - field.field.node.brebo_verification.field_brebo_evidence
+    - field.field.node.brebo_verification.field_brebo_finding
+    - field.field.node.brebo_verification.field_brebo_position_ref
+    - field.field.node.brebo_verification.field_brebo_required_action
+    - node.type.brebo_verification
+  module:
+    - image
+    - text
+    - user
+id: node.brebo_verification.default
+targetEntityType: node
+bundle: brebo_verification
+mode: default
+content:
+  field_brebo_blocks_release:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_control_result:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_control_source:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_control_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_evidence:
+    type: image
+    label: above
+    settings:
+      image_link: ''
+      image_style: ''
+      image_loading:
+        attribute: lazy
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_finding:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_position_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_required_action:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

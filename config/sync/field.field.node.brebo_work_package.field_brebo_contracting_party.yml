@@ -1,0 +1,19 @@
+uuid: d1f5f577-e086-4cea-bdea-6246bbc2370c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contracting_party
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_contracting_party
+field_name: field_brebo_contracting_party
+entity_type: node
+bundle: brebo_work_package
+label: 'Contracterende partij'
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

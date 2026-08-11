@@ -1,0 +1,19 @@
+uuid: 3f312db0-d5a7-4b4c-ae52-ea4647a8c276
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_code
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_code
+field_name: field_brebo_route_code
+entity_type: node
+bundle: brebo_route_item
+label: Routecode
+description: 'Stabiele code van het procesonderdeel of vereiste product.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

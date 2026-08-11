@@ -1,0 +1,21 @@
+uuid: 2a666252-520b-4cac-9869-444efd933897
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_control_result
+    - node.type.brebo_verification
+id: node.brebo_verification.field_brebo_control_result
+field_name: field_brebo_control_result
+entity_type: node
+bundle: brebo_verification
+label: Controleresultaat
+description: 'Actuele uitkomst van deze controle.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Niet gecontroleerd'
+default_value_callback: ''
+settings: {  }
+field_type: string

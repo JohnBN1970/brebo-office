@@ -3,10 +3,28 @@ langcode: nl
 status: true
 dependencies:
   config:
+    - field.field.node.brebo_project.field_brebo_building_refs
+    - field.field.node.brebo_project.field_brebo_ceiling_amount
+    - field.field.node.brebo_project.field_brebo_ceiling_type
     - field.field.node.brebo_project.field_brebo_client
+    - field.field.node.brebo_project.field_brebo_client_org_ref
+    - field.field.node.brebo_project.field_brebo_contracting_party
+    - field.field.node.brebo_project.field_brebo_cost_bearer
     - field.field.node.brebo_project.field_brebo_description
+    - field.field.node.brebo_project.field_brebo_disciplines
+    - field.field.node.brebo_project.field_brebo_invoice_recipient
+    - field.field.node.brebo_project.field_brebo_lens_control
+    - field.field.node.brebo_project.field_brebo_lens_insight
+    - field.field.node.brebo_project.field_brebo_lens_realization
     - field.field.node.brebo_project.field_brebo_location
+    - field.field.node.brebo_project.field_brebo_mandate_limit
+    - field.field.node.brebo_project.field_brebo_procurement_allowed
+    - field.field.node.brebo_project.field_brebo_procurement_position
     - field.field.node.brebo_project.field_brebo_project_code
+    - field.field.node.brebo_project.field_brebo_project_kind
+    - field.field.node.brebo_project.field_brebo_selector_party
+    - field.field.node.brebo_project.field_brebo_service_role
+    - field.field.node.brebo_project.field_brebo_settlement_method
     - field.field.node.brebo_project.field_brebo_status
     - node.type.brebo_project
   module:
@@ -22,9 +40,60 @@ content:
     region: content
     settings: {  }
     third_party_settings: {  }
+  field_brebo_building_refs:
+    type: entity_reference_autocomplete
+    weight: 6
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ceiling_amount:
+    type: number
+    weight: 17
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ceiling_type:
+    type: string_textfield
+    weight: 16
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
   field_brebo_client:
     type: string_textfield
     weight: 2
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_client_org_ref:
+    type: entity_reference_autocomplete
+    weight: 3
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_contracting_party:
+    type: string_textfield
+    weight: 11
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_cost_bearer:
+    type: string_textfield
+    weight: 12
     region: content
     settings:
       size: 60
@@ -38,6 +107,43 @@ content:
       rows: 5
       placeholder: ''
     third_party_settings: {  }
+  field_brebo_disciplines:
+    type: string_textfield
+    weight: 18
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_invoice_recipient:
+    type: string_textfield
+    weight: 13
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_lens_control:
+    type: boolean_checkbox
+    weight: 21
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_lens_insight:
+    type: boolean_checkbox
+    weight: 20
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_lens_realization:
+    type: boolean_checkbox
+    weight: 22
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
   field_brebo_location:
     type: string_textfield
     weight: 3
@@ -46,9 +152,63 @@ content:
       size: 60
       placeholder: ''
     third_party_settings: {  }
+  field_brebo_mandate_limit:
+    type: number
+    weight: 15
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_procurement_allowed:
+    type: boolean_checkbox
+    weight: 14
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_procurement_position:
+    type: string_textfield
+    weight: 9
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
   field_brebo_project_code:
     type: string_textfield
     weight: 1
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_project_kind:
+    type: string_textfield
+    weight: 6
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_selector_party:
+    type: string_textfield
+    weight: 10
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_service_role:
+    type: string_textfield
+    weight: 7
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_settlement_method:
+    type: string_textfield
+    weight: 8
     region: content
     settings:
       size: 60

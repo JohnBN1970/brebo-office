@@ -1,0 +1,11 @@
+uuid: 8335ab9e-f6a2-4337-b220-8f201344e191
+langcode: nl
+status: true
+dependencies: {  }
+name: Calculatie
+type: brebo_calculation
+description: 'Revisiegeschikte calculatie gekoppeld aan een werkpakket.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

@@ -1,0 +1,24 @@
+uuid: 1066987d-ccc1-4ed8-b539-585cf34323a5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_rfq_ref
+    - node.type.brebo_rfq
+    - node.type.brebo_rfq_line
+id: node.brebo_rfq_line.field_brebo_rfq_ref
+field_name: field_brebo_rfq_ref
+entity_type: node
+bundle: brebo_rfq_line
+label: Prijsaanvraag
+description: 'Bovenliggende prijsaanvraag.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_rfq: brebo_rfq
+field_type: entity_reference

@@ -1,0 +1,23 @@
+uuid: ae56c783-9047-4c25-a705-79b2c288a005
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quote_total
+    - node.type.brebo_supplier_quote
+id: node.brebo_supplier_quote.field_brebo_quote_total
+field_name: field_brebo_quote_total
+entity_type: node
+bundle: brebo_supplier_quote
+label: 'Totaal exclusief btw'
+description: 'Totaal van de ontvangen aanbieding.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

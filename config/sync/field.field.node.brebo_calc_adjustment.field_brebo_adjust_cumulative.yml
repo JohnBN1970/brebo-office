@@ -1,0 +1,23 @@
+uuid: 2c215aec-e782-40cd-a730-d4a1ff39ea9d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_adjust_cumulative
+    - node.type.brebo_calc_adjustment
+id: node.brebo_calc_adjustment.field_brebo_adjust_cumulative
+field_name: field_brebo_adjust_cumulative
+entity_type: node
+bundle: brebo_calc_adjustment
+label: Cumulatief
+description: 'Laat deze correctie bewust voortbouwen op eerdere correcties.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

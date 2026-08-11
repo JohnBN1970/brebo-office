@@ -1,0 +1,19 @@
+uuid: e1445c76-a74b-492f-8c7c-2115be591bcc
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_offer_version_ref
+field_name: field_brebo_offer_version_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

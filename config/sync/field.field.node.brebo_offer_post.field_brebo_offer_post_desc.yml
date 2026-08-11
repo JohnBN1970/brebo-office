@@ -1,0 +1,22 @@
+uuid: 2e8f9bad-4bbe-4578-9634-5ee1de8f1ad7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_post_desc
+    - node.type.brebo_offer_post
+  module:
+    - text
+id: node.brebo_offer_post.field_brebo_offer_post_desc
+field_name: field_brebo_offer_post_desc
+entity_type: node
+bundle: brebo_offer_post
+label: 'Omschrijving en scope'
+description: 'Commerciële omschrijving en afbakening van deze post.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

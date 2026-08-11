@@ -1,0 +1,25 @@
+uuid: f967a3b1-e432-449b-a276-3d70c1bd19a0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_post_seq
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_offer_post_seq
+field_name: field_brebo_offer_post_seq
+entity_type: node
+bundle: brebo_offer_post
+label: Volgorde
+description: 'Sorteervolgorde binnen de offerteversie.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 10
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

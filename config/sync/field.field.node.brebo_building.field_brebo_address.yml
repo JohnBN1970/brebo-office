@@ -1,0 +1,19 @@
+uuid: 78b725b0-26da-4809-93a1-684816454bee
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_address
+    - node.type.brebo_building
+id: node.brebo_building.field_brebo_address
+field_name: field_brebo_address
+entity_type: node
+bundle: brebo_building
+label: Adres
+description: 'Straat, huisnummer en eventuele toevoeging.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,19 @@
+uuid: d2cc708f-d72f-4341-b9f2-e6be35f3f4d6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_city
+    - node.type.brebo_building
+id: node.brebo_building.field_brebo_city
+field_name: field_brebo_city
+entity_type: node
+bundle: brebo_building
+label: Plaats
+description: 'Plaats waarin het gebouw ligt.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

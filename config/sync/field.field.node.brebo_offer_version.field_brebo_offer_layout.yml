@@ -1,0 +1,21 @@
+uuid: 8bff5ef0-f489-462a-9e8a-2bd2f89b8f63
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_layout
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_offer_layout
+field_name: field_brebo_offer_layout
+entity_type: node
+bundle: brebo_offer_version
+label: Offertelayout
+description: 'Zakelijk, compact, technisch, aanbesteding, VvE of maatwerk.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Zakelijk
+default_value_callback: ''
+settings: {  }
+field_type: string

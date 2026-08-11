@@ -1,0 +1,19 @@
+uuid: 77fa3c2c-4cb9-4276-a397-9dfe649a8467
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_material_code
+    - node.type.brebo_rfq_line
+id: node.brebo_rfq_line.field_brebo_material_code
+field_name: field_brebo_material_code
+entity_type: node
+bundle: brebo_rfq_line
+label: 'Materiaal- of prestatiecode'
+description: 'Code voor vergelijking en herleidbaarheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

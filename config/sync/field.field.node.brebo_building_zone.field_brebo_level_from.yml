@@ -1,0 +1,19 @@
+uuid: 6eb2efe4-0091-46a0-a3ee-1888b7ccca42
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_level_from
+    - node.type.brebo_building_zone
+id: node.brebo_building_zone.field_brebo_level_from
+field_name: field_brebo_level_from
+entity_type: node
+bundle: brebo_building_zone
+label: 'Niveau vanaf'
+description: 'Laagste bouwlaag of hoogteniveau dat door de zone wordt geraakt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,24 @@
+uuid: 9fd3cec7-c254-40ea-b35f-20745caa4160
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_affected_positions
+    - node.type.brebo_building_zone
+    - node.type.brebo_product_position
+id: node.brebo_building_zone.field_brebo_affected_positions
+field_name: field_brebo_affected_positions
+entity_type: node
+bundle: brebo_building_zone
+label: 'Geraakte productposities'
+description: 'Productposities die binnen of aan deze technische zone liggen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_product_position: brebo_product_position
+field_type: entity_reference

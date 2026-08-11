@@ -1,0 +1,22 @@
+uuid: 1cd1c3c7-be05-4234-b932-958a46c415eb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_exclusions
+    - node.type.brebo_offer_version
+  module:
+    - text
+id: node.brebo_offer_version.field_brebo_exclusions
+field_name: field_brebo_exclusions
+entity_type: node
+bundle: brebo_offer_version
+label: Uitsluitingen
+description: 'Versiegebonden expliciete uitsluitingen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

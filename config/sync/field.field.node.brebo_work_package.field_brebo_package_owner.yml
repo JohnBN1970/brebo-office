@@ -1,0 +1,21 @@
+uuid: 47ab8529-61a3-4338-9310-c854bffc3a82
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_package_owner
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_package_owner
+field_name: field_brebo_package_owner
+entity_type: node
+bundle: brebo_work_package
+label: Verantwoordelijke
+description: 'Eigenaar van voorbereiding en vrijgave.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

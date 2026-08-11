@@ -1,0 +1,21 @@
+uuid: c646e24a-c336-437f-8408-58c7161bd4ca
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_line_post_type
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_line_post_type
+field_name: field_brebo_line_post_type
+entity_type: node
+bundle: brebo_calc_line
+label: Posttype
+description: 'Vast, stelpost, verrekenpost, optie, alternatief of wijziging.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Vaste post'
+default_value_callback: ''
+settings: {  }
+field_type: string

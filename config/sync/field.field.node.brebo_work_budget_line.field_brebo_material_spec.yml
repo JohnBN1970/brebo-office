@@ -1,0 +1,19 @@
+uuid: 92d511c0-4ebe-40d2-8929-ece7c07e3de1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_material_spec
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_material_spec
+field_name: field_brebo_material_spec
+entity_type: node
+bundle: brebo_work_budget_line
+label: Materiaalspecificatie
+description: 'Kwaliteit, kleur, maat, uitvoering en overige onderscheidende kenmerken.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

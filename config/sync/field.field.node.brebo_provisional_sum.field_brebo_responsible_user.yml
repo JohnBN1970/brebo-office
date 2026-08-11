@@ -1,0 +1,21 @@
+uuid: 4640faa8-fd9a-408a-ab7d-2565cdaa32dc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_provisional_sum
+id: node.brebo_provisional_sum.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_provisional_sum
+label: Verantwoordelijke
+description: 'Verantwoordelijke voor besluitvorming en afrekening.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

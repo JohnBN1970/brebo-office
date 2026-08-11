@@ -1,0 +1,11 @@
+uuid: 52b05ac7-bf06-4be2-9051-3dbf542621e9
+langcode: nl
+status: true
+dependencies: {  }
+name: Vrijgavepoort
+type: brebo_release_gate
+description: 'Herleidbare beoordeling van een voorwaarde voor vrijgave van een werkpakket.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

@@ -1,0 +1,21 @@
+uuid: 70856b8f-ff8b-4527-8a57-dae715fe4937
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_approved_by
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_approved_by
+field_name: field_brebo_approved_by
+entity_type: node
+bundle: brebo_quantity_settlement
+label: 'Goedgekeurd door'
+description: 'Bevoegde interne goedkeurder.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

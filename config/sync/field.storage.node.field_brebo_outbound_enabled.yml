@@ -1,0 +1,18 @@
+uuid: 55ba83a7-a807-4fba-8eb0-11ce2ed5dc93
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_outbound_enabled
+field_name: field_brebo_outbound_enabled
+entity_type: node
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

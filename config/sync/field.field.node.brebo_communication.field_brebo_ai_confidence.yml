@@ -1,0 +1,23 @@
+uuid: bb71bd11-39d9-446a-bb7a-6577acb5e6c1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_confidence
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_ai_confidence
+field_name: field_brebo_ai_confidence
+entity_type: node
+bundle: brebo_communication
+label: AI-betrouwbaarheid
+description: 'Technische zekerheid van 0 tot en met 100; nooit een vervanging voor bevoegd vaststellen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

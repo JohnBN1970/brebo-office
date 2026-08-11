@@ -1,0 +1,19 @@
+uuid: 1eccf1b9-7150-4e13-97ca-211443bf6cec
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_transcript
+field_name: field_brebo_transcript
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

@@ -1,0 +1,25 @@
+uuid: 736d0d22-8147-46db-bf33-eb459b92a39b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_version
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_offer_version
+field_name: field_brebo_offer_version
+entity_type: node
+bundle: brebo_offer_version
+label: Versienummer
+description: 'Oplopend versienummer binnen de offerte.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

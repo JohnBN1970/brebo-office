@@ -1,0 +1,196 @@
+uuid: 0b34d0ca-72ca-4004-b9d5-3b3270c559a7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_offer_version.field_brebo_calculation_ref
+    - field.field.node.brebo_offer_version.field_brebo_exclusions
+    - field.field.node.brebo_offer_version.field_brebo_g_account_base
+    - field.field.node.brebo_offer_version.field_brebo_g_account_iban
+    - field.field.node.brebo_offer_version.field_brebo_g_account_on
+    - field.field.node.brebo_offer_version.field_brebo_g_account_pct
+    - field.field.node.brebo_offer_version.field_brebo_offer_layout
+    - field.field.node.brebo_offer_version.field_brebo_offer_number
+    - field.field.node.brebo_offer_version.field_brebo_offer_scope
+    - field.field.node.brebo_offer_version.field_brebo_offer_snapshot
+    - field.field.node.brebo_offer_version.field_brebo_offer_status
+    - field.field.node.brebo_offer_version.field_brebo_offer_version
+    - field.field.node.brebo_offer_version.field_brebo_price_detail
+    - field.field.node.brebo_offer_version.field_brebo_valid_until
+    - field.field.node.brebo_offer_version.field_brebo_vat_default
+    - field.field.node.brebo_offer_version.field_brebo_work_terms
+    - node.type.brebo_offer_version
+  module:
+    - datetime
+    - text
+id: node.brebo_offer_version.default
+targetEntityType: node
+bundle: brebo_offer_version
+mode: default
+content:
+  created:
+    type: datetime_timestamp
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_calculation_ref:
+    type: entity_reference_autocomplete
+    weight: 1
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_exclusions:
+    type: text_textarea
+    weight: 8
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_g_account_base:
+    type: string_textfield
+    weight: 14
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_g_account_iban:
+    type: string_textfield
+    weight: 15
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_g_account_on:
+    type: boolean_checkbox
+    weight: 12
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_g_account_pct:
+    type: number
+    weight: 13
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_layout:
+    type: string_textfield
+    weight: 5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_number:
+    type: string_textfield
+    weight: 2
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_scope:
+    type: text_textarea
+    weight: 7
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_snapshot:
+    type: text_textarea
+    weight: 16
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_status:
+    type: string_textfield
+    weight: 4
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_offer_version:
+    type: number
+    weight: 3
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_price_detail:
+    type: string_textfield
+    weight: 6
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_valid_until:
+    type: datetime_default
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_vat_default:
+    type: string_textfield
+    weight: 11
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_work_terms:
+    type: text_textarea
+    weight: 9
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 120
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  title:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  uid:
+    type: entity_reference_autocomplete
+    weight: 5
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  promote: true
+  sticky: true

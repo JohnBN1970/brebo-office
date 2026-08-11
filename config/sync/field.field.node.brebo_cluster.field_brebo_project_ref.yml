@@ -11,8 +11,8 @@ field_name: field_brebo_project_ref
 entity_type: node
 bundle: brebo_cluster
 label: Project
-description: 'Het project waartoe dit cluster behoort.'
-required: true
+description: 'Legacy/historische projectkoppeling. De permanente parent van een cluster is het gebouw; tijdelijke projectselectie loopt via Projectscope per gebouw.'
+required: false
 translatable: true
 default_value: {  }
 default_value_callback: ''

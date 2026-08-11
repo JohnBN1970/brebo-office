@@ -1,0 +1,58 @@
+uuid: b291d971-5023-4c43-ad82-36d63e32c993
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_calc_component.field_brebo_calculation_ref
+    - field.field.node.brebo_calc_component.field_brebo_component_code
+    - field.field.node.brebo_calc_component.field_brebo_component_sequence
+    - field.field.node.brebo_calc_component.field_brebo_description
+    - node.type.brebo_calc_component
+  module:
+    - text
+    - user
+id: node.brebo_calc_component.default
+targetEntityType: node
+bundle: brebo_calc_component
+mode: default
+content:
+  field_brebo_calculation_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_component_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_component_sequence:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

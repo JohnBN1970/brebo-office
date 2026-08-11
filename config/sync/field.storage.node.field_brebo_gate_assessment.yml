@@ -1,0 +1,19 @@
+uuid: 126eadcb-891b-4b08-ba49-4c02012f2cfd
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_gate_assessment
+field_name: field_brebo_gate_assessment
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

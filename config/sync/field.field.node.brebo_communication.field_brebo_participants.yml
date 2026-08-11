@@ -1,0 +1,24 @@
+uuid: c283ba0e-59e0-42e1-9e23-bacce2d1181b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_participants
+    - node.type.brebo_communication
+    - node.type.brebo_contact
+id: node.brebo_communication.field_brebo_participants
+field_name: field_brebo_participants
+entity_type: node
+bundle: brebo_communication
+label: Deelnemers
+description: 'Bekende contactpersonen die deelnamen aan gesprek, groep of vergadering.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_contact: brebo_contact
+field_type: entity_reference

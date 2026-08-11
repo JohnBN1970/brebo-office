@@ -1,0 +1,68 @@
+uuid: 44c75f87-71de-4f63-8d6e-bebfafbec04f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_work_budget.field_brebo_baseline_date
+    - field.field.node.brebo_work_budget.field_brebo_budget_status
+    - field.field.node.brebo_work_budget.field_brebo_budget_version
+    - field.field.node.brebo_work_budget.field_brebo_calculation_ref
+    - field.field.node.brebo_work_budget.field_brebo_package_ref
+    - node.type.brebo_work_budget
+  module:
+    - user
+id: node.brebo_work_budget.default
+targetEntityType: node
+bundle: brebo_work_budget
+mode: default
+content:
+  field_brebo_baseline_date:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_budget_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_budget_version:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_calculation_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_package_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

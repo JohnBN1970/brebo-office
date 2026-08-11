@@ -1,0 +1,23 @@
+uuid: aab66e6d-a26a-443f-9028-32dc8f06d996
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_outbound_enabled
+    - node.type.brebo_comm_channel
+id: node.brebo_comm_channel.field_brebo_outbound_enabled
+field_name: field_brebo_outbound_enabled
+entity_type: node
+bundle: brebo_comm_channel
+label: 'Uitgaand verzenden actief'
+description: 'BREBO Office mag na afzonderlijke autorisatie via dit kanaal verzenden.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

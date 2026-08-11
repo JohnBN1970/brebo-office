@@ -1,0 +1,21 @@
+uuid: 0b9740f3-22dd-4ce4-a5ab-7c10e80f41dc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_last_communication
+    - node.type.brebo_scope_requirement
+  module:
+    - datetime
+id: node.brebo_scope_requirement.field_brebo_last_communication
+field_name: field_brebo_last_communication
+entity_type: node
+bundle: brebo_scope_requirement
+label: 'Laatste ketencontact'
+description: 'Datum van het laatste aantoonbare contact met de externe partij.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

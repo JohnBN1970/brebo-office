@@ -1,0 +1,23 @@
+uuid: bb197717-092b-463e-96ca-61993122d9db
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_longitude
+    - node.type.brebo_building
+id: node.brebo_building.field_brebo_longitude
+field_name: field_brebo_longitude
+entity_type: node
+bundle: brebo_building
+label: Lengtegraad
+description: 'Geografische lengtegraad voor de gebouwenkaart.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,19 @@
+uuid: 09e98111-9b48-48e8-bb37-2d40650738eb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_delivery_location
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_delivery_location
+field_name: field_brebo_delivery_location
+entity_type: node
+bundle: brebo_work_budget_line
+label: Afleverlocatie
+description: 'Bouwplaats, magazijn, woning, cluster of andere afleverlocatie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

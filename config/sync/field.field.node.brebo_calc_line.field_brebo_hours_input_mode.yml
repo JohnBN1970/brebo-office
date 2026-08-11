@@ -1,0 +1,21 @@
+uuid: 73053732-4648-452d-9682-15f59b68ae48
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_hours_input_mode
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_hours_input_mode
+field_name: field_brebo_hours_input_mode
+entity_type: node
+bundle: brebo_calc_line
+label: 'Leidende ureninvoer'
+description: 'Kies of normuren per eenheid of totaaluren leidend zijn.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Normuren
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,155 @@
+uuid: e5ff62e6-366b-4741-be25-1a66e36ab137
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_route_item.field_brebo_lens_domain
+    - field.field.node.brebo_route_item.field_brebo_project_ref
+    - field.field.node.brebo_route_item.field_brebo_route_applicable
+    - field.field.node.brebo_route_item.field_brebo_route_code
+    - field.field.node.brebo_route_item.field_brebo_route_description
+    - field.field.node.brebo_route_item.field_brebo_route_due
+    - field.field.node.brebo_route_item.field_brebo_route_evidence
+    - field.field.node.brebo_route_item.field_brebo_route_kind
+    - field.field.node.brebo_route_item.field_brebo_route_nvt_reason
+    - field.field.node.brebo_route_item.field_brebo_route_owner
+    - field.field.node.brebo_route_item.field_brebo_route_required
+    - field.field.node.brebo_route_item.field_brebo_route_sequence
+    - field.field.node.brebo_route_item.field_brebo_route_source_kind
+    - field.field.node.brebo_route_item.field_brebo_route_status
+    - node.type.brebo_route_item
+  module:
+    - text
+    - user
+id: node.brebo_route_item.default
+targetEntityType: node
+bundle: brebo_route_item
+mode: default
+content:
+  field_brebo_lens_domain:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 30
+    region: content
+  field_brebo_project_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_route_applicable:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_route_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_route_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_route_due:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_route_evidence:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  field_brebo_route_kind:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_route_nvt_reason:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_route_owner:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_route_required:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_route_sequence:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_route_source_kind:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 13
+    region: content
+  field_brebo_route_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

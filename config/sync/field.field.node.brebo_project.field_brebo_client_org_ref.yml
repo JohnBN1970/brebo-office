@@ -1,0 +1,24 @@
+uuid: ceb7784e-cc4e-4cb3-b280-abbb752935d3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_client_org_ref
+    - node.type.brebo_organization
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_client_org_ref
+field_name: field_brebo_client_org_ref
+entity_type: node
+bundle: brebo_project
+label: 'Opdrachtgevende organisatie'
+description: 'Vaste relatiekaart van de opdrachtgever; de bestaande tekstnaam blijft beschikbaar voor historie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_organization: brebo_organization
+field_type: entity_reference

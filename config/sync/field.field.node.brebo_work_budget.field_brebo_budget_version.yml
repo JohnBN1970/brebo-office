@@ -1,0 +1,21 @@
+uuid: 823883a8-901b-4eae-9f09-46d7ea049e9d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_version
+    - node.type.brebo_work_budget
+id: node.brebo_work_budget.field_brebo_budget_version
+field_name: field_brebo_budget_version
+entity_type: node
+bundle: brebo_work_budget
+label: Werkbegrotingsversie
+description: 'Versie van de bevroren uitvoeringsbasis.'
+required: true
+translatable: true
+default_value:
+  -
+    value: '1.0'
+default_value_callback: ''
+settings: {  }
+field_type: string

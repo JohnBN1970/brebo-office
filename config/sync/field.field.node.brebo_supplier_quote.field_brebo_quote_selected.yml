@@ -1,0 +1,23 @@
+uuid: 689370bb-3e26-43c2-936b-a20ed9ee1729
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quote_selected
+    - node.type.brebo_supplier_quote
+id: node.brebo_supplier_quote.field_brebo_quote_selected
+field_name: field_brebo_quote_selected
+entity_type: node
+bundle: brebo_supplier_quote
+label: Geselecteerd
+description: 'Expliciet vastgelegd selectiebesluit.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

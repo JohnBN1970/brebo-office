@@ -1,0 +1,21 @@
+uuid: 40f8e355-3a3e-4d1c-84b6-f7f7fdaf138c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_owner
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_owner
+field_name: field_brebo_route_owner
+entity_type: node
+bundle: brebo_route_item
+label: Verantwoordelijke
+description: 'Persoon die het onderdeel oplevert of laat vaststellen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

@@ -1,0 +1,11 @@
+uuid: 432de78e-6253-472c-b519-4ad6a1632819
+langcode: nl
+status: true
+dependencies: {  }
+name: 'Calculatie-opslag of correctie'
+type: brebo_calc_adjustment
+description: 'Herleidbare opslag, korting of vast bedrag op ieder calculatieniveau.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

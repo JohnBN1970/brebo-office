@@ -1,0 +1,23 @@
+uuid: c01d9c60-fa5e-4ca5-bff1-dce06532e30e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_lens_control
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_lens_control
+field_name: field_brebo_lens_control
+entity_type: node
+bundle: brebo_project
+label: 'Lens Regie van toepassing'
+description: 'Besluiten, communicatie, planning, inkoop en financiële besturing behoren tot dit project.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

@@ -1,0 +1,22 @@
+uuid: 5e6c5ddc-78e2-4436-8c2b-a0415ee0ca8a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_rfq_scope
+    - node.type.brebo_rfq
+  module:
+    - text
+id: node.brebo_rfq.field_brebo_rfq_scope
+field_name: field_brebo_rfq_scope
+entity_type: node
+bundle: brebo_rfq
+label: Aanvraagscope
+description: 'Werk, hoeveelheden, documenten, uitgangspunten en gewenste prijsopbouw.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

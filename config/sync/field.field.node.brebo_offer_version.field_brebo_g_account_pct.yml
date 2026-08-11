@@ -1,0 +1,25 @@
+uuid: 8e1a9a16-bc5d-442b-9945-be5efefadcbc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_g_account_pct
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_g_account_pct
+field_name: field_brebo_g_account_pct
+entity_type: node
+bundle: brebo_offer_version
+label: G-rekeningpercentage
+description: 'Percentage van de gekozen grondslag voor betaling op de G-rekening.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

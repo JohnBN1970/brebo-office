@@ -1,0 +1,24 @@
+uuid: 841d0eb9-f4df-477a-933f-9e805657ce33
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_version_ref
+    - node.type.brebo_offer_post
+    - node.type.brebo_offer_version
+id: node.brebo_offer_post.field_brebo_offer_version_ref
+field_name: field_brebo_offer_version_ref
+entity_type: node
+bundle: brebo_offer_post
+label: Offerteversie
+description: 'Offerteversie waartoe deze post behoort.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_offer_version: brebo_offer_version
+field_type: entity_reference

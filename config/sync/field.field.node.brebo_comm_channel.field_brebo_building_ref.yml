@@ -1,0 +1,24 @@
+uuid: f7db0950-cb3b-49c8-a22b-ce80dc22774a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_comm_channel
+id: node.brebo_comm_channel.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_comm_channel
+label: Standaardgebouw
+description: 'Permanent gebouw waaraan het kanaal standaard is gekoppeld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

@@ -1,0 +1,19 @@
+uuid: 974ff871-f737-495d-9984-f733036b30f8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quote_number
+    - node.type.brebo_supplier_quote
+id: node.brebo_supplier_quote.field_brebo_quote_number
+field_name: field_brebo_quote_number
+entity_type: node
+bundle: brebo_supplier_quote
+label: Offertenummer
+description: 'Referentie van de aanbieder.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

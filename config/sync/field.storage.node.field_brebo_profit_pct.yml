@@ -1,0 +1,20 @@
+uuid: 61f02873-7ef0-4984-a7ea-0d41d5540610
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_profit_pct
+field_name: field_brebo_profit_pct
+entity_type: node
+type: decimal
+settings:
+  precision: 8
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

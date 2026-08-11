@@ -1,0 +1,23 @@
+uuid: d53975e0-0545-49a1-8c70-03e39c6c6d16
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_g_account_on
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_g_account_on
+field_name: field_brebo_g_account_on
+entity_type: node
+bundle: brebo_offer_version
+label: 'G-rekening van toepassing'
+description: 'Geeft aan of betaling deels op de G-rekening plaatsvindt.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

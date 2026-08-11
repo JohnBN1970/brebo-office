@@ -1,0 +1,22 @@
+uuid: ad96791f-255e-410c-b2ac-8117b9013f90
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_post_notes
+    - node.type.brebo_offer_post
+  module:
+    - text
+id: node.brebo_offer_post.field_brebo_offer_post_notes
+field_name: field_brebo_offer_post_notes
+entity_type: node
+bundle: brebo_offer_post
+label: 'Bewijsstukken en notities'
+description: 'Onderbouwing, meetstaatverwijzingen en interne opmerkingen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

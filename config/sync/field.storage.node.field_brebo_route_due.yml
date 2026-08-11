@@ -1,0 +1,21 @@
+uuid: 8a2ae38c-9c06-45b6-ab0b-703e20dad485
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_route_due
+field_name: field_brebo_route_due
+entity_type: node
+type: string
+settings:
+  max_length: 10
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

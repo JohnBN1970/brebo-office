@@ -1,0 +1,21 @@
+uuid: b272ee9f-5bba-49a4-95ae-b9c2d5f9b1b4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_status
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_status
+field_name: field_brebo_route_status
+entity_type: node
+bundle: brebo_route_item
+label: Routestatus
+description: 'Niet gestart, In uitvoering, Ter beoordeling, Gereed, Geblokkeerd of N.V.T.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Niet gestart'
+default_value_callback: ''
+settings: {  }
+field_type: string

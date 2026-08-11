@@ -1,0 +1,21 @@
+uuid: 81a9841b-1070-49c9-a05a-8c034cb46cb9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_rfq
+id: node.brebo_rfq.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_rfq
+label: Verantwoordelijke
+description: 'Calculator, inkoper of werkvoorbereider die de aanvraag beheert.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

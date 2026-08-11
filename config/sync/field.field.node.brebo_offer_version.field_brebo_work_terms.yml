@@ -1,0 +1,22 @@
+uuid: 9131050f-1b19-41c2-82a8-9132dc4aa142
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_work_terms
+    - node.type.brebo_offer_version
+  module:
+    - text
+id: node.brebo_offer_version.field_brebo_work_terms
+field_name: field_brebo_work_terms
+entity_type: node
+bundle: brebo_offer_version
+label: 'Voor het werk geldende voorwaarden'
+description: 'Projectspecifieke uitgangspunten, planning, betaling, garanties en voorwaarden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

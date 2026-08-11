@@ -1,0 +1,20 @@
+uuid: 139d49c7-1184-4801-8f01-119aeb30bb77
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_ai_confidence
+field_name: field_brebo_ai_confidence
+entity_type: node
+type: decimal
+settings:
+  precision: 5
+  scale: 2
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

@@ -1,0 +1,19 @@
+uuid: d96bbdea-8ff2-457e-bd48-4133d98b13f3
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_work_terms
+field_name: field_brebo_work_terms
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

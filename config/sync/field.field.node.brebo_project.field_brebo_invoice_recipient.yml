@@ -1,0 +1,21 @@
+uuid: 8cb67f53-f381-4262-837d-9b81ce329e83
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_invoice_recipient
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_invoice_recipient
+field_name: field_brebo_invoice_recipient
+entity_type: node
+bundle: brebo_project
+label: Factuurontvanger
+description: 'Partij waaraan de leverancier factureert.'
+required: true
+translatable: true
+default_value:
+  -
+    value: BREBO
+default_value_callback: ''
+settings: {  }
+field_type: string

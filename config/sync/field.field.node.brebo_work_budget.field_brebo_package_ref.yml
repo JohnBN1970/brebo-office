@@ -1,0 +1,24 @@
+uuid: 814898b1-a7f9-457e-a606-5eea817dfeed
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_package_ref
+    - node.type.brebo_work_budget
+    - node.type.brebo_work_package
+id: node.brebo_work_budget.field_brebo_package_ref
+field_name: field_brebo_package_ref
+entity_type: node
+bundle: brebo_work_budget
+label: Werkpakket
+description: 'Werkpakket waarop de uitvoering wordt bewaakt.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_work_package: brebo_work_package
+field_type: entity_reference

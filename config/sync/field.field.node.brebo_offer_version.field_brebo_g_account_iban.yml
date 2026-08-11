@@ -1,0 +1,19 @@
+uuid: 4f95ca1b-3381-4aa3-b14d-a63feb0b3c97
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_g_account_iban
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_g_account_iban
+field_name: field_brebo_g_account_iban
+entity_type: node
+bundle: brebo_offer_version
+label: G-rekeningnummer
+description: 'IBAN van de geblokkeerde rekening.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

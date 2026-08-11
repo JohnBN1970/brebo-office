@@ -1,0 +1,19 @@
+uuid: 357fbd09-4a2e-47ea-bce0-ae4665ea61b0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contact_phone
+    - node.type.brebo_contact
+id: node.brebo_contact.field_brebo_contact_phone
+field_name: field_brebo_contact_phone
+entity_type: node
+bundle: brebo_contact
+label: Telefoonnummer
+description: 'Zakelijk of mobiel telefoonnummer.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

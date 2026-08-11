@@ -1,0 +1,22 @@
+uuid: 65f5778a-8136-40b5-b0c9-1dc1c9c4ffa8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_material_description
+    - node.type.brebo_work_budget_line
+  module:
+    - text
+id: node.brebo_work_budget_line.field_brebo_material_description
+field_name: field_brebo_material_description
+entity_type: node
+bundle: brebo_work_budget_line
+label: 'Benodigd materiaal'
+description: 'Uitvoerderslijst met materiaal, specificatie en bestelnotities.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,21 @@
+uuid: 8f1043e2-c1ca-46ba-8fef-64a5c2986163
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_ai_mode
+field_name: field_brebo_ai_mode
+entity_type: node
+type: string
+settings:
+  max_length: 32
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

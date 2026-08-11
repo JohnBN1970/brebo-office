@@ -1,0 +1,11 @@
+uuid: d852c2e8-588a-433b-8ead-bf6258c90758
+langcode: nl
+status: true
+dependencies: {  }
+name: Gebouw
+type: brebo_building
+description: 'Permanente bron van waarheid voor locatie, objectstructuur, historie en projecten.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

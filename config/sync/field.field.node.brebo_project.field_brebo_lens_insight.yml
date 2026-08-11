@@ -1,0 +1,23 @@
+uuid: f5cf39d9-7638-423c-8f68-9e74fc315b12
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_lens_insight
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_lens_insight
+field_name: field_brebo_lens_insight
+entity_type: node
+bundle: brebo_project
+label: 'Lens Inzicht van toepassing'
+description: 'Opname, analyse, gebouwinformatie, risico en advies behoren tot dit project.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

@@ -1,0 +1,21 @@
+uuid: 4493dfb7-2542-40e1-861d-b74220361a69
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible
+    - node.type.brebo_deviation
+id: node.brebo_deviation.field_brebo_responsible
+field_name: field_brebo_responsible
+entity_type: node
+bundle: brebo_deviation
+label: Verantwoordelijke
+description: 'Persoon die de correctie aantoonbaar moet laten uitvoeren.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

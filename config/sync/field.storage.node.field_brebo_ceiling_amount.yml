@@ -1,0 +1,20 @@
+uuid: d4f795e3-469d-4d3b-902e-7981b7640424
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_ceiling_amount
+field_name: field_brebo_ceiling_amount
+entity_type: node
+type: decimal
+settings:
+  precision: 18
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

@@ -1,0 +1,22 @@
+uuid: 6ecc6c53-0acd-43fd-8419-621729f7c44f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_measurement_source
+    - node.type.brebo_quantity_settlement
+  module:
+    - text
+id: node.brebo_quantity_settlement.field_brebo_measurement_source
+field_name: field_brebo_measurement_source
+entity_type: node
+bundle: brebo_quantity_settlement
+label: 'Meetstaat en bewijs'
+description: 'Herkomst, meetmethode, datum en bewijs van de hoeveelheid.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

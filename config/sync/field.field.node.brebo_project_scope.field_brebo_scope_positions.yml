@@ -1,0 +1,24 @@
+uuid: ffe35a79-e8d0-498c-936b-a371f511619d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_positions
+    - node.type.brebo_product_position
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_positions
+field_name: field_brebo_scope_positions
+entity_type: node
+bundle: brebo_project_scope
+label: 'Geselecteerde productposities'
+description: 'Individuele productposities die binnen de projectscope vallen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_product_position: brebo_product_position
+field_type: entity_reference

@@ -1,0 +1,19 @@
+uuid: 165eabc5-fc86-4d80-8b29-c6aeb28568be
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_line_memo
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_line_memo
+field_name: field_brebo_line_memo
+entity_type: node
+bundle: brebo_calc_line
+label: 'Memo / rubricering'
+description: 'Uitvoeringsmemo, kostendrager of rapportagerubriek.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

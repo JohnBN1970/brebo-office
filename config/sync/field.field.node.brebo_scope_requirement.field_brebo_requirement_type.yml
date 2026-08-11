@@ -1,0 +1,21 @@
+uuid: 43900dc9-2536-4a0e-a60d-d54419f14994
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_requirement_type
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_requirement_type
+field_name: field_brebo_requirement_type
+entity_type: node
+bundle: brebo_scope_requirement
+label: Vereistetype
+description: 'Uitvoering, bewijs, controle, vrijgave of ketenafhankelijkheid.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Werkzaamheid
+default_value_callback: ''
+settings: {  }
+field_type: string

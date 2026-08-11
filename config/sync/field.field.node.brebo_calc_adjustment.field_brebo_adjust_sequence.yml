@@ -1,0 +1,25 @@
+uuid: 44bd01fd-f145-4156-9af0-7dbbb2a0b8ce
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_adjust_sequence
+    - node.type.brebo_calc_adjustment
+id: node.brebo_calc_adjustment.field_brebo_adjust_sequence
+field_name: field_brebo_adjust_sequence
+entity_type: node
+bundle: brebo_calc_adjustment
+label: Rekenvolgorde
+description: 'Lagere waarden worden eerst berekend.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 10
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

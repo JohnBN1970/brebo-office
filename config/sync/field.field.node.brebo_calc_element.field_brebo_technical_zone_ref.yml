@@ -1,0 +1,24 @@
+uuid: 5c207038-456c-4d1e-8c4c-d63edc358d7e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_technical_zone_ref
+    - node.type.brebo_building_zone
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_technical_zone_ref
+field_name: field_brebo_technical_zone_ref
+entity_type: node
+bundle: brebo_calc_element
+label: 'Technische zone'
+description: 'Permanente technische gebouwzone waarop dit calculatierecept wordt uitgevoerd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building_zone: brebo_building_zone
+field_type: entity_reference

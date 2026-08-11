@@ -1,0 +1,21 @@
+uuid: a36c313f-bb1c-4a64-9e91-711e11e9ef74
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_mode
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_mode
+field_name: field_brebo_scope_mode
+entity_type: node
+bundle: brebo_project_scope
+label: Scopewijze
+description: 'Volledig gebouw of geselecteerde objecten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Geselecteerde objecten'
+default_value_callback: ''
+settings: {  }
+field_type: string

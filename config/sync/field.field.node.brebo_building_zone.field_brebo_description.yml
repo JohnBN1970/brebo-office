@@ -1,0 +1,22 @@
+uuid: a27b4643-3c7c-4bdb-ab33-a21a209ba2c6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_building_zone
+  module:
+    - text
+id: node.brebo_building_zone.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_building_zone
+label: Zoneomschrijving
+description: 'Afbakening, kenmerken en technische bijzonderheden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

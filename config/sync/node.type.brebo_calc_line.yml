@@ -1,0 +1,11 @@
+uuid: 00d60863-b0f9-498e-ae83-dac19633e885
+langcode: nl
+status: true
+dependencies: {  }
+name: Calculatieregel
+type: brebo_calc_line
+description: 'Prijsregel met posttype, kostensoort, hoeveelheid en prijsherkomst.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

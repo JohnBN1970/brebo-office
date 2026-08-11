@@ -1,0 +1,19 @@
+uuid: c4616163-e340-452a-87b3-a07576f91b5d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_line_description
+    - node.type.brebo_rfq_line
+id: node.brebo_rfq_line.field_brebo_line_description
+field_name: field_brebo_line_description
+entity_type: node
+bundle: brebo_rfq_line
+label: Omschrijving
+description: 'Eenduidig te prijzen levering of prestatie.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

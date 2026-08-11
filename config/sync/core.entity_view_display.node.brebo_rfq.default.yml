@@ -1,0 +1,115 @@
+uuid: 1bfda84d-2640-4083-9c07-85f552968181
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_rfq.field_brebo_calculation_ref
+    - field.field.node.brebo_rfq.field_brebo_project_ref
+    - field.field.node.brebo_rfq.field_brebo_responsible_user
+    - field.field.node.brebo_rfq.field_brebo_rfq_code
+    - field.field.node.brebo_rfq.field_brebo_rfq_deadline
+    - field.field.node.brebo_rfq.field_brebo_rfq_issue_date
+    - field.field.node.brebo_rfq.field_brebo_rfq_phase
+    - field.field.node.brebo_rfq.field_brebo_rfq_scope
+    - field.field.node.brebo_rfq.field_brebo_rfq_status
+    - field.field.node.brebo_rfq.field_brebo_work_budget_ref
+    - node.type.brebo_rfq
+  module:
+    - text
+    - user
+id: node.brebo_rfq.default
+targetEntityType: node
+bundle: brebo_rfq
+mode: default
+content:
+  field_brebo_calculation_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_project_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_responsible_user:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_rfq_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_rfq_deadline:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_rfq_issue_date:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_rfq_phase:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_rfq_scope:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_rfq_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_work_budget_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

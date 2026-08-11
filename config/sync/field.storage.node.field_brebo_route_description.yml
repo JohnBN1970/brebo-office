@@ -1,0 +1,19 @@
+uuid: 67285e00-4d69-439e-9ed6-cf8e67dbf9c6
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_route_description
+field_name: field_brebo_route_description
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

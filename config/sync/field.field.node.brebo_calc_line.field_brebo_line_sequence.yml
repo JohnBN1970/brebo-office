@@ -1,0 +1,25 @@
+uuid: a8a7f727-8346-4364-a8d7-621b39bd0c7b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_line_sequence
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_line_sequence
+field_name: field_brebo_line_sequence
+entity_type: node
+bundle: brebo_calc_line
+label: Regelvolgorde
+description: 'Vaste sorteervolgorde binnen het element.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 10
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

@@ -1,0 +1,11 @@
+uuid: 69b1af68-8eb8-439c-955e-5a33875112c0
+langcode: nl
+status: true
+dependencies: {  }
+name: 'Technische gebouwzone'
+type: brebo_building_zone
+description: 'Permanent technisch werkobject, zoals gevel, gevelbeuk, gevelcel, dakvlak of galerijzone.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

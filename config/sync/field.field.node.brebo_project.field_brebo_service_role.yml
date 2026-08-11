@@ -1,0 +1,21 @@
+uuid: 99f1ff8a-7c96-40c7-97b6-f4467ae3f1a4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_service_role
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_service_role
+field_name: field_brebo_service_role
+entity_type: node
+bundle: brebo_project
+label: 'Rol van BREBO'
+description: 'Advies, Regie, Eigen uitvoering of Hybride.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Eigen uitvoering'
+default_value_callback: ''
+settings: {  }
+field_type: string

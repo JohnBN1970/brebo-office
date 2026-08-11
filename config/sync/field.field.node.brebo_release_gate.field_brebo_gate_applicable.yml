@@ -1,0 +1,23 @@
+uuid: c6482217-ca3b-47a9-89b5-5595134e2092
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gate_applicable
+    - node.type.brebo_release_gate
+id: node.brebo_release_gate.field_brebo_gate_applicable
+field_name: field_brebo_gate_applicable
+entity_type: node
+bundle: brebo_release_gate
+label: 'Van toepassing'
+description: 'Schakel uit wanneer deze poort gemotiveerd niet van toepassing is.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

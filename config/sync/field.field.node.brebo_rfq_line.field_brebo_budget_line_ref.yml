@@ -1,0 +1,24 @@
+uuid: 78555b64-e31d-4cc5-b190-e81ca5dcbd9f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_line_ref
+    - node.type.brebo_rfq_line
+    - node.type.brebo_work_budget_line
+id: node.brebo_rfq_line.field_brebo_budget_line_ref
+field_name: field_brebo_budget_line_ref
+entity_type: node
+bundle: brebo_rfq_line
+label: Werkbegrotingsregel
+description: 'Optionele materiaal- of uitvoeringsbron in de werkbegroting.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_work_budget_line: brebo_work_budget_line
+field_type: entity_reference

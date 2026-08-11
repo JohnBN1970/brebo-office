@@ -1,0 +1,21 @@
+uuid: 957fc354-6bfe-4894-84e6-c6a0313f75f0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_rfq_phase
+    - node.type.brebo_rfq
+id: node.brebo_rfq.field_brebo_rfq_phase
+field_name: field_brebo_rfq_phase
+entity_type: node
+bundle: brebo_rfq
+label: Fase
+description: 'Calculatie of Definitieve inkoop.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Calculatie
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,21 @@
+uuid: 91186307-5030-46ba-a853-20aec8465cfa
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_adjust_base
+    - node.type.brebo_calc_adjustment
+id: node.brebo_calc_adjustment.field_brebo_adjust_base
+field_name: field_brebo_adjust_base
+entity_type: node
+bundle: brebo_calc_adjustment
+label: Grondslag
+description: 'Alle kosten of een specifieke kostensoort.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Alle directe kosten'
+default_value_callback: ''
+settings: {  }
+field_type: string

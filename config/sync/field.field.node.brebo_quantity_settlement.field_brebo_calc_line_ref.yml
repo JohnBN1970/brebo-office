@@ -1,0 +1,24 @@
+uuid: 32fa8cd0-ef5d-49bd-8378-e6ba16374f18
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_line_ref
+    - node.type.brebo_calc_line
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_calc_line_ref
+field_name: field_brebo_calc_line_ref
+entity_type: node
+bundle: brebo_quantity_settlement
+label: Verrekenregel
+description: 'Calculatieregel van het type Verrekenpost.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calc_line: brebo_calc_line
+field_type: entity_reference

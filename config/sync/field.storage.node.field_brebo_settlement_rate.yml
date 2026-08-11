@@ -1,0 +1,20 @@
+uuid: 3e6bf798-c09e-43bc-a034-c7e1f1c7ce1a
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_settlement_rate
+field_name: field_brebo_settlement_rate
+entity_type: node
+type: decimal
+settings:
+  precision: 18
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

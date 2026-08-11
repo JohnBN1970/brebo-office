@@ -1,0 +1,32 @@
+uuid: 2b11a371-07cd-418f-971a-f3d7ceebc07c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_adjust_target
+    - node.type.brebo_calc_adjustment
+    - node.type.brebo_calc_component
+    - node.type.brebo_calc_element
+    - node.type.brebo_calc_line
+    - node.type.brebo_calculation
+    - node.type.brebo_work_package
+id: node.brebo_calc_adjustment.field_brebo_adjust_target
+field_name: field_brebo_adjust_target
+entity_type: node
+bundle: brebo_calc_adjustment
+label: Doel
+description: 'Regel, element, werkpakket of calculatie waarop de correctie werkt.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calculation: brebo_calculation
+      brebo_calc_element: brebo_calc_element
+      brebo_calc_line: brebo_calc_line
+      brebo_work_package: brebo_work_package
+      brebo_calc_component: brebo_calc_component
+field_type: entity_reference

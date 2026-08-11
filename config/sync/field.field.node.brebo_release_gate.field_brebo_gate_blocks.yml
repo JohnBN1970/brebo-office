@@ -1,0 +1,23 @@
+uuid: 57693ea1-6c96-4aa6-92e5-cb2d3c0b0921
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gate_blocks
+    - node.type.brebo_release_gate
+id: node.brebo_release_gate.field_brebo_gate_blocks
+field_name: field_brebo_gate_blocks
+entity_type: node
+bundle: brebo_release_gate
+label: 'Blokkeert werkpakket'
+description: 'Wordt automatisch bepaald uit toepasselijkheid en resultaat.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

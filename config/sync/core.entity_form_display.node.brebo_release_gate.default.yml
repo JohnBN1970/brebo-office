@@ -1,0 +1,108 @@
+uuid: 17554926-d480-4a34-bf8b-4348525429a5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_release_gate.field_brebo_gate_applicable
+    - field.field.node.brebo_release_gate.field_brebo_gate_assessment
+    - field.field.node.brebo_release_gate.field_brebo_gate_blocks
+    - field.field.node.brebo_release_gate.field_brebo_gate_result
+    - field.field.node.brebo_release_gate.field_brebo_gate_type
+    - field.field.node.brebo_release_gate.field_brebo_package_ref
+    - node.type.brebo_release_gate
+  module:
+    - text
+id: node.brebo_release_gate.default
+targetEntityType: node
+bundle: brebo_release_gate
+mode: default
+content:
+  created:
+    type: datetime_timestamp
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_gate_applicable:
+    type: boolean_checkbox
+    weight: 3
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_gate_assessment:
+    type: text_textarea
+    weight: 5
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_gate_blocks:
+    type: boolean_checkbox
+    weight: 6
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_gate_result:
+    type: string_textfield
+    weight: 4
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_gate_type:
+    type: string_textfield
+    weight: 2
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_package_ref:
+    type: entity_reference_autocomplete
+    weight: 1
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 120
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  title:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  uid:
+    type: entity_reference_autocomplete
+    weight: 5
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  promote: true
+  sticky: true

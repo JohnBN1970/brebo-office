@@ -1,0 +1,11 @@
+uuid: e4fb421e-c41f-4448-9643-c16eabe8af09
+langcode: nl
+status: true
+dependencies: {  }
+name: Communicatiekanaal
+type: brebo_comm_channel
+description: 'Beheerde telefoonlijn, mailbox, WhatsApp-groep, overlegvorm of andere communicatie-ingang met vaste context en AI-mandaat.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

@@ -1,0 +1,19 @@
+uuid: 045f678d-3951-4af3-bf67-8f6dbf31e8cb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_preferred_supplier
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_preferred_supplier
+field_name: field_brebo_preferred_supplier
+entity_type: node
+bundle: brebo_work_budget_line
+label: Voorkeursleverancier
+description: 'Voorgestelde leverancier of contractpartner.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,19 @@
+uuid: 1345f998-b364-4eab-b92c-c0931275ce2a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_zone_code
+    - node.type.brebo_building_zone
+id: node.brebo_building_zone.field_brebo_zone_code
+field_name: field_brebo_zone_code
+entity_type: node
+bundle: brebo_building_zone
+label: Zonecode
+description: 'Unieke technische code binnen het gebouw, bijvoorbeeld AG-B03-C02.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

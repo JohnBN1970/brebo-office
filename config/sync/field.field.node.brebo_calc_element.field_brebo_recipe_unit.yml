@@ -1,0 +1,21 @@
+uuid: 0e0669e1-e13e-41e2-99d6-be4246104efe
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_recipe_unit
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_recipe_unit
+field_name: field_brebo_recipe_unit
+entity_type: node
+bundle: brebo_calc_element
+label: Recepteenheid
+description: 'Eenheid van het receptresultaat, bijvoorbeeld m², m¹, st of post.'
+required: false
+translatable: true
+default_value:
+  -
+    value: post
+default_value_callback: ''
+settings: {  }
+field_type: string

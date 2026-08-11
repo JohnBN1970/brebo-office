@@ -1,0 +1,23 @@
+uuid: 3c7eccf0-e6ee-4bae-9591-849a39215a4e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_pack_quantity
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_pack_quantity
+field_name: field_brebo_pack_quantity
+entity_type: node
+bundle: brebo_work_budget_line
+label: 'Hoeveelheid per verpakking'
+description: 'Leverbare hoeveelheid per doos, bus, rol, pallet of andere verpakking.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

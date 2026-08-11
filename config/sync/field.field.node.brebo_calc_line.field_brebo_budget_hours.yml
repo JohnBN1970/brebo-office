@@ -1,0 +1,23 @@
+uuid: a7d48873-1322-458e-880d-6a7e051d91f9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_hours
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_budget_hours
+field_name: field_brebo_budget_hours
+entity_type: node
+bundle: brebo_calc_line
+label: 'Gebudgetteerde uren'
+description: 'Contracthoeveelheid maal normuren; basis voor de werkbegroting.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

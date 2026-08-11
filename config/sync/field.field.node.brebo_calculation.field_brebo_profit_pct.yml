@@ -1,0 +1,25 @@
+uuid: 3fde17d1-ddf6-43e8-b1ce-e2fdf0ce909e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_profit_pct
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_profit_pct
+field_name: field_brebo_profit_pct
+entity_type: node
+bundle: brebo_calculation
+label: 'Winst (%)'
+description: 'Gewenst winstpercentage over de actuele directe kostprijsprognose.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

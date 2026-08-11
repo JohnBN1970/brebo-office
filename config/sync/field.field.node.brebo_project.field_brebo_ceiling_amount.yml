@@ -1,0 +1,23 @@
+uuid: c660c3cb-1f05-4c3a-80c5-8e9032dcf757
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ceiling_amount
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_ceiling_amount
+field_name: field_brebo_ceiling_amount
+entity_type: node
+bundle: brebo_project
+label: Plafondbedrag
+description: 'Financiële grens behorend bij het gekozen plafondtype.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

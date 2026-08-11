@@ -1,0 +1,19 @@
+uuid: 29609fc7-001b-4d2c-9714-d6f93bcf6730
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_code
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_calc_code
+field_name: field_brebo_calc_code
+entity_type: node
+bundle: brebo_calculation
+label: Calculatiecode
+description: 'Unieke calculatiecode.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

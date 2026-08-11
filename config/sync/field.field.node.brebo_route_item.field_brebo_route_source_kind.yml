@@ -1,0 +1,19 @@
+uuid: 56b27897-95bc-4800-8cf4-65a033c65822
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_source_kind
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_source_kind
+field_name: field_brebo_route_source_kind
+entity_type: node
+bundle: brebo_route_item
+label: Bronprojectsoort
+description: 'Projectsoort waardoor dit onderdeel is geactiveerd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

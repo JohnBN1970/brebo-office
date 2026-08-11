@@ -1,0 +1,23 @@
+uuid: 0d856ade-67b5-4697-a984-079315cb384f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_approved_quantity
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_approved_quantity
+field_name: field_brebo_approved_quantity
+entity_type: node
+bundle: brebo_quantity_settlement
+label: 'Goedgekeurde hoeveelheid'
+description: 'Door bevoegde partij geaccordeerde hoeveelheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

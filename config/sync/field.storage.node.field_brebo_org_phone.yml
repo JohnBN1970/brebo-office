@@ -1,0 +1,21 @@
+uuid: aea996cc-4cc6-4d5a-93ff-edc2024b3725
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_org_phone
+field_name: field_brebo_org_phone
+entity_type: node
+type: string
+settings:
+  max_length: 32
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

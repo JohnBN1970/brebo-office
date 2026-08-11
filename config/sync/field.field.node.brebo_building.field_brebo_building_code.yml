@@ -1,0 +1,19 @@
+uuid: 3eb7c6be-62f9-4515-9e3b-b1c5db4df435
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_code
+    - node.type.brebo_building
+id: node.brebo_building.field_brebo_building_code
+field_name: field_brebo_building_code
+entity_type: node
+bundle: brebo_building
+label: Gebouwcode
+description: 'Permanente unieke BREBO-gebouwcode.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

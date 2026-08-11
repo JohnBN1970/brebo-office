@@ -1,0 +1,21 @@
+uuid: f2576d88-6a4b-4a0e-b308-92977547e302
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_vat_default
+field_name: field_brebo_vat_default
+entity_type: node
+type: string
+settings:
+  max_length: 24
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false
