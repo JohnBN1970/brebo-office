@@ -1,0 +1,79 @@
+name: BREBO Office deployment preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-sboffice:
+    name: Verify SSH and sboffice layout
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          if [[ ! "$DEPLOY_PORT" =~ ^[0-9]+$ ]]; then
+            echo "::error::DEPLOY_PORT must be numeric."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          if [[ ! -s ~/.ssh/known_hosts ]]; then
+            echo "::error::Could not obtain the SSH host key."
+            exit 1
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect test target without changing files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          target="public_html/sboffice"
+
+          if [[ ! -d "$target" ]]; then
+            echo "::error::The sboffice target directory does not exist."
+            exit 1
+          fi
+
+          echo "SSH connection: OK"
+          echo "Target directory: OK"
+          [[ -f "$target/index.php" ]] && echo "Drupal web root at target: detected" || echo "Drupal web root at target: not detected"
+          [[ -f "$target/web/index.php" ]] && echo "Composer project root at target: detected" || echo "Composer project root at target: not detected"
+          [[ -f "$target/sites/default/settings.php" ]] && echo "Runtime settings at target: detected" || echo "Runtime settings at target: not detected"
+          [[ -f "$target/web/sites/default/settings.php" ]] && echo "Runtime settings below web/: detected" || echo "Runtime settings below web/: not detected"
+          [[ -d "$target/sites/default/files" ]] && echo "Public files at target: detected" || echo "Public files at target: not detected"
+          [[ -d "$target/web/sites/default/files" ]] && echo "Public files below web/: detected" || echo "Public files below web/: not detected"
+          REMOTE
