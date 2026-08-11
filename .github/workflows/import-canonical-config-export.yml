@@ -1,0 +1,73 @@
+name: Import canonical config export artifact
+
+on:
+  push:
+    branches:
+      - sync/canonical-config-export
+    paths:
+      - .github/workflows/import-canonical-config-export.yml
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  import-config:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout sync branch
+        uses: actions/checkout@v4
+        with:
+          ref: sync/canonical-config-export
+          fetch-depth: 0
+
+      - name: Download successful canonical config artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: '9111362497'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/canonical-artifact /tmp/canonical-export
+          curl -fL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            -o /tmp/canonical-artifact/artifact.zip
+          unzip -q /tmp/canonical-artifact/artifact.zip -d /tmp/canonical-artifact
+          test -s /tmp/canonical-artifact/brebo-config-sync-after-canonical-apply.tgz
+          tar -xzf /tmp/canonical-artifact/brebo-config-sync-after-canonical-apply.tgz -C /tmp/canonical-export
+          test -d /tmp/canonical-export/config/sync
+          test "$(find /tmp/canonical-export/config/sync -maxdepth 1 -type f | wc -l)" -gt 100
+
+      - name: Replace repository config sync with active export
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf config/sync
+          mkdir -p config
+          cp -a /tmp/canonical-export/config/sync config/sync
+
+          test -f config/sync/node.type.brebo_cluster.yml
+          test -f config/sync/field.field.node.brebo_cluster.field_brebo_building_ref.yml
+          grep -Fq "Gebouwdeel, bouwblok of werkgebied binnen een permanent gebouwmodel." config/sync/node.type.brebo_cluster.yml
+          grep -Fq "required: true" config/sync/field.field.node.brebo_cluster.field_brebo_building_ref.yml
+          grep -Fq "Legacy/historische projectkoppeling" config/sync/field.field.node.brebo_cluster.field_brebo_project_ref.yml
+
+      - name: Commit exported configuration only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/import-canonical-config-export.yml
+          git add -A config/sync
+          if git diff --cached --quiet; then
+            echo "No config changes detected."
+            exit 1
+          fi
+          echo "Changed config files: $(git diff --cached --name-only -- config/sync | wc -l)"
+          git commit -m "Sync active Drupal configuration after canonical building apply"
+          git push origin HEAD:sync/canonical-config-export
