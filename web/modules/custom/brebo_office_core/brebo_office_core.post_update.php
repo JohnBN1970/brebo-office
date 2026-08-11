@@ -183,3 +183,184 @@ function brebo_office_core_post_update_canonical_action_signal_risk_layer(array 
 
   return 'Canonieke centrale actie-, signaal- en risicolaag ingericht zonder bestaande domeinopvolging te dupliceren.';
 }
+
+/**
+ * Creates feedback as durable learning data and closes the improvement loop.
+ */
+function brebo_office_core_post_update_canonical_feedback_learning_loop(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_feedback',
+    'Feedback en tevredenheid',
+    'Herleidbare feedback over communicatie, uitvoering en oplevering als structurele leerdata voor gebouw en project.',
+    [
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']]],
+        'description' => 'Permanent gebouw waarop de feedback duurzaam betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Optioneel tijdelijk project waarin de feedback is ontstaan.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_context_ref' => [
+        'label' => 'Exact contextobject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node'],
+        'description' => 'Exact gebouwdeel, woning, productpositie, projectscope, werkpakket, communicatie- of ander dossierobject waarop de feedback ziet.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_source_comm_ref' => [
+        'label' => 'Broncommunicatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_communication' => 'brebo_communication']]],
+        'description' => 'Optioneel communicatie-item waarmee de feedback als bronbewijs herleidbaar blijft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_feedback_date' => [
+        'label' => 'Feedbackdatum', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Datum waarop de feedback is ontvangen of geregistreerd.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 5,
+      ],
+      'field_brebo_feedback_source' => [
+        'label' => 'Feedbackbron', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Bijvoorbeeld bewoner, opdrachtgever, ketenpartner, leverancier of intern.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_feedback_type' => [
+        'label' => 'Feedbacksoort', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Bijvoorbeeld tevredenheidsmeting, compliment, klacht, evaluatie, oplevering of service/garantie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+      ],
+      'field_brebo_score_clarity' => [
+        'label' => 'Score communicatie en duidelijkheid', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor communicatie en duidelijkheid; schaal wordt in de registratie expliciet vermeld.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 8,
+      ],
+      'field_brebo_score_reachability' => [
+        'label' => 'Score bereikbaarheid', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor bereikbaarheid.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 9,
+      ],
+      'field_brebo_score_response' => [
+        'label' => 'Score reactiesnelheid', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor reactiesnelheid.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 10,
+      ],
+      'field_brebo_score_agreements' => [
+        'label' => 'Score nakomen afspraken', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor het nakomen van afspraken.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 11,
+      ],
+      'field_brebo_score_execution' => [
+        'label' => 'Score kwaliteit uitvoering', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor de kwaliteit van de uitvoering.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 12,
+      ],
+      'field_brebo_score_nuisance' => [
+        'label' => 'Score ervaren overlast', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor de omgang met en beperking van overlast.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 13,
+      ],
+      'field_brebo_score_complaints' => [
+        'label' => 'Score klachtbehandeling', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor klachtbehandeling, indien van toepassing.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 14,
+      ],
+      'field_brebo_score_handover' => [
+        'label' => 'Score oplevering', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ervaringsscore voor oplevering en afronding.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 15,
+      ],
+      'field_brebo_score_overall' => [
+        'label' => 'Algemeen oordeel', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Algemene ervaringsscore.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 16,
+      ],
+      'field_brebo_score_scale' => [
+        'label' => 'Scoreschaal', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Expliciete schaal voor de ingevulde scores, bijvoorbeeld 1-5 of 1-10.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 17,
+      ],
+      'field_brebo_feedback_reason' => [
+        'label' => 'Toelichting en reden', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Kwalitatieve reden achter de gegeven score of reactie.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 18,
+      ],
+      'field_brebo_positive_point' => [
+        'label' => 'Positief punt', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Wat aantoonbaar goed is ervaren en behouden moet blijven.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 19,
+      ],
+      'field_brebo_negative_point' => [
+        'label' => 'Negatief punt', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Wat aantoonbaar negatief is ervaren.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 20,
+      ],
+      'field_brebo_improvement_point' => [
+        'label' => 'Verbeterpunt', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Concreet verbeterpunt dat uit de feedback volgt.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 21,
+      ],
+      'field_brebo_feedback_cause' => [
+        'label' => 'Beoordeelde oorzaak', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Gevalideerde oorzaak of patroon achter de feedback; geen onbewezen aanname als feit registreren.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 22,
+      ],
+      'field_brebo_action_ref' => [
+        'label' => 'Verbeteractie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_action' => 'brebo_action']]],
+        'description' => 'Herleidbare verbeteractie die uit deze feedback is vastgesteld.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 23,
+      ],
+      'field_brebo_changed_practice' => [
+        'label' => 'Gewijzigde werkwijze', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Vastgelegde wijziging van werkwijze, instructie of proces na uitvoering en beoordeling van de verbeteractie.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 24,
+      ],
+      'field_brebo_remeasure_date' => [
+        'label' => 'Opnieuw meten op', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Datum waarop de werking van de verbetering opnieuw wordt beoordeeld of gemeten.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 25,
+      ],
+      'field_brebo_feedback_status' => [
+        'label' => 'Feedbackstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Nieuw, beoordeeld, actie vereist, verbetering uitgevoerd, opnieuw gemeten of gesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 26,
+        'default_value' => [['value' => 'Nieuw']],
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_feedback content',
+        'edit own brebo_feedback content',
+        'edit any brebo_feedback content',
+        'view brebo_feedback revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Feedback- en tevredenheidsobject met herleidbare leerkring ingericht: ervaring naar oorzaak, verbeteractie, gewijzigde werkwijze en hermeting.';
+}
