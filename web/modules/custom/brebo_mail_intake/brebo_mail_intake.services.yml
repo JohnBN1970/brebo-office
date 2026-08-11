@@ -31,3 +31,8 @@ services:
     arguments:
       - '@http_client_factory'
       - '@state'
+
+  brebo_mail_intake.imap_source:
+    class: Drupal\brebo_mail_intake\Source\ImapSourceAdapter
+    arguments:
+      - '@state'
