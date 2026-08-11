@@ -84,11 +84,12 @@ jobs:
 
           echo "=== Canonical building relation audit ==="
           cd "$target"
+          export BREBO_CANONICAL_SCRIPT="$PWD/scripts/canonicalize-building-relations.php"
           unset BREBO_APPLY_CANONICAL_RELATIONS || true
           timeout 120 php vendor/drush/drush/drush.php \
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script ../scripts/canonicalize-building-relations.php
+            php:eval 'include getenv("BREBO_CANONICAL_SCRIPT");'
           echo "=== Audit complete: no apply flag was set ==="
           REMOTE
