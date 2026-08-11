@@ -79,7 +79,7 @@ jobs:
           set -euo pipefail
           scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
 
-      - name: Deploy safely on server
+      - name: Deploy, update and export active config
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -89,8 +89,11 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
           target="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
+          config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$target/web/sites/default/settings.php"
           services="$target/web/sites/default/services.yml"
 
@@ -109,8 +112,6 @@ jobs:
             services_before="$(sha256sum "$services" | awk '{print $1}')"
           fi
 
-          # settings.php, services.yml and public files are absent from the archive.
-          # Do not copy or chmod them: hosting may intentionally protect these files.
           tar --no-overwrite-dir -xzf "$archive" -C "$target"
           rm -f "$archive"
 
@@ -128,17 +129,53 @@ jobs:
           fi
 
           cd "$target"
-          if [[ -f vendor/drush/drush/drush.php ]]; then
-            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
-            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cr
-          fi
+          test -f vendor/drush/drush/drush.php
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cr
+          timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
 
           if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
             echo "::error::Expected canonical audit script is missing after deploy."
             exit 1
           fi
+          if [[ ! -d config/sync ]]; then
+            echo "::error::config/sync does not exist after export."
+            exit 1
+          fi
 
+          tar -czf "$config_archive" config/sync
           echo "DEPLOY_OK=1"
+          echo "CONFIG_EXPORT_OK=1"
           echo "TARGET=$target"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
+
+      - name: Download exported config
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" ./brebo-active-config-sync.tgz
+          test -s ./brebo-active-config-sync.tgz
+
+      - name: Upload active config artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: brebo-active-config-sync
+          path: brebo-active-config-sync.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Cleanup server config archive
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set +e
+          timeout 15 ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz' || true
