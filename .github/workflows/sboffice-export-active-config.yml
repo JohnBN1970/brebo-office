@@ -1,0 +1,98 @@
+name: BREBO Office export active config
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-config:
+    name: Export active Drupal config
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Export active Drupal configuration
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
+          target="public_html/sboffice"
+          archive="/tmp/brebo-active-config-sync.tgz"
+          test -d "$target"
+          test -f "$target/vendor/drush/drush/drush.php"
+          cd "$target"
+          timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
+          test -d config/sync
+          tar -czf "$archive" config/sync
+          echo 'CONFIG_EXPORT_OK=1'
+          REMOTE
+
+      - name: Download exported config
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" ./brebo-active-config-sync.tgz
+          test -s ./brebo-active-config-sync.tgz
+
+      - name: Upload config artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: brebo-active-config-sync
+          path: brebo-active-config-sync.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+      - name: Cleanup server archive
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set +e
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz'
