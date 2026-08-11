@@ -94,20 +94,26 @@ jobs:
           fi
 
           echo "=== Drupal bootstrap through Drush (read-only) ==="
-          if [[ -x "$target/vendor/bin/drush" || -f "$target/vendor/bin/drush" ]]; then
+          drush_entry="$target/vendor/drush/drush/drush.php"
+          if [[ -f "$drush_entry" ]]; then
+            set +e
             (
               cd "$target" &&
-              timeout 45 php vendor/bin/drush \
+              timeout 45 php vendor/drush/drush/drush.php \
                 --root=web \
                 --uri=https://sboffice.brebobv.nl \
                 --no-ansi \
+                --verbose \
                 status \
                 --fields=bootstrap,db-status,drupal-version,php-bin,php-version,root,site-uri
-            )
-            drush_status=$?
+            ) 2>&1 | sed -E \
+              -e 's/((password|passwd|pwd|secret|token)[[:space:]]*[:=][[:space:]]*)[^[:space:]]+/\\1[REDACTED]/Ig' \
+              -e 's#(mysql://[^:/@[:space:]]+:)[^@[:space:]]+@#\\1[REDACTED]@#g'
+            drush_status=${PIPESTATUS[0]}
+            set -e
             echo "DRUSH_STATUS_EXIT=$drush_status"
           else
-            echo "DRUSH=missing"
+            echo "DRUSH_ENTRYPOINT=missing"
           fi
 
           echo "=== Candidate server logs (metadata only) ==="
