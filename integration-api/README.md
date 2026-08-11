@@ -4,6 +4,11 @@ Cloudflare Worker voor de stateless analyse van communicatie uit BREBO Office.
 De Worker kan niets verzenden of in BREBO Office wijzigen. Resultaten hebben
 altijd `stored: false`, `sent: false` en verplichte menselijke controle.
 
+De Worker begrenst analyses vooraf met een atomaire limiet per minuut en een
+conservatief maandelijks tokenbudget. De budgetbewaking reserveert de maximale
+uitvoer plus een schatting van de invoer; hierdoor kan de werkelijke rekening
+niet ongemerkt boven de ingestelde technische grens uitkomen.
+
 ## Lokaal controleren
 
 ```bash
@@ -31,6 +36,15 @@ npx wrangler secret put BREBO_SHARED_SECRET
 ```
 
 Zet secrets nooit in `wrangler.jsonc`, Git, logs of Drupal-config-export.
+
+## Limieten
+
+- `MAX_ANALYSES_PER_WINDOW`: maximaal aantal toegestane analyses per venster.
+- `RATE_WINDOW_SECONDS`: lengte van het venster in seconden.
+- `MONTHLY_TOKEN_BUDGET`: conservatief tokenbudget per UTC-kalendermaand.
+
+Een overschrijding geeft een generieke `429` terug. Alleen tellers en perioden
+worden bewaard; nooit communicatie-inhoud, projectgegevens of AI-uitvoer.
 
 ## Geen deployment vanuit deze bouwstap
 
