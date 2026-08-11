@@ -89,6 +89,6 @@ jobs:
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script scripts/canonicalize-building-relations.php
+            php:script ../scripts/canonicalize-building-relations.php
           echo "=== Audit complete: no apply flag was set ==="
           REMOTE
