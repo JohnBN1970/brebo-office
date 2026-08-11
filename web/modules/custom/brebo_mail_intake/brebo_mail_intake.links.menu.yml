@@ -1,0 +1,6 @@
+brebo_mail_intake.review_queue:
+  title: 'Mail Intake'
+  description: 'Beoordeel alleen onzekere en nog niet verwerkte mailintake-items.'
+  route_name: brebo_mail_intake.review_queue
+  parent: system.admin_content
+  weight: 25
