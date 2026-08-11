@@ -137,9 +137,11 @@ jobs:
           target="public_html/sboffice"
 
           install -d "$target/web/sites/default"
+          rm -f "$target/web/sites/default/settings.php"
           cp -p "$target/sites/default/settings.php" "$target/web/sites/default/settings.php"
 
           if [[ -f "$target/sites/default/settings.local.php" ]]; then
+            rm -f "$target/web/sites/default/settings.local.php"
             cp -p "$target/sites/default/settings.local.php" "$target/web/sites/default/settings.local.php"
           fi
 
