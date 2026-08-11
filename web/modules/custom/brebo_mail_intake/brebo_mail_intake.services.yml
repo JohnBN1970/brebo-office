@@ -25,3 +25,9 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@current_user'
+
+  brebo_mail_intake.gmail_source:
+    class: Drupal\brebo_mail_intake\Source\GmailSourceAdapter
+    arguments:
+      - '@http_client_factory'
+      - '@state'
