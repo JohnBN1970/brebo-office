@@ -1,0 +1,4 @@
+review brebo mail intake:
+  title: 'BREBO Mail Intake beoordelen'
+  description: 'Beoordeel onzekere en nog niet verwerkte mailintake-items.'
+  restrict access: true
