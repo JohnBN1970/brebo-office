@@ -1,0 +1,94 @@
+name: BREBO Office canonical building audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-canonical-building-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit canonical Cluster to Building relations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          if [[ ! "$DEPLOY_PORT" =~ ^[0-9]+$ ]]; then
+            echo "::error::DEPLOY_PORT must be numeric."
+            exit 1
+          fi
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          if [[ ! -s ~/.ssh/known_hosts ]]; then
+            echo "::error::Could not obtain the SSH host key."
+            exit 1
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Run canonical relation audit without writes
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
+          target="public_html/sboffice"
+
+          if [[ ! -d "$target" ]]; then
+            echo "::error::The sboffice target directory does not exist."
+            exit 1
+          fi
+          if [[ ! -f "$target/vendor/drush/drush/drush.php" ]]; then
+            echo "::error::Drush entrypoint is missing."
+            exit 1
+          fi
+          if [[ ! -f "$target/scripts/canonicalize-building-relations.php" ]]; then
+            echo "::error::Audit script is not deployed yet. Deploy current develop first."
+            exit 1
+          fi
+
+          echo "=== Canonical building relation audit ==="
+          cd "$target"
+          unset BREBO_APPLY_CANONICAL_RELATIONS || true
+          timeout 120 php vendor/drush/drush/drush.php \
+            --root=web \
+            --uri=https://sboffice.brebobv.nl \
+            --no-ansi \
+            php:script scripts/canonicalize-building-relations.php
+          echo "=== Audit complete: no apply flag was set ==="
+          REMOTE
