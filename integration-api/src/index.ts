@@ -2,6 +2,7 @@ import { analyzeRequestSchema } from "./contracts";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
 export { ReplayGuard } from "./replay-guard";
+export { UsageGuard } from "./usage-guard";
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SIGNATURE = /^v1=([a-f0-9]{64})$/;
@@ -110,6 +111,26 @@ async function analyze(request: Request, env: Env, path: string, requestId: stri
     return errorResponse(409, "replayed_request", "Request identifier was already used.", requestId);
   }
 
+  const usage = env.USAGE_GUARD.getByName("brebo-office");
+  const maxOutputTokens = numberSetting(env.OPENAI_MAX_OUTPUT_TOKENS, 2_000);
+  const estimatedTokens = Math.ceil(body.length / 4) + maxOutputTokens;
+  const usageDecision = await usage.reserve(
+    now,
+    numberSetting(env.RATE_WINDOW_SECONDS, 60),
+    numberSetting(env.MAX_ANALYSES_PER_WINDOW, 30),
+    new Date(now * 1_000).toISOString().slice(0, 7),
+    estimatedTokens,
+    numberSetting(env.MONTHLY_TOKEN_BUDGET, 2_000_000),
+  );
+  if (usageDecision === "rate_limited") {
+    return errorResponse(429, "rate_limited", "Analysis rate limit reached.", requestId, {
+      "Retry-After": String(numberSetting(env.RATE_WINDOW_SECONDS, 60)),
+    });
+  }
+  if (usageDecision === "budget_exhausted") {
+    return errorResponse(429, "budget_exhausted", "Monthly AI budget limit reached.", requestId);
+  }
+
   try {
     const analysis = await analyzeWithOpenAI(parsed.data, env);
     return Response.json({
@@ -185,10 +206,16 @@ async function readBoundedBody(request: Request, maxBytes: number): Promise<stri
   }
 }
 
-function errorResponse(status: number, code: string, message: string, requestId: string): Response {
+function errorResponse(
+  status: number,
+  code: string,
+  message: string,
+  requestId: string,
+  headers?: HeadersInit,
+): Response {
   return Response.json(
     { status: "error", request_id: safeRequestId(requestId), error: { code, message } },
-    { status },
+    headers ? { status, headers } : { status },
   );
 }
 
