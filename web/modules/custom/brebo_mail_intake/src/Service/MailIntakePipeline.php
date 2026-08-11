@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
+use Drupal\brebo_mail_intake\Source\MailSourceAdapterInterface;
+
 /**
  * Orchestrates normalization output into classification, relation suggestions
  * and durable Communication registration.
@@ -15,6 +17,19 @@ final class MailIntakePipeline {
     private readonly MailRelationSuggester $relationSuggester,
     private readonly MailIntakeIngestor $ingestor,
   ) {}
+
+  /**
+   * Processes every message supplied by one source adapter.
+   *
+   * @return array<int, array<string, mixed>>
+   */
+  public function processSource(MailSourceAdapterInterface $adapter): array {
+    $results = [];
+    foreach ($adapter->messages() as $mail) {
+      $results[] = $this->process($mail);
+    }
+    return $results;
+  }
 
   /**
    * Processes one normalized message without establishing uncertain relations.
@@ -56,7 +71,7 @@ final class MailIntakePipeline {
     $result['suggested_building_id'] = $mail['suggested_building_id'] ?? NULL;
     $result['suggested_project_id'] = $mail['suggested_project_id'] ?? NULL;
     $result['match_confidence'] = $mail['match_confidence'] ?? 0.0;
-    $result['requires_human_review'] = true;
+    $result['requires_human_review'] = TRUE;
 
     return $result;
   }
