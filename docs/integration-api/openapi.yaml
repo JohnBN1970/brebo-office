@@ -1,0 +1,319 @@
+openapi: 3.1.0
+info:
+  title: BREBO Integration API
+  version: 1.0.0-draft
+  description: >
+    Stateless analysis API. It stores and sends nothing and always requires
+    human review in BREBO Office.
+servers:
+  - url: https://integration.example.invalid
+    description: Placeholder; no deployment is defined by this contract.
+paths:
+  /health/status:
+    get:
+      operationId: getHealthStatus
+      summary: Return sanitized service status
+      security:
+        - hmacV1: []
+      responses:
+        '200':
+          description: Service is available.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /v1/communications/analyze:
+    post:
+      operationId: analyzeCommunication
+      summary: Analyze communication without storing or sending it
+      security:
+        - hmacV1: []
+      parameters:
+        - $ref: '#/components/parameters/Timestamp'
+        - $ref: '#/components/parameters/RequestId'
+        - $ref: '#/components/parameters/Signature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AnalyzeRequest'
+      responses:
+        '200':
+          description: Analysis completed and requires human review.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyzeResponse'
+        '400':
+          $ref: '#/components/responses/InvalidRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          $ref: '#/components/responses/ReplayedRequest'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '422':
+          $ref: '#/components/responses/Unprocessable'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '502':
+          $ref: '#/components/responses/ProviderError'
+        '504':
+          $ref: '#/components/responses/ProviderTimeout'
+components:
+  securitySchemes:
+    hmacV1:
+      type: apiKey
+      in: header
+      name: X-BREBO-Signature
+      description: >
+        v1 HMAC-SHA256 signature. X-BREBO-Timestamp and
+        X-BREBO-Request-Id are also required.
+  parameters:
+    Timestamp:
+      name: X-BREBO-Timestamp
+      in: header
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Unix time in UTC; maximum clock skew is five minutes.
+    RequestId:
+      name: X-BREBO-Request-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Signature:
+      name: X-BREBO-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^v1=[a-f0-9]{64}$'
+  schemas:
+    AnalyzeRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - test_mode
+        - contains_real_data
+        - human_review_required
+        - communication
+      properties:
+        test_mode:
+          type: boolean
+        contains_real_data:
+          type: boolean
+        human_review_required:
+          type: boolean
+          const: true
+        communication:
+          $ref: '#/components/schemas/Communication'
+    Communication:
+      type: object
+      additionalProperties: false
+      required:
+        - channel
+        - subject
+        - message
+      properties:
+        id:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        project_id:
+          type:
+            - integer
+            - 'null'
+          minimum: 1
+        channel:
+          type: string
+          minLength: 1
+          maxLength: 50
+        subject:
+          type: string
+          minLength: 1
+          maxLength: 200
+        message:
+          type: string
+          minLength: 1
+          maxLength: 12000
+    AnalyzeResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - mode
+        - stored
+        - sent
+        - request_id
+        - analysis
+      properties:
+        status:
+          type: string
+          const: ok
+        mode:
+          type: string
+          enum:
+            - test
+            - production
+        stored:
+          type: boolean
+          const: false
+        sent:
+          type: boolean
+          const: false
+        request_id:
+          type: string
+          format: uuid
+        analysis:
+          $ref: '#/components/schemas/Analysis'
+    Analysis:
+      type: object
+      additionalProperties: false
+      required:
+        - classification
+        - summary
+        - decisions
+        - risks
+        - suggested_actions
+        - confidence
+        - human_review_required
+      properties:
+        classification:
+          type: string
+          minLength: 1
+          maxLength: 100
+        summary:
+          type: string
+          maxLength: 4000
+        decisions:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 1000
+        risks:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 1000
+        suggested_actions:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 1000
+        confidence:
+          type: number
+          minimum: 0
+          maximum: 100
+        human_review_required:
+          type: boolean
+          const: true
+    HealthResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - api_version
+        - worker_version
+      properties:
+        status:
+          type: string
+          enum:
+            - healthy
+            - degraded
+        api_version:
+          type: string
+        worker_version:
+          type: string
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+        - request_id
+        - error
+      properties:
+        status:
+          type: string
+          const: error
+        request_id:
+          type: string
+          format: uuid
+        error:
+          type: object
+          additionalProperties: false
+          required:
+            - code
+            - message
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+  responses:
+    InvalidRequest:
+      description: Request body or schema is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unauthorized:
+      description: Authentication failed.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ReplayedRequest:
+      description: Request identifier was already used.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    PayloadTooLarge:
+      description: Request exceeds the body-size limit.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    UnsupportedMediaType:
+      description: Content-Type is not application/json.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Unprocessable:
+      description: Request cannot be processed safely.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    RateLimited:
+      description: Request rate or budget limit was exceeded.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderError:
+      description: AI provider failed or returned an invalid response.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ProviderTimeout:
+      description: AI provider exceeded the configured timeout.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
