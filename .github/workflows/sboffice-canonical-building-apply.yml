@@ -91,13 +91,14 @@ jobs:
           fi
 
           cd "$target"
+          export BREBO_CANONICAL_SCRIPT="$PWD/scripts/canonicalize-building-relations.php"
 
           echo '=== Canonical apply ==='
           BREBO_APPLY_CANONICAL_RELATIONS=1 timeout 120 php vendor/drush/drush/drush.php \
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script ../scripts/canonicalize-building-relations.php
+            php:eval 'include getenv("BREBO_CANONICAL_SCRIPT");'
 
           echo '=== Export active Drupal configuration ==='
           timeout 180 php vendor/drush/drush/drush.php \
@@ -112,7 +113,7 @@ jobs:
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script ../scripts/canonicalize-building-relations.php
+            php:eval 'include getenv("BREBO_CANONICAL_SCRIPT");'
 
           if [[ ! -d config/sync ]]; then
             echo "::error::config/sync does not exist after export."
