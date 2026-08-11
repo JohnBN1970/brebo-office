@@ -1,0 +1,21 @@
+uuid: 6ca949ac-e70e-4a4f-88f3-fa9d322fb3c4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ceiling_type
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_ceiling_type
+field_name: field_brebo_ceiling_type
+entity_type: node
+bundle: brebo_project
+label: 'Budget- of plafondtype'
+description: 'Geen plafond, Indicatief budget, Waarschuwingsgrens of Hard plafond.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Geen plafond'
+default_value_callback: ''
+settings: {  }
+field_type: string

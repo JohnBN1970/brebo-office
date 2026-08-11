@@ -3,6 +3,7 @@ langcode: nl
 status: true
 dependencies:
   config:
+    - field.field.node.brebo_cluster.field_brebo_building_ref
     - field.field.node.brebo_cluster.field_brebo_cluster_code
     - field.field.node.brebo_cluster.field_brebo_description
     - field.field.node.brebo_cluster.field_brebo_project_ref
@@ -20,6 +21,16 @@ content:
     weight: 10
     region: content
     settings: {  }
+    third_party_settings: {  }
+  field_brebo_building_ref:
+    type: entity_reference_autocomplete
+    weight: 2
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
     third_party_settings: {  }
   field_brebo_cluster_code:
     type: string_textfield

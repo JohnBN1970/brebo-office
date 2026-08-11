@@ -1,0 +1,21 @@
+uuid: c6ddac2e-2f57-4791-a64a-908d31e1bf0a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_datetime
+    - node.type.brebo_communication
+  module:
+    - datetime
+id: node.brebo_communication.field_brebo_comm_datetime
+field_name: field_brebo_comm_datetime
+entity_type: node
+bundle: brebo_communication
+label: 'Datum en tijd'
+description: 'Moment waarop het contact plaatsvond of het bericht is verzonden/ontvangen.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

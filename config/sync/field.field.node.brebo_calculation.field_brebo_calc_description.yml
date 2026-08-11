@@ -1,0 +1,22 @@
+uuid: b4674c3f-f205-4a14-a383-ec0e123e6f99
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_description
+    - node.type.brebo_calculation
+  module:
+    - text
+id: node.brebo_calculation.field_brebo_calc_description
+field_name: field_brebo_calc_description
+entity_type: node
+bundle: brebo_calculation
+label: Uitgangspunten
+description: 'Scope, bronnen, uitsluitingen en aannames.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

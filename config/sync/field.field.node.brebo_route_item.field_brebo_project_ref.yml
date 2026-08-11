@@ -1,0 +1,24 @@
+uuid: 9aa355fa-2dbe-4f3a-8298-53b2e6192e6b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_project
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_route_item
+label: Project
+description: 'Project waarvoor dit routeonderdeel geldt.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

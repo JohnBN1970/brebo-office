@@ -1,0 +1,23 @@
+uuid: 0063b309-5b95-4f0b-8b60-4f9d0e15c6d6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ceiling_amount
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_ceiling_amount
+field_name: field_brebo_ceiling_amount
+entity_type: node
+bundle: brebo_work_package
+label: Plafondbedrag
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

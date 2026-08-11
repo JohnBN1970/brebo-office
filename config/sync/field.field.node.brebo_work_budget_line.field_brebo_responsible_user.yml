@@ -1,0 +1,21 @@
+uuid: 2cd53d17-3ef9-4b8b-b9e1-e4847bb0cf0c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_work_budget_line
+label: Uitvoeringsverantwoordelijke
+description: 'Uitvoerder of werkvoorbereider die deze regel bewaakt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

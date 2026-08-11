@@ -1,0 +1,20 @@
+uuid: 261c6eb6-3c1c-4c12-86ad-3ea0361dcd63
+langcode: nl
+status: true
+dependencies:
+  module:
+    - datetime
+    - node
+id: node.field_brebo_last_communication
+field_name: field_brebo_last_communication
+entity_type: node
+type: datetime
+settings:
+  datetime_type: date
+module: datetime
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

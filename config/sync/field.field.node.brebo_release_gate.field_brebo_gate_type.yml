@@ -1,0 +1,19 @@
+uuid: db3e0a36-6669-4547-881c-644c0e5e234f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gate_type
+    - node.type.brebo_release_gate
+id: node.brebo_release_gate.field_brebo_gate_type
+field_name: field_brebo_gate_type
+entity_type: node
+bundle: brebo_release_gate
+label: Poorttype
+description: 'Besturingsdomein dat wordt beoordeeld.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

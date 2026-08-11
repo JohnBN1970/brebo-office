@@ -1,0 +1,508 @@
+uuid: 1d2cdc2b-6f19-46a1-9e19-3f516499f96f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_communication.field_brebo_ai_actions
+    - field.field.node.brebo_communication.field_brebo_ai_confidence
+    - field.field.node.brebo_communication.field_brebo_ai_decisions
+    - field.field.node.brebo_communication.field_brebo_ai_risks
+    - field.field.node.brebo_communication.field_brebo_ai_status
+    - field.field.node.brebo_communication.field_brebo_ai_summary
+    - field.field.node.brebo_communication.field_brebo_building_ref
+    - field.field.node.brebo_communication.field_brebo_call_duration
+    - field.field.node.brebo_communication.field_brebo_comm_attachments
+    - field.field.node.brebo_communication.field_brebo_comm_channel
+    - field.field.node.brebo_communication.field_brebo_comm_channel_ref
+    - field.field.node.brebo_communication.field_brebo_comm_contact_ref
+    - field.field.node.brebo_communication.field_brebo_comm_context
+    - field.field.node.brebo_communication.field_brebo_comm_datetime
+    - field.field.node.brebo_communication.field_brebo_comm_decision
+    - field.field.node.brebo_communication.field_brebo_comm_direction
+    - field.field.node.brebo_communication.field_brebo_comm_impact
+    - field.field.node.brebo_communication.field_brebo_comm_org_ref
+    - field.field.node.brebo_communication.field_brebo_comm_requirement
+    - field.field.node.brebo_communication.field_brebo_comm_scope_target
+    - field.field.node.brebo_communication.field_brebo_comm_status
+    - field.field.node.brebo_communication.field_brebo_comm_subject
+    - field.field.node.brebo_communication.field_brebo_comm_summary
+    - field.field.node.brebo_communication.field_brebo_comm_type
+    - field.field.node.brebo_communication.field_brebo_conversation_id
+    - field.field.node.brebo_communication.field_brebo_due_date
+    - field.field.node.brebo_communication.field_brebo_external_contact
+    - field.field.node.brebo_communication.field_brebo_external_party
+    - field.field.node.brebo_communication.field_brebo_extract_version
+    - field.field.node.brebo_communication.field_brebo_financial_impact
+    - field.field.node.brebo_communication.field_brebo_formal_status
+    - field.field.node.brebo_communication.field_brebo_lens_domain
+    - field.field.node.brebo_communication.field_brebo_mandate_confirmed
+    - field.field.node.brebo_communication.field_brebo_participants
+    - field.field.node.brebo_communication.field_brebo_process_log
+    - field.field.node.brebo_communication.field_brebo_processed_at
+    - field.field.node.brebo_communication.field_brebo_project_ref
+    - field.field.node.brebo_communication.field_brebo_recording_consent
+    - field.field.node.brebo_communication.field_brebo_response_required
+    - field.field.node.brebo_communication.field_brebo_responsible_user
+    - field.field.node.brebo_communication.field_brebo_reviewed_at
+    - field.field.node.brebo_communication.field_brebo_reviewed_by
+    - field.field.node.brebo_communication.field_brebo_reviewer_note
+    - field.field.node.brebo_communication.field_brebo_schedule_days
+    - field.field.node.brebo_communication.field_brebo_source_files
+    - field.field.node.brebo_communication.field_brebo_source_hash
+    - field.field.node.brebo_communication.field_brebo_source_id
+    - field.field.node.brebo_communication.field_brebo_transcript
+    - field.field.node.brebo_communication.field_brebo_written_received
+    - field.field.node.brebo_communication.field_brebo_written_required
+    - node.type.brebo_communication
+  module:
+    - datetime
+    - file
+    - text
+id: node.brebo_communication.default
+targetEntityType: node
+bundle: brebo_communication
+mode: default
+content:
+  created:
+    type: datetime_timestamp
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_ai_actions:
+    type: text_textarea
+    weight: 42
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ai_confidence:
+    type: number
+    weight: 15
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ai_decisions:
+    type: text_textarea
+    weight: 41
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ai_risks:
+    type: text_textarea
+    weight: 43
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ai_status:
+    type: string_textfield
+    weight: 14
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_ai_summary:
+    type: text_textarea
+    weight: 40
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_building_ref:
+    type: entity_reference_autocomplete
+    weight: 2
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_call_duration:
+    type: number
+    weight: 11
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_attachments:
+    type: file_generic
+    weight: 24
+    region: content
+    settings:
+      progress_indicator: throbber
+    third_party_settings: {  }
+  field_brebo_comm_channel:
+    type: string_textfield
+    weight: 5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_channel_ref:
+    type: entity_reference_autocomplete
+    weight: 4
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_contact_ref:
+    type: entity_reference_autocomplete
+    weight: 9
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_context:
+    type: string_textfield
+    weight: 5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_datetime:
+    type: datetime_default
+    weight: 7
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_comm_decision:
+    type: text_textarea
+    weight: 12
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_direction:
+    type: string_textfield
+    weight: 4
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_impact:
+    type: string_textfield
+    weight: 17
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_org_ref:
+    type: entity_reference_autocomplete
+    weight: 8
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_requirement:
+    type: entity_reference_autocomplete
+    weight: 23
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_scope_target:
+    type: entity_reference_autocomplete
+    weight: 3
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_status:
+    type: string_textfield
+    weight: 15
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_subject:
+    type: string_textfield
+    weight: 10
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_summary:
+    type: text_textarea
+    weight: 11
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_comm_type:
+    type: string_textfield
+    weight: 6
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_conversation_id:
+    type: string_textfield
+    weight: 8
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_due_date:
+    type: datetime_default
+    weight: 14
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_external_contact:
+    type: string_textfield
+    weight: 9
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_external_party:
+    type: string_textfield
+    weight: 8
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_extract_version:
+    type: string_textfield
+    weight: 36
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_financial_impact:
+    type: number
+    weight: 18
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_formal_status:
+    type: string_textfield
+    weight: 17
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_lens_domain:
+    type: string_textfield
+    weight: 30
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_mandate_confirmed:
+    type: boolean_checkbox
+    weight: 20
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_participants:
+    type: entity_reference_autocomplete
+    weight: 10
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_process_log:
+    type: text_textarea
+    weight: 45
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_processed_at:
+    type: datetime_default
+    weight: 44
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_project_ref:
+    type: entity_reference_autocomplete
+    weight: 1
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_recording_consent:
+    type: string_textfield
+    weight: 16
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_response_required:
+    type: boolean_checkbox
+    weight: 13
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_responsible_user:
+    type: entity_reference_autocomplete
+    weight: 16
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_reviewed_at:
+    type: datetime_default
+    weight: 38
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_reviewed_by:
+    type: entity_reference_autocomplete
+    weight: 37
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_reviewer_note:
+    type: text_textarea
+    weight: 39
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_schedule_days:
+    type: number
+    weight: 19
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_source_files:
+    type: file_generic
+    weight: 12
+    region: content
+    settings:
+      progress_indicator: throbber
+    third_party_settings: {  }
+  field_brebo_source_hash:
+    type: string_textfield
+    weight: 35
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_source_id:
+    type: string_textfield
+    weight: 9
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_transcript:
+    type: text_textarea
+    weight: 13
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_written_received:
+    type: boolean_checkbox
+    weight: 22
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  field_brebo_written_required:
+    type: boolean_checkbox
+    weight: 21
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 120
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  title:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  uid:
+    type: entity_reference_autocomplete
+    weight: 5
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  promote: true
+  sticky: true

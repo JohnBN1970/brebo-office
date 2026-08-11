@@ -1,0 +1,23 @@
+uuid: 1cc310bb-84fb-4906-9ebe-ee4277e3a0dc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quoted_quantity
+    - node.type.brebo_quote_line
+id: node.brebo_quote_line.field_brebo_quoted_quantity
+field_name: field_brebo_quoted_quantity
+entity_type: node
+bundle: brebo_quote_line
+label: 'Geoffreerde hoeveelheid'
+description: 'Hoeveelheid waarop de prijs is gebaseerd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

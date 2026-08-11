@@ -1,0 +1,19 @@
+uuid: 71df916b-3a21-4f4d-808d-da742b29fdab
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_material_spec
+    - node.type.brebo_rfq_line
+id: node.brebo_rfq_line.field_brebo_material_spec
+field_name: field_brebo_material_spec
+entity_type: node
+bundle: brebo_rfq_line
+label: Specificatie
+description: 'Kwaliteit, kleur, maat, uitvoering en overige eisen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

@@ -1,0 +1,21 @@
+uuid: ca2bf107-9540-4d24-a619-9f64efdc926f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_requirement_status
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_requirement_status
+field_name: field_brebo_requirement_status
+entity_type: node
+bundle: brebo_scope_requirement
+label: Vereistestatus
+description: 'Actuele aantoonbare status van deze vereiste.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 'Niet gestart'
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,11 @@
+uuid: d16a2cfc-89e3-4722-9c4d-297e3f8594ca
+langcode: nl
+status: true
+dependencies: {  }
+name: Werkbegrotingsregel
+type: brebo_work_budget_line
+description: 'Uitvoerbare regel met uren-, materiaal- en voortgangsbudget zonder commerciële verkoopinformatie.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

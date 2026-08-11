@@ -1,0 +1,24 @@
+uuid: 8cb36865-6f5f-4a55-a0cd-a004f195e9aa
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_ref
+    - node.type.brebo_comm_channel
+    - node.type.brebo_organization
+id: node.brebo_comm_channel.field_brebo_org_ref
+field_name: field_brebo_org_ref
+entity_type: node
+bundle: brebo_comm_channel
+label: Standaardorganisatie
+description: 'Organisatie waaraan dit kanaal standaard is gekoppeld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_organization: brebo_organization
+field_type: entity_reference

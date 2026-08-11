@@ -1,0 +1,19 @@
+uuid: d9445fe7-b8a9-4cd2-bdd9-3d64e0fb6da5
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_element_positions
+field_name: field_brebo_element_positions
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: -1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

@@ -1,0 +1,25 @@
+uuid: 3f29b869-8749-42af-8dee-6ff54d94e162
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_vat_rate
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_vat_rate
+field_name: field_brebo_vat_rate
+entity_type: node
+bundle: brebo_calc_line
+label: Btw-percentage
+description: 'Btw-percentage dat op deze regel van toepassing is.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 21.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,22 @@
+uuid: 33d8a69e-91a4-4c51-bd79-950013e9d98f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_element_scope
+    - node.type.brebo_calc_element
+  module:
+    - text
+id: node.brebo_calc_element.field_brebo_element_scope
+field_name: field_brebo_element_scope
+entity_type: node
+bundle: brebo_calc_element
+label: Elementomschrijving
+description: 'Afbakening en uitgangspunten.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,21 @@
+uuid: 52c5a3cc-c4f4-4a38-a181-9e6eabb23483
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_settlement_method
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_settlement_method
+field_name: field_brebo_settlement_method
+entity_type: node
+bundle: brebo_project
+label: Standaardafrekenvorm
+description: 'Honorarium, Aanneemsom, Eenheidsprijzen, Regiewerk of Combinatie.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Aanneemsom
+default_value_callback: ''
+settings: {  }
+field_type: string

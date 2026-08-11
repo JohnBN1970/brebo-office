@@ -1,0 +1,21 @@
+uuid: e78cf3f7-cf0f-4b4b-b21e-5ee7fd2f9bf2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_lens_domain
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_lens_domain
+field_name: field_brebo_lens_domain
+entity_type: node
+bundle: brebo_work_package
+label: 'BREBO Lens-domein'
+description: 'Inzicht, Regie of Realisatie: het primaire BREBO Lens-domein van dit onderdeel.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Regie
+default_value_callback: ''
+settings: {  }
+field_type: string

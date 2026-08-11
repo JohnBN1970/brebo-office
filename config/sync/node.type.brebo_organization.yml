@@ -1,0 +1,11 @@
+uuid: fdf118f5-7a96-4d3b-ba9e-29ebc7a6696b
+langcode: nl
+status: true
+dependencies: {  }
+name: Organisatie
+type: brebo_organization
+description: 'Centrale relatiekaart voor opdrachtgever, hoofdaannemer, leverancier, adviseur en overige ketenpartij.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

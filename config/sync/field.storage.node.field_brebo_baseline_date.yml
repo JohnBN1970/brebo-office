@@ -1,0 +1,21 @@
+uuid: 57c5f524-5ed6-4b1e-bca2-09848cab0a22
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_baseline_date
+field_name: field_brebo_baseline_date
+entity_type: node
+type: string
+settings:
+  max_length: 10
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

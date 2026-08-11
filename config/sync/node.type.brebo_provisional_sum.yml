@@ -1,0 +1,11 @@
+uuid: 65a4b294-4f4e-45d6-8eab-5ff8b7b4c82d
+langcode: nl
+status: true
+dependencies: {  }
+name: Stelpost
+type: brebo_provisional_sum
+description: 'Beheerde en aantoonbaar af te rekenen stelpost binnen een calculatie.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

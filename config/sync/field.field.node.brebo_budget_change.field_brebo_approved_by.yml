@@ -1,0 +1,21 @@
+uuid: 76620100-6a61-46fe-9222-fe5e468cf763
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_approved_by
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_approved_by
+field_name: field_brebo_approved_by
+entity_type: node
+bundle: brebo_budget_change
+label: 'Goedgekeurd door'
+description: 'Bevoegde interne goedkeurder; opdrachtgeverbesluit wordt in de motivering vastgelegd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

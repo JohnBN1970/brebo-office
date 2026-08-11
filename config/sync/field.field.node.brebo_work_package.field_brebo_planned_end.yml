@@ -1,0 +1,19 @@
+uuid: f2d8231a-8be1-450f-b6b5-5b6c254ede8d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_planned_end
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_planned_end
+field_name: field_brebo_planned_end
+entity_type: node
+bundle: brebo_work_package
+label: 'Gepland gereed'
+description: 'Datum in de vorm JJJJ-MM-DD.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

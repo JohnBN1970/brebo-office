@@ -1,0 +1,23 @@
+uuid: 2a59a59d-865d-4a06-a2bd-52807b159dad
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_schedule_days
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_schedule_days
+field_name: field_brebo_schedule_days
+entity_type: node
+bundle: brebo_communication
+label: 'Planningseffect in dagen'
+description: 'Geschatte versnelling of vertraging in kalenderdagen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

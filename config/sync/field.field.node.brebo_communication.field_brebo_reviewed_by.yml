@@ -1,0 +1,21 @@
+uuid: 81955d5f-ec05-42a2-b70f-ec3334fe93c6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_reviewed_by
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_reviewed_by
+field_name: field_brebo_reviewed_by
+entity_type: node
+bundle: brebo_communication
+label: 'Gecontroleerd door'
+description: 'Bevoegde gebruiker die transcriptie, koppelingen, besluiten en acties inhoudelijk heeft gecontroleerd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

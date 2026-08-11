@@ -1,0 +1,23 @@
+uuid: 3092d13b-bae9-4065-9ad1-279c93381a5d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_actual_hours
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_actual_hours
+field_name: field_brebo_actual_hours
+entity_type: node
+bundle: brebo_work_budget_line
+label: 'Werkelijke uren'
+description: 'Geboekte en goedgekeurde uren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

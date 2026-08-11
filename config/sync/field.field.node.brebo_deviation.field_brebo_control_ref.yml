@@ -1,0 +1,24 @@
+uuid: 34fbed9d-a0b3-40ca-b7f8-d368e888bce8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_control_ref
+    - node.type.brebo_deviation
+    - node.type.brebo_verification
+id: node.brebo_deviation.field_brebo_control_ref
+field_name: field_brebo_control_ref
+entity_type: node
+bundle: brebo_deviation
+label: Broncontrole
+description: 'De controle waarbij deze afwijking is vastgesteld.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_verification: brebo_verification
+field_type: entity_reference

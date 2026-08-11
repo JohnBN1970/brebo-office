@@ -1,0 +1,23 @@
+uuid: 39d42654-c43f-4245-a988-642b752812fc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_written_received
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_written_received
+field_name: field_brebo_written_received
+entity_type: node
+bundle: brebo_communication
+label: 'Schriftelijk bevestigd'
+description: 'De vereiste schriftelijke bevestiging is ontvangen en vastgelegd.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

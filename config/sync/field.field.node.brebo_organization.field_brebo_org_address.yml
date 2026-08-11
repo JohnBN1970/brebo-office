@@ -1,0 +1,19 @@
+uuid: 17f09640-40d0-4774-8c9c-9476cb766ab1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_address
+    - node.type.brebo_organization
+id: node.brebo_organization.field_brebo_org_address
+field_name: field_brebo_org_address
+entity_type: node
+bundle: brebo_organization
+label: 'Post- of bezoekadres'
+description: 'Volledig zakelijk adres.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

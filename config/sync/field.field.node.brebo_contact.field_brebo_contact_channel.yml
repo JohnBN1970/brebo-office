@@ -1,0 +1,21 @@
+uuid: 99cdb389-8b16-4827-9c50-7aa7d180748c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_contact_channel
+    - node.type.brebo_contact
+id: node.brebo_contact.field_brebo_contact_channel
+field_name: field_brebo_contact_channel
+entity_type: node
+bundle: brebo_contact
+label: Voorkeurskanaal
+description: 'E-mail, telefoon, Teams, portaal of anders.'
+required: false
+translatable: true
+default_value:
+  -
+    value: E-mail
+default_value_callback: ''
+settings: {  }
+field_type: string

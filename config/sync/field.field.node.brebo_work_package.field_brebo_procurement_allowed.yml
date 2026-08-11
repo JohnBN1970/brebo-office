@@ -1,0 +1,21 @@
+uuid: 82c24e86-fc8a-4f73-a2fd-a9140c1873d7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_procurement_allowed
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_procurement_allowed
+field_name: field_brebo_procurement_allowed
+entity_type: node
+bundle: brebo_work_package
+label: 'BREBO mag inkopen'
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

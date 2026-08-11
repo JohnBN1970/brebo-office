@@ -1,0 +1,25 @@
+uuid: f4c2c482-ed9b-438b-8e2c-5695c29f2c4a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_vat_rate
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_vat_rate
+field_name: field_brebo_vat_rate
+entity_type: node
+bundle: brebo_offer_post
+label: 'Btw-tarief (%)'
+description: 'Btw-tarief voor belaste posten.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 21.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

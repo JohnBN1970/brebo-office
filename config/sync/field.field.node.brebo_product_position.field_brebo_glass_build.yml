@@ -1,0 +1,19 @@
+uuid: c2e742ed-bb6f-4eb8-b8d9-6822361b0198
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_glass_build
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_glass_build
+field_name: field_brebo_glass_build
+entity_type: node
+bundle: brebo_product_position
+label: Glasopbouw
+description: 'Exacte glasopbouw volgens de leidende bestellijst.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

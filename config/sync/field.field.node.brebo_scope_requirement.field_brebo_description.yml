@@ -1,0 +1,22 @@
+uuid: f49eb077-f72d-4da1-b974-921a81397035
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_scope_requirement
+  module:
+    - text
+id: node.brebo_scope_requirement.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_scope_requirement
+label: 'Vereist resultaat'
+description: 'Objectief resultaat waarmee deze vereiste aantoonbaar gereed is.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

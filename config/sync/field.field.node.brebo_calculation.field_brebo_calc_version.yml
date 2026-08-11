@@ -1,0 +1,21 @@
+uuid: bcb57acd-d863-459d-9f56-cb4d5743f1fc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_version
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_calc_version
+field_name: field_brebo_calc_version
+entity_type: node
+bundle: brebo_calculation
+label: Versie
+description: 'Bijvoorbeeld 1.0.'
+required: true
+translatable: true
+default_value:
+  -
+    value: '1.0'
+default_value_callback: ''
+settings: {  }
+field_type: string

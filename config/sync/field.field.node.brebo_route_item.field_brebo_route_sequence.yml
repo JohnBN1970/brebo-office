@@ -1,0 +1,23 @@
+uuid: 1194b3ee-319b-46bb-a1fc-ce87eade5494
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_sequence
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_sequence
+field_name: field_brebo_route_sequence
+entity_type: node
+bundle: brebo_route_item
+label: Volgorde
+description: 'Volgorde binnen de projectroute.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

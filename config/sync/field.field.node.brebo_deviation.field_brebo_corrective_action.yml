@@ -1,0 +1,22 @@
+uuid: a049d48a-daec-49ea-9c0a-39dfbe4f3287
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_corrective_action
+    - node.type.brebo_deviation
+  module:
+    - text
+id: node.brebo_deviation.field_brebo_corrective_action
+field_name: field_brebo_corrective_action
+entity_type: node
+bundle: brebo_deviation
+label: 'Herstel- of correctieactie'
+description: 'De concrete maatregel waarmee de afwijking wordt opgelost.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

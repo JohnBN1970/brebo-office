@@ -1,0 +1,19 @@
+uuid: df4a0a1b-072b-45ab-b334-0ea1db2532bd
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_line_memo
+field_name: field_brebo_line_memo
+entity_type: node
+type: string_long
+settings:
+  case_sensitive: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

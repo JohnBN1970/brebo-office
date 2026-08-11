@@ -1,0 +1,23 @@
+uuid: 33ef1299-aa0d-4e98-9738-a6775c3f41b9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_labor_rate
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_labor_rate
+field_name: field_brebo_labor_rate
+entity_type: node
+bundle: brebo_calc_line
+label: 'Intern uurtarief'
+description: 'Kostprijstarief voor de berekende arbeidsuren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

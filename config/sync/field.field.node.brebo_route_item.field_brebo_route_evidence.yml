@@ -1,0 +1,22 @@
+uuid: 5e6ca4ca-5f67-49dc-b89f-5c3eb9cb62b6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_evidence
+    - node.type.brebo_route_item
+  module:
+    - text
+id: node.brebo_route_item.field_brebo_route_evidence
+field_name: field_brebo_route_evidence
+entity_type: node
+bundle: brebo_route_item
+label: 'Onderbouwing of bewijs'
+description: 'Document, besluit, controlebewijs of verwijzing waarmee gereed aantoonbaar is.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

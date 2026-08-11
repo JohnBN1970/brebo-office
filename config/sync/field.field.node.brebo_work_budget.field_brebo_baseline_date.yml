@@ -1,0 +1,19 @@
+uuid: 37c8b1fd-05a2-4b22-8acc-7f704ea78169
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_baseline_date
+    - node.type.brebo_work_budget
+id: node.brebo_work_budget.field_brebo_baseline_date
+field_name: field_brebo_baseline_date
+entity_type: node
+bundle: brebo_work_budget
+label: 'Peildatum uitvoeringsbasis'
+description: 'Datum waarop uren, materialen en budgetten zijn bevroren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

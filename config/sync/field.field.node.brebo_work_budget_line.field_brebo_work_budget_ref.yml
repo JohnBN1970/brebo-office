@@ -1,0 +1,24 @@
+uuid: e74367ca-1218-4d67-b063-61da0221e223
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_work_budget_ref
+    - node.type.brebo_work_budget
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_work_budget_ref
+field_name: field_brebo_work_budget_ref
+entity_type: node
+bundle: brebo_work_budget_line
+label: Werkbegroting
+description: 'Bovenliggende werkbegroting.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_work_budget: brebo_work_budget
+field_type: entity_reference

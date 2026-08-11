@@ -1,0 +1,21 @@
+uuid: fd68c3e2-cb74-4e21-bee0-b60ce54ce475
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_contracting_party
+field_name: field_brebo_contracting_party
+entity_type: node
+type: string
+settings:
+  max_length: 128
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

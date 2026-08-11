@@ -1,0 +1,24 @@
+uuid: 2901d4fa-41f7-4360-a88a-be075e90c70c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_channel_ref
+    - node.type.brebo_comm_channel
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_comm_channel_ref
+field_name: field_brebo_comm_channel_ref
+entity_type: node
+bundle: brebo_communication
+label: 'Communicatiekanaal of groep'
+description: 'Beheerde bronlijn, mailbox, groep, vergadering of opnamevorm.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_comm_channel: brebo_comm_channel
+field_type: entity_reference

@@ -1,0 +1,21 @@
+uuid: 320056ad-4330-4eaa-a5a7-56f27231763c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_status
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_status
+field_name: field_brebo_scope_status
+entity_type: node
+bundle: brebo_project_scope
+label: Scopestatus
+description: 'Concept, Vastgesteld, In uitvoering of Afgesloten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Concept
+default_value_callback: ''
+settings: {  }
+field_type: string

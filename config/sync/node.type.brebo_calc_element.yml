@@ -1,0 +1,11 @@
+uuid: 513c12dc-8874-4853-a368-9e041dbf2d29
+langcode: nl
+status: true
+dependencies: {  }
+name: Calculatie-element
+type: brebo_calc_element
+description: 'Element of elementgroep binnen een calculatie.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

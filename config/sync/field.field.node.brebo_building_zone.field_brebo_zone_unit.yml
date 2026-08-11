@@ -1,0 +1,19 @@
+uuid: 293a7358-2138-47d0-b613-161bec525ac2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_zone_unit
+    - node.type.brebo_building_zone
+id: node.brebo_building_zone.field_brebo_zone_unit
+field_name: field_brebo_zone_unit
+entity_type: node
+bundle: brebo_building_zone
+label: Eenheid
+description: 'Bijvoorbeeld m², m¹, st of vak.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

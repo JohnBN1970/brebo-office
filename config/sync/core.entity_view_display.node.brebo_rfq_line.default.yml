@@ -1,0 +1,107 @@
+uuid: ad4f0430-d8b0-48eb-8b11-7b17add26276
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_rfq_line.field_brebo_budget_line_ref
+    - field.field.node.brebo_rfq_line.field_brebo_calc_line_ref
+    - field.field.node.brebo_rfq_line.field_brebo_line_description
+    - field.field.node.brebo_rfq_line.field_brebo_material_code
+    - field.field.node.brebo_rfq_line.field_brebo_material_spec
+    - field.field.node.brebo_rfq_line.field_brebo_requested_quantity
+    - field.field.node.brebo_rfq_line.field_brebo_requested_unit
+    - field.field.node.brebo_rfq_line.field_brebo_required_date
+    - field.field.node.brebo_rfq_line.field_brebo_rfq_ref
+    - node.type.brebo_rfq_line
+  module:
+    - user
+id: node.brebo_rfq_line.default
+targetEntityType: node
+bundle: brebo_rfq_line
+mode: default
+content:
+  field_brebo_budget_line_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_calc_line_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_line_description:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_material_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_material_spec:
+    type: basic_string
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_requested_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_requested_unit:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_required_date:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_rfq_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

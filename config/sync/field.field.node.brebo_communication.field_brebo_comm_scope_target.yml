@@ -1,0 +1,21 @@
+uuid: ff9acdb0-fff8-4e09-a9a1-d47f2862b260
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_scope_target
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_comm_scope_target
+field_name: field_brebo_comm_scope_target
+entity_type: node
+bundle: brebo_communication
+label: Scopeobject
+description: 'Optioneel: technische zone, woning, productpositie, werkpakket of ander dossierobject.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings: {  }
+field_type: entity_reference

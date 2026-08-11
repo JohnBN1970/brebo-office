@@ -1,0 +1,20 @@
+uuid: 299a855e-d78f-4ccf-97ef-cbc023aecd61
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_general_cost_pct
+field_name: field_brebo_general_cost_pct
+entity_type: node
+type: decimal
+settings:
+  precision: 8
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

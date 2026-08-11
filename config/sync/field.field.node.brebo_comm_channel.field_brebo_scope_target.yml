@@ -1,0 +1,21 @@
+uuid: b8b2bad0-2a86-4657-98a6-888e3d9289b5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_target
+    - node.type.brebo_comm_channel
+id: node.brebo_comm_channel.field_brebo_scope_target
+field_name: field_brebo_scope_target
+entity_type: node
+bundle: brebo_comm_channel
+label: Standaardscopeobject
+description: 'Optioneel gebouwdeel, woning, werkpakket of ander scopeobject.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings: {  }
+field_type: entity_reference

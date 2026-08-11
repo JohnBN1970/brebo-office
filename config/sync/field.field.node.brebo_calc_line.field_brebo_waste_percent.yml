@@ -1,0 +1,25 @@
+uuid: cc1aab29-e49a-4421-8f90-d3ba67f7a22c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_waste_percent
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_waste_percent
+field_name: field_brebo_waste_percent
+entity_type: node
+bundle: brebo_calc_line
+label: Verliespercentage
+description: 'Snij-, breuk- of verwerkingsverlies over de nettohoeveelheid.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

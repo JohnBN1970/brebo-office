@@ -1,0 +1,24 @@
+uuid: 62e668f7-9fe2-4bee-a7df-ac80af0ba682
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_position_ref
+    - node.type.brebo_product_position
+    - node.type.brebo_verification
+id: node.brebo_verification.field_brebo_position_ref
+field_name: field_brebo_position_ref
+entity_type: node
+bundle: brebo_verification
+label: Productpositie
+description: 'De productpositie waarop deze controle betrekking heeft.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_product_position: brebo_product_position
+field_type: entity_reference

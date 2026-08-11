@@ -1,0 +1,21 @@
+uuid: 0ec6d797-d977-4fa5-aabd-734cfe465738
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_status
+    - node.type.brebo_work_budget
+id: node.brebo_work_budget.field_brebo_budget_status
+field_name: field_brebo_budget_status
+entity_type: node
+bundle: brebo_work_budget
+label: Werkbegrotingsstatus
+description: 'Concept, Bevroren, In uitvoering of Afgesloten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Concept
+default_value_callback: ''
+settings: {  }
+field_type: string

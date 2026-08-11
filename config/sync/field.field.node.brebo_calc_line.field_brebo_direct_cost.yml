@@ -1,0 +1,23 @@
+uuid: 43af58fc-ab15-436c-afbb-f8d5458096c6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_direct_cost
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_direct_cost
+field_name: field_brebo_direct_cost
+entity_type: node
+bundle: brebo_calc_line
+label: 'Directe kosten'
+description: 'Automatisch: contracthoeveelheid maal eenheidsprijs.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

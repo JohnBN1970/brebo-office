@@ -1,0 +1,11 @@
+uuid: 2a7aa109-dc81-44ac-9ff2-23cf376869a1
+langcode: nl
+status: true
+dependencies: {  }
+name: Afwijking
+type: brebo_deviation
+description: 'Beheerde afwijking met verantwoordelijke, herstelactie, bewijs en hercontrole.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

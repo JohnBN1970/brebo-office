@@ -1,0 +1,23 @@
+uuid: 816cbb99-25cb-4066-a68c-afdff3a438a0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_required
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_required
+field_name: field_brebo_route_required
+entity_type: node
+bundle: brebo_route_item
+label: 'Standaard verplicht'
+description: 'Canoniek verplicht voor deze projectsoort.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

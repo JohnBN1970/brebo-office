@@ -1,0 +1,24 @@
+uuid: 292aedca-dc99-4797-a6ca-63e1dbd43a3e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calculation_ref
+    - node.type.brebo_calc_element
+    - node.type.brebo_calculation
+id: node.brebo_calc_element.field_brebo_calculation_ref
+field_name: field_brebo_calculation_ref
+entity_type: node
+bundle: brebo_calc_element
+label: Calculatie
+description: 'Bovenliggende calculatie.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calculation: brebo_calculation
+field_type: entity_reference

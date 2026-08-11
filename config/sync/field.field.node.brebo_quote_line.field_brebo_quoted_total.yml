@@ -1,0 +1,23 @@
+uuid: eeed417b-dd33-4ddb-8cdf-526ef71d3504
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quoted_total
+    - node.type.brebo_quote_line
+id: node.brebo_quote_line.field_brebo_quoted_total
+field_name: field_brebo_quoted_total
+entity_type: node
+bundle: brebo_quote_line
+label: 'Regeltotaal exclusief btw'
+description: 'Automatisch: hoeveelheid maal eenheidsprijs.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

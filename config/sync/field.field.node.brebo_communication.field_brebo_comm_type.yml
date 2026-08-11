@@ -1,0 +1,21 @@
+uuid: a0710037-b665-4f99-a195-f0bd90c7df93
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_type
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_comm_type
+field_name: field_brebo_comm_type
+entity_type: node
+bundle: brebo_communication
+label: Communicatietype
+description: 'Vraag, antwoord, informatie, instructie, besluit, goedkeuring, wijziging of afspraak.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Informatie
+default_value_callback: ''
+settings: {  }
+field_type: string

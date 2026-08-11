@@ -1,0 +1,22 @@
+uuid: b756c9f9-1b01-4edf-8f8c-ac63a9b9a92c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_provisional_scope
+    - node.type.brebo_provisional_sum
+  module:
+    - text
+id: node.brebo_provisional_sum.field_brebo_provisional_scope
+field_name: field_brebo_provisional_scope
+entity_type: node
+bundle: brebo_provisional_sum
+label: 'Inbegrepen scope'
+description: 'Exacte omschrijving van wat in het stelpostbedrag is inbegrepen.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

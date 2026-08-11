@@ -1,0 +1,25 @@
+uuid: e2df403c-d82d-41db-8841-fde487acac0e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_risk_pct
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_risk_pct
+field_name: field_brebo_risk_pct
+entity_type: node
+bundle: brebo_calculation
+label: 'Projectrisico (%)'
+description: 'Percentage projectrisico over de actuele directe kostprijsprognose.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

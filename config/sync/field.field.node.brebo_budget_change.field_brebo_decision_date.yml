@@ -1,0 +1,19 @@
+uuid: e5637540-f730-4b93-abbb-e83c44d5c3e5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_decision_date
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_decision_date
+field_name: field_brebo_decision_date
+entity_type: node
+bundle: brebo_budget_change
+label: Besluitdatum
+description: 'Datum in de vorm JJJJ-MM-DD.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

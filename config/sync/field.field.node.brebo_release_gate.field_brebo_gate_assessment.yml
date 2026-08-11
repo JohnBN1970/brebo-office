@@ -1,0 +1,22 @@
+uuid: 402679c6-e33a-40de-97e0-5064a1d94aa1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_gate_assessment
+    - node.type.brebo_release_gate
+  module:
+    - text
+id: node.brebo_release_gate.field_brebo_gate_assessment
+field_name: field_brebo_gate_assessment
+entity_type: node
+bundle: brebo_release_gate
+label: 'Beoordeling en onderbouwing'
+description: 'Bewijs, motivering, bevinding en eventuele vervolgactie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

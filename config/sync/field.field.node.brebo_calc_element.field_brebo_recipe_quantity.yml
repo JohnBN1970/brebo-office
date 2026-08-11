@@ -1,0 +1,25 @@
+uuid: 33da4a0c-5bb9-40ae-9610-457f49be5606
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_recipe_quantity
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_recipe_quantity
+field_name: field_brebo_recipe_quantity
+entity_type: node
+bundle: brebo_calc_element
+label: Recepthoeveelheid
+description: 'Hoeveelheid van het door dit recept opgeleverde resultaat.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

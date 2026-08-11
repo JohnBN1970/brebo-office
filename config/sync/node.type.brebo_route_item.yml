@@ -1,0 +1,11 @@
+uuid: d601d931-9b62-4083-8f5c-0aa0cc096c77
+langcode: nl
+status: true
+dependencies: {  }
+name: Projectrouteonderdeel
+type: brebo_route_item
+description: 'Automatisch geactiveerde processtap, product, controle of besluit binnen een projectroute.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

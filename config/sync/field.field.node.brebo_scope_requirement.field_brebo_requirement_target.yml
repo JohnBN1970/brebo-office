@@ -1,0 +1,21 @@
+uuid: 23d56db9-8859-40ee-b91e-522d5918dae3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_requirement_target
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_requirement_target
+field_name: field_brebo_requirement_target
+entity_type: node
+bundle: brebo_scope_requirement
+label: Scopeobject
+description: 'Woning, technische zone, projectscope, productpositie of ander object waarop deze vereiste van toepassing is.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings: {  }
+field_type: entity_reference

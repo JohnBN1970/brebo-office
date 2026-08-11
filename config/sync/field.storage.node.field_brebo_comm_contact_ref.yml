@@ -1,0 +1,19 @@
+uuid: 77a9da0b-2f15-44c1-9e2e-6950bd05041c
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_comm_contact_ref
+field_name: field_brebo_comm_contact_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

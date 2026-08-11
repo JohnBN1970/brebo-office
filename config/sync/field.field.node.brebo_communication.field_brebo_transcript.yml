@@ -1,0 +1,22 @@
+uuid: 3cb44947-c75c-4213-af1d-fd146fc74860
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_transcript
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_transcript
+field_name: field_brebo_transcript
+entity_type: node
+bundle: brebo_communication
+label: Transcriptie
+description: 'Volledige transcriptie van gesprek, vergadering of voice recording.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

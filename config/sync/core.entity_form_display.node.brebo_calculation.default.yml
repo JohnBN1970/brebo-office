@@ -1,0 +1,150 @@
+uuid: 2f337509-7294-4d71-a8af-dba2262efc88
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_calculation.field_brebo_calc_code
+    - field.field.node.brebo_calculation.field_brebo_calc_description
+    - field.field.node.brebo_calculation.field_brebo_calc_status
+    - field.field.node.brebo_calculation.field_brebo_calc_version
+    - field.field.node.brebo_calculation.field_brebo_com_adjustment
+    - field.field.node.brebo_calculation.field_brebo_general_cost_pct
+    - field.field.node.brebo_calculation.field_brebo_package_ref
+    - field.field.node.brebo_calculation.field_brebo_price_date
+    - field.field.node.brebo_calculation.field_brebo_profit_pct
+    - field.field.node.brebo_calculation.field_brebo_risk_pct
+    - field.field.node.brebo_calculation.field_brebo_sales_price
+    - node.type.brebo_calculation
+  module:
+    - text
+id: node.brebo_calculation.default
+targetEntityType: node
+bundle: brebo_calculation
+mode: default
+content:
+  created:
+    type: datetime_timestamp
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_calc_code:
+    type: string_textfield
+    weight: 1
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_calc_description:
+    type: text_textarea
+    weight: 6
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_calc_status:
+    type: string_textfield
+    weight: 4
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_calc_version:
+    type: string_textfield
+    weight: 3
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_com_adjustment:
+    type: number
+    weight: 23
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_general_cost_pct:
+    type: number
+    weight: 20
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_package_ref:
+    type: entity_reference_autocomplete
+    weight: 2
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_price_date:
+    type: string_textfield
+    weight: 5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_profit_pct:
+    type: number
+    weight: 22
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_risk_pct:
+    type: number
+    weight: 21
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_sales_price:
+    type: number
+    weight: 20
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 120
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  title:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  uid:
+    type: entity_reference_autocomplete
+    weight: 5
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  promote: true
+  sticky: true

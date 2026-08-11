@@ -1,0 +1,23 @@
+uuid: 362f1722-d02f-4a7b-9b11-a2024c467204
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_settlement_rate
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_settlement_rate
+field_name: field_brebo_settlement_rate
+entity_type: node
+bundle: brebo_quantity_settlement
+label: 'Verrekenprijs per eenheid'
+description: 'Contractueel overeengekomen prijs voor de meer- of minderhoeveelheid.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,25 @@
+uuid: b3abc907-0203-4a8b-8d52-f9e7b798c8bd
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quantity
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_quantity
+field_name: field_brebo_quantity
+entity_type: node
+bundle: brebo_product_position
+label: Aantal
+description: 'Aantal gelijke exemplaren binnen deze productpositie.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

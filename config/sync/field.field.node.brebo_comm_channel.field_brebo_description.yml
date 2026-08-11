@@ -1,0 +1,22 @@
+uuid: b11f941b-deef-4984-aa4e-1deca75fb3e8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_comm_channel
+  module:
+    - text
+id: node.brebo_comm_channel.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_comm_channel
+label: Kanaalafspraken
+description: 'Doel, deelnemers, privacyafspraken, uitzonderingen en gebruiksregels.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

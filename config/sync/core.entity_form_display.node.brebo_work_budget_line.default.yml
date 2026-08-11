@@ -1,0 +1,224 @@
+uuid: 3074cde1-ed5f-4a8d-be0e-b43becc623a2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_work_budget_line.field_brebo_actual_hours
+    - field.field.node.brebo_work_budget_line.field_brebo_budget_hours
+    - field.field.node.brebo_work_budget_line.field_brebo_calc_line_ref
+    - field.field.node.brebo_work_budget_line.field_brebo_delivery_location
+    - field.field.node.brebo_work_budget_line.field_brebo_execution_status
+    - field.field.node.brebo_work_budget_line.field_brebo_gross_quantity
+    - field.field.node.brebo_work_budget_line.field_brebo_material_code
+    - field.field.node.brebo_work_budget_line.field_brebo_material_description
+    - field.field.node.brebo_work_budget_line.field_brebo_material_quantity
+    - field.field.node.brebo_work_budget_line.field_brebo_material_spec
+    - field.field.node.brebo_work_budget_line.field_brebo_material_unit
+    - field.field.node.brebo_work_budget_line.field_brebo_order_status
+    - field.field.node.brebo_work_budget_line.field_brebo_pack_quantity
+    - field.field.node.brebo_work_budget_line.field_brebo_package_count
+    - field.field.node.brebo_work_budget_line.field_brebo_preferred_supplier
+    - field.field.node.brebo_work_budget_line.field_brebo_required_date
+    - field.field.node.brebo_work_budget_line.field_brebo_responsible_user
+    - field.field.node.brebo_work_budget_line.field_brebo_waste_percent
+    - field.field.node.brebo_work_budget_line.field_brebo_work_budget_ref
+    - node.type.brebo_work_budget_line
+  module:
+    - text
+id: node.brebo_work_budget_line.default
+targetEntityType: node
+bundle: brebo_work_budget_line
+mode: default
+content:
+  created:
+    type: datetime_timestamp
+    weight: 10
+    region: content
+    settings: {  }
+    third_party_settings: {  }
+  field_brebo_actual_hours:
+    type: number
+    weight: 4
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_budget_hours:
+    type: number
+    weight: 3
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_calc_line_ref:
+    type: entity_reference_autocomplete
+    weight: 2
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_delivery_location:
+    type: string_textfield
+    weight: 27
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_execution_status:
+    type: string_textfield
+    weight: 9
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_gross_quantity:
+    type: number
+    weight: 24
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_material_code:
+    type: string_textfield
+    weight: 19
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_material_description:
+    type: text_textarea
+    weight: 5
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_material_quantity:
+    type: number
+    weight: 6
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_material_spec:
+    type: string_textarea
+    weight: 20
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_material_unit:
+    type: string_textfield
+    weight: 7
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_order_status:
+    type: string_textfield
+    weight: 26
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_pack_quantity:
+    type: number
+    weight: 22
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_package_count:
+    type: number
+    weight: 25
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_preferred_supplier:
+    type: string_textfield
+    weight: 23
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_required_date:
+    type: string_textfield
+    weight: 8
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_responsible_user:
+    type: entity_reference_autocomplete
+    weight: 10
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_waste_percent:
+    type: number
+    weight: 21
+    region: content
+    settings:
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_work_budget_ref:
+    type: entity_reference_autocomplete
+    weight: 1
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  langcode:
+    type: language_select
+    weight: 2
+    region: content
+    settings:
+      include_locked: true
+    third_party_settings: {  }
+  status:
+    type: boolean_checkbox
+    weight: 120
+    region: content
+    settings:
+      display_label: true
+    third_party_settings: {  }
+  title:
+    type: string_textfield
+    weight: -5
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  uid:
+    type: entity_reference_autocomplete
+    weight: 5
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+hidden:
+  promote: true
+  sticky: true

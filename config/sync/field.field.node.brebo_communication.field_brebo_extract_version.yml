@@ -1,0 +1,19 @@
+uuid: e1159750-062e-4d4c-8808-24f30241d1a4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_extract_version
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_extract_version
+field_name: field_brebo_extract_version
+entity_type: node
+bundle: brebo_communication
+label: Extractieversie
+description: 'Versie van prompt, model of verwerkingsroute waarmee het AI-concept is gemaakt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,23 @@
+uuid: cff9c5e7-373d-4eca-b0e8-130b44f732dd
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_original_amount
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_original_amount
+field_name: field_brebo_original_amount
+entity_type: node
+bundle: brebo_budget_change
+label: 'Oorspronkelijk bedrag'
+description: 'Vastgelegde grens vóór dit besluit.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,23 @@
+uuid: 11b31050-2d69-491c-aedc-a68f568d201a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_unit_price
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_offer_unit_price
+field_name: field_brebo_offer_unit_price
+entity_type: node
+bundle: brebo_offer_post
+label: 'Eenheidsprijs exclusief btw'
+description: 'Commerciële eenheidsprijs exclusief btw.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

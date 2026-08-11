@@ -1,0 +1,21 @@
+uuid: c13307cc-3b50-47e6-8d9e-fe1d24896c11
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_recording_consent
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_recording_consent
+field_name: field_brebo_recording_consent
+entity_type: node
+bundle: brebo_communication
+label: Opnamegrondslag
+description: 'Niet opgenomen, aangekondigd, toestemming vastgelegd of beoordeling vereist.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 'Niet opgenomen'
+default_value_callback: ''
+settings: {  }
+field_type: string

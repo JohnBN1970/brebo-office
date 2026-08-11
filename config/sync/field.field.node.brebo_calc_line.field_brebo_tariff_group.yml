@@ -1,0 +1,19 @@
+uuid: 57e438ba-87c9-4ada-8f1d-2f0a1329d593
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_tariff_group
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_tariff_group
+field_name: field_brebo_tariff_group
+entity_type: node
+bundle: brebo_calc_line
+label: Tariefgroep
+description: 'Bijvoorbeeld A, E of een BREBO-tariefgroep.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

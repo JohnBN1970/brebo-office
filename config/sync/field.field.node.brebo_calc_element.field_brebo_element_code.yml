@@ -1,0 +1,19 @@
+uuid: c172786c-41ca-476a-86a4-aed1b89357fe
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_element_code
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_element_code
+field_name: field_brebo_element_code
+entity_type: node
+bundle: brebo_calc_element
+label: Elementcode
+description: 'BREBO-, NLSfB- of projectspecifieke code.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

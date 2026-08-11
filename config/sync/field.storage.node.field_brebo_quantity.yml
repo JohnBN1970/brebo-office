@@ -1,0 +1,20 @@
+uuid: 699d13fc-db00-4be7-a5a4-69578d6f0495
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_quantity
+field_name: field_brebo_quantity
+entity_type: node
+type: integer
+settings:
+  unsigned: false
+  size: normal
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

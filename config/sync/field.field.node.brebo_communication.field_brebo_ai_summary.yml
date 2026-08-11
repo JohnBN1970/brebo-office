@@ -1,0 +1,22 @@
+uuid: ea65c21c-6d93-4055-8153-96b2371e4ed8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_summary
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_ai_summary
+field_name: field_brebo_ai_summary
+entity_type: node
+bundle: brebo_communication
+label: Samenvatting
+description: 'Gecontroleerde kern van het gesprek, overleg of bericht.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

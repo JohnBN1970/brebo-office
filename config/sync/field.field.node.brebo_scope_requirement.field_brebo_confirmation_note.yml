@@ -1,0 +1,22 @@
+uuid: 5369f9d9-8b37-4cb0-a38a-866d890944e7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_confirmation_note
+    - node.type.brebo_scope_requirement
+  module:
+    - text
+id: node.brebo_scope_requirement.field_brebo_confirmation_note
+field_name: field_brebo_confirmation_note
+entity_type: node
+bundle: brebo_scope_requirement
+label: 'Bevestiging of reactie'
+description: 'Schriftelijke instructie, reactie, acceptatie of reden waarom bevestiging ontbreekt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

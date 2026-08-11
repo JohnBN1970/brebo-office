@@ -1,0 +1,11 @@
+uuid: 3ef8fc13-f6ed-4ca2-9030-68ebe9a970a2
+langcode: nl
+status: true
+dependencies: {  }
+name: Offerteversie
+type: brebo_offer_version
+description: 'Onveranderlijke commerciële momentopname van een calculatie voor uitgifte aan de klant.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

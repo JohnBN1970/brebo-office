@@ -1,0 +1,18 @@
+uuid: 9d67f3ab-314d-453e-bc4e-a03b6de340bc
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_contact_email
+field_name: field_brebo_contact_email
+entity_type: node
+type: email
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

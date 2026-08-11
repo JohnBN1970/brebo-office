@@ -1,0 +1,23 @@
+uuid: 37b60296-8a88-4007-9256-d35d0c240775
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_new_amount
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_new_amount
+field_name: field_brebo_new_amount
+entity_type: node
+bundle: brebo_budget_change
+label: 'Nieuwe grens'
+description: 'Automatisch: oorspronkelijk bedrag plus wijzigingsbedrag.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

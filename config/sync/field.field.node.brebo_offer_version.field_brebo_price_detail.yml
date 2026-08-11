@@ -1,0 +1,21 @@
+uuid: 222010a6-b3a8-4b19-a888-ed36e552ca4f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_price_detail
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_price_detail
+field_name: field_brebo_price_detail
+entity_type: node
+bundle: brebo_offer_version
+label: Prijsdetailniveau
+description: 'Gesloten, halfopen, open, regie of maatwerk.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Halfopen
+default_value_callback: ''
+settings: {  }
+field_type: string

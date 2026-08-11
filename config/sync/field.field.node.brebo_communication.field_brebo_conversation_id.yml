@@ -1,0 +1,19 @@
+uuid: 0a52c62f-5558-4166-b57c-85409ca5eab6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_conversation_id
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_conversation_id
+field_name: field_brebo_conversation_id
+entity_type: node
+bundle: brebo_communication
+label: 'Gespreks- of thread-ID'
+description: 'Technische sleutel waarmee berichten, gesprekken en vergaderdelen bijeen blijven.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,22 @@
+uuid: bb8bbdbd-bfb9-474d-9e7a-641d2f27e5e3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_actions
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_ai_actions
+field_name: field_brebo_ai_actions
+entity_type: node
+bundle: brebo_communication
+label: 'Acties en termijnen'
+description: 'Vervolgacties, verantwoordelijken en genoemde termijnen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

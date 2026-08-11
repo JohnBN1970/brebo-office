@@ -1,0 +1,23 @@
+uuid: 81315954-7eb3-4947-820c-a0f99ce9fbc6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_mandate_limit
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_mandate_limit
+field_name: field_brebo_mandate_limit
+entity_type: node
+bundle: brebo_work_package
+label: 'Inkoopmandaat tot'
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

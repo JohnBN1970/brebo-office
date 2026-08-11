@@ -1,0 +1,21 @@
+uuid: b70d571c-33f1-4cdf-ad33-38e5a9b815a7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_context
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_comm_context
+field_name: field_brebo_comm_context
+entity_type: node
+bundle: brebo_communication
+label: Communicatiecontext
+description: 'Organisatieoverstijgend, projectgericht, scopegericht of intern.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Projectgericht
+default_value_callback: ''
+settings: {  }
+field_type: string

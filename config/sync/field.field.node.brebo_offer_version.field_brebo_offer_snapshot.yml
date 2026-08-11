@@ -1,0 +1,22 @@
+uuid: a3e4e3d8-6264-4ccd-9b8a-0c6f73d27b72
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_snapshot
+    - node.type.brebo_offer_version
+  module:
+    - text
+id: node.brebo_offer_version.field_brebo_offer_snapshot
+field_name: field_brebo_offer_snapshot
+entity_type: node
+bundle: brebo_offer_version
+label: Offertemomentopname
+description: 'Technische momentopname waarmee een uitgegeven versie reproduceerbaar blijft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

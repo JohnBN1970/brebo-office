@@ -1,0 +1,23 @@
+uuid: 943ec99e-cf94-4dff-ba4c-c0b432a8cc2e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_measured_quantity
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_measured_quantity
+field_name: field_brebo_measured_quantity
+entity_type: node
+bundle: brebo_quantity_settlement
+label: 'Gemeten hoeveelheid'
+description: 'Werkelijk aantoonbaar gemeten hoeveelheid.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

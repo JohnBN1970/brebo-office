@@ -1,0 +1,24 @@
+uuid: df273993-d51c-482c-8760-1a86e21768e1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_dwellings
+    - node.type.brebo_dwelling
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_dwellings
+field_name: field_brebo_scope_dwellings
+entity_type: node
+bundle: brebo_project_scope
+label: 'Geselecteerde woningen'
+description: 'Woningen of ruimten die binnen de projectscope vallen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_dwelling: brebo_dwelling
+field_type: entity_reference

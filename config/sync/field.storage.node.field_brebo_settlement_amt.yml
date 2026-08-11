@@ -1,0 +1,20 @@
+uuid: 7008c8ef-aee6-4357-a7a7-1bb245916e46
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_settlement_amt
+field_name: field_brebo_settlement_amt
+entity_type: node
+type: decimal
+settings:
+  precision: 15
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

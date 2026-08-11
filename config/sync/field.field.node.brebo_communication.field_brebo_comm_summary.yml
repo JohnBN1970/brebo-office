@@ -1,0 +1,22 @@
+uuid: c5cc4993-2a49-4d2d-97a9-33f9ddf27d9d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_summary
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_comm_summary
+field_name: field_brebo_comm_summary
+entity_type: node
+bundle: brebo_communication
+label: Samenvatting
+description: 'Feitelijke inhoud, context en gemaakte afspraken.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,19 @@
+uuid: 92dcad34-125b-48fc-917e-0b76c210ce5b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ceiling_type
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_ceiling_type
+field_name: field_brebo_ceiling_type
+entity_type: node
+bundle: brebo_work_package
+label: 'Budget- of plafondtype'
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

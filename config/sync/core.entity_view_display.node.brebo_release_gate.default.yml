@@ -1,0 +1,80 @@
+uuid: de3b9505-4940-411f-b15d-4625147c22f3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_release_gate.field_brebo_gate_applicable
+    - field.field.node.brebo_release_gate.field_brebo_gate_assessment
+    - field.field.node.brebo_release_gate.field_brebo_gate_blocks
+    - field.field.node.brebo_release_gate.field_brebo_gate_result
+    - field.field.node.brebo_release_gate.field_brebo_gate_type
+    - field.field.node.brebo_release_gate.field_brebo_package_ref
+    - node.type.brebo_release_gate
+  module:
+    - text
+    - user
+id: node.brebo_release_gate.default
+targetEntityType: node
+bundle: brebo_release_gate
+mode: default
+content:
+  field_brebo_gate_applicable:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_gate_assessment:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_gate_blocks:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_gate_result:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_gate_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_package_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

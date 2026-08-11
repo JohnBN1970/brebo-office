@@ -1,0 +1,23 @@
+uuid: 29e5110f-bcb9-4da8-acd0-3b1daa95d1c5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_amount
+    - node.type.brebo_provisional_sum
+id: node.brebo_provisional_sum.field_brebo_budget_amount
+field_name: field_brebo_budget_amount
+entity_type: node
+bundle: brebo_provisional_sum
+label: Stelpostbedrag
+description: 'In contract of calculatie opgenomen budgetbedrag.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,19 @@
+uuid: 0cf5ec49-97d1-4c48-80b9-588edaab7b11
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_requirement
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_requirement
+field_name: field_brebo_requirement
+entity_type: node
+bundle: brebo_product_position
+label: Eis
+description: 'Prestatie-eis volgens de leidende bestellijst.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

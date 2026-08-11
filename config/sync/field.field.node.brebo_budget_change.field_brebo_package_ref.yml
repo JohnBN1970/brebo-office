@@ -1,0 +1,24 @@
+uuid: c3cc42c6-9bde-4a29-940e-8e7c91870bfe
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_package_ref
+    - node.type.brebo_budget_change
+    - node.type.brebo_work_package
+id: node.brebo_budget_change.field_brebo_package_ref
+field_name: field_brebo_package_ref
+entity_type: node
+bundle: brebo_budget_change
+label: Werkpakket
+description: 'Optioneel specifiek werkpakket.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_work_package: brebo_work_package
+field_type: entity_reference

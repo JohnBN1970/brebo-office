@@ -1,0 +1,23 @@
+uuid: 6a03f93d-817b-40ee-b330-c28ddce31150
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_amount
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_offer_amount
+field_name: field_brebo_offer_amount
+entity_type: node
+bundle: brebo_offer_post
+label: 'Bedrag exclusief btw'
+description: 'Versiegebonden totaalbedrag van de post exclusief btw.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

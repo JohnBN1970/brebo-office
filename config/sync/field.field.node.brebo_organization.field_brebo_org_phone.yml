@@ -1,0 +1,19 @@
+uuid: 6a7a47f1-0d48-4122-a04e-41f45d4867c1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_org_phone
+    - node.type.brebo_organization
+id: node.brebo_organization.field_brebo_org_phone
+field_name: field_brebo_org_phone
+entity_type: node
+bundle: brebo_organization
+label: 'Algemeen telefoonnummer'
+description: 'Centraal telefoonnummer van de organisatie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,19 @@
+uuid: 009610c2-8d34-45cf-a785-88cae7f8a89f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quote_line_notes
+    - node.type.brebo_quote_line
+id: node.brebo_quote_line.field_brebo_quote_line_notes
+field_name: field_brebo_quote_line_notes
+entity_type: node
+bundle: brebo_quote_line
+label: Regelvoorwaarden
+description: 'Afwijkingen, alternatieven en opmerkingen bij deze prijsregel.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long

@@ -1,0 +1,22 @@
+uuid: 887ca63a-63fb-43f8-a6b6-a5012247eafc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_finding
+    - node.type.brebo_verification
+  module:
+    - text
+id: node.brebo_verification.field_brebo_finding
+field_name: field_brebo_finding
+entity_type: node
+bundle: brebo_verification
+label: Bevinding
+description: 'Leg vast wat is gecontroleerd en welke bevinding is gedaan.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

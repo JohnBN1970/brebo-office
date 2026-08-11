@@ -1,0 +1,21 @@
+uuid: 40652e14-d7bb-4884-9a7c-dfa3b4dfabc5
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_city
+field_name: field_brebo_city
+entity_type: node
+type: string
+settings:
+  max_length: 128
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

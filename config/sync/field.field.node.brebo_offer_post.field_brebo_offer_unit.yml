@@ -1,0 +1,19 @@
+uuid: 1868b182-6209-4d37-832a-b423555363b6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_unit
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_offer_unit
+field_name: field_brebo_offer_unit
+entity_type: node
+bundle: brebo_offer_post
+label: Eenheid
+description: 'Eenheid van de offertepost.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,22 @@
+uuid: 93cb6ff0-bd02-434e-afd6-6408436e5ef4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_decision
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_comm_decision
+field_name: field_brebo_comm_decision
+entity_type: node
+bundle: brebo_communication
+label: 'Besluit of instructie'
+description: 'Het concrete besluit, de opdracht, toezegging of vereiste uitkomst.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

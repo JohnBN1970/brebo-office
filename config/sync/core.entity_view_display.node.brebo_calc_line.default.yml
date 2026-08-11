@@ -1,0 +1,306 @@
+uuid: 791c4a54-f3ab-44be-9964-b6bb330f7ec2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_calc_line.field_brebo_actual_quantity
+    - field.field.node.brebo_calc_line.field_brebo_budget_hours
+    - field.field.node.brebo_calc_line.field_brebo_calc_element_ref
+    - field.field.node.brebo_calc_line.field_brebo_contract_quantity
+    - field.field.node.brebo_calc_line.field_brebo_cost_category
+    - field.field.node.brebo_calc_line.field_brebo_direct_cost
+    - field.field.node.brebo_calc_line.field_brebo_hours_input_mode
+    - field.field.node.brebo_calc_line.field_brebo_labor_rate
+    - field.field.node.brebo_calc_line.field_brebo_line_description
+    - field.field.node.brebo_calc_line.field_brebo_line_memo
+    - field.field.node.brebo_calc_line.field_brebo_line_post_type
+    - field.field.node.brebo_calc_line.field_brebo_line_sequence
+    - field.field.node.brebo_calc_line.field_brebo_line_status
+    - field.field.node.brebo_calc_line.field_brebo_line_type
+    - field.field.node.brebo_calc_line.field_brebo_markup_applicable
+    - field.field.node.brebo_calc_line.field_brebo_material_code
+    - field.field.node.brebo_calc_line.field_brebo_material_spec
+    - field.field.node.brebo_calc_line.field_brebo_norm_hours
+    - field.field.node.brebo_calc_line.field_brebo_note_visibility
+    - field.field.node.brebo_calc_line.field_brebo_pack_quantity
+    - field.field.node.brebo_calc_line.field_brebo_preferred_supplier
+    - field.field.node.brebo_calc_line.field_brebo_price_source
+    - field.field.node.brebo_calc_line.field_brebo_tariff_group
+    - field.field.node.brebo_calc_line.field_brebo_unit
+    - field.field.node.brebo_calc_line.field_brebo_unit_price
+    - field.field.node.brebo_calc_line.field_brebo_vat_rate
+    - field.field.node.brebo_calc_line.field_brebo_waste_percent
+    - node.type.brebo_calc_line
+  module:
+    - user
+id: node.brebo_calc_line.default
+targetEntityType: node
+bundle: brebo_calc_line
+mode: default
+content:
+  field_brebo_actual_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_budget_hours:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 13
+    region: content
+  field_brebo_calc_element_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_contract_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_cost_category:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_direct_cost:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_hours_input_mode:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_labor_rate:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 15
+    region: content
+  field_brebo_line_description:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_line_memo:
+    type: basic_string
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 18
+    region: content
+  field_brebo_line_post_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_line_sequence:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  field_brebo_line_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 18
+    region: content
+  field_brebo_line_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_markup_applicable:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 17
+    region: content
+  field_brebo_material_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 19
+    region: content
+  field_brebo_material_spec:
+    type: basic_string
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 20
+    region: content
+  field_brebo_norm_hours:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_note_visibility:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_pack_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 22
+    region: content
+  field_brebo_preferred_supplier:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 23
+    region: content
+  field_brebo_price_source:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_tariff_group:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 14
+    region: content
+  field_brebo_unit:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_unit_price:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_vat_rate:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 16
+    region: content
+  field_brebo_waste_percent:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 21
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

@@ -1,0 +1,11 @@
+uuid: c29fb25f-a705-4974-8e8e-8463ad65cf5a
+langcode: nl
+status: true
+dependencies: {  }
+name: Prijsaanvraag
+type: brebo_rfq
+description: 'Centrale offerte- of prijsaanvraag voor calculatie of definitieve inkoop.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

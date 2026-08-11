@@ -1,0 +1,23 @@
+uuid: 74e442b3-597b-4ee6-80d3-c26d2486415e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_lens_realization
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_lens_realization
+field_name: field_brebo_lens_realization
+entity_type: node
+bundle: brebo_project
+label: 'Lens Realisatie van toepassing'
+description: 'Uitvoering, controle, bewijs, herstel en oplevering behoren tot dit project.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

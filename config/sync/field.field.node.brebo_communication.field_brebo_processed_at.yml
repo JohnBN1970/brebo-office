@@ -1,0 +1,21 @@
+uuid: 09580e13-b5f0-404b-acb5-2b2ff064865f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_processed_at
+    - node.type.brebo_communication
+  module:
+    - datetime
+id: node.brebo_communication.field_brebo_processed_at
+field_name: field_brebo_processed_at
+entity_type: node
+bundle: brebo_communication
+label: 'Verwerkt op'
+description: 'Datum en tijd waarop de inhoud voor het laatst is verwerkt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

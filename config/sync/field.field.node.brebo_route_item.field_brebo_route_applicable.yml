@@ -1,0 +1,23 @@
+uuid: 06a59a57-68a4-4f4d-b1fb-8f2f10b3bfd5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_applicable
+    - node.type.brebo_route_item
+id: node.brebo_route_item.field_brebo_route_applicable
+field_name: field_brebo_route_applicable
+entity_type: node
+bundle: brebo_route_item
+label: 'Van toepassing'
+description: 'Mag gemotiveerd op N.V.T. worden gezet.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

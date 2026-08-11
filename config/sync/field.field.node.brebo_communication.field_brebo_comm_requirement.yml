@@ -1,0 +1,24 @@
+uuid: f07fa35d-59cd-4ab6-a428-fc016c4d7c0f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_requirement
+    - node.type.brebo_communication
+    - node.type.brebo_scope_requirement
+id: node.brebo_communication.field_brebo_comm_requirement
+field_name: field_brebo_comm_requirement
+entity_type: node
+bundle: brebo_communication
+label: 'Gekoppelde vereiste'
+description: 'Statusonderdeel of ketenafhankelijkheid die door deze communicatie wordt onderbouwd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_scope_requirement: brebo_scope_requirement
+field_type: entity_reference

@@ -1,0 +1,23 @@
+uuid: 2878acf4-fb1c-40ad-bb54-32e78e8621e5
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_change_amount
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_change_amount
+field_name: field_brebo_change_amount
+entity_type: node
+bundle: brebo_budget_change
+label: Wijzigingsbedrag
+description: 'Positieve of negatieve wijziging.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

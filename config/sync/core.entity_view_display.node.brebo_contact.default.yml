@@ -1,0 +1,87 @@
+uuid: 00beb8fa-5ac2-44ce-ba53-4c16f0b5b72e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_contact.field_brebo_contact_active
+    - field.field.node.brebo_contact.field_brebo_contact_channel
+    - field.field.node.brebo_contact.field_brebo_contact_email
+    - field.field.node.brebo_contact.field_brebo_contact_phone
+    - field.field.node.brebo_contact.field_brebo_contact_role
+    - field.field.node.brebo_contact.field_brebo_description
+    - field.field.node.brebo_contact.field_brebo_org_ref
+    - node.type.brebo_contact
+  module:
+    - text
+    - user
+id: node.brebo_contact.default
+targetEntityType: node
+bundle: brebo_contact
+mode: default
+content:
+  field_brebo_contact_active:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_contact_channel:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_contact_email:
+    type: email_mailto
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_contact_phone:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_contact_role:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_description:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_org_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

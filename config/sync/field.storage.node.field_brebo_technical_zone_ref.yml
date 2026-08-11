@@ -1,0 +1,19 @@
+uuid: e4441ea8-e94f-4268-858e-bb95c79ebe8c
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_technical_zone_ref
+field_name: field_brebo_technical_zone_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

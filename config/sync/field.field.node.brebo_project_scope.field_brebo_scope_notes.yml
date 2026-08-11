@@ -1,0 +1,22 @@
+uuid: 4ee274ce-9bd4-4f3e-916c-292a8a4a481d
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_notes
+    - node.type.brebo_project_scope
+  module:
+    - text
+id: node.brebo_project_scope.field_brebo_scope_notes
+field_name: field_brebo_scope_notes
+entity_type: node
+bundle: brebo_project_scope
+label: 'Scopeafbakening en uitsluitingen'
+description: 'Motivering, uitsluitingen, N.V.T.-verklaringen en bijzonderheden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,24 @@
+uuid: bbbc3100-e6f4-4f01-bea2-10182c8ea356
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_package_positions
+    - node.type.brebo_product_position
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_package_positions
+field_name: field_brebo_package_positions
+entity_type: node
+bundle: brebo_work_package
+label: Productposities
+description: 'Productposities die gezamenlijk worden voorbereid en uitgevoerd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_product_position: brebo_product_position
+field_type: entity_reference

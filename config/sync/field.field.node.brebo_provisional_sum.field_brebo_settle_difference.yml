@@ -1,0 +1,23 @@
+uuid: 2d05a264-a56c-4dd1-be74-a76959bdd741
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_settle_difference
+    - node.type.brebo_provisional_sum
+id: node.brebo_provisional_sum.field_brebo_settle_difference
+field_name: field_brebo_settle_difference
+entity_type: node
+bundle: brebo_provisional_sum
+label: 'Verschil ten opzichte van stelpost'
+description: 'Automatisch: definitieve verkoopwaarde minus stelpostbedrag.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

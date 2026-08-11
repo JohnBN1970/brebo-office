@@ -1,0 +1,25 @@
+uuid: 3b4a44f8-93b7-43ff-bba8-2f19060df1a8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_markup_pct
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_offer_markup_pct
+field_name: field_brebo_offer_markup_pct
+entity_type: node
+bundle: brebo_offer_post
+label: 'Verrekenopslag (%)'
+description: 'Vooraf overeengekomen opslag bij latere verrekening.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

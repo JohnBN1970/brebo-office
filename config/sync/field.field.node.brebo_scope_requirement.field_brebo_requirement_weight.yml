@@ -1,0 +1,25 @@
+uuid: 18fea925-00aa-420a-ac0d-d5580aa20e35
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_requirement_weight
+    - node.type.brebo_scope_requirement
+id: node.brebo_scope_requirement.field_brebo_requirement_weight
+field_name: field_brebo_requirement_weight
+entity_type: node
+bundle: brebo_scope_requirement
+label: Gewicht
+description: 'Relatief gewicht in de voortgangsberekening; een controle of vrijgave kan zwaarder wegen.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 1.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

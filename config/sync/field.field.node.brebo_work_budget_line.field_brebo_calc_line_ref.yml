@@ -1,0 +1,24 @@
+uuid: c32531ee-2635-4e0c-b9a2-17b95be1eeaa
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_line_ref
+    - node.type.brebo_calc_line
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_calc_line_ref
+field_name: field_brebo_calc_line_ref
+entity_type: node
+bundle: brebo_work_budget_line
+label: Bronregel
+description: 'Herleidbare bronregel uit de goedgekeurde calculatie.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calc_line: brebo_calc_line
+field_type: entity_reference

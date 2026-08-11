@@ -1,0 +1,22 @@
+uuid: 667c4085-47a6-490b-b2be-d68419e521da
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_prov_exclusions
+    - node.type.brebo_provisional_sum
+  module:
+    - text
+id: node.brebo_provisional_sum.field_brebo_prov_exclusions
+field_name: field_brebo_prov_exclusions
+entity_type: node
+bundle: brebo_provisional_sum
+label: Uitsluitingen
+description: 'Werk, leveringen of risico’s die nadrukkelijk niet zijn inbegrepen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

@@ -1,0 +1,23 @@
+uuid: ca3bf256-cc89-405f-af3f-f40ff57e268a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quantity_delta
+    - node.type.brebo_quantity_settlement
+id: node.brebo_quantity_settlement.field_brebo_quantity_delta
+field_name: field_brebo_quantity_delta
+entity_type: node
+bundle: brebo_quantity_settlement
+label: Hoeveelheidsverschil
+description: 'Goedgekeurde hoeveelheid minus contracthoeveelheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

@@ -1,0 +1,11 @@
+uuid: f8547c0d-3f89-4c5c-b9cd-91eb27111d14
+langcode: nl
+status: true
+dependencies: {  }
+name: Budgetwijzigingsbesluit
+type: brebo_budget_change
+description: 'Formeel en herleidbaar besluit waarmee een budget, mandaat of plafond wordt gewijzigd.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

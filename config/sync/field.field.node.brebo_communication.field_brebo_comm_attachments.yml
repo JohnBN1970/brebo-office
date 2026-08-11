@@ -1,0 +1,27 @@
+uuid: 8a1700cb-2f4b-48b9-8770-72c339267f79
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_comm_attachments
+    - node.type.brebo_communication
+  module:
+    - file
+id: node.brebo_communication.field_brebo_comm_attachments
+field_name: field_brebo_comm_attachments
+entity_type: node
+bundle: brebo_communication
+label: 'Bijlagen en bewijs'
+description: 'E-mailbestand, brief, verslag, offerte, tekening, foto of ander bewijsstuk.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:file'
+  handler_settings: {  }
+  file_directory: 'brebo-office/communication/[date:custom:Y]/[date:custom:m]'
+  file_extensions: 'pdf doc docx xls xlsx csv txt jpg jpeg png webp eml msg'
+  max_filesize: '25 MB'
+  description_field: true
+field_type: file

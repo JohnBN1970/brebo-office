@@ -1,0 +1,11 @@
+uuid: 8684c3fd-88ac-4a76-9bb0-69cb0d8b9694
+langcode: nl
+status: true
+dependencies: {  }
+name: 'Projectscope per gebouw'
+type: brebo_project_scope
+description: 'Tijdelijke en auditeerbare selectie van objecten binnen één gebouw voor één project.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

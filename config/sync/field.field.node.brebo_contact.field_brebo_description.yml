@@ -1,0 +1,22 @@
+uuid: 6011eead-c3ec-4b8b-8c7b-eaaf5d7b6a00
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_description
+    - node.type.brebo_contact
+  module:
+    - text
+id: node.brebo_contact.field_brebo_description
+field_name: field_brebo_description
+entity_type: node
+bundle: brebo_contact
+label: Contactnotities
+description: 'Mandaat, bereikbaarheid, voorkeuren en relevante zakelijke afspraken.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

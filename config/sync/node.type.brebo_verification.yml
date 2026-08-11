@@ -1,0 +1,11 @@
+uuid: cc1ba8c7-0ada-4648-bbe4-82e13eddda2f
+langcode: nl
+status: true
+dependencies: {  }
+name: 'Controle en verificatie'
+type: brebo_verification
+description: 'Herleidbare document-, uitvoerings- of oplevercontrole op een productpositie.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

@@ -1,0 +1,22 @@
+uuid: 19c96751-7fb4-4267-b5b8-2460630f7482
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_description
+    - node.type.brebo_route_item
+  module:
+    - text
+id: node.brebo_route_item.field_brebo_route_description
+field_name: field_brebo_route_description
+entity_type: node
+bundle: brebo_route_item
+label: 'Resultaat of vereiste'
+description: 'Wat aantoonbaar gereed of vastgesteld moet zijn.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

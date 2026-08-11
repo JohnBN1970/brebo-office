@@ -1,0 +1,20 @@
+uuid: 04af7bd6-e111-4899-a6ec-7a9adba7068e
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_requirement_weight
+field_name: field_brebo_requirement_weight
+entity_type: node
+type: decimal
+settings:
+  precision: 8
+  scale: 2
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

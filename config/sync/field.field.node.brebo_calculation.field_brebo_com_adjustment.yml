@@ -1,0 +1,25 @@
+uuid: 5a870225-0866-4def-a62e-c1985397fb53
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_com_adjustment
+    - node.type.brebo_calculation
+id: node.brebo_calculation.field_brebo_com_adjustment
+field_name: field_brebo_com_adjustment
+entity_type: node
+bundle: brebo_calculation
+label: 'Commerciële correctie (€)'
+description: 'Vaste positieve of negatieve commerciële correctie op de verkoopprijs exclusief btw.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 0.0
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

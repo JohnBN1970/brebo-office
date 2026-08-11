@@ -1,0 +1,19 @@
+uuid: 6c899bb0-cbb7-40c3-b47a-e470012f43b6
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_offer_post_desc
+field_name: field_brebo_offer_post_desc
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

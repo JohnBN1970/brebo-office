@@ -1,0 +1,19 @@
+uuid: 9c7aba63-b1c0-49d4-b4b4-9966716e8d5a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_rfq_deadline
+    - node.type.brebo_rfq
+id: node.brebo_rfq.field_brebo_rfq_deadline
+field_name: field_brebo_rfq_deadline
+entity_type: node
+bundle: brebo_rfq
+label: 'Uiterste reactiedatum'
+description: 'Datum waarop aanbiedingen uiterlijk binnen moeten zijn.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

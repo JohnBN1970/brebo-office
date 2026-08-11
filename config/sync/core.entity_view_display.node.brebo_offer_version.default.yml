@@ -1,0 +1,176 @@
+uuid: 0b625f47-f0db-4a01-99f8-b11fa76879dd
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_offer_version.field_brebo_calculation_ref
+    - field.field.node.brebo_offer_version.field_brebo_exclusions
+    - field.field.node.brebo_offer_version.field_brebo_g_account_base
+    - field.field.node.brebo_offer_version.field_brebo_g_account_iban
+    - field.field.node.brebo_offer_version.field_brebo_g_account_on
+    - field.field.node.brebo_offer_version.field_brebo_g_account_pct
+    - field.field.node.brebo_offer_version.field_brebo_offer_layout
+    - field.field.node.brebo_offer_version.field_brebo_offer_number
+    - field.field.node.brebo_offer_version.field_brebo_offer_scope
+    - field.field.node.brebo_offer_version.field_brebo_offer_snapshot
+    - field.field.node.brebo_offer_version.field_brebo_offer_status
+    - field.field.node.brebo_offer_version.field_brebo_offer_version
+    - field.field.node.brebo_offer_version.field_brebo_price_detail
+    - field.field.node.brebo_offer_version.field_brebo_valid_until
+    - field.field.node.brebo_offer_version.field_brebo_vat_default
+    - field.field.node.brebo_offer_version.field_brebo_work_terms
+    - node.type.brebo_offer_version
+  module:
+    - datetime
+    - text
+    - user
+id: node.brebo_offer_version.default
+targetEntityType: node
+bundle: brebo_offer_version
+mode: default
+content:
+  field_brebo_calculation_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_exclusions:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_g_account_base:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 14
+    region: content
+  field_brebo_g_account_iban:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 15
+    region: content
+  field_brebo_g_account_on:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_g_account_pct:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 13
+    region: content
+  field_brebo_offer_layout:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_offer_number:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_offer_scope:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_offer_snapshot:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 16
+    region: content
+  field_brebo_offer_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_offer_version:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_price_detail:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_valid_until:
+    type: datetime_default
+    label: above
+    settings:
+      timezone_override: ''
+      format_type: medium
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_vat_default:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  field_brebo_work_terms:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

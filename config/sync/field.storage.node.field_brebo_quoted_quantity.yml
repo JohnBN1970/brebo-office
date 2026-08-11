@@ -1,0 +1,20 @@
+uuid: 76a30c78-8c28-4b9d-9d2a-9bcc3d7cf806
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_quoted_quantity
+field_name: field_brebo_quoted_quantity
+entity_type: node
+type: decimal
+settings:
+  precision: 18
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

@@ -1,0 +1,23 @@
+uuid: 3d13f395-c976-490b-8f74-0cc21752c192
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_norm_hours
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_norm_hours
+field_name: field_brebo_norm_hours
+entity_type: node
+bundle: brebo_calc_line
+label: 'Normuren per eenheid'
+description: 'Begrote arbeidsnorm per calculatie-eenheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

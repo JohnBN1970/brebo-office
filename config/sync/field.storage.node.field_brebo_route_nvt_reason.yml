@@ -1,0 +1,19 @@
+uuid: 39e3797d-6d02-4d2b-8094-377645802ddb
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_route_nvt_reason
+field_name: field_brebo_route_nvt_reason
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

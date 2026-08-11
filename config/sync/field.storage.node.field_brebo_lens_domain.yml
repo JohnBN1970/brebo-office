@@ -1,0 +1,21 @@
+uuid: b7a4580c-b2d2-430d-a67f-7e8904b71807
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_lens_domain
+field_name: field_brebo_lens_domain
+entity_type: node
+type: string
+settings:
+  max_length: 16
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

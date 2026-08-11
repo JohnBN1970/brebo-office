@@ -1,0 +1,24 @@
+uuid: 08acd18b-2f12-4f62-a05e-b38d64d9e8a6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_refs
+    - node.type.brebo_building
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_building_refs
+field_name: field_brebo_building_refs
+entity_type: node
+bundle: brebo_project
+label: Gebouwen
+description: 'Een project kan één of meer gebouwen omvatten; een gebouw behoudt meerdere projecten in de tijd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

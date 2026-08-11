@@ -1,0 +1,24 @@
+uuid: 6361eeef-3e23-4f14-8050-46e14459cb51
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_clusters
+    - node.type.brebo_cluster
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_clusters
+field_name: field_brebo_scope_clusters
+entity_type: node
+bundle: brebo_project_scope
+label: 'Geselecteerde gebouwdelen'
+description: 'Gebouwdelen of clusters die binnen de projectscope vallen.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_cluster: brebo_cluster
+field_type: entity_reference

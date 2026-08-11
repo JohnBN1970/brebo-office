@@ -1,0 +1,38 @@
+uuid: bae969ba-de32-4998-a247-b0471df758bd
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_recovery_evidence
+    - node.type.brebo_deviation
+  module:
+    - image
+id: node.brebo_deviation.field_brebo_recovery_evidence
+field_name: field_brebo_recovery_evidence
+entity_type: node
+bundle: brebo_deviation
+label: Herstelbewijs
+description: 'Foto’s die het uitgevoerde herstel aantoonbaar maken.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:file'
+  handler_settings: {  }
+  file_directory: brebo-office/deviations
+  file_extensions: 'png gif jpg jpeg webp'
+  max_filesize: '20 MB'
+  max_resolution: ''
+  min_resolution: ''
+  alt_field: true
+  alt_field_required: false
+  title_field: true
+  title_field_required: false
+  default_image:
+    uuid: null
+    alt: ''
+    title: ''
+    width: null
+    height: null
+field_type: image

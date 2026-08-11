@@ -1,0 +1,23 @@
+uuid: 16c66f1e-6dea-4568-a576-6d855bc6f9fe
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_actual_quantity
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_actual_quantity
+field_name: field_brebo_actual_quantity
+entity_type: node
+bundle: brebo_offer_post
+label: 'Werkelijke hoeveelheid'
+description: 'Definitief gemeten hoeveelheid voor verrekening.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

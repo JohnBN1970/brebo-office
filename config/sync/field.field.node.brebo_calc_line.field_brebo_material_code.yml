@@ -1,0 +1,19 @@
+uuid: 87987a8b-69b4-4cec-a343-7685258fc306
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_material_code
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_material_code
+field_name: field_brebo_material_code
+entity_type: node
+bundle: brebo_calc_line
+label: Materiaalcode
+description: 'Unieke artikel-, BREBO- of leverancierscode voor cumulatie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

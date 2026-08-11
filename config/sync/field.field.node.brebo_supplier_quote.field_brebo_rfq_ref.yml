@@ -1,0 +1,24 @@
+uuid: 9ad0b638-644f-4f4e-b5fb-4ab62fd07842
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_rfq_ref
+    - node.type.brebo_rfq
+    - node.type.brebo_supplier_quote
+id: node.brebo_supplier_quote.field_brebo_rfq_ref
+field_name: field_brebo_rfq_ref
+entity_type: node
+bundle: brebo_supplier_quote
+label: Prijsaanvraag
+description: 'Prijsaanvraag waarop deze aanbieding antwoord geeft.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_rfq: brebo_rfq
+field_type: entity_reference

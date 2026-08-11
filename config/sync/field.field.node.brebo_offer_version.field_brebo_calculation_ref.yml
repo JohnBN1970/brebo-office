@@ -1,0 +1,24 @@
+uuid: 8954f946-b0c3-4c21-b8d7-bd72ee9c63b0
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calculation_ref
+    - node.type.brebo_calculation
+    - node.type.brebo_offer_version
+id: node.brebo_offer_version.field_brebo_calculation_ref
+field_name: field_brebo_calculation_ref
+entity_type: node
+bundle: brebo_offer_version
+label: Calculatie
+description: 'Broncalculatie waarop deze offerteversie is gebaseerd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calculation: brebo_calculation
+field_type: entity_reference

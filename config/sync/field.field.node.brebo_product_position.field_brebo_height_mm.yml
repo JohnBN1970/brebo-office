@@ -1,0 +1,23 @@
+uuid: 9d36c9f7-437d-4824-9163-d0f4927c6ea7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_height_mm
+    - node.type.brebo_product_position
+id: node.brebo_product_position.field_brebo_height_mm
+field_name: field_brebo_height_mm
+entity_type: node
+bundle: brebo_product_position
+label: 'Hoogte (mm)'
+description: 'Hoogtemaat volgens de leidende bestellijst.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

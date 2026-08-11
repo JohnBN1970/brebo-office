@@ -1,0 +1,24 @@
+uuid: c913f035-1823-423e-bdfa-1494cff1348c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_scope_zones
+    - node.type.brebo_building_zone
+    - node.type.brebo_project_scope
+id: node.brebo_project_scope.field_brebo_scope_zones
+field_name: field_brebo_scope_zones
+entity_type: node
+bundle: brebo_project_scope
+label: 'Geselecteerde technische zones'
+description: 'Gevels, beuken, gevelcellen, dakvlakken of andere technische zones binnen deze projectscope.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building_zone: brebo_building_zone
+field_type: entity_reference

@@ -1,0 +1,19 @@
+uuid: fb70cc7a-7aa9-4120-aefc-765ba7b5631f
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_element_scope
+field_name: field_brebo_element_scope
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

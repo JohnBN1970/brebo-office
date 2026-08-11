@@ -1,0 +1,21 @@
+uuid: a60126bd-c5f6-41e2-b5a3-35f216eda21f
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_contact_channel
+field_name: field_brebo_contact_channel
+entity_type: node
+type: string
+settings:
+  max_length: 32
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

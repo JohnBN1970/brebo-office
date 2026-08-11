@@ -1,0 +1,21 @@
+uuid: 62a02d57-4a03-441e-a6c6-736a2ee23599
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_selector_party
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_selector_party
+field_name: field_brebo_selector_party
+entity_type: node
+bundle: brebo_project
+label: 'Selecterende partij'
+description: 'Partij die offertes vergelijkt en een selectie voorbereidt.'
+required: true
+translatable: true
+default_value:
+  -
+    value: BREBO
+default_value_callback: ''
+settings: {  }
+field_type: string

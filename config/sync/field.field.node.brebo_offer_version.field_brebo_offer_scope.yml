@@ -1,0 +1,22 @@
+uuid: cb7a9bb5-519b-4da2-b928-2c97e31593f2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_offer_scope
+    - node.type.brebo_offer_version
+  module:
+    - text
+id: node.brebo_offer_version.field_brebo_offer_scope
+field_name: field_brebo_offer_scope
+entity_type: node
+bundle: brebo_offer_version
+label: Scope
+description: 'Versiegebonden omschrijving van inbegrepen werkzaamheden en prestaties.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

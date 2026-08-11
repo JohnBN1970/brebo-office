@@ -1,0 +1,11 @@
+uuid: 242ab8f1-8787-4c19-b5ad-774bf577374b
+langcode: nl
+status: true
+dependencies: {  }
+name: Projectcommunicatie
+type: brebo_communication
+description: 'Auditeerbaar communicatie-, besluit- en opvolgdossier gekoppeld aan project en scope.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

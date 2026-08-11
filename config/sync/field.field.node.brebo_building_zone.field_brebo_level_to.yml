@@ -1,0 +1,19 @@
+uuid: 89f64a47-d1a5-4b26-896d-d5969ac0d584
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_level_to
+    - node.type.brebo_building_zone
+id: node.brebo_building_zone.field_brebo_level_to
+field_name: field_brebo_level_to
+entity_type: node
+bundle: brebo_building_zone
+label: 'Niveau tot en met'
+description: 'Hoogste bouwlaag of hoogteniveau dat door de zone wordt geraakt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

@@ -1,0 +1,19 @@
+uuid: cf5b74a6-a463-4c7f-8cd0-9a20ad1842d0
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_ai_summary
+field_name: field_brebo_ai_summary
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

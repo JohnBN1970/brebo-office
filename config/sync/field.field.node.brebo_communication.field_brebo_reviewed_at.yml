@@ -1,0 +1,21 @@
+uuid: 1422d556-f7fb-4281-88c8-eff9bf394cce
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_reviewed_at
+    - node.type.brebo_communication
+  module:
+    - datetime
+id: node.brebo_communication.field_brebo_reviewed_at
+field_name: field_brebo_reviewed_at
+entity_type: node
+bundle: brebo_communication
+label: 'Gecontroleerd op'
+description: 'Datum en tijd van de menselijke inhoudelijke controle.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

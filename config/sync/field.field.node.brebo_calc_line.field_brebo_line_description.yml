@@ -1,0 +1,19 @@
+uuid: 4357d4e4-7cf2-4a26-aff1-feeb8312e31c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_line_description
+    - node.type.brebo_calc_line
+id: node.brebo_calc_line.field_brebo_line_description
+field_name: field_brebo_line_description
+entity_type: node
+bundle: brebo_calc_line
+label: Regelomschrijving
+description: 'Te prijzen prestatie of levering.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

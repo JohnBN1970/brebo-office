@@ -1,0 +1,24 @@
+uuid: 07c69b8b-7a6c-401d-80d1-488876412d4c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_element_positions
+    - node.type.brebo_calc_element
+    - node.type.brebo_product_position
+id: node.brebo_calc_element.field_brebo_element_positions
+field_name: field_brebo_element_positions
+entity_type: node
+bundle: brebo_calc_element
+label: Productposities
+description: 'Objecten waarop dit calculatie-element betrekking heeft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_product_position: brebo_product_position
+field_type: entity_reference

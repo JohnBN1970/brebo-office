@@ -1,0 +1,11 @@
+uuid: 3fa722cc-85c5-42ce-837d-31e7f17a5478
+langcode: nl
+status: true
+dependencies: {  }
+name: Werkpakket
+type: brebo_work_package
+description: 'Bestuurbare bundel van scope, productposities en uitvoeringsvoorwaarden.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

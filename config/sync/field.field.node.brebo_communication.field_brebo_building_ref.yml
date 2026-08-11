@@ -1,0 +1,24 @@
+uuid: 016c1df6-c70d-44d0-843b-55ba48bea4d8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_communication
+label: Gebouw
+description: 'Permanent gebouw waarop het bericht of besluit betrekking heeft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

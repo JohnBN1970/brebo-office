@@ -1,0 +1,11 @@
+uuid: 1a9f3911-cd6d-4994-ab48-6fa936887b98
+langcode: nl
+status: true
+dependencies: {  }
+name: Contactpersoon
+type: brebo_contact
+description: 'Persoonlijke relatiekaart gekoppeld aan een organisatie en relevante projecten.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

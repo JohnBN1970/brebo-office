@@ -1,0 +1,22 @@
+uuid: f6f9b705-51d3-432c-bdf1-f626d2a11d1e
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_package_scope
+    - node.type.brebo_work_package
+  module:
+    - text
+id: node.brebo_work_package.field_brebo_package_scope
+field_name: field_brebo_package_scope
+entity_type: node
+bundle: brebo_work_package
+label: Scope
+description: 'Afbakening, resultaat en bijzonderheden van het werkpakket.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

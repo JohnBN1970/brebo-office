@@ -1,0 +1,21 @@
+uuid: 5133532e-aefb-4dfa-9da2-d40b8babe140
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_control_type
+    - node.type.brebo_verification
+id: node.brebo_verification.field_brebo_control_type
+field_name: field_brebo_control_type
+entity_type: node
+bundle: brebo_verification
+label: Controletype
+description: 'Documentcontrole, uitvoeringscontrole of oplevercontrole.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Documentcontrole
+default_value_callback: ''
+settings: {  }
+field_type: string

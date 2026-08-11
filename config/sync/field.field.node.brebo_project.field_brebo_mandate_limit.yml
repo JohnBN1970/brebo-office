@@ -1,0 +1,23 @@
+uuid: 419c8d8b-332f-4bec-baff-1fef9c5c21d4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_mandate_limit
+    - node.type.brebo_project
+id: node.brebo_project.field_brebo_mandate_limit
+field_name: field_brebo_mandate_limit
+entity_type: node
+bundle: brebo_project
+label: 'Inkoopmandaat tot'
+description: 'Maximaal bedrag dat BREBO zonder aanvullende goedkeuring mag contracteren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

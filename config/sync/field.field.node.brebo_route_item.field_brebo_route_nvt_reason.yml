@@ -1,0 +1,22 @@
+uuid: eb6b9bbc-19a1-4bdc-891b-7a6558ef4057
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_route_nvt_reason
+    - node.type.brebo_route_item
+  module:
+    - text
+id: node.brebo_route_item.field_brebo_route_nvt_reason
+field_name: field_brebo_route_nvt_reason
+entity_type: node
+bundle: brebo_route_item
+label: 'Motivering N.V.T.'
+description: 'Verplicht wanneer dit onderdeel niet van toepassing wordt verklaard.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

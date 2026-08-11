@@ -1,0 +1,20 @@
+uuid: 6794f31d-b3ba-4c20-8c10-877060767d78
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_risk_pct
+field_name: field_brebo_risk_pct
+entity_type: node
+type: decimal
+settings:
+  precision: 8
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

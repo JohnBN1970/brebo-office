@@ -1,0 +1,18 @@
+uuid: b45baa68-eb60-4ef5-a52b-3f0949029b5d
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_written_required
+field_name: field_brebo_written_required
+entity_type: node
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

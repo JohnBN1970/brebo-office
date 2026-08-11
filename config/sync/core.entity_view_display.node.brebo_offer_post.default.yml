@@ -1,0 +1,203 @@
+uuid: ecb817a7-789c-4343-aabb-6a2acc6b6d02
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_offer_post.field_brebo_actual_cost
+    - field.field.node.brebo_offer_post.field_brebo_actual_quantity
+    - field.field.node.brebo_offer_post.field_brebo_in_offer_total
+    - field.field.node.brebo_offer_post.field_brebo_offer_amount
+    - field.field.node.brebo_offer_post.field_brebo_offer_markup_pct
+    - field.field.node.brebo_offer_post.field_brebo_offer_post_desc
+    - field.field.node.brebo_offer_post.field_brebo_offer_post_notes
+    - field.field.node.brebo_offer_post.field_brebo_offer_post_seq
+    - field.field.node.brebo_offer_post.field_brebo_offer_post_status
+    - field.field.node.brebo_offer_post.field_brebo_offer_post_type
+    - field.field.node.brebo_offer_post.field_brebo_offer_quantity
+    - field.field.node.brebo_offer_post.field_brebo_offer_unit
+    - field.field.node.brebo_offer_post.field_brebo_offer_unit_price
+    - field.field.node.brebo_offer_post.field_brebo_offer_version_ref
+    - field.field.node.brebo_offer_post.field_brebo_settlement_amt
+    - field.field.node.brebo_offer_post.field_brebo_vat_rate
+    - field.field.node.brebo_offer_post.field_brebo_vat_treatment
+    - node.type.brebo_offer_post
+  module:
+    - text
+    - user
+id: node.brebo_offer_post.default
+targetEntityType: node
+bundle: brebo_offer_post
+mode: default
+content:
+  field_brebo_actual_cost:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 15
+    region: content
+  field_brebo_actual_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 14
+    region: content
+  field_brebo_in_offer_total:
+    type: boolean
+    label: above
+    settings:
+      format: default
+      format_custom_false: ''
+      format_custom_true: ''
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_offer_amount:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_offer_markup_pct:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_offer_post_desc:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_offer_post_notes:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 17
+    region: content
+  field_brebo_offer_post_seq:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_offer_post_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 13
+    region: content
+  field_brebo_offer_post_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_offer_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_offer_unit:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_offer_unit_price:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_offer_version_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_settlement_amt:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 16
+    region: content
+  field_brebo_vat_rate:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_vat_treatment:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

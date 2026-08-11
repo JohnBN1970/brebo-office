@@ -1,0 +1,23 @@
+uuid: 6948cee2-0095-4737-88db-ae0336830374
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_budget_hours
+    - node.type.brebo_work_budget_line
+id: node.brebo_work_budget_line.field_brebo_budget_hours
+field_name: field_brebo_budget_hours
+entity_type: node
+bundle: brebo_work_budget_line
+label: 'Gebudgetteerde uren'
+description: 'Aan uitvoering vrijgegeven arbeidsuren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

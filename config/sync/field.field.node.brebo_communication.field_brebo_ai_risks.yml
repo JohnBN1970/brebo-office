@@ -1,0 +1,22 @@
+uuid: fd559e53-3e47-4cc3-ba3c-c7ea9c11c3e6
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_ai_risks
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_ai_risks
+field_name: field_brebo_ai_risks
+entity_type: node
+bundle: brebo_communication
+label: 'Risico’s en onzekerheden'
+description: 'Risico’s, afwijkingen, ontbrekende informatie en onzekerheden.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

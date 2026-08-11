@@ -1,0 +1,22 @@
+uuid: ad19a13c-34a1-4846-afb4-cd2428c88e63
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_change_reason
+    - node.type.brebo_budget_change
+  module:
+    - text
+id: node.brebo_budget_change.field_brebo_change_reason
+field_name: field_brebo_change_reason
+entity_type: node
+bundle: brebo_budget_change
+label: Motivering
+description: 'Aanleiding, consequenties en onderbouwing van het besluit.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

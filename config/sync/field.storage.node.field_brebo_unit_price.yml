@@ -1,0 +1,20 @@
+uuid: ac945e26-af88-4294-97cf-67e4bdf84788
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_unit_price
+field_name: field_brebo_unit_price
+entity_type: node
+type: decimal
+settings:
+  precision: 14
+  scale: 4
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

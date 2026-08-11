@@ -1,0 +1,23 @@
+uuid: 2386e775-279d-4031-b7dc-32de5e0d71c7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_final_cost
+    - node.type.brebo_provisional_sum
+id: node.brebo_provisional_sum.field_brebo_final_cost
+field_name: field_brebo_final_cost
+entity_type: node
+bundle: brebo_provisional_sum
+label: 'Definitieve kostprijs'
+description: 'Werkelijk geaccordeerde kostprijs.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

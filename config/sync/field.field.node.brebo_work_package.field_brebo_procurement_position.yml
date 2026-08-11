@@ -1,0 +1,19 @@
+uuid: a9cfc768-4009-4847-b08e-6324288f37a8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_procurement_position
+    - node.type.brebo_work_package
+id: node.brebo_work_package.field_brebo_procurement_position
+field_name: field_brebo_procurement_position
+entity_type: node
+bundle: brebo_work_package
+label: Inkooppositie
+description: 'Optionele afwijking van de projectinstelling voor dit werkpakket. Leeg betekent: projectinstelling geldt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

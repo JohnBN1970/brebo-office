@@ -1,0 +1,25 @@
+uuid: 930a93ca-14a1-40a0-bb12-7bb78209cd68
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_element_sequence
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_element_sequence
+field_name: field_brebo_element_sequence
+entity_type: node
+bundle: brebo_calc_element
+label: Volgorde
+description: 'Sorteervolgorde binnen de calculatie.'
+required: true
+translatable: true
+default_value:
+  -
+    value: 10
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

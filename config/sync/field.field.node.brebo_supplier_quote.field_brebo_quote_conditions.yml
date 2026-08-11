@@ -1,0 +1,22 @@
+uuid: 1c0aca03-a3f0-40de-a498-fdfbdf163f43
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_quote_conditions
+    - node.type.brebo_supplier_quote
+  module:
+    - text
+id: node.brebo_supplier_quote.field_brebo_quote_conditions
+field_name: field_brebo_quote_conditions
+entity_type: node
+bundle: brebo_supplier_quote
+label: 'Inbegrepen, uitgesloten en voorwaarden'
+description: 'Scopeverschillen en commerciële of technische voorwaarden.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

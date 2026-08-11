@@ -1,0 +1,19 @@
+uuid: e458d921-6c02-41a7-84ea-fc0775fadcca
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_external_id
+    - node.type.brebo_comm_channel
+id: node.brebo_comm_channel.field_brebo_external_id
+field_name: field_brebo_external_id
+entity_type: node
+bundle: brebo_comm_channel
+label: 'Extern kanaal-ID'
+description: 'Technische identificatie bij Meta, Zadarma, mailserver of ander bronsysteem.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

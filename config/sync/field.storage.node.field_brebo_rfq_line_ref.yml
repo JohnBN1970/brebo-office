@@ -1,0 +1,19 @@
+uuid: 8ca62e0e-5579-40b7-b329-34680e07f959
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_rfq_line_ref
+field_name: field_brebo_rfq_line_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

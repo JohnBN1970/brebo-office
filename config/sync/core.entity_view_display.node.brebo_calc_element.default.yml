@@ -1,0 +1,107 @@
+uuid: 30f8c53c-243a-4546-b46b-21bbe20d5d8b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_calc_element.field_brebo_calc_component_ref
+    - field.field.node.brebo_calc_element.field_brebo_calculation_ref
+    - field.field.node.brebo_calc_element.field_brebo_element_code
+    - field.field.node.brebo_calc_element.field_brebo_element_positions
+    - field.field.node.brebo_calc_element.field_brebo_element_scope
+    - field.field.node.brebo_calc_element.field_brebo_element_sequence
+    - field.field.node.brebo_calc_element.field_brebo_recipe_quantity
+    - field.field.node.brebo_calc_element.field_brebo_recipe_unit
+    - field.field.node.brebo_calc_element.field_brebo_technical_zone_ref
+    - node.type.brebo_calc_element
+  module:
+    - text
+    - user
+id: node.brebo_calc_element.default
+targetEntityType: node
+bundle: brebo_calc_element
+mode: default
+content:
+  field_brebo_calc_component_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_calculation_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_element_code:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_element_positions:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_element_scope:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_element_sequence:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_recipe_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_recipe_unit:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_technical_zone_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

@@ -1,0 +1,19 @@
+uuid: de743778-6ecb-4db4-9baa-6c182f9982ac
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_change_type
+    - node.type.brebo_budget_change
+id: node.brebo_budget_change.field_brebo_change_type
+field_name: field_brebo_change_type
+entity_type: node
+bundle: brebo_budget_change
+label: Wijzigingstype
+description: 'Budgetverhoging, Plafondwijziging of Mandaatwijziging.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

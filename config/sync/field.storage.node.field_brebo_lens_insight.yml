@@ -1,0 +1,18 @@
+uuid: ecfe3c6c-44fd-4236-b3c3-713a8f14b1db
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_lens_insight
+field_name: field_brebo_lens_insight
+entity_type: node
+type: boolean
+settings: {  }
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

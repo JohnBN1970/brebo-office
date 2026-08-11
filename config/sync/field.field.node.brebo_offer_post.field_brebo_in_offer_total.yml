@@ -1,0 +1,23 @@
+uuid: e8eaddd1-d553-4068-81e9-19ffa39081de
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_in_offer_total
+    - node.type.brebo_offer_post
+id: node.brebo_offer_post.field_brebo_in_offer_total
+field_name: field_brebo_in_offer_total
+entity_type: node
+bundle: brebo_offer_post
+label: 'Opgenomen in offertotaal'
+description: 'Basis- en stelposten tellen standaard mee; opties standaard niet.'
+required: false
+translatable: true
+default_value:
+  -
+    value: 1
+default_value_callback: ''
+settings:
+  on_label: Aan
+  off_label: Uit
+field_type: boolean

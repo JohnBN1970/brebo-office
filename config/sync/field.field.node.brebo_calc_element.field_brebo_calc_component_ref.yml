@@ -1,0 +1,24 @@
+uuid: f2194df6-49ea-4fca-aaad-96089a71a00c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_calc_component_ref
+    - node.type.brebo_calc_component
+    - node.type.brebo_calc_element
+id: node.brebo_calc_element.field_brebo_calc_component_ref
+field_name: field_brebo_calc_component_ref
+entity_type: node
+bundle: brebo_calc_element
+label: Hoofdcomponent
+description: 'Hoofdstuk waaronder dit element wordt getotaliseerd.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_calc_component: brebo_calc_component
+field_type: entity_reference

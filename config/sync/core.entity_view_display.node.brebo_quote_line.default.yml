@@ -1,0 +1,92 @@
+uuid: 319af020-d6b9-440b-8695-462839c9845b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_quote_line.field_brebo_quote_line_notes
+    - field.field.node.brebo_quote_line.field_brebo_quote_ref
+    - field.field.node.brebo_quote_line.field_brebo_quoted_quantity
+    - field.field.node.brebo_quote_line.field_brebo_quoted_total
+    - field.field.node.brebo_quote_line.field_brebo_quoted_unit
+    - field.field.node.brebo_quote_line.field_brebo_quoted_unit_price
+    - field.field.node.brebo_quote_line.field_brebo_rfq_line_ref
+    - node.type.brebo_quote_line
+  module:
+    - user
+id: node.brebo_quote_line.default
+targetEntityType: node
+bundle: brebo_quote_line
+mode: default
+content:
+  field_brebo_quote_line_notes:
+    type: basic_string
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_quote_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_quoted_quantity:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_quoted_total:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_quoted_unit:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  field_brebo_quoted_unit_price:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_rfq_line_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

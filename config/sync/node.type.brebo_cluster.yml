@@ -4,7 +4,7 @@ status: true
 dependencies: {  }
 name: Cluster
 type: brebo_cluster
-description: 'Gebouwdeel, bouwblok of werkgebied binnen een BREBO-project.'
+description: 'Gebouwdeel, bouwblok of werkgebied binnen een permanent gebouwmodel.'
 help: null
 new_revision: true
 preview_mode: 0

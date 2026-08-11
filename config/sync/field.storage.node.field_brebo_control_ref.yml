@@ -1,0 +1,19 @@
+uuid: 7860e502-54bb-42d5-badd-b722739f06dc
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_control_ref
+field_name: field_brebo_control_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false
