@@ -1,0 +1,79 @@
+name: BREBO Mail runtime readiness
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-runtime-readiness.yml'
+      - 'web/modules/custom/brebo_mail_intake/**'
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    name: Non-secret mail runtime readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Check Hostinger mailbox runtime without exposing secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice
+          php -r '
+            require "web/sites/default/settings.php";
+            $required = [
+              "BREBO_MAIL_SOURCE",
+              "BREBO_MAIL_ADDRESS",
+              "BREBO_IMAP_HOST",
+              "BREBO_IMAP_PORT",
+              "BREBO_IMAP_FLAGS",
+              "BREBO_IMAP_USER",
+              "BREBO_IMAP_PASSWORD",
+            ];
+            $ok = true;
+            foreach ($required as $name) {
+              $value = getenv($name);
+              $set = $value !== false && trim((string) $value) !== "";
+              echo $name . "=" . ($set ? "SET" : "MISSING") . PHP_EOL;
+              $ok = $ok && $set;
+            }
+            $imap = function_exists("imap_open");
+            echo "PHP_IMAP=" . ($imap ? "AVAILABLE" : "MISSING") . PHP_EOL;
+            echo "IMAP_RUNTIME_READY=" . (($ok && $imap) ? "YES" : "NO") . PHP_EOL;
+            exit(($ok && $imap) ? 0 : 2);
+          '
+          REMOTE
