@@ -53,3 +53,4 @@ services:
       - '@current_user'
       - '@plugin.manager.mail'
       - '@datetime.time'
+      - '@config.factory'
