@@ -1,0 +1,66 @@
+name: Import runtime config 9115420033
+
+on:
+  push:
+    branches:
+      - config/sync-mail-intake-feedback
+    paths:
+      - '.github/workflows/import-runtime-config-9115420033.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  import-config:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout sync branch
+        uses: actions/checkout@v4
+        with:
+          ref: config/sync-mail-intake-feedback
+          fetch-depth: 0
+
+      - name: Download and import active config
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: '9115420033'
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -o /tmp/config-artifact.zip \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip"
+          rm -rf /tmp/brebo-config-export
+          mkdir -p /tmp/brebo-config-export
+          unzip -q /tmp/config-artifact.zip -d /tmp/brebo-config-export
+          tgz="$(find /tmp/brebo-config-export -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          test -n "$tgz"
+          rm -rf /tmp/brebo-config-unpacked
+          mkdir -p /tmp/brebo-config-unpacked
+          tar -xzf "$tgz" -C /tmp/brebo-config-unpacked
+          test -d /tmp/brebo-config-unpacked/config/sync
+          test -f /tmp/brebo-config-unpacked/config/sync/node.type.brebo_feedback.yml
+          test -f /tmp/brebo-config-unpacked/config/sync/field.field.node.brebo_communication.field_brebo_intake_status.yml
+          test -f /tmp/brebo-config-unpacked/config/sync/field.field.node.brebo_communication.field_brebo_suggest_building_ref.yml
+          grep -q '^  brebo_mail_intake:' /tmp/brebo-config-unpacked/config/sync/core.extension.yml
+          rm -rf config/sync
+          cp -a /tmp/brebo-config-unpacked/config/sync config/sync
+
+      - name: Commit synchronized config and remove importer
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm .github/workflows/import-runtime-config-9115420033.yml
+          git add config/sync .github/workflows/sboffice-deploy-develop.yml
+          if git diff --cached --quiet; then
+            echo 'No config changes to commit.'
+            exit 0
+          fi
+          git commit -m 'Sync active config after feedback and mail intake'
+          git push origin HEAD:config/sync-mail-intake-feedback
