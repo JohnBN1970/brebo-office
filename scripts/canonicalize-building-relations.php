@@ -136,7 +136,7 @@ $all_have_building = $stats['unresolved'] === 0;
 
 if ($apply) {
   $cluster_type
-    ->setDescription('Gebouwdeel, bouwblok of werkgebied binnen een permanent gebouwmodel.')
+    ->set('description', 'Gebouwdeel, bouwblok of werkgebied binnen een permanent gebouwmodel.')
     ->save();
 
   $project_field
