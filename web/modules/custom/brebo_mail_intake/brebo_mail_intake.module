@@ -15,9 +15,20 @@ function brebo_mail_intake_cron(): void {
 
   if ($serviceId === '') {
     \Drupal::logger('brebo_mail_intake')->warning('Onbekende BREBO_MAIL_SOURCE: @source', ['@source' => $source]);
-    return;
+  }
+  else {
+    _brebo_mail_intake_process_source($serviceId, strtoupper($source));
   }
 
+  if (filter_var(getenv('BREBO_ZOHO_MIGRATION_ENABLED') ?: '0', FILTER_VALIDATE_BOOL)) {
+    _brebo_mail_intake_process_source('brebo_mail_intake.zoho_migration_source', 'ZOHO-MIGRATIE');
+  }
+}
+
+/**
+ * Processes one configured source without allowing source failures to halt cron.
+ */
+function _brebo_mail_intake_process_source(string $serviceId, string $label): void {
   $adapter = \Drupal::service($serviceId);
   if (!$adapter->isConfigured()) {
     return;
@@ -28,8 +39,21 @@ function brebo_mail_intake_cron(): void {
   }
   catch (\Throwable $e) {
     \Drupal::logger('brebo_mail_intake')->error('@source Mail Intake mislukt: @message', [
-      '@source' => strtoupper($source),
+      '@source' => $label,
       '@message' => $e->getMessage(),
     ]);
   }
+}
+
+/**
+ * Implements hook_mail().
+ */
+function brebo_mail_intake_mail(string $key, array &$message, array $params): void {
+  if ($key !== 'outbound') {
+    return;
+  }
+
+  $message['subject'] = trim((string) ($params['subject'] ?? ''));
+  $message['body'][] = (string) ($params['body'] ?? '');
+  $message['headers']['X-BREBO-Communication-ID'] = (string) ((int) ($params['communication_id'] ?? 0));
 }
