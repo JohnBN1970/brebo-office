@@ -97,7 +97,7 @@ jobs:
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script scripts/canonicalize-building-relations.php
+            php:script ../scripts/canonicalize-building-relations.php
 
           echo '=== Export active Drupal configuration ==='
           timeout 180 php vendor/drush/drush/drush.php \
@@ -112,7 +112,7 @@ jobs:
             --root=web \
             --uri=https://sboffice.brebobv.nl \
             --no-ansi \
-            php:script scripts/canonicalize-building-relations.php
+            php:script ../scripts/canonicalize-building-relations.php
 
           if [[ ! -d config/sync ]]; then
             echo "::error::config/sync does not exist after export."
