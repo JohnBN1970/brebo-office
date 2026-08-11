@@ -45,6 +45,24 @@ jobs:
           done
           [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
 
+      - name: Set up PHP and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+          coverage: none
+
+      - name: Install locked production dependencies
+        shell: bash
+        run: |
+          set -euo pipefail
+          composer validate --no-check-publish
+          composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
+          test -f vendor/drush/drush/drush.php
+          test -d web/modules/contrib/mimemail
+          test -d web/modules/contrib/smtp
+          test -d web/modules/contrib/mailsystem
+
       - name: Configure SSH
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
