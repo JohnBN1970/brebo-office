@@ -68,3 +68,6 @@ services:
     arguments:
       - '@brebo_mail_intake.template_catalog'
       - '@brebo_mail_intake.outbound'
+
+  brebo_mail_intake.html_renderer:
+    class: Drupal\brebo_mail_intake\Service\MailHtmlRenderer
