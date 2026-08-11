@@ -1,0 +1,113 @@
+name: BREBO Office CIM object consistency audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-cim-consistency-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Audit building, project, scope and communication relations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Upload read-only audit script
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
+            scripts/audit-cim-object-consistency.php \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-audit-cim-object-consistency.php"
+
+      - name: Run live read-only consistency audit
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
+          target="public_html/sboffice"
+          audit_script="/tmp/brebo-audit-cim-object-consistency.php"
+
+          if [[ ! -f "$target/vendor/drush/drush/drush.php" ]]; then
+            echo "::error::Drush entrypoint is missing."
+            exit 1
+          fi
+          if [[ ! -f "$audit_script" ]]; then
+            echo "::error::Temporary audit script is missing."
+            exit 1
+          fi
+
+          cd "$target"
+          export BREBO_CIM_AUDIT_SCRIPT="$audit_script"
+          timeout 120 php vendor/drush/drush/drush.php \
+            --root=web \
+            --uri=https://sboffice.brebobv.nl \
+            --no-ansi \
+            php:eval 'include getenv("BREBO_CIM_AUDIT_SCRIPT");'
+          REMOTE
+
+      - name: Remove temporary audit script
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set +e
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'rm -f /tmp/brebo-audit-cim-object-consistency.php'
