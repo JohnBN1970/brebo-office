@@ -1,0 +1,41 @@
+name: Install BREBO mail stack
+
+on:
+  push:
+    branches:
+      - feature/mimemail-smtp-stack
+
+permissions:
+  contents: write
+
+jobs:
+  composer-mail-stack:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: feature/mimemail-smtp-stack
+          fetch-depth: 0
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Add Mime Mail and SMTP dependencies
+        run: |
+          set -euo pipefail
+          composer require 'drupal/mimemail:^2.0' 'drupal/smtp:^1.4' --with-all-dependencies --no-interaction --no-progress
+          composer validate --no-check-publish
+
+      - name: Commit generated Composer state and remove helper workflow
+        run: |
+          set -euo pipefail
+          rm .github/workflows/install-brebo-mail-stack.yml
+          git config user.name 'BREBO Office Automation'
+          git config user.email 'actions@users.noreply.github.com'
+          git add composer.json composer.lock .github/workflows/install-brebo-mail-stack.yml
+          git commit -m 'Install Mime Mail and SMTP dependencies'
+          git push origin HEAD:feature/mimemail-smtp-stack
