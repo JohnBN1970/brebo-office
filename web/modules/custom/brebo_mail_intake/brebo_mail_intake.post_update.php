@@ -44,3 +44,28 @@ function brebo_mail_intake_post_update_outbound_mail_permission(array &$sandbox 
 
   return 'Uitgaand mailmandaat voor Projectleider was al aanwezig.';
 }
+
+/**
+ * Installs the BREBO mail formatting/transport building blocks.
+ *
+ * SMTP is deliberately kept disabled until Hostinger credentials are present
+ * as runtime-only configuration. Installing these modules must never make a
+ * previously approved concept leave the system by itself.
+ */
+function brebo_mail_intake_post_update_mail_stack_modules(array &$sandbox = NULL): string {
+  $moduleHandler = \Drupal::moduleHandler();
+  $installer = \Drupal::service('module_installer');
+  $wanted = ['mailsystem', 'mimemail', 'smtp'];
+  $missing = array_values(array_filter($wanted, static fn (string $module): bool => !$moduleHandler->moduleExists($module)));
+
+  if ($missing && !$installer->install($missing, TRUE)) {
+    throw new \RuntimeException('Mime Mail/Mail System/SMTP konden niet volledig worden geinstalleerd.');
+  }
+
+  $smtp = \Drupal::configFactory()->getEditable('smtp.settings');
+  if (!$smtp->isNew()) {
+    $smtp->set('smtp_on', FALSE)->save(TRUE);
+  }
+
+  return 'Mail System, Mime Mail en SMTP zijn beschikbaar; SMTP blijft bewust uit tot runtime-configuratie en expliciete activering.';
+}
