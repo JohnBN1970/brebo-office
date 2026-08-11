@@ -1,0 +1,24 @@
+uuid: f0dc722c-5927-4951-a456-1a40aec28397
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_signal
+id: node.brebo_signal.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_signal
+label: Gebouw
+description: 'Permanent gebouw waaraan dit dossierobject duurzaam gekoppeld blijft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

@@ -1,0 +1,22 @@
+uuid: 681da9ea-5660-4f75-a58f-1042969a539b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_residual_risk
+    - node.type.brebo_risk
+  module:
+    - text
+id: node.brebo_risk.field_brebo_residual_risk
+field_name: field_brebo_residual_risk
+entity_type: node
+bundle: brebo_risk
+label: Restrisico
+description: 'Resterend risico na uitvoering van de beheersmaatregel.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

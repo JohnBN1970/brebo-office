@@ -1,0 +1,19 @@
+uuid: b2e2f64e-3143-4fa6-b9b5-6dbe225fc182
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_residual_risk
+field_name: field_brebo_residual_risk
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

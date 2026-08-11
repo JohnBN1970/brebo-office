@@ -1,0 +1,22 @@
+uuid: e2064517-b509-43cd-a564-d95b541f139a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_risk_cause
+    - node.type.brebo_risk
+  module:
+    - text
+id: node.brebo_risk.field_brebo_risk_cause
+field_name: field_brebo_risk_cause
+entity_type: node
+bundle: brebo_risk
+label: Oorzaak
+description: 'Bron of omstandigheid waardoor het risico kan ontstaan.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

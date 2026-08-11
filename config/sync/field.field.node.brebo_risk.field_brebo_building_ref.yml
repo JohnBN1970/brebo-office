@@ -1,0 +1,24 @@
+uuid: 8ab9fc8d-375f-4153-9969-418e1e0e7fcb
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_risk
+id: node.brebo_risk.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_risk
+label: Gebouw
+description: 'Permanent gebouw waaraan dit dossierobject duurzaam gekoppeld blijft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

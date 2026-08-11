@@ -1,0 +1,21 @@
+uuid: 748ac1d6-f05c-44b8-9e6d-94eb081327ad
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_signal_status
+field_name: field_brebo_signal_status
+entity_type: node
+type: string
+settings:
+  max_length: 32
+  case_sensitive: false
+  is_ascii: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

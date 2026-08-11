@@ -1,0 +1,22 @@
+uuid: 3d81b9d9-3b42-467e-ba26-b54687c26e53
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_risk_consequence
+    - node.type.brebo_risk
+  module:
+    - text
+id: node.brebo_risk.field_brebo_risk_consequence
+field_name: field_brebo_risk_consequence
+entity_type: node
+bundle: brebo_risk
+label: Gevolg
+description: 'Mogelijk gevolg voor kwaliteit, veiligheid, tijd, geld, contract of omgeving.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

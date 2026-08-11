@@ -1,0 +1,21 @@
+uuid: 787ac07f-78f6-4fea-a4b9-a1a948dd15a8
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_context_ref
+    - node.type.brebo_action
+id: node.brebo_action.field_brebo_context_ref
+field_name: field_brebo_context_ref
+entity_type: node
+bundle: brebo_action
+label: 'Exact contextobject'
+description: 'Optioneel exact scope-, gebouw-, woning-, product-, communicatie- of ander dossierobject waarop dit item betrekking heeft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings: {  }
+field_type: entity_reference

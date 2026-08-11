@@ -1,0 +1,24 @@
+uuid: d871fdfb-e5d3-47dc-87a4-066493a7f9ba
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_project
+    - node.type.brebo_signal
+id: node.brebo_signal.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_signal
+label: Project
+description: 'Optioneel tijdelijk project waarop dit dossierobject betrekking heeft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

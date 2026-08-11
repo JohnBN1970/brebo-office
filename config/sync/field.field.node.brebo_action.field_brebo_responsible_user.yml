@@ -1,0 +1,21 @@
+uuid: 705d12de-a382-4948-9ef8-106ecf18382f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_responsible_user
+    - node.type.brebo_action
+id: node.brebo_action.field_brebo_responsible_user
+field_name: field_brebo_responsible_user
+entity_type: node
+bundle: brebo_action
+label: Verantwoordelijke
+description: 'Persoon met formele verantwoordelijkheid voor opvolging.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:user'
+  handler_settings: {  }
+field_type: entity_reference

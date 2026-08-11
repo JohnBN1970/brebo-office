@@ -1,0 +1,22 @@
+uuid: 4d02a9cf-aebb-4130-aed0-8454643f5e44
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_risk_measure
+    - node.type.brebo_risk
+  module:
+    - text
+id: node.brebo_risk.field_brebo_risk_measure
+field_name: field_brebo_risk_measure
+entity_type: node
+bundle: brebo_risk
+label: Beheersmaatregel
+description: 'Maatregel om kans en/of impact aantoonbaar te reduceren.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

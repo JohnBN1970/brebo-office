@@ -1,0 +1,21 @@
+uuid: f288f00e-76ac-4e34-b1ce-3f9a9bf7d11b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_signal_severity
+    - node.type.brebo_signal
+id: node.brebo_signal.field_brebo_signal_severity
+field_name: field_brebo_signal_severity
+entity_type: node
+bundle: brebo_signal
+label: Ernst
+description: 'Informatie, aandacht, hoog of kritiek.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Aandacht
+default_value_callback: ''
+settings: {  }
+field_type: string

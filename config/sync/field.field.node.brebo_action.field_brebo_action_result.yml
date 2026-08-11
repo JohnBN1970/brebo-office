@@ -1,0 +1,22 @@
+uuid: 84760b7f-e17a-4a3e-910b-2a8e02f1d5ef
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_action_result
+    - node.type.brebo_action
+  module:
+    - text
+id: node.brebo_action.field_brebo_action_result
+field_name: field_brebo_action_result
+entity_type: node
+bundle: brebo_action
+label: 'Resultaat en bewijs'
+description: 'Afhandeling, resultaat en verwijzing naar bewijs of vervolgobject.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

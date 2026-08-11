@@ -1,0 +1,24 @@
+uuid: 4b388506-b587-4616-904d-67b23b4b184c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_source_comm_ref
+    - node.type.brebo_communication
+    - node.type.brebo_signal
+id: node.brebo_signal.field_brebo_source_comm_ref
+field_name: field_brebo_source_comm_ref
+entity_type: node
+bundle: brebo_signal
+label: Broncommunicatie
+description: 'Optioneel communicatie-item waaruit dit item aantoonbaar is ontstaan.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_communication: brebo_communication
+field_type: entity_reference
