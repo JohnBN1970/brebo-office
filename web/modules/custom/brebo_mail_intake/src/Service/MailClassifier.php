@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\brebo_mail_intake\Service;
+
+/**
+ * Conservative deterministic classifier for incoming mail.
+ *
+ * This service deliberately prefers a lower confidence over an unsupported
+ * conclusion. AI enrichment may refine the proposal later, but this baseline is
+ * explainable and safe to use before human review.
+ */
+final class MailClassifier {
+
+  /**
+   * @return array{classification:string,confidence:float,basis:string}
+   */
+  public function classify(string $subject, string $body): array {
+    $text = mb_strtolower(trim($subject . "\n" . $body));
+    $rules = [
+      'garantie' => ['garantie', 'garantieclaim', 'garantiewerk', 'nazorg'],
+      'oplevering' => ['oplevering', 'opleverpunt', 'opleverlijst', 'restpunt'],
+      'klacht' => ['klacht', 'ontevreden', 'schade', 'lekkage', 'gebrek'],
+      'meerwerk' => ['meerwerk', 'minderwerk', 'aanvullende opdracht', 'extra werk'],
+      'inkoop' => ['inkoop', 'bestelling', 'levering', 'leverancier', 'orderbevestiging'],
+      'offerte' => ['offerte', 'prijsopgave', 'aanbieding', 'begroting'],
+      'planning' => ['planning', 'werkplanning', 'startdatum', 'uitvoeringstermijn', 'weekplanning'],
+      'bewonersmelding' => ['bewoner', 'huurder', 'woning', 'overlast', 'toegang woning'],
+      'foto' => ['foto', 'afbeelding', 'beeldmateriaal'],
+    ];
+
+    $scores = [];
+    foreach ($rules as $classification => $terms) {
+      $hits = 0;
+      foreach ($terms as $term) {
+        if (str_contains($text, $term)) {
+          $hits++;
+        }
+      }
+      if ($hits > 0) {
+        $scores[$classification] = $hits;
+      }
+    }
+
+    if ($scores === []) {
+      return [
+        'classification' => 'overig',
+        'confidence' => 35.0,
+        'basis' => 'Geen beheerste classificatieregel gaf voldoende aanwijzing; menselijke controle vereist.',
+      ];
+    }
+
+    arsort($scores);
+    $best = (string) array_key_first($scores);
+    $bestScore = (int) $scores[$best];
+    $secondScore = count($scores) > 1 ? (int) array_values($scores)[1] : 0;
+    $ambiguous = $secondScore === $bestScore;
+
+    return [
+      'classification' => $ambiguous ? 'overig' : $best,
+      'confidence' => $ambiguous ? 45.0 : min(90.0, 60.0 + (($bestScore - 1) * 10.0)),
+      'basis' => $ambiguous
+        ? 'Meerdere classificaties scoorden gelijk; geen categorie als feit gepresenteerd.'
+        : sprintf('Deterministische trefwoordclassificatie: %s met %d relevante aanwijzing(en).', $best, $bestScore),
+    ];
+  }
+
+}
