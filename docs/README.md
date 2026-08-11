@@ -6,6 +6,7 @@ Deze map bevat de bestuurlijke en technische documentatie van BREBO Office.
 
 | Document | Doel |
 | --- | --- |
+| [BREBO continuïteit](BREBO_CONTINUITEIT.md) | Startpunt voor iedere nieuwe chat of ontwikkelsessie: actuele stand, vaste uitgangspunten en eerstvolgende stap |
 | [Roadmap](ROADMAP.md) | Mijlpalen, actuele fase en eerstvolgende ontwikkelstappen |
 | [Wijzigingsregister](WIJZIGINGSREGISTER.md) | Herleidbare vastlegging van belangrijke wijzigingen en besluiten |
 | [BMS-backlog](BMS_BACKLOG.md) | Geprioriteerde proces- en ontwikkelopgaven |
@@ -17,6 +18,7 @@ Deze map bevat de bestuurlijke en technische documentatie van BREBO Office.
 
 ## Documentprincipes
 
+- Bij iedere nieuwe chat of ontwikkelsessie wordt eerst het continuïteitsdocument gelezen voordat nieuwe architectuur wordt voorgesteld.
 - Het BMS beschrijft de bedrijfsprocessen; technische implementatiedetails staan in de architectuurdocumentatie.
 - Het CIM vormt de leidende informatiestructuur voor objectrelaties en de vertaling naar Drupal, API's, workflows en AI.
 - Het gebouw staat centraal; projecten zijn tijdelijke uitvoeringseenheden rond een of meer gebouwen.
