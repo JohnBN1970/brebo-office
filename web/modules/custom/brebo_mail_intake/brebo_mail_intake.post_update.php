@@ -26,3 +26,21 @@ function brebo_mail_intake_post_update_review_queue_permission(array &$sandbox =
     ? 'Mail Intake beoordelingsrecht toegekend aan: ' . implode(', ', $updated) . '.'
     : 'Mail Intake beoordelingsrecht was al correct of de beoogde rollen bestaan niet.';
 }
+
+/**
+ * Gives only the Projectleider role the initial outbound send mandate.
+ */
+function brebo_mail_intake_post_update_outbound_mail_permission(array &$sandbox = NULL): string {
+  $role = Role::load('brebo_projectleider');
+  if (!$role) {
+    return 'Projectleiderrol bestaat niet; uitgaand mailmandaat is niet automatisch toegekend.';
+  }
+
+  $permission = 'send brebo outbound mail';
+  if (!$role->hasPermission($permission)) {
+    $role->grantPermission($permission)->save();
+    return 'Uitgaand mailmandaat toegekend aan Projectleider; verzending blijft daarnaast expliciete vrijgave per bericht vereisen.';
+  }
+
+  return 'Uitgaand mailmandaat voor Projectleider was al aanwezig.';
+}
