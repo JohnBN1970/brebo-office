@@ -1,0 +1,127 @@
+name: Diagnose sboffice server error
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-read-only-diagnosis
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: Read-only PHP and Drupal diagnosis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect active sboffice runtime without changing files
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -u
+          export NO_COLOR=1
+          export TERM=dumb
+          target="public_html/sboffice"
+
+          echo "=== Active paths and permissions ==="
+          for path in \
+            "$target" \
+            "$target/vendor/autoload.php" \
+            "$target/web" \
+            "$target/web/index.php" \
+            "$target/web/autoload.php" \
+            "$target/web/sites/default/settings.php" \
+            "$target/web/sites/default/files"; do
+            if [[ -e "$path" ]]; then
+              stat -c '%A %U:%G %s %n' "$path"
+            else
+              echo "MISSING $path"
+            fi
+          done
+
+          echo "=== PHP runtime ==="
+          php -v | head -n 2
+          php -r 'printf("SAPI=%s memory_limit=%s opcache=%s\n", PHP_SAPI, ini_get("memory_limit"), extension_loaded("Zend OPcache") ? "yes" : "no");'
+          php -m | LC_ALL=C sort | grep -E '^(ctype|curl|date|dom|fileinfo|filter|gd|hash|iconv|json|libxml|mbstring|mysqlnd|openssl|PDO|pdo_mysql|session|SimpleXML|sodium|tokenizer|xml|xmlreader|xmlwriter|Zend OPcache)$' || true
+
+          echo "=== PHP syntax and Composer autoload ==="
+          php -l "$target/web/index.php"
+          php -l "$target/web/sites/default/settings.php"
+          if php -r "require '$target/vendor/autoload.php';"; then
+            echo "COMPOSER_AUTOLOAD=ok"
+          else
+            echo "COMPOSER_AUTOLOAD=failed"
+          fi
+
+          echo "=== Drupal bootstrap through Drush (read-only) ==="
+          if [[ -x "$target/vendor/bin/drush" || -f "$target/vendor/bin/drush" ]]; then
+            (
+              cd "$target" &&
+              timeout 45 php vendor/bin/drush \
+                --root=web \
+                --uri=https://sboffice.brebobv.nl \
+                --no-ansi \
+                status \
+                --fields=bootstrap,db-status,drupal-version,php-bin,php-version,root,site-uri
+            )
+            drush_status=$?
+            echo "DRUSH_STATUS_EXIT=$drush_status"
+          else
+            echo "DRUSH=missing"
+          fi
+
+          echo "=== Candidate server logs (metadata only) ==="
+          find "$target" -maxdepth 3 -type f \
+            \( -name 'error_log' -o -name 'php_error.log' -o -name '*.error.log' \) \
+            -printf '%TY-%Tm-%Td %TH:%TM:%TS %s %p\n' 2>/dev/null | LC_ALL=C sort || true
+
+          echo "=== Public HTTP status (response body suppressed) ==="
+          if command -v curl >/dev/null 2>&1; then
+            curl --silent --show-error --output /dev/null \
+              --connect-timeout 15 --max-time 30 \
+              --write-out 'HTTP_STATUS=%{http_code} CONTENT_TYPE=%{content_type}\n' \
+              https://sboffice.brebobv.nl/ || echo "CURL_EXIT=$?"
+          else
+            echo "CURL=missing"
+          fi
+          REMOTE
