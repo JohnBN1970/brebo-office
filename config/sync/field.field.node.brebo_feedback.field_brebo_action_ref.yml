@@ -1,0 +1,24 @@
+uuid: 4c4532bd-79c8-41de-8568-d9604961d257
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_action_ref
+    - node.type.brebo_action
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_action_ref
+field_name: field_brebo_action_ref
+entity_type: node
+bundle: brebo_feedback
+label: Verbeteractie
+description: 'Herleidbare verbeteractie die uit deze feedback is vastgesteld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_action: brebo_action
+field_type: entity_reference

@@ -1,0 +1,22 @@
+uuid: a3a95c4d-aa11-4923-a47d-a5ea7d40c54a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_feedback_cause
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_feedback_cause
+field_name: field_brebo_feedback_cause
+entity_type: node
+bundle: brebo_feedback
+label: 'Beoordeelde oorzaak'
+description: 'Gevalideerde oorzaak of patroon achter de feedback; geen onbewezen aanname als feit registreren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

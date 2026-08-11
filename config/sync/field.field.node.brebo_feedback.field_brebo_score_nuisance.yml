@@ -1,0 +1,23 @@
+uuid: 3fd87cfa-ef4f-4092-88db-62494b72dda4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_nuisance
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_nuisance
+field_name: field_brebo_score_nuisance
+entity_type: node
+bundle: brebo_feedback
+label: 'Score ervaren overlast'
+description: 'Ervaringsscore voor de omgang met en beperking van overlast.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

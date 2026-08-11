@@ -1,0 +1,21 @@
+uuid: dba8c890-e854-48c0-b11f-7fb6a4b4c414
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_remeasure_date
+    - node.type.brebo_feedback
+  module:
+    - datetime
+id: node.brebo_feedback.field_brebo_remeasure_date
+field_name: field_brebo_remeasure_date
+entity_type: node
+bundle: brebo_feedback
+label: 'Opnieuw meten op'
+description: 'Datum waarop de werking van de verbetering opnieuw wordt beoordeeld of gemeten.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

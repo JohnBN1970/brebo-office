@@ -1,0 +1,22 @@
+uuid: 04050be4-c9b0-4f05-847a-227dc0b36329
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_positive_point
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_positive_point
+field_name: field_brebo_positive_point
+entity_type: node
+bundle: brebo_feedback
+label: 'Positief punt'
+description: 'Wat aantoonbaar goed is ervaren en behouden moet blijven.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

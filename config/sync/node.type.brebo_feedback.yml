@@ -1,0 +1,11 @@
+uuid: e970276e-b02c-4f7a-bcd2-b5ea3417890d
+langcode: nl
+status: true
+dependencies: {  }
+name: 'Feedback en tevredenheid'
+type: brebo_feedback
+description: 'Herleidbare feedback over communicatie, uitvoering en oplevering als structurele leerdata voor gebouw en project.'
+help: null
+new_revision: true
+preview_mode: 0
+display_submitted: false

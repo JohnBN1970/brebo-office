@@ -1,0 +1,23 @@
+uuid: cdb71940-c1a4-4588-84ca-e39974c239d7
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_duplicate_of
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_duplicate_of
+field_name: field_brebo_duplicate_of
+entity_type: node
+bundle: brebo_communication
+label: 'Duplicaat van'
+description: 'Bestaand communicatieobject dat dezelfde bronmail vertegenwoordigt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_communication: brebo_communication
+field_type: entity_reference

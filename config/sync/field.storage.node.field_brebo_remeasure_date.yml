@@ -1,0 +1,20 @@
+uuid: 61dcf3aa-1227-4259-95c2-37f171325cd9
+langcode: nl
+status: true
+dependencies:
+  module:
+    - datetime
+    - node
+id: node.field_brebo_remeasure_date
+field_name: field_brebo_remeasure_date
+entity_type: node
+type: datetime
+settings:
+  datetime_type: date
+module: datetime
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

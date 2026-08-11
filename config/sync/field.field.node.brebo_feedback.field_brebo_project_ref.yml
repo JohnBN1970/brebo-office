@@ -1,0 +1,24 @@
+uuid: a4f4839a-aa6f-4a44-87eb-6737c2710915
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_project_ref
+    - node.type.brebo_feedback
+    - node.type.brebo_project
+id: node.brebo_feedback.field_brebo_project_ref
+field_name: field_brebo_project_ref
+entity_type: node
+bundle: brebo_feedback
+label: Project
+description: 'Optioneel tijdelijk project waarin de feedback is ontstaan.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

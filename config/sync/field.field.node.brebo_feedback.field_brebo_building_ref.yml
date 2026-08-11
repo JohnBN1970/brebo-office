@@ -1,0 +1,24 @@
+uuid: 175f3171-5922-4816-9c67-4279059f50a3
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_building_ref
+field_name: field_brebo_building_ref
+entity_type: node
+bundle: brebo_feedback
+label: Gebouw
+description: 'Permanent gebouw waarop de feedback duurzaam betrekking heeft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

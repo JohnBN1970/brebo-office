@@ -29,13 +29,20 @@ dependencies:
     - field.field.node.brebo_communication.field_brebo_comm_type
     - field.field.node.brebo_communication.field_brebo_conversation_id
     - field.field.node.brebo_communication.field_brebo_due_date
+    - field.field.node.brebo_communication.field_brebo_duplicate_of
     - field.field.node.brebo_communication.field_brebo_external_contact
     - field.field.node.brebo_communication.field_brebo_external_party
     - field.field.node.brebo_communication.field_brebo_extract_version
     - field.field.node.brebo_communication.field_brebo_financial_impact
     - field.field.node.brebo_communication.field_brebo_formal_status
+    - field.field.node.brebo_communication.field_brebo_intake_status
     - field.field.node.brebo_communication.field_brebo_lens_domain
+    - field.field.node.brebo_communication.field_brebo_mail_classification
+    - field.field.node.brebo_communication.field_brebo_mail_from
+    - field.field.node.brebo_communication.field_brebo_mail_to
     - field.field.node.brebo_communication.field_brebo_mandate_confirmed
+    - field.field.node.brebo_communication.field_brebo_match_basis
+    - field.field.node.brebo_communication.field_brebo_match_confidence
     - field.field.node.brebo_communication.field_brebo_participants
     - field.field.node.brebo_communication.field_brebo_process_log
     - field.field.node.brebo_communication.field_brebo_processed_at
@@ -50,6 +57,8 @@ dependencies:
     - field.field.node.brebo_communication.field_brebo_source_files
     - field.field.node.brebo_communication.field_brebo_source_hash
     - field.field.node.brebo_communication.field_brebo_source_id
+    - field.field.node.brebo_communication.field_brebo_suggest_building_ref
+    - field.field.node.brebo_communication.field_brebo_suggest_project_ref
     - field.field.node.brebo_communication.field_brebo_transcript
     - field.field.node.brebo_communication.field_brebo_written_received
     - field.field.node.brebo_communication.field_brebo_written_required
@@ -281,6 +290,14 @@ content:
     third_party_settings: {  }
     weight: 14
     region: content
+  field_brebo_duplicate_of:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 58
+    region: content
   field_brebo_external_contact:
     type: string
     label: above
@@ -328,6 +345,15 @@ content:
     third_party_settings: {  }
     weight: 17
     region: content
+  field_brebo_intake_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 50
+    region: content
   field_brebo_lens_domain:
     type: string
     label: above
@@ -336,6 +362,31 @@ content:
       link_rel: canonical
     third_party_settings: {  }
     weight: 30
+    region: content
+  field_brebo_mail_classification:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 51
+    region: content
+  field_brebo_mail_from:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 52
+    region: content
+  field_brebo_mail_to:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 53
     region: content
   field_brebo_mandate_confirmed:
     type: boolean
@@ -346,6 +397,24 @@ content:
       format_custom_true: ''
     third_party_settings: {  }
     weight: 20
+    region: content
+  field_brebo_match_basis:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 55
+    region: content
+  field_brebo_match_confidence:
+    type: number_decimal
+    label: above
+    settings:
+      thousand_separator: ''
+      decimal_separator: .
+      scale: 2
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 54
     region: content
   field_brebo_participants:
     type: entity_reference_label
@@ -464,6 +533,22 @@ content:
       link_rel: canonical
     third_party_settings: {  }
     weight: 9
+    region: content
+  field_brebo_suggest_building_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 56
+    region: content
+  field_brebo_suggest_project_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 57
     region: content
   field_brebo_transcript:
     type: text_default

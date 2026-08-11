@@ -3,6 +3,7 @@ _core:
 module:
   block: 0
   brebo_article: 0
+  brebo_mail_intake: 0
   brebo_office_core: 0
   datetime: 0
   dblog: 0

@@ -1,0 +1,24 @@
+uuid: 650c9542-956b-4782-b32e-37ee61827ee9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_suggest_project_ref
+    - node.type.brebo_communication
+    - node.type.brebo_project
+id: node.brebo_communication.field_brebo_suggest_project_ref
+field_name: field_brebo_suggest_project_ref
+entity_type: node
+bundle: brebo_communication
+label: 'Voorgesteld project'
+description: 'Niet-vastgestelde projectsuggestie. De canonieke Project-koppeling wordt pas na controle gevuld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_project: brebo_project
+field_type: entity_reference

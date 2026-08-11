@@ -1,0 +1,24 @@
+uuid: 8fd0e44f-c6ef-495f-93d2-b619885bad0b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_source_comm_ref
+    - node.type.brebo_communication
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_source_comm_ref
+field_name: field_brebo_source_comm_ref
+entity_type: node
+bundle: brebo_feedback
+label: Broncommunicatie
+description: 'Optioneel communicatie-item waarmee de feedback als bronbewijs herleidbaar blijft.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_communication: brebo_communication
+field_type: entity_reference

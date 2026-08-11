@@ -1,0 +1,22 @@
+uuid: 4a7afa46-3127-4b51-aa08-4f2ce4a61d79
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_changed_practice
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_changed_practice
+field_name: field_brebo_changed_practice
+entity_type: node
+bundle: brebo_feedback
+label: 'Gewijzigde werkwijze'
+description: 'Vastgelegde wijziging van werkwijze, instructie of proces na uitvoering en beoordeling van de verbeteractie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

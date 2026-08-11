@@ -1,0 +1,23 @@
+uuid: c5797841-c86e-4824-ad7d-dbde559e3545
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_clarity
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_clarity
+field_name: field_brebo_score_clarity
+entity_type: node
+bundle: brebo_feedback
+label: 'Score communicatie en duidelijkheid'
+description: 'Ervaringsscore voor communicatie en duidelijkheid; schaal wordt in de registratie expliciet vermeld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

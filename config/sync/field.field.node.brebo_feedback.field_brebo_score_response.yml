@@ -1,0 +1,23 @@
+uuid: 84123070-10b2-4a88-b1a3-a99277eed934
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_response
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_response
+field_name: field_brebo_score_response
+entity_type: node
+bundle: brebo_feedback
+label: 'Score reactiesnelheid'
+description: 'Ervaringsscore voor reactiesnelheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

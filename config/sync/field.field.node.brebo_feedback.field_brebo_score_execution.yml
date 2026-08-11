@@ -1,0 +1,23 @@
+uuid: 43eeac16-2bcf-48ca-87d3-468ed0290e0c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_execution
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_execution
+field_name: field_brebo_score_execution
+entity_type: node
+bundle: brebo_feedback
+label: 'Score kwaliteit uitvoering'
+description: 'Ervaringsscore voor de kwaliteit van de uitvoering.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer
