@@ -19,3 +19,9 @@ services:
       - '@brebo_mail_intake.classifier'
       - '@brebo_mail_intake.relation_suggester'
       - '@brebo_mail_intake.ingestor'
+
+  brebo_mail_intake.proposal_materializer:
+    class: Drupal\brebo_mail_intake\Service\MailProposalMaterializer
+    arguments:
+      - '@entity_type.manager'
+      - '@current_user'
