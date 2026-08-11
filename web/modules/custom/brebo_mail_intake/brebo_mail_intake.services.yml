@@ -54,3 +54,17 @@ services:
       - '@plugin.manager.mail'
       - '@datetime.time'
       - '@config.factory'
+
+  brebo_mail_intake.template_catalog:
+    class: Drupal\brebo_mail_intake\Service\MailTemplateCatalog
+
+  brebo_mail_intake.ai_draft_policy:
+    class: Drupal\brebo_mail_intake\Service\AiMailDraftPolicy
+    arguments:
+      - '@brebo_mail_intake.template_catalog'
+
+  brebo_mail_intake.organizational_draft:
+    class: Drupal\brebo_mail_intake\Service\OrganizationalMailDraftService
+    arguments:
+      - '@brebo_mail_intake.template_catalog'
+      - '@brebo_mail_intake.outbound'
