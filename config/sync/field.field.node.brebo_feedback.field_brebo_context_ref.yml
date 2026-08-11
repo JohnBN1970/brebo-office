@@ -1,0 +1,21 @@
+uuid: c5afbf94-15a0-4686-8247-9b5723f5752b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_context_ref
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_context_ref
+field_name: field_brebo_context_ref
+entity_type: node
+bundle: brebo_feedback
+label: 'Exact contextobject'
+description: 'Exact gebouwdeel, woning, productpositie, projectscope, werkpakket, communicatie- of ander dossierobject waarop de feedback ziet.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings: {  }
+field_type: entity_reference

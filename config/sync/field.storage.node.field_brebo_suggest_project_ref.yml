@@ -1,0 +1,19 @@
+uuid: bd728a5c-3dba-4be3-88f3-178d4186665b
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_suggest_project_ref
+field_name: field_brebo_suggest_project_ref
+entity_type: node
+type: entity_reference
+settings:
+  target_type: node
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

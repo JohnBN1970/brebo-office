@@ -1,0 +1,19 @@
+uuid: 4cf3b315-eaea-4080-8e28-03b10d336594
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_scale
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_scale
+field_name: field_brebo_score_scale
+entity_type: node
+bundle: brebo_feedback
+label: Scoreschaal
+description: 'Expliciete schaal voor de ingevulde scores, bijvoorbeeld 1-5 of 1-10.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

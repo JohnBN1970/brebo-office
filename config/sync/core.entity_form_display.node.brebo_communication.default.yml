@@ -29,13 +29,20 @@ dependencies:
     - field.field.node.brebo_communication.field_brebo_comm_type
     - field.field.node.brebo_communication.field_brebo_conversation_id
     - field.field.node.brebo_communication.field_brebo_due_date
+    - field.field.node.brebo_communication.field_brebo_duplicate_of
     - field.field.node.brebo_communication.field_brebo_external_contact
     - field.field.node.brebo_communication.field_brebo_external_party
     - field.field.node.brebo_communication.field_brebo_extract_version
     - field.field.node.brebo_communication.field_brebo_financial_impact
     - field.field.node.brebo_communication.field_brebo_formal_status
+    - field.field.node.brebo_communication.field_brebo_intake_status
     - field.field.node.brebo_communication.field_brebo_lens_domain
+    - field.field.node.brebo_communication.field_brebo_mail_classification
+    - field.field.node.brebo_communication.field_brebo_mail_from
+    - field.field.node.brebo_communication.field_brebo_mail_to
     - field.field.node.brebo_communication.field_brebo_mandate_confirmed
+    - field.field.node.brebo_communication.field_brebo_match_basis
+    - field.field.node.brebo_communication.field_brebo_match_confidence
     - field.field.node.brebo_communication.field_brebo_participants
     - field.field.node.brebo_communication.field_brebo_process_log
     - field.field.node.brebo_communication.field_brebo_processed_at
@@ -50,6 +57,8 @@ dependencies:
     - field.field.node.brebo_communication.field_brebo_source_files
     - field.field.node.brebo_communication.field_brebo_source_hash
     - field.field.node.brebo_communication.field_brebo_source_id
+    - field.field.node.brebo_communication.field_brebo_suggest_building_ref
+    - field.field.node.brebo_communication.field_brebo_suggest_project_ref
     - field.field.node.brebo_communication.field_brebo_transcript
     - field.field.node.brebo_communication.field_brebo_written_received
     - field.field.node.brebo_communication.field_brebo_written_required
@@ -282,6 +291,16 @@ content:
     region: content
     settings: {  }
     third_party_settings: {  }
+  field_brebo_duplicate_of:
+    type: entity_reference_autocomplete
+    weight: 58
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
   field_brebo_external_contact:
     type: string_textfield
     weight: 9
@@ -321,6 +340,14 @@ content:
       size: 60
       placeholder: ''
     third_party_settings: {  }
+  field_brebo_intake_status:
+    type: string_textfield
+    weight: 50
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
   field_brebo_lens_domain:
     type: string_textfield
     weight: 30
@@ -329,12 +356,51 @@ content:
       size: 60
       placeholder: ''
     third_party_settings: {  }
+  field_brebo_mail_classification:
+    type: string_textfield
+    weight: 51
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_mail_from:
+    type: string_textfield
+    weight: 52
+    region: content
+    settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_mail_to:
+    type: text_textarea
+    weight: 53
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
   field_brebo_mandate_confirmed:
     type: boolean_checkbox
     weight: 20
     region: content
     settings:
       display_label: true
+    third_party_settings: {  }
+  field_brebo_match_basis:
+    type: text_textarea
+    weight: 55
+    region: content
+    settings:
+      rows: 5
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_match_confidence:
+    type: number
+    weight: 54
+    region: content
+    settings:
+      placeholder: ''
     third_party_settings: {  }
   field_brebo_participants:
     type: entity_reference_autocomplete
@@ -446,6 +512,26 @@ content:
     weight: 9
     region: content
     settings:
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_suggest_building_ref:
+    type: entity_reference_autocomplete
+    weight: 56
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
+      size: 60
+      placeholder: ''
+    third_party_settings: {  }
+  field_brebo_suggest_project_ref:
+    type: entity_reference_autocomplete
+    weight: 57
+    region: content
+    settings:
+      match_operator: CONTAINS
+      match_limit: 10
       size: 60
       placeholder: ''
     third_party_settings: {  }

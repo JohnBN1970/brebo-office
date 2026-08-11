@@ -1,0 +1,23 @@
+uuid: 73c744ed-3571-4cb8-9d8c-b61714f9a3f2
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_match_confidence
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_match_confidence
+field_name: field_brebo_match_confidence
+entity_type: node
+bundle: brebo_communication
+label: 'Koppelvertrouwen (%)'
+description: 'Technische waarschijnlijkheid van de voorgestelde gebouw-/projectkoppeling; nooit zelfstandig bewijs.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: decimal

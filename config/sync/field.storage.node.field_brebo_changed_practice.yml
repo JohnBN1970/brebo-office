@@ -1,0 +1,19 @@
+uuid: 99c35bab-0b45-4b4b-a2bb-fb47722e752a
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+    - text
+id: node.field_brebo_changed_practice
+field_name: field_brebo_changed_practice
+entity_type: node
+type: text_long
+settings: {  }
+module: text
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

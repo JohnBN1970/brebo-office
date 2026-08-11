@@ -1,0 +1,265 @@
+uuid: bba58315-e8bd-40ee-89a7-a01f58fe54cd
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.field.node.brebo_feedback.field_brebo_action_ref
+    - field.field.node.brebo_feedback.field_brebo_building_ref
+    - field.field.node.brebo_feedback.field_brebo_changed_practice
+    - field.field.node.brebo_feedback.field_brebo_context_ref
+    - field.field.node.brebo_feedback.field_brebo_feedback_cause
+    - field.field.node.brebo_feedback.field_brebo_feedback_date
+    - field.field.node.brebo_feedback.field_brebo_feedback_reason
+    - field.field.node.brebo_feedback.field_brebo_feedback_source
+    - field.field.node.brebo_feedback.field_brebo_feedback_status
+    - field.field.node.brebo_feedback.field_brebo_feedback_type
+    - field.field.node.brebo_feedback.field_brebo_improvement_point
+    - field.field.node.brebo_feedback.field_brebo_negative_point
+    - field.field.node.brebo_feedback.field_brebo_positive_point
+    - field.field.node.brebo_feedback.field_brebo_project_ref
+    - field.field.node.brebo_feedback.field_brebo_remeasure_date
+    - field.field.node.brebo_feedback.field_brebo_score_agreements
+    - field.field.node.brebo_feedback.field_brebo_score_clarity
+    - field.field.node.brebo_feedback.field_brebo_score_complaints
+    - field.field.node.brebo_feedback.field_brebo_score_execution
+    - field.field.node.brebo_feedback.field_brebo_score_handover
+    - field.field.node.brebo_feedback.field_brebo_score_nuisance
+    - field.field.node.brebo_feedback.field_brebo_score_overall
+    - field.field.node.brebo_feedback.field_brebo_score_reachability
+    - field.field.node.brebo_feedback.field_brebo_score_response
+    - field.field.node.brebo_feedback.field_brebo_score_scale
+    - field.field.node.brebo_feedback.field_brebo_source_comm_ref
+    - node.type.brebo_feedback
+  module:
+    - datetime
+    - text
+    - user
+id: node.brebo_feedback.default
+targetEntityType: node
+bundle: brebo_feedback
+mode: default
+content:
+  field_brebo_action_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 23
+    region: content
+  field_brebo_building_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 1
+    region: content
+  field_brebo_changed_practice:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 24
+    region: content
+  field_brebo_context_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 3
+    region: content
+  field_brebo_feedback_cause:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 22
+    region: content
+  field_brebo_feedback_date:
+    type: datetime_default
+    label: above
+    settings:
+      timezone_override: ''
+      format_type: medium
+    third_party_settings: {  }
+    weight: 5
+    region: content
+  field_brebo_feedback_reason:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 18
+    region: content
+  field_brebo_feedback_source:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 6
+    region: content
+  field_brebo_feedback_status:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 26
+    region: content
+  field_brebo_feedback_type:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 7
+    region: content
+  field_brebo_improvement_point:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 21
+    region: content
+  field_brebo_negative_point:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 20
+    region: content
+  field_brebo_positive_point:
+    type: text_default
+    label: above
+    settings: {  }
+    third_party_settings: {  }
+    weight: 19
+    region: content
+  field_brebo_project_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 2
+    region: content
+  field_brebo_remeasure_date:
+    type: datetime_default
+    label: above
+    settings:
+      timezone_override: ''
+      format_type: medium
+    third_party_settings: {  }
+    weight: 25
+    region: content
+  field_brebo_score_agreements:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 11
+    region: content
+  field_brebo_score_clarity:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 8
+    region: content
+  field_brebo_score_complaints:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 14
+    region: content
+  field_brebo_score_execution:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 12
+    region: content
+  field_brebo_score_handover:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 15
+    region: content
+  field_brebo_score_nuisance:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 13
+    region: content
+  field_brebo_score_overall:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 16
+    region: content
+  field_brebo_score_reachability:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 9
+    region: content
+  field_brebo_score_response:
+    type: number_integer
+    label: above
+    settings:
+      thousand_separator: ''
+      prefix_suffix: true
+    third_party_settings: {  }
+    weight: 10
+    region: content
+  field_brebo_score_scale:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 17
+    region: content
+  field_brebo_source_comm_ref:
+    type: entity_reference_label
+    label: above
+    settings:
+      link: true
+    third_party_settings: {  }
+    weight: 4
+    region: content
+  links:
+    settings: {  }
+    third_party_settings: {  }
+    weight: 100
+    region: content
+hidden:
+  langcode: true

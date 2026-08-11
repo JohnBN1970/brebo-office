@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - develop
+    paths-ignore:
+      - 'config/sync/**'
   workflow_dispatch:
 
 permissions:

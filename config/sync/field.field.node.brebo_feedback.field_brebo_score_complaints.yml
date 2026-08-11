@@ -1,0 +1,23 @@
+uuid: d9fa0e60-e487-4ac7-b5a5-82a687c89df9
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_complaints
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_complaints
+field_name: field_brebo_score_complaints
+entity_type: node
+bundle: brebo_feedback
+label: 'Score klachtbehandeling'
+description: 'Ervaringsscore voor klachtbehandeling, indien van toepassing.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

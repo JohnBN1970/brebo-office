@@ -18,6 +18,7 @@ dependencies:
     - node.type.brebo_contact
     - node.type.brebo_deviation
     - node.type.brebo_dwelling
+    - node.type.brebo_feedback
     - node.type.brebo_offer_post
     - node.type.brebo_offer_version
     - node.type.brebo_organization
@@ -64,6 +65,7 @@ permissions:
   - 'create brebo_contact content'
   - 'create brebo_deviation content'
   - 'create brebo_dwelling content'
+  - 'create brebo_feedback content'
   - 'create brebo_offer_post content'
   - 'create brebo_offer_version content'
   - 'create brebo_organization content'
@@ -100,6 +102,7 @@ permissions:
   - 'edit any brebo_contact content'
   - 'edit any brebo_deviation content'
   - 'edit any brebo_dwelling content'
+  - 'edit any brebo_feedback content'
   - 'edit any brebo_offer_post content'
   - 'edit any brebo_offer_version content'
   - 'edit any brebo_organization content'
@@ -136,6 +139,7 @@ permissions:
   - 'edit own brebo_contact content'
   - 'edit own brebo_deviation content'
   - 'edit own brebo_dwelling content'
+  - 'edit own brebo_feedback content'
   - 'edit own brebo_offer_post content'
   - 'edit own brebo_offer_version content'
   - 'edit own brebo_organization content'
@@ -172,6 +176,7 @@ permissions:
   - 'view brebo_contact revisions'
   - 'view brebo_deviation revisions'
   - 'view brebo_dwelling revisions'
+  - 'view brebo_feedback revisions'
   - 'view brebo_offer_post revisions'
   - 'view brebo_offer_version revisions'
   - 'view brebo_organization revisions'

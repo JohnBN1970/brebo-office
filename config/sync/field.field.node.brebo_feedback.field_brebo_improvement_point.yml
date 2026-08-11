@@ -1,0 +1,22 @@
+uuid: 0d097ad5-d83c-42a6-a079-a97d397d6e3f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_improvement_point
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_improvement_point
+field_name: field_brebo_improvement_point
+entity_type: node
+bundle: brebo_feedback
+label: Verbeterpunt
+description: 'Concreet verbeterpunt dat uit de feedback volgt.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

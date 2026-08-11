@@ -1,0 +1,24 @@
+uuid: 562e0b5a-95c0-4932-af87-3ce703cd7e73
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_suggest_building_ref
+    - node.type.brebo_building
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_suggest_building_ref
+field_name: field_brebo_suggest_building_ref
+entity_type: node
+bundle: brebo_communication
+label: 'Voorgesteld gebouw'
+description: 'Niet-vastgestelde gebouwsuggestie. De canonieke Gebouw-koppeling wordt pas na controle gevuld.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  handler: 'default:node'
+  handler_settings:
+    target_bundles:
+      brebo_building: brebo_building
+field_type: entity_reference

@@ -1,0 +1,20 @@
+uuid: efcddda5-12fe-4d69-8958-2051aa8daf37
+langcode: nl
+status: true
+dependencies:
+  module:
+    - datetime
+    - node
+id: node.field_brebo_feedback_date
+field_name: field_brebo_feedback_date
+entity_type: node
+type: datetime
+settings:
+  datetime_type: date
+module: datetime
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

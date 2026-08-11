@@ -1,0 +1,23 @@
+uuid: 402bff2f-e906-4128-97ae-9272b50e67bc
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_agreements
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_agreements
+field_name: field_brebo_score_agreements
+entity_type: node
+bundle: brebo_feedback
+label: 'Score nakomen afspraken'
+description: 'Ervaringsscore voor het nakomen van afspraken.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

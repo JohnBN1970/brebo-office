@@ -1,0 +1,22 @@
+uuid: 9eb31ff8-3feb-479c-b90f-9a72698e302f
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_feedback_reason
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_feedback_reason
+field_name: field_brebo_feedback_reason
+entity_type: node
+bundle: brebo_feedback
+label: 'Toelichting en reden'
+description: 'Kwalitatieve reden achter de gegeven score of reactie.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

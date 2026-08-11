@@ -1,0 +1,21 @@
+uuid: 65a394cb-8b60-4957-b21a-1e86e1ff0c36
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_feedback_date
+    - node.type.brebo_feedback
+  module:
+    - datetime
+id: node.brebo_feedback.field_brebo_feedback_date
+field_name: field_brebo_feedback_date
+entity_type: node
+bundle: brebo_feedback
+label: Feedbackdatum
+description: 'Datum waarop de feedback is ontvangen of geregistreerd.'
+required: true
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: datetime

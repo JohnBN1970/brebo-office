@@ -1,0 +1,22 @@
+uuid: e46eb694-91e0-4a9a-9da9-f4c9819a652b
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_negative_point
+    - node.type.brebo_feedback
+  module:
+    - text
+id: node.brebo_feedback.field_brebo_negative_point
+field_name: field_brebo_negative_point
+entity_type: node
+bundle: brebo_feedback
+label: 'Negatief punt'
+description: 'Wat aantoonbaar negatief is ervaren.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long

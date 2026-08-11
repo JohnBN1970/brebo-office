@@ -1,0 +1,21 @@
+uuid: 85b6a08b-8063-465e-91aa-2672a10f5a5c
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_feedback_status
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_feedback_status
+field_name: field_brebo_feedback_status
+entity_type: node
+bundle: brebo_feedback
+label: Feedbackstatus
+description: 'Nieuw, beoordeeld, actie vereist, verbetering uitgevoerd, opnieuw gemeten of gesloten.'
+required: true
+translatable: true
+default_value:
+  -
+    value: Nieuw
+default_value_callback: ''
+settings: {  }
+field_type: string

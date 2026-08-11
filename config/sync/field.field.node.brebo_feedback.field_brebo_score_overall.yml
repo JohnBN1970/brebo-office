@@ -1,0 +1,23 @@
+uuid: b75d28a4-5477-4d6e-aeaa-3706389a782a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_score_overall
+    - node.type.brebo_feedback
+id: node.brebo_feedback.field_brebo_score_overall
+field_name: field_brebo_score_overall
+entity_type: node
+bundle: brebo_feedback
+label: 'Algemeen oordeel'
+description: 'Algemene ervaringsscore.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  min: null
+  max: null
+  prefix: ''
+  suffix: ''
+field_type: integer

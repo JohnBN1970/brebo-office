@@ -1,0 +1,22 @@
+uuid: e29f8e3e-cb93-4ed5-b35e-e06f7800e8b1
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_mail_to
+    - node.type.brebo_communication
+  module:
+    - text
+id: node.brebo_communication.field_brebo_mail_to
+field_name: field_brebo_mail_to
+entity_type: node
+bundle: brebo_communication
+label: E-mailontvangers
+description: 'Ongewijzigde ontvangerweergave uit To/Cc voor herleidbaarheid.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings:
+  allowed_formats: {  }
+field_type: text_long
