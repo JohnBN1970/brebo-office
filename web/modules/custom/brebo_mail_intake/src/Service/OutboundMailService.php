@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -13,9 +14,9 @@ use Drupal\node\NodeInterface;
 /**
  * Creates auditable outbound drafts and sends only explicitly approved mail.
  *
- * The service deliberately uses Drupal's mail manager. Mime Mail can therefore
- * provide MIME/HTML rendering and SMTP can provide transport without coupling
- * dossier logic to either contributed module.
+ * Dossier logic stays independent from the formatter and transport. Mime Mail
+ * formats the message, SMTP transports it, and this service controls mandate,
+ * approval and audit history.
  */
 final class OutboundMailService {
 
@@ -24,6 +25,7 @@ final class OutboundMailService {
     private readonly AccountProxyInterface $currentUser,
     private readonly MailManagerInterface $mailManager,
     private readonly TimeInterface $time,
+    private readonly ConfigFactoryInterface $configFactory,
   ) {}
 
   /**
@@ -95,6 +97,12 @@ final class OutboundMailService {
     }
     if (trim((string) $communication->get('field_brebo_formal_status')->value) !== 'Verzenden goedgekeurd') {
       throw new \RuntimeException('Mail is niet expliciet vrijgegeven voor verzending.');
+    }
+
+    $runtimeEnabled = filter_var(getenv('BREBO_SMTP_ENABLED') ?: '0', FILTER_VALIDATE_BOOL);
+    $smtpEnabled = (bool) $this->configFactory->get('smtp.settings')->get('smtp_on');
+    if (!$runtimeEnabled || !$smtpEnabled) {
+      throw new \RuntimeException('BREBO SMTP-transport is nog niet expliciet geactiveerd; bericht blijft ongewijzigd als goedgekeurd concept staan.');
     }
 
     $to = trim((string) $communication->get('field_brebo_mail_to')->value);

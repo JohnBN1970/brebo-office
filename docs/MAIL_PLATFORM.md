@@ -22,6 +22,7 @@ BREBO Mail Intake
 BREBO AI-laag
    -> samenvatting / conceptantwoord / controles
 Drupal mail-laag
+   -> Mail System routeert formatter en sender
    -> Mime Mail voor HTML/opmaak/bijlagen
    -> SMTP voor verzending als info@brebobv.nl
    -> verzonden bericht terug naar brebo_communication
@@ -38,7 +39,10 @@ Drupal mail-laag
 - Onzekere gebouw-/projectrelaties blijven voorstellen tot controle.
 - AI mag analyseren, classificeren, samenvatten en concepten voorbereiden, maar geen onbewezen dossierwaarheid creëren.
 - Mime Mail is de presentatielaag voor nette HTML-mail en bijlagen; SMTP is de transportlaag voor uitgaande mail.
-- Uitgaande mail wordt na verzending opnieuw als `brebo_communication` vastgelegd zodat het dossier volledig blijft.
+- Uitgaande mail wordt eerst als `brebo_communication`-concept vastgelegd en pas na expliciete vrijgave verzonden.
+- AI of achtergrondprocessen mogen nooit zelfstandig de formele status `Verzenden goedgekeurd` zetten.
+- Een verzendactie vereist zowel het BREBO-verzendmandaat als expliciete runtime-activering van SMTP.
+- Uitgaande mail wordt na succesvolle verzending in hetzelfde `brebo_communication`-object als verzonden vastgelegd.
 - Mailwachtwoorden, SMTP-credentials en andere secrets staan nooit in GitHub of Drupal-config-export.
 - Geen `drush cim` in de deployketen.
 
@@ -59,6 +63,18 @@ De provider-neutrale IMAP-adapter gebruikt runtime secrets/variabelen:
 
 De adapter wordt alleen actief als alle vereiste runtimewaarden bestaan en de PHP IMAP-extensie beschikbaar is.
 
+## Runtime configuratie uitgaand
+
+De codebase bevat Mail System, Mime Mail en SMTP. Installatie van deze modules activeert verzending niet automatisch. SMTP blijft uit totdat de Hostinger-mailbox klaar is en de serverconfiguratie expliciet wordt aangezet.
+
+Vereiste runtimegrens:
+
+- `BREBO_MAIL_ADDRESS=info@brebobv.nl`
+- `BREBO_SMTP_ENABLED=1` pas na succesvolle verbindings- en verzendtest;
+- SMTP host, poort, protocol, gebruikersnaam en wachtwoord worden als server-only Drupal config overrides/runtime-secrets gezet en niet naar `config/sync` geschreven.
+
+BREBO Office weigert een goedgekeurd bericht te verzenden zolang zowel de runtimeflag als `smtp.settings:smtp_on` niet actief zijn. Hiermee kan installatie en deployment veilig plaatsvinden voordat de echte mailboxcredentials beschikbaar zijn.
+
 ## Migratie Zoho
 
 De migratie wordt in twee sporen uitgevoerd:
@@ -68,12 +84,14 @@ De migratie wordt in twee sporen uitgevoerd:
 
 De MX-omschakeling naar Hostinger gebeurt pas nadat de nieuwe mailbox operationeel is en de migratieroute getest is.
 
-## Volgende bouwstappen
+## Bouwstatus
 
-1. provider-neutrale IMAP intake live zetten;
-2. Hostinger `info@brebobv.nl` runtime-secrets aansluiten;
-3. Mime Mail + SMTP transport toevoegen;
-4. verzonden mail automatisch terugschrijven naar `brebo_communication`;
-5. AI conceptantwoord en inhoudscontrole toevoegen;
-6. Zoho-historie in beheersbare batches migreren en verwerken;
-7. bijlagen en thread/conversation-relaties verder verdiepen.
+1. provider-neutrale IMAP intake: gebouwd;
+2. aparte Zoho-migratiebron: gebouwd;
+3. auditable uitgaand mailconcept + verzendmandaat: gebouwd;
+4. Mail System + Mime Mail + SMTP dependencies: gebouwd;
+5. veilige SMTP-activeringsgrens: gebouwd;
+6. Hostinger `info@brebobv.nl` runtime-secrets: wacht op mailboxaanmaak;
+7. Mail System formatter/sender definitief koppelen en echte verzendtest: na mailboxaanmaak;
+8. Zoho-historie in beheersbare batches migreren en verwerken: na broncredentials;
+9. bijlagen en thread/conversation-relaties verder verdiepen: vervolg.
