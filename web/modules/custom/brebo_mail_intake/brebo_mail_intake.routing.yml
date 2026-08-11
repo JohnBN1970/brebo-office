@@ -5,3 +5,11 @@ brebo_mail_intake.review_queue:
     _title: 'Mail Intake beoordelingswerkbak'
   requirements:
     _permission: 'review brebo mail intake'
+
+brebo_mail_intake.runtime_readiness:
+  path: '/admin/brebo/mail-intake/runtime'
+  defaults:
+    _controller: '\Drupal\brebo_mail_intake\Controller\MailRuntimeReadinessController::page'
+    _title: 'Mail runtime gereedheid'
+  requirements:
+    _permission: 'review brebo mail intake'
