@@ -1,0 +1,139 @@
+name: Deploy BREBO Office develop to sboffice
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy develop to sboffice
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout develop
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+          fetch-depth: 1
+
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+          test -s ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Build deployment archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='web/sites/default/files' \
+            --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/services.yml' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            -czf /tmp/brebo-office-develop.tgz .
+
+      - name: Upload deployment archive
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
+
+      - name: Deploy safely on server
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          target="public_html/sboffice"
+          archive="/tmp/brebo-office-develop.tgz"
+
+          if [[ ! -d "$target" ]]; then
+            echo "::error::The sboffice target directory does not exist."
+            exit 1
+          fi
+          if [[ ! -f "$target/web/sites/default/settings.php" ]]; then
+            echo "::error::Runtime settings.php is missing; refusing to deploy."
+            exit 1
+          fi
+
+          stamp="$(date +%Y%m%d-%H%M%S)"
+          backup="$target/.deploy-backup-$stamp"
+          mkdir -p "$backup"
+
+          for path in web/sites/default/settings.php web/sites/default/services.yml; do
+            if [[ -f "$target/$path" ]]; then
+              mkdir -p "$backup/$(dirname "$path")"
+              cp -p "$target/$path" "$backup/$path"
+            fi
+          done
+
+          tar -xzf "$archive" -C "$target"
+
+          for path in web/sites/default/settings.php web/sites/default/services.yml; do
+            if [[ -f "$backup/$path" ]]; then
+              cp -p "$backup/$path" "$target/$path"
+            fi
+          done
+
+          rm -f "$archive"
+
+          cd "$target"
+          if [[ -f vendor/drush/drush/drush.php ]]; then
+            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
+            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cr
+          fi
+
+          if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
+            echo "::error::Expected canonical audit script is missing after deploy."
+            exit 1
+          fi
+
+          echo "DEPLOY_OK=1"
+          echo "TARGET=$target"
+          echo "BACKUP=$backup"
+          REMOTE
