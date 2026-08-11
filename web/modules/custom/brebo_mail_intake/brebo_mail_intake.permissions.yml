@@ -2,3 +2,8 @@ review brebo mail intake:
   title: 'BREBO Mail Intake beoordelen'
   description: 'Beoordeel onzekere en nog niet verwerkte mailintake-items.'
   restrict access: true
+
+send brebo outbound mail:
+  title: 'BREBO uitgaande e-mail verzenden'
+  description: 'Verzend uitsluitend expliciet vrijgegeven uitgaande communicatie via het geconfigureerde mailsysteem.'
+  restrict access: true

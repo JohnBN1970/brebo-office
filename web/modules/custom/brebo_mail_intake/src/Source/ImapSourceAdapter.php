@@ -9,18 +9,20 @@ use Drupal\Core\State\StateInterface;
 /**
  * Provider-neutral read-only IMAP source for BREBO Mail Intake.
  *
- * Designed for the permanent info@brebobv.nl mailbox and for staged Zoho
- * migration. The adapter never deletes, moves, flags or marks source mail read.
+ * One class is used for the permanent mailbox and staged migration sources.
+ * It never deletes, moves, flags or marks source mail as read.
  */
 final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
   public function __construct(
     private readonly StateInterface $state,
+    private readonly string $envPrefix = 'BREBO_IMAP',
+    private readonly string $stateKey = 'imap',
   ) {}
 
   public function isConfigured(): bool {
-    foreach (['BREBO_IMAP_HOST', 'BREBO_IMAP_USER', 'BREBO_IMAP_PASSWORD', 'BREBO_MAIL_INTAKE_UID'] as $name) {
-      if (trim((string) getenv($name)) === '') {
+    foreach (['HOST', 'USER', 'PASSWORD'] as $suffix) {
+      if ($this->env($suffix) === '') {
         return FALSE;
       }
     }
@@ -33,29 +35,25 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       return;
     }
 
-    $host = trim((string) getenv('BREBO_IMAP_HOST'));
-    $port = max(1, (int) (getenv('BREBO_IMAP_PORT') ?: 993));
-    $folder = trim((string) (getenv('BREBO_IMAP_FOLDER') ?: 'INBOX'));
-    $flags = trim((string) (getenv('BREBO_IMAP_FLAGS') ?: '/imap/ssl'));
+    $host = $this->env('HOST');
+    $port = max(1, (int) ($this->env('PORT') ?: 993));
+    $folder = $this->env('FOLDER') ?: 'INBOX';
+    $flags = $this->env('FLAGS') ?: '/imap/ssl';
     $mailbox = sprintf('{%s:%d%s}%s', $host, $port, $flags, $folder);
 
-    $stream = @imap_open(
-      $mailbox,
-      (string) getenv('BREBO_IMAP_USER'),
-      (string) getenv('BREBO_IMAP_PASSWORD'),
-      OP_READONLY,
-    );
+    $stream = @imap_open($mailbox, $this->env('USER'), $this->env('PASSWORD'), OP_READONLY);
     if ($stream === FALSE) {
-      throw new \RuntimeException('IMAP-bron kon niet read-only worden geopend.');
+      throw new \RuntimeException(sprintf('IMAP-bron %s kon niet read-only worden geopend.', $this->stateKey));
     }
 
     try {
-      $lastUid = (int) $this->state->get('brebo_mail_intake.imap_last_uid', 0);
+      $stateName = 'brebo_mail_intake.' . $this->stateKey . '_last_uid';
+      $lastUid = (int) $this->state->get($stateName, 0);
       $criteria = $lastUid > 0 ? 'UID ' . ($lastUid + 1) . ':*' : 'ALL';
       $uids = imap_search($stream, $criteria, SE_UID) ?: [];
       sort($uids, SORT_NUMERIC);
 
-      $limit = max(1, min(500, (int) (getenv('BREBO_IMAP_BATCH_LIMIT') ?: 100)));
+      $limit = max(1, min(500, (int) ($this->env('BATCH_LIMIT') ?: 100)));
       if (count($uids) > $limit) {
         $uids = array_slice($uids, 0, $limit);
       }
@@ -66,22 +64,21 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
         if ($uid <= 0) {
           continue;
         }
-        $message = $this->normalize($stream, $uid);
         $maxUid = max($maxUid, $uid);
-        yield $message;
+        yield $this->normalize($stream, $uid, $folder);
       }
 
       if ($maxUid > $lastUid) {
-        $this->state->set('brebo_mail_intake.imap_last_uid', $maxUid);
+        $this->state->set($stateName, $maxUid);
       }
     }
     finally {
-      imap_close($stream, CL_EXPUNGE);
+      imap_close($stream);
     }
   }
 
   /** @return array<string, mixed> */
-  private function normalize($stream, int $uid): array {
+  private function normalize($stream, int $uid, string $folder): array {
     $overviewRows = imap_fetch_overview($stream, (string) $uid, FT_UID);
     $overview = $overviewRows[0] ?? NULL;
     $header = imap_headerinfo($stream, imap_msgno($stream, $uid));
@@ -99,7 +96,9 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       $body = '[Geen leesbare tekstinhoud; bronbericht blijft herleidbaar via IMAP UID.]';
     }
 
-    $sourceId = $messageId !== '' ? 'message-id:' . $messageId : sprintf('imap:%s:%s:%d', (string) getenv('BREBO_IMAP_USER'), (string) (getenv('BREBO_IMAP_FOLDER') ?: 'INBOX'), $uid);
+    $sourceId = $messageId !== ''
+      ? 'message-id:' . $messageId
+      : sprintf('%s:%s:%s:%d', $this->stateKey, $this->env('USER'), $folder, $uid);
 
     return [
       'source_id' => $sourceId,
@@ -138,7 +137,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       if (!is_object($child)) {
         continue;
       }
-      $number = isset($part->parts) ? $partNumber . '.' . ($index + 1) : (string) ($index + 1);
+      $number = $partNumber . '.' . ($index + 1);
       $found = $this->findPart($stream, $uid, $child, $number, $targetMime);
       if ($found !== '') {
         return $found;
@@ -178,8 +177,12 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
   }
 
   private function isOwnAddress(string $from): bool {
-    $own = mb_strtolower(trim((string) (getenv('BREBO_MAIL_ADDRESS') ?: getenv('BREBO_IMAP_USER'))));
+    $own = mb_strtolower(trim((string) (getenv('BREBO_MAIL_ADDRESS') ?: $this->env('USER'))));
     return $own !== '' && str_contains(mb_strtolower($from), $own);
+  }
+
+  private function env(string $suffix): string {
+    return trim((string) getenv($this->envPrefix . '_' . $suffix));
   }
 
 }
