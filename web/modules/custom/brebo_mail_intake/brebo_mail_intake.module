@@ -1,0 +1,20 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_cron().
+ */
+function brebo_mail_intake_cron(): void {
+  $adapter = \Drupal::service('brebo_mail_intake.gmail_source');
+  if (!$adapter->isConfigured()) {
+    return;
+  }
+
+  try {
+    \Drupal::service('brebo_mail_intake.pipeline')->processSource($adapter);
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_mail_intake')->error('Gmail Mail Intake mislukt: @message', ['@message' => $e->getMessage()]);
+  }
+}
