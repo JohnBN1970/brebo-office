@@ -4,3 +4,18 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@current_user'
+
+  brebo_mail_intake.classifier:
+    class: Drupal\brebo_mail_intake\Service\MailClassifier
+
+  brebo_mail_intake.relation_suggester:
+    class: Drupal\brebo_mail_intake\Service\MailRelationSuggester
+    arguments:
+      - '@entity_type.manager'
+
+  brebo_mail_intake.pipeline:
+    class: Drupal\brebo_mail_intake\Service\MailIntakePipeline
+    arguments:
+      - '@brebo_mail_intake.classifier'
+      - '@brebo_mail_intake.relation_suggester'
+      - '@brebo_mail_intake.ingestor'
