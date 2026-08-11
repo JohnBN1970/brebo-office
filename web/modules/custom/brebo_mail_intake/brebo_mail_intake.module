@@ -53,7 +53,10 @@ function brebo_mail_intake_mail(string $key, array &$message, array $params): vo
     return;
   }
 
-  $message['subject'] = trim((string) ($params['subject'] ?? ''));
-  $message['body'][] = (string) ($params['body'] ?? '');
+  $subject = trim((string) ($params['subject'] ?? ''));
+  $body = trim((string) ($params['body'] ?? ''));
+  $message['subject'] = $subject;
+  $message['body'][] = \Drupal::service('brebo_mail_intake.html_renderer')->render($subject, $body);
   $message['headers']['X-BREBO-Communication-ID'] = (string) ((int) ($params['communication_id'] ?? 0));
+  $message['headers']['X-BREBO-Mail-Format'] = 'controlled-html-v1';
 }
