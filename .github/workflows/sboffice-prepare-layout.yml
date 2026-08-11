@@ -43,9 +43,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p deploy
+          mkdir -p deploy/scripts
           cp composer.json composer.lock deploy/
           cp -a vendor web deploy/
+          cp scripts/test-worker-healthcheck.php deploy/scripts/
           rm -f deploy/web/sites/default/settings.php
           rm -f deploy/web/sites/default/settings.local.php
           rm -rf deploy/web/sites/default/files
@@ -122,7 +123,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          rsync -az             --exclude 'web/sites/default/settings.php'             --exclude 'web/sites/default/settings.local.php'             --exclude 'web/sites/default/files/'             -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT"             deploy/ "$DEPLOY_USER@$DEPLOY_HOST:public_html/sboffice/"
+          rsync -az \
+            --exclude 'web/sites/default/settings.php' \
+            --exclude 'web/sites/default/settings.local.php' \
+            --exclude 'web/sites/default/files/' \
+            -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT" \
+            deploy/ "$DEPLOY_USER@$DEPLOY_HOST:public_html/sboffice/"
 
       - name: Preserve runtime files below the new web root
         env:
@@ -172,6 +178,7 @@ jobs:
           test -f "$target/web/autoload.php"
           test -f "$target/web/sites/default/settings.php"
           test -d "$target/web/sites/default/files"
+          test -f "$target/scripts/test-worker-healthcheck.php"
 
           php -l "$target/web/sites/default/settings.php"
           php -r "require '$target/vendor/autoload.php';"
@@ -179,5 +186,6 @@ jobs:
           echo "New Composer project root: prepared"
           echo "New Drupal web root: prepared"
           echo "Runtime settings and public files: preserved"
+          echo "Healthcheck script: deployed"
           echo "Current subdomain document root: unchanged"
           REMOTE
