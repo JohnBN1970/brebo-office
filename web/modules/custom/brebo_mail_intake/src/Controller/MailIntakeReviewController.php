@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class MailIntakeReviewController extends ControllerBase {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $breboEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -30,7 +30,7 @@ final class MailIntakeReviewController extends ControllerBase {
    *   Render array.
    */
   public function queue(): array {
-    $storage = $this->entityTypeManager->getStorage('node');
+    $storage = $this->breboEntityTypeManager->getStorage('node');
     $ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_communication')
