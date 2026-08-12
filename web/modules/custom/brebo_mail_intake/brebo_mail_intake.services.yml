@@ -17,6 +17,15 @@ services:
   brebo_mail_intake.attention_scorer:
     class: Drupal\brebo_mail_intake\Service\MailAttentionScorer
 
+  brebo_mail_intake.review_controller:
+    class: Drupal\brebo_mail_intake\Controller\MailIntakeReviewV2Controller
+    public: true
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_mail_intake.meaning_extractor'
+      - '@brebo_mail_intake.followup_advisor'
+      - '@brebo_mail_intake.attention_scorer'
+
   brebo_mail_intake.relation_suggester:
     class: Drupal\brebo_mail_intake\Service\MailRelationSuggester
     arguments:
