@@ -1,0 +1,80 @@
+name: Mail Intake technical exception acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-intake-technical-exception-acceptance.yml'
+
+jobs:
+  acceptance:
+    name: Seed and verify synthetic technical exception
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
+          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Seed and verify technical exception flow
+        env:
+          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
+          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
+          DEPLOY_USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $ref = "deadbeefdeadbeef";
+            $registry = \Drupal::service("brebo_mail_intake.failure_registry");
+            $registry->record($ref, \RuntimeException::class);
+
+            $found = false;
+            foreach ($registry->openItems() as $item) {
+              if (($item["source_ref"] ?? "") === $ref && ($item["status"] ?? "") === "open") {
+                $found = true;
+                break;
+              }
+            }
+            if (!$found) {
+              throw new \RuntimeException("Synthetic technical exception not present in open registry.");
+            }
+
+            $build = \Drupal::service("brebo_mail_intake.review_controller")->queue();
+            $html = (string) \Drupal::service("renderer")->renderRoot($build);
+            if (!str_contains($html, $ref)) {
+              throw new \RuntimeException("Synthetic technical exception not rendered in review queue.");
+            }
+            if (!str_contains($html, "Markeer gezien")) {
+              throw new \RuntimeException("Acknowledge action not rendered.");
+            }
+
+            $url = \Drupal\Core\Url::fromRoute("brebo_mail_intake.failure_acknowledge", ["source_ref" => $ref])->toString();
+            echo "TECH_EXCEPTION_ACCEPTANCE=PASS" . PHP_EOL;
+            echo "SYNTHETIC_REF=" . $ref . PHP_EOL;
+            echo "ACK_ROUTE=" . $url . PHP_EOL;
+            echo "SOURCE_MAIL_TOUCHED=NO" . PHP_EOL;
+          '
+          REMOTE
