@@ -37,6 +37,17 @@ services:
     arguments:
       - '@entity_type.manager'
 
+  brebo_mail_intake.bag_pdok:
+    class: Drupal\brebo_mail_intake\Service\BagPdokClient
+    arguments:
+      - '@http_client_factory'
+
+  brebo_mail_intake.canonical_context_resolver:
+    class: Drupal\brebo_mail_intake\Service\CanonicalContextResolver
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_mail_intake.bag_pdok'
+
   brebo_mail_intake.pipeline:
     class: Drupal\brebo_mail_intake\Service\MailIntakePipeline
     arguments:
