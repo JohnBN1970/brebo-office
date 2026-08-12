@@ -57,6 +57,7 @@ jobs:
           $DRUSH cr
           $DRUSH php:eval '
             $storage = \Drupal::entityTypeManager()->getStorage("node");
+
             $scopeIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project_scope")->execute();
             if (!$scopeIds) {
               throw new \RuntimeException("No Projectscope exists for acceptance test.");
@@ -73,11 +74,42 @@ jobs:
             $probe = clone $scope;
             $probe->set("field_brebo_building_ref", ["target_id" => 999999999]);
             $invalid = brebo_scope_guard_validate_scope($probe);
-            echo "SYNTHETIC_INVALID_VIOLATIONS=" . count($invalid) . PHP_EOL;
+            echo "SYNTHETIC_INVALID_SCOPE_VIOLATIONS=" . count($invalid) . PHP_EOL;
             if (!$invalid) {
               throw new \RuntimeException("Synthetic invalid scope was not rejected.");
             }
+
+            $bundleCounts = [];
+            foreach (["brebo_building_zone", "brebo_cluster", "brebo_dwelling", "brebo_product_position"] as $bundle) {
+              $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", $bundle)->execute();
+              $bundleCounts[$bundle] = count($ids);
+              foreach ($storage->loadMultiple($ids) as $entity) {
+                $violations = brebo_scope_guard_validate_permanent_object($entity);
+                if ($violations) {
+                  throw new \RuntimeException("Existing permanent object invalid: " . $bundle . " #" . $entity->id());
+                }
+              }
+            }
+            echo "PERMANENT_ZONES=" . $bundleCounts["brebo_building_zone"] . PHP_EOL;
+            echo "PERMANENT_CLUSTERS=" . $bundleCounts["brebo_cluster"] . PHP_EOL;
+            echo "PERMANENT_DWELLINGS=" . $bundleCounts["brebo_dwelling"] . PHP_EOL;
+            echo "PERMANENT_POSITIONS=" . $bundleCounts["brebo_product_position"] . PHP_EOL;
+
+            $clusterIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_cluster")->execute();
+            if (!$clusterIds) {
+              throw new \RuntimeException("No cluster exists for hierarchy probe.");
+            }
+            $cluster = $storage->load(reset($clusterIds));
+            $badCluster = clone $cluster;
+            $badCluster->set("field_brebo_building_ref", ["target_id" => 999999999]);
+            $badHierarchy = brebo_scope_guard_validate_permanent_object($badCluster);
+            echo "SYNTHETIC_INVALID_HIERARCHY_VIOLATIONS=" . count($badHierarchy) . PHP_EOL;
+            if (!$badHierarchy) {
+              throw new \RuntimeException("Synthetic invalid permanent hierarchy was not rejected.");
+            }
+
             echo "PROJECT_SCOPE_GUARD=PASS" . PHP_EOL;
+            echo "PERMANENT_BUILDING_GUARD=PASS" . PHP_EOL;
           '
           $DRUSH cex -y
           REMOTE
