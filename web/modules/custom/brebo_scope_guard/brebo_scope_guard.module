@@ -1,0 +1,112 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_node_presave().
+ */
+function brebo_scope_guard_node_presave(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_project_scope') {
+    return;
+  }
+
+  $violations = brebo_scope_guard_validate_scope($node);
+  if ($violations) {
+    throw new InvalidArgumentException('Ongeldige Projectscope: ' . implode(' ', $violations));
+  }
+}
+
+/**
+ * Validates that every selected scope object belongs to the selected building.
+ *
+ * @return string[]
+ *   Human-readable violations. Empty means valid.
+ */
+function brebo_scope_guard_validate_scope(NodeInterface $scope): array {
+  if ($scope->bundle() !== 'brebo_project_scope') {
+    return [];
+  }
+
+  $violations = [];
+  $building = $scope->hasField('field_brebo_building_ref') && !$scope->get('field_brebo_building_ref')->isEmpty()
+    ? $scope->get('field_brebo_building_ref')->entity
+    : NULL;
+  $project = $scope->hasField('field_brebo_project_ref') && !$scope->get('field_brebo_project_ref')->isEmpty()
+    ? $scope->get('field_brebo_project_ref')->entity
+    : NULL;
+
+  if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
+    $violations[] = 'Er moet één geldig permanent gebouw zijn gekozen.';
+    return $violations;
+  }
+  if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+    $violations[] = 'Er moet één geldig project zijn gekozen.';
+  }
+
+  $expected_building_id = (int) $building->id();
+  $checks = [
+    'field_brebo_scope_zones' => ['brebo_building_zone', 'technische zone'],
+    'field_brebo_scope_clusters' => ['brebo_cluster', 'cluster'],
+    'field_brebo_scope_dwellings' => ['brebo_dwelling', 'woning'],
+    'field_brebo_scope_positions' => ['brebo_product_position', 'productpositie'],
+  ];
+
+  foreach ($checks as $field_name => [$expected_bundle, $label]) {
+    if (!$scope->hasField($field_name) || $scope->get($field_name)->isEmpty()) {
+      continue;
+    }
+
+    foreach ($scope->get($field_name)->referencedEntities() as $entity) {
+      if (!$entity instanceof NodeInterface || $entity->bundle() !== $expected_bundle) {
+        $violations[] = sprintf('Een geselecteerde %s heeft een ongeldig objecttype.', $label);
+        continue;
+      }
+
+      $object_building_id = brebo_scope_guard_resolve_building_id($entity);
+      if ($object_building_id === NULL) {
+        $violations[] = sprintf('%s #%d heeft geen eenduidige permanente gebouwrelatie.', ucfirst($label), $entity->id());
+        continue;
+      }
+      if ($object_building_id !== $expected_building_id) {
+        $violations[] = sprintf('%s #%d behoort tot een ander gebouw en mag niet in deze Projectscope staan.', ucfirst($label), $entity->id());
+      }
+    }
+  }
+
+  return array_values(array_unique($violations));
+}
+
+/**
+ * Resolves the permanent building for a supported canonical object.
+ */
+function brebo_scope_guard_resolve_building_id(NodeInterface $entity): ?int {
+  if (in_array($entity->bundle(), ['brebo_building_zone', 'brebo_cluster'], TRUE)) {
+    if (!$entity->hasField('field_brebo_building_ref') || $entity->get('field_brebo_building_ref')->isEmpty()) {
+      return NULL;
+    }
+    $building = $entity->get('field_brebo_building_ref')->entity;
+    return $building instanceof NodeInterface && $building->bundle() === 'brebo_building'
+      ? (int) $building->id()
+      : NULL;
+  }
+
+  if ($entity->bundle() === 'brebo_dwelling') {
+    if (!$entity->hasField('field_brebo_cluster_ref') || $entity->get('field_brebo_cluster_ref')->isEmpty()) {
+      return NULL;
+    }
+    $cluster = $entity->get('field_brebo_cluster_ref')->entity;
+    return $cluster instanceof NodeInterface ? brebo_scope_guard_resolve_building_id($cluster) : NULL;
+  }
+
+  if ($entity->bundle() === 'brebo_product_position') {
+    if (!$entity->hasField('field_brebo_dwelling_ref') || $entity->get('field_brebo_dwelling_ref')->isEmpty()) {
+      return NULL;
+    }
+    $dwelling = $entity->get('field_brebo_dwelling_ref')->entity;
+    return $dwelling instanceof NodeInterface ? brebo_scope_guard_resolve_building_id($dwelling) : NULL;
+  }
+
+  return NULL;
+}
