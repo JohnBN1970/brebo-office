@@ -17,6 +17,11 @@ services:
   brebo_mail_intake.attention_scorer:
     class: Drupal\brebo_mail_intake\Service\MailAttentionScorer
 
+  brebo_mail_intake.failure_registry:
+    class: Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry
+    arguments:
+      - '@state'
+
   brebo_mail_intake.review_controller:
     class: Drupal\brebo_mail_intake\Controller\MailIntakeReviewV2Controller
     public: true
@@ -25,6 +30,7 @@ services:
       - '@brebo_mail_intake.meaning_extractor'
       - '@brebo_mail_intake.followup_advisor'
       - '@brebo_mail_intake.attention_scorer'
+      - '@brebo_mail_intake.failure_registry'
 
   brebo_mail_intake.relation_suggester:
     class: Drupal\brebo_mail_intake\Service\MailRelationSuggester
@@ -39,6 +45,7 @@ services:
       - '@brebo_mail_intake.relation_suggester'
       - '@brebo_mail_intake.ingestor'
       - '@logger.channel.brebo_mail_intake'
+      - '@brebo_mail_intake.failure_registry'
 
   logger.channel.brebo_mail_intake:
     parent: logger.channel_base

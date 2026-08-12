@@ -19,6 +19,7 @@ final class MailIntakePipeline {
     private readonly MailRelationSuggester $relationSuggester,
     private readonly MailIntakeIngestor $ingestor,
     private readonly LoggerInterface $logger,
+    private readonly MailIntakeFailureRegistry $failureRegistry,
   ) {}
 
   /**
@@ -38,6 +39,7 @@ final class MailIntakePipeline {
       }
       catch (\Throwable $exception) {
         $sourceReference = $this->sourceReference($mail);
+        $this->failureRegistry->record($sourceReference, $exception::class);
         $this->logger->error('Mail Intake item failed and was isolated. Source ref: {source_ref}; exception: {exception_type}.', [
           'source_ref' => $sourceReference,
           'exception_type' => $exception::class,

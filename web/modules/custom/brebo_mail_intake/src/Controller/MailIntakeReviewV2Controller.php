@@ -6,6 +6,7 @@ namespace Drupal\brebo_mail_intake\Controller;
 
 use Drupal\brebo_mail_intake\Service\MailAttentionScorer;
 use Drupal\brebo_mail_intake\Service\MailFollowupAdvisor;
+use Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry;
 use Drupal\brebo_mail_intake\Service\MailMeaningExtractor;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -23,6 +24,7 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
     private readonly MailMeaningExtractor $meaningExtractor,
     private readonly MailFollowupAdvisor $followupAdvisor,
     private readonly MailAttentionScorer $attentionScorer,
+    private readonly MailIntakeFailureRegistry $failureRegistry,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -31,6 +33,7 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
       $container->get('brebo_mail_intake.meaning_extractor'),
       $container->get('brebo_mail_intake.followup_advisor'),
       $container->get('brebo_mail_intake.attention_scorer'),
+      $container->get('brebo_mail_intake.failure_registry'),
     );
   }
 
@@ -133,9 +136,36 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
     });
     $rows = array_column($items, 'row');
 
+    $technicalRows = [];
+    foreach ($this->failureRegistry->openItems() as $failure) {
+      $sourceReference = (string) ($failure['source_ref'] ?? '');
+      $technicalRows[] = [
+        'attention' => '🔴 Technisch',
+        'reference' => $sourceReference,
+        'exception' => $this->shortExceptionType((string) ($failure['exception_type'] ?? 'Onbekend')),
+        'first_seen' => $this->formatTimestamp((int) ($failure['first_seen'] ?? 0)),
+        'last_seen' => $this->formatTimestamp((int) ($failure['last_seen'] ?? 0)),
+        'attempts' => (string) ((int) ($failure['attempts'] ?? 1)),
+        'source' => !empty($failure['source_preserved']) ? 'Bronmail bewaard' : 'Onbekend',
+        'action' => Link::fromTextAndUrl('Markeer gezien', Url::fromRoute('brebo_mail_intake.failure_acknowledge', ['source_ref' => $sourceReference])),
+      ];
+    }
+
     return [
       'intro' => [
         '#markup' => '<p><strong>Stoplicht:</strong> 🔴 direct aandacht · 🟠 aandacht/opvolging · 🟢 afgehandeld en daarom niet meer zichtbaar in deze actieve werkbak.</p><p>Prioriteit, betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
+      ],
+      'technical_title' => [
+        '#markup' => '<h2>Technische uitzonderingen</h2><p>Hier staan alleen geïsoleerde verwerkingsfouten. De bronmail blijft read-only in de mailbox bewaard; onderwerp, afzender en inhoud worden hier niet getoond.</p>',
+      ],
+      'technical_table' => [
+        '#type' => 'table',
+        '#header' => ['Stoplicht', 'Technische referentie', 'Fouttype', 'Eerste keer', 'Laatste keer', 'Pogingen', 'Bron', 'Actie'],
+        '#rows' => $technicalRows,
+        '#empty' => 'Geen open technische Mail Intake-uitzonderingen.',
+      ],
+      'work_title' => [
+        '#markup' => '<h2>Beoordelingswerkbak</h2>',
       ],
       'table' => [
         '#type' => 'table',
@@ -199,6 +229,15 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
     }
     $entity = $node->get($fieldName)->entity;
     return $entity ? (string) $entity->label() : '';
+  }
+
+  private function shortExceptionType(string $exceptionType): string {
+    $parts = explode('\\', $exceptionType);
+    return end($parts) ?: 'Onbekend';
+  }
+
+  private function formatTimestamp(int $timestamp): string {
+    return $timestamp > 0 ? date('d-m-Y H:i', $timestamp) : '—';
   }
 
 }
