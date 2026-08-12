@@ -1,0 +1,139 @@
+name: Diagnose Mail Intake HTTP runtime
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-intake-http-runtime-diag.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key after 5 attempts."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect deployed trees and router state
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
+
+          home_root="$HOME/domains/brebobv.nl/public_html"
+          app="$home_root/sboffice_app"
+          public="$home_root/sboffice"
+          duplicate="$home_root/web"
+          module_rel='modules/custom/brebo_mail_intake'
+
+          echo "PUBLIC_LINK_REAL=$(readlink -f "$public" 2>/dev/null || true)"
+          echo "APP_WEB_REAL=$(cd "$app/web" 2>/dev/null && pwd -P || true)"
+          echo "PUBLIC_IS_SYMLINK=$([[ -L "$public" ]] && echo YES || echo NO)"
+          echo "DUPLICATE_WEB_EXISTS=$([[ -d "$duplicate" ]] && echo YES || echo NO)"
+
+          inspect_tree() {
+            label="$1"
+            root="$2"
+            echo "=== $label ==="
+            if [[ ! -d "$root" ]]; then
+              echo "${label}_EXISTS=NO"
+              return
+            fi
+            echo "${label}_EXISTS=YES"
+            for rel in \
+              "$module_rel/brebo_mail_intake.routing.yml" \
+              "$module_rel/brebo_mail_intake.services.yml" \
+              "$module_rel/src/Controller/MailIntakeReviewV2Controller.php" \
+              "$module_rel/src/Controller/MailIntakeHttpController.php"; do
+              file="$root/$rel"
+              key=$(printf '%s' "$rel" | tr '/.-' '___' | tr '[:lower:]' '[:upper:]')
+              if [[ -f "$file" ]]; then
+                echo "${label}_${key}_SHA256=$(sha256sum "$file" | awk '{print $1}')"
+                if [[ "$rel" == *routing.yml ]]; then
+                  grep -A5 '^brebo_mail_intake.review_queue:' "$file" | sed 's/^/ROUTE_LINE=/' || true
+                fi
+              else
+                echo "${label}_${key}_MISSING=YES"
+              fi
+            done
+          }
+
+          inspect_tree APP "$app/web"
+          inspect_tree PUBLIC "$public"
+          inspect_tree DUPLICATE "$duplicate"
+
+          cd "$app"
+          drush='php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi'
+          $drush php:eval '
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_mail_intake.review_queue");
+            $controller = (string) $route->getDefault("_controller");
+            echo "ROUTER_CONTROLLER=" . $controller . PHP_EOL;
+            echo "HTTP_CLASS_EXISTS=" . (class_exists("Drupal\\brebo_mail_intake\\Controller\\MailIntakeHttpController") ? "YES" : "NO") . PHP_EOL;
+            echo "HTTP_METHOD_CALLABLE=" . (is_callable(["Drupal\\brebo_mail_intake\\Controller\\MailIntakeHttpController", "queue"]) ? "YES" : "NO") . PHP_EOL;
+            echo "SERVICE_EXISTS=" . (\Drupal::hasService("brebo_mail_intake.review_controller") ? "YES" : "NO") . PHP_EOL;
+          '
+
+          echo "=== Candidate vhost/config references ==="
+          found=0
+          for root in "$HOME/domains/brebobv.nl" "$HOME"; do
+            [[ -d "$root" ]] || continue
+            while IFS= read -r file; do
+              found=$((found+1))
+              echo "VHOST_REF_FILE=$(basename "$file")"
+              grep -E 'sboffice|document_root|docroot|root[ =]' "$file" 2>/dev/null | head -n 20 | sed -E 's#(/home/)[^/]+/#\1[user]/#g; s#https?://[^ ]+#[url]#g' | sed 's/^/VHOST_REF=/' || true
+            done < <(find "$root" -maxdepth 4 -type f \( -name '*.conf' -o -name '*.ini' -o -name '.htaccess' \) 2>/dev/null | head -n 40)
+          done
+          echo "VHOST_REF_FILES_SCANNED=$found"
+          REMOTE
