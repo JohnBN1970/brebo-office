@@ -19,15 +19,21 @@ final class MailClassifier {
   public function classify(string $subject, string $body): array {
     $text = mb_strtolower(trim($subject . "\n" . $body));
     $rules = [
+      'boete' => ['bekeuring', 'verkeersboete', 'boetebeschikking', 'cjib', 'sanctiebedrag'],
+      'financieel' => ['factuur', 'betaaltermijn', 'betaling', 'creditnota', 'incasso', 'aanmaning', 'rekening'],
+      'juridisch' => ['aansprakelijk', 'juridisch', 'ingebrekestelling', 'sommatie', 'bezwaar', 'beroep', 'dagvaarding'],
+      'personeel' => ['sollicitatie', 'arbeidsovereenkomst', 'salaris', 'verlof', 'ziekmelding', 'medewerker'],
+      'leverancier' => ['leverancier', 'orderbevestiging', 'levertijd', 'backorder', 'pakbon'],
       'garantie' => ['garantie', 'garantieclaim', 'garantiewerk', 'nazorg'],
       'oplevering' => ['oplevering', 'opleverpunt', 'opleverlijst', 'restpunt'],
       'klacht' => ['klacht', 'ontevreden', 'schade', 'lekkage', 'gebrek'],
       'meerwerk' => ['meerwerk', 'minderwerk', 'aanvullende opdracht', 'extra werk'],
-      'inkoop' => ['inkoop', 'bestelling', 'levering', 'leverancier', 'orderbevestiging'],
+      'inkoop' => ['inkoop', 'bestelling', 'inkooporder'],
       'offerte' => ['offerte', 'prijsopgave', 'aanbieding', 'begroting'],
       'planning' => ['planning', 'werkplanning', 'startdatum', 'uitvoeringstermijn', 'weekplanning'],
       'bewonersmelding' => ['bewoner', 'huurder', 'woning', 'overlast', 'toegang woning'],
       'foto' => ['foto', 'afbeelding', 'beeldmateriaal'],
+      'administratief' => ['verzekering', 'polis', 'kenteken', 'abonnement', 'registratie', 'vergunning'],
     ];
 
     $scores = [];
