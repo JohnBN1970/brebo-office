@@ -33,7 +33,7 @@ final class CanonicalContextResolver {
       $basis[] = sprintf('Bestaand project herkend: "%s".', $project->label());
     }
 
-    if (!$building instanceof NodeInterface && $project instanceof NodeInterface && $project->hasField('field_brebo_building_refs')) {
+    if (!($building instanceof NodeInterface) && $project instanceof NodeInterface && $project->hasField('field_brebo_building_refs')) {
       $projectBuildings = array_values(array_filter(
         $project->get('field_brebo_building_refs')->referencedEntities(),
         static fn ($entity): bool => $entity instanceof NodeInterface,
@@ -49,7 +49,7 @@ final class CanonicalContextResolver {
     }
 
     $pdokCandidates = [];
-    if (!$building instanceof NodeInterface) {
+    if (!($building instanceof NodeInterface)) {
       $addressQuery = $this->extractAddressQuery($subject, $body);
       if ($addressQuery !== '') {
         try {
@@ -70,28 +70,33 @@ final class CanonicalContextResolver {
       'project_state' => $project instanceof NodeInterface ? 'existing' : 'provisional_required',
       'building_state' => $building instanceof NodeInterface ? 'existing' : 'provisional_required',
       'pdok_address_candidates' => $pdokCandidates,
-      'requires_human_review' => !$project instanceof NodeInterface || !$building instanceof NodeInterface,
+      'requires_human_review' => !($project instanceof NodeInterface) || !($building instanceof NodeInterface),
       'basis' => implode(' ', $basis) ?: 'Geen bestaande canonieke project- of gebouwcontext herkend.',
     ];
   }
 
   private function findBestProject(string $text): ?NodeInterface {
-    return $this->findUniqueMatch('brebo_project', $text, ['title']);
+    return $this->findUniqueMatch('brebo_project', $text, [
+      'title' => 50,
+    ], 50);
   }
 
   private function findBestBuilding(string $text): ?NodeInterface {
+    // A city or postal code alone is never enough to establish building truth.
+    // They may strengthen a title/address match, but the minimum score requires
+    // at least a building label or a full BREBO address to be present.
     return $this->findUniqueMatch('brebo_building', $text, [
-      'title',
-      'field_brebo_address',
-      'field_brebo_postal_code',
-      'field_brebo_city',
-    ]);
+      'title' => 50,
+      'field_brebo_address' => 50,
+      'field_brebo_postal_code' => 10,
+      'field_brebo_city' => 10,
+    ], 50);
   }
 
   /**
-   * @param string[] $fields
+   * @param array<string, int> $weightedFields
    */
-  private function findUniqueMatch(string $bundle, string $text, array $fields): ?NodeInterface {
+  private function findUniqueMatch(string $bundle, string $text, array $weightedFields, int $minimumScore): ?NodeInterface {
     $storage = $this->entityTypeManager->getStorage('node');
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
@@ -108,7 +113,7 @@ final class CanonicalContextResolver {
         continue;
       }
       $score = 0;
-      foreach ($fields as $field) {
+      foreach ($weightedFields as $field => $weight) {
         if ($field === 'title') {
           $value = $node->label();
         }
@@ -121,10 +126,10 @@ final class CanonicalContextResolver {
 
         $needle = $this->normalize($value);
         if (mb_strlen($needle) >= 4 && str_contains($text, $needle)) {
-          $score += $field === 'title' ? 40 : 25;
+          $score += $weight;
         }
       }
-      if ($score > 0) {
+      if ($score >= $minimumScore) {
         $scores[(int) $node->id()] = $score;
       }
     }
