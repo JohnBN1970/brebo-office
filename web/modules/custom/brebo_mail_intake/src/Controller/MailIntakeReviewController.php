@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Controller;
 
+use Drupal\brebo_mail_intake\Service\MailFollowupAdvisor;
 use Drupal\brebo_mail_intake\Service\MailMeaningExtractor;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -19,12 +20,14 @@ final class MailIntakeReviewController extends ControllerBase {
   public function __construct(
     private readonly EntityTypeManagerInterface $breboEntityTypeManager,
     private readonly MailMeaningExtractor $meaningExtractor,
+    private readonly MailFollowupAdvisor $followupAdvisor,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('entity_type.manager'),
       $container->get('brebo_mail_intake.meaning_extractor'),
+      $container->get('brebo_mail_intake.followup_advisor'),
     );
   }
 
@@ -57,6 +60,7 @@ final class MailIntakeReviewController extends ControllerBase {
       $body = trim((string) $node->get('field_brebo_transcript')->value);
       $meaning = $this->meaningExtractor->extract($subject, $body);
       $meaningLabels = $this->meaningLabels($meaning);
+      $followupAdvice = $this->followupAdvisor->advise($classification, $meaning);
 
       $reasons = [];
       if (in_array($status, ['Nieuw', 'Controle vereist'], TRUE)) {
@@ -88,6 +92,7 @@ final class MailIntakeReviewController extends ControllerBase {
         'subject' => Link::fromTextAndUrl($node->label(), Url::fromRoute('entity.node.canonical', ['node' => $node->id()])),
         'classification' => $classification !== '' ? $classification : '—',
         'meaning' => $meaningLabels !== [] ? implode(', ', $meaningLabels) : '—',
+        'followup' => $followupAdvice !== [] ? implode(', ', $followupAdvice) : '—',
         'suggestion' => implode(' / ', array_filter([$suggestedBuilding, $suggestedProject])) ?: '—',
         'confidence' => $confidence !== NULL ? sprintf('%.0f%%', $confidence) : '—',
         'reason' => implode('; ', $reasons),
@@ -97,11 +102,11 @@ final class MailIntakeReviewController extends ControllerBase {
 
     return [
       'intro' => [
-        '#markup' => '<p>Alleen uitzonderingen en onzekere Mail Intake-items worden hier getoond. Betekenissignalen zijn adviserend en worden pas na menselijke controle dossierwaarheid.</p>',
+        '#markup' => '<p>Alleen uitzonderingen en onzekere Mail Intake-items worden hier getoond. Betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
       ],
       'table' => [
         '#type' => 'table',
-        '#header' => ['Onderwerp', 'Classificatie', 'Signalen', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
+        '#header' => ['Onderwerp', 'Classificatie', 'Signalen', 'Voorgestelde opvolging', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
         '#rows' => $rows,
         '#empty' => 'Geen Mail Intake-uitzonderingen. De werkbak is leeg.',
       ],
