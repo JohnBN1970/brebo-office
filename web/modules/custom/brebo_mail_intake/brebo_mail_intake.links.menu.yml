@@ -1,6 +1,20 @@
+brebo_mail_intake.admin:
+  title: 'BREBO'
+  description: 'BREBO Office beheerfuncties'
+  route_name: brebo_mail_intake.admin
+  parent: system.admin
+  weight: 50
+
 brebo_mail_intake.review_queue:
   title: 'Mail Intake'
-  description: 'Beoordeel alleen onzekere en nog niet verwerkte mailintake-items.'
+  description: 'Beoordeel uitzonderingen en onzekere mailintake-items'
   route_name: brebo_mail_intake.review_queue
-  parent: system.admin_content
-  weight: 25
+  parent: brebo_mail_intake.admin
+  weight: 0
+
+brebo_mail_intake.runtime_readiness:
+  title: 'Mail runtime status'
+  description: 'Controleer de niet-geheime runtimegereedheid van de mailbox'
+  route_name: brebo_mail_intake.runtime_readiness
+  parent: brebo_mail_intake.admin
+  weight: 10
