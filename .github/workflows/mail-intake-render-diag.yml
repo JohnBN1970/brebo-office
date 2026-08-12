@@ -6,6 +6,7 @@ on:
       - develop
     paths:
       - '.github/workflows/mail-intake-render-diag.yml'
+  workflow_dispatch:
 
 permissions:
   contents: read
