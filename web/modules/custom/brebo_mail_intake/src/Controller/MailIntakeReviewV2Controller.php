@@ -15,9 +15,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Shows only Mail Intake items that still need human attention.
- *
- * This V2 class intentionally uses a new PHP file path so Hostinger PHP-FPM
- * cannot keep serving a stale OPcache entry for the previous controller.
  */
 final class MailIntakeReviewV2Controller extends ControllerBase {
 
@@ -56,7 +53,6 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
     $items = [];
     foreach ($storage->loadMultiple($ids) as $node) {
       $status = trim((string) $node->get('field_brebo_intake_status')->value);
-
       if ($status === 'Afgehandeld') {
         continue;
       }
@@ -92,7 +88,6 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
       if ($meaningLabels !== []) {
         $reasons[] = 'betekenissignaal controleren';
       }
-
       if ($reasons === []) {
         continue;
       }
@@ -115,6 +110,8 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
           'reason' => implode('; ', $reasons),
           'edit' => [
             'data' => [
+              '#type' => 'container',
+              '#attributes' => ['class' => ['brebo-mail-intake-actions']],
               'review' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable(),
               'separator' => ['#markup' => ' · '],
               'close' => Link::fromTextAndUrl('Afhandelen', Url::fromRoute('brebo_mail_intake.close', ['node' => $node->id()]))->toRenderable(),
