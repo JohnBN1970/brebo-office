@@ -42,7 +42,7 @@ jobs:
             sleep $((attempt * 2))
           done
 
-      - name: Check Hostinger mailbox runtime without exposing secrets
+      - name: Check Hostinger mailbox runtime through Drupal without exposing secrets
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -53,8 +53,7 @@ jobs:
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           cd public_html/sboffice_app
-          php -r '
-            require "web/sites/default/settings.php";
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $required = [
               "BREBO_MAIL_SOURCE",
               "BREBO_MAIL_ADDRESS",
@@ -72,9 +71,25 @@ jobs:
               echo $name . "=" . ($set ? "SET" : "MISSING") . PHP_EOL;
               $ok = $ok && $set;
             }
+
             $imap = function_exists("imap_open");
             echo "PHP_IMAP=" . ($imap ? "AVAILABLE" : "MISSING") . PHP_EOL;
-            echo "IMAP_RUNTIME_READY=" . (($ok && $imap) ? "YES" : "NO") . PHP_EOL;
-            exit(($ok && $imap) ? 0 : 2);
+            $ok = $ok && $imap;
+
+            $uid = (int) getenv("BREBO_MAIL_INTAKE_UID");
+            $owner = $uid > 0 ? \Drupal::entityTypeManager()->getStorage("user")->load($uid) : null;
+            $ownerOk = $owner !== null && $owner->isActive();
+            echo "MAIL_INTAKE_OWNER=" . ($ownerOk ? "VALID_ACTIVE_USER" : "INVALID") . PHP_EOL;
+            $ok = $ok && $ownerOk;
+
+            $adapter = \Drupal::service("brebo_mail_intake.imap_source");
+            $sourceReady = $adapter->isConfigured();
+            echo "IMAP_SOURCE_CONFIGURED=" . ($sourceReady ? "YES" : "NO") . PHP_EOL;
+            $ok = $ok && $sourceReady;
+
+            echo "IMAP_RUNTIME_READY=" . ($ok ? "YES" : "NO") . PHP_EOL;
+            if (!$ok) {
+              throw new \RuntimeException("BREBO Mail runtime readiness failed.");
+            }
           '
           REMOTE
