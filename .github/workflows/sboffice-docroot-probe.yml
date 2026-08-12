@@ -38,7 +38,7 @@ jobs:
             if [[ "$attempt" -eq 5 ]]; then exit 1; fi
             sleep $((attempt * 2))
           done
-      - name: Place unique temporary markers
+      - name: Read candidate robots hashes
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -49,30 +49,21 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           root="$HOME/domains/brebobv.nl/public_html"
-          printf 'APP_TREE_4f8a2c\n' > "$root/sboffice_app/web/brebo-docroot-probe.txt"
-          printf 'DUP_TREE_91d7e5\n' > "$root/web/brebo-docroot-probe.txt"
+          for item in APP:$root/sboffice_app/web/robots.txt DUP:$root/web/robots.txt; do
+            label=${item%%:*}
+            file=${item#*:}
+            if [[ -f "$file" ]]; then
+              echo "${label}_ROBOTS_SHA256=$(sha256sum "$file" | awk '{print $1}')"
+              echo "${label}_ROBOTS_BYTES=$(wc -c < "$file" | tr -d ' ')"
+            else
+              echo "${label}_ROBOTS_MISSING=YES"
+            fi
+          done
           REMOTE
-      - name: Probe actual HTTP document root
+      - name: Read live robots hash
         shell: bash
         run: |
           set -euo pipefail
-          body=$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/brebo-docroot-probe.txt')
-          echo "HTTP_MARKER=$body"
-          case "$body" in
-            APP_TREE_4f8a2c) echo 'DOCROOT=APP_WEB' ;;
-            DUP_TREE_91d7e5) echo 'DOCROOT=PUBLIC_HTML_WEB' ;;
-            *) echo 'DOCROOT=UNKNOWN'; exit 2 ;;
-          esac
-      - name: Cleanup markers
-        if: always()
-        env:
-          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
-          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-        shell: bash
-        run: |
-          set +e
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
-          root="$HOME/domains/brebobv.nl/public_html"
-          rm -f "$root/sboffice_app/web/brebo-docroot-probe.txt" "$root/web/brebo-docroot-probe.txt"
-          REMOTE
+          curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/robots.txt' -o /tmp/live-robots.txt
+          echo "LIVE_ROBOTS_SHA256=$(sha256sum /tmp/live-robots.txt | awk '{print $1}')"
+          echo "LIVE_ROBOTS_BYTES=$(wc -c < /tmp/live-robots.txt | tr -d ' ')"
