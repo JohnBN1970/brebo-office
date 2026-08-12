@@ -43,7 +43,7 @@ jobs:
           done
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Diagnose Mail Intake controller
+      - name: Diagnose Mail Intake controller and render phase
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -67,9 +67,11 @@ jobs:
             echo "QUEUE_BUILD=OK" . PHP_EOL;
             echo "QUEUE_HEADERS=" . count($build["table"]["#header"] ?? []) . PHP_EOL;
             echo "QUEUE_ROWS=" . count($build["table"]["#rows"] ?? []) . PHP_EOL;
+            \Drupal::service("renderer")->renderRoot($build);
+            echo "QUEUE_RENDER=OK" . PHP_EOL;
           }
           catch (\Throwable $e) {
-            echo "QUEUE_BUILD=ERROR" . PHP_EOL;
+            echo "QUEUE_RENDER=ERROR" . PHP_EOL;
             echo "ERROR_CLASS=" . get_class($e) . PHP_EOL;
             echo "ERROR_MESSAGE=" . preg_replace("/\s+/", " ", $e->getMessage()) . PHP_EOL;
             exit(1);
