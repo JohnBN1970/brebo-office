@@ -1,0 +1,130 @@
+name: Canonical context resolver acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/BagPdokClient.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/CanonicalContextResolver.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - '.github/workflows/canonical-context-resolver-acceptance.yml'
+      - '.github/workflows/sboffice-deploy-develop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify canonical context resolver and PDOK lookup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            echo "Authenticated SSH host-key probe attempt $attempt/5"
+            if timeout 20 ssh \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=5 \
+              -o ServerAliveCountMax=2 \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -i ~/.ssh/deploy_key \
+              -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to establish authenticated SSH connection and capture host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Acceptance-test resolver
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+          $DRUSH cr
+          $DRUSH php:eval '
+            $container = \Drupal::getContainer();
+            if (!$container->has("brebo_mail_intake.canonical_context_resolver")) {
+              throw new \RuntimeException("Canonical context resolver service missing.");
+            }
+            if (!$container->has("brebo_mail_intake.bag_pdok_client")) {
+              throw new \RuntimeException("BAG/PDOK client service missing.");
+            }
+
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $projectIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->condition("status", 1)->execute();
+            $buildingIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_building")->condition("status", 1)->execute();
+            if (!$projectIds || !$buildingIds) {
+              throw new \RuntimeException("Acceptance requires at least one published project and building.");
+            }
+            $project = $storage->load(reset($projectIds));
+            $building = $storage->load(reset($buildingIds));
+            if (!$project instanceof \Drupal\node\NodeInterface || !$building instanceof \Drupal\node\NodeInterface) {
+              throw new \RuntimeException("Acceptance fixtures could not be loaded.");
+            }
+
+            $resolver = $container->get("brebo_mail_intake.canonical_context_resolver");
+            $existing = $resolver->resolve(
+              "Project " . $project->label(),
+              "Gebouw " . $building->label()
+            );
+            echo "EXISTING_PROJECT_ID=" . (int) ($existing["project_id"] ?? 0) . PHP_EOL;
+            echo "EXISTING_BUILDING_ID=" . (int) ($existing["building_id"] ?? 0) . PHP_EOL;
+            if ((int) ($existing["project_id"] ?? 0) !== (int) $project->id()) {
+              throw new \RuntimeException("Existing project was not resolved canonically.");
+            }
+            if ((int) ($existing["building_id"] ?? 0) !== (int) $building->id()) {
+              throw new \RuntimeException("Existing building was not resolved canonically.");
+            }
+
+            $unknown = $resolver->resolve(
+              "Nieuwe aanvraag onbekend project 2026-XYZ-UNIQUE",
+              "Werkadres Dam 1, 1012 JS Amsterdam. Dit project en gebouw bestaan niet in BREBO."
+            );
+            echo "UNKNOWN_PROJECT_STATE=" . (string) ($unknown["project_state"] ?? "") . PHP_EOL;
+            echo "UNKNOWN_BUILDING_STATE=" . (string) ($unknown["building_state"] ?? "") . PHP_EOL;
+            echo "PDOK_CANDIDATES=" . count($unknown["pdok_address_candidates"] ?? []) . PHP_EOL;
+            echo "HUMAN_REVIEW_REQUIRED=" . (!empty($unknown["requires_human_review"]) ? "1" : "0") . PHP_EOL;
+            if (($unknown["project_state"] ?? NULL) !== "provisional_required") {
+              throw new \RuntimeException("Unknown project was not marked provisional_required.");
+            }
+            if (($unknown["building_state"] ?? NULL) !== "provisional_required") {
+              throw new \RuntimeException("Unknown building was not marked provisional_required.");
+            }
+            if (empty($unknown["requires_human_review"])) {
+              throw new \RuntimeException("Unknown context did not require human review.");
+            }
+            if (count($unknown["pdok_address_candidates"] ?? []) < 1) {
+              throw new \RuntimeException("PDOK returned no address candidates for a known Dutch address.");
+            }
+
+            echo "CANONICAL_CONTEXT_RESOLVER=PASS" . PHP_EOL;
+            echo "PDOK_LOOKUP=PASS" . PHP_EOL;
+          '
+          REMOTE
