@@ -52,7 +52,7 @@ jobs:
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          cd public_html/sboffice
+          cd public_html/sboffice_app
           php -r '
             require "web/sites/default/settings.php";
             $required = [
@@ -63,6 +63,7 @@ jobs:
               "BREBO_IMAP_FLAGS",
               "BREBO_IMAP_USER",
               "BREBO_IMAP_PASSWORD",
+              "BREBO_MAIL_INTAKE_UID",
             ];
             $ok = true;
             foreach ($required as $name) {
