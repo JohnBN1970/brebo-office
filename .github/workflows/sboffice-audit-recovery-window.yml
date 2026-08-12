@@ -1,0 +1,181 @@
+name: Audit sboffice recovery window
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-read-only-recovery-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Read-only activity and file audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Validate deployment settings
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required secret $name is missing."
+              exit 1
+            fi
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key after 5 attempts."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Audit preserved evidence without changing files or data
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1
+          export TERM=dumb
+
+          target="$HOME/domains/brebobv.nl/public_html/sboffice_app"
+          files_dir="$target/web/sites/default/files"
+          start_local='2026-08-10 22:59:00'
+          end_local='2026-08-11 07:16:49'
+          start_log='10/Aug/2026:22:59:00'
+          end_log='11/Aug/2026:07:16:49'
+
+          echo "AUDIT_WINDOW_LOCAL=$start_local through $end_local"
+          echo "AUDIT_MODE=read_only"
+          echo "AUDIT_NOTE=the restored database snapshot cannot contain evidence of later lost writes"
+
+          echo "=== Preserved public files ==="
+          if [[ -d "$files_dir" ]]; then
+            file_result=$(find "$files_dir" -type f \
+              -newermt "$start_local" ! -newermt "$end_local" \
+              -printf '%T@\n' 2>/dev/null | \
+              awk '
+                BEGIN { count=0; latest=0 }
+                { count++; if (($1 + 0) > latest) latest=$1 + 0 }
+                END { printf "%d %.0f\n", count, latest }
+              ')
+            read -r changed_files latest_file_epoch <<< "$file_result"
+            echo "PRESERVED_FILE_CHANGES=$changed_files"
+            echo "PRESERVED_FILE_LATEST_EPOCH=$latest_file_epoch"
+          else
+            echo "PRESERVED_FILES_DIRECTORY=missing"
+            echo "PRESERVED_FILE_CHANGES=unknown"
+          fi
+
+          echo "=== Candidate access logs ==="
+          search_roots=()
+          for directory in \
+            "$HOME/domains/brebobv.nl/logs" \
+            "$HOME/logs"; do
+            [[ -d "$directory" ]] && search_roots+=("$directory")
+          done
+
+          log_files=()
+          if (( ${#search_roots[@]} > 0 )); then
+            while IFS= read -r -d '' logfile; do
+              log_files+=("$logfile")
+            done < <(find "${search_roots[@]}" -maxdepth 3 -type f \
+              \( -iname '*access*log*' -o -iname '*request*log*' \) \
+              -print0 2>/dev/null)
+          fi
+          echo "ACCESS_LOG_FILES_FOUND=${#log_files[@]}"
+
+          temp_log=$(mktemp)
+          trap 'rm -f "$temp_log"' EXIT
+          for logfile in "${log_files[@]}"; do
+            case "$logfile" in
+              *.gz) gzip -cd -- "$logfile" 2>/dev/null >> "$temp_log" || true ;;
+              *)    sed -n '1,$p' -- "$logfile" 2>/dev/null >> "$temp_log" || true ;;
+            esac
+          done
+
+          if (( ${#log_files[@]} > 0 )); then
+            awk -v start="$start_log" -v finish="$end_log" '
+              BEGIN {
+                total=0; get=0; post=0; put=0; patch=0; delete_method=0; other=0
+              }
+              {
+                bracket=index($0, "[")
+                if (!bracket) next
+                stamp=substr($0, bracket + 1, 20)
+                if (stamp < start || stamp > finish) next
+
+                method=""
+                for (i=1; i<=NF; i++) {
+                  token=$i
+                  gsub(/^\"|\"$/, "", token)
+                  if (token ~ /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/) {
+                    method=token
+                    break
+                  }
+                }
+
+                total++
+                if (method == "GET") get++
+                else if (method == "POST") post++
+                else if (method == "PUT") put++
+                else if (method == "PATCH") patch++
+                else if (method == "DELETE") delete_method++
+                else other++
+              }
+              END {
+                printf "ACCESS_REQUESTS_TOTAL=%d\n", total
+                printf "ACCESS_REQUESTS_GET=%d\n", get
+                printf "ACCESS_REQUESTS_POST=%d\n", post
+                printf "ACCESS_REQUESTS_PUT=%d\n", put
+                printf "ACCESS_REQUESTS_PATCH=%d\n", patch
+                printf "ACCESS_REQUESTS_DELETE=%d\n", delete_method
+                printf "ACCESS_REQUESTS_OTHER=%d\n", other
+                printf "POTENTIAL_WRITE_REQUESTS=%d\n", post + put + patch + delete_method
+              }
+            ' "$temp_log"
+          else
+            echo "ACCESS_REQUESTS_TOTAL=unknown"
+            echo "POTENTIAL_WRITE_REQUESTS=unknown"
+          fi
+
+          echo "=== Interpretation boundary ==="
+          echo "ZERO_POTENTIAL_WRITES_AND_ZERO_FILE_CHANGES=supports_no_manual_changes"
+          echo "NONZERO_POTENTIAL_WRITES=requires_follow_up_but_does_not_itself_prove_a_database_change"
+          echo "NO_ACCESS_LOGS=manual_changes_cannot_be_definitively_excluded"
+          REMOTE
