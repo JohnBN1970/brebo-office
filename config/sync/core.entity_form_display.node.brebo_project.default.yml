@@ -16,7 +16,6 @@ dependencies:
     - field.field.node.brebo_project.field_brebo_lens_control
     - field.field.node.brebo_project.field_brebo_lens_insight
     - field.field.node.brebo_project.field_brebo_lens_realization
-    - field.field.node.brebo_project.field_brebo_location
     - field.field.node.brebo_project.field_brebo_mandate_limit
     - field.field.node.brebo_project.field_brebo_procurement_allowed
     - field.field.node.brebo_project.field_brebo_procurement_position
@@ -143,14 +142,6 @@ content:
     region: content
     settings:
       display_label: true
-    third_party_settings: {  }
-  field_brebo_location:
-    type: string_textfield
-    weight: 3
-    region: content
-    settings:
-      size: 60
-      placeholder: ''
     third_party_settings: {  }
   field_brebo_mandate_limit:
     type: number
