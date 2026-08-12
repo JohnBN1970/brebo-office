@@ -1,0 +1,8 @@
+name: 'BREBO Scope Guard'
+type: module
+description: 'Dwingt af dat Projectscope alleen permanente objecten uit het gekozen gebouw bevat.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - brebo_office_core:brebo_office_core

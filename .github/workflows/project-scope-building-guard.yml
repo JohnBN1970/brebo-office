@@ -1,0 +1,91 @@
+name: Project scope building guard acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_scope_guard/**'
+      - '.github/workflows/project-scope-building-guard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Enable and verify project scope building guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
+          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Enable and acceptance-test guard
+        env:
+          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
+          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
+          DEPLOY_USER: ${{ secrets.HOSTINGER_USER }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+          $DRUSH pm:enable brebo_scope_guard -y
+          $DRUSH cr
+          $DRUSH php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $scopeIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project_scope")->execute();
+            if (!$scopeIds) {
+              throw new \RuntimeException("No Projectscope exists for acceptance test.");
+            }
+            $scope = $storage->load(reset($scopeIds));
+            if (!$scope instanceof \Drupal\node\NodeInterface) {
+              throw new \RuntimeException("Projectscope could not be loaded.");
+            }
+            $valid = brebo_scope_guard_validate_scope($scope);
+            echo "EXISTING_SCOPE_VIOLATIONS=" . count($valid) . PHP_EOL;
+            if ($valid) {
+              throw new \RuntimeException("Existing canonical scope is invalid.");
+            }
+            $probe = clone $scope;
+            $probe->set("field_brebo_building_ref", ["target_id" => 999999999]);
+            $invalid = brebo_scope_guard_validate_scope($probe);
+            echo "SYNTHETIC_INVALID_VIOLATIONS=" . count($invalid) . PHP_EOL;
+            if (!$invalid) {
+              throw new \RuntimeException("Synthetic invalid scope was not rejected.");
+            }
+            echo "PROJECT_SCOPE_GUARD=PASS" . PHP_EOL;
+          '
+          $DRUSH cex -y
+          REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Project scope guard acceptance failed after 3 SSH attempts."
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
