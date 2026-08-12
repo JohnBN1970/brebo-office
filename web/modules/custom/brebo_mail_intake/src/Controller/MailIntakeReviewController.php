@@ -112,7 +112,13 @@ final class MailIntakeReviewController extends ControllerBase {
           'suggestion' => implode(' / ', array_filter([$suggestedBuilding, $suggestedProject])) ?: '—',
           'confidence' => $confidence !== NULL ? sprintf('%.0f%%', $confidence) : '—',
           'reason' => implode('; ', $reasons),
-          'edit' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])),
+          'edit' => [
+            'data' => [
+              'review' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable(),
+              'separator' => ['#markup' => ' · '],
+              'close' => Link::fromTextAndUrl('Afhandelen', Url::fromRoute('brebo_mail_intake.close', ['node' => $node->id()]))->toRenderable(),
+            ],
+          ],
         ],
       ];
     }
