@@ -21,6 +21,7 @@ jobs:
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
@@ -28,14 +29,24 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
           for attempt in 1 2 3 4 5; do
-            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
-              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+            echo "Authenticated SSH host-key probe attempt $attempt/5"
+            if timeout 20 ssh \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=5 \
+              -o ServerAliveCountMax=2 \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -i ~/.ssh/deploy_key \
+              -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
               break
             fi
-            : > ~/.ssh/known_hosts
             if [[ "$attempt" -eq 5 ]]; then
-              echo "::error::Unable to obtain SSH host key."
+              echo "::error::Unable to establish authenticated SSH connection and capture host key."
               exit 1
             fi
             sleep $((attempt * 2))
