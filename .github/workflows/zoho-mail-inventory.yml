@@ -58,7 +58,15 @@ jobs:
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           cd public_html/sboffice_app
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+          runtime="$HOME/.brebo-mail-runtime.php"
+          if [[ ! -f "$runtime" ]]; then
+            echo "BREBO_RUNTIME_FILE=MISSING"
+            exit 2
+          fi
+          echo "BREBO_RUNTIME_FILE=PRESENT"
+          echo "BREBO_RUNTIME_FILE_MODE=$(stat -c '%a' "$runtime")"
+
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $required = ["BREBO_ZOHO_IMAP_HOST", "BREBO_ZOHO_IMAP_USER", "BREBO_ZOHO_IMAP_PASSWORD"];
             $configured = true;
             foreach ($required as $name) {
