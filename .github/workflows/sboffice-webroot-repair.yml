@@ -1,0 +1,124 @@
+name: Repair sboffice webroot layout
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/sboffice-webroot-repair.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing $name"; exit 1; }
+          done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Repair with automatic rollback
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          base="$HOME/domains/brebobv.nl/public_html"
+          app="$base/sboffice_app"
+          public="$base/sboffice"
+          outer="$app/web"
+          nested="$outer/web"
+          stamp=$(date -u +%Y%m%dT%H%M%SZ)
+          backup="$app/.deploy-backup-nested-web-$stamp"
+          old_target=$(readlink "$public")
+
+          rollback() {
+            set +e
+            if [[ -d "$backup" && ! -d "$nested" ]]; then
+              mv "$backup" "$nested"
+            fi
+            ln -sfn "$old_target" "$public"
+            echo "ROLLBACK_DONE=1"
+          }
+          trap 'echo "::error::Repair failed; rolling back."; rollback' ERR
+
+          [[ -L "$public" ]]
+          [[ -d "$app" ]]
+          [[ -d "$outer" ]]
+          [[ -d "$nested" ]]
+          [[ -f "$outer/index.php" ]]
+          [[ -f "$nested/index.php" ]]
+          [[ -f "$outer/robots.txt" ]]
+
+          echo "OLD_PUBLIC_TARGET=$old_target"
+          echo "OUTER_REAL=$(readlink -f "$outer")"
+          echo "NESTED_REAL=$(readlink -f "$nested")"
+
+          outer_robots_sha=$(sha256sum "$outer/robots.txt" | awk '{print $1}')
+
+          # Hostinger resolves the subdomain through public_html/sboffice/web.
+          # Point the public alias at the Composer project root so /web resolves
+          # exactly once to sboffice_app/web instead of sboffice_app/web/web.
+          ln -sfn "$app" "$public"
+          new_real=$(readlink -f "$public")
+          [[ "$new_real" == "$(readlink -f "$app")" ]]
+          echo "NEW_PUBLIC_REAL=$new_real"
+
+          live_robots=/tmp/brebo-live-robots.txt
+          curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/robots.txt' -o "$live_robots"
+          live_robots_sha=$(sha256sum "$live_robots" | awk '{print $1}')
+          echo "OUTER_ROBOTS_SHA256=$outer_robots_sha"
+          echo "LIVE_ROBOTS_SHA256=$live_robots_sha"
+          [[ "$live_robots_sha" == "$outer_robots_sha" ]]
+
+          admin_status=$(curl -sS -o /tmp/brebo-admin-body.html -w '%{http_code}' --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/admin/brebo/mail-intake')
+          echo "ADMIN_STATUS_BEFORE_NESTED_MOVE=$admin_status"
+          [[ "$admin_status" -lt 500 ]]
+
+          mv "$nested" "$backup"
+          echo "NESTED_BACKUP=$backup"
+          [[ ! -d "$nested" ]]
+          [[ -d "$backup" ]]
+
+          admin_status_after=$(curl -sS -o /tmp/brebo-admin-body-after.html -w '%{http_code}' --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/admin/brebo/mail-intake')
+          home_status_after=$(curl -sS -o /tmp/brebo-home-body.html -w '%{http_code}' --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/')
+          echo "ADMIN_STATUS_AFTER_NESTED_MOVE=$admin_status_after"
+          echo "HOME_STATUS_AFTER_NESTED_MOVE=$home_status_after"
+          [[ "$admin_status_after" -lt 500 ]]
+          [[ "$home_status_after" -lt 500 ]]
+
+          trap - ERR
+          echo "REPAIR_OK=1"
+          echo "PUBLIC_REAL=$(readlink -f "$public")"
+          echo "NESTED_ACTIVE=$([[ -d "$nested" ]] && echo YES || echo NO)"
+          echo "ROLLBACK_BACKUP_PRESENT=$([[ -d "$backup" ]] && echo YES || echo NO)"
+          REMOTE
