@@ -1,0 +1,78 @@
+name: Probe sboffice document root
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/sboffice-docroot-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then exit 1; fi
+            sleep $((attempt * 2))
+          done
+      - name: Place unique temporary markers
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          root="$HOME/domains/brebobv.nl/public_html"
+          printf 'APP_TREE_4f8a2c\n' > "$root/sboffice_app/web/brebo-docroot-probe.txt"
+          printf 'DUP_TREE_91d7e5\n' > "$root/web/brebo-docroot-probe.txt"
+          REMOTE
+      - name: Probe actual HTTP document root
+        shell: bash
+        run: |
+          set -euo pipefail
+          body=$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/brebo-docroot-probe.txt')
+          echo "HTTP_MARKER=$body"
+          case "$body" in
+            APP_TREE_4f8a2c) echo 'DOCROOT=APP_WEB' ;;
+            DUP_TREE_91d7e5) echo 'DOCROOT=PUBLIC_HTML_WEB' ;;
+            *) echo 'DOCROOT=UNKNOWN'; exit 2 ;;
+          esac
+      - name: Cleanup markers
+        if: always()
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set +e
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          root="$HOME/domains/brebobv.nl/public_html"
+          rm -f "$root/sboffice_app/web/brebo-docroot-probe.txt" "$root/web/brebo-docroot-probe.txt"
+          REMOTE
