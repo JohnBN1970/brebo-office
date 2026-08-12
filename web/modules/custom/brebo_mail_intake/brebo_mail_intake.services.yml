@@ -38,6 +38,11 @@ services:
       - '@brebo_mail_intake.meaning_extractor'
       - '@brebo_mail_intake.relation_suggester'
       - '@brebo_mail_intake.ingestor'
+      - '@logger.channel.brebo_mail_intake'
+
+  logger.channel.brebo_mail_intake:
+    parent: logger.channel_base
+    arguments: ['brebo_mail_intake']
 
   brebo_mail_intake.proposal_materializer:
     class: Drupal\brebo_mail_intake\Service\MailProposalMaterializer
