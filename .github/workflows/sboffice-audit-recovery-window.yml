@@ -1,6 +1,11 @@
 name: Audit sboffice recovery window
 
 on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/sboffice-audit-recovery-window.yml'
   workflow_dispatch:
 
 permissions:
