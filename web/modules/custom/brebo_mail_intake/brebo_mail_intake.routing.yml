@@ -14,6 +14,18 @@ brebo_mail_intake.review_queue:
   requirements:
     _permission: 'review brebo mail intake'
 
+brebo_mail_intake.close:
+  path: '/admin/brebo/mail-intake/{node}/afhandelen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\MailIntakeCloseForm'
+    _title: 'Mail Intake afhandelen'
+  requirements:
+    _permission: 'review brebo mail intake'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_mail_intake.runtime_readiness:
   path: '/admin/brebo/mail-intake/runtime'
   defaults:
