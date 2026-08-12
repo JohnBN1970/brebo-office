@@ -53,6 +53,13 @@ final class MailIntakeReviewController extends ControllerBase {
     $items = [];
     foreach ($storage->loadMultiple($ids) as $node) {
       $status = trim((string) $node->get('field_brebo_intake_status')->value);
+
+      // Afgehandelde communicatie blijft als bron bewaard, maar hoort niet meer
+      // thuis in de actieve aandacht-werkbak.
+      if ($status === 'Afgehandeld') {
+        continue;
+      }
+
       $classification = trim((string) $node->get('field_brebo_mail_classification')->value);
       $confidenceRaw = $node->get('field_brebo_match_confidence')->value;
       $confidence = $confidenceRaw !== NULL && $confidenceRaw !== '' ? (float) $confidenceRaw : NULL;
@@ -91,13 +98,14 @@ final class MailIntakeReviewController extends ControllerBase {
 
       $suggestedBuilding = $this->referenceLabel($node, 'field_brebo_suggest_building_ref');
       $suggestedProject = $this->referenceLabel($node, 'field_brebo_suggest_project_ref');
+      $attentionLabel = (string) ($attention['label'] ?? 'Normaal');
 
       $items[] = [
         'score' => (int) ($attention['score'] ?? 0),
         'changed' => (int) $node->getChangedTime(),
         'row' => [
           'subject' => Link::fromTextAndUrl($node->label(), Url::fromRoute('entity.node.canonical', ['node' => $node->id()])),
-          'attention' => (string) ($attention['label'] ?? 'Normaal'),
+          'attention' => $this->trafficLightLabel($attentionLabel),
           'classification' => $classification !== '' ? $classification : '—',
           'meaning' => $meaningLabels !== [] ? implode(', ', $meaningLabels) : '—',
           'followup' => $followupAdvice !== [] ? implode(', ', $followupAdvice) : '—',
@@ -117,16 +125,24 @@ final class MailIntakeReviewController extends ControllerBase {
 
     return [
       'intro' => [
-        '#markup' => '<p>Alleen uitzonderingen en onzekere Mail Intake-items worden hier getoond. De werkbak zet items met meerdere beheerste termijn-, risico- en actiesignalen bovenaan. Prioriteit, betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
+        '#markup' => '<p><strong>Stoplicht:</strong> 🔴 direct aandacht · 🟠 aandacht/opvolging · 🟢 afgehandeld en daarom niet meer zichtbaar in deze actieve werkbak.</p><p>Prioriteit, betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
       ],
       'table' => [
         '#type' => 'table',
-        '#header' => ['Onderwerp', 'Prioriteit', 'Classificatie', 'Signalen', 'Voorgestelde opvolging', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
+        '#header' => ['Onderwerp', 'Stoplicht', 'Classificatie', 'Signalen', 'Voorgestelde opvolging', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
         '#rows' => $rows,
         '#empty' => 'Geen Mail Intake-uitzonderingen. De werkbak is leeg.',
       ],
       '#cache' => ['max-age' => 0],
     ];
+  }
+
+  private function trafficLightLabel(string $attentionLabel): string {
+    return match ($attentionLabel) {
+      'Hoog' => '🔴 Hoog',
+      'Aandacht' => '🟠 Aandacht',
+      default => '🟠 Normaal',
+    };
   }
 
   /**
