@@ -3,6 +3,19 @@
 declare(strict_types=1);
 
 /**
+ * Plain callable fallback for the Mail Intake review route.
+ *
+ * Avoids class/service controller resolution in the HTTP runtime while keeping
+ * the existing review controller service as the single implementation.
+ *
+ * @return array<string, mixed>
+ *   Render array.
+ */
+function brebo_mail_intake_review_queue(): array {
+  return \Drupal::service('brebo_mail_intake.review_controller')->queue();
+}
+
+/**
  * Implements hook_cron().
  */
 function brebo_mail_intake_cron(): void {
