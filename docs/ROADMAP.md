@@ -109,7 +109,7 @@ Doel is één samenhangende dossierlaag, niet meerdere concurrerende registers v
 
 ## Fase 4 — Migrerende Mail Intake
 
-**Status: eerste live keten operationeel bewezen; gecontroleerd opschalen**
+**Status: kernketen 100% operationeel geaccepteerd; verdere uitbreidingen zijn afzonderlijke vervolgstappen**
 
 De bestaande communicatiestructuur wordt gebruikt als basis voor gecontroleerde invoer vanuit e-mail en later andere kanalen.
 
@@ -133,40 +133,49 @@ Persoonlijke mailboxen, WhatsApp, telefoon en andere kanalen blijven aanvoerkana
 
 ### Mijlpaal 2026-08-12 — Centrale BREBO-mail live in BREBO Office
 
-**Status: bereikt**
+**Status: volledig bereikt en end-to-end geaccepteerd**
 
-De centrale mailbox `info@brebobv.nl` is via Hostinger IMAP succesvol aangesloten op BREBO Office. De volledige eerste inkomende keten is in productie bewezen:
+De centrale mailbox `info@brebobv.nl` is via Hostinger IMAP succesvol aangesloten op BREBO Office. De inkomende kernketen is in productie bewezen en functioneel geaccepteerd:
 
 ```text
 Hostinger mailbox
 -> beveiligde runtime-configuratie
 -> read-only IMAP
+-> geplande polling
+-> UTF-8-normalisatie
 -> Drupal Mail Intake service
--> intakepipeline
+-> intakepipeline met foutisolatie per bericht
 -> brebo_communication
 -> Mail Intake beoordelingswerkbak
+-> technische uitzonderingswerkbak
+-> menselijke afhandeling / bevestiging
 ```
 
 Aantoonbaar bereikt:
 
 - IMAP-authenticatie is succesvol;
 - de mailbox is vanuit de BREBO Office-runtime read-only bereikbaar;
-- Drupal herkent de live IMAP-bron als geconfigureerd;
-- de eerste begrensde import is succesvol uitgevoerd;
-- de eerste echte e-mail is als `brebo_communication` zichtbaar in de beoordelingswerkbak;
-- de bronmail wordt door de adapter niet verplaatst, verwijderd of als gelezen gemarkeerd;
+- geplande GitHub Actions-polling is in productie bewezen;
+- nieuwe mail wordt daadwerkelijk end-to-end verwerkt;
+- legacy/non-UTF-8 mail wordt vóór opslag genormaliseerd;
+- één foutief bericht blokkeert de rest van een batch niet meer;
+- technische uitzonderingen worden privacy-veilig geregistreerd en zichtbaar gemaakt;
+- de synthetische acceptatietest met referentie `deadbeefdeadbeef` is in productie geslaagd;
+- de technische uitzondering werd zichtbaar in de werkbak en de menselijke actie `Markeer gezien` is door de gebruiker succesvol uitgevoerd;
+- de bronmail werd tijdens deze acceptatietest niet gewijzigd of verwijderd;
+- de beoordelingswerkbak toont stoplicht, classificatie, signalen, voorgestelde opvolging, relatievoorstel, vertrouwen, aandachtreden en acties;
+- de dubbele `web/web`-runtimefout is hersteld en de deployment bevat blijvende guards en productie-smokechecks tegen herhaling;
 - classificatie en gebouw-/projectrelaties blijven gecontroleerde voorstellen en worden niet automatisch formele dossierwaarheid.
 
-**Betekenis:** e-mail is hiermee niet langer uitsluitend een extern communicatiekanaal, maar een operationele databron voor het centrale BREBO-dossier. Dit vormt de basis voor automatische intake, AI-analyse, relatievoorstellen, acties en risicosignalering, gecontroleerde conceptantwoorden en de latere verwerking van historische Zoho-mail.
+**Acceptatiebesluit:** de Mail Intake-kernketen geldt per 12 augustus 2026 als **100% functioneel afgerond en productiegeaccepteerd**. Verdere functies hieronder zijn uitbreidingen op deze bewezen basis en geen resterende acceptatiepunten van de kernketen.
 
-**Eerstvolgende mailstappen:**
+### Verdere Mail Intake-uitbreidingen
 
-1. de Mail Runtime Readiness-workflow corrigeren zodat deze via geldige Drupal/Drush-bootstrap controleert;
-2. intake gecontroleerd opschalen van testbatch naar kleine operationele batches;
-3. classificatie, relatievoorstellen en beoordelingswerkbak verfijnen op echte BREBO-mail;
-4. Zoho-historie gecontroleerd migreren en verwerken;
-5. SMTP/Mime Mail voor uitgaand verkeer aansluiten, met expliciete menselijke vrijgave als blijvende grens;
-6. bijlagen, threads/conversations en verdere AI-verwerking verdiepen.
+1. Zoho-historie gecontroleerd migreren en verwerken, uitsluitend na afzonderlijke expliciete goedkeuring;
+2. SMTP/Mime Mail voor uitgaand verkeer aansluiten, met expliciete menselijke vrijgave als blijvende grens;
+3. bijlagen en threads/conversations verdiepen;
+4. verdere AI-verwerking, conceptantwoorden en contextverrijking toevoegen zonder automatische dossierwaarheid;
+5. retentie, rapportage en operationele kwaliteitsmetingen van de intake verder uitbouwen.
 
 ## Fase 5 — Actie-, signaal- en controlemotor
 
@@ -235,11 +244,11 @@ Beoogde inzichten omvatten onder andere:
 
 ## Actuele positie
 
-BREBO Office bevindt zich nu **tussen fase 3 en fase 4, met de eerste echte end-to-end bedrijfsworkflow operationeel bewezen**.
+BREBO Office heeft nu zijn **eerste volledige productiegeaccepteerde bedrijfsworkflow**: de centrale Mail Intake-kernketen is 100% functioneel afgerond en operationeel bewezen.
 
-Het permanente gebouwmodel en de tijdelijke projectscope bestaan reeds en de centrale dossierlaag wordt verder geconsolideerd. Tegelijk is de Migrerende Mail Intake niet langer alleen een geplande workflow: de centrale BREBO-mailbox is daadwerkelijk aangesloten en de eerste echte mail is succesvol als gecontroleerde communicatie in het dossier opgenomen.
+De eerstvolgende hoofdopgave is daarom niet langer het bewijzen van Mail Intake, maar het verder consolideren van het canonieke gebouw-/projectmodel en de centrale dossierlaag. Mail Intake blijft ondertussen als operationele ingang functioneren; Zoho-migratie, SMTP, bijlagen/threads en verdere AI-verwerking worden als afzonderlijke uitbreidingen gepland en vereisen waar van toepassing hun eigen expliciete besluitmoment.
 
-De ontwikkelrichting is daarmee tweeledig: de canonieke object- en dossierstructuur verder consolideren én de bewezen Mail Intake gecontroleerd opschalen zonder parallelle waarheden of verlies van menselijke besluitgrenzen.
+De ontwikkelrichting verschuift daarmee van **“kan de eerste keten betrouwbaar werken?”** naar **“hoe verbinden we bewezen intake, canonieke objecten, acties, signalen, risico's en digitale rollen tot één beheerst bedrijfsgeheugen?”**
 
 ## Continuïteitsregel
 
