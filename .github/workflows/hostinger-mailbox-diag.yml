@@ -1,0 +1,95 @@
+name: BREBO Hostinger mailbox diagnosis
+
+on:
+  push:
+    branches:
+      - diag/hostinger-mailbox-state
+    paths:
+      - '.github/workflows/hostinger-mailbox-diag.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose Hostinger mailbox state
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Read mailbox metadata only
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $host = trim((string) getenv("BREBO_IMAP_HOST"));
+            $port = max(1, (int) (getenv("BREBO_IMAP_PORT") ?: 993));
+            $flags = trim((string) (getenv("BREBO_IMAP_FLAGS") ?: "/imap/ssl"));
+            $folder = trim((string) (getenv("BREBO_IMAP_FOLDER") ?: "INBOX"));
+            $user = trim((string) getenv("BREBO_IMAP_USER"));
+            $password = (string) getenv("BREBO_IMAP_PASSWORD");
+            if ($host === "" || $user === "" || $password === "") {
+              throw new \RuntimeException("Canonical Hostinger IMAP runtime is incomplete.");
+            }
+            $mailbox = sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder);
+            $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
+            if ($stream === FALSE) {
+              throw new \RuntimeException("Hostinger IMAP mailbox could not be opened read-only.");
+            }
+            try {
+              $check = imap_check($stream);
+              $status = imap_status($stream, $mailbox, SA_MESSAGES | SA_RECENT | SA_UIDNEXT | SA_UIDVALIDITY);
+              $uids = imap_search($stream, "ALL", SE_UID) ?: [];
+              sort($uids, SORT_NUMERIC);
+              $first = $uids ? (int) reset($uids) : 0;
+              $last = $uids ? (int) end($uids) : 0;
+              $saved = (int) \Drupal::state()->get("brebo_mail_intake.imap_last_uid", 0);
+              echo "FOLDER=" . $folder . PHP_EOL;
+              echo "MESSAGES=" . (int) ($status->messages ?? $check->Nmsgs ?? 0) . PHP_EOL;
+              echo "RECENT=" . (int) ($status->recent ?? $check->Recent ?? 0) . PHP_EOL;
+              echo "UIDNEXT=" . (int) ($status->uidnext ?? 0) . PHP_EOL;
+              echo "UIDVALIDITY=" . (int) ($status->uidvalidity ?? 0) . PHP_EOL;
+              echo "FIRST_UID=" . $first . PHP_EOL;
+              echo "LAST_UID=" . $last . PHP_EOL;
+              echo "SAVED_UID=" . $saved . PHP_EOL;
+              echo "NEW_UIDS=" . count(array_filter($uids, static fn($uid) => (int) $uid > $saved)) . PHP_EOL;
+              echo "HOSTINGER_MAILBOX_DIAG=COMPLETED_READ_ONLY" . PHP_EOL;
+            }
+            finally {
+              imap_close($stream);
+            }
+          '
+          REMOTE
