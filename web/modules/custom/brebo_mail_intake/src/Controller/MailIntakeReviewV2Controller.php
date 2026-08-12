@@ -110,11 +110,17 @@ final class MailIntakeReviewV2Controller extends ControllerBase {
           'reason' => implode('; ', $reasons),
           'edit' => [
             'data' => [
-              '#type' => 'container',
-              '#attributes' => ['class' => ['brebo-mail-intake-actions']],
-              'review' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable(),
-              'separator' => ['#markup' => ' · '],
-              'close' => Link::fromTextAndUrl('Afhandelen', Url::fromRoute('brebo_mail_intake.close', ['node' => $node->id()]))->toRenderable(),
+              '#type' => 'operations',
+              '#links' => [
+                'review' => [
+                  'title' => 'Beoordelen',
+                  'url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+                ],
+                'close' => [
+                  'title' => 'Afhandelen',
+                  'url' => Url::fromRoute('brebo_mail_intake.close', ['node' => $node->id()]),
+                ],
+              ],
             ],
           ],
         ],
