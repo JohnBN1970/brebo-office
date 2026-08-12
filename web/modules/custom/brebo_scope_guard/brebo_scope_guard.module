@@ -177,17 +177,29 @@ function brebo_scope_guard_validate_context_object(NodeInterface $entity): array
   $bundle = $entity->bundle();
 
   if ($bundle === 'brebo_communication') {
+    $project_is_set = brebo_scope_guard_reference_is_set($entity, 'field_brebo_project_ref');
+    $building_is_set = brebo_scope_guard_reference_is_set($entity, 'field_brebo_building_ref');
+    $target_is_set = brebo_scope_guard_reference_is_set($entity, 'field_brebo_comm_scope_target');
     $project = brebo_scope_guard_reference_entity($entity, 'field_brebo_project_ref');
     $building = brebo_scope_guard_reference_entity($entity, 'field_brebo_building_ref');
     $target = brebo_scope_guard_reference_entity($entity, 'field_brebo_comm_scope_target');
 
-    if ($project !== NULL && $project->bundle() !== 'brebo_project') {
+    if ($project_is_set && !$project instanceof NodeInterface) {
+      $violations[] = 'De communicatieprojectrelatie moet naar een bestaand project wijzen.';
+    }
+    elseif ($project !== NULL && $project->bundle() !== 'brebo_project') {
       $violations[] = 'De communicatieprojectrelatie moet naar een geldig project wijzen.';
       $project = NULL;
     }
-    if ($building !== NULL && $building->bundle() !== 'brebo_building') {
+    if ($building_is_set && !$building instanceof NodeInterface) {
+      $violations[] = 'De communicatiegebouwrelatie moet naar een bestaand permanent gebouw wijzen.';
+    }
+    elseif ($building !== NULL && $building->bundle() !== 'brebo_building') {
       $violations[] = 'De communicatiegebouwrelatie moet naar een geldig permanent gebouw wijzen.';
       $building = NULL;
+    }
+    if ($target_is_set && !$target instanceof NodeInterface) {
+      $violations[] = 'Het communicatiescopeobject moet naar een bestaand canoniek object wijzen.';
     }
     if ($project instanceof NodeInterface && $building instanceof NodeInterface
       && !in_array((int) $building->id(), brebo_scope_guard_project_building_ids($project), TRUE)) {
@@ -215,12 +227,16 @@ function brebo_scope_guard_validate_context_object(NodeInterface $entity): array
   }
 
   if ($bundle === 'brebo_work_package') {
+    $cluster_is_set = brebo_scope_guard_reference_is_set($entity, 'field_brebo_cluster_ref');
     $project = brebo_scope_guard_reference_entity($entity, 'field_brebo_project_ref');
     $cluster = brebo_scope_guard_reference_entity($entity, 'field_brebo_cluster_ref');
     if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
       $violations[] = 'Een werkpakket moet aan één geldig project gekoppeld zijn.';
     }
-    if ($cluster !== NULL) {
+    if ($cluster_is_set && !$cluster instanceof NodeInterface) {
+      $violations[] = 'De werkpakketclusterrelatie moet naar een bestaand permanent cluster wijzen.';
+    }
+    elseif ($cluster !== NULL) {
       if ($cluster->bundle() !== 'brebo_cluster') {
         $violations[] = 'De werkpakketclusterrelatie moet naar een geldig permanent cluster wijzen.';
       }
@@ -241,12 +257,16 @@ function brebo_scope_guard_validate_context_object(NodeInterface $entity): array
   }
 
   if ($bundle === 'brebo_deviation') {
+    $recheck_is_set = brebo_scope_guard_reference_is_set($entity, 'field_brebo_recheck_ref');
     $control = brebo_scope_guard_reference_entity($entity, 'field_brebo_control_ref');
     $recheck = brebo_scope_guard_reference_entity($entity, 'field_brebo_recheck_ref');
     if (!$control instanceof NodeInterface || $control->bundle() !== 'brebo_verification') {
       $violations[] = 'Een afwijking moet naar één geldige oorspronkelijke controle wijzen.';
     }
-    if ($recheck !== NULL && $recheck->bundle() !== 'brebo_verification') {
+    if ($recheck_is_set && !$recheck instanceof NodeInterface) {
+      $violations[] = 'Een hercontrole moet naar een bestaand controleobject wijzen.';
+    }
+    elseif ($recheck !== NULL && $recheck->bundle() !== 'brebo_verification') {
       $violations[] = 'Een hercontrole moet naar een geldig controleobject wijzen.';
     }
     if ($control instanceof NodeInterface && $control->bundle() === 'brebo_verification' && $recheck instanceof NodeInterface && $recheck->bundle() === 'brebo_verification') {
@@ -262,10 +282,17 @@ function brebo_scope_guard_validate_context_object(NodeInterface $entity): array
 }
 
 /**
- * Returns a referenced node or NULL when a field is absent or empty.
+ * Returns TRUE when a reference field is present and contains a value.
+ */
+function brebo_scope_guard_reference_is_set(NodeInterface $entity, string $field_name): bool {
+  return $entity->hasField($field_name) && !$entity->get($field_name)->isEmpty();
+}
+
+/**
+ * Returns a referenced node or NULL when a field is absent, empty or unresolved.
  */
 function brebo_scope_guard_reference_entity(NodeInterface $entity, string $field_name): ?NodeInterface {
-  if (!$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+  if (!brebo_scope_guard_reference_is_set($entity, $field_name)) {
     return NULL;
   }
   $referenced = $entity->get($field_name)->entity;
