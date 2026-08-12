@@ -9,7 +9,7 @@ brebo_mail_intake.admin:
 brebo_mail_intake.review_queue:
   path: '/admin/brebo/mail-intake'
   defaults:
-    _controller: 'brebo_mail_intake.review_controller:queue'
+    _controller: '\Drupal\brebo_mail_intake\Controller\MailIntakeReviewEntryController::queue'
     _title: 'Mail Intake beoordelingswerkbak'
   requirements:
     _permission: 'review brebo mail intake'
