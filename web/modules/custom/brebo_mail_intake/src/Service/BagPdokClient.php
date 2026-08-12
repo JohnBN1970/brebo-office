@@ -63,15 +63,24 @@ final class BagPdokClient {
       if (!is_array($feature)) {
         continue;
       }
+
       $properties = is_array($feature['properties'] ?? NULL) ? $feature['properties'] : [];
-      $displayName = trim((string) ($properties['display_name'] ?? $properties['weergavenaam'] ?? ''));
-      if ($displayName === '') {
+      $links = is_array($feature['links'] ?? NULL) ? $feature['links'] : [];
+      $featureId = trim((string) ($feature['id'] ?? $properties['id'] ?? ''));
+      $href = $this->firstHref($links, $properties);
+      $displayName = $this->displayName($properties, $featureId, $href);
+
+      // Location API search intentionally returns compact features. Do not
+      // discard a valid candidate merely because the source uses highlight/
+      // href instead of a traditional display_name property.
+      if ($featureId === '' && $href === '' && $displayName === '') {
         continue;
       }
 
       $result[] = [
         'display_name' => $displayName,
-        'feature_id' => (string) ($feature['id'] ?? $properties['id'] ?? ''),
+        'feature_id' => $featureId,
+        'href' => $href,
         'properties' => $properties,
         'geometry' => is_array($feature['geometry'] ?? NULL) ? $feature['geometry'] : NULL,
         'source' => 'PDOK Location API',
@@ -117,6 +126,56 @@ final class BagPdokClient {
     $payload['_brebo_source'] = 'PDOK BAG OGC API v2';
     $payload['_brebo_retrieved_at'] = gmdate(DATE_ATOM);
     return $payload;
+  }
+
+  /**
+   * @param array<string, mixed> $properties
+   */
+  private function displayName(array $properties, string $featureId, string $href): string {
+    foreach (['display_name', 'weergavenaam', 'name', 'title', 'label', 'highlight', 'text'] as $key) {
+      if (!array_key_exists($key, $properties)) {
+        continue;
+      }
+      $value = $properties[$key];
+      if (is_scalar($value)) {
+        $label = trim(strip_tags((string) $value));
+        if ($label !== '') {
+          return $label;
+        }
+      }
+      elseif (is_array($value)) {
+        $parts = [];
+        array_walk_recursive($value, static function ($item) use (&$parts): void {
+          if (is_scalar($item) && trim((string) $item) !== '') {
+            $parts[] = trim(strip_tags((string) $item));
+          }
+        });
+        if ($parts !== []) {
+          return implode(' ', array_unique($parts));
+        }
+      }
+    }
+
+    if ($featureId !== '') {
+      return 'PDOK adreskandidaat ' . $featureId;
+    }
+    return $href !== '' ? 'PDOK adreskandidaat' : '';
+  }
+
+  /**
+   * @param array<int, mixed> $links
+   * @param array<string, mixed> $properties
+   */
+  private function firstHref(array $links, array $properties): string {
+    if (!empty($properties['href']) && is_scalar($properties['href'])) {
+      return trim((string) $properties['href']);
+    }
+    foreach ($links as $link) {
+      if (is_array($link) && !empty($link['href']) && is_scalar($link['href'])) {
+        return trim((string) $link['href']);
+      }
+    }
+    return '';
   }
 
 }
