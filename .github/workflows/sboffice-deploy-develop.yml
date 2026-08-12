@@ -127,14 +127,29 @@ jobs:
           set -euo pipefail
           export NO_COLOR=1
           export TERM=dumb
-          target="public_html/sboffice"
+          target="public_html/sboffice_app"
+          public_link="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$target/web/sites/default/settings.php"
           services="$target/web/sites/default/services.yml"
 
           if [[ ! -d "$target" ]]; then
-            echo "::error::The sboffice target directory does not exist."
+            echo "::error::The sboffice_app project root does not exist."
+            exit 1
+          fi
+          if [[ -L "$target" ]]; then
+            echo "::error::Deployment target must be a real Composer project directory, not a symlink."
+            exit 1
+          fi
+          if [[ ! -L "$public_link" ]]; then
+            echo "::error::Expected public sboffice symlink is missing."
+            exit 1
+          fi
+          expected_public="$(cd "$target/web" && pwd -P)"
+          actual_public="$(readlink -f "$public_link")"
+          if [[ "$actual_public" != "$expected_public" ]]; then
+            echo "::error::Public sboffice symlink does not resolve to sboffice_app/web."
             exit 1
           fi
           if [[ ! -f "$settings" ]]; then
@@ -184,6 +199,7 @@ jobs:
           echo "DEPLOY_OK=1"
           echo "CONFIG_EXPORT_OK=1"
           echo "TARGET=$target"
+          echo "PUBLIC_LINK=$public_link"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
 
