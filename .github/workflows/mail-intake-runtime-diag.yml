@@ -1,0 +1,78 @@
+name: BREBO Mail Intake runtime diagnostic
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-intake-runtime-diag.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Diagnose Mail Intake controller
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+          try {
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_mail_intake.review_queue");
+            echo "ROUTE_CONTROLLER=" . $route->getDefault("_controller") . PHP_EOL;
+            echo "V2_CLASS_EXISTS=" . (class_exists("Drupal\\brebo_mail_intake\\Controller\\MailIntakeReviewV2Controller") ? "YES" : "NO") . PHP_EOL;
+            echo "MEANING_SERVICE=" . (\Drupal::hasService("brebo_mail_intake.meaning_extractor") ? "YES" : "NO") . PHP_EOL;
+            echo "FOLLOWUP_SERVICE=" . (\Drupal::hasService("brebo_mail_intake.followup_advisor") ? "YES" : "NO") . PHP_EOL;
+            echo "ATTENTION_SERVICE=" . (\Drupal::hasService("brebo_mail_intake.attention_scorer") ? "YES" : "NO") . PHP_EOL;
+            $controller = \Drupal::service("class_resolver")->getInstanceFromDefinition("Drupal\\brebo_mail_intake\\Controller\\MailIntakeReviewV2Controller");
+            $build = $controller->queue();
+            echo "QUEUE_BUILD=OK" . PHP_EOL;
+            echo "QUEUE_HEADERS=" . count($build["table"]["#header"] ?? []) . PHP_EOL;
+            echo "QUEUE_ROWS=" . count($build["table"]["#rows"] ?? []) . PHP_EOL;
+          }
+          catch (\Throwable $e) {
+            echo "QUEUE_BUILD=ERROR" . PHP_EOL;
+            echo "ERROR_CLASS=" . get_class($e) . PHP_EOL;
+            echo "ERROR_MESSAGE=" . preg_replace("/\s+/", " ", $e->getMessage()) . PHP_EOL;
+            exit(1);
+          }
+          '
+          REMOTE
