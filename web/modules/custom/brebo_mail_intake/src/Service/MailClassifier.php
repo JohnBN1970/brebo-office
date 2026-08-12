@@ -7,9 +7,9 @@ namespace Drupal\brebo_mail_intake\Service;
 /**
  * Conservative deterministic classifier for incoming mail.
  *
- * This service deliberately prefers a lower confidence over an unsupported
- * conclusion. AI enrichment may refine the proposal later, but this baseline is
- * explainable and safe to use before human review.
+ * Primary classes stay deliberately coarse. Specific meanings such as a fine,
+ * amount, deadline or event belong in a later extraction layer rather than in
+ * an ever-growing classification taxonomy.
  */
 final class MailClassifier {
 
@@ -19,7 +19,6 @@ final class MailClassifier {
   public function classify(string $subject, string $body): array {
     $text = mb_strtolower(trim($subject . "\n" . $body));
     $rules = [
-      'boete' => ['bekeuring', 'verkeersboete', 'boetebeschikking', 'cjib', 'sanctiebedrag'],
       'financieel' => ['factuur', 'betaaltermijn', 'betaling', 'creditnota', 'incasso', 'aanmaning', 'rekening'],
       'juridisch' => ['aansprakelijk', 'juridisch', 'ingebrekestelling', 'sommatie', 'bezwaar', 'beroep', 'dagvaarding'],
       'personeel' => ['sollicitatie', 'arbeidsovereenkomst', 'salaris', 'verlof', 'ziekmelding', 'medewerker'],
@@ -33,7 +32,13 @@ final class MailClassifier {
       'planning' => ['planning', 'werkplanning', 'startdatum', 'uitvoeringstermijn', 'weekplanning'],
       'bewonersmelding' => ['bewoner', 'huurder', 'woning', 'overlast', 'toegang woning'],
       'foto' => ['foto', 'afbeelding', 'beeldmateriaal'],
-      'administratief' => ['verzekering', 'polis', 'kenteken', 'abonnement', 'registratie', 'vergunning'],
+      'administratief' => [
+        'verzekering', 'polis', 'kenteken', 'abonnement', 'registratie', 'vergunning',
+        'bekeuring', 'verkeersboete', 'boetebeschikking', 'cjib', 'sanctiebedrag',
+      ],
+      'reclame' => ['aanbieding geldig', 'promotie', 'actieprijs', 'nieuwsbrief', 'marketing', 'korting'],
+      'notificatie' => ['notificatie', 'melding', 'bevestiging van', 'statusupdate', 'automatisch bericht'],
+      'spam' => ['ongewenste e-mail', 'spambericht', 'phishing', 'verdachte link'],
     ];
 
     $scores = [];
