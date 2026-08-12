@@ -96,7 +96,7 @@ jobs:
               "$module_rel/brebo_mail_intake.routing.yml" \
               "$module_rel/brebo_mail_intake.services.yml" \
               "$module_rel/src/Controller/MailIntakeReviewV2Controller.php" \
-              "$module_rel/src/Controller/MailIntakeHttpController.php"; do
+              "$module_rel/src/Controller/MailIntakeReviewEntryController.php"; do
               file="$root/$rel"
               key=$(printf '%s' "$rel" | tr '/.-' '___' | tr '[:lower:]' '[:upper:]')
               if [[ -f "$file" ]]; then
@@ -120,20 +120,27 @@ jobs:
             $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_mail_intake.review_queue");
             $controller = (string) $route->getDefault("_controller");
             echo "ROUTER_CONTROLLER=" . $controller . PHP_EOL;
-            echo "HTTP_CLASS_EXISTS=" . (class_exists("Drupal\\brebo_mail_intake\\Controller\\MailIntakeHttpController") ? "YES" : "NO") . PHP_EOL;
-            echo "HTTP_METHOD_CALLABLE=" . (is_callable(["Drupal\\brebo_mail_intake\\Controller\\MailIntakeHttpController", "queue"]) ? "YES" : "NO") . PHP_EOL;
+            $class = "Drupal\\brebo_mail_intake\\Controller\\MailIntakeReviewEntryController";
+            echo "ENTRY_CLASS_EXISTS=" . (class_exists($class) ? "YES" : "NO") . PHP_EOL;
+            echo "ENTRY_METHOD_CALLABLE=" . (is_callable([$class, "queue"]) ? "YES" : "NO") . PHP_EOL;
             echo "SERVICE_EXISTS=" . (\Drupal::hasService("brebo_mail_intake.review_controller") ? "YES" : "NO") . PHP_EOL;
           '
 
           echo "=== Candidate vhost/config references ==="
-          found=0
+          list_file=$(mktemp)
+          trap 'rm -f "$list_file"' EXIT
           for root in "$HOME/domains/brebobv.nl" "$HOME"; do
             [[ -d "$root" ]] || continue
-            while IFS= read -r file; do
-              found=$((found+1))
-              echo "VHOST_REF_FILE=$(basename "$file")"
-              grep -E 'sboffice|document_root|docroot|root[ =]' "$file" 2>/dev/null | head -n 20 | sed -E 's#(/home/)[^/]+/#\1[user]/#g; s#https?://[^ ]+#[url]#g' | sed 's/^/VHOST_REF=/' || true
-            done < <(find "$root" -maxdepth 4 -type f \( -name '*.conf' -o -name '*.ini' -o -name '.htaccess' \) 2>/dev/null | head -n 40)
+            find "$root" -maxdepth 4 -type f \( -name '*.conf' -o -name '*.ini' -o -name '.htaccess' \) 2>/dev/null >> "$list_file" || true
           done
+          sort -u "$list_file" | head -n 80 > "${list_file}.short"
+          mv "${list_file}.short" "$list_file"
+          found=0
+          while IFS= read -r file; do
+            [[ -n "$file" ]] || continue
+            found=$((found+1))
+            echo "VHOST_REF_FILE=$(basename "$file")"
+            grep -E 'sboffice|document_root|docroot|root[ =]' "$file" 2>/dev/null | head -n 20 | sed -E 's#(/home/)[^/]+/#\1[user]/#g; s#https?://[^ ]+#[url]#g' | sed 's/^/VHOST_REF=/' || true
+          done < "$list_file"
           echo "VHOST_REF_FILES_SCANNED=$found"
           REMOTE
