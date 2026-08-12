@@ -38,7 +38,7 @@ jobs:
             if [[ "$attempt" -eq 5 ]]; then exit 1; fi
             sleep $((attempt * 2))
           done
-      - name: Place unique temporary markers
+      - name: Backup and mark robots files
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -49,21 +49,29 @@ jobs:
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           root="$HOME/domains/brebobv.nl/public_html"
-          printf 'APP_TREE_4f8a2c\n' > "$root/sboffice_app/web/brebo-docroot-probe.txt"
-          printf 'DUP_TREE_91d7e5\n' > "$root/web/brebo-docroot-probe.txt"
+          for tree in "$root/sboffice_app/web" "$root/web"; do
+            if [[ -f "$tree/robots.txt" ]]; then
+              cp "$tree/robots.txt" "$tree/robots.txt.brebo-probe-backup"
+              printf '1\n' > "$tree/.brebo-probe-had-robots"
+            else
+              printf '0\n' > "$tree/.brebo-probe-had-robots"
+            fi
+          done
+          printf 'APP_TREE_4f8a2c\n' > "$root/sboffice_app/web/robots.txt"
+          printf 'DUP_TREE_91d7e5\n' > "$root/web/robots.txt"
           REMOTE
       - name: Probe actual HTTP document root
         shell: bash
         run: |
           set -euo pipefail
-          body=$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/brebo-docroot-probe.txt')
+          body=$(curl -fsS --max-time 20 -H 'Cache-Control: no-cache' 'https://sboffice.brebobv.nl/robots.txt')
           echo "HTTP_MARKER=$body"
           case "$body" in
             APP_TREE_4f8a2c) echo 'DOCROOT=APP_WEB' ;;
             DUP_TREE_91d7e5) echo 'DOCROOT=PUBLIC_HTML_WEB' ;;
             *) echo 'DOCROOT=UNKNOWN'; exit 2 ;;
           esac
-      - name: Cleanup markers
+      - name: Restore robots files
         if: always()
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
@@ -74,5 +82,15 @@ jobs:
           set +e
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           root="$HOME/domains/brebobv.nl/public_html"
-          rm -f "$root/sboffice_app/web/brebo-docroot-probe.txt" "$root/web/brebo-docroot-probe.txt"
+          for tree in "$root/sboffice_app/web" "$root/web"; do
+            if [[ -f "$tree/.brebo-probe-had-robots" ]]; then
+              had=$(cat "$tree/.brebo-probe-had-robots")
+              if [[ "$had" = "1" && -f "$tree/robots.txt.brebo-probe-backup" ]]; then
+                mv -f "$tree/robots.txt.brebo-probe-backup" "$tree/robots.txt"
+              else
+                rm -f "$tree/robots.txt" "$tree/robots.txt.brebo-probe-backup"
+              fi
+              rm -f "$tree/.brebo-probe-had-robots"
+            fi
+          done
           REMOTE
