@@ -73,7 +73,7 @@ jobs:
             if (!$container->has("brebo_mail_intake.canonical_context_resolver")) {
               throw new \RuntimeException("Canonical context resolver service missing.");
             }
-            if (!$container->has("brebo_mail_intake.bag_pdok_client")) {
+            if (!$container->has("brebo_mail_intake.bag_pdok")) {
               throw new \RuntimeException("BAG/PDOK client service missing.");
             }
 
