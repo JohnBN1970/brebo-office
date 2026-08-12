@@ -45,8 +45,19 @@ jobs:
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
-          test -s ~/.ssh/known_hosts
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key after 5 attempts."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
           chmod 600 ~/.ssh/known_hosts
 
       - name: Audit preserved evidence without changing files or data
@@ -57,12 +68,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1
           export TERM=dumb
 
-          target="$HOME/domains/brebobv.nl/public_html/sboffice"
+          target="$HOME/domains/brebobv.nl/public_html/sboffice_app"
           files_dir="$target/web/sites/default/files"
           start_local='2026-08-10 22:59:00'
           end_local='2026-08-11 07:16:49'
