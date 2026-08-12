@@ -1,0 +1,83 @@
+name: BREBO Mail meaning audit
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailMeaningExtractor.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - '.github/workflows/mail-meaning-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit meaning extraction on first 5 pilot communications
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Audit meaning signals without exposing mail content
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->sort("nid", "DESC")
+              ->range(0, 5)
+              ->execute();
+            $extractor = \Drupal::service("brebo_mail_intake.meaning_extractor");
+            foreach ($storage->loadMultiple($ids) as $node) {
+              $subject = trim((string) $node->get("field_brebo_comm_subject")->value);
+              $body = trim((string) $node->get("field_brebo_transcript")->value);
+              $meaning = $extractor->extract($subject, $body);
+              $active = [];
+              foreach ($meaning["signals"] as $name => $present) {
+                if ($present) {
+                  $active[] = $name;
+                }
+              }
+              echo "NODE=" . $node->id()
+                . "|SIGNALS=" . ($active ? implode(",", $active) : "NONE")
+                . "|SUBTYPES=" . ($meaning["subtypes"] ? implode(",", $meaning["subtypes"]) : "NONE")
+                . "|CONF=" . $meaning["confidence"] . PHP_EOL;
+            }
+            echo "MAIL_MEANING_AUDIT=COMPLETED" . PHP_EOL;
+          '
+          REMOTE
