@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Controller;
 
+use Drupal\brebo_mail_intake\Service\MailAttentionScorer;
 use Drupal\brebo_mail_intake\Service\MailFollowupAdvisor;
 use Drupal\brebo_mail_intake\Service\MailMeaningExtractor;
 use Drupal\Core\Controller\ControllerBase;
@@ -21,6 +22,7 @@ final class MailIntakeReviewController extends ControllerBase {
     private readonly EntityTypeManagerInterface $breboEntityTypeManager,
     private readonly MailMeaningExtractor $meaningExtractor,
     private readonly MailFollowupAdvisor $followupAdvisor,
+    private readonly MailAttentionScorer $attentionScorer,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -28,6 +30,7 @@ final class MailIntakeReviewController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_mail_intake.meaning_extractor'),
       $container->get('brebo_mail_intake.followup_advisor'),
+      $container->get('brebo_mail_intake.attention_scorer'),
     );
   }
 
@@ -47,7 +50,7 @@ final class MailIntakeReviewController extends ControllerBase {
       ->range(0, 250)
       ->execute();
 
-    $rows = [];
+    $items = [];
     foreach ($storage->loadMultiple($ids) as $node) {
       $status = trim((string) $node->get('field_brebo_intake_status')->value);
       $classification = trim((string) $node->get('field_brebo_mail_classification')->value);
@@ -61,6 +64,7 @@ final class MailIntakeReviewController extends ControllerBase {
       $meaning = $this->meaningExtractor->extract($subject, $body);
       $meaningLabels = $this->meaningLabels($meaning);
       $followupAdvice = $this->followupAdvisor->advise($classification, $meaning);
+      $attention = $this->attentionScorer->score($classification, $meaning);
 
       $reasons = [];
       if (in_array($status, ['Nieuw', 'Controle vereist'], TRUE)) {
@@ -88,25 +92,36 @@ final class MailIntakeReviewController extends ControllerBase {
       $suggestedBuilding = $this->referenceLabel($node, 'field_brebo_suggest_building_ref');
       $suggestedProject = $this->referenceLabel($node, 'field_brebo_suggest_project_ref');
 
-      $rows[] = [
-        'subject' => Link::fromTextAndUrl($node->label(), Url::fromRoute('entity.node.canonical', ['node' => $node->id()])),
-        'classification' => $classification !== '' ? $classification : '—',
-        'meaning' => $meaningLabels !== [] ? implode(', ', $meaningLabels) : '—',
-        'followup' => $followupAdvice !== [] ? implode(', ', $followupAdvice) : '—',
-        'suggestion' => implode(' / ', array_filter([$suggestedBuilding, $suggestedProject])) ?: '—',
-        'confidence' => $confidence !== NULL ? sprintf('%.0f%%', $confidence) : '—',
-        'reason' => implode('; ', $reasons),
-        'edit' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])),
+      $items[] = [
+        'score' => (int) ($attention['score'] ?? 0),
+        'changed' => (int) $node->getChangedTime(),
+        'row' => [
+          'subject' => Link::fromTextAndUrl($node->label(), Url::fromRoute('entity.node.canonical', ['node' => $node->id()])),
+          'attention' => (string) ($attention['label'] ?? 'Normaal'),
+          'classification' => $classification !== '' ? $classification : '—',
+          'meaning' => $meaningLabels !== [] ? implode(', ', $meaningLabels) : '—',
+          'followup' => $followupAdvice !== [] ? implode(', ', $followupAdvice) : '—',
+          'suggestion' => implode(' / ', array_filter([$suggestedBuilding, $suggestedProject])) ?: '—',
+          'confidence' => $confidence !== NULL ? sprintf('%.0f%%', $confidence) : '—',
+          'reason' => implode('; ', $reasons),
+          'edit' => Link::fromTextAndUrl('Beoordelen', Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])),
+        ],
       ];
     }
 
+    usort($items, static function (array $a, array $b): int {
+      $priority = $b['score'] <=> $a['score'];
+      return $priority !== 0 ? $priority : ($b['changed'] <=> $a['changed']);
+    });
+    $rows = array_column($items, 'row');
+
     return [
       'intro' => [
-        '#markup' => '<p>Alleen uitzonderingen en onzekere Mail Intake-items worden hier getoond. Betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
+        '#markup' => '<p>Alleen uitzonderingen en onzekere Mail Intake-items worden hier getoond. De werkbak zet items met meerdere beheerste termijn-, risico- en actiesignalen bovenaan. Prioriteit, betekenissignalen en voorgestelde opvolging zijn adviserend en worden pas na menselijke controle dossierwaarheid of formele actie.</p>',
       ],
       'table' => [
         '#type' => 'table',
-        '#header' => ['Onderwerp', 'Classificatie', 'Signalen', 'Voorgestelde opvolging', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
+        '#header' => ['Onderwerp', 'Prioriteit', 'Classificatie', 'Signalen', 'Voorgestelde opvolging', 'Voorgesteld object', 'Vertrouwen', 'Waarom aandacht', 'Actie'],
         '#rows' => $rows,
         '#empty' => 'Geen Mail Intake-uitzonderingen. De werkbak is leeg.',
       ],
