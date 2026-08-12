@@ -14,9 +14,9 @@ jobs:
     steps:
       - name: Configure SSH
         env:
-          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
-          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
@@ -38,12 +38,13 @@ jobs:
 
       - name: Seed and verify technical exception flow
         env:
-          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
-          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
-          DEPLOY_USER: ${{ secrets.HOSTINGER_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          for attempt in 1 2 3; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           cd public_html/sboffice_app
           vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
@@ -78,3 +79,12 @@ jobs:
             echo "SOURCE_MAIL_TOUCHED=NO" . PHP_EOL;
           '
           REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Technical exception acceptance failed after 3 SSH attempts."
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
