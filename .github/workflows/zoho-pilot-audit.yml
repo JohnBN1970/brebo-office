@@ -1,0 +1,107 @@
+name: BREBO Zoho pilot audit
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/zoho-pilot-audit.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit first 5 imported Zoho communications
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Audit pilot metadata without exposing mail content
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->sort("nid", "DESC")
+              ->range(0, 5)
+              ->execute();
+            $nodes = $storage->loadMultiple($ids);
+            krsort($nodes, SORT_NUMERIC);
+            echo "AUDIT_ITEMS=" . count($nodes) . PHP_EOL;
+            foreach ($nodes as $node) {
+              $value = static function ($node, string $field): string {
+                return $node->hasField($field) ? trim((string) $node->get($field)->value) : "";
+              };
+              $classification = $value($node, "field_brebo_mail_classification");
+              $confidence = $value($node, "field_brebo_match_confidence");
+              $intake = $value($node, "field_brebo_intake_status");
+              $ai = $value($node, "field_brebo_ai_status");
+              $formal = $value($node, "field_brebo_formal_status");
+              $direction = $value($node, "field_brebo_comm_direction");
+              $subject = $value($node, "field_brebo_comm_subject");
+              $body = $value($node, "field_brebo_transcript");
+              $hasSuggestedBuilding = $node->hasField("field_brebo_suggest_building_ref") && !$node->get("field_brebo_suggest_building_ref")->isEmpty();
+              $hasSuggestedProject = $node->hasField("field_brebo_suggest_project_ref") && !$node->get("field_brebo_suggest_project_ref")->isEmpty();
+              $hasCanonicalBuilding = $node->hasField("field_brebo_building_ref") && !$node->get("field_brebo_building_ref")->isEmpty();
+              $hasCanonicalProject = $node->hasField("field_brebo_project_ref") && !$node->get("field_brebo_project_ref")->isEmpty();
+              $reasons = [];
+              if (in_array($intake, ["Nieuw", "Controle vereist"], TRUE)) $reasons[] = $intake;
+              if ($classification === "" || $classification === "overig") $reasons[] = "CLASSIFICATION_REVIEW";
+              if ($confidence === "" || (float) $confidence < 100.0) $reasons[] = "MATCH_REVIEW";
+              if (!$hasCanonicalBuilding && !$hasCanonicalProject) $reasons[] = "NO_CANONICAL_LINK";
+              echo implode("|", [
+                "NODE=" . $node->id(),
+                "DIR=" . ($direction !== "" ? $direction : "EMPTY"),
+                "CLASS=" . ($classification !== "" ? $classification : "EMPTY"),
+                "CONF=" . ($confidence !== "" ? $confidence : "EMPTY"),
+                "SUG_BUILD=" . ($hasSuggestedBuilding ? "YES" : "NO"),
+                "SUG_PROJECT=" . ($hasSuggestedProject ? "YES" : "NO"),
+                "CANON_BUILD=" . ($hasCanonicalBuilding ? "YES" : "NO"),
+                "CANON_PROJECT=" . ($hasCanonicalProject ? "YES" : "NO"),
+                "INTAKE=" . ($intake !== "" ? $intake : "EMPTY"),
+                "AI=" . ($ai !== "" ? $ai : "EMPTY"),
+                "FORMAL=" . ($formal !== "" ? $formal : "EMPTY"),
+                "SUBJECT_LEN=" . mb_strlen($subject),
+                "BODY_LEN=" . mb_strlen($body),
+                "REASONS=" . ($reasons ? implode(",", $reasons) : "NONE"),
+              ]) . PHP_EOL;
+            }
+            echo "AUDIT=COMPLETED" . PHP_EOL;
+          '
+          REMOTE
