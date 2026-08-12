@@ -7,6 +7,7 @@ on:
     paths:
       - 'web/modules/custom/brebo_scope_guard/**'
       - '.github/workflows/project-scope-building-guard.yml'
+      - '.github/workflows/sboffice-deploy-develop.yml'
 
 permissions:
   contents: read
@@ -18,9 +19,9 @@ jobs:
     steps:
       - name: Configure SSH
         env:
-          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
-          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
-          DEPLOY_SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
@@ -42,9 +43,9 @@ jobs:
 
       - name: Enable and acceptance-test guard
         env:
-          DEPLOY_HOST: ${{ secrets.HOSTINGER_HOST }}
-          DEPLOY_PORT: ${{ secrets.HOSTINGER_PORT }}
-          DEPLOY_USER: ${{ secrets.HOSTINGER_USER }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
           for attempt in 1 2 3; do
