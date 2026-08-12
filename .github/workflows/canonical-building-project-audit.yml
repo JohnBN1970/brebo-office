@@ -1,0 +1,113 @@
+name: Canonical building/project model audit
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/canonical-building-project-audit.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Inspect live building/project model
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Inspect active Drupal model read-only
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $bundles = ["brebo_building", "brebo_building_zone", "brebo_cluster", "brebo_dwelling", "brebo_product_position", "brebo_project", "brebo_project_scope"];
+            $fieldManager = \Drupal::service("entity_field.manager");
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+
+            echo "AUDIT_MODE=read_only" . PHP_EOL;
+            echo "BUNDLES_BEGIN" . PHP_EOL;
+            foreach ($bundles as $bundle) {
+              $count = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", $bundle)->count()->execute();
+              echo "BUNDLE=" . $bundle . ";COUNT=" . $count . PHP_EOL;
+              $defs = $fieldManager->getFieldDefinitions("node", $bundle);
+              foreach ($defs as $name => $def) {
+                if (!str_starts_with($name, "field_brebo_")) {
+                  continue;
+                }
+                $needle = strtolower($name . " " . (string) $def->getLabel());
+                if (!preg_match("/(building|gebouw|project|cluster|scope|location|locatie|zone|dwelling|woning|product)/", $needle)) {
+                  continue;
+                }
+                $target = (string) ($def->getSetting("target_type") ?? "");
+                $handler = (string) ($def->getSetting("handler") ?? "");
+                $required = $def->isRequired() ? "YES" : "NO";
+                echo "FIELD=" . $bundle . ":" . $name . ";TYPE=" . $def->getType() . ";REQUIRED=" . $required . ";TARGET=" . $target . ";HANDLER=" . $handler . PHP_EOL;
+              }
+            }
+            echo "BUNDLES_END" . PHP_EOL;
+
+            $checks = [
+              ["bundle" => "brebo_cluster", "field" => "field_brebo_project_ref", "label" => "CLUSTER_PROJECT"],
+              ["bundle" => "brebo_project", "field" => "field_brebo_location", "label" => "PROJECT_LOCATION"],
+              ["bundle" => "brebo_project", "field" => "field_brebo_building_ref", "label" => "PROJECT_BUILDING"],
+              ["bundle" => "brebo_project_scope", "field" => "field_brebo_building_ref", "label" => "SCOPE_BUILDING"],
+              ["bundle" => "brebo_project_scope", "field" => "field_brebo_project_ref", "label" => "SCOPE_PROJECT"],
+            ];
+            foreach ($checks as $check) {
+              $defs = $fieldManager->getFieldDefinitions("node", $check["bundle"]);
+              $exists = isset($defs[$check["field"]]);
+              echo $check["label"] . "_FIELD_EXISTS=" . ($exists ? "YES" : "NO") . PHP_EOL;
+              if ($exists) {
+                echo $check["label"] . "_REQUIRED=" . ($defs[$check["field"]]->isRequired() ? "YES" : "NO") . PHP_EOL;
+                $nonempty = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", $check["bundle"])->exists($check["field"])->count()->execute();
+                echo $check["label"] . "_NONEMPTY=" . $nonempty . PHP_EOL;
+              }
+            }
+
+            echo "AUDIT_COMPLETE=YES" . PHP_EOL;
+          '
+          REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Canonical model audit failed after 3 SSH attempts."
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
