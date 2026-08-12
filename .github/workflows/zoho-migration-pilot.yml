@@ -82,15 +82,15 @@ jobs:
               return;
             }
 
-            $storage = \Drupal::entityTypeManager()->getStorage("brebo_communication");
-            $beforeCount = (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute();
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $beforeCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
             echo "COMMUNICATION_COUNT_BEFORE=" . $beforeCount . PHP_EOL;
 
             putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=5");
             \Drupal::service("brebo_mail_intake.pipeline")->processSource($adapter);
 
             $afterUid = (int) $state->get("brebo_mail_intake.zoho_migration_last_uid", 0);
-            $afterCount = (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute();
+            $afterCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
             echo "ZOHO_PILOT_UID_AFTER=" . $afterUid . PHP_EOL;
             echo "COMMUNICATION_COUNT_AFTER=" . $afterCount . PHP_EOL;
             echo "COMMUNICATION_COUNT_DELTA=" . ($afterCount - $beforeCount) . PHP_EOL;
