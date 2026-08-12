@@ -1,0 +1,90 @@
+name: BREBO Mail Intake web error diagnostic
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-intake-web-error-diag.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Inspect recent Mail Intake web errors
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+          $db = \Drupal::database();
+          $schema = $db->schema();
+          if (!$schema->tableExists("watchdog")) {
+            echo "WATCHDOG_TABLE=NO" . PHP_EOL;
+            exit(0);
+          }
+          echo "WATCHDOG_TABLE=YES" . PHP_EOL;
+          $query = $db->select("watchdog", "w")
+            ->fields("w", ["wid", "type", "severity", "message", "location", "timestamp"])
+            ->condition("severity", 3, "<=")
+            ->orderBy("wid", "DESC")
+            ->range(0, 30);
+          $rows = $query->execute()->fetchAll();
+          $count = 0;
+          foreach ($rows as $row) {
+            $location = (string) ($row->location ?? "");
+            $message = (string) ($row->message ?? "");
+            $haystack = strtolower($location . " " . $message);
+            if (!str_contains($haystack, "mail-intake") && !str_contains($haystack, "brebo_mail_intake") && !str_contains($haystack, "mailintakereview")) {
+              continue;
+            }
+            $safe = preg_replace("/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i", "[email]", $message);
+            $safe = preg_replace("/https?:\/\/\S+/i", "[url]", $safe);
+            $safe = preg_replace("/\s+/", " ", $safe);
+            if (strlen($safe) > 500) {
+              $safe = substr($safe, 0, 500) . "…";
+            }
+            echo "WID=" . (int) $row->wid . "|TYPE=" . preg_replace("/[^a-zA-Z0-9_.-]/", "_", (string) $row->type) . "|SEV=" . (int) $row->severity . "|MSG=" . $safe . PHP_EOL;
+            $count++;
+          }
+          echo "MATCHING_ERRORS=" . $count . PHP_EOL;
+          '
+          REMOTE
