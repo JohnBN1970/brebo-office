@@ -1,0 +1,99 @@
+name: BREBO Zoho migration pilot
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/zoho-migration-pilot.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-zoho-migration-pilot
+  cancel-in-progress: false
+
+jobs:
+  pilot:
+    name: Import first 5 Zoho messages
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Run approved one-time pilot batch of 5
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          runtime="$HOME/.brebo-mail-runtime.php"
+          if [[ ! -f "$runtime" ]]; then
+            echo "BREBO_RUNTIME_FILE=MISSING"
+            exit 2
+          fi
+
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $enabled = filter_var(getenv("BREBO_ZOHO_MIGRATION_ENABLED") ?: "0", FILTER_VALIDATE_BOOL);
+            echo "ZOHO_PERSISTENT_MIGRATION_ENABLED=" . ($enabled ? "YES" : "NO") . PHP_EOL;
+            if ($enabled) {
+              throw new \RuntimeException("Pilot weigert te draaien terwijl permanente Zoho-migratie actief is.");
+            }
+
+            $adapter = \Drupal::service("brebo_mail_intake.zoho_migration_source");
+            if (!$adapter->isConfigured()) {
+              throw new \RuntimeException("Zoho-migratiebron is niet geconfigureerd.");
+            }
+
+            $state = \Drupal::state();
+            $beforeUid = (int) $state->get("brebo_mail_intake.zoho_migration_last_uid", 0);
+            echo "ZOHO_PILOT_UID_BEFORE=" . $beforeUid . PHP_EOL;
+            if ($beforeUid !== 0) {
+              echo "ZOHO_PILOT=ALREADY_RUN_OR_STATE_ADVANCED" . PHP_EOL;
+              return;
+            }
+
+            $storage = \Drupal::entityTypeManager()->getStorage("brebo_communication");
+            $beforeCount = (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute();
+            echo "COMMUNICATION_COUNT_BEFORE=" . $beforeCount . PHP_EOL;
+
+            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=5");
+            \Drupal::service("brebo_mail_intake.pipeline")->processSource($adapter);
+
+            $afterUid = (int) $state->get("brebo_mail_intake.zoho_migration_last_uid", 0);
+            $afterCount = (int) $storage->getQuery()->accessCheck(FALSE)->count()->execute();
+            echo "ZOHO_PILOT_UID_AFTER=" . $afterUid . PHP_EOL;
+            echo "COMMUNICATION_COUNT_AFTER=" . $afterCount . PHP_EOL;
+            echo "COMMUNICATION_COUNT_DELTA=" . ($afterCount - $beforeCount) . PHP_EOL;
+            echo "ZOHO_PILOT=COMPLETED" . PHP_EOL;
+          '
+          REMOTE
