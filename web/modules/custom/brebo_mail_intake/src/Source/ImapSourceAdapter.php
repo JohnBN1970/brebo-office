@@ -49,8 +49,11 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     try {
       $stateName = 'brebo_mail_intake.' . $this->stateKey . '_last_uid';
       $lastUid = (int) $this->state->get($stateName, 0);
-      $criteria = $lastUid > 0 ? 'UID ' . ($lastUid + 1) . ':*' : 'ALL';
-      $uids = imap_search($stream, $criteria, SE_UID) ?: [];
+
+      // Some IMAP servers do not reliably honor a UID range in SEARCH.
+      // Fetch only UID metadata for the folder and filter locally instead.
+      $uids = imap_search($stream, 'ALL', SE_UID) ?: [];
+      $uids = array_values(array_filter($uids, static fn($uid): bool => (int) $uid > $lastUid));
       sort($uids, SORT_NUMERIC);
 
       $limit = max(1, min(500, (int) ($this->env('BATCH_LIMIT') ?: 100)));
