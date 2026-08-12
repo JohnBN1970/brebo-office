@@ -146,10 +146,14 @@ jobs:
             echo "::error::Expected public sboffice symlink is missing."
             exit 1
           fi
-          expected_public="$(cd "$target/web" && pwd -P)"
+          expected_public="$(cd "$target" && pwd -P)"
           actual_public="$(readlink -f "$public_link")"
           if [[ "$actual_public" != "$expected_public" ]]; then
-            echo "::error::Public sboffice symlink does not resolve to sboffice_app/web."
+            echo "::error::Public sboffice symlink must resolve to the sboffice_app Composer project root."
+            exit 1
+          fi
+          if [[ -d "$target/web/web" ]]; then
+            echo "::error::Nested Drupal webroot detected at sboffice_app/web/web; refusing to deploy."
             exit 1
           fi
           if [[ ! -f "$settings" ]]; then
@@ -165,6 +169,11 @@ jobs:
 
           tar --no-overwrite-dir -xzf "$archive" -C "$target"
           rm -f "$archive"
+
+          if [[ -d "$target/web/web" ]]; then
+            echo "::error::Deployment unexpectedly created a nested Drupal webroot."
+            exit 1
+          fi
 
           settings_after="$(sha256sum "$settings" | awk '{print $1}')"
           if [[ "$settings_before" != "$settings_after" ]]; then
