@@ -6,7 +6,6 @@ dependencies:
     - field.field.node.brebo_cluster.field_brebo_building_ref
     - field.field.node.brebo_cluster.field_brebo_cluster_code
     - field.field.node.brebo_cluster.field_brebo_description
-    - field.field.node.brebo_cluster.field_brebo_project_ref
     - field.field.node.brebo_cluster.field_brebo_status
     - node.type.brebo_cluster
   module:
@@ -46,16 +45,6 @@ content:
     region: content
     settings:
       rows: 5
-      placeholder: ''
-    third_party_settings: {  }
-  field_brebo_project_ref:
-    type: entity_reference_autocomplete
-    weight: 2
-    region: content
-    settings:
-      match_operator: CONTAINS
-      match_limit: 10
-      size: 60
       placeholder: ''
     third_party_settings: {  }
   field_brebo_status:

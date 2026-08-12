@@ -1,0 +1,137 @@
+name: Hard-canonical building/project model
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/hard-canonical-building-project-model.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  canonicalize:
+    name: Remove legacy project ownership from permanent building model
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Canonicalize live sandbox model
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $projectsRebuilt = 0;
+
+            $projectIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->execute();
+            foreach ($storage->loadMultiple($projectIds) as $project) {
+              if (!$project instanceof \Drupal\node\NodeInterface || !$project->hasField("field_brebo_building_refs")) {
+                continue;
+              }
+              $scopeIds = $storage->getQuery()
+                ->accessCheck(FALSE)
+                ->condition("type", "brebo_project_scope")
+                ->condition("field_brebo_project_ref.target_id", $project->id())
+                ->execute();
+              $buildingIds = [];
+              foreach ($storage->loadMultiple($scopeIds) as $scope) {
+                if (!$scope instanceof \Drupal\node\NodeInterface || $scope->get("field_brebo_building_ref")->isEmpty()) {
+                  continue;
+                }
+                $building = $scope->get("field_brebo_building_ref")->entity;
+                if ($building instanceof \Drupal\node\NodeInterface && $building->bundle() === "brebo_building") {
+                  $buildingIds[(int) $building->id()] = (int) $building->id();
+                }
+              }
+              $project->set("field_brebo_building_refs", array_map(static fn (int $id): array => ["target_id" => $id], array_values($buildingIds)));
+              $project->setNewRevision(TRUE);
+              $project->setRevisionLogMessage("Projectgebouwen canoniek herleid uit Projectscope per gebouw.");
+              $project->save();
+              $projectsRebuilt++;
+            }
+
+            $clusterProject = \Drupal\field\Entity\FieldConfig::loadByName("node", "brebo_cluster", "field_brebo_project_ref");
+            if ($clusterProject) {
+              $clusterProject->delete();
+            }
+            $projectLocation = \Drupal\field\Entity\FieldConfig::loadByName("node", "brebo_project", "field_brebo_location");
+            if ($projectLocation) {
+              $projectLocation->delete();
+            }
+
+            foreach ([
+              ["brebo_cluster", "field_brebo_project_ref"],
+              ["brebo_project", "field_brebo_location"],
+            ] as [$bundle, $field]) {
+              $form = \Drupal\Core\Entity\Entity\EntityFormDisplay::load("node.$bundle.default");
+              if ($form) {
+                $form->removeComponent($field)->save();
+              }
+              $view = \Drupal\Core\Entity\Entity\EntityViewDisplay::load("node.$bundle.default");
+              if ($view) {
+                $view->removeComponent($field)->save();
+              }
+            }
+
+            $remainingLocationFields = \Drupal::entityTypeManager()->getStorage("field_config")->loadByProperties([
+              "entity_type" => "node",
+              "field_name" => "field_brebo_location",
+            ]);
+            if (!$remainingLocationFields) {
+              $locationStorage = \Drupal\field\Entity\FieldStorageConfig::loadByName("node", "field_brebo_location");
+              if ($locationStorage) {
+                $locationStorage->delete();
+              }
+            }
+
+            echo "PROJECTS_REBUILT=" . $projectsRebuilt . PHP_EOL;
+            echo "CLUSTER_PROJECT_FIELD=" . (\Drupal\field\Entity\FieldConfig::loadByName("node", "brebo_cluster", "field_brebo_project_ref") ? "PRESENT" : "ABSENT") . PHP_EOL;
+            echo "PROJECT_LOCATION_FIELD=" . (\Drupal\field\Entity\FieldConfig::loadByName("node", "brebo_project", "field_brebo_location") ? "PRESENT" : "ABSENT") . PHP_EOL;
+            echo "CANONICAL_MODEL_APPLY=PASS" . PHP_EOL;
+          '
+          vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl cr
+          vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl cex -y
+          REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 3 ]]; then
+              echo "::error::Canonical model apply failed after 3 SSH attempts."
+              exit 1
+            fi
+            sleep $((attempt * 10))
+          done
