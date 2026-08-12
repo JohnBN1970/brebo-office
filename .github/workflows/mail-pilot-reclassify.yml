@@ -1,0 +1,91 @@
+name: BREBO Mail pilot reclassification
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailClassifier.php'
+      - '.github/workflows/mail-pilot-reclassify.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-mail-pilot-reclassify
+  cancel-in-progress: false
+
+jobs:
+  reclassify:
+    name: Reclassify first 5 Zoho pilot communications
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Reclassify pilot without exposing mail content
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->sort("nid", "DESC")
+              ->range(0, 5)
+              ->execute();
+            $classifier = \Drupal::service("brebo_mail_intake.classifier");
+            $updated = 0;
+            foreach ($storage->loadMultiple($ids) as $node) {
+              $subject = trim((string) $node->get("field_brebo_comm_subject")->value);
+              $body = trim((string) $node->get("field_brebo_transcript")->value);
+              $result = $classifier->classify($subject, $body);
+              $before = trim((string) $node->get("field_brebo_mail_classification")->value);
+              $after = (string) $result["classification"];
+              if ($before !== $after) {
+                $node->set("field_brebo_mail_classification", $after);
+                $basis = trim((string) $node->get("field_brebo_match_basis")->value);
+                $node->set("field_brebo_match_basis", trim($basis . " " . $result["basis"]));
+                $node->setNewRevision(TRUE);
+                $node->setRevisionLogMessage("Pilotmail opnieuw geclassificeerd met beheerste deterministische regels.");
+                $node->save();
+                $updated++;
+              }
+              echo "NODE=" . $node->id() . "|CLASS_BEFORE=" . ($before !== "" ? $before : "EMPTY") . "|CLASS_AFTER=" . $after . "|CONF=" . $result["confidence"] . PHP_EOL;
+            }
+            echo "RECLASSIFIED_COUNT=" . $updated . PHP_EOL;
+            echo "MAIL_PILOT_RECLASSIFY=COMPLETED" . PHP_EOL;
+          '
+          REMOTE
