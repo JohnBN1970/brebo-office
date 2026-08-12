@@ -21,6 +21,14 @@ function brebo_scope_guard_node_presave(NodeInterface $node): void {
     if ($violations) {
       throw new InvalidArgumentException('Ongeldig permanent gebouwobject: ' . implode(' ', $violations));
     }
+    return;
+  }
+
+  if (in_array($node->bundle(), ['brebo_communication', 'brebo_work_package', 'brebo_verification', 'brebo_deviation'], TRUE)) {
+    $violations = brebo_scope_guard_validate_context_object($node);
+    if ($violations) {
+      throw new InvalidArgumentException('Ongeldige canonieke context: ' . implode(' ', $violations));
+    }
   }
 }
 
@@ -49,6 +57,9 @@ function brebo_scope_guard_validate_scope(NodeInterface $scope): array {
   }
   if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
     $violations[] = 'Er moet één geldig project zijn gekozen.';
+  }
+  elseif (!in_array((int) $building->id(), brebo_scope_guard_project_building_ids($project), TRUE)) {
+    $violations[] = 'Het gekozen gebouw moet onderdeel zijn van de canonieke gebouwenlijst van het project.';
   }
 
   $expected_building_id = (int) $building->id();
@@ -150,6 +161,163 @@ function brebo_scope_guard_validate_permanent_object(NodeInterface $entity): arr
   }
 
   return array_values(array_unique($violations));
+}
+
+/**
+ * Validates project/building/object context outside Projectscope.
+ *
+ * Communication may remain organization-wide without project/building context.
+ * Once context references are present, they must agree with the canonical model.
+ *
+ * @return string[]
+ *   Human-readable violations. Empty means valid.
+ */
+function brebo_scope_guard_validate_context_object(NodeInterface $entity): array {
+  $violations = [];
+  $bundle = $entity->bundle();
+
+  if ($bundle === 'brebo_communication') {
+    $project = brebo_scope_guard_reference_entity($entity, 'field_brebo_project_ref');
+    $building = brebo_scope_guard_reference_entity($entity, 'field_brebo_building_ref');
+    $target = brebo_scope_guard_reference_entity($entity, 'field_brebo_comm_scope_target');
+
+    if ($project !== NULL && $project->bundle() !== 'brebo_project') {
+      $violations[] = 'De communicatieprojectrelatie moet naar een geldig project wijzen.';
+      $project = NULL;
+    }
+    if ($building !== NULL && $building->bundle() !== 'brebo_building') {
+      $violations[] = 'De communicatiegebouwrelatie moet naar een geldig permanent gebouw wijzen.';
+      $building = NULL;
+    }
+    if ($project instanceof NodeInterface && $building instanceof NodeInterface
+      && !in_array((int) $building->id(), brebo_scope_guard_project_building_ids($project), TRUE)) {
+      $violations[] = 'Het communicatiegebouw moet onderdeel zijn van het gekozen project.';
+    }
+
+    if ($target instanceof NodeInterface) {
+      [$target_project_id, $target_building_id] = brebo_scope_guard_resolve_context_ids($target);
+      if ($target_building_id === NULL) {
+        $violations[] = 'Het communicatiescopeobject moet tot een eenduidig permanent gebouw herleidbaar zijn.';
+      }
+      if ($building instanceof NodeInterface && $target_building_id !== NULL && $target_building_id !== (int) $building->id()) {
+        $violations[] = 'Het communicatiescopeobject moet tot hetzelfde gebouw behoren als de communicatie.';
+      }
+      if ($project instanceof NodeInterface) {
+        if ($target_project_id !== NULL && $target_project_id !== (int) $project->id()) {
+          $violations[] = 'De gekoppelde Projectscope moet tot hetzelfde project behoren als de communicatie.';
+        }
+        elseif ($target_project_id === NULL && $target_building_id !== NULL
+          && !in_array($target_building_id, brebo_scope_guard_project_building_ids($project), TRUE)) {
+          $violations[] = 'Het communicatiescopeobject moet binnen een gebouw van het gekozen project vallen.';
+        }
+      }
+    }
+  }
+
+  if ($bundle === 'brebo_work_package') {
+    $project = brebo_scope_guard_reference_entity($entity, 'field_brebo_project_ref');
+    $cluster = brebo_scope_guard_reference_entity($entity, 'field_brebo_cluster_ref');
+    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+      $violations[] = 'Een werkpakket moet aan één geldig project gekoppeld zijn.';
+    }
+    if ($cluster !== NULL) {
+      if ($cluster->bundle() !== 'brebo_cluster') {
+        $violations[] = 'De werkpakketclusterrelatie moet naar een geldig permanent cluster wijzen.';
+      }
+      elseif ($project instanceof NodeInterface && $project->bundle() === 'brebo_project') {
+        $building_id = brebo_scope_guard_resolve_building_id($cluster);
+        if ($building_id === NULL || !in_array($building_id, brebo_scope_guard_project_building_ids($project), TRUE)) {
+          $violations[] = 'De werkpakketcluster moet binnen een canoniek gebouw van het project vallen.';
+        }
+      }
+    }
+  }
+
+  if ($bundle === 'brebo_verification') {
+    $position = brebo_scope_guard_reference_entity($entity, 'field_brebo_position_ref');
+    if (!$position instanceof NodeInterface || $position->bundle() !== 'brebo_product_position' || brebo_scope_guard_resolve_building_id($position) === NULL) {
+      $violations[] = 'Een controle moet naar één geldige canonieke productpositie wijzen.';
+    }
+  }
+
+  if ($bundle === 'brebo_deviation') {
+    $control = brebo_scope_guard_reference_entity($entity, 'field_brebo_control_ref');
+    $recheck = brebo_scope_guard_reference_entity($entity, 'field_brebo_recheck_ref');
+    if (!$control instanceof NodeInterface || $control->bundle() !== 'brebo_verification') {
+      $violations[] = 'Een afwijking moet naar één geldige oorspronkelijke controle wijzen.';
+    }
+    if ($recheck !== NULL && $recheck->bundle() !== 'brebo_verification') {
+      $violations[] = 'Een hercontrole moet naar een geldig controleobject wijzen.';
+    }
+    if ($control instanceof NodeInterface && $control->bundle() === 'brebo_verification' && $recheck instanceof NodeInterface && $recheck->bundle() === 'brebo_verification') {
+      $control_building = brebo_scope_guard_verification_building_id($control);
+      $recheck_building = brebo_scope_guard_verification_building_id($recheck);
+      if ($control_building === NULL || $recheck_building === NULL || $control_building !== $recheck_building) {
+        $violations[] = 'Oorspronkelijke controle en hercontrole moeten binnen hetzelfde permanente gebouw vallen.';
+      }
+    }
+  }
+
+  return array_values(array_unique($violations));
+}
+
+/**
+ * Returns a referenced node or NULL when a field is absent or empty.
+ */
+function brebo_scope_guard_reference_entity(NodeInterface $entity, string $field_name): ?NodeInterface {
+  if (!$entity->hasField($field_name) || $entity->get($field_name)->isEmpty()) {
+    return NULL;
+  }
+  $referenced = $entity->get($field_name)->entity;
+  return $referenced instanceof NodeInterface ? $referenced : NULL;
+}
+
+/**
+ * Returns canonical building IDs attached to a project.
+ *
+ * @return int[]
+ */
+function brebo_scope_guard_project_building_ids(NodeInterface $project): array {
+  if ($project->bundle() !== 'brebo_project' || !$project->hasField('field_brebo_building_refs') || $project->get('field_brebo_building_refs')->isEmpty()) {
+    return [];
+  }
+  $ids = [];
+  foreach ($project->get('field_brebo_building_refs')->referencedEntities() as $building) {
+    if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+      $ids[(int) $building->id()] = (int) $building->id();
+    }
+  }
+  return array_values($ids);
+}
+
+/**
+ * Resolves project/building IDs for a communication scope target.
+ *
+ * @return array{0:?int,1:?int}
+ */
+function brebo_scope_guard_resolve_context_ids(NodeInterface $target): array {
+  if ($target->bundle() === 'brebo_project_scope') {
+    $project = brebo_scope_guard_reference_entity($target, 'field_brebo_project_ref');
+    $building = brebo_scope_guard_reference_entity($target, 'field_brebo_building_ref');
+    return [
+      $project instanceof NodeInterface && $project->bundle() === 'brebo_project' ? (int) $project->id() : NULL,
+      $building instanceof NodeInterface && $building->bundle() === 'brebo_building' ? (int) $building->id() : NULL,
+    ];
+  }
+  return [NULL, brebo_scope_guard_resolve_building_id($target)];
+}
+
+/**
+ * Resolves the permanent building of a verification through its position.
+ */
+function brebo_scope_guard_verification_building_id(NodeInterface $verification): ?int {
+  if ($verification->bundle() !== 'brebo_verification') {
+    return NULL;
+  }
+  $position = brebo_scope_guard_reference_entity($verification, 'field_brebo_position_ref');
+  return $position instanceof NodeInterface && $position->bundle() === 'brebo_product_position'
+    ? brebo_scope_guard_resolve_building_id($position)
+    : NULL;
 }
 
 /**
