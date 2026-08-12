@@ -209,6 +209,35 @@ Appendix A bewaart de herleidbaarheid tussen Proceshandboek v1.0 en de volgende 
 
 ---
 
+## A-011 — AVG en persoonlijke mailboxen: privacy by default
+
+**Status:** Vastgesteld — ontwikkeltraject.
+
+**Besluit**
+
+Mail Intake wordt ontworpen en gebruikt conform de AVG-beginselen van rechtmatigheid, transparantie, doelbinding, minimale gegevensverwerking, opslagbeperking, beveiliging en verantwoordingsplicht.
+
+Gedeelde functionele bedrijfsboxen, zoals `info@brebobv.nl`, kunnen na expliciete aanwijzing en vastgelegd beleid automatisch worden ingelezen. Persoonlijke zakelijke mailboxen worden standaard niet automatisch gepolld.
+
+Voor persoonlijke mailboxen geldt als standaard een expliciete, gebruikersgestuurde push-actie. Alleen een begrensde nieuwe set zakelijke berichten wordt na die bewuste handeling verwerkt. Stille achtergrondmonitoring van persoonlijke mailboxen is geen standaardfunctie.
+
+**Privacy by design/default**
+
+- persoonlijke mailboxpolling staat standaard uit;
+- gebruiker initieert de intake;
+- verwerking is doelgebonden en zo beperkt mogelijk;
+- bronmail blijft waar technisch mogelijk read-only;
+- toegang volgt need-to-know en rollen/permissies;
+- relevante intake- en beheerhandelingen zijn auditable;
+- bewaartermijnen en betrokkenenrechten moeten organisatorisch en technisch worden ondersteund;
+- structurele werknemersmonitoring of grootschalige persoonlijke-mailboxverwerking vereist voorafgaande privacybeoordeling en waar nodig een DPIA en beoordeling van medezeggenschapsregels.
+
+**Technische uitwerking**
+
+De nadere regels staan in `docs/MAIL_PRIVACY_AVG.md`.
+
+---
+
 ## Open reconstructiepunten
 
 De huidige appendix is gereconstrueerd uit het beheerde Proceshandboek, de beschikbare BREBO-bibliotheek, de duurzame GitHub-geschiedenis en de beschikbare vervolgcontext van de ontwikkelchat.
