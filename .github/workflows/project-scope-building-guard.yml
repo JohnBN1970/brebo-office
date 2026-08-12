@@ -108,8 +108,42 @@ jobs:
               throw new \RuntimeException("Synthetic invalid permanent hierarchy was not rejected.");
             }
 
+            $contextCounts = [];
+            foreach (["brebo_communication", "brebo_work_package", "brebo_verification", "brebo_deviation"] as $bundle) {
+              $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", $bundle)->execute();
+              $contextCounts[$bundle] = count($ids);
+              foreach ($storage->loadMultiple($ids) as $entity) {
+                $violations = brebo_scope_guard_validate_context_object($entity);
+                if ($violations) {
+                  echo "CONTEXT_INVALID_BUNDLE=" . $bundle . PHP_EOL;
+                  echo "CONTEXT_INVALID_ID=" . $entity->id() . PHP_EOL;
+                  echo "CONTEXT_INVALID_COUNT=" . count($violations) . PHP_EOL;
+                  throw new \RuntimeException("Existing canonical context is invalid.");
+                }
+              }
+            }
+            echo "CONTEXT_COMMUNICATIONS=" . $contextCounts["brebo_communication"] . PHP_EOL;
+            echo "CONTEXT_WORK_PACKAGES=" . $contextCounts["brebo_work_package"] . PHP_EOL;
+            echo "CONTEXT_VERIFICATIONS=" . $contextCounts["brebo_verification"] . PHP_EOL;
+            echo "CONTEXT_DEVIATIONS=" . $contextCounts["brebo_deviation"] . PHP_EOL;
+
+            $projectIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->execute();
+            if (!$projectIds) {
+              throw new \RuntimeException("No project exists for context probe.");
+            }
+            $project = $storage->load(reset($projectIds));
+            $badCommunication = $storage->create(["type" => "brebo_communication", "title" => "Synthetic context probe"]);
+            $badCommunication->set("field_brebo_project_ref", ["target_id" => $project->id()]);
+            $badCommunication->set("field_brebo_building_ref", ["target_id" => 999999999]);
+            $badContext = brebo_scope_guard_validate_context_object($badCommunication);
+            echo "SYNTHETIC_INVALID_CONTEXT_VIOLATIONS=" . count($badContext) . PHP_EOL;
+            if (!$badContext) {
+              throw new \RuntimeException("Synthetic invalid project/building context was not rejected.");
+            }
+
             echo "PROJECT_SCOPE_GUARD=PASS" . PHP_EOL;
             echo "PERMANENT_BUILDING_GUARD=PASS" . PHP_EOL;
+            echo "CANONICAL_CONTEXT_GUARD=PASS" . PHP_EOL;
           '
           $DRUSH cex -y
           REMOTE
