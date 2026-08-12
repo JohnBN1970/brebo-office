@@ -6,7 +6,7 @@ BREBO Office gefaseerd ontwikkelen tot een betrouwbaar digitaal bedrijfs- en geb
 
 ## Peildatum
 
-11 augustus 2026.
+12 augustus 2026.
 
 ## Leidende bronnen
 
@@ -109,7 +109,7 @@ Doel is één samenhangende dossierlaag, niet meerdere concurrerende registers v
 
 ## Fase 4 — Migrerende Mail Intake
 
-**Status: eerstvolgende grote functionele workflow na consolidatie van fase 2 en 3**
+**Status: eerste live keten operationeel bewezen; gecontroleerd opschalen**
 
 De bestaande communicatiestructuur wordt gebruikt als basis voor gecontroleerde invoer vanuit e-mail en later andere kanalen.
 
@@ -130,6 +130,43 @@ bronbericht ontvangen
 ```
 
 Persoonlijke mailboxen, WhatsApp, telefoon en andere kanalen blijven aanvoerkanalen en worden geen tweede dossierwaarheid.
+
+### Mijlpaal 2026-08-12 — Centrale BREBO-mail live in BREBO Office
+
+**Status: bereikt**
+
+De centrale mailbox `info@brebobv.nl` is via Hostinger IMAP succesvol aangesloten op BREBO Office. De volledige eerste inkomende keten is in productie bewezen:
+
+```text
+Hostinger mailbox
+-> beveiligde runtime-configuratie
+-> read-only IMAP
+-> Drupal Mail Intake service
+-> intakepipeline
+-> brebo_communication
+-> Mail Intake beoordelingswerkbak
+```
+
+Aantoonbaar bereikt:
+
+- IMAP-authenticatie is succesvol;
+- de mailbox is vanuit de BREBO Office-runtime read-only bereikbaar;
+- Drupal herkent de live IMAP-bron als geconfigureerd;
+- de eerste begrensde import is succesvol uitgevoerd;
+- de eerste echte e-mail is als `brebo_communication` zichtbaar in de beoordelingswerkbak;
+- de bronmail wordt door de adapter niet verplaatst, verwijderd of als gelezen gemarkeerd;
+- classificatie en gebouw-/projectrelaties blijven gecontroleerde voorstellen en worden niet automatisch formele dossierwaarheid.
+
+**Betekenis:** e-mail is hiermee niet langer uitsluitend een extern communicatiekanaal, maar een operationele databron voor het centrale BREBO-dossier. Dit vormt de basis voor automatische intake, AI-analyse, relatievoorstellen, acties en risicosignalering, gecontroleerde conceptantwoorden en de latere verwerking van historische Zoho-mail.
+
+**Eerstvolgende mailstappen:**
+
+1. de Mail Runtime Readiness-workflow corrigeren zodat deze via geldige Drupal/Drush-bootstrap controleert;
+2. intake gecontroleerd opschalen van testbatch naar kleine operationele batches;
+3. classificatie, relatievoorstellen en beoordelingswerkbak verfijnen op echte BREBO-mail;
+4. Zoho-historie gecontroleerd migreren en verwerken;
+5. SMTP/Mime Mail voor uitgaand verkeer aansluiten, met expliciete menselijke vrijgave als blijvende grens;
+6. bijlagen, threads/conversations en verdere AI-verwerking verdiepen.
 
 ## Fase 5 — Actie-, signaal- en controlemotor
 
@@ -198,11 +235,11 @@ Beoogde inzichten omvatten onder andere:
 
 ## Actuele positie
 
-BREBO Office bevindt zich nu **tussen fase 2 en fase 3**.
+BREBO Office bevindt zich nu **tussen fase 3 en fase 4, met de eerste echte end-to-end bedrijfsworkflow operationeel bewezen**.
 
-Het permanente gebouwmodel en de tijdelijke projectscope bestaan reeds. De eerstvolgende ontwikkelopgave is daarom niet het bouwen van een nieuw Projectdossier, maar het canoniek maken van de bestaande objectrelaties en het vaststellen welke centrale dossierfuncties al bestaan, waar doublures zitten en welke echte hiaten nog moeten worden ingevuld.
+Het permanente gebouwmodel en de tijdelijke projectscope bestaan reeds en de centrale dossierlaag wordt verder geconsolideerd. Tegelijk is de Migrerende Mail Intake niet langer alleen een geplande workflow: de centrale BREBO-mailbox is daadwerkelijk aangesloten en de eerste echte mail is succesvol als gecontroleerde communicatie in het dossier opgenomen.
 
-Pas daarna wordt de Migrerende Mail Intake als eerste grote end-to-end bedrijfsworkflow verder gerealiseerd.
+De ontwikkelrichting is daarmee tweeledig: de canonieke object- en dossierstructuur verder consolideren én de bewezen Mail Intake gecontroleerd opschalen zonder parallelle waarheden of verlies van menselijke besluitgrenzen.
 
 ## Continuïteitsregel
 
