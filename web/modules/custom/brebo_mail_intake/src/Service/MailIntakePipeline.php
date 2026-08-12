@@ -7,13 +7,14 @@ namespace Drupal\brebo_mail_intake\Service;
 use Drupal\brebo_mail_intake\Source\MailSourceAdapterInterface;
 
 /**
- * Orchestrates normalization output into classification, relation suggestions
- * and durable Communication registration.
+ * Orchestrates normalization output into classification, meaning extraction,
+ * relation suggestions and durable Communication registration.
  */
 final class MailIntakePipeline {
 
   public function __construct(
     private readonly MailClassifier $classifier,
+    private readonly MailMeaningExtractor $meaningExtractor,
     private readonly MailRelationSuggester $relationSuggester,
     private readonly MailIntakeIngestor $ingestor,
   ) {}
@@ -34,6 +35,9 @@ final class MailIntakePipeline {
   /**
    * Processes one normalized message without establishing uncertain relations.
    *
+   * Meaning extraction is intentionally advisory: no action, risk, deadline or
+   * subtype is promoted to formal dossier truth by this pipeline.
+   *
    * @param array<string, mixed> $mail
    *
    * @return array<string, mixed>
@@ -43,6 +47,7 @@ final class MailIntakePipeline {
     $body = trim((string) ($mail['body'] ?? ''));
 
     $classification = $this->classifier->classify($subject, $body);
+    $meaning = $this->meaningExtractor->extract($subject, $body);
     $relations = $this->relationSuggester->suggest($subject, $body);
 
     if (trim((string) ($mail['classification'] ?? '')) === '') {
@@ -68,6 +73,10 @@ final class MailIntakePipeline {
     $result = $this->ingestor->ingest($mail);
     $result['classification'] = $mail['classification'];
     $result['classification_confidence'] = $classification['confidence'];
+    $result['meaning_signals'] = $meaning['signals'];
+    $result['meaning_subtypes'] = $meaning['subtypes'];
+    $result['meaning_confidence'] = $meaning['confidence'];
+    $result['meaning_basis'] = $meaning['basis'];
     $result['suggested_building_id'] = $mail['suggested_building_id'] ?? NULL;
     $result['suggested_project_id'] = $mail['suggested_project_id'] ?? NULL;
     $result['match_confidence'] = $mail['match_confidence'] ?? 0.0;
