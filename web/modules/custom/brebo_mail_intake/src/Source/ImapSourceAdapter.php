@@ -119,7 +119,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
   private function fetchReadableBody($stream, int $uid): string {
     $structure = imap_fetchstructure($stream, $uid, FT_UID);
     if (!$structure) {
-      return trim((string) imap_body($stream, $uid, FT_UID | FT_PEEK));
+      return trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
     }
 
     $plain = $this->findPart($stream, $uid, $structure, '1', 'text/plain');
@@ -127,14 +127,17 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       return trim($plain);
     }
     $html = $this->findPart($stream, $uid, $structure, '1', 'text/html');
-    return $html !== '' ? trim(strip_tags($html)) : trim((string) imap_body($stream, $uid, FT_UID | FT_PEEK));
+    return $html !== ''
+      ? trim(strip_tags($html))
+      : trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
   }
 
   private function findPart($stream, int $uid, object $part, string $partNumber, string $targetMime): string {
     $mime = strtolower(($part->type === 0 ? 'text' : 'application') . '/' . ($part->subtype ?? 'plain'));
     if ($mime === $targetMime) {
       $data = (string) imap_fetchbody($stream, $uid, $partNumber, FT_UID | FT_PEEK);
-      return $this->decodeBody($data, (int) ($part->encoding ?? 0));
+      $decoded = $this->decodeBody($data, (int) ($part->encoding ?? 0));
+      return $this->ensureUtf8($decoded, $this->partCharset($part));
     }
     foreach ($part->parts ?? [] as $index => $child) {
       if (!is_object($child)) {
@@ -161,9 +164,51 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $parts = imap_mime_header_decode($value);
     $decoded = '';
     foreach ($parts as $part) {
-      $decoded .= (string) $part->text;
+      $decoded .= $this->ensureUtf8((string) $part->text, (string) ($part->charset ?? ''));
     }
     return trim($decoded);
+  }
+
+  private function partCharset(object $part): string {
+    foreach (array_merge($part->parameters ?? [], $part->dparameters ?? []) as $parameter) {
+      if (!is_object($parameter)) {
+        continue;
+      }
+      if (strcasecmp((string) ($parameter->attribute ?? ''), 'charset') === 0) {
+        return trim((string) ($parameter->value ?? ''));
+      }
+    }
+    return '';
+  }
+
+  private function ensureUtf8(string $value, string $declaredCharset = ''): string {
+    if ($value === '') {
+      return '';
+    }
+
+    $charset = trim($declaredCharset, " \t\n\r\0\x0B\"'");
+    if ($charset !== '' && strcasecmp($charset, 'default') !== 0 && strcasecmp($charset, 'utf-8') !== 0 && strcasecmp($charset, 'utf8') !== 0) {
+      $converted = @mb_convert_encoding($value, 'UTF-8', $charset);
+      if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
+        return $converted;
+      }
+    }
+
+    if (mb_check_encoding($value, 'UTF-8')) {
+      return $value;
+    }
+
+    // Common legacy encodings seen in HTML mail. Conversion deliberately
+    // happens before persistence so one malformed byte cannot block polling.
+    foreach (['Windows-1252', 'ISO-8859-1'] as $fallback) {
+      $converted = @mb_convert_encoding($value, 'UTF-8', $fallback);
+      if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
+        return $converted;
+      }
+    }
+
+    // Last-resort removal of bytes that still cannot be represented as UTF-8.
+    return (string) iconv('UTF-8', 'UTF-8//IGNORE', $value);
   }
 
   /** @param array<int, object> $addresses */
