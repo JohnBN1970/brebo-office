@@ -1,0 +1,115 @@
+name: Diagnose nested Drupal webroot
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/mail-intake-nested-web-diag.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing $name"; exit 1; }
+          done
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Compare intended and nested Drupal roots
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice_app"
+          outer="$app/web"
+          nested="$outer/web"
+
+          echo "OUTER_REAL=$(readlink -f "$outer" 2>/dev/null || true)"
+          echo "NESTED_REAL=$(readlink -f "$nested" 2>/dev/null || true)"
+          echo "NESTED_EXISTS=$([[ -d "$nested" ]] && echo YES || echo NO)"
+          echo "OUTER_IS_SYMLINK=$([[ -L "$outer" ]] && echo YES || echo NO)"
+          echo "NESTED_IS_SYMLINK=$([[ -L "$nested" ]] && echo YES || echo NO)"
+
+          inspect() {
+            label="$1"
+            root="$2"
+            echo "=== ${label} ==="
+            [[ -d "$root" ]] || { echo "${label}_EXISTS=NO"; return; }
+            echo "${label}_EXISTS=YES"
+            echo "${label}_MTIME=$(stat -c '%Y' "$root" 2>/dev/null || true)"
+            for rel in index.php autoload_runtime.php .htaccess core/lib/Drupal/Core/Controller/ControllerResolver.php modules/custom/brebo_mail_intake/brebo_mail_intake.routing.yml modules/custom/brebo_mail_intake/brebo_mail_intake.module; do
+              file="$root/$rel"
+              key=$(printf '%s' "$rel" | tr '/.-' '___' | tr '[:lower:]' '[:upper:]')
+              if [[ -f "$file" ]]; then
+                echo "${label}_${key}_SHA256=$(sha256sum "$file" | awk '{print $1}')"
+                echo "${label}_${key}_MTIME=$(stat -c '%Y' "$file" 2>/dev/null || true)"
+                echo "${label}_${key}_BYTES=$(wc -c < "$file" | tr -d ' ')"
+              else
+                echo "${label}_${key}_MISSING=YES"
+              fi
+            done
+            echo "${label}_TOPLEVEL=$(find "$root" -mindepth 1 -maxdepth 1 -printf '%f\n' 2>/dev/null | sort | paste -sd ',' -)"
+          }
+
+          inspect OUTER "$outer"
+          inspect NESTED "$nested"
+
+          echo "=== Project root ==="
+          for rel in composer.json composer.lock vendor/autoload.php web/index.php web/web/index.php; do
+            file="$app/$rel"
+            key=$(printf '%s' "$rel" | tr '/.-' '___' | tr '[:lower:]' '[:upper:]')
+            if [[ -e "$file" ]]; then
+              echo "APP_${key}_TYPE=$(stat -c '%F' "$file" 2>/dev/null || true)"
+              [[ -f "$file" ]] && echo "APP_${key}_SHA256=$(sha256sum "$file" | awk '{print $1}')"
+            else
+              echo "APP_${key}_MISSING=YES"
+            fi
+          done
+
+          echo "=== Bootstrap references ==="
+          for file in "$outer/index.php" "$nested/index.php" "$outer/autoload_runtime.php" "$nested/autoload_runtime.php"; do
+            [[ -f "$file" ]] || continue
+            echo "BOOTSTRAP_FILE=$(basename "$(dirname "$file")")/$(basename "$file")"
+            grep -E "autoload|runtime|vendor|DIR|dirname|require" "$file" 2>/dev/null | head -n 20 | sed -E 's#(/home/)[^/]+/#\1[user]/#g' | sed 's/^/BOOTSTRAP_LINE=/' || true
+          done
+
+          echo "=== Nested custom module state ==="
+          if [[ -d "$nested/modules/custom/brebo_mail_intake" ]]; then
+            echo "NESTED_MAIL_MODULE=YES"
+            find "$nested/modules/custom/brebo_mail_intake" -maxdepth 2 -type f -printf '%P|%T@\n' 2>/dev/null | sort | head -n 80 | sed 's/^/NESTED_MODULE_FILE=/'
+          else
+            echo "NESTED_MAIL_MODULE=NO"
+          fi
+          REMOTE
