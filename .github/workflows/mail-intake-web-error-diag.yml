@@ -56,14 +56,13 @@ jobs:
           cd public_html/sboffice_app
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
           $db = \Drupal::database();
-          $schema = $db->schema();
-          if (!$schema->tableExists("watchdog")) {
+          if (!$db->schema()->tableExists("watchdog")) {
             echo "WATCHDOG_TABLE=NO" . PHP_EOL;
             exit(0);
           }
           echo "WATCHDOG_TABLE=YES" . PHP_EOL;
           $query = $db->select("watchdog", "w")
-            ->fields("w", ["wid", "type", "severity", "message", "location", "timestamp"])
+            ->fields("w", ["wid", "type", "severity", "message", "variables", "location", "timestamp"])
             ->condition("severity", 3, "<=")
             ->orderBy("wid", "DESC")
             ->range(0, 30);
@@ -71,18 +70,33 @@ jobs:
           $count = 0;
           foreach ($rows as $row) {
             $location = (string) ($row->location ?? "");
-            $message = (string) ($row->message ?? "");
-            $haystack = strtolower($location . " " . $message);
-            if (!str_contains($haystack, "mail-intake") && !str_contains($haystack, "brebo_mail_intake") && !str_contains($haystack, "mailintakereview")) {
+            $vars = @unserialize((string) ($row->variables ?? ""), ["allowed_classes" => false]);
+            if (!is_array($vars)) {
+              $vars = [];
+            }
+            $type = (string) ($vars["%type"] ?? $vars["@type"] ?? $row->type ?? "php");
+            $detail = (string) ($vars["@message"] ?? $vars["%message"] ?? $row->message ?? "");
+            $function = (string) ($vars["%function"] ?? "");
+            $line = (string) ($vars["%line"] ?? "");
+            $file = basename((string) ($vars["%file"] ?? ""));
+            $haystack = strtolower($location . " " . $detail . " " . $function . " " . $file);
+            if (!str_contains($haystack, "mail-intake") && !str_contains($haystack, "brebo_mail_intake") && !str_contains($haystack, "mailintakereview") && !str_contains($haystack, "mailintake")) {
               continue;
             }
-            $safe = preg_replace("/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i", "[email]", $message);
+            $safe = preg_replace("/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i", "[email]", $detail);
             $safe = preg_replace("/https?:\/\/\S+/i", "[url]", $safe);
+            $safe = preg_replace("/[A-Za-z0-9_\-]{40,}/", "[token]", $safe);
             $safe = preg_replace("/\s+/", " ", $safe);
-            if (strlen($safe) > 500) {
-              $safe = substr($safe, 0, 500) . "…";
+            if (strlen($safe) > 700) {
+              $safe = substr($safe, 0, 700) . "…";
             }
-            echo "WID=" . (int) $row->wid . "|TYPE=" . preg_replace("/[^a-zA-Z0-9_.-]/", "_", (string) $row->type) . "|SEV=" . (int) $row->severity . "|MSG=" . $safe . PHP_EOL;
+            echo "WID=" . (int) $row->wid
+              . "|TYPE=" . preg_replace("/[^a-zA-Z0-9_.-]/", "_", $type)
+              . "|SEV=" . (int) $row->severity
+              . "|FILE=" . preg_replace("/[^a-zA-Z0-9_.-]/", "_", $file)
+              . "|LINE=" . preg_replace("/[^0-9]/", "", $line)
+              . "|FUNC=" . preg_replace("/[^a-zA-Z0-9_\\:>-]/", "_", $function)
+              . "|MSG=" . $safe . PHP_EOL;
             $count++;
           }
           echo "MATCHING_ERRORS=" . $count . PHP_EOL;
