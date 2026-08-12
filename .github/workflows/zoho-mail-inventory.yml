@@ -1,0 +1,111 @@
+name: BREBO Zoho mail inventory
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/zoho-mail-inventory.yml'
+      - 'web/modules/custom/brebo_mail_intake/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-zoho-mail-inventory
+  cancel-in-progress: false
+
+jobs:
+  inventory:
+    name: Read-only Zoho mailbox inventory
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Inventory Zoho mailbox without importing or exposing secrets
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $required = ["BREBO_ZOHO_IMAP_HOST", "BREBO_ZOHO_IMAP_USER", "BREBO_ZOHO_IMAP_PASSWORD"];
+            $configured = true;
+            foreach ($required as $name) {
+              $value = trim((string) getenv($name));
+              $set = $value !== "";
+              echo $name . "=" . ($set ? "SET" : "MISSING") . PHP_EOL;
+              $configured = $configured && $set;
+            }
+
+            $enabled = filter_var(getenv("BREBO_ZOHO_MIGRATION_ENABLED") ?: "0", FILTER_VALIDATE_BOOL);
+            echo "ZOHO_MIGRATION_ENABLED=" . ($enabled ? "YES" : "NO") . PHP_EOL;
+
+            if (!$configured) {
+              echo "ZOHO_INVENTORY=NOT_CONFIGURED" . PHP_EOL;
+              return;
+            }
+            if (!function_exists("imap_open")) {
+              throw new \RuntimeException("PHP IMAP ontbreekt.");
+            }
+
+            $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
+            $port = max(1, (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993));
+            $folder = trim((string) (getenv("BREBO_ZOHO_IMAP_FOLDER") ?: "INBOX"));
+            $flags = trim((string) (getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl"));
+            $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
+            $password = (string) getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            $mailbox = sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder);
+
+            $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
+            if ($stream === false) {
+              throw new \RuntimeException("Zoho IMAP kon niet read-only worden geopend.");
+            }
+            try {
+              $check = imap_check($stream);
+              $uids = imap_search($stream, "ALL", SE_UID) ?: [];
+              sort($uids, SORT_NUMERIC);
+              $firstUid = $uids === [] ? 0 : (int) reset($uids);
+              $lastUid = $uids === [] ? 0 : (int) end($uids);
+              echo "ZOHO_FOLDER=" . $folder . PHP_EOL;
+              echo "ZOHO_MESSAGES=" . (int) ($check->Nmsgs ?? count($uids)) . PHP_EOL;
+              echo "ZOHO_FIRST_UID=" . $firstUid . PHP_EOL;
+              echo "ZOHO_LAST_UID=" . $lastUid . PHP_EOL;
+              echo "ZOHO_SAVED_MIGRATION_UID=" . (int) \Drupal::state()->get("brebo_mail_intake.zoho_migration_last_uid", 0) . PHP_EOL;
+              echo "ZOHO_INVENTORY=COMPLETED_READ_ONLY" . PHP_EOL;
+            }
+            finally {
+              imap_close($stream);
+            }
+          '
+          REMOTE
