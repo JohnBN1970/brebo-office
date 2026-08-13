@@ -14,6 +14,8 @@ function brebo_document_data_schema(): array {
       'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
       'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
       'document_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'document_family' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'revision_code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
       'original_filename' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'mime_type' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
       'file_size' => ['type' => 'int', 'size' => 'big', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
@@ -29,11 +31,12 @@ function brebo_document_data_schema(): array {
       'sha256' => ['sha256'],
       'status' => ['lifecycle_status'],
       'document_type' => ['document_type'],
+      'document_family' => ['document_family'],
     ],
   ];
 
   $schema['brebo_document_source'] = [
-    'description' => 'Append-oriented provenance records for BREBO documents.',
+    'description' => 'Append-oriented provenance records for BREBO documents. Source date/time is authoritative for provenance and revision ordering.',
     'fields' => [
       'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
       'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
@@ -42,6 +45,8 @@ function brebo_document_data_schema(): array {
       'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'source_actor' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'source_timestamp' => ['type' => 'varchar', 'length' => 40, 'not null' => FALSE],
+      'source_timestamp_unix' => ['type' => 'int', 'size' => 'big', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_timestamp_authoritative' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
       'original_filename' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'sha256' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
       'extraction_method' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
@@ -57,6 +62,7 @@ function brebo_document_data_schema(): array {
       'source_lookup' => ['source_system', 'source_external_id'],
       'communication_nid' => ['communication_nid'],
       'sha256' => ['sha256'],
+      'source_timestamp_unix' => ['source_timestamp_unix'],
     ],
   ];
 
@@ -117,4 +123,69 @@ function brebo_document_data_schema(): array {
   ];
 
   return $schema;
+}
+
+/**
+ * Adds document-family/revision metadata and authoritative source timestamps.
+ */
+function brebo_document_data_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->fieldExists('brebo_document', 'document_family')) {
+    $schema->addField('brebo_document', 'document_family', [
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_document', 'revision_code')) {
+    $schema->addField('brebo_document', 'revision_code', [
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->indexExists('brebo_document', 'document_family')) {
+    $schema->addIndex('brebo_document', 'document_family', ['document_family']);
+  }
+
+  if (!$schema->fieldExists('brebo_document_source', 'source_timestamp_unix')) {
+    $schema->addField('brebo_document_source', 'source_timestamp_unix', [
+      'type' => 'int',
+      'size' => 'big',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_document_source', 'source_timestamp_authoritative')) {
+    $schema->addField('brebo_document_source', 'source_timestamp_authoritative', [
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+  if (!$schema->indexExists('brebo_document_source', 'source_timestamp_unix')) {
+    $schema->addIndex('brebo_document_source', 'source_timestamp_unix', ['source_timestamp_unix']);
+  }
+
+  $database = \Drupal::database();
+  $rows = $database->select('brebo_document_source', 's')
+    ->fields('s', ['id', 'source_timestamp'])
+    ->isNotNull('source_timestamp')
+    ->execute();
+  foreach ($rows as $row) {
+    $timestamp = strtotime((string) $row->source_timestamp);
+    if ($timestamp === FALSE || $timestamp < 0) {
+      continue;
+    }
+    $database->update('brebo_document_source')
+      ->fields([
+        'source_timestamp_unix' => $timestamp,
+        'source_timestamp_authoritative' => 1,
+      ])
+      ->condition('id', (int) $row->id)
+      ->execute();
+  }
 }
