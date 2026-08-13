@@ -155,14 +155,24 @@ final class CanonicalContextResolver {
   private function extractAddressQuery(string $subject, string $body): string {
     $combined = preg_replace('/\s+/u', ' ', trim($subject . ' ' . $body)) ?? trim($subject . ' ' . $body);
 
-    // Prefer a Dutch postcode plus nearby text because it is highly selective.
-    if (preg_match('/.{0,60}\b[1-9][0-9]{3}\s?[A-Z]{2}\b.{0,40}/iu', $combined, $match)) {
-      return trim($match[0]);
+    // Extract a clean Dutch street + house number + postcode + city fragment.
+    // Free surrounding mail prose makes geocoding substantially less reliable.
+    if (preg_match('/(?:werkadres|adres|locatie)?\s*[:\-]?\s*([\p{L}][\p{L}\s\.\'’\-]{1,70})\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
+      $street = trim($match[1]);
+      $street = preg_replace('/^(?:werkadres|adres|locatie)\s+/iu', '', $street) ?? $street;
+      $postcode = strtoupper(preg_replace('/\s+/u', ' ', trim($match[3])) ?? trim($match[3]));
+      return trim(sprintf('%s %s %s %s', $street, trim($match[2]), $postcode, trim($match[4])));
     }
 
-    // Otherwise use a bounded part of the subject/body. PDOK performs the
-    // actual address interpretation; BREBO does not invent address truth.
-    return mb_substr($combined, 0, 220);
+    // If only a postcode is recognisable, keep the query tightly bounded around
+    // that token instead of sending an entire sentence or subject to PDOK.
+    if (preg_match('/\b[1-9][0-9]{3}\s?[A-Z]{2}\b/iu', $combined, $postcodeMatch, PREG_OFFSET_CAPTURE)) {
+      $offset = (int) $postcodeMatch[0][1];
+      $start = max(0, $offset - 45);
+      return trim(mb_substr($combined, $start, 100));
+    }
+
+    return mb_substr($combined, 0, 160);
   }
 
   private function normalize(string $value): string {
