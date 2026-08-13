@@ -155,13 +155,20 @@ final class CanonicalContextResolver {
   private function extractAddressQuery(string $subject, string $body): string {
     $combined = preg_replace('/\s+/u', ' ', trim($subject . ' ' . $body)) ?? trim($subject . ' ' . $body);
 
-    // Extract a clean Dutch street + house number + postcode + city fragment.
-    // Free surrounding mail prose makes geocoding substantially less reliable.
-    if (preg_match('/(?:werkadres|adres|locatie)?\s*[:\-]?\s*([\p{L}][\p{L}\s\.\'’\-]{1,70})\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
-      $street = trim($match[1]);
-      $street = preg_replace('/^(?:werkadres|adres|locatie)\s+/iu', '', $street) ?? $street;
+    // A labelled address is the safest signal in unstructured mail. Anchor the
+    // street directly after the label so preceding subject prose can never be
+    // swallowed into the PDOK query.
+    if (preg_match('/\b(?:werkadres|adres|locatie)\s*[:\-]?\s*([\p{L}][\p{L}\s\.\'’\-]{1,70}?)\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
       $postcode = strtoupper(preg_replace('/\s+/u', ' ', trim($match[3])) ?? trim($match[3]));
-      return trim(sprintf('%s %s %s %s', $street, trim($match[2]), $postcode, trim($match[4])));
+      return trim(sprintf('%s %s %s %s', trim($match[1]), trim($match[2]), $postcode, trim($match[4])));
+    }
+
+    // Generic fallback for an unlabelled street + house number + postcode +
+    // city. Keep the street capture non-greedy and bounded to the nearest
+    // punctuation boundary so unrelated mail prose is not sent to PDOK.
+    if (preg_match('/(?:^|[\.,;:]\s)([\p{L}][\p{L}\s\.\'’\-]{1,70}?)\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
+      $postcode = strtoupper(preg_replace('/\s+/u', ' ', trim($match[3])) ?? trim($match[3]));
+      return trim(sprintf('%s %s %s %s', trim($match[1]), trim($match[2]), $postcode, trim($match[4])));
     }
 
     // If only a postcode is recognisable, keep the query tightly bounded around
