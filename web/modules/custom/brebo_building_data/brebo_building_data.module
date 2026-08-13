@@ -1,0 +1,29 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_entity_delete().
+ */
+function brebo_building_data_entity_delete(EntityInterface $entity): void {
+  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_building') {
+    return;
+  }
+
+  $buildingNid = (int) $entity->id();
+  if ($buildingNid <= 0) {
+    return;
+  }
+
+  $database = \Drupal::database();
+  foreach (['brebo_building_address', 'brebo_building_bag_identity'] as $table) {
+    if ($database->schema()->tableExists($table)) {
+      $database->delete($table)
+        ->condition('building_nid', $buildingNid)
+        ->execute();
+    }
+  }
+}
