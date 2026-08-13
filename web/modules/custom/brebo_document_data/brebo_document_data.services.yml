@@ -4,3 +4,6 @@ services:
     arguments:
       - '@database'
       - '@datetime.time'
+
+  brebo_document_data.context_classifier:
+    class: Drupal\brebo_document_data\Service\DocumentContextClassifier
