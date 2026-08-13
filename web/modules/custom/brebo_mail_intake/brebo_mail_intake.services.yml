@@ -58,6 +58,7 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@current_user'
+      - '@brebo_building_data.repository'
 
   brebo_mail_intake.pipeline:
     class: Drupal\brebo_mail_intake\Service\MailIntakePipeline
