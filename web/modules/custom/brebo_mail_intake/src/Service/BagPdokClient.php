@@ -16,7 +16,7 @@ use GuzzleHttp\Exception\GuzzleException;
  */
 final class BagPdokClient {
 
-  private const LOCATION_SEARCH_URL = 'https://api.pdok.nl/kadaster/location-api/v1/search';
+  private const LOCATION_SEARCH_URL = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free';
   private const BAG_BASE_URL = 'https://api.pdok.nl/kadaster/bag/ogc/v2';
 
   public function __construct(
@@ -37,7 +37,7 @@ final class BagPdokClient {
     $client = $this->httpClientFactory->fromOptions([
       'timeout' => 10,
       'headers' => [
-        'Accept' => 'application/geo+json, application/json',
+        'Accept' => 'application/json',
         'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
       ],
     ]);
@@ -46,44 +46,40 @@ final class BagPdokClient {
       $response = $client->get(self::LOCATION_SEARCH_URL, [
         'query' => [
           'q' => $query,
-          'adres[version]' => 1,
-          'adres[relevance]' => 1.0,
-          'limit' => max(1, min(10, $limit)),
-          'f' => 'geojson',
+          'fq' => 'type:adres',
+          'rows' => max(1, min(10, $limit)),
         ],
       ]);
       $payload = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
     }
     catch (GuzzleException | \JsonException $exception) {
-      throw new \RuntimeException('PDOK Location API lookup failed.', 0, $exception);
+      throw new \RuntimeException('PDOK Locatieserver lookup failed.', 0, $exception);
+    }
+
+    $docs = $payload['response']['docs'] ?? [];
+    if (!is_array($docs)) {
+      return [];
     }
 
     $result = [];
-    foreach ($payload['features'] ?? [] as $feature) {
-      if (!is_array($feature)) {
+    foreach ($docs as $doc) {
+      if (!is_array($doc)) {
         continue;
       }
 
-      $properties = is_array($feature['properties'] ?? NULL) ? $feature['properties'] : [];
-      $links = is_array($feature['links'] ?? NULL) ? $feature['links'] : [];
-      $featureId = trim((string) ($feature['id'] ?? $properties['id'] ?? ''));
-      $href = $this->firstHref($links, $properties);
-      $displayName = $this->displayName($properties, $featureId, $href);
-
-      // Location API search intentionally returns compact features. Do not
-      // discard a valid candidate merely because the source uses highlight/
-      // href instead of a traditional display_name property.
-      if ($featureId === '' && $href === '' && $displayName === '') {
+      $displayName = trim((string) ($doc['weergavenaam'] ?? ''));
+      $featureId = trim((string) ($doc['id'] ?? ''));
+      if ($displayName === '' && $featureId === '') {
         continue;
       }
 
       $result[] = [
-        'display_name' => $displayName,
+        'display_name' => $displayName !== '' ? $displayName : ('PDOK adreskandidaat ' . $featureId),
         'feature_id' => $featureId,
-        'href' => $href,
-        'properties' => $properties,
-        'geometry' => is_array($feature['geometry'] ?? NULL) ? $feature['geometry'] : NULL,
-        'source' => 'PDOK Location API',
+        'href' => '',
+        'properties' => $doc,
+        'geometry' => NULL,
+        'source' => 'PDOK Locatieserver',
         'retrieved_at' => gmdate(DATE_ATOM),
       ];
     }
@@ -126,56 +122,6 @@ final class BagPdokClient {
     $payload['_brebo_source'] = 'PDOK BAG OGC API v2';
     $payload['_brebo_retrieved_at'] = gmdate(DATE_ATOM);
     return $payload;
-  }
-
-  /**
-   * @param array<string, mixed> $properties
-   */
-  private function displayName(array $properties, string $featureId, string $href): string {
-    foreach (['display_name', 'weergavenaam', 'name', 'title', 'label', 'highlight', 'text'] as $key) {
-      if (!array_key_exists($key, $properties)) {
-        continue;
-      }
-      $value = $properties[$key];
-      if (is_scalar($value)) {
-        $label = trim(strip_tags((string) $value));
-        if ($label !== '') {
-          return $label;
-        }
-      }
-      elseif (is_array($value)) {
-        $parts = [];
-        array_walk_recursive($value, static function ($item) use (&$parts): void {
-          if (is_scalar($item) && trim((string) $item) !== '') {
-            $parts[] = trim(strip_tags((string) $item));
-          }
-        });
-        if ($parts !== []) {
-          return implode(' ', array_unique($parts));
-        }
-      }
-    }
-
-    if ($featureId !== '') {
-      return 'PDOK adreskandidaat ' . $featureId;
-    }
-    return $href !== '' ? 'PDOK adreskandidaat' : '';
-  }
-
-  /**
-   * @param array<int, mixed> $links
-   * @param array<string, mixed> $properties
-   */
-  private function firstHref(array $links, array $properties): string {
-    if (!empty($properties['href']) && is_scalar($properties['href'])) {
-      return trim((string) $properties['href']);
-    }
-    foreach ($links as $link) {
-      if (is_array($link) && !empty($link['href']) && is_scalar($link['href'])) {
-        return trim((string) $link['href']);
-      }
-    }
-    return '';
   }
 
 }
