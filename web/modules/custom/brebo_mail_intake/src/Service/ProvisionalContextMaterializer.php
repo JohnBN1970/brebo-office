@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
+use Drupal\brebo_building_data\Service\BuildingRelationRepository;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\NodeInterface;
@@ -20,6 +21,7 @@ final class ProvisionalContextMaterializer {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $currentUser,
+    private readonly BuildingRelationRepository $buildingRelations,
   ) {}
 
   /**
@@ -119,7 +121,67 @@ final class ProvisionalContextMaterializer {
     $node->setNewRevision(TRUE);
     $node->setRevisionLogMessage('Mogelijk nieuw gebouw uit Mail Intake/PDOK; bronmail en reden zichtbaar voor beoordeling.');
     $node->save();
+
+    $this->persistBuildingRelations((int) $node->id(), $candidate, $properties, $communication);
     return (int) $node->id();
+  }
+
+  /**
+   * Persists scalable address and BAG relations next to the provisional node.
+   *
+   * @param array<string, mixed> $candidate
+   * @param array<string, mixed> $properties
+   */
+  private function persistBuildingRelations(int $buildingId, array $candidate, array $properties, NodeInterface $communication): void {
+    $source = trim((string) ($candidate['source'] ?? 'PDOK Locatieserver'));
+    $sourceRef = trim((string) ($candidate['feature_id'] ?? ''));
+    $retrievedAt = trim((string) ($candidate['retrieved_at'] ?? ''));
+
+    $address = [
+      'street' => $properties['straatnaam'] ?? NULL,
+      'house_number' => $properties['huisnummer'] ?? NULL,
+      'house_letter' => $properties['huisletter'] ?? NULL,
+      'addition' => $properties['huisnummertoevoeging'] ?? NULL,
+      'postal_code' => $properties['postcode'] ?? NULL,
+      'city' => $properties['woonplaatsnaam'] ?? NULL,
+      'country' => 'Nederland',
+      'is_primary' => TRUE,
+      'source' => $source,
+      'source_ref' => $sourceRef !== '' ? $sourceRef : ('communication:' . (int) $communication->id()),
+    ];
+
+    if ($this->hasAddressIdentity($address)) {
+      $this->buildingRelations->upsertAddress($buildingId, $address);
+    }
+
+    $bagKeys = [
+      'pand_id' => 'pand',
+      'adresseerbaarobject_id' => 'adresseerbaarobject',
+      'verblijfsobject_id' => 'verblijfsobject',
+      'nummeraanduiding_id' => 'nummeraanduiding',
+    ];
+    foreach ($bagKeys as $propertyKey => $bagType) {
+      $bagId = trim((string) ($properties[$propertyKey] ?? ''));
+      if ($bagId === '') {
+        continue;
+      }
+      $this->buildingRelations->upsertBagIdentity($buildingId, $bagType, $bagId, [
+        'is_primary' => $bagType === 'pand',
+        'source' => $source,
+        'source_ref' => $sourceRef,
+        'retrieved_at' => $retrievedAt,
+      ]);
+    }
+  }
+
+  /** @param array<string, mixed> $address */
+  private function hasAddressIdentity(array $address): bool {
+    $postcode = trim((string) ($address['postal_code'] ?? ''));
+    $houseNumber = trim((string) ($address['house_number'] ?? ''));
+    if ($postcode !== '' && $houseNumber !== '') {
+      return TRUE;
+    }
+    return trim((string) ($address['street'] ?? '')) !== '' && trim((string) ($address['city'] ?? '')) !== '';
   }
 
   /** @param array<string, mixed> $resolution */
@@ -159,7 +221,7 @@ final class ProvisionalContextMaterializer {
     if ($receivedAt !== '') {
       $parts[] = 'E-mail datum/tijd: ' . $receivedAt . '.';
     }
-    $parts[] = 'Waarom voorgesteld: ' . ($basis !== '' ? $basis : 'Geen bestaande canonieke match gevonden.') . '';
+    $parts[] = 'Waarom voorgesteld: ' . ($basis !== '' ? $basis : 'Geen bestaande canonieke match gevonden.');
     $parts[] = 'Externe bron: ' . ($source !== '' ? $source : 'Mail Intake') . '.';
     if ($retrievedAt !== '') {
       $parts[] = 'Externe gegevens opgehaald: ' . $retrievedAt . '.';
