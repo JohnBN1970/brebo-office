@@ -6,11 +6,15 @@ namespace Drupal\brebo_mail_intake\Source;
 
 use Drupal\Core\Http\ClientFactory;
 use Drupal\Core\State\StateInterface;
+use GuzzleHttp\ClientInterface;
 
 /**
  * Read-only Gmail source adapter using OAuth2 offline access.
  */
 final class GmailSourceAdapter implements MailSourceAdapterInterface {
+
+  private const BACKFILL_TOKEN_STATE = 'brebo_mail_intake.gmail_backfill_page_token';
+  private const BACKFILL_COMPLETE_STATE = 'brebo_mail_intake.gmail_backfill_complete';
 
   public function __construct(
     private readonly ClientFactory $httpClientFactory,
@@ -32,12 +36,7 @@ final class GmailSourceAdapter implements MailSourceAdapterInterface {
       return;
     }
 
-    $accessToken = $this->accessToken();
-    $client = $this->httpClientFactory->fromOptions([
-      'timeout' => 20,
-      'headers' => ['Authorization' => 'Bearer ' . $accessToken],
-    ]);
-
+    $client = $this->gmailClient();
     $now = time();
     $lastPoll = (int) $this->state->get('brebo_mail_intake.gmail_last_poll_epoch', 0);
     if ($lastPoll <= 0) {
@@ -60,17 +59,86 @@ final class GmailSourceAdapter implements MailSourceAdapterInterface {
         continue;
       }
 
-      $response = $client->get('https://gmail.googleapis.com/gmail/v1/users/me/messages/' . rawurlencode($id), [
-        'query' => ['format' => 'full'],
-      ]);
-      $message = json_decode((string) $response->getBody(), TRUE, flags: JSON_THROW_ON_ERROR);
-      $normalized = $this->normalize($message);
+      $normalized = $this->normalize($this->messageById($client, $id));
       $maxEpoch = max($maxEpoch, (int) ($normalized['_internal_epoch'] ?? 0));
       unset($normalized['_internal_epoch']);
       yield $normalized;
     }
 
     $this->state->set('brebo_mail_intake.gmail_last_poll_epoch', max($maxEpoch, $now));
+  }
+
+  /**
+   * Returns one historical Gmail page, newest first, with an independent cursor.
+   *
+   * The Gmail page token is persisted only after the complete page has been
+   * normalized. Queue/ingestor duplicate protection makes retries harmless.
+   *
+   * @return iterable<array<string, mixed>>
+   */
+  public function backfillMessages(): iterable {
+    if (!$this->isConfigured() || $this->isBackfillComplete()) {
+      return;
+    }
+
+    $client = $this->gmailClient();
+    $batchSize = max(1, min(100, (int) (getenv('BREBO_GMAIL_BACKFILL_BATCH_SIZE') ?: 25)));
+    $query = ['maxResults' => $batchSize];
+    $pageToken = trim((string) $this->state->get(self::BACKFILL_TOKEN_STATE, ''));
+    if ($pageToken !== '') {
+      $query['pageToken'] = $pageToken;
+    }
+
+    $list = $client->get('https://gmail.googleapis.com/gmail/v1/users/me/messages', ['query' => $query]);
+    $payload = json_decode((string) $list->getBody(), TRUE, flags: JSON_THROW_ON_ERROR);
+    $normalizedMessages = [];
+
+    foreach ($payload['messages'] ?? [] as $item) {
+      $id = trim((string) ($item['id'] ?? ''));
+      if ($id === '') {
+        continue;
+      }
+      $normalizedMessages[] = $this->normalize($this->messageById($client, $id));
+    }
+
+    usort($normalizedMessages, static fn(array $a, array $b): int => ((int) ($b['_internal_epoch'] ?? 0)) <=> ((int) ($a['_internal_epoch'] ?? 0)));
+    foreach ($normalizedMessages as $normalized) {
+      unset($normalized['_internal_epoch']);
+      yield $normalized;
+    }
+
+    $nextPageToken = trim((string) ($payload['nextPageToken'] ?? ''));
+    if ($nextPageToken === '') {
+      $this->state->delete(self::BACKFILL_TOKEN_STATE);
+      $this->state->set(self::BACKFILL_COMPLETE_STATE, TRUE);
+    }
+    else {
+      $this->state->set(self::BACKFILL_TOKEN_STATE, $nextPageToken);
+    }
+  }
+
+  public function isBackfillComplete(): bool {
+    return (bool) $this->state->get(self::BACKFILL_COMPLETE_STATE, FALSE);
+  }
+
+  public function resetBackfill(): void {
+    $this->state->delete(self::BACKFILL_TOKEN_STATE);
+    $this->state->delete(self::BACKFILL_COMPLETE_STATE);
+  }
+
+  private function gmailClient(): ClientInterface {
+    return $this->httpClientFactory->fromOptions([
+      'timeout' => 20,
+      'headers' => ['Authorization' => 'Bearer ' . $this->accessToken()],
+    ]);
+  }
+
+  /** @return array<string, mixed> */
+  private function messageById(ClientInterface $client, string $id): array {
+    $response = $client->get('https://gmail.googleapis.com/gmail/v1/users/me/messages/' . rawurlencode($id), [
+      'query' => ['format' => 'full'],
+    ]);
+    return json_decode((string) $response->getBody(), TRUE, flags: JSON_THROW_ON_ERROR);
   }
 
   private function accessToken(): string {
