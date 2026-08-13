@@ -30,28 +30,48 @@ function brebo_mail_intake_cron(): void {
     \Drupal::logger('brebo_mail_intake')->warning('Onbekende BREBO_MAIL_SOURCE: @source', ['@source' => $source]);
   }
   else {
-    _brebo_mail_intake_process_source($serviceId, strtoupper($source));
+    _brebo_mail_intake_enqueue_source($serviceId, strtoupper($source));
   }
 
   if (filter_var(getenv('BREBO_ZOHO_MIGRATION_ENABLED') ?: '0', FILTER_VALIDATE_BOOL)) {
-    _brebo_mail_intake_process_source('brebo_mail_intake.zoho_migration_source', 'ZOHO-MIGRATIE');
+    _brebo_mail_intake_enqueue_source('brebo_mail_intake.zoho_migration_source', 'ZOHO-MIGRATIE');
+  }
+
+  if ($source === 'gmail' && filter_var(getenv('BREBO_GMAIL_BACKFILL_ENABLED') ?: '0', FILTER_VALIDATE_BOOL)) {
+    try {
+      $count = \Drupal::service('brebo_mail_intake.queue_manager')->enqueueGmailBackfill(
+        \Drupal::service('brebo_mail_intake.gmail_source'),
+      );
+      if ($count > 0) {
+        \Drupal::logger('brebo_mail_intake')->notice('Gmail historische backfill: @count berichten toegevoegd aan de queue.', ['@count' => $count]);
+      }
+    }
+    catch (\Throwable $e) {
+      \Drupal::logger('brebo_mail_intake')->error('Gmail historische backfill kon niet worden ingepland: @message', ['@message' => $e->getMessage()]);
+    }
   }
 }
 
 /**
- * Processes one configured source without allowing source failures to halt cron.
+ * Adds one configured source to the durable queue without blocking cron.
  */
-function _brebo_mail_intake_process_source(string $serviceId, string $label): void {
+function _brebo_mail_intake_enqueue_source(string $serviceId, string $label): void {
   $adapter = \Drupal::service($serviceId);
   if (!$adapter->isConfigured()) {
     return;
   }
 
   try {
-    \Drupal::service('brebo_mail_intake.pipeline')->processSource($adapter);
+    $count = \Drupal::service('brebo_mail_intake.queue_manager')->enqueueSource($adapter);
+    if ($count > 0) {
+      \Drupal::logger('brebo_mail_intake')->notice('@source Mail Intake: @count berichten toegevoegd aan de queue.', [
+        '@source' => $label,
+        '@count' => $count,
+      ]);
+    }
   }
   catch (\Throwable $e) {
-    \Drupal::logger('brebo_mail_intake')->error('@source Mail Intake mislukt: @message', [
+    \Drupal::logger('brebo_mail_intake')->error('@source Mail Intake kon niet worden ingepland: @message', [
       '@source' => $label,
       '@message' => $e->getMessage(),
     ]);
