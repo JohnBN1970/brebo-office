@@ -79,7 +79,7 @@
               return;
             }
             status.textContent = 'Zoeken…';
-            var url = new URL('/office/api/artikelen', window.location.origin);
+            var url = new URL('/api/artikelen', window.location.origin);
             url.searchParams.set('q', term);
             url.searchParams.set('category', category.value);
             url.searchParams.set('supplier', supplier.value.trim());
