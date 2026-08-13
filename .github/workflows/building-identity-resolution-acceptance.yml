@@ -1,0 +1,169 @@
+name: Building identity resolution acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_building_data/**'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/CanonicalContextResolver.php'
+      - '.github/workflows/building-identity-resolution-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify same-street identity and ambiguity handling
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 20 ssh \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=5 \
+              -o ServerAliveCountMax=2 \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -i ~/.ssh/deploy_key \
+              -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Acceptance-test building identity repository
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+          $DRUSH cr
+          $DRUSH php:eval '
+            $container = \Drupal::getContainer();
+            if (!$container->has("brebo_building_data.repository")) {
+              throw new \RuntimeException("Building relation repository missing.");
+            }
+            $repo = $container->get("brebo_building_data.repository");
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $created = [];
+            try {
+              $a = $storage->create([
+                "type" => "brebo_building",
+                "title" => "ACCEPT Bilderdijkstraat 87-97",
+                "status" => 0,
+                "field_brebo_building_code" => "ACCEPT-BLD-A-" . time(),
+                "field_brebo_address" => "Bilderdijkstraat 87",
+                "field_brebo_postal_code" => "1053 KM",
+                "field_brebo_city" => "Amsterdam",
+                "field_brebo_country" => "Nederland",
+              ]);
+              $a->save();
+              $created[] = (int) $a->id();
+
+              $b = $storage->create([
+                "type" => "brebo_building",
+                "title" => "ACCEPT Bilderdijkstraat 37-39",
+                "status" => 0,
+                "field_brebo_building_code" => "ACCEPT-BLD-B-" . time(),
+                "field_brebo_address" => "Bilderdijkstraat 37",
+                "field_brebo_postal_code" => "1053 KV",
+                "field_brebo_city" => "Amsterdam",
+                "field_brebo_country" => "Nederland",
+              ]);
+              $b->save();
+              $created[] = (int) $b->id();
+
+              $repo->upsertAddress((int) $a->id(), [
+                "street" => "Bilderdijkstraat",
+                "house_number" => "93",
+                "postal_code" => "1053 KM",
+                "city" => "Amsterdam",
+                "source" => "acceptance",
+              ]);
+              $repo->upsertAddress((int) $b->id(), [
+                "street" => "Bilderdijkstraat",
+                "house_number" => "39",
+                "postal_code" => "1053 KV",
+                "city" => "Amsterdam",
+                "source" => "acceptance",
+              ]);
+
+              $matchA = $repo->resolveBuildingCandidate(["properties" => [
+                "straatnaam" => "Bilderdijkstraat",
+                "huisnummer" => "93",
+                "postcode" => "1053 KM",
+                "woonplaatsnaam" => "Amsterdam",
+              ]]);
+              if (($matchA["state"] ?? "") !== "matched" || (int) ($matchA["building_id"] ?? 0) !== (int) $a->id()) {
+                throw new \RuntimeException("Bilderdijkstraat 93 did not resolve to building A.");
+              }
+
+              $matchB = $repo->resolveBuildingCandidate(["properties" => [
+                "straatnaam" => "Bilderdijkstraat",
+                "huisnummer" => "39",
+                "postcode" => "1053 KV",
+                "woonplaatsnaam" => "Amsterdam",
+              ]]);
+              if (($matchB["state"] ?? "") !== "matched" || (int) ($matchB["building_id"] ?? 0) !== (int) $b->id()) {
+                throw new \RuntimeException("Bilderdijkstraat 39 did not resolve to building B.");
+              }
+
+              $bag = "ACCEPT-BAG-" . time();
+              $repo->upsertBagIdentity((int) $a->id(), "pand", $bag, ["source" => "acceptance"]);
+              $conflict = $repo->upsertBagIdentity((int) $b->id(), "pand", $bag, ["source" => "acceptance"]);
+              if (!in_array((int) $a->id(), $conflict["conflict_building_ids"] ?? [], TRUE)) {
+                throw new \RuntimeException("Cross-building BAG conflict was not reported.");
+              }
+
+              $ambiguous = $repo->resolveBuildingCandidate(["properties" => ["pand_id" => $bag]]);
+              $candidateIds = array_map("intval", $ambiguous["candidate_building_ids"] ?? []);
+              sort($candidateIds);
+              $expected = [(int) $a->id(), (int) $b->id()];
+              sort($expected);
+              if (($ambiguous["state"] ?? "") !== "ambiguous" || $candidateIds !== $expected) {
+                throw new \RuntimeException("Shared BAG identity was not treated as ambiguous.");
+              }
+
+              echo "SAME_STREET_DISTINCT_BUILDINGS=PASS" . PHP_EOL;
+              echo "EXACT_ADDRESS_IDENTITY=PASS" . PHP_EOL;
+              echo "BAG_CONFLICT_DETECTION=PASS" . PHP_EOL;
+              echo "AMBIGUITY_NEVER_GUESSED=PASS" . PHP_EOL;
+              echo "BUILDING_IDENTITY_RESOLUTION=PASS" . PHP_EOL;
+            }
+            finally {
+              if ($created !== []) {
+                $entities = array_filter($storage->loadMultiple($created));
+                if ($entities !== []) {
+                  $storage->delete($entities);
+                }
+              }
+              echo "TEMPORARY_BUILDINGS_CLEANED=1" . PHP_EOL;
+            }
+          '
+          REMOTE
