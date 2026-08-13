@@ -49,11 +49,12 @@
       });
     }
 
+    const processHref = selectedId ? '/communicatie/' + selectedId + '/verwerken' : '';
     const toolbar = document.createElement('div');
     toolbar.className = 'brebo-mail-toolbar';
     const compose = document.createElement('div'); compose.className = 'brebo-mail-toolbar__group'; compose.append(action('+', 'Nieuw bericht', '', true));
     const message = document.createElement('div'); message.className = 'brebo-mail-toolbar__group'; message.append(action('↩', 'Beantwoorden'), action('↪', 'Doorsturen'), action('★', 'Markeren'), action('▣', 'Archiveren'), action('⌫', 'Verwijderen'));
-    const office = document.createElement('div'); office.className = 'brebo-mail-toolbar__group'; office.append(action('✓', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''));
+    const office = document.createElement('div'); office.className = 'brebo-mail-toolbar__group'; office.append(action('✓', 'Verwerken in Office', processHref), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''), action('☷', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'));
     toolbar.append(compose, message, office);
     if (layout) workspace.insertBefore(toolbar, layout); else workspace.prepend(toolbar);
 
@@ -63,7 +64,7 @@
       const actions = document.createElement('div');
       actions.className = 'brebo-mail-office-actions';
       const label = document.createElement('div'); label.className = 'brebo-mail-office-actions__label'; label.textContent = 'BREBO Office'; actions.append(label);
-      actions.append(action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('⌂', 'Koppel gebouw'), action('◆', 'Koppel project'), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
+      actions.append(action('✓', 'Verwerken en koppelen', processHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('⌂', 'Koppel gebouw'), action('◆', 'Koppel project'), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
       article.prepend(actions);
     }
   }
