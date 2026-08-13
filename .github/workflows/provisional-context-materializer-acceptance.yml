@@ -1,0 +1,167 @@
+name: Provisional context materializer acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/ProvisionalContextMaterializer.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/CanonicalContextResolver.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/BagPdokClient.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - '.github/workflows/provisional-context-materializer-acceptance.yml'
+      - '.github/workflows/sboffice-deploy-develop.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify provisional project/building materialization and cleanup
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            echo "Authenticated SSH host-key probe attempt $attempt/5"
+            if timeout 20 ssh \
+              -o BatchMode=yes \
+              -o ConnectTimeout=15 \
+              -o ServerAliveInterval=5 \
+              -o ServerAliveCountMax=2 \
+              -o StrictHostKeyChecking=accept-new \
+              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+              -i ~/.ssh/deploy_key \
+              -p "$DEPLOY_PORT" \
+              "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to establish authenticated SSH connection and capture host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Acceptance-test provisional materializer
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+          $DRUSH cr
+          $DRUSH php:eval '
+            $container = \Drupal::getContainer();
+            foreach (["brebo_mail_intake.canonical_context_resolver", "brebo_mail_intake.provisional_context_materializer"] as $serviceId) {
+              if (!$container->has($serviceId)) {
+                throw new \RuntimeException("Missing service: " . $serviceId);
+              }
+            }
+
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $communicationIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->sort("nid", "ASC")->range(0, 1)->execute();
+            if (!$communicationIds) {
+              throw new \RuntimeException("Acceptance requires at least one BREBO Communication.");
+            }
+            $communication = $storage->load(reset($communicationIds));
+            if (!$communication instanceof \Drupal\node\NodeInterface) {
+              throw new \RuntimeException("Communication fixture could not be loaded.");
+            }
+
+            $resolver = $container->get("brebo_mail_intake.canonical_context_resolver");
+            $materializer = $container->get("brebo_mail_intake.provisional_context_materializer");
+            $createdIds = [];
+
+            try {
+              $resolution = $resolver->resolve(
+                "Nieuwe aanvraag MAT-ACCEPT-2026",
+                "Werkadres Dam 1, 1012 JS Amsterdam. Nieuw project en nieuw gebouw."
+              );
+              if (($resolution["project_state"] ?? NULL) !== "provisional_required" || ($resolution["building_state"] ?? NULL) !== "provisional_required") {
+                throw new \RuntimeException("Resolver did not produce provisional-required context.");
+              }
+              if (count($resolution["pdok_address_candidates"] ?? []) < 1) {
+                throw new \RuntimeException("PDOK candidate missing before materialization.");
+              }
+
+              $result = $materializer->materialize($communication, $resolution);
+              $projectId = (int) ($result["project_id"] ?? 0);
+              $buildingId = (int) ($result["building_id"] ?? 0);
+              if ($projectId <= 0 || $buildingId <= 0) {
+                throw new \RuntimeException("Materializer did not create both provisional objects.");
+              }
+              $createdIds = [$projectId, $buildingId];
+
+              $project = $storage->load($projectId);
+              $building = $storage->load($buildingId);
+              if (!$project instanceof \Drupal\node\NodeInterface || !$building instanceof \Drupal\node\NodeInterface) {
+                throw new \RuntimeException("Created provisional objects could not be loaded.");
+              }
+              if ($project->bundle() !== "brebo_project" || $building->bundle() !== "brebo_building") {
+                throw new \RuntimeException("Wrong provisional bundles created.");
+              }
+              if ($project->isPublished() || $building->isPublished()) {
+                throw new \RuntimeException("Provisional context must remain unpublished.");
+              }
+              if ((string) $project->get("field_brebo_status")->value !== "Te beoordelen") {
+                throw new \RuntimeException("Provisional project review status missing.");
+              }
+              if ((string) $building->get("field_brebo_status")->value !== "Te beoordelen") {
+                throw new \RuntimeException("Provisional building review status missing.");
+              }
+              if (!str_starts_with($project->label(), "[VOORLOPIG]")) {
+                throw new \RuntimeException("Provisional project label is not explicit.");
+              }
+              if (!str_starts_with($building->label(), "[VOORLOPIG]")) {
+                throw new \RuntimeException("Provisional building label is not explicit.");
+              }
+              $projectDescription = (string) $project->get("field_brebo_description")->value;
+              $buildingDescription = (string) $building->get("field_brebo_description")->value;
+              if (!str_contains($projectDescription, "Menselijke beoordeling") || !str_contains($buildingDescription, "Menselijke beoordeling")) {
+                throw new \RuntimeException("Human-review traceability missing.");
+              }
+              if (!str_contains($buildingDescription, "PDOK")) {
+                throw new \RuntimeException("PDOK source traceability missing on provisional building.");
+              }
+              if (trim((string) $building->get("field_brebo_postal_code")->value) === "" || trim((string) $building->get("field_brebo_city")->value) === "") {
+                throw new \RuntimeException("PDOK address enrichment did not populate postcode/city.");
+              }
+
+              echo "PROVISIONAL_PROJECT_ID=" . $projectId . PHP_EOL;
+              echo "PROVISIONAL_BUILDING_ID=" . $buildingId . PHP_EOL;
+              echo "PROVISIONAL_PROJECT_PUBLISHED=0" . PHP_EOL;
+              echo "PROVISIONAL_BUILDING_PUBLISHED=0" . PHP_EOL;
+              echo "PROVISIONAL_STATUS=Te beoordelen" . PHP_EOL;
+              echo "PDOK_ENRICHMENT=PASS" . PHP_EOL;
+              echo "PROVISIONAL_CONTEXT_MATERIALIZER=PASS" . PHP_EOL;
+            }
+            finally {
+              if ($createdIds !== []) {
+                $entities = array_filter($storage->loadMultiple($createdIds));
+                if ($entities !== []) {
+                  $storage->delete($entities);
+                }
+              }
+              echo "TEMPORARY_PROVISIONAL_OBJECTS_CLEANED=1" . PHP_EOL;
+            }
+          '
+          REMOTE
