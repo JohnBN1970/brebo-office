@@ -10,7 +10,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 
 /**
- * Duplicate-safe storage for high-volume building address and BAG relations.
+ * Duplicate-safe storage and lookup for high-volume building relations.
  */
 final class BuildingRelationRepository {
 
@@ -130,6 +130,87 @@ final class BuildingRelationRepository {
       ->execute();
 
     return ['state' => 'created', 'id' => $id, 'conflict_building_ids' => $conflictIds];
+  }
+
+  /** @return int[] */
+  public function findBuildingIdsByAddress(array $address): array {
+    $normalizedKey = $this->normalizeAddressKey($address);
+    if ($normalizedKey === '') {
+      return [];
+    }
+    return array_values(array_unique(array_map('intval', $this->database->select('brebo_building_address', 'a')
+      ->fields('a', ['building_nid'])
+      ->condition('normalized_key', $normalizedKey)
+      ->distinct()
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /** @return int[] */
+  public function findBuildingIdsByBagIdentity(string $bagType, string $bagId): array {
+    $bagType = strtolower($this->clean($bagType));
+    $bagId = $this->clean($bagId);
+    if ($bagType === '' || $bagId === '') {
+      return [];
+    }
+    return array_values(array_unique(array_map('intval', $this->database->select('brebo_building_bag_identity', 'b')
+      ->fields('b', ['building_nid'])
+      ->condition('bag_type', $bagType)
+      ->condition('bag_id', $bagId)
+      ->distinct()
+      ->execute()
+      ->fetchCol())));
+  }
+
+  /**
+   * Resolves one PDOK candidate to a unique known BREBO building when possible.
+   *
+   * BAG identity is preferred over address identity. Multiple building matches
+   * are returned as ambiguous and must never be guessed away.
+   *
+   * @param array<string, mixed> $candidate
+   *
+   * @return array{state:string,building_id:?int,candidate_building_ids:int[],basis:string}
+   */
+  public function resolveBuildingCandidate(array $candidate): array {
+    $properties = is_array($candidate['properties'] ?? NULL) ? $candidate['properties'] : [];
+    $bagKeys = [
+      'pand_id' => 'pand',
+      'adresseerbaarobject_id' => 'adresseerbaarobject',
+      'verblijfsobject_id' => 'verblijfsobject',
+      'nummeraanduiding_id' => 'nummeraanduiding',
+    ];
+
+    foreach ($bagKeys as $propertyKey => $bagType) {
+      $bagId = $this->clean($properties[$propertyKey] ?? NULL);
+      if ($bagId === '') {
+        continue;
+      }
+      $ids = $this->findBuildingIdsByBagIdentity($bagType, $bagId);
+      if (count($ids) === 1) {
+        return ['state' => 'matched', 'building_id' => $ids[0], 'candidate_building_ids' => $ids, 'basis' => sprintf('Exacte BAG-%s-identiteit.', $bagType)];
+      }
+      if (count($ids) > 1) {
+        return ['state' => 'ambiguous', 'building_id' => NULL, 'candidate_building_ids' => $ids, 'basis' => sprintf('BAG-%s-identiteit is aan meerdere BREBO-gebouwen gekoppeld.', $bagType)];
+      }
+    }
+
+    $ids = $this->findBuildingIdsByAddress([
+      'street' => $properties['straatnaam'] ?? NULL,
+      'house_number' => $properties['huisnummer'] ?? NULL,
+      'house_letter' => $properties['huisletter'] ?? NULL,
+      'addition' => $properties['huisnummertoevoeging'] ?? NULL,
+      'postal_code' => $properties['postcode'] ?? NULL,
+      'city' => $properties['woonplaatsnaam'] ?? NULL,
+    ]);
+    if (count($ids) === 1) {
+      return ['state' => 'matched', 'building_id' => $ids[0], 'candidate_building_ids' => $ids, 'basis' => 'Exact bekend gebouwadres.'];
+    }
+    if (count($ids) > 1) {
+      return ['state' => 'ambiguous', 'building_id' => NULL, 'candidate_building_ids' => $ids, 'basis' => 'Hetzelfde genormaliseerde adres is aan meerdere BREBO-gebouwen gekoppeld.'];
+    }
+
+    return ['state' => 'unmatched', 'building_id' => NULL, 'candidate_building_ids' => [], 'basis' => 'Geen bestaande BAG- of adresidentiteit gevonden.'];
   }
 
   /** @return array<int, array<string, mixed>> */
