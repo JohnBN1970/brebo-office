@@ -1,0 +1,127 @@
+name: BREBO building data acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_building_data/**'
+      - 'config/sync/core.extension.yml'
+      - '.github/workflows/building-data-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify multi-address and BAG relation storage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then exit 1; fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Wait for deployment and acceptance-test storage
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+
+          for attempt in 1 2 3 4 5 6; do
+            if $DRUSH php:eval 'if (!\Drupal::moduleHandler()->moduleExists("brebo_building_data")) { exit(1); } if (!\Drupal::database()->schema()->tableExists("brebo_building_address") || !\Drupal::database()->schema()->tableExists("brebo_building_bag_identity")) { exit(1); }' >/dev/null 2>&1; then
+              break
+            fi
+            if [[ "$attempt" -eq 6 ]]; then
+              echo '::error::brebo_building_data module/tables not ready after deployment window.'
+              exit 1
+            fi
+            sleep 15
+          done
+
+          $DRUSH cr
+          $DRUSH php:eval '
+            $container = \Drupal::getContainer();
+            if (!$container->has("brebo_building_data.repository")) {
+              throw new \RuntimeException("Building relation repository service missing.");
+            }
+            $database = \Drupal::database();
+            foreach (["brebo_building_address", "brebo_building_bag_identity"] as $table) {
+              if (!$database->schema()->tableExists($table)) {
+                throw new \RuntimeException("Missing table: " . $table);
+              }
+            }
+
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $building = $storage->create([
+              "type" => "brebo_building",
+              "title" => "[ACCEPTANCE] Multi-address building",
+              "status" => 0,
+              "field_brebo_building_code" => "ACC-BLD-" . time(),
+              "field_brebo_address" => "Dam 1",
+              "field_brebo_postal_code" => "1012JS",
+              "field_brebo_city" => "Amsterdam",
+              "field_brebo_country" => "Nederland",
+              "field_brebo_status" => "Te beoordelen",
+            ]);
+            $building->save();
+            $buildingId = (int) $building->id();
+            $repository = $container->get("brebo_building_data.repository");
+
+            try {
+              $a1 = $repository->upsertAddress($buildingId, ["street" => "Dam", "house_number" => "1", "postal_code" => "1012 JS", "city" => "Amsterdam", "is_primary" => TRUE, "source" => "acceptance"]);
+              $a2 = $repository->upsertAddress($buildingId, ["street" => "Dam", "house_number" => "2", "postal_code" => "1012 JS", "city" => "Amsterdam", "source" => "acceptance"]);
+              $a1Again = $repository->upsertAddress($buildingId, ["street" => "Dam", "house_number" => "1", "postal_code" => "1012JS", "city" => "Amsterdam", "is_primary" => TRUE, "source" => "acceptance-rerun"]);
+              if ($a1["state"] !== "created" || $a2["state"] !== "created" || $a1Again["state"] !== "updated") {
+                throw new \RuntimeException("Address upsert is not duplicate-safe.");
+              }
+              if (count($repository->addressesForBuilding($buildingId)) !== 2) {
+                throw new \RuntimeException("Multi-house-number building did not retain exactly two address relations.");
+              }
+
+              $bag1 = $repository->upsertBagIdentity($buildingId, "pand", "0363100012345678", ["source" => "acceptance"]);
+              $bag1Again = $repository->upsertBagIdentity($buildingId, "pand", "0363100012345678", ["source" => "acceptance-rerun"]);
+              if ($bag1["state"] !== "created" || $bag1Again["state"] !== "updated") {
+                throw new \RuntimeException("BAG upsert is not duplicate-safe.");
+              }
+              if (count($repository->bagIdentitiesForBuilding($buildingId)) !== 1) {
+                throw new \RuntimeException("Duplicate BAG identity was created for one building.");
+              }
+
+              echo "BUILDING_DATA_SCHEMA=PASS" . PHP_EOL;
+              echo "MULTI_ADDRESS_COUNT=2" . PHP_EOL;
+              echo "ADDRESS_DEDUPLICATION=PASS" . PHP_EOL;
+              echo "BAG_DEDUPLICATION=PASS" . PHP_EOL;
+            }
+            finally {
+              $database->delete("brebo_building_address")->condition("building_nid", $buildingId)->execute();
+              $database->delete("brebo_building_bag_identity")->condition("building_nid", $buildingId)->execute();
+              $storage->delete([$building]);
+              echo "TEMPORARY_BUILDING_DATA_CLEANED=1" . PHP_EOL;
+            }
+          '
+          REMOTE
