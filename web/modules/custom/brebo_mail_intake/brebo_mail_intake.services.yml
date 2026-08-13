@@ -63,6 +63,8 @@ services:
       - '@brebo_mail_intake.ingestor'
       - '@logger.channel.brebo_mail_intake'
       - '@brebo_mail_intake.failure_registry'
+      - '@brebo_mail_intake.canonical_context_resolver'
+      - '@brebo_mail_intake.provisional_context_materializer'
 
   logger.channel.brebo_mail_intake:
     parent: logger.channel_base
