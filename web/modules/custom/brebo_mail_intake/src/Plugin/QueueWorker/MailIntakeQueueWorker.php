@@ -7,7 +7,7 @@ namespace Drupal\brebo_mail_intake\Plugin\QueueWorker;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
 use Drupal\Core\Queue\QueueWorkerBase;
 use Drupal\brebo_mail_intake\Service\MailIntakePipeline;
-use Psr\Container\ContainerInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
  * Processes queued normalized mail through the canonical intake pipeline.
