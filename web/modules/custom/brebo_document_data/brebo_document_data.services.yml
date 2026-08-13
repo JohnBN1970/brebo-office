@@ -12,3 +12,8 @@ services:
     class: Drupal\brebo_document_data\Service\DocumentRevisionSeries
     arguments:
       - '@database'
+
+  brebo_document_data.storage_locator:
+    class: Drupal\brebo_document_data\Service\DocumentStorageLocator
+    arguments:
+      - '@database'
