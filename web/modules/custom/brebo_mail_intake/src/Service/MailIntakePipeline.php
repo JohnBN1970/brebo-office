@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\brebo_mail_intake\Source\MailSourceAdapterInterface;
+use Drupal\node\NodeInterface;
 use Psr\Log\LoggerInterface;
 
 /**
- * Orchestrates normalization output into classification, meaning extraction,
- * relation suggestions and durable Communication registration.
+ * Orchestrates normalization output into classification, canonical context
+ * resolution and durable Communication registration.
  */
 final class MailIntakePipeline {
 
@@ -20,6 +21,8 @@ final class MailIntakePipeline {
     private readonly MailIntakeIngestor $ingestor,
     private readonly LoggerInterface $logger,
     private readonly MailIntakeFailureRegistry $failureRegistry,
+    private readonly CanonicalContextResolver $canonicalContextResolver,
+    private readonly ProvisionalContextMaterializer $provisionalContextMaterializer,
   ) {}
 
   /**
@@ -59,8 +62,9 @@ final class MailIntakePipeline {
   /**
    * Processes one normalized message without establishing uncertain relations.
    *
-   * Meaning extraction is intentionally advisory: no action, risk, deadline or
-   * subtype is promoted to formal dossier truth by this pipeline.
+   * Existing canonical context may be suggested immediately. Unknown project or
+   * building context is materialized only as unpublished review-only objects.
+   * No provisional object is ever treated as canonical truth by this pipeline.
    *
    * @param array<string, mixed> $mail
    *
@@ -73,6 +77,7 @@ final class MailIntakePipeline {
     $classification = $this->classifier->classify($subject, $body);
     $meaning = $this->meaningExtractor->extract($subject, $body);
     $relations = $this->relationSuggester->suggest($subject, $body);
+    $canonicalContext = $this->canonicalContextResolver->resolve($subject, $body);
 
     if (trim((string) ($mail['classification'] ?? '')) === '') {
       $mail['classification'] = $classification['classification'];
@@ -82,19 +87,42 @@ final class MailIntakePipeline {
       $mail['match_confidence'] = $relations['confidence'];
     }
     if (trim((string) ($mail['match_basis'] ?? '')) === '') {
-      $mail['match_basis'] = implode(' ', [
+      $mail['match_basis'] = implode(' ', array_filter([
         $classification['basis'],
         $relations['basis'],
-      ]);
+        (string) ($canonicalContext['basis'] ?? ''),
+      ]));
     }
-    if (empty($mail['suggested_building_id']) && $relations['building_id'] !== NULL) {
+
+    // Canonical resolver wins over the legacy relation suggester. Only existing
+    // published BREBO objects may be written as immediate suggestions here.
+    if (!empty($canonicalContext['building_id'])) {
+      $mail['suggested_building_id'] = (int) $canonicalContext['building_id'];
+    }
+    elseif (empty($mail['suggested_building_id']) && $relations['building_id'] !== NULL) {
       $mail['suggested_building_id'] = $relations['building_id'];
     }
-    if (empty($mail['suggested_project_id']) && $relations['project_id'] !== NULL) {
+
+    if (!empty($canonicalContext['project_id'])) {
+      $mail['suggested_project_id'] = (int) $canonicalContext['project_id'];
+    }
+    elseif (empty($mail['suggested_project_id']) && $relations['project_id'] !== NULL) {
       $mail['suggested_project_id'] = $relations['project_id'];
     }
 
     $result = $this->ingestor->ingest($mail);
+
+    $provisionalContext = ['project_id' => NULL, 'building_id' => NULL];
+    if (($result['state'] ?? NULL) === 'created'
+      && (($canonicalContext['project_state'] ?? NULL) === 'provisional_required'
+        || ($canonicalContext['building_state'] ?? NULL) === 'provisional_required')) {
+      $communication = \Drupal::entityTypeManager()->getStorage('node')->load((int) ($result['node_id'] ?? 0));
+      if (!$communication instanceof NodeInterface) {
+        throw new \RuntimeException('Aangemaakte BREBO Communication kon niet worden geladen voor voorlopige context.');
+      }
+      $provisionalContext = $this->provisionalContextMaterializer->materialize($communication, $canonicalContext);
+    }
+
     $result['classification'] = $mail['classification'];
     $result['classification_confidence'] = $classification['confidence'];
     $result['meaning_signals'] = $meaning['signals'];
@@ -104,6 +132,10 @@ final class MailIntakePipeline {
     $result['suggested_building_id'] = $mail['suggested_building_id'] ?? NULL;
     $result['suggested_project_id'] = $mail['suggested_project_id'] ?? NULL;
     $result['match_confidence'] = $mail['match_confidence'] ?? 0.0;
+    $result['canonical_project_state'] = $canonicalContext['project_state'] ?? NULL;
+    $result['canonical_building_state'] = $canonicalContext['building_state'] ?? NULL;
+    $result['provisional_project_id'] = $provisionalContext['project_id'];
+    $result['provisional_building_id'] = $provisionalContext['building_id'];
     $result['requires_human_review'] = TRUE;
 
     return $result;
