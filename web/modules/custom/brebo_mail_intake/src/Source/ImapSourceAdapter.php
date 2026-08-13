@@ -151,7 +151,8 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     if ($body === '') {
       $body = '[Geen leesbare tekstinhoud; bronbericht blijft herleidbaar via IMAP UID.]';
     }
-    $attachments = $structure ? $this->extractAttachments($stream, $uid, $structure, '1') : [];
+    // Root multipart children are IMAP sections 1, 2, ... (not 1.1, 1.2).
+    $attachments = $structure ? $this->extractAttachments($stream, $uid, $structure, '') : [];
 
     $sourceId = $messageId !== ''
       ? 'message-id:' . $messageId
@@ -159,6 +160,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
     return [
       'source_id' => $sourceId,
+      'source_system' => $this->stateKey,
       'source_hash' => hash('sha256', implode("\n", [$sourceId, $subject, $body, $from, $date])),
       'thread_id' => '',
       'subject' => $subject,
@@ -177,11 +179,11 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       return trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
     }
 
-    $plain = $this->findPart($stream, $uid, $structure, '1', 'text/plain');
+    $plain = $this->findPart($stream, $uid, $structure, '', 'text/plain');
     if ($plain !== '') {
       return trim($plain);
     }
-    $html = $this->findPart($stream, $uid, $structure, '1', 'text/html');
+    $html = $this->findPart($stream, $uid, $structure, '', 'text/html');
     return $html !== ''
       ? trim(strip_tags($html))
       : trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
@@ -190,7 +192,8 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
   private function findPart($stream, int $uid, object $part, string $partNumber, string $targetMime): string {
     $mime = $this->mimeType($part);
     if ($mime === $targetMime && $this->attachmentFilename($part) === '') {
-      $data = (string) imap_fetchbody($stream, $uid, $partNumber, FT_UID | FT_PEEK);
+      $section = $partNumber !== '' ? $partNumber : '1';
+      $data = (string) imap_fetchbody($stream, $uid, $section, FT_UID | FT_PEEK);
       $decoded = $this->decodeBody($data, (int) ($part->encoding ?? 0));
       return $this->ensureUtf8($decoded, $this->partCharset($part));
     }
@@ -198,7 +201,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       if (!is_object($child)) {
         continue;
       }
-      $number = $partNumber . '.' . ($index + 1);
+      $number = $this->childPartNumber($partNumber, $index);
       $found = $this->findPart($stream, $uid, $child, $number, $targetMime);
       if ($found !== '') {
         return $found;
@@ -212,7 +215,8 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $result = [];
     $filename = $this->attachmentFilename($part);
     if ($filename !== '') {
-      $raw = (string) imap_fetchbody($stream, $uid, $partNumber, FT_UID | FT_PEEK);
+      $section = $partNumber !== '' ? $partNumber : '1';
+      $raw = (string) imap_fetchbody($stream, $uid, $section, FT_UID | FT_PEEK);
       $content = $this->decodeBody($raw, (int) ($part->encoding ?? 0));
       $mime = $this->mimeType($part);
       $attachment = [
@@ -220,7 +224,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
         'mime_type' => $mime,
         'sha256' => hash('sha256', $content),
         'size' => strlen($content),
-        'source_part' => $partNumber,
+        'source_part' => $section,
         'extraction_state' => 'metadata_only',
         'extracted_pages' => [],
       ];
@@ -261,9 +265,14 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       if (!is_object($child)) {
         continue;
       }
-      $result = array_merge($result, $this->extractAttachments($stream, $uid, $child, $partNumber . '.' . ($index + 1)));
+      $result = array_merge($result, $this->extractAttachments($stream, $uid, $child, $this->childPartNumber($partNumber, $index)));
     }
     return $result;
+  }
+
+  private function childPartNumber(string $parent, int $zeroBasedIndex): string {
+    $child = (string) ($zeroBasedIndex + 1);
+    return $parent === '' ? $child : $parent . '.' . $child;
   }
 
   /** @return array<int, array{page:int,text:string}> */
