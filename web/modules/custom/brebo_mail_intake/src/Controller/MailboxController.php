@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Controller;
 
+use Drupal\brebo_mail_intake\Form\MailboxMessageActionForm;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
@@ -15,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Read-only three-pane BREBO mailbox workspace. */
+/** Provides the three-pane BREBO mailbox workspace. */
 final class MailboxController extends ControllerBase {
 
   private const STATES = [
@@ -79,21 +80,33 @@ final class MailboxController extends ControllerBase {
     }
     $selected = $communication_id > 0 ? $this->loadCommunication($mailbox_id, $communication_id) : NULL;
 
-    return [
+    $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-workspace']],
       'heading' => [
-        '#markup' => '<h1>Mail</h1><p><strong>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</strong>' . (($mailbox['address'] ?? '') !== '' ? ' &lt;' . htmlspecialchars((string) $mailbox['address'], ENT_QUOTES, 'UTF-8') . '&gt;' : '') . '</p>',
-      ],
-      'layout' => [
-        '#type' => 'container',
-        '#attributes' => ['style' => 'display:grid;grid-template-columns:minmax(190px,1fr) minmax(320px,2fr) minmax(360px,3fr);gap:1rem;align-items:start;'],
-        'folders' => $this->folderPane($visibleMailboxes, $mailbox_id, $mail_state),
-        'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id),
-        'reader' => $this->readerPane($selected),
+        '#markup' => '<div class="brebo-mail-heading"><div><h1>Mail</h1><p><strong>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</strong>' . (($mailbox['address'] ?? '') !== '' ? ' &lt;' . htmlspecialchars((string) $mailbox['address'], ENT_QUOTES, 'UTF-8') . '&gt;' : '') . '</p></div></div>',
       ],
       '#cache' => ['max-age' => 0],
     ];
+
+    if ($selected && $communication_id > 0) {
+      $build['state_actions'] = $this->formBuilder()->getForm(
+        MailboxMessageActionForm::class,
+        $mailbox_id,
+        $communication_id,
+        $mail_state,
+      );
+    }
+
+    $build['layout'] = [
+      '#type' => 'container',
+      '#attributes' => ['style' => 'display:grid;grid-template-columns:minmax(190px,1fr) minmax(320px,2fr) minmax(360px,3fr);gap:1rem;align-items:start;'],
+      'folders' => $this->folderPane($visibleMailboxes, $mailbox_id, $mail_state),
+      'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id),
+      'reader' => $this->readerPane($selected),
+    ];
+
+    return $build;
   }
 
   private function folderPane(array $mailboxes, int $selectedMailbox, string $selectedState): array {
@@ -118,7 +131,7 @@ final class MailboxController extends ControllerBase {
 
   private function messagePane(array $messages, int $mailboxId, string $state, int $selectedId): array {
     if ($messages === []) {
-      return ['#type' => 'container', 'empty' => ['#markup' => '<p>Geen berichten in ' . htmlspecialchars(self::STATES[$state], ENT_QUOTES, 'UTF-8') . '.</p>']];
+      return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-list']], 'empty' => ['#markup' => '<p class="brebo-mail-list__empty">Geen berichten in ' . htmlspecialchars(self::STATES[$state], ENT_QUOTES, 'UTF-8') . '.</p>']];
     }
 
     $items = [];
@@ -142,7 +155,7 @@ final class MailboxController extends ControllerBase {
 
   private function readerPane(?array $message): array {
     if (!$message) {
-      return ['#type' => 'container', 'empty' => ['#markup' => '<p>Selecteer een bericht.</p>']];
+      return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-reader']], 'empty' => ['#markup' => '<p class="brebo-mail-reader__empty">Selecteer een bericht.</p>']];
     }
 
     $title = htmlspecialchars((string) ($message['title'] ?? '(geen onderwerp)'), ENT_QUOTES, 'UTF-8');
@@ -154,7 +167,7 @@ final class MailboxController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
-      'content' => ['#markup' => '<article><h2>' . $title . '</h2><p><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br><strong>Datum/tijd:</strong> ' . $date . '</p><hr><div>' . $body . '</div></article>'],
+      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br><strong>Datum/tijd:</strong> ' . $date . '</div><div class="brebo-mail-reader__body">' . $body . '</div></article>'],
     ];
   }
 

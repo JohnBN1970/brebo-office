@@ -1,0 +1,44 @@
+/* Functional mailbox message state actions. */
+.brebo-mail-state-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  margin: -8px 0 0;
+  padding: 7px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 12px;
+  background: var(--brebo-surface);
+  box-shadow: var(--brebo-shadow-sm);
+}
+
+.brebo-mail-state-actions .form-actions,
+.brebo-mail-state-actions .form-item {
+  display: contents;
+  margin: 0;
+}
+
+.brebo-mail-state-actions input[type="submit"] {
+  min-height: 36px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--brebo-ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: .84rem;
+  font-weight: 750;
+}
+
+.brebo-mail-state-actions input[type="submit"]:hover {
+  color: var(--brebo-purple-950);
+  background: #f3eef5;
+  transform: none;
+  box-shadow: none;
+}
+
+@media (max-width: 760px) {
+  .brebo-mail-state-actions input[type="submit"] {
+    flex: 1 1 auto;
+  }
+}
