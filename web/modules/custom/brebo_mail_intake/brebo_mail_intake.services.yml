@@ -120,6 +120,9 @@ services:
       - 'BREBO_ZOHO_IMAP'
       - 'zoho_migration'
 
+  brebo_mail_intake.source_mailbox_attachment_reader:
+    class: Drupal\brebo_mail_intake\Service\SourceMailboxAttachmentReader
+
   brebo_mail_intake.outbound:
     class: Drupal\brebo_mail_intake\Service\OutboundMailService
     arguments:

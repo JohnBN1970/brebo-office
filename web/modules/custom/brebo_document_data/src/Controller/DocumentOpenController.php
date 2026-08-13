@@ -10,6 +10,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\File\FileSystemInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\HeaderUtils;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -22,6 +23,7 @@ final class DocumentOpenController extends ControllerBase {
     private readonly Connection $database,
     private readonly DocumentStorageLocator $storageLocator,
     private readonly FileSystemInterface $fileSystem,
+    private readonly ?object $sourceMailboxReader = NULL,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -29,12 +31,15 @@ final class DocumentOpenController extends ControllerBase {
       $container->get('database'),
       $container->get('brebo_document_data.storage_locator'),
       $container->get('file_system'),
+      $container->has('brebo_mail_intake.source_mailbox_attachment_reader')
+        ? $container->get('brebo_mail_intake.source_mailbox_attachment_reader')
+        : NULL,
     );
   }
 
   public function open(int $document_id): Response {
     $document = $this->database->select('brebo_document', 'd')
-      ->fields('d', ['id', 'title', 'original_filename', 'mime_type', 'lifecycle_status'])
+      ->fields('d', ['id', 'title', 'original_filename', 'mime_type', 'sha256', 'lifecycle_status'])
       ->condition('id', $document_id)
       ->range(0, 1)
       ->execute()
@@ -68,7 +73,7 @@ final class DocumentOpenController extends ControllerBase {
     }
 
     if ($mode === 'source_provider' && $availability === 'source_available') {
-      return $this->availabilityResponse('Dit origineel staat nog bij de bronmailbox. De vaste BREBO-link werkt al; de bronprovider-adapter wordt in de volgende stap aangesloten.', 409);
+      return $this->openSourceMailboxDocument($document_id, $document, $location);
     }
 
     if ($mode === 'object_storage' && $availability === 'provider_config_required') {
@@ -76,6 +81,57 @@ final class DocumentOpenController extends ControllerBase {
     }
 
     return $this->availabilityResponse('Voor dit document is momenteel geen ondersteunde fysieke opslaglocatie beschikbaar.', 404);
+  }
+
+  /** @param array<string, mixed> $document
+   *  @param array<string, mixed> $location
+   */
+  private function openSourceMailboxDocument(int $documentId, array $document, array $location): Response {
+    if ($this->sourceMailboxReader === NULL || !method_exists($this->sourceMailboxReader, 'read')) {
+      return $this->availabilityResponse('De bronmailbox-reader is momenteel niet beschikbaar.', 409);
+    }
+
+    $source = $this->database->select('brebo_document_source', 's')
+      ->fields('s', ['source_system', 'source_timestamp_authoritative', 'source_timestamp_unix', 'id'])
+      ->condition('document_id', $documentId)
+      ->orderBy('source_timestamp_authoritative', 'DESC')
+      ->orderBy('source_timestamp_unix', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+
+    $sourceSystem = trim((string) ($source['source_system'] ?? ''));
+    $storageKey = trim((string) ($location['storage_key'] ?? ''));
+    if ($sourceSystem === '' || $storageKey === '') {
+      return $this->availabilityResponse('De herkomst van dit bronmailbox-document is niet volledig geregistreerd.', 409);
+    }
+
+    /** @var array<string, mixed> $result */
+    $result = $this->sourceMailboxReader->read($sourceSystem, $storageKey);
+    if (($result['state'] ?? '') !== 'available' || !array_key_exists('content', $result)) {
+      $message = trim((string) ($result['message'] ?? 'De oorspronkelijke bronbijlage is momenteel niet beschikbaar.'));
+      return $this->availabilityResponse($message !== '' ? $message : 'De oorspronkelijke bronbijlage is momenteel niet beschikbaar.', 409);
+    }
+
+    $content = (string) $result['content'];
+    $expectedHash = strtolower(trim((string) ($document['sha256'] ?? '')));
+    $actualHash = hash('sha256', $content);
+    if ($expectedHash === '' || !hash_equals($expectedHash, $actualHash)) {
+      return $this->availabilityResponse('De bronbijlage wijkt af van de geregistreerde documenthash en wordt daarom niet geopend.', 409);
+    }
+
+    $mime = trim((string) ($result['mime_type'] ?? $document['mime_type'] ?? 'application/octet-stream')) ?: 'application/octet-stream';
+    $filename = trim((string) ($result['filename'] ?? $document['original_filename'] ?? $document['title'] ?? 'document')) ?: 'document';
+    $response = new Response($content, 200, [
+      'Content-Type' => $mime,
+      'Cache-Control' => 'private, no-store',
+      'X-BREBO-Document-Id' => (string) $documentId,
+      'X-BREBO-Storage-Provider' => (string) ($location['provider'] ?? 'source_mailbox'),
+      'X-BREBO-Content-SHA256' => $actualHash,
+    ]);
+    $response->headers->set('Content-Disposition', HeaderUtils::makeDisposition('inline', $filename));
+    return $response;
   }
 
   private function availabilityResponse(string $message, int $status): Response {
