@@ -31,8 +31,8 @@ final class MailboxController extends ControllerBase {
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly AccountProxyInterface $currentUser,
+    private readonly EntityTypeManagerInterface $mailboxEntityTypeManager,
+    private readonly AccountProxyInterface $mailboxCurrentUser,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -48,7 +48,7 @@ final class MailboxController extends ControllerBase {
   public function page(int $mailbox_id = 0, string $mail_state = 'inbox', int $communication_id = 0): array {
     $visibleMailboxes = array_values(array_filter(
       $this->mailboxes->all(),
-      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->currentUser, (int) $mailbox['id'], 'view'),
+      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->mailboxCurrentUser, (int) $mailbox['id'], 'view'),
     ));
 
     if ($visibleMailboxes === []) {
@@ -66,7 +66,7 @@ final class MailboxController extends ControllerBase {
     if (!$mailbox) {
       throw new NotFoundHttpException();
     }
-    if (!$this->accessPolicy->allowed($this->currentUser, $mailbox_id, 'view')) {
+    if (!$this->accessPolicy->allowed($this->mailboxCurrentUser, $mailbox_id, 'view')) {
       throw new AccessDeniedHttpException();
     }
     if (!isset(self::STATES[$mail_state])) {
@@ -185,8 +185,8 @@ final class MailboxController extends ControllerBase {
       return NULL;
     }
 
-    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
-    if (!$node || $node->bundle() !== 'brebo_communication' || !$node->access('view', $this->currentUser)) {
+    $node = $this->mailboxEntityTypeManager->getStorage('node')->load($communicationId);
+    if (!$node || $node->bundle() !== 'brebo_communication' || !$node->access('view', $this->mailboxCurrentUser)) {
       return NULL;
     }
 
