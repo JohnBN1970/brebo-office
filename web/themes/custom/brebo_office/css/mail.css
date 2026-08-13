@@ -1,0 +1,347 @@
+/* BREBO Office mail workspace. */
+.brebo-mail-workspace {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brebo-mail-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.brebo-mail-heading h1,
+.brebo-mail-heading p {
+  margin: 0;
+}
+
+.brebo-mail-heading p {
+  margin-top: 4px;
+  color: var(--brebo-muted);
+}
+
+.brebo-mail-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 7px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 12px;
+  background: var(--brebo-surface);
+  box-shadow: var(--brebo-shadow-sm);
+}
+
+.brebo-mail-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.brebo-mail-toolbar__group + .brebo-mail-toolbar__group {
+  margin-left: 2px;
+  padding-left: 8px;
+  border-left: 1px solid var(--brebo-border);
+}
+
+.brebo-mail-action {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 8px;
+  color: var(--brebo-ink);
+  background: transparent;
+  box-shadow: none;
+  font-size: .84rem;
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.brebo-mail-action:hover {
+  color: var(--brebo-purple-950);
+  background: #f3eef5;
+  transform: none;
+  box-shadow: none;
+}
+
+.brebo-mail-action--primary {
+  color: #fff;
+  background: var(--brebo-purple-700);
+}
+
+.brebo-mail-action--primary:hover {
+  color: #fff;
+  background: var(--brebo-purple-950);
+}
+
+.brebo-mail-action--disabled {
+  color: #9a929e;
+  cursor: default;
+  opacity: .68;
+}
+
+.brebo-mail-action--disabled:hover {
+  color: #9a929e;
+  background: transparent;
+}
+
+.brebo-mail-action__icon {
+  width: 1.05rem;
+  text-align: center;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.brebo-mail-layout {
+  display: grid;
+  min-height: 620px;
+  height: calc(100vh - 245px);
+  max-height: 900px;
+  grid-template-columns: minmax(175px, .72fr) minmax(315px, 1.45fr) minmax(390px, 2.15fr);
+  overflow: hidden;
+  border: 1px solid var(--brebo-border);
+  border-radius: 13px;
+  background: var(--brebo-surface);
+  box-shadow: var(--brebo-shadow-sm);
+}
+
+.brebo-mail-folders,
+.brebo-mail-list,
+.brebo-mail-reader {
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.brebo-mail-folders {
+  padding: 13px 10px;
+  border-right: 1px solid var(--brebo-border);
+  background: #f7f4f8;
+}
+
+.brebo-mail-mailbox-name {
+  margin: 8px 8px 7px;
+  color: var(--brebo-purple-950);
+  font-size: .76rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.brebo-mail-folder {
+  margin: 1px 0;
+}
+
+.brebo-mail-folder a {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: var(--brebo-ink);
+  font-size: .86rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brebo-mail-folder a:hover {
+  background: #ece4ef;
+}
+
+.brebo-mail-folder.is-active a {
+  color: #fff;
+  background: var(--brebo-purple-700);
+}
+
+.brebo-mail-list {
+  border-right: 1px solid var(--brebo-border);
+  background: #fff;
+}
+
+.brebo-mail-list__empty,
+.brebo-mail-reader__empty {
+  padding: 24px;
+  color: var(--brebo-muted);
+}
+
+.brebo-mail-item {
+  border-bottom: 1px solid #ebe6ed;
+}
+
+.brebo-mail-item a {
+  display: grid;
+  gap: 3px;
+  padding: 12px 14px;
+  color: var(--brebo-ink);
+  text-decoration: none;
+}
+
+.brebo-mail-item a:hover {
+  background: #faf8fb;
+}
+
+.brebo-mail-item.is-selected a {
+  background: #f0e8f3;
+  box-shadow: inset 3px 0 0 var(--brebo-purple-700);
+}
+
+.brebo-mail-item.is-unread .brebo-mail-item__from,
+.brebo-mail-item.is-unread .brebo-mail-item__subject {
+  font-weight: 900;
+}
+
+.brebo-mail-item__topline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.brebo-mail-item__from {
+  overflow: hidden;
+  font-size: .84rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brebo-mail-item__date {
+  flex: 0 0 auto;
+  color: var(--brebo-muted);
+  font-size: .72rem;
+}
+
+.brebo-mail-item__subject {
+  overflow: hidden;
+  font-size: .87rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brebo-mail-item__flags {
+  color: var(--brebo-purple-700);
+  font-size: .75rem;
+}
+
+.brebo-mail-reader {
+  padding: 22px 24px 28px;
+  background: #fff;
+}
+
+.brebo-mail-reader article {
+  max-width: 880px;
+}
+
+.brebo-mail-reader h2 {
+  margin: 0 0 13px;
+  font-size: 1.22rem;
+}
+
+.brebo-mail-reader__meta {
+  margin-bottom: 17px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--brebo-border);
+  color: var(--brebo-muted);
+  font-size: .82rem;
+  line-height: 1.65;
+}
+
+.brebo-mail-reader__meta strong {
+  color: var(--brebo-ink);
+}
+
+.brebo-mail-reader__body {
+  overflow-wrap: anywhere;
+  color: var(--brebo-ink);
+  font-size: .92rem;
+  line-height: 1.65;
+}
+
+.brebo-mail-office-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 10px;
+  border: 1px solid #ded4e3;
+  border-radius: 10px;
+  background: #f8f4f9;
+}
+
+.brebo-mail-office-actions__label {
+  width: 100%;
+  margin-bottom: 2px;
+  color: var(--brebo-purple-950);
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+@media (max-width: 1100px) {
+  .brebo-mail-layout {
+    height: auto;
+    max-height: none;
+    grid-template-columns: 180px minmax(300px, 1fr);
+  }
+
+  .brebo-mail-reader {
+    grid-column: 1 / -1;
+    max-height: 560px;
+    border-top: 1px solid var(--brebo-border);
+  }
+}
+
+@media (max-width: 760px) {
+  .brebo-mail-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .brebo-mail-toolbar__group + .brebo-mail-toolbar__group {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
+
+  .brebo-mail-action__label {
+    display: none;
+  }
+
+  .brebo-mail-layout {
+    display: block;
+    min-height: 0;
+  }
+
+  .brebo-mail-folders {
+    display: flex;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--brebo-border);
+  }
+
+  .brebo-mail-mailbox-name {
+    display: none;
+  }
+
+  .brebo-mail-folder {
+    flex: 0 0 auto;
+  }
+
+  .brebo-mail-list {
+    max-height: 430px;
+    border-right: 0;
+    border-bottom: 1px solid var(--brebo-border);
+  }
+
+  .brebo-mail-reader {
+    max-height: none;
+  }
+}
