@@ -53,8 +53,8 @@ final class ProvisionalContextMaterializer {
   private function createProject(NodeInterface $communication, array $resolution): int {
     $storage = $this->entityTypeManager->getStorage('node');
     $seed = (int) $communication->id();
-    $title = '[VOORLOPIG] Project uit communicatie #' . $seed;
-    $location = $this->candidateDisplayName($resolution) ?: 'Nog te bepalen uit communicatie';
+    $location = $this->candidateDisplayName($resolution) ?: 'Locatie nog te bepalen';
+    $title = 'MOGELIJK NIEUW PROJECT - ' . $location;
 
     $node = $storage->create([
       'type' => 'brebo_project',
@@ -64,15 +64,15 @@ final class ProvisionalContextMaterializer {
       'field_brebo_project_code' => 'MAIL-' . $seed,
       'field_brebo_client' => 'Te beoordelen',
       'field_brebo_location' => $location,
-      'field_brebo_status' => 'Te beoordelen',
-      'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'Voorlopig project'),
+      'field_brebo_status' => 'Mogelijk nieuw - te beoordelen',
+      'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'project'),
     ]);
     if (!$node instanceof NodeInterface) {
       throw new \RuntimeException('Voorlopig project kon niet worden aangemaakt.');
     }
 
     $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage('Voorlopig project uit Mail Intake; menselijke beoordeling vereist.');
+    $node->setRevisionLogMessage('Mogelijk nieuw project uit Mail Intake; bronmail en reden zichtbaar voor beoordeling.');
     $node->save();
     return (int) $node->id();
   }
@@ -98,7 +98,7 @@ final class ProvisionalContextMaterializer {
       $address = $display !== '' ? $display : 'Adres te beoordelen';
     }
 
-    $title = '[VOORLOPIG] ' . ($display !== '' ? $display : ('Gebouw uit communicatie #' . $seed));
+    $title = 'MOGELIJK NIEUW GEBOUW - ' . ($display !== '' ? $display : $address);
     $node = $storage->create([
       'type' => 'brebo_building',
       'title' => $title,
@@ -109,15 +109,15 @@ final class ProvisionalContextMaterializer {
       'field_brebo_postal_code' => $postalCode,
       'field_brebo_city' => $city,
       'field_brebo_country' => 'Nederland',
-      'field_brebo_status' => 'Te beoordelen',
-      'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'Voorlopig gebouw'),
+      'field_brebo_status' => 'Mogelijk nieuw - te beoordelen',
+      'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'gebouw'),
     ]);
     if (!$node instanceof NodeInterface) {
       throw new \RuntimeException('Voorlopig gebouw kon niet worden aangemaakt.');
     }
 
     $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage('Voorlopig gebouw uit Mail Intake/PDOK; menselijke beoordeling vereist.');
+    $node->setRevisionLogMessage('Mogelijk nieuw gebouw uit Mail Intake/PDOK; bronmail en reden zichtbaar voor beoordeling.');
     $node->save();
     return (int) $node->id();
   }
@@ -141,23 +141,41 @@ final class ProvisionalContextMaterializer {
     $retrievedAt = trim((string) ($candidate['retrieved_at'] ?? ''));
     $featureId = trim((string) ($candidate['feature_id'] ?? ''));
     $basis = trim((string) ($resolution['basis'] ?? ''));
+    $subject = $this->fieldValue($communication, 'field_brebo_comm_subject');
+    $from = $this->fieldValue($communication, 'field_brebo_mail_from');
+    $receivedAt = $this->fieldValue($communication, 'field_brebo_comm_datetime');
 
     $parts = [
-      $kind . '; nog niet canoniek.',
-      'Broncommunicatie: #' . (int) $communication->id() . '.',
-      'Bron: ' . ($source !== '' ? $source : 'Mail Intake') . '.',
+      'STATUS: MOGELIJK NIEUW ' . mb_strtoupper($kind) . ' - nog niet bevestigd.',
+      'BEOORDELING NODIG: koppel aan een bestaand ' . $kind . ' of bevestig dat dit een nieuw ' . $kind . ' is.',
+      'Broncommunicatie: #' . (int) $communication->id() . ' (/node/' . (int) $communication->id() . ').',
     ];
+    if ($subject !== '') {
+      $parts[] = 'E-mail onderwerp: ' . $subject . '.';
+    }
+    if ($from !== '') {
+      $parts[] = 'E-mail van: ' . $from . '.';
+    }
+    if ($receivedAt !== '') {
+      $parts[] = 'E-mail datum/tijd: ' . $receivedAt . '.';
+    }
+    $parts[] = 'Waarom voorgesteld: ' . ($basis !== '' ? $basis : 'Geen bestaande canonieke match gevonden.') . '';
+    $parts[] = 'Externe bron: ' . ($source !== '' ? $source : 'Mail Intake') . '.';
     if ($retrievedAt !== '') {
-      $parts[] = 'Opgehaald: ' . $retrievedAt . '.';
+      $parts[] = 'Externe gegevens opgehaald: ' . $retrievedAt . '.';
     }
     if ($featureId !== '') {
       $parts[] = 'Externe feature-id: ' . $featureId . '.';
     }
-    if ($basis !== '') {
-      $parts[] = 'Resolverbasis: ' . $basis;
+    $parts[] = 'Dit voorstel mag pas na menselijke bevestiging gepubliceerd of als canonieke waarheid gebruikt worden.';
+    return implode("\n", $parts);
+  }
+
+  private function fieldValue(NodeInterface $node, string $fieldName): string {
+    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
+      return '';
     }
-    $parts[] = 'Menselijke beoordeling en expliciete bevestiging vereist voor publicatie/canonieke status.';
-    return implode(' ', $parts);
+    return trim((string) $node->get($fieldName)->value);
   }
 
 }
