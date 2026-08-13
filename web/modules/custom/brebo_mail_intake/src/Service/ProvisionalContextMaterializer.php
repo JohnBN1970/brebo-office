@@ -21,7 +21,7 @@ final class ProvisionalContextMaterializer {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $currentUser,
-    private readonly BuildingRelationRepository $buildingRelations,
+    private readonly ?BuildingRelationRepository $buildingRelations = NULL,
   ) {}
 
   /**
@@ -133,6 +133,10 @@ final class ProvisionalContextMaterializer {
    * @param array<string, mixed> $properties
    */
   private function persistBuildingRelations(int $buildingId, array $candidate, array $properties, NodeInterface $communication): void {
+    if (!$this->buildingRelations instanceof BuildingRelationRepository) {
+      return;
+    }
+
     $source = trim((string) ($candidate['source'] ?? 'PDOK Locatieserver'));
     $sourceRef = trim((string) ($candidate['feature_id'] ?? ''));
     $retrievedAt = trim((string) ($candidate['retrieved_at'] ?? ''));
