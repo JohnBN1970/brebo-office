@@ -12,6 +12,16 @@
   box-shadow: var(--brebo-shadow-sm);
 }
 
+.brebo-mail-state-actions--toolbar {
+  display: inline-flex;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .brebo-mail-state-actions .form-actions,
 .brebo-mail-state-actions .form-item {
   display: contents;
@@ -37,7 +47,15 @@
   box-shadow: none;
 }
 
+.brebo-mail-reader__body {
+  white-space: pre-wrap;
+}
+
 @media (max-width: 760px) {
+  .brebo-mail-state-actions--toolbar {
+    flex: 1 1 100%;
+  }
+
   .brebo-mail-state-actions input[type="submit"] {
     flex: 1 1 auto;
   }
