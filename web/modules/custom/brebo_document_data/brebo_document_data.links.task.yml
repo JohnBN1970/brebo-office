@@ -2,3 +2,9 @@ brebo_document_data.context_dossier_task:
   route_name: brebo_document_data.context_dossier
   title: 'Documenten'
   base_route: brebo_document_data.context_dossier
+
+brebo_document_data.node_dossier_tab:
+  route_name: brebo_document_data.node_dossier
+  title: 'Documenten'
+  base_route: entity.node.canonical
+  weight: 20
