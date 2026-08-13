@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /**
  * Read-only dossier index for all document families in one business context.
  */
-final class DocumentContextDossierController extends ControllerBase {
+class DocumentContextDossierController extends ControllerBase {
 
   private const CONTEXT_TYPES = ['project', 'building', 'organization', 'contact', 'brebo'];
 
