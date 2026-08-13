@@ -66,6 +66,11 @@ services:
       - '@brebo_mail_intake.canonical_context_resolver'
       - '@brebo_mail_intake.provisional_context_materializer'
 
+  brebo_mail_intake.queue_manager:
+    class: Drupal\brebo_mail_intake\Service\MailIntakeQueueManager
+    arguments:
+      - '@queue'
+
   logger.channel.brebo_mail_intake:
     parent: logger.channel_base
     arguments: ['brebo_mail_intake']
