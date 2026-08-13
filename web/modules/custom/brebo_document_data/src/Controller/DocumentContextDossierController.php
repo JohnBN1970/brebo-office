@@ -55,6 +55,22 @@ class DocumentContextDossierController extends ControllerBase {
         continue;
       }
       $timestamp = isset($current['authoritative_source_timestamp']) ? (int) $current['authoritative_source_timestamp'] : 0;
+      $documentId = (int) ($current['id'] ?? 0);
+      $documentTitle = (string) ($current['original_filename'] ?? $current['title'] ?? '');
+      $documentCell = $documentTitle;
+      if ($documentId > 0 && $documentTitle !== '') {
+        $documentCell = [
+          'data' => [
+            '#type' => 'link',
+            '#title' => $documentTitle,
+            '#url' => Url::fromRoute('brebo_document_data.document_open', [
+              'document_id' => $documentId,
+            ]),
+            '#attributes' => ['target' => '_blank', 'rel' => 'noopener'],
+          ],
+        ];
+      }
+
       $rows[] = [
         'family' => [
           'data' => [
@@ -68,9 +84,9 @@ class DocumentContextDossierController extends ControllerBase {
           ],
         ],
         'revision' => (string) ($current['revision_code'] ?? ''),
-        'document' => (string) ($current['original_filename'] ?? $current['title'] ?? ''),
+        'document' => $documentCell,
         'source_time' => $timestamp > 0 ? date('d-m-Y H:i:s', $timestamp) : 'Geen betrouwbare brondatum',
-        'document_id' => (int) ($current['id'] ?? 0),
+        'document_id' => $documentId,
       ];
     }
 
