@@ -60,48 +60,57 @@
     }
   }
 
+  function htmlToText(value) {
+    const parsed = new DOMParser().parseFromString(value, 'text/html');
+    return (parsed.body.innerText || parsed.body.textContent || value)
+      .replace(/\u00a0/g, ' ')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n[ \t]+/g, '\n');
+  }
+
   function cleanLegacyMime(raw) {
     let text = String(raw || '').replace(/\r\n/g, '\n').trim();
     if (!text) return text;
 
     const looksLikeMime = /Content-(?:Type|Transfer-Encoding|Disposition):/i.test(text) || /^--[-_=A-Za-z0-9]{8,}/m.test(text);
-    if (!looksLikeMime) return text;
+    if (looksLikeMime) {
+      const boundaryMatch = text.match(/^--([^\n]+)$/m);
+      if (boundaryMatch) {
+        const boundary = boundaryMatch[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const parts = text.split(new RegExp('^--' + boundary + '(?:--)?\\s*$', 'm')).map((part) => part.trim()).filter(Boolean);
+        const plain = parts.find((part) => /Content-Type:\s*text\/plain/i.test(part));
+        const html = parts.find((part) => /Content-Type:\s*text\/html/i.test(part));
+        text = plain || html || parts[0] || text;
+      }
 
-    const boundaryMatch = text.match(/^--([^\n]+)$/m);
-    if (boundaryMatch) {
-      const boundary = boundaryMatch[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const parts = text.split(new RegExp('^--' + boundary + '(?:--)?\\s*$', 'm')).map((part) => part.trim()).filter(Boolean);
-      const plain = parts.find((part) => /Content-Type:\s*text\/plain/i.test(part));
-      const html = parts.find((part) => /Content-Type:\s*text\/html/i.test(part));
-      text = plain || html || parts[0] || text;
+      const transfer = (text.match(/Content-Transfer-Encoding:\s*([^\s;]+)/i) || [])[1]?.toLowerCase() || '';
+      const split = text.match(/\n\s*\n/);
+      if (split && split.index !== undefined) {
+        text = text.slice(split.index + split[0].length);
+      }
+
+      if (transfer === 'quoted-printable' || /=([0-9A-F]{2})/i.test(text)) {
+        text = decodeQuotedPrintable(text);
+      }
+      else if (transfer === 'base64') {
+        text = decodeBase64Utf8(text);
+      }
+
+      text = text
+        .replace(/^Content-(?:Type|Transfer-Encoding|Disposition):.*$/gmi, '')
+        .replace(/^MIME-Version:.*$/gmi, '')
+        .replace(/^--[^\n]+(?:--)?$/gm, '')
+        .trim();
     }
 
-    const transfer = (text.match(/Content-Transfer-Encoding:\s*([^\s;]+)/i) || [])[1]?.toLowerCase() || '';
-    const type = (text.match(/Content-Type:\s*([^\s;]+)/i) || [])[1]?.toLowerCase() || '';
-    const split = text.match(/\n\s*\n/);
-    if (split && split.index !== undefined) {
-      text = text.slice(split.index + split[0].length);
+    if (/<\/?[a-z][^>]*>/i.test(text) || /&(?:nbsp|amp|lt|gt|quot|#\d+|#x[0-9a-f]+);/i.test(text)) {
+      text = htmlToText(text);
     }
 
-    if (transfer === 'quoted-printable' || /=([0-9A-F]{2})/i.test(text)) {
-      text = decodeQuotedPrintable(text);
-    }
-    else if (transfer === 'base64') {
-      text = decodeBase64Utf8(text);
-    }
-
-    text = text
-      .replace(/^Content-(?:Type|Transfer-Encoding|Disposition):.*$/gmi, '')
-      .replace(/^MIME-Version:.*$/gmi, '')
-      .replace(/^--[^\n]+(?:--)?$/gm, '')
+    return text
+      .replace(/\n{3,}/g, '\n\n')
+      .replace(/[ \t]{2,}/g, ' ')
       .trim();
-
-    if (type === 'text/html' || /<\/?(?:html|body|div|p|br|table|span)\b/i.test(text)) {
-      const parsed = new DOMParser().parseFromString(text, 'text/html');
-      text = parsed.body.innerText || parsed.body.textContent || text;
-    }
-
-    return text.replace(/\n{3,}/g, '\n\n').trim();
   }
 
   function enhance() {
