@@ -26,6 +26,11 @@ services:
       - '@?brebo_document_data.repository'
       - '@?brebo_document_data.revision_series'
 
+  brebo_mail_intake.mailbox_repository:
+    class: Drupal\brebo_mail_intake\Service\MailboxRepository
+    arguments:
+      - '@database'
+
   brebo_mail_intake.failure_registry:
     class: Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry
     arguments:
