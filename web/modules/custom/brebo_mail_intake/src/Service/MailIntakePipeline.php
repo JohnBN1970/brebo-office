@@ -25,6 +25,7 @@ final class MailIntakePipeline {
     private readonly CanonicalCrmContextResolver $canonicalCrmContextResolver,
     private readonly ProvisionalContextMaterializer $provisionalContextMaterializer,
     private readonly AttachmentEvidenceExtractor $attachmentEvidenceExtractor,
+    private readonly AttachmentDocumentPersister $attachmentDocumentPersister,
   ) {}
 
   /**
@@ -115,12 +116,18 @@ final class MailIntakePipeline {
     }
 
     $result = $this->ingestor->ingest($mail);
+    $communicationNid = (int) ($result['node_id'] ?? 0);
+    $persistedDocuments = $this->attachmentDocumentPersister->persist(
+      $mail,
+      $communicationNid,
+      is_array($attachmentEvidence['evidence'] ?? NULL) ? $attachmentEvidence['evidence'] : [],
+    );
 
     $provisionalContext = ['project_id' => NULL, 'building_id' => NULL];
     if (($result['state'] ?? NULL) === 'created'
       && (($canonicalContext['project_state'] ?? NULL) === 'provisional_required'
         || ($canonicalContext['building_state'] ?? NULL) === 'provisional_required')) {
-      $communication = \Drupal::entityTypeManager()->getStorage('node')->load((int) ($result['node_id'] ?? 0));
+      $communication = \Drupal::entityTypeManager()->getStorage('node')->load($communicationNid);
       if (!$communication instanceof NodeInterface) {
         throw new \RuntimeException('Aangemaakte BREBO Communication kon niet worden geladen voor voorlopige context.');
       }
@@ -152,6 +159,11 @@ final class MailIntakePipeline {
     $result['attachment_evidence_count'] = count($attachmentEvidence['evidence'] ?? []);
     $result['attachment_evidence'] = $attachmentEvidence['evidence'] ?? [];
     $result['attachment_evidence_basis'] = $attachmentEvidence['basis'] ?? '';
+    $result['attachment_document_count'] = count($persistedDocuments);
+    $result['attachment_document_ids'] = array_values(array_map(
+      static fn(array $item): int => (int) ($item['document_id'] ?? 0),
+      $persistedDocuments,
+    ));
     $result['requires_human_review'] = TRUE;
 
     return $result;
