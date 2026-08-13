@@ -47,36 +47,97 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     }
 
     try {
-      $stateName = 'brebo_mail_intake.' . $this->stateKey . '_last_uid';
-      $lastUid = (int) $this->state->get($stateName, 0);
-
-      // Some IMAP servers do not reliably honor a UID range in SEARCH.
-      // Fetch only UID metadata for the folder and filter locally instead.
-      $uids = imap_search($stream, 'ALL', SE_UID) ?: [];
-      $uids = array_values(array_filter($uids, static fn($uid): bool => (int) $uid > $lastUid));
-      sort($uids, SORT_NUMERIC);
-
-      $limit = max(1, min(500, (int) ($this->env('BATCH_LIMIT') ?: 100)));
-      if (count($uids) > $limit) {
-        $uids = array_slice($uids, 0, $limit);
+      if ($this->stateKey === 'zoho_migration') {
+        yield from $this->migrationMessages($stream, $folder);
+        return;
       }
 
-      $maxUid = $lastUid;
-      foreach ($uids as $uid) {
-        $uid = (int) $uid;
-        if ($uid <= 0) {
-          continue;
-        }
-        $maxUid = max($maxUid, $uid);
-        yield $this->normalize($stream, $uid, $folder);
-      }
-
-      if ($maxUid > $lastUid) {
-        $this->state->set($stateName, $maxUid);
-      }
+      yield from $this->incrementalMessages($stream, $folder);
     }
     finally {
       imap_close($stream);
+    }
+  }
+
+  /**
+   * Normal live IMAP polling: oldest unseen UID first, moving forward.
+   *
+   * @return iterable<array<string, mixed>>
+   */
+  private function incrementalMessages($stream, string $folder): iterable {
+    $stateName = 'brebo_mail_intake.' . $this->stateKey . '_last_uid';
+    $lastUid = (int) $this->state->get($stateName, 0);
+
+    $uids = imap_search($stream, 'ALL', SE_UID) ?: [];
+    $uids = array_values(array_filter($uids, static fn($uid): bool => (int) $uid > $lastUid));
+    sort($uids, SORT_NUMERIC);
+
+    $limit = max(1, min(500, (int) ($this->env('BATCH_LIMIT') ?: 100)));
+    if (count($uids) > $limit) {
+      $uids = array_slice($uids, 0, $limit);
+    }
+
+    $maxUid = $lastUid;
+    foreach ($uids as $uid) {
+      $uid = (int) $uid;
+      if ($uid <= 0) {
+        continue;
+      }
+      $maxUid = max($maxUid, $uid);
+      yield $this->normalize($stream, $uid, $folder);
+    }
+
+    if ($maxUid > $lastUid) {
+      $this->state->set($stateName, $maxUid);
+    }
+  }
+
+  /**
+   * Historical Zoho migration: newest first and progressively backwards.
+   *
+   * The cursor stores the smallest UID from the last completed batch. The next
+   * run only considers older UIDs. Source-id/hash deduplication in the ingestor
+   * makes restarting the migration safe, including mail already imported by an
+   * earlier migration implementation.
+   *
+   * @return iterable<array<string, mixed>>
+   */
+  private function migrationMessages($stream, string $folder): iterable {
+    $cursorState = 'brebo_mail_intake.' . $this->stateKey . '_before_uid';
+    $completeState = 'brebo_mail_intake.' . $this->stateKey . '_complete';
+    if ((bool) $this->state->get($completeState, FALSE)) {
+      return;
+    }
+
+    $uids = array_values(array_map('intval', imap_search($stream, 'ALL', SE_UID) ?: []));
+    $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid > 0));
+    rsort($uids, SORT_NUMERIC);
+
+    $beforeUid = (int) $this->state->get($cursorState, 0);
+    if ($beforeUid > 0) {
+      $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid < $beforeUid));
+    }
+
+    if ($uids === []) {
+      $this->state->set($completeState, TRUE);
+      return;
+    }
+
+    $limit = max(1, min(500, (int) ($this->env('BATCH_LIMIT') ?: 100)));
+    $batch = array_slice($uids, 0, $limit);
+    $minUid = NULL;
+
+    foreach ($batch as $uid) {
+      $minUid = $minUid === NULL ? $uid : min($minUid, $uid);
+      yield $this->normalize($stream, $uid, $folder);
+    }
+
+    if ($minUid !== NULL) {
+      $this->state->set($cursorState, $minUid);
+    }
+
+    if (count($uids) <= count($batch)) {
+      $this->state->set($completeState, TRUE);
     }
   }
 
@@ -198,8 +259,6 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       return $value;
     }
 
-    // Common legacy encodings seen in HTML mail. Conversion deliberately
-    // happens before persistence so one malformed byte cannot block polling.
     foreach (['Windows-1252', 'ISO-8859-1'] as $fallback) {
       $converted = @mb_convert_encoding($value, 'UTF-8', $fallback);
       if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
@@ -207,7 +266,6 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       }
     }
 
-    // Last-resort removal of bytes that still cannot be represented as UTF-8.
     return (string) iconv('UTF-8', 'UTF-8//IGNORE', $value);
   }
 
