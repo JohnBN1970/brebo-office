@@ -1,0 +1,69 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_building_data_schema(): array {
+  $schema = [];
+
+  $schema['brebo_building_address'] = [
+    'description' => 'High-volume address relations belonging to a functional BREBO building.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'normalized_key' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'street' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'house_number' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'house_letter' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'addition' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'postal_code' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'city' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'country' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'Nederland'],
+      'is_primary' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'building_address_unique' => ['building_nid', 'normalized_key'],
+    ],
+    'indexes' => [
+      'building_nid' => ['building_nid'],
+      'normalized_key' => ['normalized_key'],
+      'postal_house' => ['postal_code', 'house_number'],
+      'primary_address' => ['building_nid', 'is_primary'],
+    ],
+  ];
+
+  $schema['brebo_building_bag_identity'] = [
+    'description' => 'BAG identities related to a functional BREBO building.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'bag_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'bag_id' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'is_primary' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'retrieved_at' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'building_bag_unique' => ['building_nid', 'bag_type', 'bag_id'],
+    ],
+    'indexes' => [
+      'building_nid' => ['building_nid'],
+      'bag_identity' => ['bag_type', 'bag_id'],
+      'primary_bag' => ['building_nid', 'is_primary'],
+    ],
+  ];
+
+  return $schema;
+}
