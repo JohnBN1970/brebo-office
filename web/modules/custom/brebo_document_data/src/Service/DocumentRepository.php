@@ -19,16 +19,7 @@ final class DocumentRepository {
     private readonly TimeInterface $time,
   ) {}
 
-  /**
-   * Creates a logical document or reuses an exact binary match.
-   *
-   * SHA-256 is a strong binary identity signal only. Reusing a binary does not
-   * merge provenance or business context; those are appended separately.
-   *
-   * @param array<string, mixed> $metadata
-   *
-   * @return array{state:string,id:int,sha256:string}
-   */
+  /** @param array<string, mixed> $metadata */
   public function upsertDocument(array $metadata): array {
     $sha256 = strtolower(trim((string) ($metadata['sha256'] ?? '')));
     if (!preg_match('/^[a-f0-9]{64}$/', $sha256)) {
@@ -52,6 +43,8 @@ final class DocumentRepository {
       ->fields([
         'title' => $this->clean($metadata['title'] ?? $metadata['original_filename'] ?? 'Document') ?: 'Document',
         'document_type' => $this->nullable($metadata['document_type'] ?? NULL),
+        'document_family' => $this->nullable($metadata['document_family'] ?? NULL),
+        'revision_code' => $this->nullable($metadata['revision_code'] ?? NULL),
         'original_filename' => $this->nullable($metadata['original_filename'] ?? NULL),
         'mime_type' => $this->nullable($metadata['mime_type'] ?? NULL),
         'file_size' => max(0, (int) ($metadata['file_size'] ?? 0)),
@@ -67,13 +60,7 @@ final class DocumentRepository {
     return ['state' => 'created', 'id' => $id, 'sha256' => $sha256];
   }
 
-  /**
-   * Appends provenance, while suppressing an exact repeated source import.
-   *
-   * @param array<string, mixed> $source
-   *
-   * @return array{state:string,id:int}
-   */
+  /** @param array<string, mixed> $source */
   public function addSource(int $documentId, array $source): array {
     $this->assertDocument($documentId);
     $sourceSystem = $this->clean($source['source_system'] ?? '');
@@ -97,6 +84,16 @@ final class DocumentRepository {
       }
     }
 
+    $sourceTimestamp = $this->nullable($source['source_timestamp'] ?? NULL);
+    $sourceTimestampUnix = NULL;
+    if ($sourceTimestamp !== NULL) {
+      $parsed = strtotime($sourceTimestamp);
+      if ($parsed !== FALSE && $parsed >= 0) {
+        $sourceTimestampUnix = $parsed;
+      }
+    }
+    $authoritative = (int) (($source['source_timestamp_authoritative'] ?? $sourceTimestampUnix !== NULL) ? 1 : 0);
+
     $id = (int) $this->database->insert('brebo_document_source')
       ->fields([
         'document_id' => $documentId,
@@ -104,7 +101,9 @@ final class DocumentRepository {
         'source_external_id' => $externalId !== '' ? $externalId : NULL,
         'communication_nid' => !empty($source['communication_nid']) ? (int) $source['communication_nid'] : NULL,
         'source_actor' => $this->nullable($source['source_actor'] ?? NULL),
-        'source_timestamp' => $this->nullable($source['source_timestamp'] ?? NULL),
+        'source_timestamp' => $sourceTimestamp,
+        'source_timestamp_unix' => $sourceTimestampUnix,
+        'source_timestamp_authoritative' => $authoritative,
         'original_filename' => $this->nullable($source['original_filename'] ?? NULL),
         'sha256' => $sha256,
         'extraction_method' => $this->nullable($source['extraction_method'] ?? NULL),
@@ -119,15 +118,7 @@ final class DocumentRepository {
     return ['state' => 'created', 'id' => $id];
   }
 
-  /**
-   * Adds or updates one business context relation without copying the binary.
-   *
-   * context_id may be 0 only for BREBO/internal context.
-   *
-   * @param array<string, mixed> $relation
-   *
-   * @return array{state:string,id:int}
-   */
+  /** @param array<string, mixed> $relation */
   public function upsertContext(int $documentId, array $relation): array {
     $this->assertDocument($documentId);
     $type = strtolower($this->clean($relation['context_type'] ?? ''));
@@ -177,13 +168,7 @@ final class DocumentRepository {
     return ['state' => 'created', 'id' => $id];
   }
 
-  /**
-   * Stores extracted evidence. It can never enter as canonical truth.
-   *
-   * @param array<string, mixed> $evidence
-   *
-   * @return int evidence id
-   */
+  /** @param array<string, mixed> $evidence */
   public function addEvidence(int $documentId, array $evidence): int {
     $this->assertDocument($documentId);
     $type = $this->clean($evidence['evidence_type'] ?? '');
@@ -213,6 +198,28 @@ final class DocumentRepository {
   }
 
   /** @return array<int, array<string, mixed>> */
+  public function revisionsForFamily(string $documentFamily): array {
+    $family = $this->clean($documentFamily);
+    if ($family === '') {
+      return [];
+    }
+
+    $query = $this->database->select('brebo_document', 'd');
+    $query->leftJoin('brebo_document_source', 's', 's.document_id = d.id AND s.source_timestamp_authoritative = 1');
+    $query->fields('d');
+    $query->addExpression('MAX(s.source_timestamp_unix)', 'authoritative_source_timestamp');
+    $query->condition('d.document_family', $family);
+    $query->condition('d.lifecycle_status', 'deleted', '<>');
+    $query->groupBy('d.id');
+    foreach (['title', 'document_type', 'document_family', 'revision_code', 'original_filename', 'mime_type', 'file_size', 'sha256', 'storage_provider', 'storage_key', 'lifecycle_status', 'created', 'changed'] as $field) {
+      $query->groupBy('d.' . $field);
+    }
+    $query->orderBy('authoritative_source_timestamp', 'DESC');
+    $query->orderBy('d.id', 'DESC');
+    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+  }
+
+  /** @return array<int, array<string, mixed>> */
   public function contextsForDocument(int $documentId): array {
     return $this->database->select('brebo_document_context', 'c')
       ->fields('c')
@@ -227,7 +234,9 @@ final class DocumentRepository {
     return $this->database->select('brebo_document_source', 's')
       ->fields('s')
       ->condition('document_id', $documentId)
-      ->orderBy('id')
+      ->orderBy('source_timestamp_authoritative', 'DESC')
+      ->orderBy('source_timestamp_unix', 'DESC')
+      ->orderBy('id', 'DESC')
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC) ?: [];
   }
