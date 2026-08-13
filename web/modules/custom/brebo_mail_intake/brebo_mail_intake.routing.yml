@@ -44,7 +44,7 @@ brebo_mail_intake.runtime_readiness:
     _permission: 'review brebo mail intake'
 
 brebo_mail_intake.mailbox_root:
-  path: '/admin/brebo/mail'
+  path: '/mail'
   defaults:
     _controller: '\Drupal\brebo_mail_intake\Controller\MailboxController::page'
     _title: 'Mail'
@@ -55,7 +55,7 @@ brebo_mail_intake.mailbox_root:
     _permission: 'review brebo mail intake'
 
 brebo_mail_intake.mailbox:
-  path: '/admin/brebo/mail/{mailbox_id}/{mail_state}'
+  path: '/mail/{mailbox_id}/{mail_state}'
   defaults:
     _controller: '\Drupal\brebo_mail_intake\Controller\MailboxController::page'
     _title: 'Mail'
@@ -66,7 +66,7 @@ brebo_mail_intake.mailbox:
     mail_state: 'inbox|sent|draft|spam|archive|trash'
 
 brebo_mail_intake.mailbox_message:
-  path: '/admin/brebo/mail/{mailbox_id}/{mail_state}/{communication_id}'
+  path: '/mail/{mailbox_id}/{mail_state}/{communication_id}'
   defaults:
     _controller: '\Drupal\brebo_mail_intake\Controller\MailboxController::page'
     _title: 'Mail'
