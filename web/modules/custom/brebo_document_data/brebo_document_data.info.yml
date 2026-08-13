@@ -1,0 +1,5 @@
+name: BREBO Document Data
+core_version_requirement: ^10 || ^11
+type: module
+package: BREBO
+description: 'Scalable document identity, provenance and context relations for BREBO Office.'

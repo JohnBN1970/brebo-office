@@ -1,0 +1,43 @@
+name: Document data foundation acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_document_data/**'
+      - '.github/workflows/document-data-foundation-acceptance.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_document_data/**'
+      - '.github/workflows/document-data-foundation-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+      - name: Lint document data PHP
+        run: |
+          php -l web/modules/custom/brebo_document_data/brebo_document_data.install
+          php -l web/modules/custom/brebo_document_data/src/Service/DocumentRepository.php
+      - name: Prove document model invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_file='web/modules/custom/brebo_document_data/brebo_document_data.install'
+          repo_file='web/modules/custom/brebo_document_data/src/Service/DocumentRepository.php'
+          grep -q "brebo_document_source" "$install_file"
+          grep -q "brebo_document_context" "$install_file"
+          grep -q "brebo_document_evidence" "$install_file"
+          grep -q "document_context_unique" "$install_file"
+          grep -q "'canonical_truth' => 0" "$repo_file"
+          grep -q "state' => 'reused'" "$repo_file"
+          grep -q "CONTEXT_TYPES = \['building', 'project', 'organization', 'contact', 'brebo'\]" "$repo_file"

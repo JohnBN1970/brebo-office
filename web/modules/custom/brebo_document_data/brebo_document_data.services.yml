@@ -1,0 +1,6 @@
+services:
+  brebo_document_data.repository:
+    class: Drupal\brebo_document_data\Service\DocumentRepository
+    arguments:
+      - '@database'
+      - '@datetime.time'

@@ -1,0 +1,120 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_document_data_schema(): array {
+  $schema = [];
+
+  $schema['brebo_document'] = [
+    'description' => 'Logical BREBO documents with deduplicated binary identity metadata.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'document_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'original_filename' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'mime_type' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'file_size' => ['type' => 'int', 'size' => 'big', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'sha256' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'storage_provider' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'drupal_private'],
+      'storage_key' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'lifecycle_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'active'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'sha256' => ['sha256'],
+      'status' => ['lifecycle_status'],
+      'document_type' => ['document_type'],
+    ],
+  ];
+
+  $schema['brebo_document_source'] = [
+    'description' => 'Append-oriented provenance records for BREBO documents.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_system' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_external_id' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_actor' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'source_timestamp' => ['type' => 'varchar', 'length' => 40, 'not null' => FALSE],
+      'original_filename' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'sha256' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'extraction_method' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'fragment_location' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'artifact_role' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'original'],
+      'confidence' => ['type' => 'float', 'not null' => TRUE, 'default' => 1],
+      'review_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unreviewed'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'document_id' => ['document_id'],
+      'source_lookup' => ['source_system', 'source_external_id'],
+      'communication_nid' => ['communication_nid'],
+      'sha256' => ['sha256'],
+    ],
+  ];
+
+  $schema['brebo_document_context'] = [
+    'description' => 'Many-to-many context relations between one document and BREBO business objects.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'context_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'context_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'relation_role' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'supporting'],
+      'confidence' => ['type' => 'float', 'not null' => TRUE, 'default' => 0],
+      'relation_source' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'review_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'proposed'],
+      'confirmed_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'confirmed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'document_context_unique' => ['document_id', 'context_type', 'context_id', 'relation_role'],
+    ],
+    'indexes' => [
+      'document_id' => ['document_id'],
+      'context_lookup' => ['context_type', 'context_id'],
+      'review_status' => ['review_status'],
+    ],
+  ];
+
+  $schema['brebo_document_evidence'] = [
+    'description' => 'High-volume extracted evidence from BREBO documents. Evidence is non-canonical by default.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'fragment_location' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'evidence_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'extracted_value' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'normalized_value' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'extraction_method' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'confidence' => ['type' => 'float', 'not null' => TRUE, 'default' => 0],
+      'validation_source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'validation_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unvalidated'],
+      'canonical_truth' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'reviewed_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'reviewed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'document_id' => ['document_id'],
+      'source_id' => ['source_id'],
+      'evidence_type' => ['evidence_type'],
+      'validation_status' => ['validation_status'],
+      'canonical_truth' => ['canonical_truth'],
+    ],
+  ];
+
+  return $schema;
+}
