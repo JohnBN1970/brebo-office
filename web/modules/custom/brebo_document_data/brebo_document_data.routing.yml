@@ -11,6 +11,18 @@ brebo_document_data.context_dossier:
       context_id:
         type: integer
 
+brebo_document_data.node_dossier:
+  path: '/node/{node}/documents'
+  defaults:
+    _controller: '\Drupal\brebo_document_data\Controller\NodeDocumentDossierController::nodeView'
+    _title: 'Documenten'
+  requirements:
+    _custom_access: '\Drupal\brebo_document_data\Controller\NodeDocumentDossierController::access'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_document_data.revision_dossier:
   path: '/admin/brebo/documents/{context_type}/{context_id}/{document_family}'
   defaults:
