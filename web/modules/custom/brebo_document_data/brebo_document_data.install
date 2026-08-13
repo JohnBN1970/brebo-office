@@ -130,6 +130,7 @@ function brebo_document_data_schema(): array {
  */
 function brebo_document_data_update_10001(): void {
   $schema = \Drupal::database()->schema();
+  $definitions = brebo_document_data_schema();
 
   if (!$schema->fieldExists('brebo_document', 'document_family')) {
     $schema->addField('brebo_document', 'document_family', [
@@ -146,7 +147,12 @@ function brebo_document_data_update_10001(): void {
     ]);
   }
   if (!$schema->indexExists('brebo_document', 'document_family')) {
-    $schema->addIndex('brebo_document', 'document_family', ['document_family']);
+    $schema->addIndex(
+      'brebo_document',
+      'document_family',
+      ['document_family'],
+      $definitions['brebo_document'],
+    );
   }
 
   if (!$schema->fieldExists('brebo_document_source', 'source_timestamp_unix')) {
@@ -167,7 +173,12 @@ function brebo_document_data_update_10001(): void {
     ]);
   }
   if (!$schema->indexExists('brebo_document_source', 'source_timestamp_unix')) {
-    $schema->addIndex('brebo_document_source', 'source_timestamp_unix', ['source_timestamp_unix']);
+    $schema->addIndex(
+      'brebo_document_source',
+      'source_timestamp_unix',
+      ['source_timestamp_unix'],
+      $definitions['brebo_document_source'],
+    );
   }
 
   $database = \Drupal::database();
