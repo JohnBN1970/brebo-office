@@ -1,0 +1,8 @@
+name: 'BREBO Building Data'
+type: module
+description: 'High-volume relation storage for BREBO buildings, addresses and BAG identities.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - brebo_office_core:brebo_office_core
