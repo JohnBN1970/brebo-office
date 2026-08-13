@@ -124,3 +124,68 @@ function brebo_document_data_schema(): array {
 
   return $schema;
 }
+
+/**
+ * Adds document-family/revision metadata and authoritative source timestamps.
+ */
+function brebo_document_data_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->fieldExists('brebo_document', 'document_family')) {
+    $schema->addField('brebo_document', 'document_family', [
+      'type' => 'varchar',
+      'length' => 255,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_document', 'revision_code')) {
+    $schema->addField('brebo_document', 'revision_code', [
+      'type' => 'varchar',
+      'length' => 64,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->indexExists('brebo_document', 'document_family')) {
+    $schema->addIndex('brebo_document', 'document_family', ['document_family']);
+  }
+
+  if (!$schema->fieldExists('brebo_document_source', 'source_timestamp_unix')) {
+    $schema->addField('brebo_document_source', 'source_timestamp_unix', [
+      'type' => 'int',
+      'size' => 'big',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_document_source', 'source_timestamp_authoritative')) {
+    $schema->addField('brebo_document_source', 'source_timestamp_authoritative', [
+      'type' => 'int',
+      'size' => 'tiny',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+  if (!$schema->indexExists('brebo_document_source', 'source_timestamp_unix')) {
+    $schema->addIndex('brebo_document_source', 'source_timestamp_unix', ['source_timestamp_unix']);
+  }
+
+  $database = \Drupal::database();
+  $rows = $database->select('brebo_document_source', 's')
+    ->fields('s', ['id', 'source_timestamp'])
+    ->isNotNull('source_timestamp')
+    ->execute();
+  foreach ($rows as $row) {
+    $timestamp = strtotime((string) $row->source_timestamp);
+    if ($timestamp === FALSE || $timestamp < 0) {
+      continue;
+    }
+    $database->update('brebo_document_source')
+      ->fields([
+        'source_timestamp_unix' => $timestamp,
+        'source_timestamp_authoritative' => 1,
+      ])
+      ->condition('id', (int) $row->id)
+      ->execute();
+  }
+}
