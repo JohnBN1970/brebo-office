@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
+use Drupal\brebo_building_data\Service\BuildingRelationRepository;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 
@@ -18,6 +19,7 @@ final class CanonicalContextResolver {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly BagPdokClient $bagPdokClient,
+    private readonly ?BuildingRelationRepository $buildingRelations = NULL,
   ) {}
 
   /**
@@ -28,6 +30,7 @@ final class CanonicalContextResolver {
     $project = $this->findBestProject($text);
     $building = $this->findBestBuilding($text);
     $basis = [];
+    $buildingCandidates = [];
 
     if ($project instanceof NodeInterface) {
       $basis[] = sprintf('Bestaand project herkend: "%s".', $project->label());
@@ -55,7 +58,22 @@ final class CanonicalContextResolver {
         try {
           $pdokCandidates = $this->bagPdokClient->searchAddress($addressQuery, 5);
           if ($pdokCandidates !== []) {
-            $basis[] = 'Geen bestaand gebouw gevonden; officiële PDOK-adreskandidaten beschikbaar voor menselijke beoordeling.';
+            $relationResolution = $this->resolveFromBuildingRelations($pdokCandidates);
+            if (($relationResolution['state'] ?? '') === 'matched') {
+              $candidateId = (int) ($relationResolution['building_id'] ?? 0);
+              $candidate = $candidateId > 0 ? $this->entityTypeManager->getStorage('node')->load($candidateId) : NULL;
+              if ($candidate instanceof NodeInterface && $candidate->bundle() === 'brebo_building') {
+                $building = $candidate;
+                $basis[] = sprintf('Bestaand gebouw herkend via %s', (string) ($relationResolution['basis'] ?? 'BAG-/adresidentiteit.'));
+              }
+            }
+            elseif (($relationResolution['state'] ?? '') === 'ambiguous') {
+              $buildingCandidates = array_values(array_unique(array_map('intval', $relationResolution['candidate_building_ids'] ?? [])));
+              $basis[] = 'Meerdere bestaande gebouwen passen bij de gevonden BAG-/adresidentiteit; geen automatische keuze gemaakt.';
+            }
+            else {
+              $basis[] = 'Geen bestaand gebouw gevonden; officiële PDOK-adreskandidaten beschikbaar voor menselijke beoordeling.';
+            }
           }
         }
         catch (\RuntimeException) {
@@ -68,11 +86,55 @@ final class CanonicalContextResolver {
       'project_id' => $project instanceof NodeInterface ? (int) $project->id() : NULL,
       'building_id' => $building instanceof NodeInterface ? (int) $building->id() : NULL,
       'project_state' => $project instanceof NodeInterface ? 'existing' : 'provisional_required',
-      'building_state' => $building instanceof NodeInterface ? 'existing' : 'provisional_required',
+      'building_state' => $building instanceof NodeInterface ? 'existing' : ($buildingCandidates !== [] ? 'ambiguous' : 'provisional_required'),
+      'building_candidate_ids' => $buildingCandidates,
       'pdok_address_candidates' => $pdokCandidates,
       'requires_human_review' => !($project instanceof NodeInterface) || !($building instanceof NodeInterface),
       'basis' => implode(' ', $basis) ?: 'Geen bestaande canonieke project- of gebouwcontext herkend.',
     ];
+  }
+
+  /**
+   * @param array<int, array<string, mixed>> $pdokCandidates
+   *
+   * @return array{state:string,building_id:?int,candidate_building_ids:int[],basis:string}
+   */
+  private function resolveFromBuildingRelations(array $pdokCandidates): array {
+    if (!$this->buildingRelations instanceof BuildingRelationRepository) {
+      return ['state' => 'unavailable', 'building_id' => NULL, 'candidate_building_ids' => [], 'basis' => 'Gebouwrelatie-opslag niet beschikbaar.'];
+    }
+
+    $matched = [];
+    $ambiguous = [];
+    $basis = [];
+    foreach ($pdokCandidates as $candidate) {
+      if (!is_array($candidate)) {
+        continue;
+      }
+      $result = $this->buildingRelations->resolveBuildingCandidate($candidate);
+      $candidateIds = array_values(array_unique(array_map('intval', $result['candidate_building_ids'] ?? [])));
+      if (($result['state'] ?? '') === 'matched' && isset($result['building_id'])) {
+        $matched[(int) $result['building_id']] = TRUE;
+        $basis[] = (string) ($result['basis'] ?? '');
+      }
+      elseif (($result['state'] ?? '') === 'ambiguous') {
+        foreach ($candidateIds as $candidateId) {
+          $ambiguous[$candidateId] = TRUE;
+        }
+      }
+    }
+
+    $matchedIds = array_keys($matched);
+    if (count($matchedIds) === 1 && $ambiguous === []) {
+      return ['state' => 'matched', 'building_id' => (int) $matchedIds[0], 'candidate_building_ids' => array_map('intval', $matchedIds), 'basis' => trim(implode(' ', array_filter($basis))) ?: 'Exacte BAG-/adresidentiteit.'];
+    }
+
+    $candidateIds = array_values(array_unique(array_merge(array_map('intval', $matchedIds), array_map('intval', array_keys($ambiguous)))));
+    if (count($candidateIds) > 1 || $ambiguous !== []) {
+      return ['state' => 'ambiguous', 'building_id' => NULL, 'candidate_building_ids' => $candidateIds, 'basis' => 'Meerdere BREBO-gebouwen passen bij de PDOK-kandidaten.'];
+    }
+
+    return ['state' => 'unmatched', 'building_id' => NULL, 'candidate_building_ids' => [], 'basis' => 'Geen bekende BAG-/adresidentiteit.'];
   }
 
   private function findBestProject(string $text): ?NodeInterface {
@@ -155,24 +217,16 @@ final class CanonicalContextResolver {
   private function extractAddressQuery(string $subject, string $body): string {
     $combined = preg_replace('/\s+/u', ' ', trim($subject . ' ' . $body)) ?? trim($subject . ' ' . $body);
 
-    // A labelled address is the safest signal in unstructured mail. Anchor the
-    // street directly after the label so preceding subject prose can never be
-    // swallowed into the PDOK query.
     if (preg_match('/\b(?:werkadres|adres|locatie)\s*[:\-]?\s*([\p{L}][\p{L}\s\.\'’\-]{1,70}?)\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
       $postcode = strtoupper(preg_replace('/\s+/u', ' ', trim($match[3])) ?? trim($match[3]));
       return trim(sprintf('%s %s %s %s', trim($match[1]), trim($match[2]), $postcode, trim($match[4])));
     }
 
-    // Generic fallback for an unlabelled street + house number + postcode +
-    // city. Keep the street capture non-greedy and bounded to the nearest
-    // punctuation boundary so unrelated mail prose is not sent to PDOK.
     if (preg_match('/(?:^|[\.,;:]\s)([\p{L}][\p{L}\s\.\'’\-]{1,70}?)\s+(\d+[A-Za-z0-9\-]*)\s*,?\s*([1-9][0-9]{3}\s?[A-Z]{2})\s+([\p{L}][\p{L}\s\.\'’\-]{1,40}?)(?=[\.,;]|$)/iu', $combined, $match)) {
       $postcode = strtoupper(preg_replace('/\s+/u', ' ', trim($match[3])) ?? trim($match[3]));
       return trim(sprintf('%s %s %s %s', trim($match[1]), trim($match[2]), $postcode, trim($match[4])));
     }
 
-    // If only a postcode is recognisable, keep the query tightly bounded around
-    // that token instead of sending an entire sentence or subject to PDOK.
     if (preg_match('/\b[1-9][0-9]{3}\s?[A-Z]{2}\b/iu', $combined, $postcodeMatch, PREG_OFFSET_CAPTURE)) {
       $offset = (int) $postcodeMatch[0][1];
       $start = max(0, $offset - 45);
