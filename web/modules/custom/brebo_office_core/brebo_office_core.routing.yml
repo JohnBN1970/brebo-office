@@ -1,5 +1,5 @@
 brebo_office_core.dashboard:
-  path: '/office'
+  path: '/'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dashboard'
     _title: 'BREBO Office'
@@ -7,7 +7,7 @@ brebo_office_core.dashboard:
     _access: 'TRUE'
 
 brebo_office_core.buildings:
-  path: '/office/gebouwen'
+  path: '/gebouwen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Gebouwenkaartotheek'
@@ -16,7 +16,7 @@ brebo_office_core.buildings:
     _permission: 'access content'
 
 brebo_office_core.building_zones:
-  path: '/office/gebouwzones'
+  path: '/gebouwzones'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Technische gebouwzones'
@@ -26,7 +26,7 @@ brebo_office_core.building_zones:
 
 
 brebo_office_core.building_dashboard:
-  path: '/office/gebouwen/{node}'
+  path: '/gebouwen/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::buildingDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::buildingDashboardTitle'
@@ -38,7 +38,7 @@ brebo_office_core.building_dashboard:
         type: entity:node
 
 brebo_office_core.building_geocode:
-  path: '/office/gebouwen/{node}/locatie-bepalen'
+  path: '/gebouwen/{node}/locatie-bepalen'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\BuildingLocationForm'
     _title: 'Gebouwlocatie bepalen'
@@ -50,7 +50,7 @@ brebo_office_core.building_geocode:
         type: entity:node
 
 brebo_office_core.projects:
-  path: '/office/projecten'
+  path: '/projecten'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Projecten'
@@ -59,7 +59,7 @@ brebo_office_core.projects:
     _permission: 'access content'
 
 brebo_office_core.clusters:
-  path: '/office/clusters'
+  path: '/clusters'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Clusters'
@@ -68,7 +68,7 @@ brebo_office_core.clusters:
     _permission: 'access content'
 
 brebo_office_core.dwellings:
-  path: '/office/woningen'
+  path: '/woningen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Woningen'
@@ -77,7 +77,7 @@ brebo_office_core.dwellings:
     _permission: 'access content'
 
 brebo_office_core.dwelling_dossier:
-  path: '/office/woningen/{node}'
+  path: '/woningen/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossier'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::dwellingDossierTitle'
@@ -89,7 +89,7 @@ brebo_office_core.dwelling_dossier:
         type: entity:node
 
 brebo_office_core.positions:
-  path: '/office/productposities'
+  path: '/productposities'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Productposities'
@@ -98,7 +98,7 @@ brebo_office_core.positions:
     _permission: 'access content'
 
 brebo_office_core.verifications:
-  path: '/office/controles'
+  path: '/controles'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Controles en verificaties'
@@ -107,7 +107,7 @@ brebo_office_core.verifications:
     _permission: 'access content'
 
 brebo_office_core.deviations:
-  path: '/office/afwijkingen'
+  path: '/afwijkingen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Afwijkingen'
@@ -116,7 +116,7 @@ brebo_office_core.deviations:
     _permission: 'access content'
 
 brebo_office_core.quality_dashboard:
-  path: '/office/kwaliteit'
+  path: '/kwaliteit'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::qualityDashboard'
     _title: 'Kwaliteitsdashboard'
@@ -124,7 +124,7 @@ brebo_office_core.quality_dashboard:
     _permission: 'access content'
 
 brebo_office_core.quality_report:
-  path: '/office/rapportages/kwaliteit'
+  path: '/rapportages/kwaliteit'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::qualityReport'
     _title: 'BREBO kwaliteitsrapportage'
@@ -132,7 +132,7 @@ brebo_office_core.quality_report:
     _permission: 'access content'
 
 brebo_office_core.project_dashboard:
-  path: '/office/projecten/{node}'
+  path: '/projecten/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboardTitle'
@@ -144,7 +144,7 @@ brebo_office_core.project_dashboard:
         type: entity:node
 
 brebo_office_core.work_packages:
-  path: '/office/werkpakketten'
+  path: '/werkpakketten'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Werkpakketten'
@@ -153,7 +153,7 @@ brebo_office_core.work_packages:
     _permission: 'access content'
 
 brebo_office_core.work_package_dashboard:
-  path: '/office/werkpakketten/{node}'
+  path: '/werkpakketten/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::workPackageDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::workPackageDashboardTitle'
@@ -165,7 +165,7 @@ brebo_office_core.work_package_dashboard:
         type: entity:node
 
 brebo_office_core.calculations:
-  path: '/office/calculaties'
+  path: '/calculaties'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::calculationPortfolio'
     _title: 'Calculatieportefeuille'
@@ -173,7 +173,7 @@ brebo_office_core.calculations:
     _permission: 'access content'
 
 brebo_office_core.calculation_dashboard:
-  path: '/office/calculaties/{node}'
+  path: '/calculaties/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboardTitle'
@@ -186,7 +186,7 @@ brebo_office_core.calculation_dashboard:
 
 
 brebo_office_core.create_offer_version:
-  path: '/office/calculaties/{node}/offerte-maken'
+  path: '/calculaties/{node}/offerte-maken'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\OfferVersionForm'
     _title: 'Nieuwe offerteversie'
@@ -199,7 +199,7 @@ brebo_office_core.create_offer_version:
 
 
 brebo_office_core.generate_work_budget:
-  path: '/office/calculaties/{node}/werkbegroting-maken'
+  path: '/calculaties/{node}/werkbegroting-maken'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\GenerateWorkBudgetForm'
     _title: 'Werkbegroting maken'
@@ -212,7 +212,7 @@ brebo_office_core.generate_work_budget:
 
 
 brebo_office_core.work_budgets:
-  path: '/office/werkbegrotingen'
+  path: '/werkbegrotingen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Werkbegrotingen'
@@ -221,7 +221,7 @@ brebo_office_core.work_budgets:
     _permission: 'access content'
 
 brebo_office_core.work_budget_dashboard:
-  path: '/office/werkbegrotingen/{node}'
+  path: '/werkbegrotingen/{node}'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::workBudgetDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::workBudgetDashboardTitle'
@@ -234,7 +234,7 @@ brebo_office_core.work_budget_dashboard:
 
 
 brebo_office_core.rfqs:
-  path: '/office/prijsaanvragen'
+  path: '/prijsaanvragen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Prijsaanvragen'
@@ -243,7 +243,7 @@ brebo_office_core.rfqs:
     _permission: 'access content'
 
 brebo_office_core.supplier_quotes:
-  path: '/office/leveranciersoffertes'
+  path: '/leveranciersoffertes'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Leveranciersoffertes'
@@ -253,7 +253,7 @@ brebo_office_core.supplier_quotes:
 
 
 brebo_office_core.budget_changes:
-  path: '/office/budgetwijzigingen'
+  path: '/budgetwijzigingen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Budgetwijzigingsbesluiten'
@@ -263,7 +263,7 @@ brebo_office_core.budget_changes:
 
 
 brebo_office_core.project_routes:
-  path: '/office/projectroutes'
+  path: '/projectroutes'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Projectroutes'
@@ -273,7 +273,7 @@ brebo_office_core.project_routes:
 
 
 brebo_office_core.project_scopes:
-  path: '/office/projectscopes'
+  path: '/projectscopes'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Projectscopes per gebouw'
@@ -283,7 +283,7 @@ brebo_office_core.project_scopes:
 
 
 brebo_office_core.scope_requirements:
-  path: '/office/statusonderdelen'
+  path: '/statusonderdelen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Voortgang en ketenafhankelijkheden'
@@ -293,7 +293,7 @@ brebo_office_core.scope_requirements:
 
 
 brebo_office_core.regie_actions:
-  path: '/office/regie-acties'
+  path: '/regie-acties'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::regieActions'
     _title: 'Regie-acties'
@@ -302,7 +302,7 @@ brebo_office_core.regie_actions:
 
 
 brebo_office_core.communications:
-  path: '/office/communicatie'
+  path: '/communicatie'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::communicationDashboard'
     _title: 'Communicatie-inbox'
@@ -311,7 +311,7 @@ brebo_office_core.communications:
 
 
 brebo_office_core.organizations:
-  path: '/office/relaties/organisaties'
+  path: '/relaties/organisaties'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Organisaties'
@@ -320,7 +320,7 @@ brebo_office_core.organizations:
     _permission: 'access content'
 
 brebo_office_core.contacts:
-  path: '/office/relaties/contactpersonen'
+  path: '/relaties/contactpersonen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Contactpersonen'
@@ -330,7 +330,7 @@ brebo_office_core.contacts:
 
 
 brebo_office_core.settings:
-  path: '/office/instellingen'
+  path: '/instellingen'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\OfficeSettingsForm'
     _title: 'Instellingen'
@@ -338,7 +338,7 @@ brebo_office_core.settings:
     _permission: 'administer site configuration'
 
 brebo_office_core.communication_channels:
-  path: '/office/communicatie/kanalen'
+  path: '/communicatie/kanalen'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'Communicatiekanalen en groepen'
@@ -347,7 +347,7 @@ brebo_office_core.communication_channels:
     _permission: 'access content'
 
 brebo_office_core.voice_intake:
-  path: '/office/communicatie/opnamebestand-inladen'
+  path: '/communicatie/opnamebestand-inladen'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\VoiceCommunicationIntakeForm'
     _title: 'Opnamebestand inladen'
@@ -355,7 +355,7 @@ brebo_office_core.voice_intake:
     _permission: 'create brebo_communication content'
 
 brebo_office_core.live_voice:
-  path: '/office/communicatie/live-opname'
+  path: '/communicatie/live-opname'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\VoiceCommunicationIntakeForm'
     _title: 'Live opname starten'
@@ -365,7 +365,7 @@ brebo_office_core.live_voice:
 
 
 brebo_office_core.communication_processing:
-  path: '/office/communicatie/{node}/verwerken'
+  path: '/communicatie/{node}/verwerken'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\CommunicationProcessingForm'
     _title: 'Communicatie verwerken en vaststellen'
@@ -377,7 +377,7 @@ brebo_office_core.communication_processing:
         type: entity:node
 
 brebo_office_core.offer_preview:
-  path: '/office/offertes/{node}/voorbeeld'
+  path: '/offertes/{node}/voorbeeld'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfferPreviewController::view'
     _title: 'Offertevoorbeeld'
@@ -389,7 +389,7 @@ brebo_office_core.offer_preview:
         type: entity:node
 
 brebo_office_core.integration_api_status:
-  path: '/office/instellingen/integration-api/status'
+  path: '/instellingen/integration-api/status'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\IntegrationApiStatusController::status'
     _title: 'BREBO Integration API-status'
@@ -397,7 +397,7 @@ brebo_office_core.integration_api_status:
     _permission: 'administer site configuration'
 
 brebo_office_core.integration_api_test:
-  path: '/office/instellingen/integration-api/test'
+  path: '/instellingen/integration-api/test'
   defaults:
     _form: '\Drupal\brebo_office_core\Form\IntegrationApiTestForm'
     _title: 'Fictieve AI-communicatietest'
