@@ -1,0 +1,78 @@
+name: Mail queue acceptance
+
+on:
+  push:
+    branches: [develop]
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Plugin/QueueWorker/MailIntakeQueueWorker.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakeQueueManager.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.module'
+      - '.github/workflows/mail-queue-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then break; fi
+            test "$attempt" -lt 5 || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Verify queue worker end to end
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          cd public_html/sboffice_app
+          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
+          $DRUSH cr
+          SOURCE_ID="queue-acceptance:$(date +%s)-$RANDOM"
+          export SOURCE_ID
+          $DRUSH php:eval '
+            $queue = \Drupal::queue("brebo_mail_intake_process");
+            $queue->createItem(["mode" => "acceptance", "mail" => [
+              "source_id" => getenv("SOURCE_ID"),
+              "subject" => "Queue acceptance BREBO",
+              "body" => "Technische queue acceptance zonder werkadres of projectreferentie.",
+              "from" => "acceptance@example.invalid",
+              "to" => "info@brebobv.nl",
+              "received_at" => gmdate(DATE_ATOM),
+              "direction" => "Inkomend",
+            ]]);
+            echo "QUEUE_COUNT_AFTER_ENQUEUE=" . $queue->numberOfItems() . PHP_EOL;
+          '
+          $DRUSH queue:run brebo_mail_intake_process
+          $DRUSH php:eval '
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->condition("field_brebo_source_id", getenv("SOURCE_ID"))->execute();
+            if (count($ids) !== 1) throw new \RuntimeException("Expected exactly one queued Communication.");
+            $id = (int) reset($ids);
+            echo "QUEUED_COMMUNICATION_ID=" . $id . PHP_EOL;
+            $node = $storage->load($id);
+            if (!$node) throw new \RuntimeException("Queued Communication could not be loaded.");
+            $node->delete();
+            echo "MAIL_QUEUE_PIPELINE=PASS" . PHP_EOL;
+            echo "TEMPORARY_COMMUNICATION_CLEANED=1" . PHP_EOL;
+          '
+          REMOTE
