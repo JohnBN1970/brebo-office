@@ -1,0 +1,1 @@
+2026-08-13: Fixed Drupal 11 MySQL Schema::addIndex() calls in brebo_document_data_update_10001() by passing the complete table specification.
