@@ -14,6 +14,10 @@ use Drupal\Core\State\StateInterface;
  */
 final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
+  private const MAX_ATTACHMENT_BYTES = 15728640;
+  private const MAX_PDF_EVIDENCE_PAGES = 20;
+  private const MAX_PAGE_TEXT = 6000;
+
   public function __construct(
     private readonly StateInterface $state,
     private readonly string $envPrefix = 'BREBO_IMAP',
@@ -59,11 +63,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     }
   }
 
-  /**
-   * Normal live IMAP polling: oldest unseen UID first, moving forward.
-   *
-   * @return iterable<array<string, mixed>>
-   */
+  /** @return iterable<array<string, mixed>> */
   private function incrementalMessages($stream, string $folder): iterable {
     $stateName = 'brebo_mail_intake.' . $this->stateKey . '_last_uid';
     $lastUid = (int) $this->state->get($stateName, 0);
@@ -92,16 +92,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     }
   }
 
-  /**
-   * Historical Zoho migration: newest first and progressively backwards.
-   *
-   * The cursor stores the smallest UID from the last completed batch. The next
-   * run only considers older UIDs. Source-id/hash deduplication in the ingestor
-   * makes restarting the migration safe, including mail already imported by an
-   * earlier migration implementation.
-   *
-   * @return iterable<array<string, mixed>>
-   */
+  /** @return iterable<array<string, mixed>> */
   private function migrationMessages($stream, string $folder): iterable {
     $cursorState = 'brebo_mail_intake.' . $this->stateKey . '_before_uid';
     $completeState = 'brebo_mail_intake.' . $this->stateKey . '_complete';
@@ -155,10 +146,13 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $date = $overview && isset($overview->date) ? (string) $overview->date : '';
     $timestamp = $date !== '' ? strtotime($date) : FALSE;
 
-    $body = $this->fetchReadableBody($stream, $uid);
+    $structure = imap_fetchstructure($stream, $uid, FT_UID);
+    $body = $this->fetchReadableBody($stream, $uid, $structure ?: NULL);
     if ($body === '') {
       $body = '[Geen leesbare tekstinhoud; bronbericht blijft herleidbaar via IMAP UID.]';
     }
+    // Root multipart children are IMAP sections 1, 2, ... (not 1.1, 1.2).
+    $attachments = $structure ? $this->extractAttachments($stream, $uid, $structure, '') : [];
 
     $sourceId = $messageId !== ''
       ? 'message-id:' . $messageId
@@ -166,6 +160,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
     return [
       'source_id' => $sourceId,
+      'source_system' => $this->stateKey,
       'source_hash' => hash('sha256', implode("\n", [$sourceId, $subject, $body, $from, $date])),
       'thread_id' => '',
       'subject' => $subject,
@@ -174,29 +169,31 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       'to' => implode("\n", array_filter([$to, $cc])),
       'received_at' => $timestamp !== FALSE ? gmdate(DATE_ATOM, $timestamp) : gmdate(DATE_ATOM),
       'direction' => $this->isOwnAddress($from) ? 'Uitgaand' : 'Inkomend',
+      'attachments' => $attachments,
     ];
   }
 
-  private function fetchReadableBody($stream, int $uid): string {
-    $structure = imap_fetchstructure($stream, $uid, FT_UID);
+  private function fetchReadableBody($stream, int $uid, ?object $structure = NULL): string {
+    $structure ??= imap_fetchstructure($stream, $uid, FT_UID) ?: NULL;
     if (!$structure) {
       return trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
     }
 
-    $plain = $this->findPart($stream, $uid, $structure, '1', 'text/plain');
+    $plain = $this->findPart($stream, $uid, $structure, '', 'text/plain');
     if ($plain !== '') {
       return trim($plain);
     }
-    $html = $this->findPart($stream, $uid, $structure, '1', 'text/html');
+    $html = $this->findPart($stream, $uid, $structure, '', 'text/html');
     return $html !== ''
       ? trim(strip_tags($html))
       : trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
   }
 
   private function findPart($stream, int $uid, object $part, string $partNumber, string $targetMime): string {
-    $mime = strtolower(($part->type === 0 ? 'text' : 'application') . '/' . ($part->subtype ?? 'plain'));
-    if ($mime === $targetMime) {
-      $data = (string) imap_fetchbody($stream, $uid, $partNumber, FT_UID | FT_PEEK);
+    $mime = $this->mimeType($part);
+    if ($mime === $targetMime && $this->attachmentFilename($part) === '') {
+      $section = $partNumber !== '' ? $partNumber : '1';
+      $data = (string) imap_fetchbody($stream, $uid, $section, FT_UID | FT_PEEK);
       $decoded = $this->decodeBody($data, (int) ($part->encoding ?? 0));
       return $this->ensureUtf8($decoded, $this->partCharset($part));
     }
@@ -204,13 +201,171 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       if (!is_object($child)) {
         continue;
       }
-      $number = $partNumber . '.' . ($index + 1);
+      $number = $this->childPartNumber($partNumber, $index);
       $found = $this->findPart($stream, $uid, $child, $number, $targetMime);
       if ($found !== '') {
         return $found;
       }
     }
     return '';
+  }
+
+  /** @return array<int, array<string, mixed>> */
+  private function extractAttachments($stream, int $uid, object $part, string $partNumber): array {
+    $result = [];
+    $filename = $this->attachmentFilename($part);
+    if ($filename !== '') {
+      $section = $partNumber !== '' ? $partNumber : '1';
+      $raw = (string) imap_fetchbody($stream, $uid, $section, FT_UID | FT_PEEK);
+      $content = $this->decodeBody($raw, (int) ($part->encoding ?? 0));
+      $mime = $this->mimeType($part);
+      $attachment = [
+        'filename' => $filename,
+        'mime_type' => $mime,
+        'sha256' => hash('sha256', $content),
+        'size' => strlen($content),
+        'source_part' => $section,
+        'extraction_state' => 'metadata_only',
+        'extracted_pages' => [],
+      ];
+
+      if (strlen($content) <= self::MAX_ATTACHMENT_BYTES) {
+        if ($mime === 'application/pdf') {
+          $pages = $this->extractPdfPages($content);
+          if ($pages !== []) {
+            $attachment['extraction_state'] = 'extracted';
+            $attachment['extracted_pages'] = $pages;
+          }
+          else {
+            $attachment['extraction_state'] = 'pdf_text_unavailable';
+          }
+        }
+        elseif ($mime === 'text/plain' || $mime === 'text/html') {
+          $text = $this->ensureUtf8($content, $this->partCharset($part));
+          if ($mime === 'text/html') {
+            $text = strip_tags($text);
+          }
+          $text = trim($text);
+          if ($text !== '') {
+            $attachment['extraction_state'] = 'extracted';
+            $attachment['extracted_pages'] = [[
+              'page' => 1,
+              'text' => mb_substr($text, 0, self::MAX_PAGE_TEXT),
+            ]];
+          }
+        }
+      }
+      else {
+        $attachment['extraction_state'] = 'too_large';
+      }
+      $result[] = $attachment;
+    }
+
+    foreach ($part->parts ?? [] as $index => $child) {
+      if (!is_object($child)) {
+        continue;
+      }
+      $result = array_merge($result, $this->extractAttachments($stream, $uid, $child, $this->childPartNumber($partNumber, $index)));
+    }
+    return $result;
+  }
+
+  private function childPartNumber(string $parent, int $zeroBasedIndex): string {
+    $child = (string) ($zeroBasedIndex + 1);
+    return $parent === '' ? $child : $parent . '.' . $child;
+  }
+
+  /** @return array<int, array{page:int,text:string}> */
+  private function extractPdfPages(string $content): array {
+    if (!function_exists('exec')) {
+      return [];
+    }
+    $binary = trim((string) @shell_exec('command -v pdftotext 2>/dev/null'));
+    if ($binary === '') {
+      return [];
+    }
+
+    $base = tempnam(sys_get_temp_dir(), 'brebo_pdf_');
+    if ($base === FALSE) {
+      return [];
+    }
+    $pdfPath = $base . '.pdf';
+    $txtPath = $base . '.txt';
+    @unlink($base);
+
+    try {
+      if (file_put_contents($pdfPath, $content) === FALSE) {
+        return [];
+      }
+      $command = escapeshellarg($binary) . ' -layout ' . escapeshellarg($pdfPath) . ' ' . escapeshellarg($txtPath) . ' 2>/dev/null';
+      $output = [];
+      $exitCode = 1;
+      exec($command, $output, $exitCode);
+      if ($exitCode !== 0 || !is_file($txtPath)) {
+        return [];
+      }
+      $text = (string) file_get_contents($txtPath);
+      if (trim($text) === '') {
+        return [];
+      }
+      return $this->selectRelevantPdfPages(explode("\f", $text));
+    }
+    finally {
+      @unlink($pdfPath);
+      @unlink($txtPath);
+    }
+  }
+
+  /** @param string[] $pages
+   *  @return array<int, array{page:int,text:string}>
+   */
+  private function selectRelevantPdfPages(array $pages): array {
+    $selected = [];
+    foreach ($pages as $index => $pageText) {
+      $text = trim($this->ensureUtf8($pageText));
+      if ($text === '') {
+        continue;
+      }
+      $hasPostcode = preg_match('/\b[1-9][0-9]{3}\s?[A-Z]{2}\b/iu', $text) === 1;
+      $hasAddressLabel = preg_match('/\b(?:adres|werkadres|locatie|projectadres|objectadres)\b/iu', $text) === 1;
+      if ($index < 5 || $hasPostcode || $hasAddressLabel) {
+        $selected[] = [
+          'page' => $index + 1,
+          'text' => mb_substr($text, 0, self::MAX_PAGE_TEXT),
+        ];
+      }
+      if (count($selected) >= self::MAX_PDF_EVIDENCE_PAGES) {
+        break;
+      }
+    }
+    return $selected;
+  }
+
+  private function attachmentFilename(object $part): string {
+    foreach (array_merge($part->dparameters ?? [], $part->parameters ?? []) as $parameter) {
+      if (!is_object($parameter)) {
+        continue;
+      }
+      $attribute = strtolower((string) ($parameter->attribute ?? ''));
+      if (($attribute === 'filename' || $attribute === 'name') && trim((string) ($parameter->value ?? '')) !== '') {
+        return $this->decodeHeader((string) $parameter->value);
+      }
+    }
+    return '';
+  }
+
+  private function mimeType(object $part): string {
+    $primary = match ((int) ($part->type ?? 0)) {
+      0 => 'text',
+      1 => 'multipart',
+      2 => 'message',
+      3 => 'application',
+      4 => 'audio',
+      5 => 'image',
+      6 => 'video',
+      default => 'application',
+    };
+    return strtolower($primary . '/' . ((string) ($part->subtype ?? 'octet-stream')));
   }
 
   private function decodeBody(string $value, int $encoding): string {

@@ -24,14 +24,12 @@ final class MailIntakePipeline {
     private readonly CanonicalContextResolver $canonicalContextResolver,
     private readonly CanonicalCrmContextResolver $canonicalCrmContextResolver,
     private readonly ProvisionalContextMaterializer $provisionalContextMaterializer,
+    private readonly AttachmentEvidenceExtractor $attachmentEvidenceExtractor,
+    private readonly AttachmentDocumentPersister $attachmentDocumentPersister,
   ) {}
 
   /**
    * Processes every message supplied by one source adapter.
-   *
-   * One malformed or otherwise unprocessable message must never block the rest
-   * of a source batch. Failed items are recorded with a privacy-safe reference
-   * and processing continues with the next message.
    *
    * @return array<int, array<string, mixed>>
    */
@@ -63,10 +61,9 @@ final class MailIntakePipeline {
   /**
    * Processes one normalized message without establishing uncertain relations.
    *
-   * Existing canonical context may be suggested immediately. Unknown project or
-   * building context is materialized only as unpublished review-only objects.
-   * CRM resolution is read-only in this phase: existing contacts/organizations
-   * are identified, but no CRM entity is created or modified yet.
+   * Attachment text may strengthen context resolution, but remains evidence:
+   * it is traceable to filename/page/hash and never becomes canonical truth on
+   * its own. Unknown context still results only in unpublished review objects.
    *
    * @param array<string, mixed> $mail
    *
@@ -75,11 +72,16 @@ final class MailIntakePipeline {
   public function process(array $mail): array {
     $subject = trim((string) ($mail['subject'] ?? ''));
     $body = trim((string) ($mail['body'] ?? ''));
+    $attachmentEvidence = $this->attachmentEvidenceExtractor->extract($mail);
+    $contextBody = trim(implode("\n\n", array_filter([
+      $body,
+      (string) ($attachmentEvidence['context_text'] ?? ''),
+    ])));
 
     $classification = $this->classifier->classify($subject, $body);
-    $meaning = $this->meaningExtractor->extract($subject, $body);
-    $relations = $this->relationSuggester->suggest($subject, $body);
-    $canonicalContext = $this->canonicalContextResolver->resolve($subject, $body);
+    $meaning = $this->meaningExtractor->extract($subject, $contextBody);
+    $relations = $this->relationSuggester->suggest($subject, $contextBody);
+    $canonicalContext = $this->canonicalContextResolver->resolve($subject, $contextBody);
     $crmContext = $this->canonicalCrmContextResolver->resolve($mail);
 
     if (trim((string) ($mail['classification'] ?? '')) === '') {
@@ -95,6 +97,7 @@ final class MailIntakePipeline {
         $relations['basis'],
         (string) ($canonicalContext['basis'] ?? ''),
         (string) ($crmContext['basis'] ?? ''),
+        (string) ($attachmentEvidence['basis'] ?? ''),
       ]));
     }
 
@@ -113,12 +116,18 @@ final class MailIntakePipeline {
     }
 
     $result = $this->ingestor->ingest($mail);
+    $communicationNid = (int) ($result['node_id'] ?? 0);
+    $persistedDocuments = $this->attachmentDocumentPersister->persist(
+      $mail,
+      $communicationNid,
+      is_array($attachmentEvidence['evidence'] ?? NULL) ? $attachmentEvidence['evidence'] : [],
+    );
 
     $provisionalContext = ['project_id' => NULL, 'building_id' => NULL];
     if (($result['state'] ?? NULL) === 'created'
       && (($canonicalContext['project_state'] ?? NULL) === 'provisional_required'
         || ($canonicalContext['building_state'] ?? NULL) === 'provisional_required')) {
-      $communication = \Drupal::entityTypeManager()->getStorage('node')->load((int) ($result['node_id'] ?? 0));
+      $communication = \Drupal::entityTypeManager()->getStorage('node')->load($communicationNid);
       if (!$communication instanceof NodeInterface) {
         throw new \RuntimeException('Aangemaakte BREBO Communication kon niet worden geladen voor voorlopige context.');
       }
@@ -146,6 +155,15 @@ final class MailIntakePipeline {
     $result['crm_match_basis'] = $crmContext['basis'] ?? '';
     $result['crm_matched_email'] = $crmContext['matched_email'] ?? '';
     $result['crm_matched_domain'] = $crmContext['matched_domain'] ?? '';
+    $result['attachment_count'] = $attachmentEvidence['attachment_count'] ?? 0;
+    $result['attachment_evidence_count'] = count($attachmentEvidence['evidence'] ?? []);
+    $result['attachment_evidence'] = $attachmentEvidence['evidence'] ?? [];
+    $result['attachment_evidence_basis'] = $attachmentEvidence['basis'] ?? '';
+    $result['attachment_document_count'] = count($persistedDocuments);
+    $result['attachment_document_ids'] = array_values(array_map(
+      static fn(array $item): int => (int) ($item['document_id'] ?? 0),
+      $persistedDocuments,
+    ));
     $result['requires_human_review'] = TRUE;
 
     return $result;

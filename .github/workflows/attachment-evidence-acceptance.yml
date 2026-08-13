@@ -1,0 +1,57 @@
+name: Attachment evidence acceptance
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/AttachmentEvidenceExtractor.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Source/ImapSourceAdapter.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - '.github/workflows/attachment-evidence-acceptance.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_mail_intake/src/Service/AttachmentEvidenceExtractor.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - 'web/modules/custom/brebo_mail_intake/src/Source/ImapSourceAdapter.php'
+      - 'web/modules/custom/brebo_mail_intake/brebo_mail_intake.services.yml'
+      - '.github/workflows/attachment-evidence-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint changed PHP
+        run: |
+          php -l web/modules/custom/brebo_mail_intake/src/Service/AttachmentEvidenceExtractor.php
+          php -l web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php
+          php -l web/modules/custom/brebo_mail_intake/src/Source/ImapSourceAdapter.php
+
+      - name: Verify evidence provenance and page context
+        run: |
+          php -r '
+            require "web/modules/custom/brebo_mail_intake/src/Service/AttachmentEvidenceExtractor.php";
+            $extractor = new Drupal\brebo_mail_intake\Service\AttachmentEvidenceExtractor();
+            $result = $extractor->extract([
+              "attachments" => [[
+                "filename" => "offerte-marktlaan.pdf",
+                "mime_type" => "application/pdf",
+                "sha256" => str_repeat("a", 64),
+                "extraction_state" => "extracted",
+                "extracted_pages" => [["page" => 2, "text" => "Projectadres: Marktlaan 12-18, 1234 AB Amsterdam"]],
+              ]],
+            ]);
+            if (($result["usable_count"] ?? 0) !== 1) { throw new RuntimeException("Attachment was not usable."); }
+            if (!str_contains($result["context_text"] ?? "", "offerte-marktlaan.pdf, pagina 2")) { throw new RuntimeException("Page provenance missing."); }
+            if (!str_contains($result["context_text"] ?? "", "Marktlaan 12-18")) { throw new RuntimeException("Attachment text missing."); }
+            if (($result["evidence"][0]["canonical_truth"] ?? TRUE) !== FALSE) { throw new RuntimeException("Attachment evidence may never declare canonical truth."); }
+            echo "ATTACHMENT_EVIDENCE=PASS\n";
+          '
