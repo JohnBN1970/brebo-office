@@ -48,6 +48,12 @@ services:
       - '@entity_type.manager'
       - '@brebo_mail_intake.bag_pdok'
 
+  brebo_mail_intake.provisional_context_materializer:
+    class: Drupal\brebo_mail_intake\Service\ProvisionalContextMaterializer
+    arguments:
+      - '@entity_type.manager'
+      - '@current_user'
+
   brebo_mail_intake.pipeline:
     class: Drupal\brebo_mail_intake\Service\MailIntakePipeline
     arguments:
