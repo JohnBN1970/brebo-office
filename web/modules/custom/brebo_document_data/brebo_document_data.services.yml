@@ -7,3 +7,8 @@ services:
 
   brebo_document_data.context_classifier:
     class: Drupal\brebo_document_data\Service\DocumentContextClassifier
+
+  brebo_document_data.revision_series:
+    class: Drupal\brebo_document_data\Service\DocumentRevisionSeries
+    arguments:
+      - '@database'
