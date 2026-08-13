@@ -47,10 +47,6 @@ function brebo_mail_intake_post_update_outbound_mail_permission(array &$sandbox 
 
 /**
  * Installs the BREBO mail formatting/transport building blocks.
- *
- * SMTP is deliberately kept disabled until Hostinger credentials are present
- * as runtime-only configuration. Installing these modules must never make a
- * previously approved concept leave the system by itself.
  */
 function brebo_mail_intake_post_update_mail_stack_modules(array &$sandbox = NULL): string {
   $moduleHandler = \Drupal::moduleHandler();
@@ -68,4 +64,62 @@ function brebo_mail_intake_post_update_mail_stack_modules(array &$sandbox = NULL
   }
 
   return 'Mail System, Mime Mail en SMTP zijn beschikbaar; SMTP blijft bewust uit tot runtime-configuratie en expliciete activering.';
+}
+
+/**
+ * Creates the provider-independent BREBO mailbox foundation.
+ */
+function brebo_mail_intake_post_update_mailbox_foundation(array &$sandbox = NULL): string {
+  $schema = \Drupal::database()->schema();
+
+  if (!$schema->tableExists('brebo_mailbox')) {
+    $schema->createTable('brebo_mailbox', [
+      'description' => 'Logical BREBO mailboxes, independent from provider folders.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'machine_name' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'address' => ['type' => 'varchar', 'length' => 320, 'not null' => TRUE, 'default' => ''],
+        'privacy_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'functional'],
+        'active' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+        'created' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+        'changed' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['machine_name' => ['machine_name']],
+      'indexes' => ['address' => ['address'], 'privacy_type' => ['privacy_type']],
+    ]);
+  }
+
+  if (!$schema->tableExists('brebo_mailbox_role')) {
+    $schema->createTable('brebo_mailbox_role', [
+      'description' => 'Role capabilities per logical BREBO mailbox.',
+      'fields' => [
+        'mailbox_id' => ['type' => 'int', 'not null' => TRUE],
+        'role_id' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'capability' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      ],
+      'primary key' => ['mailbox_id', 'role_id', 'capability'],
+      'indexes' => ['role_capability' => ['role_id', 'capability']],
+    ]);
+  }
+
+  if (!$schema->tableExists('brebo_mailbox_message')) {
+    $schema->createTable('brebo_mailbox_message', [
+      'description' => 'Mailbox state projection for canonical BREBO communication objects.',
+      'fields' => [
+        'mailbox_id' => ['type' => 'int', 'not null' => TRUE],
+        'communication_id' => ['type' => 'int', 'not null' => TRUE],
+        'mail_state' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'inbox'],
+        'is_read' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0],
+        'is_starred' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0],
+        'needs_action' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0],
+        'changed' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      ],
+      'primary key' => ['mailbox_id', 'communication_id'],
+      'indexes' => ['mailbox_state' => ['mailbox_id', 'mail_state'], 'communication' => ['communication_id']],
+    ]);
+  }
+
+  return 'BREBO mailbox foundation aangemaakt: logische mailboxen, rolcapaciteiten en berichtstatussen staan los van providerfolders.';
 }
