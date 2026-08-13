@@ -1,0 +1,4 @@
+services:
+  brebo_building_data.repository:
+    class: Drupal\brebo_building_data\Service\BuildingRelationRepository
+    arguments: ['@database', '@entity_type.manager', '@datetime.time']
