@@ -41,6 +41,11 @@ final class MailIntakeQueueManager {
       return 0;
     }
 
+    $maxPending = max(10, min(1000, (int) (getenv('BREBO_GMAIL_BACKFILL_MAX_PENDING') ?: 100)));
+    if ($this->pendingCount() >= $maxPending) {
+      return 0;
+    }
+
     $queue = $this->queueFactory->get(self::QUEUE_NAME, TRUE);
     $count = 0;
     foreach ($adapter->backfillMessages() as $mail) {
@@ -51,6 +56,10 @@ final class MailIntakeQueueManager {
       $count++;
     }
     return $count;
+  }
+
+  public function pendingCount(): int {
+    return $this->queueFactory->get(self::QUEUE_NAME, TRUE)->numberOfItems();
   }
 
 }
