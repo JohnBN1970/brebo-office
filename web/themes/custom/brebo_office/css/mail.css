@@ -231,12 +231,85 @@
 }
 
 .brebo-mail-reader {
-  padding: 22px 24px 28px;
+  padding: 0;
   background: #fff;
 }
 
 .brebo-mail-reader article {
   max-width: 880px;
+  padding: 0 24px 28px;
+}
+
+.brebo-mail-tabs {
+  position: sticky;
+  z-index: 8;
+  top: 0;
+  display: flex;
+  min-height: 43px;
+  align-items: end;
+  gap: 3px;
+  overflow-x: auto;
+  padding: 7px 10px 0;
+  border-bottom: 1px solid var(--brebo-border);
+  background: #f7f4f8;
+}
+
+.brebo-mail-tab {
+  display: flex;
+  min-width: 130px;
+  max-width: 245px;
+  align-items: center;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 9px 9px 0 0;
+  background: transparent;
+}
+
+.brebo-mail-tab.is-active {
+  border-color: var(--brebo-border);
+  background: #fff;
+}
+
+.brebo-mail-tab__link {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  padding: 8px 7px 8px 10px;
+  color: var(--brebo-ink);
+  font-size: .78rem;
+  font-weight: 750;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brebo-mail-tab__close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-right: 3px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--brebo-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.brebo-mail-tab__close:hover {
+  color: var(--brebo-purple-950);
+  background: #eee7f1;
+}
+
+.brebo-mail-reader__sticky {
+  position: sticky;
+  z-index: 6;
+  top: 43px;
+  margin: 0 -24px 18px;
+  padding: 16px 24px 0;
+  border-bottom: 1px solid var(--brebo-border);
+  background: #fff;
+  box-shadow: 0 8px 14px -14px rgba(36, 20, 39, .45);
 }
 
 .brebo-mail-reader h2 {
@@ -245,9 +318,8 @@
 }
 
 .brebo-mail-reader__meta {
-  margin-bottom: 17px;
+  margin-bottom: 0;
   padding-bottom: 14px;
-  border-bottom: 1px solid var(--brebo-border);
   color: var(--brebo-muted);
   font-size: .82rem;
   line-height: 1.65;
@@ -343,5 +415,22 @@
 
   .brebo-mail-reader {
     max-height: none;
+  }
+
+  .brebo-mail-reader article {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .brebo-mail-reader__sticky {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .brebo-mail-tab {
+    min-width: 115px;
+    max-width: 190px;
   }
 }
