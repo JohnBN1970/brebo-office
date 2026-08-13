@@ -1,0 +1,12 @@
+brebo_document_data.revision_dossier:
+  path: '/admin/brebo/documents/{context_type}/{context_id}/{document_family}'
+  defaults:
+    _controller: '\Drupal\brebo_document_data\Controller\DocumentRevisionDossierController::view'
+    _title: 'Documentrevisies'
+  requirements:
+    _permission: 'access administration pages'
+    context_id: '\d+'
+  options:
+    parameters:
+      context_id:
+        type: integer
