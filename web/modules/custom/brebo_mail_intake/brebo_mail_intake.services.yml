@@ -24,6 +24,7 @@ services:
     class: Drupal\brebo_mail_intake\Service\AttachmentDocumentPersister
     arguments:
       - '@?brebo_document_data.repository'
+      - '@?brebo_document_data.revision_series'
 
   brebo_mail_intake.failure_registry:
     class: Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry
