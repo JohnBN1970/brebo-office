@@ -48,6 +48,11 @@ services:
       - '@entity_type.manager'
       - '@brebo_mail_intake.bag_pdok'
 
+  brebo_mail_intake.canonical_crm_context_resolver:
+    class: Drupal\brebo_mail_intake\Service\CanonicalCrmContextResolver
+    arguments:
+      - '@entity_type.manager'
+
   brebo_mail_intake.provisional_context_materializer:
     class: Drupal\brebo_mail_intake\Service\ProvisionalContextMaterializer
     arguments:
@@ -64,6 +69,7 @@ services:
       - '@logger.channel.brebo_mail_intake'
       - '@brebo_mail_intake.failure_registry'
       - '@brebo_mail_intake.canonical_context_resolver'
+      - '@brebo_mail_intake.canonical_crm_context_resolver'
       - '@brebo_mail_intake.provisional_context_materializer'
 
   brebo_mail_intake.queue_manager:
