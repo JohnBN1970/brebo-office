@@ -8,6 +8,9 @@ global:
     component:
       css/components.css: {}
       css/dashboard.css: {}
+      css/mail.css: {}
+  js:
+    js/mail-workspace.js: {}
 
 
 project-tabs:
