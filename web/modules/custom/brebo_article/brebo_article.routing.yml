@@ -1,5 +1,5 @@
 brebo_article.search:
-  path: '/office/api/artikelen'
+  path: '/api/artikelen'
   defaults:
     _controller: '\Drupal\brebo_article\Controller\ArticleSearchController::search'
   requirements:
@@ -7,7 +7,7 @@ brebo_article.search:
   methods: [GET]
 
 brebo_article.import:
-  path: '/office/artikelen/importeren'
+  path: '/artikelen/importeren'
   defaults:
     _form: '\Drupal\brebo_article\Form\ArticleImportForm'
     _title: 'Artikelcatalogus importeren'
