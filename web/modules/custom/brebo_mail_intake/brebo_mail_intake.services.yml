@@ -17,6 +17,9 @@ services:
   brebo_mail_intake.attention_scorer:
     class: Drupal\brebo_mail_intake\Service\MailAttentionScorer
 
+  brebo_mail_intake.attachment_evidence:
+    class: Drupal\brebo_mail_intake\Service\AttachmentEvidenceExtractor
+
   brebo_mail_intake.failure_registry:
     class: Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry
     arguments:
@@ -73,6 +76,7 @@ services:
       - '@brebo_mail_intake.canonical_context_resolver'
       - '@brebo_mail_intake.canonical_crm_context_resolver'
       - '@brebo_mail_intake.provisional_context_materializer'
+      - '@brebo_mail_intake.attachment_evidence'
 
   brebo_mail_intake.queue_manager:
     class: Drupal\brebo_mail_intake\Service\MailIntakeQueueManager
