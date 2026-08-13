@@ -22,6 +22,7 @@ final class MailIntakePipeline {
     private readonly LoggerInterface $logger,
     private readonly MailIntakeFailureRegistry $failureRegistry,
     private readonly CanonicalContextResolver $canonicalContextResolver,
+    private readonly CanonicalCrmContextResolver $canonicalCrmContextResolver,
     private readonly ProvisionalContextMaterializer $provisionalContextMaterializer,
   ) {}
 
@@ -64,7 +65,8 @@ final class MailIntakePipeline {
    *
    * Existing canonical context may be suggested immediately. Unknown project or
    * building context is materialized only as unpublished review-only objects.
-   * No provisional object is ever treated as canonical truth by this pipeline.
+   * CRM resolution is read-only in this phase: existing contacts/organizations
+   * are identified, but no CRM entity is created or modified yet.
    *
    * @param array<string, mixed> $mail
    *
@@ -78,6 +80,7 @@ final class MailIntakePipeline {
     $meaning = $this->meaningExtractor->extract($subject, $body);
     $relations = $this->relationSuggester->suggest($subject, $body);
     $canonicalContext = $this->canonicalContextResolver->resolve($subject, $body);
+    $crmContext = $this->canonicalCrmContextResolver->resolve($mail);
 
     if (trim((string) ($mail['classification'] ?? '')) === '') {
       $mail['classification'] = $classification['classification'];
@@ -91,11 +94,10 @@ final class MailIntakePipeline {
         $classification['basis'],
         $relations['basis'],
         (string) ($canonicalContext['basis'] ?? ''),
+        (string) ($crmContext['basis'] ?? ''),
       ]));
     }
 
-    // Canonical resolver wins over the legacy relation suggester. Only existing
-    // published BREBO objects may be written as immediate suggestions here.
     if (!empty($canonicalContext['building_id'])) {
       $mail['suggested_building_id'] = (int) $canonicalContext['building_id'];
     }
@@ -136,6 +138,14 @@ final class MailIntakePipeline {
     $result['canonical_building_state'] = $canonicalContext['building_state'] ?? NULL;
     $result['provisional_project_id'] = $provisionalContext['project_id'];
     $result['provisional_building_id'] = $provisionalContext['building_id'];
+    $result['canonical_contact_id'] = $crmContext['contact_id'] ?? NULL;
+    $result['canonical_contact_state'] = $crmContext['contact_state'] ?? 'unknown';
+    $result['canonical_organization_id'] = $crmContext['organization_id'] ?? NULL;
+    $result['canonical_organization_state'] = $crmContext['organization_state'] ?? 'unknown';
+    $result['crm_match_confidence'] = $crmContext['confidence'] ?? 0.0;
+    $result['crm_match_basis'] = $crmContext['basis'] ?? '';
+    $result['crm_matched_email'] = $crmContext['matched_email'] ?? '';
+    $result['crm_matched_domain'] = $crmContext['matched_domain'] ?? '';
     $result['requires_human_review'] = TRUE;
 
     return $result;
