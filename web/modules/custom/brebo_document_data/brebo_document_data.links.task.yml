@@ -1,0 +1,4 @@
+brebo_document_data.context_dossier_task:
+  route_name: brebo_document_data.context_dossier
+  title: 'Documenten'
+  base_route: brebo_document_data.context_dossier
