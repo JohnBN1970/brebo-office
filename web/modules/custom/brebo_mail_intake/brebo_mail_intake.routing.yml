@@ -54,6 +54,28 @@ brebo_mail_intake.mailbox_root:
   requirements:
     _permission: 'review brebo mail intake'
 
+brebo_mail_intake.mail_compose_new:
+  path: '/mail/{mailbox_id}/opstellen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\MailComposeForm'
+    _title: 'Nieuw bericht'
+    mode: 'new'
+    communication_id: 0
+  requirements:
+    _permission: 'review brebo mail intake'
+    mailbox_id: '\d+'
+
+brebo_mail_intake.mail_compose_from_message:
+  path: '/mail/{mailbox_id}/opstellen/{mode}/{communication_id}'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\MailComposeForm'
+    _title: 'Mailconcept'
+  requirements:
+    _permission: 'review brebo mail intake'
+    mailbox_id: '\d+'
+    mode: 'reply|forward'
+    communication_id: '\d+'
+
 brebo_mail_intake.mailbox:
   path: '/mail/{mailbox_id}/{mail_state}'
   defaults:

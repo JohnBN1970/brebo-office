@@ -11,10 +11,21 @@
     return el;
   }
 
+  function routeParts() {
+    return window.location.pathname.split('/').filter(Boolean);
+  }
+
   function selectedCommunicationId() {
-    const parts = window.location.pathname.split('/').filter(Boolean);
+    const parts = routeParts();
     if (parts[0] !== 'mail' || parts.length < 4) return 0;
     const id = Number(parts[3]);
+    return Number.isInteger(id) && id > 0 ? id : 0;
+  }
+
+  function selectedMailboxId() {
+    const parts = routeParts();
+    if (parts[0] !== 'mail' || parts.length < 2) return 0;
+    const id = Number(parts[1]);
     return Number.isInteger(id) && id > 0 ? id : 0;
   }
 
@@ -39,6 +50,7 @@
 
     const list = workspace.querySelector('.brebo-mail-list');
     const selectedId = selectedCommunicationId();
+    const mailboxId = selectedMailboxId();
     if (list) {
       Array.from(list.children).forEach((child) => {
         const link = child.querySelector('a');
@@ -49,11 +61,14 @@
       });
     }
 
+    const composeHref = mailboxId ? '/mail/' + mailboxId + '/opstellen' : '';
+    const replyHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
+    const forwardHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/forward/' + selectedId : '';
     const processHref = selectedId ? '/communicatie/' + selectedId + '/verwerken' : '';
     const toolbar = document.createElement('div');
     toolbar.className = 'brebo-mail-toolbar';
-    const compose = document.createElement('div'); compose.className = 'brebo-mail-toolbar__group'; compose.append(action('+', 'Nieuw bericht', '', true));
-    const message = document.createElement('div'); message.className = 'brebo-mail-toolbar__group'; message.append(action('↩', 'Beantwoorden'), action('↪', 'Doorsturen'), action('★', 'Markeren'), action('▣', 'Archiveren'), action('⌫', 'Verwijderen'));
+    const compose = document.createElement('div'); compose.className = 'brebo-mail-toolbar__group'; compose.append(action('+', 'Nieuw bericht', composeHref, true));
+    const message = document.createElement('div'); message.className = 'brebo-mail-toolbar__group'; message.append(action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('★', 'Markeren'), action('▣', 'Archiveren'), action('⌫', 'Verwijderen'));
     const office = document.createElement('div'); office.className = 'brebo-mail-toolbar__group'; office.append(action('✓', 'Verwerken in Office', processHref), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''), action('☷', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'));
     toolbar.append(compose, message, office);
     if (layout) workspace.insertBefore(toolbar, layout); else workspace.prepend(toolbar);
@@ -64,7 +79,7 @@
       const actions = document.createElement('div');
       actions.className = 'brebo-mail-office-actions';
       const label = document.createElement('div'); label.className = 'brebo-mail-office-actions__label'; label.textContent = 'BREBO Office'; actions.append(label);
-      actions.append(action('✓', 'Verwerken en koppelen', processHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('⌂', 'Koppel gebouw'), action('◆', 'Koppel project'), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
+      actions.append(action('✓', 'Verwerken en koppelen', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('⌂', 'Koppel gebouw'), action('◆', 'Koppel project'), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
       article.prepend(actions);
     }
   }
