@@ -47,6 +47,7 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@brebo_mail_intake.bag_pdok'
+      - '@?brebo_building_data.repository'
 
   brebo_mail_intake.canonical_crm_context_resolver:
     class: Drupal\brebo_mail_intake\Service\CanonicalCrmContextResolver
