@@ -87,7 +87,7 @@ jobs:
           test -s ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Verify source runtime and protected targets
+      - name: Verify sboffice runtime and protected targets
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -100,9 +100,6 @@ jobs:
           target="public_html/sboffice"
 
           test -d "$target"
-          test -f "$target/index.php"
-          test -f "$target/sites/default/settings.php"
-          test -d "$target/sites/default/files"
 
           for protected in public_html/office public_html/dev-platform; do
             if [[ "$target" == "$protected" ]]; then
@@ -111,7 +108,15 @@ jobs:
             fi
           done
 
-          echo "Existing sboffice runtime: verified"
+          if [[ -f "$target/web/index.php" && -f "$target/web/sites/default/settings.php" && -d "$target/web/sites/default/files" ]]; then
+            echo "Existing Composer sboffice runtime: verified"
+          elif [[ -f "$target/index.php" && -f "$target/sites/default/settings.php" && -d "$target/sites/default/files" ]]; then
+            echo "Existing legacy sboffice runtime: verified"
+          else
+            echo "::error::No valid sboffice Drupal runtime found in either Composer or legacy layout."
+            exit 1
+          fi
+
           echo "Protected production targets: excluded"
           REMOTE
 
@@ -130,7 +135,7 @@ jobs:
             -e "ssh -i ~/.ssh/deploy_key -p $DEPLOY_PORT" \
             deploy/ "$DEPLOY_USER@$DEPLOY_HOST:public_html/sboffice/"
 
-      - name: Preserve runtime files below the new web root
+      - name: Preserve runtime files below the web root
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -143,16 +148,24 @@ jobs:
           target="public_html/sboffice"
 
           install -d "$target/web/sites/default"
-          rm -f "$target/web/sites/default/settings.php"
-          cp -p "$target/sites/default/settings.php" "$target/web/sites/default/settings.php"
 
-          if [[ -f "$target/sites/default/settings.local.php" ]]; then
-            rm -f "$target/web/sites/default/settings.local.php"
+          if [[ ! -f "$target/web/sites/default/settings.php" ]]; then
+            if [[ -f "$target/sites/default/settings.php" ]]; then
+              cp -p "$target/sites/default/settings.php" "$target/web/sites/default/settings.php"
+            else
+              echo "::error::No settings.php available to preserve."
+              exit 1
+            fi
+          fi
+
+          if [[ ! -f "$target/web/sites/default/settings.local.php" && -f "$target/sites/default/settings.local.php" ]]; then
             cp -p "$target/sites/default/settings.local.php" "$target/web/sites/default/settings.local.php"
           fi
 
           install -d "$target/web/sites/default/files"
-          rsync -a "$target/sites/default/files/" "$target/web/sites/default/files/"
+          if [[ -d "$target/sites/default/files" ]]; then
+            rsync -a "$target/sites/default/files/" "$target/web/sites/default/files/"
+          fi
 
           chmod u+w "$target/web/sites/default" || true
           chmod -R u+rwX "$target/web/sites/default/files" || true
@@ -183,9 +196,9 @@ jobs:
           php -l "$target/web/sites/default/settings.php"
           php -r "require '$target/vendor/autoload.php';"
 
-          echo "New Composer project root: prepared"
-          echo "New Drupal web root: prepared"
+          echo "Composer project root: verified"
+          echo "Drupal web root: verified"
           echo "Runtime settings and public files: preserved"
           echo "Healthcheck script: deployed"
-          echo "Current subdomain document root: unchanged"
+          echo "Subdomain document root remains sboffice/web"
           REMOTE
