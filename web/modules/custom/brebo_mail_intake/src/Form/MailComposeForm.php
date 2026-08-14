@@ -6,6 +6,7 @@ namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
+use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\OutboundMailService;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -27,6 +28,7 @@ final class MailComposeForm extends FormBase {
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $mailCurrentUser,
+    private readonly MailEditorProvisioner $editorProvisioner,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -37,12 +39,14 @@ final class MailComposeForm extends FormBase {
       $container->get('database'),
       $container->get('entity_type.manager'),
       $container->get('current_user'),
+      $container->get('brebo_mail_intake.editor_provisioner'),
     );
   }
 
   public function getFormId(): string { return 'brebo_mail_compose_form'; }
 
   public function buildForm(array $form, FormStateInterface $form_state, int $mailbox_id = 0, string $mode = 'new', int $communication_id = 0): array {
+    $this->editorProvisioner->ensure();
     $mailbox = $this->mailboxes->load($mailbox_id);
     if (!$mailbox) { throw new NotFoundHttpException('Mailbox niet gevonden.'); }
     if (!$this->accessPolicy->allowed($this->mailCurrentUser, $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
@@ -82,7 +86,7 @@ final class MailComposeForm extends FormBase {
       '#title' => $this->t('Bericht'),
       '#required' => TRUE,
       '#default_value' => $body,
-      '#format' => 'basic_html',
+      '#format' => 'brebo_mail_html',
       '#rows' => 16,
     ];
     $form['actions'] = ['#type' => 'actions'];
