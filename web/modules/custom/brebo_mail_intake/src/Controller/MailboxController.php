@@ -83,9 +83,6 @@ final class MailboxController extends ControllerBase {
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-workspace']],
-      'heading' => [
-        '#markup' => '<div class="brebo-mail-heading"><div><h1>Mail</h1><p><strong>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</strong>' . (($mailbox['address'] ?? '') !== '' ? ' &lt;' . htmlspecialchars((string) $mailbox['address'], ENT_QUOTES, 'UTF-8') . '&gt;' : '') . '</p></div></div>',
-      ],
       '#cache' => ['max-age' => 0],
     ];
 
@@ -100,7 +97,7 @@ final class MailboxController extends ControllerBase {
 
     $build['layout'] = [
       '#type' => 'container',
-      '#attributes' => ['style' => 'display:grid;grid-template-columns:minmax(190px,1fr) minmax(320px,2fr) minmax(360px,3fr);gap:1rem;align-items:start;'],
+      '#attributes' => ['class' => ['brebo-mail-layout']],
       'folders' => $this->folderPane($visibleMailboxes, $mailbox_id, $mail_state),
       'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id),
       'reader' => $this->readerPane($selected),
