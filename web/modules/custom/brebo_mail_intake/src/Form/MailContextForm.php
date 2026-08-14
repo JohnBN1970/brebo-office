@@ -160,8 +160,8 @@ final class MailContextForm extends FormBase {
         ? $this->t('Documentregistratie is niet beschikbaar; de communicatiekoppeling kan wel worden opgeslagen.')
         : $this->formatPlural(
           $documentCount,
-          '1 document krijgt bij bevestiging dezelfde primaire bestemming.',
-          '@count documenten krijgen bij bevestiging dezelfde primaire bestemming.',
+          '1 document wordt bij bevestiging volgens de gekozen bestemming verwerkt.',
+          '@count documenten worden bij bevestiging volgens de gekozen bestemming verwerkt.',
         ),
     ];
 
@@ -236,6 +236,16 @@ final class MailContextForm extends FormBase {
           $documentIds[(int) $documentId] = (int) $documentId;
         }
       }
+    }
+
+    $mailboxId = 0;
+    if ($target === 'junk' && $this->database->schema()->tableExists('brebo_mailbox_message')) {
+      $mailboxId = (int) $this->database->select('brebo_mailbox_message', 'bm')
+        ->fields('bm', ['mailbox_id'])
+        ->condition('communication_id', $nid)
+        ->range(0, 1)
+        ->execute()
+        ->fetchField();
     }
 
     $transaction = $this->database->startTransaction();
@@ -317,6 +327,15 @@ final class MailContextForm extends FormBase {
         '@count' => count($documentIds),
       ]);
     $this->messenger()->addStatus($message);
+
+    if ($target === 'junk' && $mailboxId > 0) {
+      $form_state->setRedirect('brebo_mail_intake.mailbox_message', [
+        'mailbox_id' => $mailboxId,
+        'mail_state' => 'spam',
+        'communication_id' => $nid,
+      ]);
+      return;
+    }
 
     $returnPath = (string) $form_state->get('return_path');
     $form_state->setRedirectUrl(
