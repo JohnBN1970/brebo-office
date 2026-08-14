@@ -447,3 +447,44 @@ function brebo_office_core_post_update_funnel_lead_attribution(array &$sandbox =
 
   return 'Leadbron, acquisitiekanaal en campagne aan commerciële kansen toegevoegd.';
 }
+
+/**
+ * Adds structured commercial qualification to opportunities.
+ */
+function brebo_office_core_post_update_funnel_qualification(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle('brebo_opportunity', 'Commerciële kans',
+    'Zelfstandige commerciële kans binnen de begeleide funnel.', [
+      'field_brebo_opp_requirement' => [
+        'label' => 'Klantbehoefte en scope', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Concrete klantbehoefte, gewenste uitkomst en afbakening van de commerciële vraag.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 17,
+      ],
+      'field_brebo_opp_decision_maker' => [
+        'label' => 'Beslisser', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Naam of rol van degene die formeel over de opdracht beslist.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 18,
+      ],
+      'field_brebo_opp_budget_confirmed' => [
+        'label' => 'Budget bevestigd', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan dat budget of financiële ruimte met de klant is bevestigd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 19,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_opp_decision_date' => [
+        'label' => 'Beslis- of aanbestedingsdatum', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Datum van het verwachte klantbesluit of de aanbestedingsdeadline.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 20,
+      ],
+    ]);
+
+  return 'Klantbehoefte, beslisser, budgetbevestiging en beslisdatum aan commerciële kansen toegevoegd.';
+}
