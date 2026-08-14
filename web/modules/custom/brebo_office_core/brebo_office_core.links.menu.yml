@@ -1,0 +1,6 @@
+brebo_office_core.funnel_menu:
+  title: 'Funnel'
+  description: 'Commerciële kansen en opvolging'
+  route_name: brebo_office_core.funnel
+  menu_name: main
+  weight: -8
