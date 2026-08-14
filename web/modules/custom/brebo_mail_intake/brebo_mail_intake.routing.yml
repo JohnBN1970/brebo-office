@@ -99,6 +99,16 @@ brebo_mail_intake.mail_send:
     mailbox_id: '\\d+'
     communication_id: '\\d+'
 
+brebo_mail_intake.mail_bulk:
+  path: '/mail/{mailbox_id}/{mail_state}/bulk'
+  defaults:
+    _form: '\\Drupal\\brebo_mail_intake\\Form\\MailBulkActionForm'
+    _title: 'Bulkacties'
+  requirements:
+    _permission: 'review brebo mail intake'
+    mailbox_id: '\\d+'
+    mail_state: 'inbox|sent|draft|spam|archive|trash'
+
 brebo_mail_intake.mailbox:
   path: '/mail/{mailbox_id}/{mail_state}'
   defaults:
