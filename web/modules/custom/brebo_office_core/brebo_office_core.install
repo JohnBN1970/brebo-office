@@ -5288,3 +5288,25 @@ function brebo_office_core_update_11043(): string {
 
   return 'Commerciële funnel met zelfstandige kansen ingericht.';
 }
+
+/**
+ * Consolidates calculation and offer into one funnel stage.
+ */
+function brebo_office_core_update_11044(): string {
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $opportunity_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_opportunity')
+    ->condition('field_brebo_opp_stage', ['Calculatie', 'Offerte'], 'IN')
+    ->execute();
+  $updated = 0;
+  foreach ($storage->loadMultiple($opportunity_ids) as $opportunity) {
+    if ($opportunity instanceof \Drupal\node\NodeInterface) {
+      $opportunity->set('field_brebo_opp_stage', 'Calculatie/offerte');
+      $opportunity->save();
+      $updated++;
+    }
+  }
+
+  return sprintf('%d kansen samengevoegd naar de fase Calculatie/offerte.', $updated);
+}
