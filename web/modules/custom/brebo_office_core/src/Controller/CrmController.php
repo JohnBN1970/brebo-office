@@ -697,6 +697,14 @@ final class CrmController extends ControllerBase {
       ->execute();
     $affiliations = $storage->loadMultiple($affiliationIds);
 
+    $opportunityIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_opportunity')
+      ->condition('field_brebo_opp_org_ref.target_id', $node->id())
+      ->sort('changed', 'DESC')
+      ->execute();
+    $opportunities = $storage->loadMultiple($opportunityIds);
+
     $projectIds = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_project')
@@ -767,6 +775,35 @@ final class CrmController extends ControllerBase {
         $location->get('field_brebo_loc_primary')->value ? $this->t('Ja') : $this->t('Nee'),
         $location->get('field_brebo_loc_active')->value ? $this->t('Ja') : $this->t('Nee'),
         ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $location->id()]))->toRenderable()],
+      ];
+    }
+
+    $opportunityRows = [];
+    $opportunityValue = 0.0;
+    $opportunityWeighted = 0.0;
+    foreach ($opportunities as $opportunity) {
+      if (!$opportunity instanceof NodeInterface) {
+        continue;
+      }
+      $owner = $opportunity->get('field_brebo_opp_owner')->entity;
+      $value = (float) ($opportunity->get('field_brebo_opp_value')->value ?? 0);
+      $probability = max(0, min(100, (int) ($opportunity->get('field_brebo_opp_probability')->value ?? 0)));
+      $weighted = $value * $probability / 100;
+      if ((bool) $opportunity->get('field_brebo_opp_active')->value
+        && !in_array($this->value($opportunity, 'field_brebo_opp_stage'), ['Gewonnen', 'Verloren'], TRUE)) {
+        $opportunityValue += $value;
+        $opportunityWeighted += $weighted;
+      }
+      $opportunityRows[] = [
+        ['data' => Link::fromTextAndUrl($opportunity->label(), $opportunity->toUrl())->toRenderable()],
+        $this->value($opportunity, 'field_brebo_opp_stage'),
+        '€ ' . number_format($value, 2, ',', '.'),
+        $probability . '%',
+        '€ ' . number_format($weighted, 2, ',', '.'),
+        $this->value($opportunity, 'field_brebo_opp_next_date'),
+        $this->value($opportunity, 'field_brebo_opp_next_action'),
+        $owner !== NULL ? $owner->label() : '—',
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $opportunity->id()]))->toRenderable()],
       ];
     }
 
@@ -864,6 +901,14 @@ final class CrmController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button']],
         ],
+        'opportunity' => [
+          '#type' => 'link',
+          '#title' => $this->t('Kans toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_opportunity'], [
+            'query' => ['organization' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'project' => [
           '#type' => 'link',
           '#title' => $this->t('Project toevoegen'),
@@ -876,13 +921,15 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Actief'), $this->t('Klant'), $this->t('Leverancier'), $this->t('Locaties'), $this->t('Contactrelaties'), $this->t('Projecten'), $this->t('Gebouwen'), $this->t('Communicatie')],
+        '#header' => [$this->t('Actief'), $this->t('Klant'), $this->t('Leverancier'), $this->t('Locaties'), $this->t('Contactrelaties'), $this->t('Open kansen'), $this->t('Gewogen omzet'), $this->t('Projecten'), $this->t('Gebouwen'), $this->t('Communicatie')],
         '#rows' => [[
           $node->hasField('field_brebo_org_active') && (bool) $node->get('field_brebo_org_active')->value ? $this->t('Ja') : $this->t('Nee'),
           $node->hasField('field_brebo_org_customer') && (bool) $node->get('field_brebo_org_customer')->value ? $this->t('Ja') : $this->t('Nee'),
           $node->hasField('field_brebo_org_supplier') && (bool) $node->get('field_brebo_org_supplier')->value ? $this->t('Ja') : $this->t('Nee'),
           count($locations),
           count($affiliations),
+          count($opportunities),
+          '€ ' . number_format($opportunityWeighted, 2, ',', '.'),
           count($projects),
           count($buildings),
           count($communications),
@@ -914,6 +961,12 @@ final class CrmController extends ControllerBase {
         $this->t('Nog geen locaties aan deze organisatie gekoppeld.')
       ),
       'contacts' => $this->section($this->t('Contactrelaties'), [$this->t('Persoon'), $this->t('Rol/functie'), $this->t('Afdeling'), $this->t('Status'), $this->t('Primair'), $this->t('Actie')], $contactRows, $this->t('Nog geen personen aan deze organisatie gekoppeld.')),
+      'opportunities' => $this->section(
+        $this->t('Commerciële kansen'),
+        [$this->t('Kans'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Volgende datum'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
+        $opportunityRows,
+        $this->t('Nog geen commerciële kansen gekoppeld.')
+      ),
       'projects' => $this->section($this->t('Projecten'), [$this->t('Project'), $this->t('Status'), $this->t('Gebouw'), $this->t('Soort')], $projectRows, $this->t('Nog geen projecten gekoppeld.')),
       'buildings' => $this->section($this->t('Gebouwen via projecten'), [$this->t('Gebouw'), $this->t('Adres'), $this->t('Status')], $buildingRows, $this->t('Nog geen gebouwen via projecten gevonden.')),
       'communications' => $this->section($this->t('Laatste communicatie'), [$this->t('Onderwerp'), $this->t('Datum'), $this->t('Richting'), $this->t('Status')], $communicationRows, $this->t('Nog geen communicatie gekoppeld.')),
@@ -923,6 +976,7 @@ final class CrmController extends ControllerBase {
           'node_list:brebo_contact',
           'node_list:brebo_organization_location',
           'node_list:brebo_contact_affiliation',
+          'node_list:brebo_opportunity',
           'node_list:brebo_project',
           'node_list:brebo_building',
           'node_list:brebo_communication',
