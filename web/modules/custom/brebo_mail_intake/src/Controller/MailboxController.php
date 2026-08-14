@@ -13,6 +13,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
+use Drupal\Component\Utility\Xss;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -169,7 +170,15 @@ final class MailboxController extends ControllerBase {
     $from = htmlspecialchars((string) ($message['mail_from'] ?? ''), ENT_QUOTES, 'UTF-8');
     $to = htmlspecialchars((string) ($message['mail_to'] ?? ''), ENT_QUOTES, 'UTF-8');
     $date = htmlspecialchars((string) ($message['mail_datetime'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $body = nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
+    $htmlBody = trim((string) ($message['mail_html'] ?? ''));
+    $body = $htmlBody !== ''
+      ? Xss::filter($htmlBody, [
+        'a', 'abbr', 'b', 'blockquote', 'br', 'caption', 'code', 'col', 'colgroup',
+        'dd', 'del', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'hr', 'i', 'ins', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong',
+        'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
+      ])
+      : nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
 
     $context = [];
     if (($message['project_label'] ?? '') !== '') {
@@ -275,6 +284,7 @@ final class MailboxController extends ControllerBase {
       'mail_to' => $node->hasField('field_brebo_mail_to') ? (string) $node->get('field_brebo_mail_to')->value : '',
       'mail_datetime' => $node->hasField('field_brebo_comm_datetime') ? (string) $node->get('field_brebo_comm_datetime')->value : '',
       'transcript' => $node->hasField('field_brebo_transcript') ? (string) $node->get('field_brebo_transcript')->value : '',
+      'mail_html' => $node->hasField('field_brebo_mail_html') ? (string) $node->get('field_brebo_mail_html')->value : '',
       'project_label' => $project ? $project->label() : '',
       'building_label' => $building ? $building->label() : '',
       'tags' => $tags,
