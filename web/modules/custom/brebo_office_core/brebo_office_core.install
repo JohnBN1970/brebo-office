@@ -4661,3 +4661,136 @@ function brebo_office_core_update_11036(): string {
 
   return 'Versiegebonden offerte-engine met layouts, postsoorten, btw en G-rekening ingericht.';
 }
+
+/**
+ * Adds canonical person affiliations and multi-channel contact points.
+ */
+function brebo_office_core_update_11037(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_contact_affiliation',
+    'Contactrelatie',
+    'Canonieke relatie tussen één persoon en één organisatie, inclusief organisatiespecifieke rol en geldigheid.',
+    [
+      'field_brebo_aff_contact_ref' => [
+        'label' => 'Persoon', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_contact' => 'brebo_contact']]],
+        'description' => 'De unieke contactpersoon binnen BREBO Office.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_aff_org_ref' => [
+        'label' => 'Organisatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']]],
+        'description' => 'De organisatie waarvoor deze persoon optreedt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_aff_role' => [
+        'label' => 'Rol of functie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Organisatiespecifieke rol, functie of bevoegdheid.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_aff_department' => [
+        'label' => 'Afdeling', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Afdeling of organisatieonderdeel binnen deze contactrelatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_aff_status' => [
+        'label' => 'Status', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Actief, inactief of historisch.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Actief']],
+      ],
+      'field_brebo_aff_primary' => [
+        'label' => 'Primaire organisatie', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Markeert de voorkeursorganisatie zonder andere relaties uit te sluiten.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_aff_valid_from' => [
+        'label' => 'Geldig vanaf', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Begindatum van de contactrelatie.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 7,
+      ],
+      'field_brebo_aff_valid_until' => [
+        'label' => 'Geldig tot', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Einddatum van de contactrelatie.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 8,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_contact_point',
+    'Contactgegeven',
+    'Afzonderlijk contactkanaal van een persoon, algemeen of gekoppeld aan één organisatiespecifieke contactrelatie.',
+    [
+      'field_brebo_cp_contact_ref' => [
+        'label' => 'Persoon', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_contact' => 'brebo_contact']]],
+        'description' => 'De persoon aan wie dit contactgegeven toebehoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_cp_affiliation_ref' => [
+        'label' => 'Contactrelatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_contact_affiliation' => 'brebo_contact_affiliation']]],
+        'description' => 'Optionele organisatiecontext; leeg betekent een algemeen of privé contactgegeven.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_cp_channel' => [
+        'label' => 'Kanaal', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'E-mail, telefoon, mobiel, WhatsApp, Teams, portaal of overig.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_cp_label' => [
+        'label' => 'Label', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Bijvoorbeeld zakelijk, privé, secretariaat of storingsdienst.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_cp_value' => [
+        'label' => 'Contactwaarde', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Het e-mailadres, telefoonnummer, account of andere bereikbare waarde.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_cp_primary' => [
+        'label' => 'Primair', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Voorkeurscontactgegeven binnen dezelfde context en hetzelfde kanaal.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_cp_active' => [
+        'label' => 'Actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of dit contactgegeven nog gebruikt mag worden.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 7,
+        'default_value' => [['value' => 1]],
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (['brebo_contact_affiliation', 'brebo_contact_point'] as $bundle) {
+        foreach (["create $bundle content", "edit own $bundle content", "edit any $bundle content", "view $bundle revisions"] as $permission) {
+          $role->grantPermission($permission);
+        }
+      }
+      $role->save();
+    }
+  }
+
+  return 'Canonieke contactrelaties en meerdere contextgebonden contactgegevens ingericht.';
+}
+
