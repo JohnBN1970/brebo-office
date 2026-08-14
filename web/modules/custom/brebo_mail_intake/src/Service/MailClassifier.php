@@ -17,7 +17,10 @@ final class MailClassifier {
    * @return array{classification:string,confidence:float,basis:string}
    */
   public function classify(string $subject, string $body): array {
-    $text = mb_strtolower(trim($subject . "\n" . $body));
+    $subjectText = mb_strtolower(trim($subject));
+    $bodyText = mb_strtolower(trim($body));
+    $text = trim($subjectText . "\n" . $bodyText);
+
     $rules = [
       'financieel' => ['factuur', 'betaaltermijn', 'betaling', 'creditnota', 'incasso', 'aanmaning', 'rekening'],
       'juridisch' => ['aansprakelijk', 'juridisch', 'ingebrekestelling', 'sommatie', 'bezwaar', 'beroep', 'dagvaarding'],
@@ -41,16 +44,46 @@ final class MailClassifier {
       'spam' => ['ongewenste e-mail', 'spambericht', 'phishing', 'verdachte link'],
     ];
 
+    // Strong intent phrases get additional weight. This keeps the taxonomy
+    // compact while allowing natural BREBO language to resolve weak ties.
+    $intentRules = [
+      'offerte' => [
+        'graag een offerte',
+        'wil graag een offerte',
+        'willen graag een offerte',
+        'kunt u een offerte',
+        'kun je een offerte',
+        'ontvang graag een offerte',
+        'ontvangen graag een offerte',
+        'graag uw offerte',
+        'graag een prijsopgave',
+        'graag uw prijs',
+      ],
+    ];
+
     $scores = [];
+    $signals = [];
     foreach ($rules as $classification => $terms) {
-      $hits = 0;
       foreach ($terms as $term) {
-        if (str_contains($text, $term)) {
-          $hits++;
+        if (str_contains($bodyText, $term)) {
+          $scores[$classification] = ($scores[$classification] ?? 0) + 1;
+          $signals[$classification][] = 'tekst:' . $term;
+        }
+        if ($subjectText !== '' && str_contains($subjectText, $term)) {
+          // Subject is a deliberate sender-supplied summary and therefore a
+          // stronger signal than a single occurrence in the body.
+          $scores[$classification] = ($scores[$classification] ?? 0) + 2;
+          $signals[$classification][] = 'onderwerp:' . $term;
         }
       }
-      if ($hits > 0) {
-        $scores[$classification] = $hits;
+    }
+
+    foreach ($intentRules as $classification => $phrases) {
+      foreach ($phrases as $phrase) {
+        if (str_contains($text, $phrase)) {
+          $scores[$classification] = ($scores[$classification] ?? 0) + 3;
+          $signals[$classification][] = 'intentie:' . $phrase;
+        }
       }
     }
 
@@ -68,12 +101,24 @@ final class MailClassifier {
     $secondScore = count($scores) > 1 ? (int) array_values($scores)[1] : 0;
     $ambiguous = $secondScore === $bestScore;
 
+    if ($ambiguous) {
+      return [
+        'classification' => 'overig',
+        'confidence' => 45.0,
+        'basis' => 'Meerdere classificaties scoorden gelijk; geen categorie als feit gepresenteerd.',
+      ];
+    }
+
+    $basisSignals = array_slice(array_unique($signals[$best] ?? []), 0, 4);
     return [
-      'classification' => $ambiguous ? 'overig' : $best,
-      'confidence' => $ambiguous ? 45.0 : min(90.0, 60.0 + (($bestScore - 1) * 10.0)),
-      'basis' => $ambiguous
-        ? 'Meerdere classificaties scoorden gelijk; geen categorie als feit gepresenteerd.'
-        : sprintf('Deterministische trefwoordclassificatie: %s met %d relevante aanwijzing(en).', $best, $bestScore),
+      'classification' => $best,
+      'confidence' => min(95.0, 60.0 + (($bestScore - 1) * 7.5)),
+      'basis' => sprintf(
+        'Deterministische classificatie: %s met gewogen score %d%s.',
+        $best,
+        $bestScore,
+        $basisSignals !== [] ? ' (' . implode(', ', $basisSignals) . ')' : '',
+      ),
     ];
   }
 
