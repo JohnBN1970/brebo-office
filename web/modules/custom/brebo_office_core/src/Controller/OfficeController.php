@@ -79,12 +79,49 @@ final class OfficeController extends ControllerBase {
         'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
         default => $node->toUrl(),
       };
-      $rows[] = [
-        ['data' => Link::fromTextAndUrl($node->label(), $view_url)->toRenderable()],
-        $status,
-        \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short'),
-        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]))->toRenderable()],
-      ];
+      $name = ['data' => Link::fromTextAndUrl($node->label(), $view_url)->toRenderable()];
+      $changed = \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short');
+      $edit = ['data' => Link::fromTextAndUrl(
+        $this->t('Bewerken'),
+        Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])
+      )->toRenderable()];
+
+      if ($bundle === 'brebo_organization') {
+        $rows[] = [
+          $name,
+          $this->fieldValue($node, 'field_brebo_org_type'),
+          $status,
+          $this->fieldValue($node, 'field_brebo_org_email'),
+          $this->fieldValue($node, 'field_brebo_org_phone'),
+          $changed,
+          $edit,
+        ];
+      }
+      elseif ($bundle === 'brebo_contact') {
+        $organization = $node->hasField('field_brebo_org_ref')
+          ? $node->get('field_brebo_org_ref')->entity
+          : NULL;
+        $organizationCell = '—';
+        if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
+          $organizationCell = Link::fromTextAndUrl(
+            $organization->label(),
+            Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
+          )->toRenderable();
+        }
+        $rows[] = [
+          $name,
+          ['data' => $organizationCell],
+          $this->fieldValue($node, 'field_brebo_contact_role'),
+          $this->fieldValue($node, 'field_brebo_contact_email'),
+          $this->fieldValue($node, 'field_brebo_contact_phone'),
+          $status,
+          $changed,
+          $edit,
+        ];
+      }
+      else {
+        $rows[] = [$name, $status, $changed, $edit];
+      }
     }
 
     $new_label = match ($bundle) {
@@ -110,6 +147,29 @@ final class OfficeController extends ControllerBase {
       default => (string) $this->t('Nog geen gegevens aangemaakt.'),
     };
 
+    $header = match ($bundle) {
+      'brebo_organization' => [
+        $this->t('Organisatie'),
+        $this->t('Type'),
+        $this->t('Status'),
+        $this->t('E-mail'),
+        $this->t('Telefoon'),
+        $this->t('Gewijzigd'),
+        $this->t('Actie'),
+      ],
+      'brebo_contact' => [
+        $this->t('Contactpersoon'),
+        $this->t('Organisatie'),
+        $this->t('Rol'),
+        $this->t('E-mail'),
+        $this->t('Telefoon'),
+        $this->t('Status'),
+        $this->t('Gewijzigd'),
+        $this->t('Actie'),
+      ],
+      default => [$this->t('Naam'), $this->t('Status'), $this->t('Gewijzigd'), $this->t('Actie')],
+    };
+
     return [
       'actions' => [
         '#type' => 'container',
@@ -124,7 +184,7 @@ final class OfficeController extends ControllerBase {
       ],
       'table' => [
         '#type' => 'table',
-        '#header' => [$this->t('Naam'), $this->t('Status'), $this->t('Gewijzigd'), $this->t('Actie')],
+        '#header' => $header,
         '#rows' => $rows,
         '#empty' => $empty_message,
       ],
