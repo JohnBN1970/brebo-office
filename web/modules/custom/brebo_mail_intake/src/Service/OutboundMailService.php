@@ -30,6 +30,7 @@ final class OutboundMailService {
     private readonly TimeInterface $time,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly MailSignatureBuilder $signatureBuilder,
+    private readonly OutboundAttachmentService $attachmentService,
   ) {}
 
   /**
@@ -153,6 +154,7 @@ final class OutboundMailService {
         'cc' => $cc,
         'bcc' => $bcc,
         'signature' => $this->signatureBuilder->build($communication),
+        'attachments' => $this->attachmentService->resolve($communication),
         'communication_id' => (int) $communication->id(),
       ],
       $from,
