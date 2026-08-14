@@ -1,5 +1,5 @@
 brebo_office_core.dashboard:
-  path: '/'
+  path: '/overzicht'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::dashboard'
     _title: 'BREBO Office'
