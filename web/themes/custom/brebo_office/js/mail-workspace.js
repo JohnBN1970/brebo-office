@@ -112,71 +112,6 @@
       .trim();
   }
 
-  function tabKey(mailboxId) {
-    return 'brebo-mail-tabs-v1:' + mailboxId;
-  }
-
-  function loadTabs(mailboxId) {
-    try {
-      const tabs = JSON.parse(sessionStorage.getItem(tabKey(mailboxId)) || '[]');
-      return Array.isArray(tabs) ? tabs.filter((tab) => tab && Number(tab.id) > 0 && tab.href) : [];
-    }
-    catch (e) {
-      return [];
-    }
-  }
-
-  function saveTabs(mailboxId, tabs) {
-    sessionStorage.setItem(tabKey(mailboxId), JSON.stringify(tabs.slice(-12)));
-  }
-
-  function rememberTab(mailboxId, tab) {
-    if (!mailboxId || !tab || !tab.id) return;
-    const tabs = loadTabs(mailboxId).filter((item) => Number(item.id) !== Number(tab.id));
-    tabs.push(tab);
-    saveTabs(mailboxId, tabs);
-  }
-
-  function renderTabs(reader, mailboxId, activeId) {
-    if (!reader || !mailboxId) return;
-    const tabs = loadTabs(mailboxId);
-    if (!tabs.length) return;
-
-    const bar = document.createElement('nav');
-    bar.className = 'brebo-mail-tabs';
-    bar.setAttribute('aria-label', 'Open e-mails');
-
-    tabs.forEach((tab) => {
-      const item = document.createElement('div');
-      item.className = 'brebo-mail-tab' + (Number(tab.id) === Number(activeId) ? ' is-active' : '');
-      const link = document.createElement('a');
-      link.href = tab.href;
-      link.className = 'brebo-mail-tab__link';
-      link.textContent = tab.label || 'E-mail ' + tab.id;
-      link.title = tab.label || '';
-
-      const close = document.createElement('button');
-      close.type = 'button';
-      close.className = 'brebo-mail-tab__close';
-      close.setAttribute('aria-label', 'Tab sluiten');
-      close.textContent = '×';
-      close.addEventListener('click', () => {
-        const remaining = loadTabs(mailboxId).filter((stored) => Number(stored.id) !== Number(tab.id));
-        saveTabs(mailboxId, remaining);
-        if (Number(tab.id) === Number(activeId)) {
-          const next = remaining[remaining.length - 1];
-          window.location.href = next ? next.href : '/mail/' + mailboxId + '/inbox';
-        }
-        else item.remove();
-      });
-
-      item.append(link, close);
-      bar.append(item);
-    });
-
-    reader.prepend(bar);
-  }
-
   function enhance() {
     const workspace = document.querySelector('.brebo-mail-workspace');
     if (!workspace || workspace.dataset.officeEnhanced === '1') return;
@@ -206,13 +141,6 @@
         child.classList.add('brebo-mail-item');
         if (selectedId && link.pathname.endsWith('/' + selectedId)) child.classList.add('is-selected');
         if (link.textContent.trim().startsWith('●')) child.classList.add('is-unread');
-        link.addEventListener('click', () => {
-          const parts = link.pathname.split('/').filter(Boolean);
-          const id = Number(parts[3] || 0);
-          if (!id) return;
-          const label = link.textContent.replace(/^[★●⚑\s]+/, '').split(' — ').slice(1).join(' — ').split(' · ')[0].trim() || 'E-mail ' + id;
-          rememberTab(mailboxId, {id, href: link.pathname + link.search, label});
-        });
       });
     }
 
@@ -254,8 +182,6 @@
 
     if (article) {
       const title = article.querySelector('h2');
-      if (selectedId && title) rememberTab(mailboxId, {id: selectedId, href: window.location.pathname + window.location.search, label: title.textContent.trim() || 'E-mail ' + selectedId});
-
       const actions = document.createElement('div');
       actions.className = 'brebo-mail-office-actions';
       const label = document.createElement('div');
@@ -273,7 +199,6 @@
       article.prepend(sticky);
     }
 
-    renderTabs(reader, mailboxId, selectedId);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', enhance, {once: true}); else enhance();

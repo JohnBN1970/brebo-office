@@ -19,7 +19,20 @@
   function loadTabs(mailboxId) {
     try {
       const parsed = JSON.parse(localStorage.getItem(storageKey(mailboxId)) || '[]');
-      return Array.isArray(parsed) ? parsed.filter((tab) => tab && Number(tab.id) > 0 && tab.href) : [];
+      if (!Array.isArray(parsed)) return [];
+
+      const unique = new Map();
+      parsed.forEach((tab) => {
+        const url = tab && tab.href ? new URL(tab.href, window.location.origin) : null;
+        const route = url ? parseMailPath(url.pathname) : null;
+        if (!url || url.origin !== window.location.origin || !route || route.mailboxId !== Number(mailboxId) || Number(tab.id) !== route.communicationId) return;
+        unique.set(route.communicationId, {
+          id: route.communicationId,
+          href: url.pathname + url.search,
+          label: String(tab.label || '').trim() || 'E-mail ' + route.communicationId,
+        });
+      });
+      return Array.from(unique.values());
     }
     catch (e) {
       return [];
@@ -36,8 +49,10 @@
   }
 
   function remember(mailboxId, tab) {
-    const tabs = loadTabs(mailboxId).filter((item) => Number(item.id) !== Number(tab.id));
-    tabs.push(tab);
+    const tabs = loadTabs(mailboxId);
+    const index = tabs.findIndex((item) => Number(item.id) === Number(tab.id));
+    if (index >= 0) tabs[index] = tab;
+    else tabs.push(tab);
     saveTabs(mailboxId, tabs);
   }
 
@@ -61,13 +76,15 @@
 
     tabs.forEach((tab) => {
       const item = document.createElement('div');
-      item.className = 'brebo-mail-tab' + (Number(tab.id) === Number(activeId) ? ' is-active' : '');
+      const isActive = Number(tab.id) === Number(activeId);
+      item.className = 'brebo-mail-tab' + (isActive ? ' is-active' : '');
 
       const link = document.createElement('a');
       link.className = 'brebo-mail-tab__link';
       link.href = tab.href;
       link.textContent = tab.label || 'E-mail ' + tab.id;
       link.title = tab.label || '';
+      if (isActive) link.setAttribute('aria-current', 'page');
 
       const close = document.createElement('button');
       close.type = 'button';
@@ -77,11 +94,15 @@
       close.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        const remaining = loadTabs(mailboxId).filter((entry) => Number(entry.id) !== Number(tab.id));
+        const currentTabs = loadTabs(mailboxId);
+        const closingIndex = currentTabs.findIndex((entry) => Number(entry.id) === Number(tab.id));
+        const remaining = currentTabs.filter((entry) => Number(entry.id) !== Number(tab.id));
         saveTabs(mailboxId, remaining);
         if (Number(tab.id) === Number(activeId)) {
-          const next = remaining[remaining.length - 1];
-          window.location.assign(next ? next.href : '/mail/' + mailboxId + '/inbox');
+          const next = remaining[Math.min(Math.max(closingIndex, 0), remaining.length - 1)];
+          const current = parseMailPath(window.location.pathname);
+          const folder = current ? window.location.pathname.split('/').filter(Boolean)[2] : 'inbox';
+          window.location.assign(next ? next.href : '/mail/' + mailboxId + '/' + folder);
           return;
         }
         render(workspace, mailboxId, activeId);
@@ -89,6 +110,9 @@
 
       item.append(link, close);
       bar.append(item);
+      if (isActive) {
+        window.requestAnimationFrame(() => item.scrollIntoView({block: 'nearest', inline: 'nearest'}));
+      }
     });
 
     const layout = workspace.querySelector('.brebo-mail-layout');
