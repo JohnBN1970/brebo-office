@@ -1,0 +1,59 @@
+.brebo-funnel-controls {
+  align-items: end;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.brebo-funnel-controls .form-item {
+  margin: 0;
+  min-width: 12rem;
+}
+
+.brebo-kanban {
+  display: grid;
+  gap: 1rem;
+  grid-auto-columns: minmax(18rem, 1fr);
+  grid-auto-flow: column;
+  margin-top: 1rem;
+  overflow-x: auto;
+  padding-bottom: 1rem;
+}
+
+.brebo-kanban-column {
+  background: #f3f4f6;
+  border: 1px solid #d8dce2;
+  border-radius: .5rem;
+  min-height: 12rem;
+  padding: .75rem;
+}
+
+.brebo-kanban-column > h3 {
+  margin: 0 0 .75rem;
+}
+
+.brebo-kanban-cards {
+  display: grid;
+  gap: .75rem;
+}
+
+.brebo-kanban-card {
+  background: #fff;
+  border: 1px solid #d8dce2;
+  border-left: .3rem solid #1f6f8b;
+  border-radius: .35rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+  display: grid;
+  gap: .35rem;
+  padding: .75rem;
+}
+
+.brebo-kanban-card > :first-child {
+  font-weight: 700;
+}
+
+.brebo-kanban-card > div {
+  color: #4b5563;
+  font-size: .9rem;
+}
