@@ -12,10 +12,11 @@
     const id = communicationId();
     if (!id) return;
 
-    const href = '/communicatie/' + id + '/koppelen';
+    const destination = window.location.pathname + window.location.search;
+    const href = '/communicatie/' + id + '/koppelen?destination=' + encodeURIComponent(destination);
     document.querySelectorAll('.brebo-mail-office-actions .brebo-mail-action--disabled').forEach((element) => {
       const label = element.querySelector('.brebo-mail-action__label')?.textContent?.trim() || '';
-      if (label !== 'Koppel gebouw' && label !== 'Koppel project') return;
+      if (label !== 'Koppelen in Office') return;
 
       const link = document.createElement('a');
       link.className = element.className.replace(/\s*brebo-mail-action--disabled\b/g, '');
