@@ -47,3 +47,16 @@ brebo_document_data.revision_dossier:
     parameters:
       context_id:
         type: integer
+
+brebo_document_data.document_detail:
+  path: '/brebo/document/{document_id}'
+  defaults:
+    _controller: '\\Drupal\\brebo_document_data\\Controller\\DocumentDetailController::view'
+    _title: 'Document'
+  requirements:
+    _permission: 'access administration pages'
+    document_id: '\\d+'
+  options:
+    parameters:
+      document_id:
+        type: integer
