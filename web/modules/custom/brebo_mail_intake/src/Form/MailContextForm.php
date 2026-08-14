@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Connects a mail communication to one canonical BREBO business context. */
+/** Connects a mail communication to one canonical BREBO destination. */
 final class MailContextForm extends FormBase {
 
   public function __construct(
@@ -49,28 +49,24 @@ final class MailContextForm extends FormBase {
 
     $form_state->set('communication_nid', (int) $node->id());
     $project = $node->hasField('field_brebo_project_ref') ? $node->get('field_brebo_project_ref')->entity : NULL;
-    $organization = $node->hasField('field_brebo_comm_org_ref') ? $node->get('field_brebo_comm_org_ref')->entity : NULL;
-    $contact = $node->hasField('field_brebo_comm_contact_ref') ? $node->get('field_brebo_comm_contact_ref')->entity : NULL;
-
+    $currentContext = $node->hasField('field_brebo_comm_context') ? trim((string) $node->get('field_brebo_comm_context')->value) : '';
     $defaultTarget = $project instanceof NodeInterface ? 'project'
-      : ($organization instanceof NodeInterface ? 'organization'
-        : ($contact instanceof NodeInterface ? 'contact' : 'project'));
+      : ($currentContext === 'Persoonlijk' ? 'personal' : 'administration');
 
     $return = Url::fromRoute('brebo_mail_intake.mail_context', ['node' => $node->id()])->toString();
 
     $form['intro'] = [
-      '#markup' => '<p><strong>' . $this->t('Waar hoort deze e-mail zakelijk thuis?') . '</strong><br>'
-        . $this->t('Koppel aan één primaire context. Bij projectmail loopt het gebouw via het project; het gebouw wordt hier dus niet nogmaals handmatig gekoppeld.') . '</p>',
+      '#markup' => '<p><strong>' . $this->t('Waar hoort deze e-mail thuis?') . '</strong><br>'
+        . $this->t('Kies alleen de primaire bestemming. Gebouw, organisatie en contactpersoon zijn onderliggende relaties en worden niet als concurrerende bestemmingen aangeboden.') . '</p>',
     ];
 
     $form['target_type'] = [
       '#type' => 'radios',
-      '#title' => $this->t('Koppelen aan'),
+      '#title' => $this->t('Bestemming'),
       '#options' => [
         'project' => $this->t('Project'),
-        'organization' => $this->t('Organisatie'),
-        'contact' => $this->t('Contactpersoon'),
-        'brebo' => $this->t('BREBO algemeen / intern'),
+        'administration' => $this->t('Administratie'),
+        'personal' => $this->t('Persoonlijk'),
       ],
       '#default_value' => $defaultTarget,
     ];
@@ -85,7 +81,7 @@ final class MailContextForm extends FormBase {
       '#target_type' => 'node',
       '#selection_settings' => ['target_bundles' => ['brebo_project']],
       '#default_value' => $project,
-      '#description' => $this->t('Zoek eerst naar een bestaand project. Het gebouw volgt uit de projecthiërarchie.'),
+      '#description' => $this->t('Zoek eerst naar een bestaand project. Gebouw, organisatie en contactpersonen volgen als relaties vanuit het project en de communicatie.'),
     ];
     $form['project_wrap']['new_project'] = [
       '#type' => 'link',
@@ -96,47 +92,23 @@ final class MailContextForm extends FormBase {
       '#attributes' => ['class' => ['button', 'button--small']],
     ];
     $form['project_wrap']['project_note'] = [
-      '#markup' => '<p class="description">' . $this->t('Bestaat ook het gebouw nog niet, maak dat aan vanuit de projectaanmaak. Zo blijft de gebouwrelatie op één centrale plek.') . '</p>',
+      '#markup' => '<p class="description">' . $this->t('Bestaat het gebouw nog niet, maak het vanuit de projectaanmaak aan. Zo blijft de gebouwrelatie centraal op één plek.') . '</p>',
     ];
 
-    $form['organization_wrap'] = [
+    $form['administration_note'] = [
       '#type' => 'container',
-      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'organization']]],
-    ];
-    $form['organization_wrap']['organization'] = [
-      '#type' => 'entity_autocomplete',
-      '#title' => $this->t('Organisatie'),
-      '#target_type' => 'node',
-      '#selection_settings' => ['target_bundles' => ['brebo_organization']],
-      '#default_value' => $organization,
-    ];
-    $form['organization_wrap']['new_organization'] = [
-      '#type' => 'link',
-      '#title' => $this->t('+ Nieuwe organisatie aanmaken'),
-      '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_organization'], [
-        'query' => ['destination' => $return],
-      ]),
-      '#attributes' => ['class' => ['button', 'button--small']],
+      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'administration']]],
+      'text' => [
+        '#markup' => '<p class="description">' . $this->t('Administratieve classificaties en relaties zoals organisatie en contactpersoon worden onder deze bestemming vastgelegd; ze zijn geen aparte hoofdbestemming.') . '</p>',
+      ],
     ];
 
-    $form['contact_wrap'] = [
+    $form['personal_note'] = [
       '#type' => 'container',
-      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'contact']]],
-    ];
-    $form['contact_wrap']['contact'] = [
-      '#type' => 'entity_autocomplete',
-      '#title' => $this->t('Contactpersoon'),
-      '#target_type' => 'node',
-      '#selection_settings' => ['target_bundles' => ['brebo_contact']],
-      '#default_value' => $contact,
-    ];
-    $form['contact_wrap']['new_contact'] = [
-      '#type' => 'link',
-      '#title' => $this->t('+ Nieuw contact aanmaken'),
-      '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_contact'], [
-        'query' => ['destination' => $return],
-      ]),
-      '#attributes' => ['class' => ['button', 'button--small']],
+      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'personal']]],
+      'text' => [
+        '#markup' => '<p class="description">' . $this->t('Persoonlijk is bedoeld voor privécommunicatie en staat buiten het gedeelde zakelijke project- en administratiedossier.') . '</p>',
+      ],
     ];
 
     $documentCount = 0;
@@ -154,8 +126,8 @@ final class MailContextForm extends FormBase {
         ? $this->t('Documentregistratie is niet beschikbaar; de communicatiekoppeling kan wel worden opgeslagen.')
         : $this->formatPlural(
           $documentCount,
-          '1 document krijgt bij bevestiging dezelfde primaire context.',
-          '@count documenten krijgen bij bevestiging dezelfde primaire context.',
+          '1 document krijgt bij bevestiging dezelfde primaire bestemming.',
+          '@count documenten krijgen bij bevestiging dezelfde primaire bestemming.',
         ),
     ];
 
@@ -177,15 +149,12 @@ final class MailContextForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $target = (string) $form_state->getValue('target_type');
-    $value = match ($target) {
-      'project' => (int) $form_state->getValue(['project_wrap', 'project']),
-      'organization' => (int) $form_state->getValue(['organization_wrap', 'organization']),
-      'contact' => (int) $form_state->getValue(['contact_wrap', 'contact']),
-      'brebo' => 1,
-      default => 0,
-    };
-    if ($value <= 0) {
-      $form_state->setErrorByName('target_type', $this->t('Kies een geldige primaire context.'));
+    if (!in_array($target, ['project', 'administration', 'personal'], TRUE)) {
+      $form_state->setErrorByName('target_type', $this->t('Kies een geldige primaire bestemming.'));
+      return;
+    }
+    if ($target === 'project' && (int) $form_state->getValue(['project_wrap', 'project']) <= 0) {
+      $form_state->setErrorByName('project_wrap][project', $this->t('Kies een bestaand project of maak eerst een nieuw project aan.'));
     }
   }
 
@@ -205,23 +174,24 @@ final class MailContextForm extends FormBase {
       if ($node->hasField('field_brebo_project_ref')) {
         $node->set('field_brebo_project_ref', $contextId);
       }
-    }
-    elseif ($target === 'organization') {
-      $contextId = (int) $form_state->getValue(['organization_wrap', 'organization']);
-      if ($node->hasField('field_brebo_comm_org_ref')) {
-        $node->set('field_brebo_comm_org_ref', $contextId);
-      }
-    }
-    elseif ($target === 'contact') {
-      $contextId = (int) $form_state->getValue(['contact_wrap', 'contact']);
-      if ($node->hasField('field_brebo_comm_contact_ref')) {
-        $node->set('field_brebo_comm_contact_ref', $contextId);
-      }
-    }
-    elseif ($target === 'brebo') {
-      $contextId = 0;
       if ($node->hasField('field_brebo_comm_context')) {
-        $node->set('field_brebo_comm_context', 'BREBO algemeen / intern');
+        $node->set('field_brebo_comm_context', 'Project');
+      }
+    }
+    elseif ($target === 'administration') {
+      if ($node->hasField('field_brebo_project_ref')) {
+        $node->set('field_brebo_project_ref', NULL);
+      }
+      if ($node->hasField('field_brebo_comm_context')) {
+        $node->set('field_brebo_comm_context', 'Administratie');
+      }
+    }
+    elseif ($target === 'personal') {
+      if ($node->hasField('field_brebo_project_ref')) {
+        $node->set('field_brebo_project_ref', NULL);
+      }
+      if ($node->hasField('field_brebo_comm_context')) {
+        $node->set('field_brebo_comm_context', 'Persoonlijk');
       }
     }
     else {
@@ -229,7 +199,7 @@ final class MailContextForm extends FormBase {
     }
 
     $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage('Primaire zakelijke context handmatig bevestigd vanuit BREBO Mail.');
+    $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
     $node->save();
 
     $documentIds = [];
@@ -259,7 +229,7 @@ final class MailContextForm extends FormBase {
       }
     }
 
-    $this->messenger()->addStatus($this->t('Communicatie en @count document(en) zijn aan de gekozen primaire context gekoppeld.', [
+    $this->messenger()->addStatus($this->t('Communicatie en @count document(en) zijn aan de gekozen primaire bestemming gekoppeld.', [
       '@count' => count($documentIds),
     ]));
 
