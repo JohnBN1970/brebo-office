@@ -318,6 +318,14 @@ brebo_office_core.crm:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.funnel:
+  path: '/relaties/funnel'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::funnel'
+    _title: 'Commerciële funnel'
+  requirements:
+    _permission: 'access content'
+
 brebo_office_core.organizations:
   path: '/relaties/organisaties'
   defaults:
