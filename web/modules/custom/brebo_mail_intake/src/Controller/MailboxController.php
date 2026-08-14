@@ -192,6 +192,14 @@ final class MailboxController extends ControllerBase {
       ? '<div class="brebo-mail-office-link-status"><strong>🔗 Gekoppeld in Office</strong><span>' . implode(' · ', $context) . '</span></div>'
       : '<div class="brebo-mail-office-link-status is-unlinked"><span>Nog niet gekoppeld aan project of gebouw</span></div>';
 
+    $attachmentMarkup = '';
+    foreach (($message['attachments'] ?? []) as $attachment) {
+      $attachmentMarkup .= '<li>' . htmlspecialchars((string) $attachment, ENT_QUOTES, 'UTF-8') . '</li>';
+    }
+    if ($attachmentMarkup !== '') {
+      $attachmentMarkup = '<div class="brebo-mail-reader__attachments"><strong>📎 Bijlagen</strong><ul>' . $attachmentMarkup . '</ul></div>';
+    }
+
     $tagMarkup = '';
     foreach (($message['tags'] ?? []) as $tag) {
       $tagMarkup .= '<span class="brebo-mail-tag">' . htmlspecialchars((string) $tag, ENT_QUOTES, 'UTF-8') . '</span>';
@@ -200,7 +208,7 @@ final class MailboxController extends ControllerBase {
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
-      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
+      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . $attachmentMarkup . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
     ];
 
     if ($communicationId > 0) {
@@ -279,6 +287,20 @@ final class MailboxController extends ControllerBase {
         ->fetchCol();
     }
 
+    $attachments = [];
+    if ($node->hasField('field_brebo_comm_attachments')) {
+      foreach ($node->get('field_brebo_comm_attachments')->referencedEntities() as $file) {
+        $attachments[] = (string) $file->label();
+      }
+    }
+    if ($this->database->schema()->tableExists('brebo_outbound_document_attachment')) {
+      $documentQuery = $this->database->select('brebo_outbound_document_attachment', 'a');
+      $documentQuery->join('brebo_document', 'd', 'd.id = a.document_id');
+      $documentQuery->addField('d', 'title');
+      $documentQuery->condition('a.communication_id', $communicationId)->condition('d.lifecycle_status', 'deleted', '<>');
+      $attachments = array_merge($attachments, array_map('strval', $documentQuery->execute()->fetchCol()));
+    }
+
     return [
       'title' => $node->label(),
       'mail_from' => $node->hasField('field_brebo_mail_from') ? (string) $node->get('field_brebo_mail_from')->value : '',
@@ -290,6 +312,7 @@ final class MailboxController extends ControllerBase {
       'project_label' => $project ? $project->label() : '',
       'building_label' => $building ? $building->label() : '',
       'tags' => $tags,
+      'attachments' => array_values(array_unique($attachments)),
     ];
   }
 

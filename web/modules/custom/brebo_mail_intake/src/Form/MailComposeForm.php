@@ -8,6 +8,7 @@ use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\OutboundMailService;
+use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -29,6 +30,7 @@ final class MailComposeForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $mailCurrentUser,
     private readonly MailEditorProvisioner $editorProvisioner,
+    private readonly OutboundAttachmentService $attachmentService,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -40,6 +42,7 @@ final class MailComposeForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('current_user'),
       $container->get('brebo_mail_intake.editor_provisioner'),
+      $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }
 
@@ -93,6 +96,36 @@ final class MailComposeForm extends FormBase {
       '#format' => 'brebo_mail_html',
       '#rows' => 16,
     ];
+    $form['attachments'] = [
+      '#type' => 'details',
+      '#title' => $this->t('📎 Bijlagen'),
+      '#open' => FALSE,
+    ];
+    $form['attachments']['uploads'] = [
+      '#type' => 'managed_file',
+      '#title' => $this->t('Bestand toevoegen'),
+      '#upload_location' => 'private://brebo-office/outbound-mail/' . date('Y-m'),
+      '#multiple' => TRUE,
+      '#upload_validators' => [
+        'FileExtension' => ['extensions' => 'pdf doc docx xls xlsx csv txt jpg jpeg png webp eml msg'],
+        'FileSizeLimit' => ['fileLimit' => 26214400],
+      ],
+      '#description' => $this->t('Upload één of meer bestanden; maximaal 25 MB per bestand en 25 MB totaal per e-mail.'),
+    ];
+    if ($this->currentUser()->hasPermission('access administration pages')) {
+      $options = $this->attachmentService->documentOptions();
+      $form['attachments']['documents'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Uit BREBO-documentatie'),
+        '#options' => $options,
+        '#multiple' => TRUE,
+        '#size' => min(10, max(3, count($options))),
+        '#description' => $options === []
+          ? $this->t('Er zijn nog geen beschikbare documenten.')
+          : $this->t('Selecteer bestaande gecontroleerde documenten. Ctrl/Cmd ingedrukt houden voor meerdere.'),
+        '#disabled' => $options === [],
+      ];
+    }
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['save'] = ['#type' => 'submit', '#value' => $this->t('Concept opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_mail_intake.mailbox', ['mailbox_id' => $mailbox_id, 'mail_state' => 'inbox']), '#attributes' => ['class' => ['button']]];
@@ -128,6 +161,10 @@ final class MailComposeForm extends FormBase {
       'body' => $this->htmlToText($bodyHtml),
       'body_html' => $bodyHtml,
     ]);
+    $uploadIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('uploads'))));
+    $documentIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('documents'))));
+    $this->attachmentService->attach($draft, $uploadIds, $documentIds);
+
     $this->database->merge('brebo_mailbox_message')
       ->keys(['mailbox_id' => $mailboxId, 'communication_id' => (int) $draft->id()])
       ->fields(['mail_state' => 'draft', 'is_read' => 1, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
