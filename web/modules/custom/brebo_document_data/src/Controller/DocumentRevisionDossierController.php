@@ -7,6 +7,7 @@ namespace Drupal\brebo_document_data\Controller;
 use Drupal\brebo_document_data\Service\DocumentRepository;
 use Drupal\brebo_document_data\Service\DocumentRevisionSeries;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -96,6 +97,21 @@ final class DocumentRevisionDossierController extends ControllerBase {
         '#theme' => 'item_list',
         '#items' => $items,
       ],
+      'actions' => $documentId > 0 ? [
+        '#type' => 'container',
+        'detail' => [
+          '#type' => 'link',
+          '#title' => $this->t('Documentdetails'),
+          '#url' => Url::fromRoute('brebo_document_data.document_detail', ['document_id' => $documentId]),
+          '#suffix' => ' · ',
+        ],
+        'original' => [
+          '#type' => 'link',
+          '#title' => $this->t('Origineel openen'),
+          '#url' => Url::fromRoute('brebo_document_data.document_open', ['document_id' => $documentId]),
+          '#attributes' => ['target' => '_blank', 'rel' => 'noopener'],
+        ],
+      ] : [],
     ];
   }
 
