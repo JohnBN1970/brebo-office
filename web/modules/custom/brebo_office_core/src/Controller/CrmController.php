@@ -8,13 +8,15 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** Provides the canonical CRM organization dossier. */
 final class CrmController extends ControllerBase {
 
-  public function overview(): array {
+  public function overview(Request $request): array {
     $storage = $this->entityTypeManager()->getStorage('node');
+    $search = trim((string) $request->query->get('q', ''));
 
     $organizationCount = (int) $storage->getQuery()
       ->accessCheck(TRUE)
@@ -39,18 +41,35 @@ final class CrmController extends ControllerBase {
       ->count()
       ->execute();
 
-    $organizationIds = $storage->getQuery()
+    $organizationQuery = $storage->getQuery()
       ->accessCheck(TRUE)
-      ->condition('type', 'brebo_organization')
-      ->sort('changed', 'DESC')
-      ->range(0, 10)
-      ->execute();
-    $contactIds = $storage->getQuery()
+      ->condition('type', 'brebo_organization');
+    $contactQuery = $storage->getQuery()
       ->accessCheck(TRUE)
-      ->condition('type', 'brebo_contact')
-      ->sort('changed', 'DESC')
-      ->range(0, 10)
-      ->execute();
+      ->condition('type', 'brebo_contact');
+
+    if ($search !== '') {
+      $organizationMatch = $organizationQuery->orConditionGroup()
+        ->condition('title', $search, 'CONTAINS')
+        ->condition('field_brebo_org_email', $search, 'CONTAINS');
+      $organizationQuery->condition($organizationMatch)
+        ->sort('title')
+        ->range(0, 50);
+
+      $contactMatch = $contactQuery->orConditionGroup()
+        ->condition('title', $search, 'CONTAINS')
+        ->condition('field_brebo_contact_email', $search, 'CONTAINS');
+      $contactQuery->condition($contactMatch)
+        ->sort('title')
+        ->range(0, 50);
+    }
+    else {
+      $organizationQuery->sort('changed', 'DESC')->range(0, 10);
+      $contactQuery->sort('changed', 'DESC')->range(0, 10);
+    }
+
+    $organizationIds = $organizationQuery->execute();
+    $contactIds = $contactQuery->execute();
 
     $organizationRows = [];
     foreach ($storage->loadMultiple($organizationIds) as $organization) {
@@ -93,6 +112,39 @@ final class CrmController extends ControllerBase {
     }
 
     return [
+      'search' => [
+        '#type' => 'html_tag',
+        '#tag' => 'form',
+        '#attributes' => [
+          'method' => 'get',
+          'action' => Url::fromRoute('brebo_office_core.crm')->toString(),
+          'class' => ['brebo-list-actions'],
+          'role' => 'search',
+        ],
+        'query' => [
+          '#type' => 'html_tag',
+          '#tag' => 'input',
+          '#attributes' => [
+            'type' => 'search',
+            'name' => 'q',
+            'value' => $search,
+            'placeholder' => $this->t('Zoek op naam of e-mailadres'),
+            'aria-label' => $this->t('Relaties zoeken'),
+          ],
+        ],
+        'submit' => [
+          '#type' => 'html_tag',
+          '#tag' => 'button',
+          '#value' => $this->t('Zoeken'),
+          '#attributes' => ['type' => 'submit', 'class' => ['button']],
+        ],
+        'clear' => $search !== '' ? [
+          '#type' => 'link',
+          '#title' => $this->t('Wissen'),
+          '#url' => Url::fromRoute('brebo_office_core.crm'),
+          '#attributes' => ['class' => ['button']],
+        ] : [],
+      ],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
@@ -128,19 +180,19 @@ final class CrmController extends ControllerBase {
         '#rows' => [[$organizationCount, $activeOrganizationCount, $contactCount, $activeContactCount]],
       ],
       'organizations' => $this->section(
-        $this->t('Recent gewijzigde organisaties'),
+        $search !== '' ? $this->t('Gevonden organisaties') : $this->t('Recent gewijzigde organisaties'),
         [$this->t('Organisatie'), $this->t('Type'), $this->t('Status'), $this->t('E-mail')],
         $organizationRows,
-        $this->t('Nog geen organisaties aangemaakt.')
+        $search !== '' ? $this->t('Geen organisaties gevonden.') : $this->t('Nog geen organisaties aangemaakt.')
       ),
       'contacts' => $this->section(
-        $this->t('Recent gewijzigde contactpersonen'),
+        $search !== '' ? $this->t('Gevonden contactpersonen') : $this->t('Recent gewijzigde contactpersonen'),
         [$this->t('Contactpersoon'), $this->t('Organisatie'), $this->t('Rol'), $this->t('E-mail')],
         $contactRows,
-        $this->t('Nog geen contactpersonen aangemaakt.')
+        $search !== '' ? $this->t('Geen contactpersonen gevonden.') : $this->t('Nog geen contactpersonen aangemaakt.')
       ),
       '#cache' => [
-        'contexts' => ['user.permissions'],
+        'contexts' => ['user.permissions', 'url.query_args:q'],
         'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact'],
       ],
     ];
