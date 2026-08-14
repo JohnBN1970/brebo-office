@@ -210,6 +210,24 @@ final class CrmController extends ControllerBase {
       ? $node->get('field_brebo_org_ref')->entity
       : NULL;
 
+    $affiliationIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact_affiliation')
+      ->condition('field_brebo_aff_contact_ref.target_id', $node->id())
+      ->sort('field_brebo_aff_primary', 'DESC')
+      ->sort('changed', 'DESC')
+      ->execute();
+    $affiliations = $storage->loadMultiple($affiliationIds);
+
+    $contactPointIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact_point')
+      ->condition('field_brebo_cp_contact_ref.target_id', $node->id())
+      ->sort('field_brebo_cp_primary', 'DESC')
+      ->sort('changed', 'DESC')
+      ->execute();
+    $contactPoints = $storage->loadMultiple($contactPointIds);
+
     $projects = [];
     $buildings = [];
     if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
@@ -289,6 +307,53 @@ final class CrmController extends ControllerBase {
       )->toRenderable();
     }
 
+    $affiliationRows = [];
+    foreach ($affiliations as $affiliation) {
+      if (!$affiliation instanceof NodeInterface) {
+        continue;
+      }
+      $affiliatedOrganization = $affiliation->get('field_brebo_aff_org_ref')->entity;
+      $organizationLink = '—';
+      if ($affiliatedOrganization instanceof NodeInterface) {
+        $organizationLink = Link::fromTextAndUrl(
+          $affiliatedOrganization->label(),
+          Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $affiliatedOrganization->id()])
+        )->toRenderable();
+      }
+      $affiliationRows[] = [
+        ['data' => $organizationLink],
+        $this->value($affiliation, 'field_brebo_aff_role'),
+        $this->value($affiliation, 'field_brebo_aff_department'),
+        $this->value($affiliation, 'field_brebo_aff_status'),
+        $affiliation->get('field_brebo_aff_primary')->value ? $this->t('Ja') : $this->t('Nee'),
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $affiliation->id()]))->toRenderable()],
+      ];
+    }
+
+    $contactPointRows = [];
+    foreach ($contactPoints as $contactPoint) {
+      if (!$contactPoint instanceof NodeInterface) {
+        continue;
+      }
+      $affiliation = $contactPoint->get('field_brebo_cp_affiliation_ref')->entity;
+      $context = $this->t('Algemeen / privé');
+      if ($affiliation instanceof NodeInterface) {
+        $affiliatedOrganization = $affiliation->get('field_brebo_aff_org_ref')->entity;
+        if ($affiliatedOrganization instanceof NodeInterface) {
+          $context = $affiliatedOrganization->label();
+        }
+      }
+      $contactPointRows[] = [
+        $this->value($contactPoint, 'field_brebo_cp_channel'),
+        $this->value($contactPoint, 'field_brebo_cp_label'),
+        $this->value($contactPoint, 'field_brebo_cp_value'),
+        $context,
+        $contactPoint->get('field_brebo_cp_primary')->value ? $this->t('Ja') : $this->t('Nee'),
+        $contactPoint->get('field_brebo_cp_active')->value ? $this->t('Actief') : $this->t('Inactief'),
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $contactPoint->id()]))->toRenderable()],
+      ];
+    }
+
     return [
       'actions' => [
         '#type' => 'container',
@@ -297,6 +362,22 @@ final class CrmController extends ControllerBase {
           '#type' => 'link',
           '#title' => $this->t('Contactpersoon bewerken'),
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'affiliation' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contactrelatie toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_contact_affiliation'], [
+            'query' => ['contact' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'contact_point' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contactgegeven toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_contact_point'], [
+            'query' => ['contact' => $node->id()],
+          ]),
           '#attributes' => ['class' => ['button']],
         ],
         'communication' => [
@@ -325,7 +406,7 @@ final class CrmController extends ControllerBase {
       ],
       'details' => [
         '#type' => 'details',
-        '#title' => $this->t('Contactgegevens'),
+        '#title' => $this->t('Oude basisgegevens (overgang)'),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
@@ -337,6 +418,18 @@ final class CrmController extends ControllerBase {
           ],
         ],
       ],
+      'affiliations' => $this->section(
+        $this->t('Contactrelaties'),
+        [$this->t('Organisatie'), $this->t('Rol/functie'), $this->t('Afdeling'), $this->t('Status'), $this->t('Primair'), $this->t('Actie')],
+        $affiliationRows,
+        $this->t('Nog geen contactrelaties vastgelegd.')
+      ),
+      'contact_points' => $this->section(
+        $this->t('Contactgegevens'),
+        [$this->t('Kanaal'), $this->t('Label'), $this->t('Waarde'), $this->t('Context'), $this->t('Primair'), $this->t('Status'), $this->t('Actie')],
+        $contactPointRows,
+        $this->t('Nog geen contactgegevens vastgelegd.')
+      ),
       'projects' => $this->section($this->t('Projecten via organisatie'), [$this->t('Project'), $this->t('Status'), $this->t('Soort')], $projectRows, $this->t('Geen projecten via de organisatie gevonden.')),
       'buildings' => $this->section($this->t('Gebouwen via projecten'), [$this->t('Gebouw'), $this->t('Adres'), $this->t('Status')], $buildingRows, $this->t('Geen gebouwen via projecten gevonden.')),
       'communications' => $this->section($this->t('Laatste communicatie met deze contactpersoon'), [$this->t('Onderwerp'), $this->t('Datum'), $this->t('Richting'), $this->t('Status')], $communicationRows, $this->t('Nog geen communicatie gekoppeld.')),
@@ -344,6 +437,8 @@ final class CrmController extends ControllerBase {
         'contexts' => ['user.permissions'],
         'tags' => array_merge($node->getCacheTags(), [
           'node_list:brebo_organization',
+          'node_list:brebo_contact_affiliation',
+          'node_list:brebo_contact_point',
           'node_list:brebo_project',
           'node_list:brebo_building',
           'node_list:brebo_communication',

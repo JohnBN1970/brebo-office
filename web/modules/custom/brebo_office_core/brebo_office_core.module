@@ -100,6 +100,26 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     }
   }
 
+  if (in_array($node->bundle(), ['brebo_contact_affiliation', 'brebo_contact_point'], TRUE) && $node->isNew()) {
+    $node->setTitle($node->bundle() === 'brebo_contact_affiliation' ? 'Nieuwe contactrelatie' : 'Nieuw contactgegeven');
+    if (isset($form['title'])) {
+      $form['title']['#access'] = FALSE;
+    }
+
+    $contact_id = (int) \Drupal::request()->query->get('contact', 0);
+    $contact = $contact_id > 0
+      ? \Drupal::entityTypeManager()->getStorage('node')->load($contact_id)
+      : NULL;
+    $contact_field = $node->bundle() === 'brebo_contact_affiliation'
+      ? 'field_brebo_aff_contact_ref'
+      : 'field_brebo_cp_contact_ref';
+    if ($contact instanceof NodeInterface
+      && $contact->bundle() === 'brebo_contact'
+      && isset($form[$contact_field]['widget'][0]['target_id'])) {
+      $form[$contact_field]['widget'][0]['target_id']['#default_value'] = $contact;
+    }
+  }
+
   if ($node->bundle() === 'brebo_contact' && $node->isNew()) {
     $organization_id = (int) \Drupal::request()->query->get('organization', 0);
     $organization = $organization_id > 0
