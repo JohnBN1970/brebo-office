@@ -316,6 +316,7 @@ final class CrmController extends ControllerBase {
     $ownerTotals = [];
     $ownerPerformance = [];
     $organizationPerformance = [];
+    $organizationContactIds = [];
     $forecastTotals = [];
     $overdueCloseRows = [];
     $lossReasons = [];
@@ -351,6 +352,13 @@ final class CrmController extends ControllerBase {
       $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
       $organizationLabel = $organization instanceof NodeInterface ? (string) $organization->label() : '—';
       $organizationKey = $organization instanceof NodeInterface ? (int) $organization->id() : 0;
+      if (!isset($organizationContactIds[$organizationKey])) {
+        $organizationContactIds[$organizationKey] = [];
+      }
+      $opportunityContactId = (int) ($opportunity->get('field_brebo_opp_contact_ref')->target_id ?? 0);
+      if ($opportunityContactId > 0) {
+        $organizationContactIds[$organizationKey][$opportunityContactId] = $opportunityContactId;
+      }
       if (!isset($organizationPerformance[$organizationKey])) {
         $organizationPerformance[$organizationKey] = [
           'node' => $organization instanceof NodeInterface ? $organization : NULL,
@@ -880,16 +888,48 @@ final class CrmController extends ControllerBase {
     ];
 
     $organizationPerformanceRows = [];
+    $relationshipRiskRows = [];
+    $relationshipRiskCount = 0;
     uasort($organizationPerformance, static function (array $a, array $b): int {
       return ($b['weighted'] + $b['won_value']) <=> ($a['weighted'] + $a['won_value']);
     });
-    foreach ($organizationPerformance as $performance) {
+    foreach ($organizationPerformance as $organizationKey => $performance) {
       if ($performance['open'] === 0 && $performance['won'] === 0) {
         continue;
       }
       $organizationCell = $performance['node'] instanceof NodeInterface
         ? Link::fromTextAndUrl($performance['label'], Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $performance['node']->id()]))->toRenderable()
         : $performance['label'];
+      $contactIds = $organizationContactIds[$organizationKey] ?? [];
+      if ($performance['node'] instanceof NodeInterface) {
+        $affiliationIds = $storage->getQuery()
+          ->accessCheck(TRUE)
+          ->condition('type', 'brebo_contact_affiliation')
+          ->condition('field_brebo_aff_org_ref.target_id', $performance['node']->id())
+          ->execute();
+        foreach ($storage->loadMultiple($affiliationIds) as $affiliation) {
+          if ($affiliation instanceof NodeInterface) {
+            $affiliationContactId = (int) ($affiliation->get('field_brebo_aff_contact_ref')->target_id ?? 0);
+            if ($affiliationContactId > 0) {
+              $contactIds[$affiliationContactId] = $affiliationContactId;
+            }
+          }
+        }
+      }
+      $contactCount = count($contactIds);
+      $relationshipRisk = $contactCount === 0
+        ? (string) $this->t('Hoog: geen contactpersoon')
+        : ($contactCount === 1 ? (string) $this->t('Aandacht: afhankelijk van één persoon') : (string) $this->t('Voldoende dekking'));
+      if ($performance['open'] > 0 && $contactCount < 2) {
+        $relationshipRiskCount++;
+        $relationshipRiskRows[] = [
+          ['data' => $organizationCell],
+          $performance['open'],
+          '€ ' . number_format($performance['weighted'], 2, ',', '.'),
+          $contactCount,
+          $relationshipRisk,
+        ];
+      }
       $organizationPerformanceRows[] = [
         ['data' => $organizationCell],
         $performance['open'],
@@ -898,6 +938,8 @@ final class CrmController extends ControllerBase {
         $totalWeighted > 0 ? round($performance['weighted'] * 100 / $totalWeighted, 1) . '%' : '—',
         $performance['won'],
         '€ ' . number_format($performance['won_value'], 2, ',', '.'),
+        $contactCount,
+        $relationshipRisk,
       ];
     }
 
@@ -1059,9 +1101,15 @@ final class CrmController extends ControllerBase {
         $trendRows,
         $this->t('Geen trendgegevens beschikbaar.')
       ),
+      'relationship_risk' => $this->section(
+        $this->t('Relatiedekking en persoonsafhankelijkheid (@count)', ['@count' => $relationshipRiskCount]),
+        [$this->t('Organisatie'), $this->t('Open kansen'), $this->t('Gewogen omzet'), $this->t('Contactpersonen'), $this->t('Signaal')],
+        $relationshipRiskRows,
+        $this->t('Alle organisaties met open kansen hebben minimaal twee contactpersonen.')
+      ),
       'organization_performance' => $this->section(
         $this->t('Pipeline en omzet per organisatie'),
-        [$this->t('Organisatie'), $this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Aandeel pipeline'), $this->t('Gewonnen'), $this->t('Gewonnen omzet periode')],
+        [$this->t('Organisatie'), $this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Aandeel pipeline'), $this->t('Gewonnen'), $this->t('Gewonnen omzet periode'), $this->t('Contactpersonen'), $this->t('Relatiedekking')],
         $organizationPerformanceRows,
         $this->t('Geen pipeline- of omzetgegevens per organisatie.')
       ),
@@ -1141,7 +1189,7 @@ final class CrmController extends ControllerBase {
       'kanban' => $kanbanBuild,
       '#cache' => [
         'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
-        'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_opportunity_event', 'node_list:brebo_organization', 'node_list:brebo_communication'],
+        'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_opportunity_event', 'node_list:brebo_contact_affiliation', 'node_list:brebo_organization', 'node_list:brebo_communication'],
       ],
     ];
   }
