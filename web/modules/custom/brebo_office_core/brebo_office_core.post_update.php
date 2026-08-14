@@ -364,3 +364,52 @@ function brebo_office_core_post_update_canonical_feedback_learning_loop(array &$
 
   return 'Feedback- en tevredenheidsobject met herleidbare leerkring ingericht: ervaring naar oorzaak, verbeteractie, gewijzigde werkwijze en hermeting.';
 }
+
+
+/**
+ * Adds only the approved links from funnel opportunities to delivery records.
+ */
+function brebo_office_core_post_update_funnel_delivery_links(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle('brebo_opportunity', 'Commerciële kans',
+    'Zelfstandige commerciële kans binnen de begeleide funnel.', [
+      'field_brebo_opp_calc_ref' => [
+        'label' => 'Calculatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_calculation' => 'brebo_calculation']]],
+        'description' => 'De calculatie die bij deze commerciële kans hoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 7,
+      ],
+      'field_brebo_opp_offer_ref' => [
+        'label' => 'Offerteversie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_offer_version' => 'brebo_offer_version']]],
+        'description' => 'De actuele formele offerteversie voor deze kans.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 8,
+      ],
+      'field_brebo_opp_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Het project dat gecontroleerd uit de gewonnen kans is ontstaan.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 9,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_project', 'Project',
+    'Centraal projectobject binnen BREBO Office.', [
+      'field_brebo_project_opp_ref' => [
+        'label' => 'Commerciële herkomst', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_opportunity' => 'brebo_opportunity']]],
+        'description' => 'De gewonnen commerciële kans waaruit dit project is ontstaan.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 5,
+      ],
+    ]);
+
+  return 'Vier goedgekeurde funnelkoppelingen naar calculatie, offerte en project ingericht.';
+}
