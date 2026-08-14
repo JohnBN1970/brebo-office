@@ -123,3 +123,30 @@ function brebo_mail_intake_post_update_mailbox_foundation(array &$sandbox = NULL
 
   return 'BREBO mailbox foundation aangemaakt: logische mailboxen, rolcapaciteiten en berichtstatussen staan los van providerfolders.';
 }
+
+/**
+ * Creates lightweight tags for canonical BREBO communication objects.
+ */
+function brebo_mail_intake_post_update_mail_tags(array &$sandbox = NULL): string {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_mail_tag')) {
+    return 'BREBO mail-tags waren al beschikbaar.';
+  }
+
+  $schema->createTable('brebo_mail_tag', [
+    'description' => 'User-managed tags for canonical BREBO communication objects.',
+    'fields' => [
+      'communication_id' => ['type' => 'int', 'not null' => TRUE],
+      'tag' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      'uid' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['communication_id', 'tag'],
+    'indexes' => [
+      'communication' => ['communication_id'],
+      'tag' => ['tag'],
+    ],
+  ]);
+
+  return 'BREBO mail-tags aangemaakt; tags blijven los van formele Office-koppelingen.';
+}

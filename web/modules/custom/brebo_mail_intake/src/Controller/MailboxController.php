@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Controller;
 
 use Drupal\brebo_mail_intake\Form\MailboxMessageActionForm;
+use Drupal\brebo_mail_intake\Form\MailboxTagForm;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
@@ -100,7 +101,7 @@ final class MailboxController extends ControllerBase {
       '#attributes' => ['class' => ['brebo-mail-layout']],
       'folders' => $this->folderPane($visibleMailboxes, $mailbox_id, $mail_state),
       'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id),
-      'reader' => $this->readerPane($selected),
+      'reader' => $this->readerPane($selected, $mailbox_id, $communication_id, $mail_state),
     ];
 
     return $build;
@@ -138,19 +139,28 @@ final class MailboxController extends ControllerBase {
       $subject = trim((string) ($row['subject'] ?? '')) ?: '(geen onderwerp)';
       $from = trim((string) ($row['mail_from'] ?? '')) ?: 'Onbekende afzender';
       $date = trim((string) ($row['mail_datetime'] ?? ''));
-      $flags = (!empty($row['is_starred']) ? '★ ' : '') . (empty($row['is_read']) ? '● ' : '') . (!empty($row['needs_action']) ? '⚑ ' : '');
+      $linked = !empty($row['office_linked']);
+      $flags = (!empty($row['is_starred']) ? '★ ' : '') . (empty($row['is_read']) ? '● ' : '') . (!empty($row['needs_action']) ? '⚑ ' : '') . ($linked ? '🔗 ' : '');
+      $tagMarkup = '';
+      foreach (($row['tags'] ?? []) as $tag) {
+        $tagMarkup .= '<span class="brebo-mail-tag">' . htmlspecialchars((string) $tag, ENT_QUOTES, 'UTF-8') . '</span>';
+      }
       $items[] = [
         '#type' => 'link',
         '#title' => $flags . $from . ' — ' . $subject . ($date !== '' ? ' · ' . $date : ''),
         '#url' => $url,
-        '#prefix' => '<div style="padding:.65rem;border-bottom:1px solid #ddd;' . ($id === $selectedId ? 'font-weight:700;' : '') . '">',
-        '#suffix' => '</div>',
+        '#attributes' => [
+          'class' => $linked ? ['brebo-mail-message-link', 'is-office-linked'] : ['brebo-mail-message-link'],
+          'title' => $linked ? 'Al gekoppeld aan BREBO Office' : '',
+        ],
+        '#prefix' => '<div class="brebo-mail-message-row" style="padding:.65rem;border-bottom:1px solid #ddd;' . ($id === $selectedId ? 'font-weight:700;' : '') . '">',
+        '#suffix' => ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list">' . $tagMarkup . '</div>' : '') . '</div>',
       ];
     }
     return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-list']], 'items' => $items];
   }
 
-  private function readerPane(?array $message): array {
+  private function readerPane(?array $message, int $mailboxId, int $communicationId, string $mailState): array {
     if (!$message) {
       return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-reader']], 'empty' => ['#markup' => '<p class="brebo-mail-reader__empty">Selecteer een bericht.</p>']];
     }
@@ -161,11 +171,32 @@ final class MailboxController extends ControllerBase {
     $date = htmlspecialchars((string) ($message['mail_datetime'] ?? ''), ENT_QUOTES, 'UTF-8');
     $body = nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
 
-    return [
+    $context = [];
+    if (($message['project_label'] ?? '') !== '') {
+      $context[] = 'Project: ' . htmlspecialchars((string) $message['project_label'], ENT_QUOTES, 'UTF-8');
+    }
+    if (($message['building_label'] ?? '') !== '') {
+      $context[] = 'Gebouw: ' . htmlspecialchars((string) $message['building_label'], ENT_QUOTES, 'UTF-8');
+    }
+    $contextMarkup = $context
+      ? '<div class="brebo-mail-office-link-status"><strong>🔗 Gekoppeld in Office</strong><span>' . implode(' · ', $context) . '</span></div>'
+      : '<div class="brebo-mail-office-link-status is-unlinked"><span>Nog niet gekoppeld aan project of gebouw</span></div>';
+
+    $tagMarkup = '';
+    foreach (($message['tags'] ?? []) as $tag) {
+      $tagMarkup .= '<span class="brebo-mail-tag">' . htmlspecialchars((string) $tag, ENT_QUOTES, 'UTF-8') . '</span>';
+    }
+
+    $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
-      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br><strong>Datum/tijd:</strong> ' . $date . '</div><div class="brebo-mail-reader__body">' . $body . '</div></article>'],
+      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br><strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
     ];
+
+    if ($communicationId > 0) {
+      $build['tags_form'] = $this->formBuilder()->getForm(MailboxTagForm::class, $mailboxId, $communicationId, $mailState);
+    }
+    return $build;
   }
 
   /** @return array<int, array<string, mixed>> */
@@ -181,7 +212,33 @@ final class MailboxController extends ControllerBase {
     $query->addField('md', 'field_brebo_comm_datetime_value', 'mail_datetime');
     $query->condition('bm.mailbox_id', $mailboxId)->condition('bm.mail_state', $state)->condition('n.type', 'brebo_communication');
     $query->orderBy('md.field_brebo_comm_datetime_value', 'DESC')->orderBy('bm.changed', 'DESC')->range(0, 100);
-    return array_values(array_map('get_object_vars', $query->execute()->fetchAll()));
+    $rows = array_values(array_map('get_object_vars', $query->execute()->fetchAll()));
+    if ($rows === []) {
+      return [];
+    }
+
+    $ids = array_map(static fn(array $row): int => (int) $row['communication_id'], $rows);
+    $nodes = $this->mailboxEntityTypeManager->getStorage('node')->loadMultiple($ids);
+    $tagsByCommunication = [];
+    if ($this->database->schema()->tableExists('brebo_mail_tag')) {
+      $tagQuery = $this->database->select('brebo_mail_tag', 't')->fields('t', ['communication_id', 'tag']);
+      $tagQuery->condition('communication_id', $ids, 'IN')->orderBy('tag');
+      foreach ($tagQuery->execute() as $tagRow) {
+        $tagsByCommunication[(int) $tagRow->communication_id][] = (string) $tagRow->tag;
+      }
+    }
+
+    foreach ($rows as &$row) {
+      $id = (int) $row['communication_id'];
+      $node = $nodes[$id] ?? NULL;
+      $projectId = ($node && $node->hasField('field_brebo_project_ref')) ? (int) ($node->get('field_brebo_project_ref')->target_id ?? 0) : 0;
+      $buildingId = ($node && $node->hasField('field_brebo_building_ref')) ? (int) ($node->get('field_brebo_building_ref')->target_id ?? 0) : 0;
+      $row['office_linked'] = $projectId > 0 || $buildingId > 0;
+      $row['tags'] = $tagsByCommunication[$id] ?? [];
+    }
+    unset($row);
+
+    return $rows;
   }
 
   /** @return array<string, mixed>|null */
@@ -200,12 +257,27 @@ final class MailboxController extends ControllerBase {
       return NULL;
     }
 
+    $project = $node->hasField('field_brebo_project_ref') ? $node->get('field_brebo_project_ref')->entity : NULL;
+    $building = $node->hasField('field_brebo_building_ref') ? $node->get('field_brebo_building_ref')->entity : NULL;
+    $tags = [];
+    if ($this->database->schema()->tableExists('brebo_mail_tag')) {
+      $tags = $this->database->select('brebo_mail_tag', 't')
+        ->fields('t', ['tag'])
+        ->condition('communication_id', $communicationId)
+        ->orderBy('tag')
+        ->execute()
+        ->fetchCol();
+    }
+
     return [
       'title' => $node->label(),
       'mail_from' => $node->hasField('field_brebo_mail_from') ? (string) $node->get('field_brebo_mail_from')->value : '',
       'mail_to' => $node->hasField('field_brebo_mail_to') ? (string) $node->get('field_brebo_mail_to')->value : '',
       'mail_datetime' => $node->hasField('field_brebo_comm_datetime') ? (string) $node->get('field_brebo_comm_datetime')->value : '',
       'transcript' => $node->hasField('field_brebo_transcript') ? (string) $node->get('field_brebo_transcript')->value : '',
+      'project_label' => $project ? $project->label() : '',
+      'building_label' => $building ? $building->label() : '',
+      'tags' => $tags,
     ];
   }
 
