@@ -350,6 +350,18 @@ brebo_office_core.opportunity_transition:
       node:
         type: entity:node
 
+brebo_office_core.opportunity_convert:
+  path: '/relaties/funnel/{node}/project-maken'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\OpportunityProjectForm'
+    _title: 'Gewonnen kans omzetten naar project'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.opportunity_contact:
   path: '/relaties/funnel/{node}/contactmoment'
   defaults:
