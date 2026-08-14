@@ -89,6 +89,16 @@ brebo_mail_intake.mail_compose_from_message:
     mode: 'reply|reply-all|forward'
     communication_id: '\d+'
 
+brebo_mail_intake.mail_send:
+  path: '/mail/{mailbox_id}/concept/{communication_id}/verzenden'
+  defaults:
+    _form: '\\Drupal\\brebo_mail_intake\\Form\\MailSendForm'
+    _title: 'Mailconcept verzenden'
+  requirements:
+    _permission: 'send brebo outbound mail'
+    mailbox_id: '\\d+'
+    communication_id: '\\d+'
+
 brebo_mail_intake.mailbox:
   path: '/mail/{mailbox_id}/{mail_state}'
   defaults:
