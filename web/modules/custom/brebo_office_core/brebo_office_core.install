@@ -5144,3 +5144,51 @@ function brebo_office_core_update_11041(): string {
 
   return 'Interne accountverantwoordelijke voor organisaties ingericht.';
 }
+
+/**
+ * Separates customer and supplier payment terms.
+ */
+function brebo_office_core_update_11042(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization',
+    'Organisatie',
+    'Centrale relatiekaart voor opdrachtgever, leverancier en overige ketenpartij.',
+    [
+      'field_brebo_org_customer_days' => [
+        'label' => 'Betaaltermijn klant (dagen)', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Het aantal kalenderdagen waarbinnen deze klant BREBO moet betalen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 10,
+        'default_value' => [['value' => 30]],
+      ],
+      'field_brebo_org_supplier_days' => [
+        'label' => 'Betaaltermijn leverancier (dagen)', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Het aantal kalenderdagen waarbinnen BREBO deze leverancier moet betalen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 11,
+        'default_value' => [['value' => 30]],
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $organization_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_organization')
+    ->execute();
+  foreach ($storage->loadMultiple($organization_ids) as $organization) {
+    if (!$organization instanceof \Drupal\node\NodeInterface
+      || !$organization->hasField('field_brebo_org_payment_days')
+      || $organization->get('field_brebo_org_payment_days')->isEmpty()) {
+      continue;
+    }
+    $days = (int) $organization->get('field_brebo_org_payment_days')->value;
+    if ($days > 0) {
+      $organization->set('field_brebo_org_customer_days', $days);
+      $organization->set('field_brebo_org_supplier_days', $days);
+      $organization->save();
+    }
+  }
+
+  return 'Afzonderlijke betaaltermijnen voor klant en leverancier ingericht.';
+}
