@@ -23,11 +23,12 @@
 
       const unique = new Map();
       parsed.forEach((tab) => {
-        const route = tab && tab.href ? parseMailPath(new URL(tab.href, window.location.origin).pathname) : null;
-        if (!route || route.mailboxId !== Number(mailboxId) || Number(tab.id) !== route.communicationId) return;
+        const url = tab && tab.href ? new URL(tab.href, window.location.origin) : null;
+        const route = url ? parseMailPath(url.pathname) : null;
+        if (!url || url.origin !== window.location.origin || !route || route.mailboxId !== Number(mailboxId) || Number(tab.id) !== route.communicationId) return;
         unique.set(route.communicationId, {
           id: route.communicationId,
-          href: String(tab.href),
+          href: url.pathname + url.search,
           label: String(tab.label || '').trim() || 'E-mail ' + route.communicationId,
         });
       });
@@ -75,13 +76,15 @@
 
     tabs.forEach((tab) => {
       const item = document.createElement('div');
-      item.className = 'brebo-mail-tab' + (Number(tab.id) === Number(activeId) ? ' is-active' : '');
+      const isActive = Number(tab.id) === Number(activeId);
+      item.className = 'brebo-mail-tab' + (isActive ? ' is-active' : '');
 
       const link = document.createElement('a');
       link.className = 'brebo-mail-tab__link';
       link.href = tab.href;
       link.textContent = tab.label || 'E-mail ' + tab.id;
       link.title = tab.label || '';
+      if (isActive) link.setAttribute('aria-current', 'page');
 
       const close = document.createElement('button');
       close.type = 'button';
@@ -107,7 +110,7 @@
 
       item.append(link, close);
       bar.append(item);
-      if (Number(tab.id) === Number(activeId)) {
+      if (isActive) {
         window.requestAnimationFrame(() => item.scrollIntoView({block: 'nearest', inline: 'nearest'}));
       }
     });
