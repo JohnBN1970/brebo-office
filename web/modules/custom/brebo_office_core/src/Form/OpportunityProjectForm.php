@@ -41,7 +41,6 @@ final class OpportunityProjectForm extends FormBase {
     $offer = $node->get('field_brebo_opp_offer_ref')->entity;
     $handoverReady = $organization instanceof NodeInterface
       && $contact instanceof NodeInterface
-      && $calculation instanceof NodeInterface
       && $offer instanceof NodeInterface;
 
     $location = '';
@@ -75,7 +74,7 @@ final class OpportunityProjectForm extends FormBase {
       '#rows' => [
         [$this->t('Organisatie gekoppeld'), $organization instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
         [$this->t('Primaire contactpersoon gekoppeld'), $contact instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
-        [$this->t('Calculatie gekoppeld'), $calculation instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+        [$this->t('Calculatie gekoppeld (optioneel)'), $calculation instanceof NodeInterface ? $this->t('Aanwezig') : $this->t('Niet van toepassing / niet gekoppeld')],
         [$this->t('Actuele offerteversie gekoppeld'), $offer instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
       ],
     ];
@@ -134,7 +133,6 @@ final class OpportunityProjectForm extends FormBase {
       foreach ([
         'field_brebo_opp_org_ref' => $this->t('organisatie'),
         'field_brebo_opp_contact_ref' => $this->t('primaire contactpersoon'),
-        'field_brebo_opp_calc_ref' => $this->t('calculatie'),
         'field_brebo_opp_offer_ref' => $this->t('actuele offerteversie'),
       ] as $field => $label) {
         if ($this->opportunity->get($field)->isEmpty()) {
