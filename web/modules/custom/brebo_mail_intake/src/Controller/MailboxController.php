@@ -181,19 +181,29 @@ final class MailboxController extends ControllerBase {
       ])
       : nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
 
-    $context = [];
-    if (($message['context_label'] ?? '') !== '') {
-      $context[] = 'Bestemming: ' . htmlspecialchars((string) $message['context_label'], ENT_QUOTES, 'UTF-8');
+    $contextLabel = trim((string) ($message['context_label'] ?? ''));
+    $projectLabel = trim((string) ($message['project_label'] ?? ''));
+    $buildingLabel = trim((string) ($message['building_label'] ?? ''));
+    $objectContext = [];
+    if ($projectLabel !== '') {
+      $objectContext[] = 'Project: ' . htmlspecialchars($projectLabel, ENT_QUOTES, 'UTF-8');
     }
-    if (($message['project_label'] ?? '') !== '') {
-      $context[] = 'Project: ' . htmlspecialchars((string) $message['project_label'], ENT_QUOTES, 'UTF-8');
+    if ($buildingLabel !== '') {
+      $objectContext[] = 'Gebouw: ' . htmlspecialchars($buildingLabel, ENT_QUOTES, 'UTF-8');
     }
-    if (($message['building_label'] ?? '') !== '') {
-      $context[] = 'Gebouw: ' . htmlspecialchars((string) $message['building_label'], ENT_QUOTES, 'UTF-8');
+
+    if ($objectContext !== []) {
+      $contextMarkup = '<div class="brebo-mail-office-link-status"><strong>🔗 Gekoppeld in Office</strong><span>' . implode(' · ', $objectContext) . '</span></div>';
     }
-    $contextMarkup = $context
-      ? '<div class="brebo-mail-office-link-status"><strong>🔗 Gekoppeld in Office</strong><span>' . implode(' · ', $context) . '</span></div>'
-      : '<div class="brebo-mail-office-link-status is-unlinked"><span>Nog niet gekoppeld aan project of gebouw</span></div>';
+    elseif (in_array($contextLabel, ['Administratie', 'Persoonlijk'], TRUE)) {
+      $contextMarkup = '<div class="brebo-mail-office-link-status"><strong>✓ Ingedeeld in Office</strong><span>Bestemming: ' . htmlspecialchars($contextLabel, ENT_QUOTES, 'UTF-8') . '</span></div>';
+    }
+    else {
+      $classification = $contextLabel !== ''
+        ? 'Classificatie: ' . htmlspecialchars($contextLabel, ENT_QUOTES, 'UTF-8') . ' · '
+        : '';
+      $contextMarkup = '<div class="brebo-mail-office-link-status is-unlinked"><span>' . $classification . 'Nog niet aan een bestemming gekoppeld</span></div>';
+    }
 
     $attachmentMarkup = '';
     foreach (($message['attachments'] ?? []) as $attachment) {
