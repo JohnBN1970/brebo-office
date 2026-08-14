@@ -4794,3 +4794,110 @@ function brebo_office_core_update_11037(): string {
   return 'Canonieke contactrelaties en meerdere contextgebonden contactgegevens ingericht.';
 }
 
+/**
+ * Materializes legacy contact organization and channel data idempotently.
+ */
+function brebo_office_core_update_11038(): string {
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $contact_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_contact')
+    ->execute();
+
+  $affiliations_created = 0;
+  $contact_points_created = 0;
+
+  foreach ($storage->loadMultiple($contact_ids) as $contact) {
+    if (!$contact instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+
+    $organization = $contact->hasField('field_brebo_org_ref')
+      ? $contact->get('field_brebo_org_ref')->entity
+      : NULL;
+    $affiliation = NULL;
+
+    if ($organization instanceof \Drupal\node\NodeInterface
+      && $organization->bundle() === 'brebo_organization') {
+      $existing_ids = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_contact_affiliation')
+        ->condition('field_brebo_aff_contact_ref.target_id', $contact->id())
+        ->condition('field_brebo_aff_org_ref.target_id', $organization->id())
+        ->range(0, 1)
+        ->execute();
+      if ($existing_ids !== []) {
+        $affiliation = $storage->load(reset($existing_ids));
+      }
+      else {
+        $affiliation = $storage->create([
+          'type' => 'brebo_contact_affiliation',
+          'title' => $contact->label() . ' — ' . $organization->label(),
+          'field_brebo_aff_contact_ref' => ['target_id' => $contact->id()],
+          'field_brebo_aff_org_ref' => ['target_id' => $organization->id()],
+          'field_brebo_aff_role' => $contact->hasField('field_brebo_contact_role')
+            ? (string) $contact->get('field_brebo_contact_role')->value
+            : '',
+          'field_brebo_aff_status' => $contact->hasField('field_brebo_contact_active')
+            && (bool) $contact->get('field_brebo_contact_active')->value
+              ? 'Actief'
+              : 'Inactief',
+          'field_brebo_aff_primary' => 1,
+          'status' => 1,
+        ]);
+        $affiliation->save();
+        $affiliations_created++;
+      }
+    }
+
+    foreach ([
+      'E-mail' => 'field_brebo_contact_email',
+      'Telefoon' => 'field_brebo_contact_phone',
+    ] as $channel => $legacy_field) {
+      if (!$contact->hasField($legacy_field) || $contact->get($legacy_field)->isEmpty()) {
+        continue;
+      }
+      $value = trim((string) $contact->get($legacy_field)->value);
+      if ($value === '') {
+        continue;
+      }
+
+      $point_query = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_contact_point')
+        ->condition('field_brebo_cp_contact_ref.target_id', $contact->id())
+        ->condition('field_brebo_cp_channel', $channel)
+        ->condition('field_brebo_cp_value', $value);
+      if ($affiliation instanceof \Drupal\node\NodeInterface) {
+        $point_query->condition('field_brebo_cp_affiliation_ref.target_id', $affiliation->id());
+      }
+      if ($point_query->range(0, 1)->execute() !== []) {
+        continue;
+      }
+
+      $values = [
+        'type' => 'brebo_contact_point',
+        'title' => $contact->label() . ' — ' . $channel,
+        'field_brebo_cp_contact_ref' => ['target_id' => $contact->id()],
+        'field_brebo_cp_channel' => $channel,
+        'field_brebo_cp_label' => $affiliation instanceof \Drupal\node\NodeInterface ? 'Zakelijk' : 'Algemeen',
+        'field_brebo_cp_value' => $value,
+        'field_brebo_cp_primary' => 1,
+        'field_brebo_cp_active' => 1,
+        'status' => 1,
+      ];
+      if ($affiliation instanceof \Drupal\node\NodeInterface) {
+        $values['field_brebo_cp_affiliation_ref'] = ['target_id' => $affiliation->id()];
+      }
+      $storage->create($values)->save();
+      $contact_points_created++;
+    }
+  }
+
+  return sprintf(
+    '%d bestaande contactrelaties en %d contactgegevens veilig gematerialiseerd.',
+    $affiliations_created,
+    $contact_points_created,
+  );
+}
+
