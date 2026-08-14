@@ -220,6 +220,8 @@
     const replyHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
     const forwardHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/forward/' + selectedId : '';
     const processHref = selectedId ? '/communicatie/' + selectedId + '/verwerken' : '';
+    const destination = window.location.pathname + window.location.search;
+    const contextHref = selectedId ? '/communicatie/' + selectedId + '/koppelen?destination=' + encodeURIComponent(destination) : '';
     const toolbar = document.createElement('div');
     toolbar.className = 'brebo-mail-toolbar';
 
@@ -238,7 +240,7 @@
 
     const office = document.createElement('div');
     office.className = 'brebo-mail-toolbar__group';
-    office.append(action('✓', 'Verwerken in Office', processHref), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''), action('☷', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'));
+    office.append(action('🔗', 'Koppelen in Office', contextHref), action('✓', 'Inhoud verwerken', processHref), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''), action('☷', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'));
     toolbar.append(compose, message, office);
     if (layout) workspace.insertBefore(toolbar, layout); else workspace.prepend(toolbar);
 
@@ -260,7 +262,7 @@
       label.className = 'brebo-mail-office-actions__label';
       label.textContent = 'BREBO Office';
       actions.append(label);
-      actions.append(action('✓', 'Verwerken en koppelen', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('⌂', 'Koppel gebouw'), action('◆', 'Koppel project'), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
+      actions.append(action('🔗', 'Koppelen in Office', contextHref), action('✓', 'Inhoud verwerken', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
 
       const meta = article.querySelector('.brebo-mail-reader__meta');
       const sticky = document.createElement('div');

@@ -182,6 +182,9 @@ final class MailboxController extends ControllerBase {
       : nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
 
     $context = [];
+    if (($message['context_label'] ?? '') !== '') {
+      $context[] = 'Bestemming: ' . htmlspecialchars((string) $message['context_label'], ENT_QUOTES, 'UTF-8');
+    }
     if (($message['project_label'] ?? '') !== '') {
       $context[] = 'Project: ' . htmlspecialchars((string) $message['project_label'], ENT_QUOTES, 'UTF-8');
     }
@@ -260,7 +263,8 @@ final class MailboxController extends ControllerBase {
       $node = $nodes[$id] ?? NULL;
       $projectId = ($node && $node->hasField('field_brebo_project_ref')) ? (int) ($node->get('field_brebo_project_ref')->target_id ?? 0) : 0;
       $buildingId = ($node && $node->hasField('field_brebo_building_ref')) ? (int) ($node->get('field_brebo_building_ref')->target_id ?? 0) : 0;
-      $row['office_linked'] = $projectId > 0 || $buildingId > 0;
+      $contextLabel = ($node && $node->hasField('field_brebo_comm_context')) ? trim((string) $node->get('field_brebo_comm_context')->value) : '';
+      $row['office_linked'] = $projectId > 0 || $buildingId > 0 || in_array($contextLabel, ['Administratie', 'Persoonlijk'], TRUE);
       $row['tags'] = $tagsByCommunication[$id] ?? [];
     }
     unset($row);
@@ -355,6 +359,7 @@ final class MailboxController extends ControllerBase {
       'mail_datetime' => $node->hasField('field_brebo_comm_datetime') ? (string) $node->get('field_brebo_comm_datetime')->value : '',
       'transcript' => $node->hasField('field_brebo_transcript') ? (string) $node->get('field_brebo_transcript')->value : '',
       'mail_html' => $node->hasField('field_brebo_mail_html') ? (string) $node->get('field_brebo_mail_html')->value : '',
+      'context_label' => $node->hasField('field_brebo_comm_context') ? trim((string) $node->get('field_brebo_comm_context')->value) : '',
       'project_label' => $project ? $project->label() : '',
       'building_label' => $building ? $building->label() : '',
       'tags' => $tags,
