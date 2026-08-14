@@ -150,7 +150,6 @@
       });
     }
 
-    const bulkHref = mailboxId && mailState ? '/mail/' + mailboxId + '/' + mailState + '/bulk' : '';
     const composeHref = mailboxId ? '/mail/' + mailboxId + '/opstellen' : '';
     const replyHref = mailboxId && selectedId && mailState !== 'draft' ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
     const replyAllHref = mailboxId && selectedId && mailState !== 'draft' ? '/mail/' + mailboxId + '/opstellen/reply-all/' + selectedId : '';
@@ -164,7 +163,9 @@
 
     const compose = document.createElement('div');
     compose.className = 'brebo-mail-toolbar__group';
-    compose.append(action('+', 'Nieuw bericht', composeHref, true), action('☑', 'Bulkacties', bulkHref));
+    compose.append(action('+', 'Nieuw bericht', composeHref, true));
+    const bulkLink = workspace.querySelector('.brebo-mail-bulk-link');
+    if (bulkLink) compose.append(bulkLink);
 
     const message = document.createElement('div');
     message.className = 'brebo-mail-toolbar__group';
