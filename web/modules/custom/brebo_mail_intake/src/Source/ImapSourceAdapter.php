@@ -147,7 +147,9 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $timestamp = $date !== '' ? strtotime($date) : FALSE;
 
     $structure = imap_fetchstructure($stream, $uid, FT_UID);
-    $body = $this->fetchReadableBody($stream, $uid, $structure ?: NULL);
+    $bodyParts = $this->fetchReadableBody($stream, $uid, $structure ?: NULL);
+    $body = $bodyParts['text'];
+    $bodyHtml = $bodyParts['html'];
     if ($body === '') {
       $body = '[Geen leesbare tekstinhoud; bronbericht blijft herleidbaar via IMAP UID.]';
     }
@@ -165,6 +167,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       'thread_id' => '',
       'subject' => $subject,
       'body' => $body,
+      'body_html' => $bodyHtml,
       'from' => $from,
       'to' => implode("\n", array_filter([$to, $cc])),
       'received_at' => $timestamp !== FALSE ? gmdate(DATE_ATOM, $timestamp) : gmdate(DATE_ATOM),
@@ -173,20 +176,39 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     ];
   }
 
-  private function fetchReadableBody($stream, int $uid, ?object $structure = NULL): string {
+  /** @return array{text:string,html:string} */
+  private function fetchReadableBody($stream, int $uid, ?object $structure = NULL): array {
     $structure ??= imap_fetchstructure($stream, $uid, FT_UID) ?: NULL;
     if (!$structure) {
-      return trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
+      return [
+        'text' => trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK))),
+        'html' => '',
+      ];
     }
 
-    $plain = $this->findPart($stream, $uid, $structure, '', 'text/plain');
-    if ($plain !== '') {
-      return trim($plain);
+    $plain = trim($this->findPart($stream, $uid, $structure, '', 'text/plain'));
+    $html = trim($this->findPart($stream, $uid, $structure, '', 'text/html'));
+
+    return [
+      'text' => $plain !== '' ? $plain : $this->htmlToReadableText($html),
+      'html' => $html,
+    ];
+  }
+
+  private function htmlToReadableText(string $html): string {
+    if ($html === '') {
+      return '';
     }
-    $html = $this->findPart($stream, $uid, $structure, '', 'text/html');
-    return $html !== ''
-      ? trim(strip_tags($html))
-      : trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK)));
+
+    $withBreaks = preg_replace(
+      '/<\\/?(?:address|article|aside|blockquote|br|div|footer|h[1-6]|header|hr|li|main|ol|p|pre|section|table|td|th|tr|ul)\\b[^>]*>/iu',
+      "\n",
+      $html,
+    );
+    $text = html_entity_decode(strip_tags((string) $withBreaks), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $text = preg_replace("/[ \\t]+\n/u", "\n", $text);
+    $text = preg_replace("/\n{3,}/u", "\n\n", (string) $text);
+    return trim((string) $text);
   }
 
   private function findPart($stream, int $uid, object $part, string $partNumber, string $targetMime): string {
