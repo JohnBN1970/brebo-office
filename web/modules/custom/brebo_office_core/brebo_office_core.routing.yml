@@ -313,7 +313,7 @@ brebo_office_core.communications:
 brebo_office_core.crm:
   path: '/relaties'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\CrmController::overview'
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::overview'
     _title: 'Relaties'
   requirements:
     _permission: 'access content'
@@ -330,8 +330,8 @@ brebo_office_core.organizations:
 brebo_office_core.organization_dashboard:
   path: '/relaties/organisaties/{node}'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\CrmController::organization'
-    _title_callback: '\\Drupal\\brebo_office_core\\Controller\\CrmController::organizationTitle'
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::organization'
+    _title_callback: '\Drupal\brebo_office_core\Controller\CrmController::organizationTitle'
   requirements:
     _entity_access: 'node.view'
   options:
@@ -342,8 +342,8 @@ brebo_office_core.organization_dashboard:
 brebo_office_core.contact_dashboard:
   path: '/relaties/contactpersonen/{node}'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\CrmController::contact'
-    _title_callback: '\\Drupal\\brebo_office_core\\Controller\\CrmController::contactTitle'
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::contact'
+    _title_callback: '\Drupal\brebo_office_core\Controller\CrmController::contactTitle'
   requirements:
     _entity_access: 'node.view'
   options:
