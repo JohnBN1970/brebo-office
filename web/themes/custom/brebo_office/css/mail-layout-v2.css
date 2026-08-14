@@ -1,0 +1,208 @@
+/* BREBO Mail workspace v2: full-width chrome and resizable reading layout. */
+.brebo-mail-workspace {
+  gap: 8px;
+}
+
+.brebo-mail-tabs,
+.brebo-mail-list-controls {
+  position: relative;
+  top: auto;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: var(--brebo-shadow-sm);
+}
+
+.brebo-mail-tabs {
+  min-height: 42px;
+  align-items: end;
+  padding: 6px 8px 0;
+  overflow-x: auto;
+}
+
+.brebo-mail-list-controls {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(150px, .8fr)) auto;
+  align-items: end;
+  gap: 8px;
+  padding: 8px 10px;
+}
+
+.brebo-mail-list-count {
+  grid-column: auto;
+  align-self: center;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.brebo-mail-layout {
+  --brebo-mail-folders-width: 220px;
+  --brebo-mail-messages-width: 470px;
+  display: grid;
+  height: calc(100vh - 205px);
+  min-height: 640px;
+  max-height: none;
+  grid-template-columns:
+    var(--brebo-mail-folders-width)
+    6px
+    var(--brebo-mail-messages-width)
+    6px
+    minmax(430px, 1fr);
+  gap: 0;
+  align-items: stretch;
+}
+
+.brebo-mail-folders {
+  grid-column: 1;
+  padding: 12px 10px;
+  border-right: 0;
+  background: #f8f7f8;
+}
+
+.brebo-mail-list {
+  grid-column: 3;
+  border-right: 0;
+  background: #fff;
+}
+
+.brebo-mail-reader {
+  grid-column: 5;
+  background: #fff;
+}
+
+.brebo-mail-resizer {
+  position: relative;
+  z-index: 4;
+  min-width: 6px;
+  cursor: col-resize;
+  touch-action: none;
+  background: #f4f0f5;
+}
+
+.brebo-mail-resizer::after {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 2px;
+  width: 1px;
+  background: var(--brebo-border);
+  content: '';
+}
+
+.brebo-mail-resizer:hover,
+.brebo-mail-resizer:focus {
+  background: #e9dfed;
+  outline: none;
+}
+
+.brebo-mail-resizer:hover::after,
+.brebo-mail-resizer:focus::after {
+  width: 2px;
+  background: var(--brebo-purple-700);
+}
+
+.brebo-mail-resizer--folders {
+  grid-column: 2;
+}
+
+.brebo-mail-resizer--messages {
+  grid-column: 4;
+}
+
+.brebo-mail-is-resizing,
+.brebo-mail-is-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+.brebo-mail-item a {
+  padding: 10px 12px;
+}
+
+.brebo-mail-item__topline {
+  gap: 8px;
+}
+
+.brebo-mail-item__from {
+  font-size: .82rem;
+}
+
+.brebo-mail-item__subject {
+  font-size: .84rem;
+}
+
+.brebo-mail-reader article {
+  max-width: none;
+  padding: 0 28px 32px;
+}
+
+.brebo-mail-reader__sticky {
+  top: 0;
+  margin: 0 -28px 18px;
+  padding: 18px 28px 0;
+}
+
+.brebo-mail-reader__body {
+  max-width: 980px;
+  font-size: .94rem;
+  line-height: 1.7;
+}
+
+@media (max-width: 1280px) {
+  .brebo-mail-list-controls {
+    grid-template-columns: minmax(220px, 1.5fr) repeat(3, minmax(120px, 1fr));
+  }
+
+  .brebo-mail-list-count {
+    grid-column: 1 / -1;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 1100px) {
+  .brebo-mail-layout {
+    display: grid;
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    grid-template-columns: 190px minmax(300px, 1fr);
+  }
+
+  .brebo-mail-folders { grid-column: 1; }
+  .brebo-mail-list { grid-column: 2; }
+  .brebo-mail-reader {
+    grid-column: 1 / -1;
+    max-height: 620px;
+    border-top: 1px solid var(--brebo-border);
+  }
+
+  .brebo-mail-resizer { display: none; }
+}
+
+@media (max-width: 760px) {
+  .brebo-mail-list-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .brebo-mail-list-count {
+    grid-column: auto;
+  }
+
+  .brebo-mail-layout {
+    display: block;
+  }
+
+  .brebo-mail-reader article {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .brebo-mail-reader__sticky {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+}
