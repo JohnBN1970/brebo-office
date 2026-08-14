@@ -413,3 +413,37 @@ function brebo_office_core_post_update_funnel_delivery_links(array &$sandbox = N
 
   return 'Vier goedgekeurde funnelkoppelingen naar calculatie, offerte en project ingericht.';
 }
+
+/**
+ * Adds commercial lead attribution to funnel opportunities.
+ */
+function brebo_office_core_post_update_funnel_lead_attribution(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle('brebo_opportunity', 'Commerciële kans',
+    'Zelfstandige commerciële kans binnen de begeleide funnel.', [
+      'field_brebo_opp_source' => [
+        'label' => 'Leadbron', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Herkomst van de lead, bijvoorbeeld bestaande klant, aanbeveling, website, aanbesteding of acquisitie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+      ],
+      'field_brebo_opp_channel' => [
+        'label' => 'Acquisitiekanaal', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Kanaal waarmee het eerste commerciële contact tot stand kwam.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 15,
+      ],
+      'field_brebo_opp_campaign' => [
+        'label' => 'Campagne of actie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Campagne, netwerkactie, aanbesteding of andere commerciële actie waaraan de lead wordt toegeschreven.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 16,
+      ],
+    ]);
+
+  return 'Leadbron, acquisitiekanaal en campagne aan commerciële kansen toegevoegd.';
+}
