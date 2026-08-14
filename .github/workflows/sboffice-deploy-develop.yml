@@ -184,7 +184,13 @@ jobs:
           test -f vendor/drush/drush/drush.php
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake -y
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cr
+          document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php"
+          document_routes="web/modules/custom/brebo_document_data/brebo_document_data.routing.yml"
+          test -f "$document_controller"
+          test -f "$document_routes"
+          php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
+          grep -F "DocumentDetailController::view" "$document_routes"
+          php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1
           timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
 
           if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
