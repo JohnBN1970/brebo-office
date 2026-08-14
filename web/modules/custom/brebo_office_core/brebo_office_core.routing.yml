@@ -326,6 +326,42 @@ brebo_office_core.funnel:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.opportunity_dashboard:
+  path: '/relaties/funnel/{node}'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::opportunity'
+    _title_callback: '\Drupal\brebo_office_core\Controller\CrmController::opportunityTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_office_core.opportunity_transition:
+  path: '/relaties/funnel/{node}/fase-wijzigen'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\OpportunityTransitionForm'
+    _title: 'Funnelfase wijzigen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_office_core.opportunity_contact:
+  path: '/relaties/funnel/{node}/contactmoment'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\OpportunityContactForm'
+    _title: 'Contactmoment vastleggen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.organizations:
   path: '/relaties/organisaties'
   defaults:
