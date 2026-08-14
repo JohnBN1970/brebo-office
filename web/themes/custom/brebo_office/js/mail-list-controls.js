@@ -36,8 +36,10 @@
   }
 
   function enhance() {
-    const list = document.querySelector('.brebo-mail-list');
-    if (!list || list.dataset.controlsEnhanced === '1') return;
+    const workspace = document.querySelector('.brebo-mail-workspace');
+    const list = workspace?.querySelector('.brebo-mail-list');
+    const layout = workspace?.querySelector('.brebo-mail-layout');
+    if (!workspace || !list || list.dataset.controlsEnhanced === '1') return;
     const rows = Array.from(list.children).filter((child) => child.querySelector('a')).map(parseItem);
     if (!rows.length) return;
     list.dataset.controlsEnhanced = '1';
@@ -51,7 +53,7 @@
     searchLabel.textContent = 'Zoeken';
     const search = document.createElement('input');
     search.type = 'search';
-    search.placeholder = 'Afzender of onderwerp';
+    search.placeholder = 'Afzender, onderwerp of tag';
     search.autocomplete = 'off';
     searchWrap.append(searchLabel, search);
 
@@ -80,7 +82,8 @@
     const count = document.createElement('span');
     count.className = 'brebo-mail-list-count';
     bar.append(searchWrap, filter.wrap, group.wrap, sort.wrap, count);
-    list.prepend(bar);
+    if (layout) workspace.insertBefore(bar, layout);
+    else workspace.append(bar);
 
     function statusLabel(row) {
       if (row.needsAction) return 'Actie nodig';
