@@ -1260,6 +1260,13 @@ final class CrmController extends ControllerBase {
     $value = (float) ($node->get('field_brebo_opp_value')->value ?? 0);
     $probability = max(0, min(100, (int) ($node->get('field_brebo_opp_probability')->value ?? 0)));
     $weighted = $value * $probability / 100;
+    $stage = $this->value($node, 'field_brebo_opp_stage');
+    $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
+    $stageLimits = [
+      'Marketing lead' => 7, 'Lead' => 14, 'Kans' => 21, 'Afspraak' => 14,
+      'Calculatie/offerte' => 21, 'Onderhandeling' => 14,
+    ];
+    $stageSince = date('Y-m-d', (int) $node->getCreatedTime());
 
     $eventIds = $storage->getQuery()
       ->accessCheck(TRUE)
@@ -1273,6 +1280,12 @@ final class CrmController extends ControllerBase {
         continue;
       }
       $changedBy = $event->get('field_brebo_event_user')->entity;
+      if ($eventRows === []) {
+        $latestEventDate = $this->value($event, 'field_brebo_event_datetime');
+        if ($latestEventDate !== '—') {
+          $stageSince = substr($latestEventDate, 0, 10);
+        }
+      }
       $eventRows[] = [
         $this->value($event, 'field_brebo_event_datetime'),
         $this->value($event, 'field_brebo_event_from_stage'),
@@ -1291,6 +1304,7 @@ final class CrmController extends ControllerBase {
     $communicationRows = [];
     $externalContactCount = 0;
     $noteCount = 0;
+    $lastExternalContact = '—';
     foreach ($storage->loadMultiple($communicationIds) as $communication) {
       if (!$communication instanceof NodeInterface) {
         continue;
@@ -1301,6 +1315,9 @@ final class CrmController extends ControllerBase {
       }
       else {
         $externalContactCount++;
+        if ($lastExternalContact === '—') {
+          $lastExternalContact = $this->value($communication, 'field_brebo_comm_datetime');
+        }
       }
       $communicationRows[] = [
         $this->value($communication, 'field_brebo_comm_datetime'),
@@ -1318,6 +1335,35 @@ final class CrmController extends ControllerBase {
     $contactCell = $contact instanceof NodeInterface
       ? Link::fromTextAndUrl($contact->label(), Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()]))->toRenderable()
       : '—';
+
+    $stageAge = max(0, (int) floor((strtotime($today) - strtotime($stageSince)) / 86400));
+    $healthScore = 100;
+    $healthRows = [];
+    $addHealthCheck = static function (array &$rows, mixed $label, bool $passed, int $deduction, mixed $action) use (&$healthScore): void {
+      if (!$passed) {
+        $healthScore -= $deduction;
+      }
+      $rows[] = [$label, $passed ? 'Gereed' : 'Actie nodig', $passed ? '—' : $action];
+    };
+    $isOpen = (bool) $node->get('field_brebo_opp_active')->value && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE);
+    if ($isOpen) {
+      $addHealthCheck($healthRows, $this->t('Primaire contactpersoon'), $contact instanceof NodeInterface, 20, $this->t('Koppel een contactpersoon.'));
+      $hasFollowUp = $this->value($node, 'field_brebo_opp_next_date') !== '—' && $this->value($node, 'field_brebo_opp_next_action') !== '—';
+      $addHealthCheck($healthRows, $this->t('Volgende actie'), $hasFollowUp, 20, $this->t('Leg actie en datum vast.'));
+      $recentContact = $lastExternalContact !== '—' && substr($lastExternalContact, 0, 10) >= date('Y-m-d', strtotime($today . ' -14 days'));
+      $addHealthCheck($healthRows, $this->t('Recent klantcontact'), $recentContact, 20, $this->t('Leg een klantcontact vast.'));
+      $stageLimit = $stageLimits[$stage] ?? 0;
+      $addHealthCheck($healthRows, $this->t('Doorlooptijd fase'), $stageLimit === 0 || $stageAge <= $stageLimit, 15, $this->t('Bepaal de volgende fase of sluit de kans.'));
+      if (in_array($stage, ['Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling'], TRUE)) {
+        $qualified = !$node->get('field_brebo_opp_requirement')->isEmpty() && !$node->get('field_brebo_opp_decision_maker')->isEmpty() && !$node->get('field_brebo_opp_decision_date')->isEmpty();
+        $addHealthCheck($healthRows, $this->t('Commerciële kwalificatie'), $qualified, 15, $this->t('Vul behoefte, beslisser en beslisdatum aan.'));
+      }
+      if (in_array($stage, ['Calculatie/offerte', 'Onderhandeling'], TRUE)) {
+        $addHealthCheck($healthRows, $this->t('Actuele offerte'), $offer instanceof NodeInterface, 10, $this->t('Koppel de actuele offerteversie.'));
+      }
+    }
+    $healthScore = max(0, $healthScore);
+    $healthStatus = !$isOpen ? (string) $this->t('Afgesloten') : ($healthScore >= 80 ? (string) $this->t('Gezond') : ($healthScore >= 50 ? (string) $this->t('Aandacht') : (string) $this->t('Kritiek')));
 
     return [
       'actions' => [
@@ -1365,7 +1411,7 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Fase'), $this->t('Actief'), $this->t('Omzet'), $this->t('Scoringskans'), $this->t('Gewogen omzet'), $this->t('Contactmomenten'), $this->t('Notities')],
+        '#header' => [$this->t('Fase'), $this->t('Actief'), $this->t('Omzet'), $this->t('Scoringskans'), $this->t('Gewogen omzet'), $this->t('Contactmomenten'), $this->t('Notities'), $this->t('Gezondheid')],
         '#rows' => [[
           $this->value($node, 'field_brebo_opp_stage'),
           (bool) $node->get('field_brebo_opp_active')->value ? $this->t('Ja') : $this->t('Nee'),
@@ -1374,8 +1420,15 @@ final class CrmController extends ControllerBase {
           '€ ' . number_format($weighted, 2, ',', '.'),
           $externalContactCount,
           $noteCount,
+          $healthStatus . ' (' . $healthScore . ')',
         ]],
       ],
+      'health' => $this->section(
+        $this->t('Commerciële gezondheid — @status (@score)', ['@status' => $healthStatus, '@score' => $healthScore]),
+        [$this->t('Controlepunt'), $this->t('Status'), $this->t('Verbeteractie')],
+        $healthRows,
+        $this->t('Deze kans is afgesloten.')
+      ),
       'details' => [
         '#type' => 'details',
         '#title' => $this->t('Kansgegevens'),
