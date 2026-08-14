@@ -36,6 +36,13 @@ final class OpportunityProjectForm extends FormBase {
     }
     $this->opportunity = $node;
     $organization = $node->get('field_brebo_opp_org_ref')->entity;
+    $contact = $node->get('field_brebo_opp_contact_ref')->entity;
+    $calculation = $node->get('field_brebo_opp_calc_ref')->entity;
+    $offer = $node->get('field_brebo_opp_offer_ref')->entity;
+    $handoverReady = $organization instanceof NodeInterface
+      && $contact instanceof NodeInterface
+      && $calculation instanceof NodeInterface
+      && $offer instanceof NodeInterface;
 
     $location = '';
     if ($organization instanceof NodeInterface) {
@@ -62,6 +69,23 @@ final class OpportunityProjectForm extends FormBase {
       '#attributes' => ['class' => ['messages', 'messages--warning']],
       'text' => ['#markup' => '<strong>Gecontroleerde overdracht</strong><br>Deze actie maakt één project aan en legt wederzijdse verwijzingen vast. De commerciële kans blijft als bronhistorie behouden.'],
     ];
+    $form['checklist'] = [
+      '#type' => 'table',
+      '#header' => [$this->t('Overdrachtscontrole'), $this->t('Status')],
+      '#rows' => [
+        [$this->t('Organisatie gekoppeld'), $organization instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+        [$this->t('Primaire contactpersoon gekoppeld'), $contact instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+        [$this->t('Calculatie gekoppeld'), $calculation instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+        [$this->t('Actuele offerteversie gekoppeld'), $offer instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+      ],
+    ];
+    if (!$handoverReady) {
+      $form['blocked'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['messages', 'messages--error']],
+        'text' => ['#markup' => $this->t('De overdracht is nog niet compleet. Vul de ontbrekende onderdelen aan via Kans bewerken.')],
+      ];
+    }
     $form['project_name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Projectnaam'),
@@ -100,11 +124,24 @@ final class OpportunityProjectForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Project aanmaken'),
       '#button_type' => 'primary',
+      '#disabled' => !$handoverReady,
     ];
     return $form;
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    if ($this->opportunity instanceof NodeInterface) {
+      foreach ([
+        'field_brebo_opp_org_ref' => $this->t('organisatie'),
+        'field_brebo_opp_contact_ref' => $this->t('primaire contactpersoon'),
+        'field_brebo_opp_calc_ref' => $this->t('calculatie'),
+        'field_brebo_opp_offer_ref' => $this->t('actuele offerteversie'),
+      ] as $field => $label) {
+        if ($this->opportunity->get($field)->isEmpty()) {
+          $form_state->setErrorByName('confirm', $this->t('De @item ontbreekt in de commerciële overdracht.', ['@item' => $label]));
+        }
+      }
+    }
     $code = trim((string) $form_state->getValue('project_code'));
     $existing = \Drupal::entityQuery('node')
       ->accessCheck(FALSE)
