@@ -206,7 +206,7 @@ final class CrmController extends ControllerBase {
   public function contact(NodeInterface $node): array {
     $this->assertContact($node);
     $storage = $this->entityTypeManager()->getStorage('node');
-    $organization = $node->hasField('field_brebo_org_ref')
+    $legacyOrganization = $node->hasField('field_brebo_org_ref')
       ? $node->get('field_brebo_org_ref')->entity
       : NULL;
 
@@ -219,6 +219,29 @@ final class CrmController extends ControllerBase {
       ->execute();
     $affiliations = $storage->loadMultiple($affiliationIds);
 
+    $organizations = [];
+    $primaryOrganization = NULL;
+    foreach ($affiliations as $affiliation) {
+      if (!$affiliation instanceof NodeInterface) {
+        continue;
+      }
+      $affiliatedOrganization = $affiliation->get('field_brebo_aff_org_ref')->entity;
+      if (!$affiliatedOrganization instanceof NodeInterface || $affiliatedOrganization->bundle() !== 'brebo_organization') {
+        continue;
+      }
+      $organizations[(int) $affiliatedOrganization->id()] = $affiliatedOrganization;
+      if (!$primaryOrganization instanceof NodeInterface && (bool) $affiliation->get('field_brebo_aff_primary')->value) {
+        $primaryOrganization = $affiliatedOrganization;
+      }
+    }
+    if ($organizations === [] && $legacyOrganization instanceof NodeInterface && $legacyOrganization->bundle() === 'brebo_organization') {
+      $organizations[(int) $legacyOrganization->id()] = $legacyOrganization;
+      $primaryOrganization = $legacyOrganization;
+    }
+    if (!$primaryOrganization instanceof NodeInterface && $organizations !== []) {
+      $primaryOrganization = reset($organizations);
+    }
+
     $contactPointIds = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_contact_point')
@@ -230,11 +253,11 @@ final class CrmController extends ControllerBase {
 
     $projects = [];
     $buildings = [];
-    if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
+    if ($organizations !== []) {
       $projectIds = $storage->getQuery()
         ->accessCheck(TRUE)
         ->condition('type', 'brebo_project')
-        ->condition('field_brebo_client_org_ref.target_id', $organization->id())
+        ->condition('field_brebo_client_org_ref.target_id', array_keys($organizations), 'IN')
         ->sort('changed', 'DESC')
         ->execute();
       $projects = $storage->loadMultiple($projectIds);
@@ -299,13 +322,17 @@ final class CrmController extends ControllerBase {
       ];
     }
 
-    $organizationCell = '—';
-    if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
-      $organizationCell = Link::fromTextAndUrl(
+    $organizationItems = [];
+    foreach ($organizations as $organization) {
+      $organizationItems[] = Link::fromTextAndUrl(
         $organization->label(),
         Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
       )->toRenderable();
     }
+    $organizationsCell = $organizationItems !== [] ? [
+      '#theme' => 'item_list',
+      '#items' => $organizationItems,
+    ] : '—';
 
     $affiliationRows = [];
     foreach ($affiliations as $affiliation) {
@@ -386,7 +413,7 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication'], [
             'query' => array_filter([
               'contact' => $node->id(),
-              'organization' => $organization instanceof NodeInterface ? $organization->id() : NULL,
+              'organization' => $primaryOrganization instanceof NodeInterface ? $primaryOrganization->id() : NULL,
             ]),
           ]),
           '#attributes' => ['class' => ['button']],
@@ -395,10 +422,10 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Status'), $this->t('Organisatie'), $this->t('Projecten via organisatie'), $this->t('Gebouwen via projecten'), $this->t('Communicatie')],
+        '#header' => [$this->t('Status'), $this->t('Organisaties'), $this->t('Projecten via organisaties'), $this->t('Gebouwen via projecten'), $this->t('Communicatie')],
         '#rows' => [[
           $node->hasField('field_brebo_contact_active') && (bool) $node->get('field_brebo_contact_active')->value ? $this->t('Actief') : $this->t('Inactief'),
-          ['data' => $organizationCell],
+          ['data' => $organizationsCell],
           count($projects),
           count($buildings),
           count($communications),
@@ -430,7 +457,7 @@ final class CrmController extends ControllerBase {
         $contactPointRows,
         $this->t('Nog geen contactgegevens vastgelegd.')
       ),
-      'projects' => $this->section($this->t('Projecten via organisatie'), [$this->t('Project'), $this->t('Status'), $this->t('Soort')], $projectRows, $this->t('Geen projecten via de organisatie gevonden.')),
+      'projects' => $this->section($this->t('Projecten via organisaties'), [$this->t('Project'), $this->t('Status'), $this->t('Soort')], $projectRows, $this->t('Geen projecten via de organisaties gevonden.')),
       'buildings' => $this->section($this->t('Gebouwen via projecten'), [$this->t('Gebouw'), $this->t('Adres'), $this->t('Status')], $buildingRows, $this->t('Geen gebouwen via projecten gevonden.')),
       'communications' => $this->section($this->t('Laatste communicatie met deze contactpersoon'), [$this->t('Onderwerp'), $this->t('Datum'), $this->t('Richting'), $this->t('Status')], $communicationRows, $this->t('Nog geen communicatie gekoppeld.')),
       '#cache' => [
