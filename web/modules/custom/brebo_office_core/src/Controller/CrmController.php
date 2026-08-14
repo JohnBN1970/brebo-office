@@ -13,6 +13,139 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /** Provides the canonical CRM organization dossier. */
 final class CrmController extends ControllerBase {
 
+  public function overview(): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+
+    $organizationCount = (int) $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_organization')
+      ->count()
+      ->execute();
+    $activeOrganizationCount = (int) $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_organization')
+      ->condition('field_brebo_org_status', 'Actief')
+      ->count()
+      ->execute();
+    $contactCount = (int) $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact')
+      ->count()
+      ->execute();
+    $activeContactCount = (int) $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact')
+      ->condition('field_brebo_contact_active', 1)
+      ->count()
+      ->execute();
+
+    $organizationIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_organization')
+      ->sort('changed', 'DESC')
+      ->range(0, 10)
+      ->execute();
+    $contactIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact')
+      ->sort('changed', 'DESC')
+      ->range(0, 10)
+      ->execute();
+
+    $organizationRows = [];
+    foreach ($storage->loadMultiple($organizationIds) as $organization) {
+      if (!$organization instanceof NodeInterface) {
+        continue;
+      }
+      $organizationRows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $organization->label(),
+          Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
+        )->toRenderable()],
+        $this->value($organization, 'field_brebo_org_type'),
+        $this->value($organization, 'field_brebo_org_status'),
+        $this->value($organization, 'field_brebo_org_email'),
+      ];
+    }
+
+    $contactRows = [];
+    foreach ($storage->loadMultiple($contactIds) as $contact) {
+      if (!$contact instanceof NodeInterface) {
+        continue;
+      }
+      $organization = $contact->hasField('field_brebo_org_ref') ? $contact->get('field_brebo_org_ref')->entity : NULL;
+      $organizationLabel = '—';
+      if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
+        $organizationLabel = Link::fromTextAndUrl(
+          $organization->label(),
+          Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
+        )->toRenderable();
+      }
+      $contactRows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $contact->label(),
+          Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()])
+        )->toRenderable()],
+        ['data' => $organizationLabel],
+        $this->value($contact, 'field_brebo_contact_role'),
+        $this->value($contact, 'field_brebo_contact_email'),
+      ];
+    }
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'organizations' => [
+          '#type' => 'link',
+          '#title' => $this->t('Alle organisaties'),
+          '#url' => Url::fromRoute('brebo_office_core.organizations'),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'contacts' => [
+          '#type' => 'link',
+          '#title' => $this->t('Alle contactpersonen'),
+          '#url' => Url::fromRoute('brebo_office_core.contacts'),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'add_organization' => [
+          '#type' => 'link',
+          '#title' => $this->t('Nieuwe organisatie'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_organization']),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'add_contact' => [
+          '#type' => 'link',
+          '#title' => $this->t('Nieuwe contactpersoon'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_contact']),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Organisaties'), $this->t('Actieve organisaties'), $this->t('Contactpersonen'), $this->t('Actieve contactpersonen')],
+        '#rows' => [[$organizationCount, $activeOrganizationCount, $contactCount, $activeContactCount]],
+      ],
+      'organizations' => $this->section(
+        $this->t('Recent gewijzigde organisaties'),
+        [$this->t('Organisatie'), $this->t('Type'), $this->t('Status'), $this->t('E-mail')],
+        $organizationRows,
+        $this->t('Nog geen organisaties aangemaakt.')
+      ),
+      'contacts' => $this->section(
+        $this->t('Recent gewijzigde contactpersonen'),
+        [$this->t('Contactpersoon'), $this->t('Organisatie'), $this->t('Rol'), $this->t('E-mail')],
+        $contactRows,
+        $this->t('Nog geen contactpersonen aangemaakt.')
+      ),
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact'],
+      ],
+    ];
+  }
+
   public function contactTitle(NodeInterface $node): string {
     $this->assertContact($node);
     return (string) $node->label();
