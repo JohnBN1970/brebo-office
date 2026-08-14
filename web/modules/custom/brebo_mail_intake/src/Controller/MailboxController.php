@@ -194,10 +194,19 @@ final class MailboxController extends ControllerBase {
 
     $attachmentMarkup = '';
     foreach (($message['attachments'] ?? []) as $attachment) {
-      $attachmentMarkup .= '<li>' . htmlspecialchars((string) $attachment, ENT_QUOTES, 'UTF-8') . '</li>';
+      $attachmentTitle = htmlspecialchars((string) ($attachment['title'] ?? ''), ENT_QUOTES, 'UTF-8');
+      $documentId = (int) ($attachment['document_id'] ?? 0);
+      if ($documentId > 0) {
+        $detailUrl = Url::fromRoute('brebo_document_data.document_detail', ['document_id' => $documentId])->toString();
+        $role = htmlspecialchars((string) ($attachment['role_label'] ?? ''), ENT_QUOTES, 'UTF-8');
+        $attachmentMarkup .= '<li><a href="' . htmlspecialchars($detailUrl, ENT_QUOTES, 'UTF-8') . '">' . $attachmentTitle . '</a>' . ($role !== '' ? ' <small>(' . $role . ')</small>' : '') . '</li>';
+      }
+      else {
+        $attachmentMarkup .= '<li>' . $attachmentTitle . '</li>';
+      }
     }
     if ($attachmentMarkup !== '') {
-      $attachmentMarkup = '<div class="brebo-mail-reader__attachments"><strong>📎 Bijlagen</strong><ul>' . $attachmentMarkup . '</ul></div>';
+      $attachmentMarkup = '<div class="brebo-mail-reader__attachments"><strong>📎 Documenten en bijlagen</strong><ul>' . $attachmentMarkup . '</ul></div>';
     }
 
     $tagMarkup = '';
@@ -287,18 +296,55 @@ final class MailboxController extends ControllerBase {
         ->fetchCol();
     }
 
-    $attachments = [];
+    $fileAttachments = [];
     if ($node->hasField('field_brebo_comm_attachments')) {
       foreach ($node->get('field_brebo_comm_attachments')->referencedEntities() as $file) {
-        $attachments[] = (string) $file->label();
+        $fileAttachments[] = [
+          'title' => (string) $file->label(),
+          'document_id' => 0,
+          'role_label' => '',
+        ];
       }
     }
-    if ($this->database->schema()->tableExists('brebo_outbound_document_attachment')) {
-      $documentQuery = $this->database->select('brebo_outbound_document_attachment', 'a');
-      $documentQuery->join('brebo_document', 'd', 'd.id = a.document_id');
-      $documentQuery->addField('d', 'title');
-      $documentQuery->condition('a.communication_id', $communicationId)->condition('d.lifecycle_status', 'deleted', '<>');
-      $attachments = array_merge($attachments, array_map('strval', $documentQuery->execute()->fetchCol()));
+
+    $documentAttachments = [];
+    $canonicalTitles = [];
+    if ($this->database->schema()->tableExists('brebo_document_communication')) {
+      $documentQuery = $this->database->select('brebo_document_communication', 'dc');
+      $documentQuery->join('brebo_document', 'd', 'd.id = dc.document_id');
+      $documentQuery->fields('dc', ['document_id', 'relation_role']);
+      $documentQuery->fields('d', ['title', 'original_filename']);
+      $documentQuery->condition('dc.communication_nid', $communicationId)
+        ->condition('d.lifecycle_status', 'deleted', '<>')
+        ->orderBy('dc.created')
+        ->orderBy('dc.id');
+      $roleLabels = [
+        'received_with' => 'ontvangen via deze mail',
+        'sent_with' => 'meegestuurd met deze mail',
+        'created_with' => 'aangemaakt bij deze mail',
+      ];
+      $seenDocuments = [];
+      foreach ($documentQuery->execute() as $documentRow) {
+        $documentId = (int) $documentRow->document_id;
+        if (isset($seenDocuments[$documentId])) {
+          continue;
+        }
+        $seenDocuments[$documentId] = TRUE;
+        $documentTitle = trim((string) ($documentRow->original_filename ?: $documentRow->title));
+        $canonicalTitles[mb_strtolower($documentTitle)] = TRUE;
+        $documentAttachments[] = [
+          'title' => $documentTitle,
+          'document_id' => $documentId,
+          'role_label' => $roleLabels[(string) $documentRow->relation_role] ?? '',
+        ];
+      }
+    }
+
+    $attachments = $documentAttachments;
+    foreach ($fileAttachments as $fileAttachment) {
+      if (!isset($canonicalTitles[mb_strtolower((string) $fileAttachment['title'])])) {
+        $attachments[] = $fileAttachment;
+      }
     }
 
     return [
@@ -312,7 +358,7 @@ final class MailboxController extends ControllerBase {
       'project_label' => $project ? $project->label() : '',
       'building_label' => $building ? $building->label() : '',
       'tags' => $tags,
-      'attachments' => array_values(array_unique($attachments)),
+      'attachments' => $attachments,
     ];
   }
 

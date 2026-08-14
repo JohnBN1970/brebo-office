@@ -78,6 +78,7 @@ final class AttachmentDocumentPersister {
       ]);
 
       $externalId = implode('|', array_filter([$sourceId, 'part:' . $part, $sha256]));
+      $this->documentRepository->upsertCommunicationRelation((int) $document['id'], $communicationNid, 'received_with');
       $source = $this->documentRepository->addSource((int) $document['id'], [
         'source_system' => $sourceSystem,
         'source_external_id' => $externalId,

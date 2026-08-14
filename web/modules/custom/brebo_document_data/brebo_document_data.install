@@ -122,6 +122,27 @@ function brebo_document_data_schema(): array {
     ],
   ];
 
+
+  $schema['brebo_document_communication'] = [
+    'description' => 'Explicit many-to-many relations between canonical documents and communication events.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'relation_role' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'document_communication_role' => ['document_id', 'communication_nid', 'relation_role'],
+    ],
+    'indexes' => [
+      'document_id' => ['document_id'],
+      'communication_nid' => ['communication_nid'],
+      'communication_role' => ['communication_nid', 'relation_role'],
+    ],
+  ];
+
   return $schema;
 }
 
@@ -198,5 +219,59 @@ function brebo_document_data_update_10001(): void {
       ])
       ->condition('id', (int) $row->id)
       ->execute();
+  }
+}
+
+
+/**
+ * Adds canonical document-communication relations and migrates send selections.
+ */
+function brebo_document_data_update_10002(): void {
+  $schema = \Drupal::database()->schema();
+  $definitions = brebo_document_data_schema();
+  if (!$schema->tableExists('brebo_document_communication')) {
+    $schema->createTable('brebo_document_communication', $definitions['brebo_document_communication']);
+  }
+
+  $database = \Drupal::database();
+
+  // Every source with a communication reference represents an incoming
+  // attachment, except documents explicitly created while composing mail.
+  $sourceRows = $database->select('brebo_document_source', 's')
+    ->fields('s', ['document_id', 'communication_nid', 'source_system', 'created'])
+    ->isNotNull('communication_nid')
+    ->execute();
+  foreach ($sourceRows as $row) {
+    $sourceSystem = (string) $row->source_system;
+    $roles = $sourceSystem === 'brebo_outbound_mail'
+      ? ['created_with', 'sent_with']
+      : ['received_with'];
+    foreach ($roles as $role) {
+      $database->merge('brebo_document_communication')
+        ->keys([
+          'document_id' => (int) $row->document_id,
+          'communication_nid' => (int) $row->communication_nid,
+          'relation_role' => $role,
+        ])
+        ->fields(['created' => (int) $row->created])
+        ->execute();
+    }
+  }
+
+  // Preserve selections made before the canonical relation table existed.
+  if ($schema->tableExists('brebo_outbound_document_attachment')) {
+    $rows = $database->select('brebo_outbound_document_attachment', 'a')
+      ->fields('a', ['communication_id', 'document_id', 'created'])
+      ->execute();
+    foreach ($rows as $row) {
+      $database->merge('brebo_document_communication')
+        ->keys([
+          'document_id' => (int) $row->document_id,
+          'communication_nid' => (int) $row->communication_id,
+          'relation_role' => 'sent_with',
+        ])
+        ->fields(['created' => (int) $row->created])
+        ->execute();
+    }
   }
 }
