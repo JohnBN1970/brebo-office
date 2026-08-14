@@ -83,7 +83,7 @@ final class CrmController extends ControllerBase {
         )->toRenderable()],
         $this->value($organization, 'field_brebo_org_type'),
         $this->value($organization, 'field_brebo_org_status'),
-        $this->value($organization, 'field_brebo_org_email'),
+        ['data' => $this->emailLink($organization, 'field_brebo_org_email')],
       ];
     }
 
@@ -107,7 +107,7 @@ final class CrmController extends ControllerBase {
         )->toRenderable()],
         ['data' => $organizationLabel],
         $this->value($contact, 'field_brebo_contact_role'),
-        $this->value($contact, 'field_brebo_contact_email'),
+        ['data' => $this->emailLink($contact, 'field_brebo_contact_email')],
       ];
     }
 
@@ -320,8 +320,8 @@ final class CrmController extends ControllerBase {
           '#type' => 'table',
           '#rows' => [
             [$this->t('Rol/functie'), $this->value($node, 'field_brebo_contact_role')],
-            [$this->t('E-mail'), $this->value($node, 'field_brebo_contact_email')],
-            [$this->t('Telefoon'), $this->value($node, 'field_brebo_contact_phone')],
+            [$this->t('E-mail'), ['data' => $this->emailLink($node, 'field_brebo_contact_email')]],
+            [$this->t('Telefoon'), ['data' => $this->phoneLink($node, 'field_brebo_contact_phone')]],
             [$this->t('Voorkeurskanaal'), $this->value($node, 'field_brebo_contact_channel')],
           ],
         ],
@@ -398,8 +398,8 @@ final class CrmController extends ControllerBase {
           Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()])
         )->toRenderable()],
         $this->value($contact, 'field_brebo_contact_role'),
-        $this->value($contact, 'field_brebo_contact_email'),
-        $this->value($contact, 'field_brebo_contact_phone'),
+        ['data' => $this->emailLink($contact, 'field_brebo_contact_email')],
+        ['data' => $this->phoneLink($contact, 'field_brebo_contact_phone')],
         $contact->hasField('field_brebo_contact_active') && (bool) $contact->get('field_brebo_contact_active')->value
           ? $this->t('Actief')
           : $this->t('Inactief'),
@@ -501,8 +501,8 @@ final class CrmController extends ControllerBase {
           '#type' => 'table',
           '#rows' => [
             [$this->t('Relatienummer'), $this->value($node, 'field_brebo_org_number')],
-            [$this->t('E-mail'), $this->value($node, 'field_brebo_org_email')],
-            [$this->t('Telefoon'), $this->value($node, 'field_brebo_org_phone')],
+            [$this->t('E-mail'), ['data' => $this->emailLink($node, 'field_brebo_org_email')]],
+            [$this->t('Telefoon'), ['data' => $this->phoneLink($node, 'field_brebo_org_phone')]],
             [$this->t('Adres'), $this->value($node, 'field_brebo_org_address')],
           ],
         ],
@@ -535,6 +535,29 @@ final class CrmController extends ControllerBase {
         '#empty' => $empty,
       ],
     ];
+  }
+
+  private function emailLink(NodeInterface $node, string $field): mixed {
+    $value = $this->value($node, $field);
+    if ($value === '—' || filter_var($value, FILTER_VALIDATE_EMAIL) === FALSE) {
+      return $value;
+    }
+
+    return Link::fromTextAndUrl($value, Url::fromUri('mailto:' . $value))->toRenderable();
+  }
+
+  private function phoneLink(NodeInterface $node, string $field): mixed {
+    $value = $this->value($node, $field);
+    if ($value === '—') {
+      return $value;
+    }
+
+    $telephone = preg_replace('/[^0-9+]/', '', $value);
+    if (!is_string($telephone) || $telephone === '') {
+      return $value;
+    }
+
+    return Link::fromTextAndUrl($value, Url::fromUri('tel:' . $telephone))->toRenderable();
   }
 
   private function value(NodeInterface $node, string $field): string {
