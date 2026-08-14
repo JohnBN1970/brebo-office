@@ -341,7 +341,10 @@ final class CrmController extends ControllerBase {
         continue;
       }
       $contactRows[] = [
-        ['data' => Link::fromTextAndUrl($contact->label(), $contact->toUrl())->toRenderable()],
+        ['data' => Link::fromTextAndUrl(
+          $contact->label(),
+          Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()])
+        )->toRenderable()],
         $this->value($contact, 'field_brebo_contact_role'),
         $this->value($contact, 'field_brebo_contact_email'),
         $this->value($contact, 'field_brebo_contact_phone'),
