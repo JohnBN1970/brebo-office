@@ -319,10 +319,15 @@ final class CrmController extends ControllerBase {
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
     $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
     $staleCutoff = date('Y-m-d', strtotime($today . ' -14 days'));
+    $activityCutoff = date('Y-m-d', strtotime($today . ' -30 days'));
+    $newOpportunityCount = 0;
 
     foreach ($opportunities as $opportunity) {
       if (!$opportunity instanceof NodeInterface) {
         continue;
+      }
+      if ((int) $opportunity->getCreatedTime() >= strtotime($activityCutoff . ' 00:00:00')) {
+        $newOpportunityCount++;
       }
       $organization = $opportunity->get('field_brebo_opp_org_ref')->entity;
       $owner = $opportunity->get('field_brebo_opp_owner')->entity;
@@ -707,6 +712,67 @@ final class CrmController extends ControllerBase {
       ];
     }
 
+    $recentTransitionRows = [];
+    $transitionCount = 0;
+    $recentWonCount = 0;
+    $recentLostCount = 0;
+    $recentContactCount = 0;
+    $recentNoteCount = 0;
+    $opportunityIds = array_map('intval', array_keys($opportunities));
+    if ($opportunityIds !== []) {
+      $recentEventIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_opportunity_event')
+        ->condition('field_brebo_event_opp_ref.target_id', $opportunityIds, 'IN')
+        ->condition('field_brebo_event_datetime', $activityCutoff . 'T00:00:00', '>=')
+        ->sort('field_brebo_event_datetime', 'DESC')
+        ->execute();
+      foreach ($storage->loadMultiple($recentEventIds) as $event) {
+        if (!$event instanceof NodeInterface) {
+          continue;
+        }
+        $transitionCount++;
+        $toStage = $this->value($event, 'field_brebo_event_to_stage');
+        if ($toStage === 'Gewonnen') {
+          $recentWonCount++;
+        }
+        elseif ($toStage === 'Verloren') {
+          $recentLostCount++;
+        }
+        if (count($recentTransitionRows) < 25) {
+          $eventOpportunity = $event->get('field_brebo_event_opp_ref')->entity;
+          $eventUser = $event->get('field_brebo_event_user')->entity;
+          $recentTransitionRows[] = [
+            $this->value($event, 'field_brebo_event_datetime'),
+            $eventOpportunity instanceof NodeInterface
+              ? ['data' => Link::fromTextAndUrl($eventOpportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $eventOpportunity->id()]))->toRenderable()]
+              : '—',
+            $this->value($event, 'field_brebo_event_from_stage'),
+            $toStage,
+            $eventUser !== NULL ? $eventUser->label() : '—',
+          ];
+        }
+      }
+
+      $recentCommunicationIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_communication')
+        ->condition('field_brebo_comm_opp_ref.target_id', $opportunityIds, 'IN')
+        ->condition('field_brebo_comm_datetime', $activityCutoff . 'T00:00:00', '>=')
+        ->execute();
+      foreach ($storage->loadMultiple($recentCommunicationIds) as $communication) {
+        if (!$communication instanceof NodeInterface) {
+          continue;
+        }
+        if ($this->value($communication, 'field_brebo_comm_direction') === 'Intern vastgelegd') {
+          $recentNoteCount++;
+        }
+        else {
+          $recentContactCount++;
+        }
+      }
+    }
+
     $ownerRows = [];
     ksort($ownerTotals, SORT_NATURAL | SORT_FLAG_CASE);
     foreach ($ownerTotals as $ownerName => $totals) {
@@ -836,6 +902,18 @@ final class CrmController extends ControllerBase {
         '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht'), $this->t('Overdracht open'), $this->t('Te lang in fase')],
         '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount, $handoverPendingCount, $stageOverdueCount]],
       ],
+      'activity_summary' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Nieuwe kansen (30 dagen)'), $this->t('Fasebewegingen'), $this->t('Gewonnen'), $this->t('Verloren'), $this->t('Klantcontacten'), $this->t('Interne notities')],
+        '#rows' => [[$newOpportunityCount, $transitionCount, $recentWonCount, $recentLostCount, $recentContactCount, $recentNoteCount]],
+      ],
+      'recent_transitions' => $this->section(
+        $this->t('Recente funnelbewegingen — 30 dagen'),
+        [$this->t('Datum'), $this->t('Kans'), $this->t('Van'), $this->t('Naar'), $this->t('Door')],
+        $recentTransitionRows,
+        $this->t('Geen fasebewegingen in de afgelopen 30 dagen.')
+      ),
       'handover' => $this->section(
         $this->t('Overdracht verkoop naar uitvoering'),
         [$this->t('Gewonnen kans'), $this->t('Organisatie'), $this->t('Omzet'), $this->t('Ontbreekt'), $this->t('Verantwoordelijke')],
