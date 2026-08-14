@@ -97,16 +97,6 @@ final class MailboxController extends ControllerBase {
       );
     }
 
-    $build['bulk_action'] = [
-      '#type' => 'link',
-      '#title' => $this->t('☑ Bulkacties'),
-      '#url' => Url::fromRoute('brebo_mail_intake.mail_bulk', [
-        'mailbox_id' => $mailbox_id,
-        'mail_state' => $mail_state,
-      ]),
-      '#attributes' => ['class' => ['brebo-mail-action', 'brebo-mail-bulk-link']],
-    ];
-
     $build['layout'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-layout']],
