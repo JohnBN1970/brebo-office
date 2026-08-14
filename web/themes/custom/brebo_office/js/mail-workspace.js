@@ -168,7 +168,7 @@
 
     const office = document.createElement('div');
     office.className = 'brebo-mail-toolbar__group';
-    office.append(action('🔗', 'Koppelen in Office', contextHref), action('✓', 'Inhoud verwerken', processHref), action('↗', 'Open communicatie', selectedId ? '/node/' + selectedId : ''), action('✎', 'Bewerken', selectedId ? '/node/' + selectedId + '/edit' : ''), action('☷', 'Beoordelingswerkbak', '/admin/brebo/mail-intake'));
+    office.append(action('🔗', 'Koppelen in Office', contextHref), action('✓', 'Inhoud verwerken', processHref));
     toolbar.append(compose, message, office);
     if (layout) workspace.insertBefore(toolbar, layout); else workspace.prepend(toolbar);
 
@@ -182,18 +182,9 @@
 
     if (article) {
       const title = article.querySelector('h2');
-      const actions = document.createElement('div');
-      actions.className = 'brebo-mail-office-actions';
-      const label = document.createElement('div');
-      label.className = 'brebo-mail-office-actions__label';
-      label.textContent = 'BREBO Office';
-      actions.append(label);
-      actions.append(action('✓', 'Inhoud verwerken', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
-
       const meta = article.querySelector('.brebo-mail-reader__meta');
       const sticky = document.createElement('div');
       sticky.className = 'brebo-mail-reader__sticky';
-      sticky.append(actions);
       if (title) sticky.append(title);
       if (meta) sticky.append(meta);
       article.prepend(sticky);
