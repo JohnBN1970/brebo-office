@@ -285,7 +285,12 @@ final class CrmController extends ControllerBase {
       'Onderhandeling', 'Gewonnen', 'Verloren',
     ];
     $stageOrder = array_flip($stages);
-    $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0]);
+    $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0, 'age_total' => 0, 'over_norm' => 0]);
+    $stageLimits = [
+      'Marketing lead' => 7, 'Lead' => 14, 'Kans' => 21, 'Afspraak' => 14,
+      'Calculatie/offerte' => 21, 'Onderhandeling' => 14,
+      'Gewonnen' => 0, 'Verloren' => 0,
+    ];
     $entries = [];
     $totalValue = 0.0;
     $totalWeighted = 0.0;
@@ -297,6 +302,7 @@ final class CrmController extends ControllerBase {
     $missingActionCount = 0;
     $unqualifiedCount = 0;
     $offerAttentionCount = 0;
+    $stageOverdueCount = 0;
     $offerRows = [];
     $handoverRows = [];
     $handoverPendingCount = 0;
@@ -441,6 +447,11 @@ final class CrmController extends ControllerBase {
           }
         }
         $alerts = [];
+        $stageLimit = $stageLimits[$stage] ?? 0;
+        if ($stageLimit > 0 && $stageAge > $stageLimit) {
+          $stageOverdueCount++;
+          $alerts[] = (string) $this->t('Fase langer dan @days dagen', ['@days' => $stageLimit]);
+        }
         $qualificationStages = ['Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling'];
         if (in_array($stage, $qualificationStages, TRUE)) {
           $qualificationMissing = !$opportunity->hasField('field_brebo_opp_requirement')
@@ -512,11 +523,16 @@ final class CrmController extends ControllerBase {
         $upcomingCount++;
       }
       if (!isset($stageTotals[$stage])) {
-        $stageTotals[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
+        $stageTotals[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0, 'age_total' => 0, 'over_norm' => 0];
       }
       $stageTotals[$stage]['count']++;
       $stageTotals[$stage]['value'] += $value;
       $stageTotals[$stage]['weighted'] += $weighted;
+      $stageTotals[$stage]['age_total'] += $stageAge;
+      $stageLimit = $stageLimits[$stage] ?? 0;
+      if ($active && $stageLimit > 0 && $stageAge > $stageLimit) {
+        $stageTotals[$stage]['over_norm']++;
+      }
       if ($active && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE)) {
         $openCount++;
         $totalValue += $value;
@@ -626,6 +642,9 @@ final class CrmController extends ControllerBase {
         $totals['count'],
         '€ ' . number_format($totals['value'], 2, ',', '.'),
         '€ ' . number_format($totals['weighted'], 2, ',', '.'),
+        $totals['count'] > 0 ? round($totals['age_total'] / $totals['count'], 1) : '—',
+        ($stageLimits[$stage] ?? 0) > 0 ? $stageLimits[$stage] : '—',
+        $totals['over_norm'],
       ];
     }
 
@@ -814,8 +833,8 @@ final class CrmController extends ControllerBase {
       'management_summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht'), $this->t('Overdracht open')],
-        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount, $handoverPendingCount]],
+        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht'), $this->t('Overdracht open'), $this->t('Te lang in fase')],
+        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount, $handoverPendingCount, $stageOverdueCount]],
       ],
       'handover' => $this->section(
         $this->t('Overdracht verkoop naar uitvoering'),
@@ -873,7 +892,7 @@ final class CrmController extends ControllerBase {
       ],
       'stages' => $this->section(
         $this->t('Funnel per fase'),
-        [$this->t('Fase'), $this->t('Aantal'), $this->t('Omzet'), $this->t('Gewogen omzet')],
+        [$this->t('Fase'), $this->t('Aantal'), $this->t('Omzet'), $this->t('Gewogen omzet'), $this->t('Gemiddeld dagen'), $this->t('Norm dagen'), $this->t('Boven norm')],
         $stageRows,
         $this->t('Nog geen funnelgegevens.')
       ),
