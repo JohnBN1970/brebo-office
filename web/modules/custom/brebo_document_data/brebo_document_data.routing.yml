@@ -51,7 +51,7 @@ brebo_document_data.revision_dossier:
 brebo_document_data.document_detail:
   path: '/brebo/document/{document_id}'
   defaults:
-    _controller: '\\Drupal\\brebo_document_data\\Controller\\DocumentDetailController::view'
+    _controller: '\Drupal\brebo_document_data\Controller\DocumentDetailController::view'
     _title: 'Document'
   requirements:
     _permission: 'access administration pages'
