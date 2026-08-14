@@ -63,7 +63,6 @@ final class MailContextForm extends FormBase {
       : match ($currentContext) {
         'Administratie' => 'administration',
         'Persoonlijk' => 'personal',
-        'Junk' => 'junk',
         default => NULL,
       };
 
@@ -83,7 +82,6 @@ final class MailContextForm extends FormBase {
         'project' => $this->t('Project'),
         'administration' => $this->t('Administratie'),
         'personal' => $this->t('Privé'),
-        'junk' => $this->t('Junk'),
       ],
       '#default_value' => $defaultTarget,
       '#required' => TRUE,
@@ -129,14 +127,6 @@ final class MailContextForm extends FormBase {
       ],
     ];
 
-    $form['junk_note'] = [
-      '#type' => 'container',
-      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'junk']]],
-      'text' => [
-        '#markup' => '<p class="description">' . $this->t('Junk heeft geen dossierwaarde. De e-mail blijft bewaard maar wordt naar Spam verplaatst en niet aan een project of documentcontext gekoppeld.') . '</p>',
-      ],
-    ];
-
     $documentIds = [];
     foreach (['brebo_document_communication', 'brebo_document_source'] as $table) {
       if (!$this->database->schema()->tableExists($table)) {
@@ -160,8 +150,8 @@ final class MailContextForm extends FormBase {
         ? $this->t('Documentregistratie is niet beschikbaar; de communicatiekoppeling kan wel worden opgeslagen.')
         : $this->formatPlural(
           $documentCount,
-          '1 document wordt bij bevestiging volgens de gekozen bestemming verwerkt.',
-          '@count documenten worden bij bevestiging volgens de gekozen bestemming verwerkt.',
+          '1 document krijgt bij bevestiging dezelfde primaire bestemming.',
+          '@count documenten krijgen bij bevestiging dezelfde primaire bestemming.',
         ),
     ];
 
@@ -183,7 +173,7 @@ final class MailContextForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $target = (string) $form_state->getValue('target_type');
-    if (!in_array($target, ['project', 'administration', 'personal', 'junk'], TRUE)) {
+    if (!in_array($target, ['project', 'administration', 'personal'], TRUE)) {
       $form_state->setErrorByName('target_type', $this->t('Kies een geldige primaire bestemming.'));
       return;
     }
@@ -216,7 +206,7 @@ final class MailContextForm extends FormBase {
       }
 
     }
-    elseif (!in_array($target, ['administration', 'personal', 'junk'], TRUE)) {
+    elseif (!in_array($target, ['administration', 'personal'], TRUE)) {
       throw new \InvalidArgumentException('Onbekend mail contexttype.');
     }
 
@@ -238,16 +228,6 @@ final class MailContextForm extends FormBase {
       }
     }
 
-    $mailboxId = 0;
-    if ($target === 'junk' && $this->database->schema()->tableExists('brebo_mailbox_message')) {
-      $mailboxId = (int) $this->database->select('brebo_mailbox_message', 'bm')
-        ->fields('bm', ['mailbox_id'])
-        ->condition('communication_id', $nid)
-        ->range(0, 1)
-        ->execute()
-        ->fetchField();
-    }
-
     $transaction = $this->database->startTransaction();
     try {
       if ($node->hasField('field_brebo_project_ref')) {
@@ -264,20 +244,12 @@ final class MailContextForm extends FormBase {
           'project' => 'Projectgericht',
           'administration' => 'Administratie',
           'personal' => 'Persoonlijk',
-          'junk' => 'Junk',
         });
       }
 
       $node->setNewRevision(TRUE);
       $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
       $node->save();
-
-      if ($target === 'junk' && $this->database->schema()->tableExists('brebo_mailbox_message')) {
-        $this->database->update('brebo_mailbox_message')
-          ->fields(['mail_state' => 'spam', 'is_read' => 1, 'needs_action' => 0, 'changed' => $this->time->getRequestTime()])
-          ->condition('communication_id', $nid)
-          ->execute();
-      }
 
       if ($documentIds !== [] && $this->database->schema()->tableExists('brebo_document_context')) {
         $this->database->delete('brebo_document_context')
@@ -319,23 +291,10 @@ final class MailContextForm extends FormBase {
         '@project' => $project?->label() ?? '',
       ])
       : $this->t('Communicatie is als @destination opgeslagen. @count document(en) blijven via deze communicatie vindbaar, zonder kunstmatige objectkoppeling.', [
-        '@destination' => match ($target) {
-          'personal' => $this->t('Privé'),
-          'junk' => $this->t('Junk en naar Spam verplaatst'),
-          default => $this->t('Administratie'),
-        },
+        '@destination' => $target === 'personal' ? $this->t('Persoonlijk') : $this->t('Administratie'),
         '@count' => count($documentIds),
       ]);
     $this->messenger()->addStatus($message);
-
-    if ($target === 'junk' && $mailboxId > 0) {
-      $form_state->setRedirect('brebo_mail_intake.mailbox_message', [
-        'mailbox_id' => $mailboxId,
-        'mail_state' => 'spam',
-        'communication_id' => $nid,
-      ]);
-      return;
-    }
 
     $returnPath = (string) $form_state->get('return_path');
     $form_state->setRedirectUrl(
