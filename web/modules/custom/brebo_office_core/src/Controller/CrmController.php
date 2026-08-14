@@ -202,6 +202,12 @@ final class CrmController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
+        'funnel' => [
+          '#type' => 'link',
+          '#title' => $this->t('Commerciële funnel'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel'),
+          '#attributes' => ['class' => ['button']],
+        ],
         'organizations' => [
           '#type' => 'link',
           '#title' => $this->t('Alle organisaties'),
@@ -248,6 +254,141 @@ final class CrmController extends ControllerBase {
       '#cache' => [
         'contexts' => ['user.permissions', 'url.query_args:q'],
         'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact', 'node_list:brebo_contact_affiliation', 'node_list:brebo_contact_point'],
+      ],
+    ];
+  }
+
+  public function funnel(Request $request): array {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $mine = (bool) $request->query->get('mine', FALSE);
+    $query = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_opportunity')
+      ->sort('changed', 'DESC');
+    if ($mine) {
+      $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
+    }
+    $opportunities = $storage->loadMultiple($query->execute());
+
+    $stages = [
+      'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie',
+      'Offerte', 'Onderhandeling', 'Gewonnen', 'Verloren',
+    ];
+    $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0]);
+    $rows = [];
+    $totalValue = 0.0;
+    $totalWeighted = 0.0;
+    $overdue = 0;
+    $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
+
+    foreach ($opportunities as $opportunity) {
+      if (!$opportunity instanceof NodeInterface) {
+        continue;
+      }
+      $organization = $opportunity->get('field_brebo_opp_org_ref')->entity;
+      $owner = $opportunity->get('field_brebo_opp_owner')->entity;
+      $stage = $this->value($opportunity, 'field_brebo_opp_stage');
+      $value = (float) ($opportunity->get('field_brebo_opp_value')->value ?? 0);
+      $probability = max(0, min(100, (int) ($opportunity->get('field_brebo_opp_probability')->value ?? 0)));
+      $weighted = $value * $probability / 100;
+      $active = (bool) $opportunity->get('field_brebo_opp_active')->value;
+      $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
+      if ($active && $nextDate !== '—' && $nextDate < $today) {
+        $overdue++;
+      }
+      if (!isset($stageTotals[$stage])) {
+        $stageTotals[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
+      }
+      $stageTotals[$stage]['count']++;
+      $stageTotals[$stage]['value'] += $value;
+      $stageTotals[$stage]['weighted'] += $weighted;
+      if ($active && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE)) {
+        $totalValue += $value;
+        $totalWeighted += $weighted;
+      }
+
+      $organizationCell = '—';
+      if ($organization instanceof NodeInterface) {
+        $organizationCell = Link::fromTextAndUrl(
+          $organization->label(),
+          Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
+        )->toRenderable();
+      }
+      $rows[] = [
+        ['data' => Link::fromTextAndUrl($opportunity->label(), $opportunity->toUrl())->toRenderable()],
+        ['data' => $organizationCell],
+        $stage,
+        '€ ' . number_format($value, 2, ',', '.'),
+        $probability . '%',
+        '€ ' . number_format($weighted, 2, ',', '.'),
+        $this->value($opportunity, 'field_brebo_opp_close_date'),
+        $nextDate,
+        $this->value($opportunity, 'field_brebo_opp_next_action'),
+        $owner !== NULL ? $owner->label() : '—',
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $opportunity->id()]))->toRenderable()],
+      ];
+    }
+
+    $stageRows = [];
+    foreach ($stageTotals as $stage => $totals) {
+      $stageRows[] = [
+        $stage,
+        $totals['count'],
+        '€ ' . number_format($totals['value'], 2, ',', '.'),
+        '€ ' . number_format($totals['weighted'], 2, ',', '.'),
+      ];
+    }
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'add' => [
+          '#type' => 'link',
+          '#title' => $this->t('Nieuwe kans'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_opportunity']),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'all' => [
+          '#type' => 'link',
+          '#title' => $this->t('Alle kansen'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel'),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'mine' => [
+          '#type' => 'link',
+          '#title' => $this->t('Mijn kansen'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1]]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'crm' => [
+          '#type' => 'link',
+          '#title' => $this->t('Relaties'),
+          '#url' => Url::fromRoute('brebo_office_core.crm'),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallige acties')],
+        '#rows' => [[count($opportunities), '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue]],
+      ],
+      'stages' => $this->section(
+        $this->t('Funnel per fase'),
+        [$this->t('Fase'), $this->t('Aantal'), $this->t('Omzet'), $this->t('Gewogen omzet')],
+        $stageRows,
+        $this->t('Nog geen funnelgegevens.')
+      ),
+      'opportunities' => $this->section(
+        $mine ? $this->t('Mijn kansen') : $this->t('Alle kansen'),
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
+        $rows,
+        $this->t('Nog geen commerciële kansen vastgelegd.')
+      ),
+      '#cache' => [
+        'contexts' => ['user.permissions', 'user', 'url.query_args:mine'],
+        'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_organization'],
       ],
     ];
   }
