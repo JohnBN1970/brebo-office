@@ -5122,3 +5122,25 @@ function brebo_office_core_update_11040(): string {
 
   return 'Onafhankelijke klant- en leverancierkenmerken ingericht.';
 }
+
+/**
+ * Adds an internal account owner to organizations.
+ */
+function brebo_office_core_update_11041(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization',
+    'Organisatie',
+    'Centrale relatiekaart voor opdrachtgever, leverancier en overige ketenpartij.',
+    [
+      'field_brebo_org_account_owner' => [
+        'label' => 'Account van', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'De interne BREBO-gebruiker die verantwoordelijk is voor deze relatie en de opvolging.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 14,
+      ],
+    ],
+  );
+
+  return 'Interne accountverantwoordelijke voor organisaties ingericht.';
+}
