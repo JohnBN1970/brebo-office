@@ -267,7 +267,7 @@ final class CrmController extends ControllerBase {
     $group = in_array($request->query->get('group'), ['none', 'stage', 'organization', 'owner'], TRUE)
       ? (string) $request->query->get('group')
       : 'none';
-    $sort = in_array($request->query->get('sort'), ['stage', 'organization', 'value', 'probability', 'close_date', 'next_date', 'owner'], TRUE)
+    $sort = in_array($request->query->get('sort'), ['stage', 'organization', 'value', 'probability', 'close_date', 'next_date', 'last_contact', 'owner'], TRUE)
       ? (string) $request->query->get('sort')
       : 'next_date';
     $direction = $request->query->get('direction') === 'desc' ? 'desc' : 'asc';
@@ -291,7 +291,10 @@ final class CrmController extends ControllerBase {
     $totalWeighted = 0.0;
     $openCount = 0;
     $overdue = 0;
+    $todayCount = 0;
+    $upcomingCount = 0;
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
+    $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
 
     foreach ($opportunities as $opportunity) {
       if (!$opportunity instanceof NodeInterface) {
@@ -308,9 +311,29 @@ final class CrmController extends ControllerBase {
       $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
       $organizationLabel = $organization instanceof NodeInterface ? (string) $organization->label() : '—';
       $ownerLabel = $owner !== NULL ? (string) $owner->label() : '—';
+      $lastContactIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_communication')
+        ->condition('field_brebo_comm_opp_ref.target_id', $opportunity->id())
+        ->sort('field_brebo_comm_datetime', 'DESC')
+        ->range(0, 1)
+        ->execute();
+      $lastContact = '—';
+      if ($lastContactIds !== []) {
+        $lastCommunication = $storage->load(reset($lastContactIds));
+        if ($lastCommunication instanceof NodeInterface) {
+          $lastContact = $this->value($lastCommunication, 'field_brebo_comm_datetime');
+        }
+      }
 
       if ($active && $nextDate !== '—' && $nextDate < $today) {
         $overdue++;
+      }
+      elseif ($active && $nextDate === $today) {
+        $todayCount++;
+      }
+      elseif ($active && $nextDate !== '—' && $nextDate > $today && $nextDate <= $weekEnd) {
+        $upcomingCount++;
       }
       if (!isset($stageTotals[$stage])) {
         $stageTotals[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
@@ -340,6 +363,7 @@ final class CrmController extends ControllerBase {
         '€ ' . number_format($weighted, 2, ',', '.'),
         $closeDate,
         $nextDate,
+        $lastContact,
         $this->value($opportunity, 'field_brebo_opp_next_action'),
         $ownerLabel,
         ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $opportunity->id()]))->toRenderable()],
@@ -355,6 +379,8 @@ final class CrmController extends ControllerBase {
         'weighted' => $weighted,
         'close_date' => $closeDate,
         'next_date' => $nextDate,
+        'last_contact' => $lastContact,
+        'active' => $active,
         'next_action' => $this->value($opportunity, 'field_brebo_opp_next_action'),
         'owner' => $ownerLabel,
       ];
@@ -364,7 +390,7 @@ final class CrmController extends ControllerBase {
       $key = $sort === 'stage' ? 'stage_order' : $sort;
       $a = $left[$key] ?? '';
       $b = $right[$key] ?? '';
-      if (in_array($key, ['close_date', 'next_date'], TRUE)) {
+      if (in_array($key, ['close_date', 'next_date', 'last_contact'], TRUE)) {
         $a = $a === '—' ? '9999-12-31' : $a;
         $b = $b === '—' ? '9999-12-31' : $b;
       }
@@ -373,6 +399,47 @@ final class CrmController extends ControllerBase {
         : strnatcasecmp((string) $a, (string) $b);
       return $direction === 'desc' ? -$comparison : $comparison;
     });
+
+    $attentionGroups = [
+      (string) $this->t('Achterstallig') => [],
+      (string) $this->t('Vandaag') => [],
+      (string) $this->t('Komende 7 dagen') => [],
+    ];
+    foreach ($entries as $entry) {
+      if (!$entry['active'] || $entry['next_date'] === '—') {
+        continue;
+      }
+      $attentionGroup = NULL;
+      if ($entry['next_date'] < $today) {
+        $attentionGroup = (string) $this->t('Achterstallig');
+      }
+      elseif ($entry['next_date'] === $today) {
+        $attentionGroup = (string) $this->t('Vandaag');
+      }
+      elseif ($entry['next_date'] <= $weekEnd) {
+        $attentionGroup = (string) $this->t('Komende 7 dagen');
+      }
+      if ($attentionGroup !== NULL) {
+        $attentionGroups[$attentionGroup][] = [
+          ['data' => Link::fromTextAndUrl($entry['node']->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $entry['node']->id()]))->toRenderable()],
+          $entry['organization'],
+          $entry['stage'],
+          $entry['next_date'],
+          $entry['next_action'],
+          $entry['last_contact'],
+          $entry['owner'],
+        ];
+      }
+    }
+    $attentionBuild = ['#type' => 'container'];
+    foreach ($attentionGroups as $attentionTitle => $attentionRows) {
+      $attentionBuild['group_' . count($attentionBuild)] = $this->section(
+        $attentionTitle,
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Actiedatum'), $this->t('Volgende actie'), $this->t('Laatste contact'), $this->t('Verantwoordelijke')],
+        $attentionRows,
+        $this->t('Geen acties in deze categorie.')
+      );
+    }
 
     $stageRows = [];
     foreach ($stageTotals as $stage => $totals) {
@@ -401,7 +468,7 @@ final class CrmController extends ControllerBase {
     foreach ($listGroups as $groupTitle => $groupRows) {
       $listBuild['group_' . count($listBuild)] = $this->section(
         $groupTitle,
-        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Laatste contact'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
         $groupRows,
         $this->t('Nog geen commerciële kansen vastgelegd.')
       );
@@ -504,7 +571,7 @@ final class CrmController extends ControllerBase {
           '#title' => $this->t('Sorteren'),
           '#name' => 'sort',
           '#default_value' => $sort,
-          '#options' => ['stage' => $this->t('Fase'), 'organization' => $this->t('Organisatie'), 'value' => $this->t('Omzet'), 'probability' => $this->t('Scoringskans'), 'close_date' => $this->t('Sluitdatum'), 'next_date' => $this->t('Actiedatum'), 'owner' => $this->t('Verantwoordelijke')],
+          '#options' => ['stage' => $this->t('Fase'), 'organization' => $this->t('Organisatie'), 'value' => $this->t('Omzet'), 'probability' => $this->t('Scoringskans'), 'close_date' => $this->t('Sluitdatum'), 'next_date' => $this->t('Actiedatum'), 'last_contact' => $this->t('Laatste contact'), 'owner' => $this->t('Verantwoordelijke')],
         ],
         'direction' => [
           '#type' => 'select',
@@ -518,8 +585,14 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallige acties')],
-        '#rows' => [[$openCount, '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue]],
+        '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallig'), $this->t('Vandaag'), $this->t('Komende 7 dagen')],
+        '#rows' => [[$openCount, '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue, $todayCount, $upcomingCount]],
+      ],
+      'attention' => [
+        '#type' => 'details',
+        '#title' => $this->t('Commerciële opvolging'),
+        '#open' => TRUE,
+        'content' => $attentionBuild,
       ],
       'stages' => $this->section(
         $this->t('Funnel per fase'),
@@ -531,7 +604,7 @@ final class CrmController extends ControllerBase {
       'kanban' => $kanbanBuild,
       '#cache' => [
         'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
-        'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_organization'],
+        'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_organization', 'node_list:brebo_communication'],
       ],
     ];
   }
