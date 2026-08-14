@@ -130,14 +130,14 @@ jobs:
           set -euo pipefail
           export NO_COLOR=1
           export TERM=dumb
-          target="public_html/sboffice_app"
+          target="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$target/web/sites/default/settings.php"
           services="$target/web/sites/default/services.yml"
 
           if [[ ! -d "$target" ]]; then
-            echo "::error::The sboffice_app project root does not exist."
+            echo "::error::The sboffice project root does not exist."
             exit 1
           fi
           if [[ -L "$target" ]]; then
@@ -145,7 +145,7 @@ jobs:
             exit 1
           fi
           if [[ -d "$target/web/web" ]]; then
-            echo "::error::Nested Drupal webroot detected at sboffice_app/web/web; refusing to deploy."
+            echo "::error::Nested Drupal webroot detected at sboffice/web/web; refusing to deploy."
             exit 1
           fi
           if [[ ! -f "$settings" ]]; then
