@@ -1,5 +1,5 @@
 global:
-  version: 1.1.1
+  version: 1.1.2
   css:
     base:
       css/base.css: {}
@@ -13,6 +13,7 @@ global:
   js:
     js/mail-workspace.js: {}
     js/mail-tabs-runtime.js: {}
+    js/mail-mime-cleanup.js: {}
 
 
 project-tabs:
