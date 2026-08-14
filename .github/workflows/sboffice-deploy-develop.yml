@@ -111,7 +111,7 @@ jobs:
             --exclude='.env' \
             --exclude='.env.*' \
             -czf /tmp/brebo-office-develop.tgz .
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php'
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
 
       - name: Upload deployment archive
         env:
@@ -165,9 +165,9 @@ jobs:
             rm -rf "$staging"
           }
           trap cleanup_staging EXIT
-          tar -tzf "$archive" | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php'
+          tar -tzf "$archive" | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
           tar -xzf "$archive" -C "$staging"
-          test -f "$staging/web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php"
+          test -f "$staging/web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
           cp -a "$staging/." "$target/"
           rm -f "$archive"
           cleanup_staging
@@ -195,12 +195,12 @@ jobs:
           test -f vendor/drush/drush/drush.php
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake -y
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
-          document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php"
+          document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
           document_routes="web/modules/custom/brebo_document_data/brebo_document_data.routing.yml"
           test -f "$document_controller"
           test -f "$document_routes"
           php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
-          grep -F "DocumentDetailController::view" "$document_routes"
+          grep -F "DocumentOpenController::view" "$document_routes"
           echo "Clearing derived container and discovery caches before rebuild."
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_container"
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_discovery"
