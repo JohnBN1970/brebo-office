@@ -6,7 +6,7 @@ namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_document_data\Service\DocumentRepository;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Datetime\TimeInterface;
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
