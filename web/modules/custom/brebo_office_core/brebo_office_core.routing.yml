@@ -362,6 +362,18 @@ brebo_office_core.opportunity_convert:
       node:
         type: entity:node
 
+brebo_office_core.opportunity_note:
+  path: '/relaties/funnel/{node}/notitie'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\OpportunityNoteForm'
+    _title: 'Interne notitie toevoegen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.opportunity_contact:
   path: '/relaties/funnel/{node}/contactmoment'
   defaults:
