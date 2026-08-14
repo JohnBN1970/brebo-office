@@ -270,7 +270,7 @@ final class CrmController extends ControllerBase {
     $group = in_array($request->query->get('group'), ['none', 'stage', 'organization', 'owner'], TRUE)
       ? (string) $request->query->get('group')
       : 'none';
-    $sort = in_array($request->query->get('sort'), ['stage', 'stage_age', 'organization', 'value', 'probability', 'close_date', 'next_date', 'last_contact', 'owner'], TRUE)
+    $sort = in_array($request->query->get('sort'), ['stage', 'stage_age', 'health', 'organization', 'value', 'probability', 'close_date', 'next_date', 'last_contact', 'owner'], TRUE)
       ? (string) $request->query->get('sort')
       : 'next_date';
     $direction = $request->query->get('direction') === 'desc' ? 'desc' : 'asc';
@@ -298,6 +298,9 @@ final class CrmController extends ControllerBase {
     $totalValue = 0.0;
     $totalWeighted = 0.0;
     $openCount = 0;
+    $healthyCount = 0;
+    $attentionHealthCount = 0;
+    $criticalCount = 0;
     $overdue = 0;
     $todayCount = 0;
     $upcomingCount = 0;
@@ -574,10 +577,48 @@ final class CrmController extends ControllerBase {
       if ($active && $stageLimit > 0 && $stageAge > $stageLimit) {
         $stageTotals[$stage]['over_norm']++;
       }
+      $healthScore = 100;
+      $healthStatus = (string) $this->t('Afgesloten');
       if ($active && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE)) {
         $openCount++;
         $totalValue += $value;
         $totalWeighted += $weighted;
+        if ($opportunity->get('field_brebo_opp_contact_ref')->isEmpty()) {
+          $healthScore -= 20;
+        }
+        if ($nextDate === '—' || $nextAction === '—') {
+          $healthScore -= 20;
+        }
+        if ($lastContact === '—' || substr($lastContact, 0, 10) < $staleCutoff) {
+          $healthScore -= 20;
+        }
+        $healthStageLimit = $stageLimits[$stage] ?? 0;
+        if ($healthStageLimit > 0 && $stageAge > $healthStageLimit) {
+          $healthScore -= 15;
+        }
+        if (in_array($stage, ['Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling'], TRUE)
+          && ($opportunity->get('field_brebo_opp_requirement')->isEmpty()
+            || $opportunity->get('field_brebo_opp_decision_maker')->isEmpty()
+            || $opportunity->get('field_brebo_opp_decision_date')->isEmpty())) {
+          $healthScore -= 15;
+        }
+        if (in_array($stage, ['Calculatie/offerte', 'Onderhandeling'], TRUE)
+          && $opportunity->get('field_brebo_opp_offer_ref')->isEmpty()) {
+          $healthScore -= 10;
+        }
+        $healthScore = max(0, $healthScore);
+        if ($healthScore >= 80) {
+          $healthStatus = (string) $this->t('Gezond');
+          $healthyCount++;
+        }
+        elseif ($healthScore >= 50) {
+          $healthStatus = (string) $this->t('Aandacht');
+          $attentionHealthCount++;
+        }
+        else {
+          $healthStatus = (string) $this->t('Kritiek');
+          $criticalCount++;
+        }
       }
 
       $organizationCell = '—';
@@ -598,6 +639,7 @@ final class CrmController extends ControllerBase {
         $nextDate,
         $lastContact,
         $stageAge,
+        $healthStatus . ' (' . $healthScore . ')',
         $nextAction,
         $ownerLabel,
         ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $opportunity->id()]))->toRenderable()],
@@ -615,6 +657,8 @@ final class CrmController extends ControllerBase {
         'next_date' => $nextDate,
         'last_contact' => $lastContact,
         'stage_age' => $stageAge,
+        'health' => $healthScore,
+        'health_status' => $healthStatus,
         'active' => $active,
         'next_action' => $nextAction,
         'owner' => $ownerLabel,
@@ -706,7 +750,7 @@ final class CrmController extends ControllerBase {
     foreach ($listGroups as $groupTitle => $groupRows) {
       $listBuild['group_' . count($listBuild)] = $this->section(
         $groupTitle,
-        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Laatste contact'), $this->t('Dagen in fase'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Laatste contact'), $this->t('Dagen in fase'), $this->t('Gezondheid'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
         $groupRows,
         $this->t('Nog geen commerciële kansen vastgelegd.')
       );
@@ -733,6 +777,7 @@ final class CrmController extends ControllerBase {
           'organization' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['organization']],
           'value' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => '€ ' . number_format($entry['value'], 2, ',', '.') . ' · ' . $entry['probability'] . '%'],
           'owner' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['owner'] . ' · ' . $entry['stage_age'] . ' dagen in fase'],
+          'health' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['health_status'] . ' (' . $entry['health'] . ')'],
           'next' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['next_date'] . ' · ' . $entry['next_action']],
           'edit' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $entry['node']->id()]))->toRenderable(),
         ];
@@ -1066,7 +1111,7 @@ final class CrmController extends ControllerBase {
           '#title' => $this->t('Sorteren'),
           '#name' => 'sort',
           '#default_value' => $sort,
-          '#options' => ['stage' => $this->t('Fase'), 'stage_age' => $this->t('Dagen in fase'), 'organization' => $this->t('Organisatie'), 'value' => $this->t('Omzet'), 'probability' => $this->t('Scoringskans'), 'close_date' => $this->t('Sluitdatum'), 'next_date' => $this->t('Actiedatum'), 'last_contact' => $this->t('Laatste contact'), 'owner' => $this->t('Verantwoordelijke')],
+          '#options' => ['stage' => $this->t('Fase'), 'stage_age' => $this->t('Dagen in fase'), 'health' => $this->t('Gezondheidsscore'), 'organization' => $this->t('Organisatie'), 'value' => $this->t('Omzet'), 'probability' => $this->t('Scoringskans'), 'close_date' => $this->t('Sluitdatum'), 'next_date' => $this->t('Actiedatum'), 'last_contact' => $this->t('Laatste contact'), 'owner' => $this->t('Verantwoordelijke')],
         ],
         'direction' => [
           '#type' => 'select',
@@ -1080,8 +1125,8 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallig'), $this->t('Vandaag'), $this->t('Komende 7 dagen')],
-        '#rows' => [[$openCount, '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue, $todayCount, $upcomingCount]],
+        '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallig'), $this->t('Vandaag'), $this->t('Komende 7 dagen'), $this->t('Gezond'), $this->t('Aandacht'), $this->t('Kritiek')],
+        '#rows' => [[$openCount, '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue, $todayCount, $upcomingCount, $healthyCount, $attentionHealthCount, $criticalCount]],
       ],
       'management_summary' => [
         '#type' => 'table',
