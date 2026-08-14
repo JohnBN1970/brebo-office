@@ -70,6 +70,7 @@ final class OfficeController extends ControllerBase {
         : $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
         'brebo_building' => Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $node->id()]),
+        'brebo_organization' => Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $node->id()]),
         'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
         'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
         'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),

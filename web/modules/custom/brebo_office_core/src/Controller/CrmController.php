@@ -1,0 +1,223 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\brebo_office_core\Controller;
+
+use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Link;
+use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+
+/** Provides the canonical CRM organization dossier. */
+final class CrmController extends ControllerBase {
+
+  public function organizationTitle(NodeInterface $node): string {
+    $this->assertOrganization($node);
+    return (string) $node->label();
+  }
+
+  public function organization(NodeInterface $node): array {
+    $this->assertOrganization($node);
+    $storage = $this->entityTypeManager()->getStorage('node');
+
+    $contactIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_contact')
+      ->condition('field_brebo_org_ref.target_id', $node->id())
+      ->sort('title')
+      ->execute();
+    $contacts = $storage->loadMultiple($contactIds);
+
+    $projectIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_project')
+      ->condition('field_brebo_client_org_ref.target_id', $node->id())
+      ->sort('changed', 'DESC')
+      ->execute();
+    $projects = $storage->loadMultiple($projectIds);
+
+    $communicationIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_communication')
+      ->condition('field_brebo_comm_org_ref.target_id', $node->id())
+      ->sort('field_brebo_comm_datetime', 'DESC')
+      ->range(0, 25)
+      ->execute();
+    $communications = $storage->loadMultiple($communicationIds);
+
+    $buildings = [];
+    foreach ($projects as $project) {
+      if (!$project instanceof NodeInterface || !$project->hasField('field_brebo_building_ref')) {
+        continue;
+      }
+      foreach ($project->get('field_brebo_building_ref')->referencedEntities() as $building) {
+        if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+          $buildings[(int) $building->id()] = $building;
+        }
+      }
+    }
+
+    $contactRows = [];
+    foreach ($contacts as $contact) {
+      if (!$contact instanceof NodeInterface) {
+        continue;
+      }
+      $contactRows[] = [
+        ['data' => Link::fromTextAndUrl($contact->label(), $contact->toUrl())->toRenderable()],
+        $this->value($contact, 'field_brebo_contact_role'),
+        $this->value($contact, 'field_brebo_contact_email'),
+        $this->value($contact, 'field_brebo_contact_phone'),
+        $contact->hasField('field_brebo_contact_active') && (bool) $contact->get('field_brebo_contact_active')->value
+          ? $this->t('Actief')
+          : $this->t('Inactief'),
+      ];
+    }
+
+    $projectRows = [];
+    foreach ($projects as $project) {
+      if (!$project instanceof NodeInterface) {
+        continue;
+      }
+      $buildingLabels = [];
+      if ($project->hasField('field_brebo_building_ref')) {
+        foreach ($project->get('field_brebo_building_ref')->referencedEntities() as $building) {
+          $buildingLabels[] = $building->label();
+        }
+      }
+      $projectRows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $project->label(),
+          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()])
+        )->toRenderable()],
+        $this->value($project, 'field_brebo_project_status'),
+        $buildingLabels !== [] ? implode(', ', $buildingLabels) : '—',
+        $this->value($project, 'field_brebo_project_kind'),
+      ];
+    }
+
+    $buildingRows = [];
+    foreach ($buildings as $building) {
+      $buildingRows[] = [
+        ['data' => Link::fromTextAndUrl(
+          $building->label(),
+          Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $building->id()])
+        )->toRenderable()],
+        $this->value($building, 'field_brebo_address'),
+        $this->value($building, 'field_brebo_status'),
+      ];
+    }
+
+    $communicationRows = [];
+    foreach ($communications as $communication) {
+      if (!$communication instanceof NodeInterface) {
+        continue;
+      }
+      $communicationRows[] = [
+        ['data' => Link::fromTextAndUrl($communication->label(), $communication->toUrl())->toRenderable()],
+        $this->value($communication, 'field_brebo_comm_datetime'),
+        $this->value($communication, 'field_brebo_comm_direction'),
+        $this->value($communication, 'field_brebo_comm_status'),
+      ];
+    }
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Relatie bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'contact' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contactpersoon toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_contact'], [
+            'query' => ['organization' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'project' => [
+          '#type' => 'link',
+          '#title' => $this->t('Project toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_project'], [
+            'query' => ['organization' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Status'), $this->t('Type'), $this->t('Contactpersonen'), $this->t('Projecten'), $this->t('Gebouwen'), $this->t('Communicatie')],
+        '#rows' => [[
+          $this->value($node, 'field_brebo_org_status'),
+          $this->value($node, 'field_brebo_org_type'),
+          count($contacts),
+          count($projects),
+          count($buildings),
+          count($communications),
+        ]],
+      ],
+      'details' => [
+        '#type' => 'details',
+        '#title' => $this->t('Relatiegegevens'),
+        '#open' => TRUE,
+        'table' => [
+          '#type' => 'table',
+          '#rows' => [
+            [$this->t('Relatienummer'), $this->value($node, 'field_brebo_org_number')],
+            [$this->t('E-mail'), $this->value($node, 'field_brebo_org_email')],
+            [$this->t('Telefoon'), $this->value($node, 'field_brebo_org_phone')],
+            [$this->t('Adres'), $this->value($node, 'field_brebo_org_address')],
+          ],
+        ],
+      ],
+      'contacts' => $this->section($this->t('Contactpersonen'), [$this->t('Naam'), $this->t('Rol'), $this->t('E-mail'), $this->t('Telefoon'), $this->t('Status')], $contactRows, $this->t('Nog geen contactpersonen gekoppeld.')),
+      'projects' => $this->section($this->t('Projecten'), [$this->t('Project'), $this->t('Status'), $this->t('Gebouw'), $this->t('Soort')], $projectRows, $this->t('Nog geen projecten gekoppeld.')),
+      'buildings' => $this->section($this->t('Gebouwen via projecten'), [$this->t('Gebouw'), $this->t('Adres'), $this->t('Status')], $buildingRows, $this->t('Nog geen gebouwen via projecten gevonden.')),
+      'communications' => $this->section($this->t('Laatste communicatie'), [$this->t('Onderwerp'), $this->t('Datum'), $this->t('Richting'), $this->t('Status')], $communicationRows, $this->t('Nog geen communicatie gekoppeld.')),
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => array_merge($node->getCacheTags(), [
+          'node_list:brebo_contact',
+          'node_list:brebo_project',
+          'node_list:brebo_building',
+          'node_list:brebo_communication',
+        ]),
+      ],
+    ];
+  }
+
+  private function section(mixed $title, array $header, array $rows, mixed $empty): array {
+    return [
+      '#type' => 'details',
+      '#title' => $title,
+      '#open' => TRUE,
+      'table' => [
+        '#type' => 'table',
+        '#header' => $header,
+        '#rows' => $rows,
+        '#empty' => $empty,
+      ],
+    ];
+  }
+
+  private function value(NodeInterface $node, string $field): string {
+    if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
+      return '—';
+    }
+    $value = trim((string) $node->get($field)->value);
+    return $value !== '' ? $value : '—';
+  }
+
+  private function assertOrganization(NodeInterface $node): void {
+    if ($node->bundle() !== 'brebo_organization') {
+      throw new NotFoundHttpException();
+    }
+  }
+
+}
