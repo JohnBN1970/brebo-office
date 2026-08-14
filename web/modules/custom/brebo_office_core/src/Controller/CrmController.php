@@ -551,6 +551,9 @@ final class CrmController extends ControllerBase {
     $organization = $node->get('field_brebo_opp_org_ref')->entity;
     $contact = $node->get('field_brebo_opp_contact_ref')->entity;
     $owner = $node->get('field_brebo_opp_owner')->entity;
+    $calculation = $node->get('field_brebo_opp_calc_ref')->entity;
+    $offer = $node->get('field_brebo_opp_offer_ref')->entity;
+    $project = $node->get('field_brebo_opp_project_ref')->entity;
     $value = (float) ($node->get('field_brebo_opp_value')->value ?? 0);
     $probability = max(0, min(100, (int) ($node->get('field_brebo_opp_probability')->value ?? 0)));
     $weighted = $value * $probability / 100;
@@ -615,6 +618,14 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_office_core.opportunity_transition', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
+        'convert' => [
+          '#type' => 'link',
+          '#title' => $this->t('Project starten'),
+          '#url' => Url::fromRoute('brebo_office_core.opportunity_convert', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+          '#access' => (string) $node->get('field_brebo_opp_stage')->value === 'Gewonnen'
+            && !$project instanceof NodeInterface,
+        ],
         'contact' => [
           '#type' => 'link',
           '#title' => $this->t('Contactmoment vastleggen'),
@@ -657,6 +668,11 @@ final class CrmController extends ControllerBase {
             [$this->t('Organisatie'), ['data' => $organizationCell]],
             [$this->t('Primaire contactpersoon'), ['data' => $contactCell]],
             [$this->t('Verantwoordelijke'), $owner !== NULL ? $owner->label() : '—'],
+            [$this->t('Calculatie'), $calculation instanceof NodeInterface ? $calculation->label() : '—'],
+            [$this->t('Offerteversie'), $offer instanceof NodeInterface ? $offer->label() : '—'],
+            [$this->t('Project'), $project instanceof NodeInterface
+              ? ['data' => Link::fromTextAndUrl($project->label(), Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()]))->toRenderable()]
+              : '—'],
             [$this->t('Verwachte sluitdatum'), $this->value($node, 'field_brebo_opp_close_date')],
             [$this->t('Volgende actiedatum'), $this->value($node, 'field_brebo_opp_next_date')],
             [$this->t('Volgende actie'), $this->value($node, 'field_brebo_opp_next_action')],
