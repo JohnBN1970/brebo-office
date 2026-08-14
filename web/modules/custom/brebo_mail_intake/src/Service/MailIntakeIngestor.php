@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\NodeInterface;
 
@@ -17,6 +19,7 @@ final class MailIntakeIngestor {
   ) {}
 
   public function ingest(array $mail): array {
+    $this->ensureHtmlBodyField();
     $sourceId = trim((string) ($mail['source_id'] ?? ''));
     $subject = trim((string) ($mail['subject'] ?? ''));
     $body = trim((string) ($mail['body'] ?? ''));
@@ -58,6 +61,7 @@ final class MailIntakeIngestor {
       'field_brebo_mail_from' => trim((string) ($mail['from'] ?? '')),
       'field_brebo_mail_to' => trim((string) ($mail['to'] ?? '')),
       'field_brebo_mail_classification' => trim((string) ($mail['classification'] ?? '')),
+      'field_brebo_mail_html' => trim((string) ($mail['body_html'] ?? '')),
       'field_brebo_match_basis' => trim((string) ($mail['match_basis'] ?? '')),
     ];
 
@@ -79,6 +83,38 @@ final class MailIntakeIngestor {
     $node->setRevisionLogMessage('Bronmail via Migrerende Mail Intake geregistreerd; koppelingen zijn nog niet formeel vastgesteld.');
     $node->save();
     return ['state' => 'created', 'node_id' => (int) $node->id(), 'duplicate_of' => NULL, 'source_hash' => $sourceHash];
+  }
+
+
+  /**
+   * Ensures the optional HTML body is available without changing other config.
+   */
+  private function ensureHtmlBodyField(): void {
+    $storage = FieldStorageConfig::loadByName('node', 'field_brebo_mail_html');
+    if (!$storage) {
+      FieldStorageConfig::create([
+        'uuid' => '6eb1d31f-bf56-4e1c-978a-69066ed4a9aa',
+        'field_name' => 'field_brebo_mail_html',
+        'entity_type' => 'node',
+        'type' => 'text_long',
+        'module' => 'text',
+        'cardinality' => 1,
+        'translatable' => TRUE,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', 'brebo_communication', 'field_brebo_mail_html')) {
+      FieldConfig::create([
+        'uuid' => 'd56b52a1-e148-43c1-878e-2ca833414af9',
+        'field_name' => 'field_brebo_mail_html',
+        'entity_type' => 'node',
+        'bundle' => 'brebo_communication',
+        'label' => 'HTML-mailinhoud',
+        'description' => 'Originele HTML-variant van een e-mail; uitsluitend via veilige filtering weergeven.',
+        'required' => FALSE,
+        'translatable' => TRUE,
+      ])->save();
+    }
   }
 
 }
