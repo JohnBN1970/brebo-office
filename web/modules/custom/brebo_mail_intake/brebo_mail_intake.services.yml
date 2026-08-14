@@ -133,6 +133,12 @@ services:
   brebo_mail_intake.source_mailbox_attachment_reader:
     class: Drupal\brebo_mail_intake\Service\SourceMailboxAttachmentReader
 
+  brebo_mail_intake.signature_builder:
+    class: Drupal\brebo_mail_intake\Service\MailSignatureBuilder
+    arguments:
+      - '@entity_type.manager'
+      - '@config.factory'
+
   brebo_mail_intake.outbound:
     class: Drupal\brebo_mail_intake\Service\OutboundMailService
     arguments:
@@ -141,6 +147,7 @@ services:
       - '@plugin.manager.mail'
       - '@datetime.time'
       - '@config.factory'
+      - '@brebo_mail_intake.signature_builder'
 
   brebo_mail_intake.template_catalog:
     class: Drupal\brebo_mail_intake\Service\MailTemplateCatalog
