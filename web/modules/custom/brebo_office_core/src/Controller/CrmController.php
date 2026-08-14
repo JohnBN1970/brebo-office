@@ -323,14 +323,20 @@ final class CrmController extends ControllerBase {
     $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
     $staleCutoff = date('Y-m-d', strtotime($today . ' -14 days'));
     $activityCutoff = date('Y-m-d', strtotime($today . ' -' . $period . ' days'));
+    $previousCutoff = date('Y-m-d', strtotime($activityCutoff . ' -' . $period . ' days'));
     $newOpportunityCount = 0;
+    $previousNewOpportunityCount = 0;
 
     foreach ($opportunities as $opportunity) {
       if (!$opportunity instanceof NodeInterface) {
         continue;
       }
-      if ((int) $opportunity->getCreatedTime() >= strtotime($activityCutoff . ' 00:00:00')) {
+      $createdTime = (int) $opportunity->getCreatedTime();
+      if ($createdTime >= strtotime($activityCutoff . ' 00:00:00')) {
         $newOpportunityCount++;
+      }
+      elseif ($createdTime >= strtotime($previousCutoff . ' 00:00:00')) {
+        $previousNewOpportunityCount++;
       }
       $organization = $opportunity->get('field_brebo_opp_org_ref')->entity;
       $owner = $opportunity->get('field_brebo_opp_owner')->entity;
@@ -721,6 +727,10 @@ final class CrmController extends ControllerBase {
     $recentLostCount = 0;
     $recentContactCount = 0;
     $recentNoteCount = 0;
+    $previousTransitionCount = 0;
+    $previousWonCount = 0;
+    $previousLostCount = 0;
+    $previousContactCount = 0;
     $opportunityIds = array_map('intval', array_keys($opportunities));
     if ($opportunityIds !== []) {
       $recentEventIds = $storage->getQuery()
@@ -757,6 +767,27 @@ final class CrmController extends ControllerBase {
         }
       }
 
+      $previousEventIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_opportunity_event')
+        ->condition('field_brebo_event_opp_ref.target_id', $opportunityIds, 'IN')
+        ->condition('field_brebo_event_datetime', $previousCutoff . 'T00:00:00', '>=')
+        ->condition('field_brebo_event_datetime', $activityCutoff . 'T00:00:00', '<')
+        ->execute();
+      foreach ($storage->loadMultiple($previousEventIds) as $event) {
+        if (!$event instanceof NodeInterface) {
+          continue;
+        }
+        $previousTransitionCount++;
+        $toStage = $this->value($event, 'field_brebo_event_to_stage');
+        if ($toStage === 'Gewonnen') {
+          $previousWonCount++;
+        }
+        elseif ($toStage === 'Verloren') {
+          $previousLostCount++;
+        }
+      }
+
       $recentCommunicationIds = $storage->getQuery()
         ->accessCheck(TRUE)
         ->condition('type', 'brebo_communication')
@@ -774,7 +805,24 @@ final class CrmController extends ControllerBase {
           $recentContactCount++;
         }
       }
+      $previousCommunicationIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_communication')
+        ->condition('field_brebo_comm_opp_ref.target_id', $opportunityIds, 'IN')
+        ->condition('field_brebo_comm_datetime', $previousCutoff . 'T00:00:00', '>=')
+        ->condition('field_brebo_comm_datetime', $activityCutoff . 'T00:00:00', '<')
+        ->condition('field_brebo_comm_direction', 'Intern vastgelegd', '<>')
+        ->execute();
+      $previousContactCount = count($previousCommunicationIds);
     }
+
+    $trendRows = [
+      [$this->t('Nieuwe kansen'), $newOpportunityCount, $previousNewOpportunityCount, $newOpportunityCount - $previousNewOpportunityCount],
+      [$this->t('Fasebewegingen'), $transitionCount, $previousTransitionCount, $transitionCount - $previousTransitionCount],
+      [$this->t('Gewonnen'), $recentWonCount, $previousWonCount, $recentWonCount - $previousWonCount],
+      [$this->t('Verloren'), $recentLostCount, $previousLostCount, $recentLostCount - $previousLostCount],
+      [$this->t('Klantcontacten'), $recentContactCount, $previousContactCount, $recentContactCount - $previousContactCount],
+    ];
 
     $ownerRows = [];
     ksort($ownerTotals, SORT_NATURAL | SORT_FLAG_CASE);
@@ -918,6 +966,12 @@ final class CrmController extends ControllerBase {
         '#header' => [$this->t('Nieuwe kansen (@days dagen)', ['@days' => $period]), $this->t('Fasebewegingen'), $this->t('Gewonnen'), $this->t('Verloren'), $this->t('Klantcontacten'), $this->t('Interne notities')],
         '#rows' => [[$newOpportunityCount, $transitionCount, $recentWonCount, $recentLostCount, $recentContactCount, $recentNoteCount]],
       ],
+      'activity_trend' => $this->section(
+        $this->t('Trendvergelijking — @days dagen', ['@days' => $period]),
+        [$this->t('Activiteit'), $this->t('Huidige periode'), $this->t('Vorige periode'), $this->t('Verschil')],
+        $trendRows,
+        $this->t('Geen trendgegevens beschikbaar.')
+      ),
       'recent_transitions' => $this->section(
         $this->t('Recente funnelbewegingen — @days dagen', ['@days' => $period]),
         [$this->t('Datum'), $this->t('Kans'), $this->t('Van'), $this->t('Naar'), $this->t('Door')],
