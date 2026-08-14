@@ -1,5 +1,5 @@
 global:
-  version: 1.1.6
+  version: 1.1.7
   css:
     base:
       css/base.css: {}
@@ -19,6 +19,7 @@ global:
     js/mail-mime-cleanup.js: {}
     js/mail-list-controls.js: {}
     js/mail-resize.js: {}
+    js/mail-context-actions.js: {}
 
 
 project-tabs:
