@@ -261,6 +261,9 @@ final class CrmController extends ControllerBase {
   public function funnel(Request $request): array {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
+    $period = in_array((int) $request->query->get('period', 30), [7, 30, 90, 365], TRUE)
+      ? (int) $request->query->get('period', 30)
+      : 30;
     $view = in_array($request->query->get('view'), ['list', 'kanban'], TRUE)
       ? (string) $request->query->get('view')
       : 'list';
@@ -319,7 +322,7 @@ final class CrmController extends ControllerBase {
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
     $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
     $staleCutoff = date('Y-m-d', strtotime($today . ' -14 days'));
-    $activityCutoff = date('Y-m-d', strtotime($today . ' -30 days'));
+    $activityCutoff = date('Y-m-d', strtotime($today . ' -' . $period . ' days'));
     $newOpportunityCount = 0;
 
     foreach ($opportunities as $opportunity) {
@@ -818,7 +821,7 @@ final class CrmController extends ControllerBase {
     $closedCount = $wonCount + $lostCount;
     $winRate = $closedCount > 0 ? round($wonCount * 100 / $closedCount, 1) . '%' : '—';
 
-    $queryBase = array_filter(['mine' => $mine ? 1 : NULL]);
+    $queryBase = array_filter(['mine' => $mine ? 1 : NULL, 'period' => $period]);
     return [
       '#attached' => ['library' => ['brebo_office_core/funnel']],
       'actions' => [
@@ -845,13 +848,13 @@ final class CrmController extends ControllerBase {
         'all' => [
           '#type' => 'link',
           '#title' => $this->t('Alle kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['period' => $period, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'mine' => [
           '#type' => 'link',
           '#title' => $this->t('Mijn kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'crm' => [
@@ -867,6 +870,13 @@ final class CrmController extends ControllerBase {
         '#attributes' => ['method' => 'get', 'action' => Url::fromRoute('brebo_office_core.funnel')->toString(), 'class' => ['brebo-funnel-controls']],
         'mine' => $mine ? ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'mine', 'value' => '1']] : [],
         'view' => ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'view', 'value' => $view]],
+        'period' => [
+          '#type' => 'select',
+          '#title' => $this->t('Rapportageperiode'),
+          '#name' => 'period',
+          '#default_value' => $period,
+          '#options' => [7 => $this->t('7 dagen'), 30 => $this->t('30 dagen'), 90 => $this->t('90 dagen'), 365 => $this->t('365 dagen')],
+        ],
         'group' => [
           '#type' => 'select',
           '#title' => $this->t('Groeperen'),
@@ -905,14 +915,14 @@ final class CrmController extends ControllerBase {
       'activity_summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Nieuwe kansen (30 dagen)'), $this->t('Fasebewegingen'), $this->t('Gewonnen'), $this->t('Verloren'), $this->t('Klantcontacten'), $this->t('Interne notities')],
+        '#header' => [$this->t('Nieuwe kansen (@days dagen)', ['@days' => $period]), $this->t('Fasebewegingen'), $this->t('Gewonnen'), $this->t('Verloren'), $this->t('Klantcontacten'), $this->t('Interne notities')],
         '#rows' => [[$newOpportunityCount, $transitionCount, $recentWonCount, $recentLostCount, $recentContactCount, $recentNoteCount]],
       ],
       'recent_transitions' => $this->section(
-        $this->t('Recente funnelbewegingen — 30 dagen'),
+        $this->t('Recente funnelbewegingen — @days dagen', ['@days' => $period]),
         [$this->t('Datum'), $this->t('Kans'), $this->t('Van'), $this->t('Naar'), $this->t('Door')],
         $recentTransitionRows,
-        $this->t('Geen fasebewegingen in de afgelopen 30 dagen.')
+        $this->t('Geen fasebewegingen in de afgelopen @days dagen.', ['@days' => $period])
       ),
       'handover' => $this->section(
         $this->t('Overdracht verkoop naar uitvoering'),
@@ -977,7 +987,7 @@ final class CrmController extends ControllerBase {
       'list' => $listBuild,
       'kanban' => $kanbanBuild,
       '#cache' => [
-        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
+        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
         'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_opportunity_event', 'node_list:brebo_organization', 'node_list:brebo_communication'],
       ],
     ];
