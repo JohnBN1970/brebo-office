@@ -8,3 +8,9 @@ live_voice:
   dependencies:
     - core/drupal
     - core/once
+
+funnel:
+  version: 1.x
+  css:
+    component:
+      css/funnel.css: {}
