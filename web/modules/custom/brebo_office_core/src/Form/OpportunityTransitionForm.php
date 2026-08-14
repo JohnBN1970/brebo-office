@@ -121,6 +121,11 @@ final class OpportunityTransitionForm extends FormBase {
         $form_state->setErrorByName('stage', $this->t('Leg eerst de beslis- of aanbestedingsdatum vast.'));
       }
     }
+    if (in_array($stage, ['Onderhandeling', 'Gewonnen'], TRUE)
+      && $this->opportunity->hasField('field_brebo_opp_offer_ref')
+      && $this->opportunity->get('field_brebo_opp_offer_ref')->isEmpty()) {
+      $form_state->setErrorByName('stage', $this->t('Koppel eerst de actuele offerteversie via Kans bewerken.'));
+    }
     if ($stage === 'Verloren' && trim((string) $form_state->getValue('loss_reason')) === '') {
       $form_state->setErrorByName('loss_reason', $this->t('Leg vast waarom deze kans verloren is.'));
     }
