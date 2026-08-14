@@ -659,11 +659,19 @@ final class CrmController extends ControllerBase {
       ->sort('field_brebo_comm_datetime', 'DESC')
       ->execute();
     $communicationRows = [];
+    $externalContactCount = 0;
+    $noteCount = 0;
     foreach ($storage->loadMultiple($communicationIds) as $communication) {
       if (!$communication instanceof NodeInterface) {
         continue;
       }
       $communicationContact = $communication->get('field_brebo_comm_contact_ref')->entity;
+      if ($this->value($communication, 'field_brebo_comm_direction') === 'Intern vastgelegd') {
+        $noteCount++;
+      }
+      else {
+        $externalContactCount++;
+      }
       $communicationRows[] = [
         $this->value($communication, 'field_brebo_comm_datetime'),
         $this->value($communication, 'field_brebo_comm_channel'),
@@ -699,6 +707,12 @@ final class CrmController extends ControllerBase {
           '#access' => (string) $node->get('field_brebo_opp_stage')->value === 'Gewonnen'
             && !$project instanceof NodeInterface,
         ],
+        'note' => [
+          '#type' => 'link',
+          '#title' => $this->t('Notitie toevoegen'),
+          '#url' => Url::fromRoute('brebo_office_core.opportunity_note', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'contact' => [
           '#type' => 'link',
           '#title' => $this->t('Contactmoment vastleggen'),
@@ -721,14 +735,15 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Fase'), $this->t('Actief'), $this->t('Omzet'), $this->t('Scoringskans'), $this->t('Gewogen omzet'), $this->t('Contactmomenten')],
+        '#header' => [$this->t('Fase'), $this->t('Actief'), $this->t('Omzet'), $this->t('Scoringskans'), $this->t('Gewogen omzet'), $this->t('Contactmomenten'), $this->t('Notities')],
         '#rows' => [[
           $this->value($node, 'field_brebo_opp_stage'),
           (bool) $node->get('field_brebo_opp_active')->value ? $this->t('Ja') : $this->t('Nee'),
           '€ ' . number_format($value, 2, ',', '.'),
           $probability . '%',
           '€ ' . number_format($weighted, 2, ',', '.'),
-          count($communicationRows),
+          $externalContactCount,
+          $noteCount,
         ]],
       ],
       'details' => [
@@ -755,7 +770,7 @@ final class CrmController extends ControllerBase {
         ],
       ],
       'communications' => $this->section(
-        $this->t('Contactmomenten'),
+        $this->t('Contactmomenten en interne notities'),
         [$this->t('Datum'), $this->t('Kanaal'), $this->t('Richting'), $this->t('Onderwerp'), $this->t('Contactpersoon'), $this->t('Status')],
         $communicationRows,
         $this->t('Nog geen contactmomenten aan deze kans gekoppeld.')
