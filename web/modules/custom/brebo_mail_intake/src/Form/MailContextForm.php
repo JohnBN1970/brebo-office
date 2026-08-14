@@ -63,6 +63,7 @@ final class MailContextForm extends FormBase {
       : match ($currentContext) {
         'Administratie' => 'administration',
         'Persoonlijk' => 'personal',
+        'Junk' => 'junk',
         default => NULL,
       };
 
@@ -82,6 +83,7 @@ final class MailContextForm extends FormBase {
         'project' => $this->t('Project'),
         'administration' => $this->t('Administratie'),
         'personal' => $this->t('Privé'),
+        'junk' => $this->t('Junk'),
       ],
       '#default_value' => $defaultTarget,
       '#required' => TRUE,
@@ -124,6 +126,14 @@ final class MailContextForm extends FormBase {
       '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'personal']]],
       'text' => [
         '#markup' => '<p class="description">' . $this->t('Privé is bedoeld voor privécommunicatie en staat buiten het gedeelde zakelijke project- en administratiedossier.') . '</p>',
+      ],
+    ];
+
+    $form['junk_note'] = [
+      '#type' => 'container',
+      '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'junk']]],
+      'text' => [
+        '#markup' => '<p class="description">' . $this->t('Junk heeft geen dossierwaarde. De e-mail blijft bewaard maar wordt naar Spam verplaatst en niet aan een project of documentcontext gekoppeld.') . '</p>',
       ],
     ];
 
@@ -173,7 +183,7 @@ final class MailContextForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $target = (string) $form_state->getValue('target_type');
-    if (!in_array($target, ['project', 'administration', 'personal'], TRUE)) {
+    if (!in_array($target, ['project', 'administration', 'personal', 'junk'], TRUE)) {
       $form_state->setErrorByName('target_type', $this->t('Kies een geldige primaire bestemming.'));
       return;
     }
@@ -206,7 +216,7 @@ final class MailContextForm extends FormBase {
       }
 
     }
-    elseif (!in_array($target, ['administration', 'personal'], TRUE)) {
+    elseif (!in_array($target, ['administration', 'personal', 'junk'], TRUE)) {
       throw new \InvalidArgumentException('Onbekend mail contexttype.');
     }
 
@@ -244,12 +254,20 @@ final class MailContextForm extends FormBase {
           'project' => 'Projectgericht',
           'administration' => 'Administratie',
           'personal' => 'Persoonlijk',
+          'junk' => 'Junk',
         });
       }
 
       $node->setNewRevision(TRUE);
       $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
       $node->save();
+
+      if ($target === 'junk' && $this->database->schema()->tableExists('brebo_mailbox_message')) {
+        $this->database->update('brebo_mailbox_message')
+          ->fields(['mail_state' => 'spam', 'is_read' => 1, 'needs_action' => 0, 'changed' => $this->time->getRequestTime()])
+          ->condition('communication_id', $nid)
+          ->execute();
+      }
 
       if ($documentIds !== [] && $this->database->schema()->tableExists('brebo_document_context')) {
         $this->database->delete('brebo_document_context')
@@ -291,7 +309,11 @@ final class MailContextForm extends FormBase {
         '@project' => $project?->label() ?? '',
       ])
       : $this->t('Communicatie is als @destination opgeslagen. @count document(en) blijven via deze communicatie vindbaar, zonder kunstmatige objectkoppeling.', [
-        '@destination' => $target === 'personal' ? $this->t('Persoonlijk') : $this->t('Administratie'),
+        '@destination' => match ($target) {
+          'personal' => $this->t('Privé'),
+          'junk' => $this->t('Junk en naar Spam verplaatst'),
+          default => $this->t('Administratie'),
+        },
         '@count' => count($documentIds),
       ]);
     $this->messenger()->addStatus($message);
