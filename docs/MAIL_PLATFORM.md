@@ -43,6 +43,8 @@ Drupal mail-laag
 - AI of achtergrondprocessen mogen nooit zelfstandig de formele status `Verzenden goedgekeurd` zetten.
 - Een verzendactie vereist zowel het BREBO-verzendmandaat als expliciete runtime-activering van SMTP.
 - Uitgaande mail wordt na succesvolle verzending in hetzelfde `brebo_communication`-object als verzonden vastgelegd.
+- Mail kent vier primaire bestemmingen: `Project`, `Administratie`, `Persoonlijk` (zichtbaar als Privé) en `Junk`; Junk blijft bewaard maar wordt naar Spam verplaatst.
+- Antwoorden en doorgestuurde berichten bewaren een expliciete bronrelatie en erven uitsluitend de canonieke primaire bestemming van de bron.
 - Mailwachtwoorden, SMTP-credentials en andere secrets staan nooit in GitHub of Drupal-config-export.
 - Geen `drush cim` in de deployketen.
 
@@ -92,6 +94,6 @@ De MX-omschakeling naar Hostinger gebeurt pas nadat de nieuwe mailbox operatione
 4. Mail System + Mime Mail + SMTP dependencies: gebouwd;
 5. veilige SMTP-activeringsgrens: gebouwd;
 6. Hostinger `info@brebobv.nl` runtime-secrets: wacht op mailboxaanmaak;
-7. Mail System formatter/sender definitief koppelen en echte verzendtest: na mailboxaanmaak;
+7. gebruikersketen concept -> expliciet goedkeuren -> verzenden -> Verzonden: gebouwd; echte transportacceptatie blijft runtime-afhankelijk;
 8. Zoho-historie in beheersbare batches migreren en verwerken: na broncredentials;
-9. bijlagen en thread/conversation-relaties verder verdiepen: vervolg.
+9. directe bronrelatie voor antwoorden/doorsturen: gebouwd; volledige conversation-threadweergave: vervolg.
