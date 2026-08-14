@@ -108,6 +108,18 @@ final class OpportunityTransitionForm extends FormBase {
       if ($this->opportunity->get('field_brebo_opp_close_date')->isEmpty()) {
         $form_state->setErrorByName('stage', $this->t('Leg eerst de verwachte sluitdatum vast.'));
       }
+      if ($this->opportunity->hasField('field_brebo_opp_requirement')
+        && $this->opportunity->get('field_brebo_opp_requirement')->isEmpty()) {
+        $form_state->setErrorByName('stage', $this->t('Leg eerst de klantbehoefte en scope vast via Kans bewerken.'));
+      }
+      if ($this->opportunity->hasField('field_brebo_opp_decision_maker')
+        && $this->opportunity->get('field_brebo_opp_decision_maker')->isEmpty()) {
+        $form_state->setErrorByName('stage', $this->t('Leg eerst de beslisser vast via Kans bewerken.'));
+      }
+      if ($this->opportunity->hasField('field_brebo_opp_decision_date')
+        && $this->opportunity->get('field_brebo_opp_decision_date')->isEmpty()) {
+        $form_state->setErrorByName('stage', $this->t('Leg eerst de beslis- of aanbestedingsdatum vast.'));
+      }
     }
     if ($stage === 'Verloren' && trim((string) $form_state->getValue('loss_reason')) === '') {
       $form_state->setErrorByName('loss_reason', $this->t('Leg vast waarom deze kans verloren is.'));
