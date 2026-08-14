@@ -1,5 +1,5 @@
 global:
-  version: 1.1.2
+  version: 1.1.3
   css:
     base:
       css/base.css: {}
@@ -10,10 +10,12 @@ global:
       css/dashboard.css: {}
       css/mail.css: {}
       css/mail-actions.css: {}
+      css/mail-list-controls.css: {}
   js:
     js/mail-workspace.js: {}
     js/mail-tabs-runtime.js: {}
     js/mail-mime-cleanup.js: {}
+    js/mail-list-controls.js: {}
 
 
 project-tabs:
