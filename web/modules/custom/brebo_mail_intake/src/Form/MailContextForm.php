@@ -7,6 +7,7 @@ namespace Drupal\brebo_mail_intake\Form;
 use Drupal\brebo_document_data\Service\DocumentRepository;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Datetime\TimeInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -22,6 +23,7 @@ final class MailContextForm extends FormBase {
     private readonly Connection $database,
     private readonly DocumentRepository $documents,
     private readonly TimeInterface $time,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -29,6 +31,7 @@ final class MailContextForm extends FormBase {
       $container->get('database'),
       $container->get('brebo_document_data.repository'),
       $container->get('datetime.time'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -131,7 +134,7 @@ final class MailContextForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $nid = (int) $form_state->get('communication_nid');
-    $node = $this->entityTypeManager()->getStorage('node')->load($nid);
+    $node = $this->entityTypeManager->getStorage('node')->load($nid);
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication' || !$node->access('update')) {
       throw new AccessDeniedHttpException();
     }
