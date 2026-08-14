@@ -58,6 +58,7 @@ final class MailIntakeIngestor {
       'field_brebo_mail_from' => trim((string) ($mail['from'] ?? '')),
       'field_brebo_mail_to' => trim((string) ($mail['to'] ?? '')),
       'field_brebo_mail_classification' => trim((string) ($mail['classification'] ?? '')),
+      'field_brebo_mail_html' => trim((string) ($mail['body_html'] ?? '')),
       'field_brebo_match_basis' => trim((string) ($mail['match_basis'] ?? '')),
     ];
 
