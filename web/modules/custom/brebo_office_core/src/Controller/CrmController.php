@@ -332,7 +332,7 @@ final class CrmController extends ControllerBase {
         )->toRenderable();
       }
       $row = [
-        ['data' => Link::fromTextAndUrl($opportunity->label(), $opportunity->toUrl())->toRenderable()],
+        ['data' => Link::fromTextAndUrl($opportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $opportunity->id()]))->toRenderable()],
         ['data' => $organizationCell],
         $stage,
         '€ ' . number_format($value, 2, ',', '.'),
@@ -424,7 +424,7 @@ final class CrmController extends ControllerBase {
         $cards[] = [
           '#type' => 'container',
           '#attributes' => ['class' => ['brebo-kanban-card']],
-          'title' => Link::fromTextAndUrl($entry['node']->label(), $entry['node']->toUrl())->toRenderable(),
+          'title' => Link::fromTextAndUrl($entry['node']->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $entry['node']->id()]))->toRenderable(),
           'organization' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['organization']],
           'value' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => '€ ' . number_format($entry['value'], 2, ',', '.') . ' · ' . $entry['probability'] . '%'],
           'owner' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['owner']],
@@ -532,6 +532,154 @@ final class CrmController extends ControllerBase {
       '#cache' => [
         'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
         'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_organization'],
+      ],
+    ];
+  }
+
+  public function opportunityTitle(NodeInterface $node): string {
+    if ($node->bundle() !== 'brebo_opportunity') {
+      throw new NotFoundHttpException();
+    }
+    return (string) $node->label();
+  }
+
+  public function opportunity(NodeInterface $node): array {
+    if ($node->bundle() !== 'brebo_opportunity') {
+      throw new NotFoundHttpException();
+    }
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $organization = $node->get('field_brebo_opp_org_ref')->entity;
+    $contact = $node->get('field_brebo_opp_contact_ref')->entity;
+    $owner = $node->get('field_brebo_opp_owner')->entity;
+    $value = (float) ($node->get('field_brebo_opp_value')->value ?? 0);
+    $probability = max(0, min(100, (int) ($node->get('field_brebo_opp_probability')->value ?? 0)));
+    $weighted = $value * $probability / 100;
+
+    $eventIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_opportunity_event')
+      ->condition('field_brebo_event_opp_ref.target_id', $node->id())
+      ->sort('field_brebo_event_datetime', 'DESC')
+      ->execute();
+    $eventRows = [];
+    foreach ($storage->loadMultiple($eventIds) as $event) {
+      if (!$event instanceof NodeInterface) {
+        continue;
+      }
+      $changedBy = $event->get('field_brebo_event_user')->entity;
+      $eventRows[] = [
+        $this->value($event, 'field_brebo_event_datetime'),
+        $this->value($event, 'field_brebo_event_from_stage'),
+        $this->value($event, 'field_brebo_event_to_stage'),
+        $changedBy !== NULL ? $changedBy->label() : '—',
+        $this->value($event, 'field_brebo_event_note'),
+      ];
+    }
+
+    $communicationIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_communication')
+      ->condition('field_brebo_comm_opp_ref.target_id', $node->id())
+      ->sort('field_brebo_comm_datetime', 'DESC')
+      ->execute();
+    $communicationRows = [];
+    foreach ($storage->loadMultiple($communicationIds) as $communication) {
+      if (!$communication instanceof NodeInterface) {
+        continue;
+      }
+      $communicationContact = $communication->get('field_brebo_comm_contact_ref')->entity;
+      $communicationRows[] = [
+        $this->value($communication, 'field_brebo_comm_datetime'),
+        $this->value($communication, 'field_brebo_comm_channel'),
+        $this->value($communication, 'field_brebo_comm_direction'),
+        ['data' => Link::fromTextAndUrl($communication->label(), $communication->toUrl())->toRenderable()],
+        $communicationContact instanceof NodeInterface ? $communicationContact->label() : '—',
+        $this->value($communication, 'field_brebo_comm_status'),
+      ];
+    }
+
+    $organizationCell = $organization instanceof NodeInterface
+      ? Link::fromTextAndUrl($organization->label(), Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()]))->toRenderable()
+      : '—';
+    $contactCell = $contact instanceof NodeInterface
+      ? Link::fromTextAndUrl($contact->label(), Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()]))->toRenderable()
+      : '—';
+
+    return [
+      'actions' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions']],
+        'transition' => [
+          '#type' => 'link',
+          '#title' => $this->t('Fase wijzigen'),
+          '#url' => Url::fromRoute('brebo_office_core.opportunity_transition', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
+        'contact' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contactmoment vastleggen'),
+          '#url' => Url::fromRoute('brebo_office_core.opportunity_contact', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $this->t('Kans bewerken'),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'funnel' => [
+          '#type' => 'link',
+          '#title' => $this->t('Terug naar funnel'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel'),
+          '#attributes' => ['class' => ['button']],
+        ],
+      ],
+      'summary' => [
+        '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-calc-summary']],
+        '#header' => [$this->t('Fase'), $this->t('Actief'), $this->t('Omzet'), $this->t('Scoringskans'), $this->t('Gewogen omzet'), $this->t('Contactmomenten')],
+        '#rows' => [[
+          $this->value($node, 'field_brebo_opp_stage'),
+          (bool) $node->get('field_brebo_opp_active')->value ? $this->t('Ja') : $this->t('Nee'),
+          '€ ' . number_format($value, 2, ',', '.'),
+          $probability . '%',
+          '€ ' . number_format($weighted, 2, ',', '.'),
+          count($communicationRows),
+        ]],
+      ],
+      'details' => [
+        '#type' => 'details',
+        '#title' => $this->t('Kansgegevens'),
+        '#open' => TRUE,
+        'table' => [
+          '#type' => 'table',
+          '#rows' => [
+            [$this->t('Organisatie'), ['data' => $organizationCell]],
+            [$this->t('Primaire contactpersoon'), ['data' => $contactCell]],
+            [$this->t('Verantwoordelijke'), $owner !== NULL ? $owner->label() : '—'],
+            [$this->t('Verwachte sluitdatum'), $this->value($node, 'field_brebo_opp_close_date')],
+            [$this->t('Volgende actiedatum'), $this->value($node, 'field_brebo_opp_next_date')],
+            [$this->t('Volgende actie'), $this->value($node, 'field_brebo_opp_next_action')],
+            [$this->t('Verliesreden'), $this->value($node, 'field_brebo_opp_loss_reason')],
+            [$this->t('Notities'), $this->value($node, 'field_brebo_opp_notes')],
+          ],
+        ],
+      ],
+      'communications' => $this->section(
+        $this->t('Contactmomenten'),
+        [$this->t('Datum'), $this->t('Kanaal'), $this->t('Richting'), $this->t('Onderwerp'), $this->t('Contactpersoon'), $this->t('Status')],
+        $communicationRows,
+        $this->t('Nog geen contactmomenten aan deze kans gekoppeld.')
+      ),
+      'history' => $this->section(
+        $this->t('Fasehistorie'),
+        [$this->t('Datum'), $this->t('Van'), $this->t('Naar'), $this->t('Door'), $this->t('Toelichting')],
+        $eventRows,
+        $this->t('Nog geen faseovergangen vastgelegd.')
+      ),
+      '#cache' => [
+        'contexts' => ['user.permissions'],
+        'tags' => array_merge($node->getCacheTags(), ['node_list:brebo_communication', 'node_list:brebo_opportunity_event']),
       ],
     ];
   }
@@ -938,7 +1086,7 @@ final class CrmController extends ControllerBase {
         $opportunityWeighted += $weighted;
       }
       $opportunityRows[] = [
-        ['data' => Link::fromTextAndUrl($opportunity->label(), $opportunity->toUrl())->toRenderable()],
+        ['data' => Link::fromTextAndUrl($opportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $opportunity->id()]))->toRenderable()],
         $this->value($opportunity, 'field_brebo_opp_stage'),
         '€ ' . number_format($value, 2, ',', '.'),
         $probability . '%',
