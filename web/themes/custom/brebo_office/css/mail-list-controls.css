@@ -1,0 +1,109 @@
+.brebo-mail-list-controls {
+  position: sticky;
+  z-index: 5;
+  top: 0;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) repeat(3, minmax(108px, .9fr));
+  gap: 7px;
+  padding: 9px;
+  border-bottom: 1px solid var(--brebo-border);
+  background: #fff;
+  box-shadow: 0 8px 14px -16px rgba(36, 20, 39, .55);
+}
+
+.brebo-mail-list-search,
+.brebo-mail-list-control {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.brebo-mail-list-search span,
+.brebo-mail-list-control span {
+  color: var(--brebo-muted);
+  font-size: .66rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.brebo-mail-list-search input,
+.brebo-mail-list-control select {
+  width: 100%;
+  min-width: 0;
+  height: 34px;
+  padding: 5px 8px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--brebo-ink);
+  font: inherit;
+  font-size: .76rem;
+}
+
+.brebo-mail-list-search input:focus,
+.brebo-mail-list-control select:focus {
+  outline: 2px solid rgba(104, 42, 124, .18);
+  border-color: var(--brebo-purple-700);
+}
+
+.brebo-mail-list-count {
+  grid-column: 1 / -1;
+  color: var(--brebo-muted);
+  font-size: .69rem;
+  font-weight: 700;
+}
+
+.brebo-mail-list-group {
+  border-bottom: 1px solid var(--brebo-border);
+}
+
+.brebo-mail-list-group__header {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 0;
+  background: #f7f4f8;
+  color: var(--brebo-purple-950);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  font-size: .76rem;
+  font-weight: 850;
+}
+
+.brebo-mail-list-group__header small {
+  display: inline-flex;
+  min-width: 24px;
+  height: 22px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: #ece4ef;
+  color: var(--brebo-purple-950);
+  font-size: .68rem;
+}
+
+.brebo-mail-list-group.is-collapsed .brebo-mail-list-group__body {
+  display: none;
+}
+
+@media (max-width: 1250px) {
+  .brebo-mail-list-controls {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .brebo-mail-list-controls {
+    position: static;
+    grid-template-columns: 1fr;
+  }
+
+  .brebo-mail-list-count {
+    grid-column: auto;
+  }
+}
