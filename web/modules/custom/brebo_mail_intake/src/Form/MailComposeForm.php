@@ -54,11 +54,11 @@ final class MailComposeForm extends FormBase {
     if (!$mailbox) { throw new NotFoundHttpException('Mailbox niet gevonden.'); }
     if (!$this->accessPolicy->allowed($this->mailCurrentUser, $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
 
-    $mode = in_array($mode, ['new', 'reply', 'forward'], TRUE) ? $mode : 'new';
+    $mode = in_array($mode, ['new', 'reply', 'reply-all', 'forward'], TRUE) ? $mode : 'new';
     $source = $communication_id > 0 ? $this->loadSource($communication_id) : NULL;
     if ($mode !== 'new' && !$source) { throw new NotFoundHttpException('Bronbericht niet gevonden of niet toegankelijk.'); }
 
-    $to = $subject = $body = '';
+    $to = $cc = $subject = $body = '';
     if ($source) {
       $sourceSubject = trim((string) ($source->get('field_brebo_comm_subject')->value ?? $source->label()));
       $sourceBody = trim((string) ($source->get('field_brebo_transcript')->value ?? ''));
@@ -68,8 +68,13 @@ final class MailComposeForm extends FormBase {
       $safeDate = htmlspecialchars($sourceDate, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeSourceSubject = htmlspecialchars($sourceSubject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeSourceBody = nl2br(htmlspecialchars($sourceBody, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), FALSE);
-      if ($mode === 'reply') {
+      if (in_array($mode, ['reply', 'reply-all'], TRUE)) {
         $to = $this->extractAddress($sourceFrom);
+        if ($mode === 'reply-all') {
+          $sourceTo = (string) ($source->get('field_brebo_mail_to')->value ?? '');
+          $sourceCc = (string) ($source->get('field_brebo_mail_cc')->value ?? '');
+          $cc = implode(', ', $this->replyAllCc($sourceTo . ',' . $sourceCc, $to, trim((string) ($mailbox['address'] ?? ''))));
+        }
         $subject = preg_match('/^re:/i', $sourceSubject) ? $sourceSubject : 'Re: ' . $sourceSubject;
         $body = '<p><br></p><hr><p><strong>Oorspronkelijk bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '</p><blockquote>' . $safeSourceBody . '</blockquote>';
       }
@@ -85,7 +90,7 @@ final class MailComposeForm extends FormBase {
     $form['source_id'] = ['#type' => 'hidden', '#value' => $communication_id];
     $form['from'] = ['#type' => 'hidden', '#value' => trim((string) ($mailbox['address'] ?? ''))];
     $form['to'] = ['#type' => 'textfield', '#title' => $this->t('Aan'), '#required' => TRUE, '#default_value' => $to, '#maxlength' => 2048, '#description' => $this->t('Meerdere adressen scheiden met een komma.')];
-    $form['cc'] = ['#type' => 'textfield', '#title' => $this->t('CC'), '#maxlength' => 2048, '#description' => $this->t('Optioneel; meerdere adressen scheiden met een komma.')];
+    $form['cc'] = ['#type' => 'textfield', '#title' => $this->t('CC'), '#default_value' => $cc, '#maxlength' => 2048, '#description' => $this->t('Optioneel; meerdere adressen scheiden met een komma.')];
     $form['bcc'] = ['#type' => 'textfield', '#title' => $this->t('BCC'), '#maxlength' => 2048, '#description' => $this->t('Optioneel en niet zichtbaar voor andere ontvangers.')];
     $form['subject'] = ['#type' => 'textfield', '#title' => $this->t('Onderwerp'), '#required' => TRUE, '#default_value' => $subject, '#maxlength' => 255];
     $form['body'] = [
@@ -169,7 +174,7 @@ final class MailComposeForm extends FormBase {
       ->keys(['mailbox_id' => $mailboxId, 'communication_id' => (int) $draft->id()])
       ->fields(['mail_state' => 'draft', 'is_read' => 1, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
       ->execute();
-    if ($sourceId > 0 && in_array($mode, ['reply', 'forward'], TRUE)) {
+    if ($sourceId > 0 && in_array($mode, ['reply', 'reply-all', 'forward'], TRUE)) {
       $draft->setNewRevision(TRUE);
       $draft->setRevisionLogMessage(sprintf('Concept %s aangemaakt vanuit communicatie %d; bronbericht blijft ongewijzigd.', $mode, $sourceId));
       $draft->save();
@@ -187,6 +192,24 @@ final class MailComposeForm extends FormBase {
   private function addresses(string $value): array {
     $parts = preg_split('/[;,\n]+/', $value) ?: [];
     return array_values(array_filter(array_map('trim', $parts), static fn(string $address): bool => $address !== ''));
+  }
+
+  /** @return string[] */
+  private function replyAllCc(string $recipients, string $replyTo, string $mailboxAddress): array {
+    $excluded = array_filter([
+      strtolower($replyTo),
+      strtolower($this->extractAddress($mailboxAddress)),
+    ]);
+    $result = [];
+    foreach ($this->addresses($recipients) as $recipient) {
+      $address = $this->extractAddress($recipient);
+      $key = strtolower($address);
+      if ($address === '' || in_array($key, $excluded, TRUE) || isset($result[$key])) {
+        continue;
+      }
+      $result[$key] = $address;
+    }
+    return array_values($result);
   }
 
   private function htmlToText(string $html): string {
