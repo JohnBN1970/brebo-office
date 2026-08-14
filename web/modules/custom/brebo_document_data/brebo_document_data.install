@@ -233,22 +233,45 @@ function brebo_document_data_update_10002(): void {
     $schema->createTable('brebo_document_communication', $definitions['brebo_document_communication']);
   }
 
-  if (!$schema->tableExists('brebo_outbound_document_attachment')) {
-    return;
+  $database = \Drupal::database();
+
+  // Every source with a communication reference represents an incoming
+  // attachment, except documents explicitly created while composing mail.
+  $sourceRows = $database->select('brebo_document_source', 's')
+    ->fields('s', ['document_id', 'communication_nid', 'source_system', 'created'])
+    ->isNotNull('communication_nid')
+    ->execute();
+  foreach ($sourceRows as $row) {
+    $sourceSystem = (string) $row->source_system;
+    $roles = $sourceSystem === 'brebo_outbound_mail'
+      ? ['created_with', 'sent_with']
+      : ['received_with'];
+    foreach ($roles as $role) {
+      $database->merge('brebo_document_communication')
+        ->keys([
+          'document_id' => (int) $row->document_id,
+          'communication_nid' => (int) $row->communication_nid,
+          'relation_role' => $role,
+        ])
+        ->fields(['created' => (int) $row->created])
+        ->execute();
+    }
   }
 
-  $database = \Drupal::database();
-  $rows = $database->select('brebo_outbound_document_attachment', 'a')
-    ->fields('a', ['communication_id', 'document_id', 'created'])
-    ->execute();
-  foreach ($rows as $row) {
-    $database->merge('brebo_document_communication')
-      ->keys([
-        'document_id' => (int) $row->document_id,
-        'communication_nid' => (int) $row->communication_id,
-        'relation_role' => 'sent_with',
-      ])
-      ->fields(['created' => (int) $row->created])
+  // Preserve selections made before the canonical relation table existed.
+  if ($schema->tableExists('brebo_outbound_document_attachment')) {
+    $rows = $database->select('brebo_outbound_document_attachment', 'a')
+      ->fields('a', ['communication_id', 'document_id', 'created'])
       ->execute();
+    foreach ($rows as $row) {
+      $database->merge('brebo_document_communication')
+        ->keys([
+          'document_id' => (int) $row->document_id,
+          'communication_nid' => (int) $row->communication_id,
+          'relation_role' => 'sent_with',
+        ])
+        ->fields(['created' => (int) $row->created])
+        ->execute();
+    }
   }
 }
