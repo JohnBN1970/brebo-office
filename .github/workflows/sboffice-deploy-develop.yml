@@ -111,6 +111,7 @@ jobs:
             --exclude='.env' \
             --exclude='.env.*' \
             -czf /tmp/brebo-office-develop.tgz .
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php'
 
       - name: Upload deployment archive
         env:
@@ -159,8 +160,18 @@ jobs:
             services_before="$(sha256sum "$services" | awk '{print $1}')"
           fi
 
-          tar --no-overwrite-dir -xzf "$archive" -C "$target"
+          staging="$(mktemp -d)"
+          cleanup_staging() {
+            rm -rf "$staging"
+          }
+          trap cleanup_staging EXIT
+          tar -tzf "$archive" | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php'
+          tar -xzf "$archive" -C "$staging"
+          test -f "$staging/web/modules/custom/brebo_document_data/src/Controller/DocumentDetailController.php"
+          cp -a "$staging/." "$target/"
           rm -f "$archive"
+          cleanup_staging
+          trap - EXIT
 
           if [[ -d "$target/web/web" ]]; then
             echo "::error::Deployment unexpectedly created a nested Drupal webroot."
