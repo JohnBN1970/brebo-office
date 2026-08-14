@@ -22,6 +22,11 @@
     return Number.isInteger(id) && id > 0 ? id : 0;
   }
 
+  function selectedMailState() {
+    const parts = routeParts();
+    return parts[0] === 'mail' && parts.length >= 3 ? parts[2] : '';
+  }
+
   function selectedMailboxId() {
     const parts = routeParts();
     if (parts[0] !== 'mail' || parts.length < 2) return 0;
@@ -134,6 +139,7 @@
     const list = workspace.querySelector('.brebo-mail-list');
     const selectedId = selectedCommunicationId();
     const mailboxId = selectedMailboxId();
+    const mailState = selectedMailState();
     if (list) {
       Array.from(list.children).forEach((child) => {
         const link = child.querySelector('a');
@@ -145,9 +151,10 @@
     }
 
     const composeHref = mailboxId ? '/mail/' + mailboxId + '/opstellen' : '';
-    const replyHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
-    const replyAllHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply-all/' + selectedId : '';
-    const forwardHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/forward/' + selectedId : '';
+    const replyHref = mailboxId && selectedId && mailState !== 'draft' ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
+    const replyAllHref = mailboxId && selectedId && mailState !== 'draft' ? '/mail/' + mailboxId + '/opstellen/reply-all/' + selectedId : '';
+    const forwardHref = mailboxId && selectedId && mailState !== 'draft' ? '/mail/' + mailboxId + '/opstellen/forward/' + selectedId : '';
+    const sendHref = mailboxId && selectedId && mailState === 'draft' ? '/mail/' + mailboxId + '/concept/' + selectedId + '/verzenden' : '';
     const processHref = selectedId ? '/communicatie/' + selectedId + '/verwerken' : '';
     const destination = window.location.pathname + window.location.search;
     const contextHref = selectedId ? '/communicatie/' + selectedId + '/koppelen?destination=' + encodeURIComponent(destination) : '';
@@ -161,6 +168,7 @@
     const message = document.createElement('div');
     message.className = 'brebo-mail-toolbar__group';
     message.append(action('↩', 'Beantwoorden', replyHref), action('↩', 'Allen beantwoorden', replyAllHref), action('↪', 'Doorsturen', forwardHref));
+    if (sendHref) message.prepend(action('➤', 'Verzenden', sendHref, true));
     const stateForm = workspace.querySelector('form.brebo-mail-state-actions');
     if (stateForm) {
       stateForm.classList.add('brebo-mail-state-actions--toolbar');
