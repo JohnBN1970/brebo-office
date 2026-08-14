@@ -29,12 +29,6 @@ body:has(.brebo-mail-workspace) .page-title {
   display: none !important;
 }
 
-/* mail-workspace.js still renders a legacy reader-local tab strip; the runtime
- * tab strip is the single authoritative one and lives directly in workspace. */
-.brebo-mail-reader > .brebo-mail-tabs {
-  display: none !important;
-}
-
 .brebo-mail-tabs,
 .brebo-mail-list-controls {
   position: relative;
