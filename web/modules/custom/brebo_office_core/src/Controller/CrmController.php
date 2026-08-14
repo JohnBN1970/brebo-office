@@ -483,6 +483,16 @@ final class CrmController extends ControllerBase {
     $this->assertOrganization($node);
     $storage = $this->entityTypeManager()->getStorage('node');
 
+    $locationIds = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_organization_location')
+      ->condition('field_brebo_loc_org_ref.target_id', $node->id())
+      ->sort('field_brebo_loc_primary', 'DESC')
+      ->sort('field_brebo_loc_active', 'DESC')
+      ->sort('changed', 'DESC')
+      ->execute();
+    $locations = $storage->loadMultiple($locationIds);
+
     $affiliationIds = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_contact_affiliation')
@@ -543,6 +553,28 @@ final class CrmController extends ControllerBase {
       ];
     }
 
+    $locationRows = [];
+    foreach ($locations as $location) {
+      if (!$location instanceof NodeInterface) {
+        continue;
+      }
+      $addressParts = [];
+      foreach (['field_brebo_loc_address', 'field_brebo_loc_postal_code', 'field_brebo_loc_city', 'field_brebo_loc_country'] as $addressField) {
+        $addressValue = $this->value($location, $addressField);
+        if ($addressValue !== '—') {
+          $addressParts[] = $addressValue;
+        }
+      }
+      $locationRows[] = [
+        $this->value($location, 'field_brebo_loc_type'),
+        $this->value($location, 'field_brebo_loc_name'),
+        $addressParts !== [] ? implode(', ', $addressParts) : '—',
+        $location->get('field_brebo_loc_primary')->value ? $this->t('Ja') : $this->t('Nee'),
+        $location->get('field_brebo_loc_active')->value ? $this->t('Ja') : $this->t('Nee'),
+        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $location->id()]))->toRenderable()],
+      ];
+    }
+
     $projectRows = [];
     foreach ($projects as $project) {
       if (!$project instanceof NodeInterface) {
@@ -600,6 +632,14 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'location' => [
+          '#type' => 'link',
+          '#title' => $this->t('Locatie toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_organization_location'], [
+            'query' => ['organization' => $node->id()],
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'communication' => [
           '#type' => 'link',
           '#title' => $this->t('Communicatie vastleggen'),
@@ -636,10 +676,12 @@ final class CrmController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Status'), $this->t('Type'), $this->t('Contactrelaties'), $this->t('Projecten'), $this->t('Gebouwen'), $this->t('Communicatie')],
+        '#header' => [$this->t('Actief'), $this->t('Klant'), $this->t('Leverancier'), $this->t('Locaties'), $this->t('Contactrelaties'), $this->t('Projecten'), $this->t('Gebouwen'), $this->t('Communicatie')],
         '#rows' => [[
-          $this->value($node, 'field_brebo_org_status'),
-          $this->value($node, 'field_brebo_org_type'),
+          $node->hasField('field_brebo_org_active') && (bool) $node->get('field_brebo_org_active')->value ? $this->t('Ja') : $this->t('Nee'),
+          $node->hasField('field_brebo_org_customer') && (bool) $node->get('field_brebo_org_customer')->value ? $this->t('Ja') : $this->t('Nee'),
+          $node->hasField('field_brebo_org_supplier') && (bool) $node->get('field_brebo_org_supplier')->value ? $this->t('Ja') : $this->t('Nee'),
+          count($locations),
           count($affiliations),
           count($projects),
           count($buildings),
@@ -653,13 +695,22 @@ final class CrmController extends ControllerBase {
         'table' => [
           '#type' => 'table',
           '#rows' => [
-            [$this->t('Relatienummer'), $this->value($node, 'field_brebo_org_number')],
+            [$this->t('KvK-nummer'), $this->value($node, 'field_brebo_org_kvk')],
+            [$this->t('Btw-identificatienummer'), $this->value($node, 'field_brebo_org_vat')],
+            [$this->t('Betaaltermijn'), $this->value($node, 'field_brebo_org_payment_days') !== '—' ? $this->t('@days dagen', ['@days' => $this->value($node, 'field_brebo_org_payment_days')]) : '—'],
+            [$this->t('Oud KvK-/relatienummer (overgang)'), $this->value($node, 'field_brebo_org_number')],
             [$this->t('E-mail'), ['data' => $this->emailLink($node, 'field_brebo_org_email')]],
             [$this->t('Telefoon'), ['data' => $this->phoneLink($node, 'field_brebo_org_phone')]],
-            [$this->t('Adres'), $this->value($node, 'field_brebo_org_address')],
+            [$this->t('Oud adres (overgang)'), $this->value($node, 'field_brebo_org_address')],
           ],
         ],
       ],
+      'locations' => $this->section(
+        $this->t('Locaties'),
+        [$this->t('Type'), $this->t('Naam'), $this->t('Adres'), $this->t('Primair'), $this->t('Actief'), $this->t('Actie')],
+        $locationRows,
+        $this->t('Nog geen locaties aan deze organisatie gekoppeld.')
+      ),
       'contacts' => $this->section($this->t('Contactrelaties'), [$this->t('Persoon'), $this->t('Rol/functie'), $this->t('Afdeling'), $this->t('Status'), $this->t('Primair'), $this->t('Actie')], $contactRows, $this->t('Nog geen personen aan deze organisatie gekoppeld.')),
       'projects' => $this->section($this->t('Projecten'), [$this->t('Project'), $this->t('Status'), $this->t('Gebouw'), $this->t('Soort')], $projectRows, $this->t('Nog geen projecten gekoppeld.')),
       'buildings' => $this->section($this->t('Gebouwen via projecten'), [$this->t('Gebouw'), $this->t('Adres'), $this->t('Status')], $buildingRows, $this->t('Nog geen gebouwen via projecten gevonden.')),
@@ -668,6 +719,7 @@ final class CrmController extends ControllerBase {
         'contexts' => ['user.permissions'],
         'tags' => array_merge($node->getCacheTags(), [
           'node_list:brebo_contact',
+          'node_list:brebo_organization_location',
           'node_list:brebo_contact_affiliation',
           'node_list:brebo_project',
           'node_list:brebo_building',
