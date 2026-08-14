@@ -54,7 +54,6 @@ final class OutboundAttachmentService {
    *  @param int[] $documentIds
    */
   public function attach(NodeInterface $draft, array $fileIds, array $documentIds): void {
-    $this->ensureMappingTable();
     $files = [];
     foreach (array_unique(array_map('intval', $fileIds)) as $fileId) {
       $file = $this->entityTypeManager->getStorage('file')->load($fileId);
@@ -86,7 +85,6 @@ final class OutboundAttachmentService {
 
   /** @return array<int,array{filecontent:string,filename:string,filemime:string}> */
   public function resolve(NodeInterface $communication): array {
-    $this->ensureMappingTable();
     $attachments = [];
     $seenHashes = [];
     $totalBytes = 0;
@@ -214,21 +212,5 @@ final class OutboundAttachmentService {
     ];
   }
 
-  private function ensureMappingTable(): void {
-    $schema = $this->database->schema();
-    if ($schema->tableExists('brebo_outbound_document_attachment')) {
-      return;
-    }
-    $schema->createTable('brebo_outbound_document_attachment', [
-      'description' => 'Canonical BREBO documents selected as outbound mail attachments.',
-      'fields' => [
-        'communication_id' => ['type' => 'int', 'not null' => TRUE],
-        'document_id' => ['type' => 'int', 'not null' => TRUE],
-        'created' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
-      ],
-      'primary key' => ['communication_id', 'document_id'],
-      'indexes' => ['document' => ['document_id']],
-    ]);
-  }
 
 }
