@@ -303,6 +303,7 @@ final class CrmController extends ControllerBase {
     $forecastTotals = [];
     $overdueCloseRows = [];
     $lossReasons = [];
+    $sourceTotals = [];
     $managementRows = [];
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
     $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
@@ -358,10 +359,22 @@ final class CrmController extends ControllerBase {
       }
       $stageAge = max(0, (int) floor((strtotime($today) - strtotime($stageSince)) / 86400));
       $nextAction = $this->value($opportunity, 'field_brebo_opp_next_action');
+      $source = $this->value($opportunity, 'field_brebo_opp_source');
+      $channel = $this->value($opportunity, 'field_brebo_opp_channel');
+      $sourceKey = $source . '|' . $channel;
+      if (!isset($sourceTotals[$sourceKey])) {
+        $sourceTotals[$sourceKey] = [
+          'source' => $source, 'channel' => $channel, 'count' => 0,
+          'open' => 0, 'weighted' => 0.0, 'won' => 0, 'won_value' => 0.0,
+        ];
+      }
+      $sourceTotals[$sourceKey]['count']++;
 
       if ($stage === 'Gewonnen') {
         $wonCount++;
         $wonValue += $value;
+        $sourceTotals[$sourceKey]['won']++;
+        $sourceTotals[$sourceKey]['won_value'] += $value;
       }
       elseif ($stage === 'Verloren') {
         $lostCount++;
@@ -381,6 +394,8 @@ final class CrmController extends ControllerBase {
         $ownerTotals[$ownerLabel]['count']++;
         $ownerTotals[$ownerLabel]['value'] += $value;
         $ownerTotals[$ownerLabel]['weighted'] += $weighted;
+        $sourceTotals[$sourceKey]['open']++;
+        $sourceTotals[$sourceKey]['weighted'] += $weighted;
         if ($closeDate !== '—') {
           $forecastMonth = substr($closeDate, 0, 7);
           if (!isset($forecastTotals[$forecastMonth])) {
@@ -638,6 +653,19 @@ final class CrmController extends ControllerBase {
         '€ ' . number_format($totals['value'], 2, ',', '.'),
       ];
     }
+    $sourceRows = [];
+    uasort($sourceTotals, static fn(array $a, array $b): int => $b['won_value'] <=> $a['won_value']);
+    foreach ($sourceTotals as $totals) {
+      $sourceRows[] = [
+        $totals['source'],
+        $totals['channel'],
+        $totals['count'],
+        $totals['open'],
+        '€ ' . number_format($totals['weighted'], 2, ',', '.'),
+        $totals['won'],
+        '€ ' . number_format($totals['won_value'], 2, ',', '.'),
+      ];
+    }
     $closedCount = $wonCount + $lostCount;
     $winRate = $closedCount > 0 ? round($wonCount * 100 / $closedCount, 1) . '%' : '—';
 
@@ -725,6 +753,12 @@ final class CrmController extends ControllerBase {
         '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie')],
         '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount]],
       ],
+      'sources' => $this->section(
+        $this->t('Resultaat per leadbron'),
+        [$this->t('Leadbron'), $this->t('Kanaal'), $this->t('Totaal'), $this->t('Open'), $this->t('Gewogen omzet'), $this->t('Gewonnen'), $this->t('Gewonnen omzet')],
+        $sourceRows,
+        $this->t('Nog geen leadbronnen vastgelegd.')
+      ),
       'forecast' => $this->section(
         $this->t('Verkoopprognose per sluitmaand'),
         [$this->t('Maand'), $this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet')],
