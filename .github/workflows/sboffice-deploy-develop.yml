@@ -195,8 +195,7 @@ jobs:
           test -f vendor/drush/drush/drush.php
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake -y
           echo "Clearing derived container and discovery caches before database updates."
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_container"
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_discovery"
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
           document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
           document_routes="web/modules/custom/brebo_document_data/brebo_document_data.routing.yml"
