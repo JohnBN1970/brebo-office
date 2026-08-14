@@ -1,0 +1,19 @@
+uuid: 996e360c-e015-4861-9531-fd40d6db555a
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_mail_cc
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_mail_cc
+field_name: field_brebo_mail_cc
+entity_type: node
+bundle: brebo_communication
+label: CC
+description: 'Zichtbare kopieontvangers van de e-mail.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long
