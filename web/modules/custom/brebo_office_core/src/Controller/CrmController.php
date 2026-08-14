@@ -315,6 +315,7 @@ final class CrmController extends ControllerBase {
     $lostValue = 0.0;
     $ownerTotals = [];
     $ownerPerformance = [];
+    $organizationPerformance = [];
     $forecastTotals = [];
     $overdueCloseRows = [];
     $lossReasons = [];
@@ -349,6 +350,14 @@ final class CrmController extends ControllerBase {
       $closeDate = $this->value($opportunity, 'field_brebo_opp_close_date');
       $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
       $organizationLabel = $organization instanceof NodeInterface ? (string) $organization->label() : '—';
+      $organizationKey = $organization instanceof NodeInterface ? (int) $organization->id() : 0;
+      if (!isset($organizationPerformance[$organizationKey])) {
+        $organizationPerformance[$organizationKey] = [
+          'node' => $organization instanceof NodeInterface ? $organization : NULL,
+          'label' => $organizationLabel, 'open' => 0, 'value' => 0.0,
+          'weighted' => 0.0, 'won' => 0, 'won_value' => 0.0,
+        ];
+      }
       $ownerLabel = $owner !== NULL ? (string) $owner->label() : '—';
       if (!isset($ownerPerformance[$ownerLabel])) {
         $ownerPerformance[$ownerLabel] = ['new' => 0, 'transitions' => 0, 'contacts' => 0, 'won' => 0, 'lost' => 0, 'won_value' => 0.0];
@@ -448,6 +457,9 @@ final class CrmController extends ControllerBase {
         $ownerTotals[$ownerLabel]['weighted'] += $weighted;
         $sourceTotals[$sourceKey]['open']++;
         $sourceTotals[$sourceKey]['weighted'] += $weighted;
+        $organizationPerformance[$organizationKey]['open']++;
+        $organizationPerformance[$organizationKey]['value'] += $value;
+        $organizationPerformance[$organizationKey]['weighted'] += $weighted;
         if ($closeDate !== '—') {
           $forecastMonth = substr($closeDate, 0, 7);
           if (!isset($forecastTotals[$forecastMonth])) {
@@ -767,7 +779,19 @@ final class CrmController extends ControllerBase {
           $recentWonCount++;
           $ownerPerformance[$eventOwnerLabel]['won']++;
           if ($eventOpportunity instanceof NodeInterface) {
-            $ownerPerformance[$eventOwnerLabel]['won_value'] += (float) ($eventOpportunity->get('field_brebo_opp_value')->value ?? 0);
+            $eventWonValue = (float) ($eventOpportunity->get('field_brebo_opp_value')->value ?? 0);
+            $ownerPerformance[$eventOwnerLabel]['won_value'] += $eventWonValue;
+            $eventOrganization = $eventOpportunity->get('field_brebo_opp_org_ref')->entity;
+            $eventOrganizationKey = $eventOrganization instanceof NodeInterface ? (int) $eventOrganization->id() : 0;
+            if (!isset($organizationPerformance[$eventOrganizationKey])) {
+              $organizationPerformance[$eventOrganizationKey] = [
+                'node' => $eventOrganization instanceof NodeInterface ? $eventOrganization : NULL,
+                'label' => $eventOrganization instanceof NodeInterface ? (string) $eventOrganization->label() : '—',
+                'open' => 0, 'value' => 0.0, 'weighted' => 0.0, 'won' => 0, 'won_value' => 0.0,
+              ];
+            }
+            $organizationPerformance[$eventOrganizationKey]['won']++;
+            $organizationPerformance[$eventOrganizationKey]['won_value'] += $eventWonValue;
           }
         }
         elseif ($toStage === 'Verloren') {
@@ -854,6 +878,28 @@ final class CrmController extends ControllerBase {
       [$this->t('Verloren'), $recentLostCount, $previousLostCount, $recentLostCount - $previousLostCount],
       [$this->t('Klantcontacten'), $recentContactCount, $previousContactCount, $recentContactCount - $previousContactCount],
     ];
+
+    $organizationPerformanceRows = [];
+    uasort($organizationPerformance, static function (array $a, array $b): int {
+      return ($b['weighted'] + $b['won_value']) <=> ($a['weighted'] + $a['won_value']);
+    });
+    foreach ($organizationPerformance as $performance) {
+      if ($performance['open'] === 0 && $performance['won'] === 0) {
+        continue;
+      }
+      $organizationCell = $performance['node'] instanceof NodeInterface
+        ? Link::fromTextAndUrl($performance['label'], Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $performance['node']->id()]))->toRenderable()
+        : $performance['label'];
+      $organizationPerformanceRows[] = [
+        ['data' => $organizationCell],
+        $performance['open'],
+        '€ ' . number_format($performance['value'], 2, ',', '.'),
+        '€ ' . number_format($performance['weighted'], 2, ',', '.'),
+        $totalWeighted > 0 ? round($performance['weighted'] * 100 / $totalWeighted, 1) . '%' : '—',
+        $performance['won'],
+        '€ ' . number_format($performance['won_value'], 2, ',', '.'),
+      ];
+    }
 
     $ownerPerformanceRows = [];
     ksort($ownerPerformance, SORT_NATURAL | SORT_FLAG_CASE);
@@ -1012,6 +1058,12 @@ final class CrmController extends ControllerBase {
         [$this->t('Activiteit'), $this->t('Huidige periode'), $this->t('Vorige periode'), $this->t('Verschil')],
         $trendRows,
         $this->t('Geen trendgegevens beschikbaar.')
+      ),
+      'organization_performance' => $this->section(
+        $this->t('Pipeline en omzet per organisatie'),
+        [$this->t('Organisatie'), $this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Aandeel pipeline'), $this->t('Gewonnen'), $this->t('Gewonnen omzet periode')],
+        $organizationPerformanceRows,
+        $this->t('Geen pipeline- of omzetgegevens per organisatie.')
       ),
       'owner_performance' => $this->section(
         $this->t('Commerciële prestaties per verantwoordelijke'),
