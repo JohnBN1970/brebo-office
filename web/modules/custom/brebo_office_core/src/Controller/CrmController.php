@@ -295,6 +295,7 @@ final class CrmController extends ControllerBase {
     $upcomingCount = 0;
     $staleCount = 0;
     $missingActionCount = 0;
+    $unqualifiedCount = 0;
     $wonCount = 0;
     $lostCount = 0;
     $wonValue = 0.0;
@@ -416,6 +417,17 @@ final class CrmController extends ControllerBase {
           }
         }
         $alerts = [];
+        $qualificationStages = ['Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling'];
+        if (in_array($stage, $qualificationStages, TRUE)) {
+          $qualificationMissing = !$opportunity->hasField('field_brebo_opp_requirement')
+            || $opportunity->get('field_brebo_opp_requirement')->isEmpty()
+            || $opportunity->get('field_brebo_opp_decision_maker')->isEmpty()
+            || $opportunity->get('field_brebo_opp_decision_date')->isEmpty();
+          if ($qualificationMissing) {
+            $unqualifiedCount++;
+            $alerts[] = (string) $this->t('Kwalificatie niet compleet');
+          }
+        }
         if ($lastContact === '—' || substr($lastContact, 0, 10) < $staleCutoff) {
           $staleCount++;
           $alerts[] = (string) $this->t('Geen klantcontact in 14 dagen');
@@ -750,8 +762,8 @@ final class CrmController extends ControllerBase {
       'management_summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie')],
-        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount]],
+        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd')],
+        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount]],
       ],
       'sources' => $this->section(
         $this->t('Resultaat per leadbron'),
@@ -962,6 +974,13 @@ final class CrmController extends ControllerBase {
             [$this->t('Project'), $project instanceof NodeInterface
               ? ['data' => Link::fromTextAndUrl($project->label(), Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project->id()]))->toRenderable()]
               : '—'],
+            [$this->t('Leadbron'), $this->value($node, 'field_brebo_opp_source')],
+            [$this->t('Acquisitiekanaal'), $this->value($node, 'field_brebo_opp_channel')],
+            [$this->t('Campagne of actie'), $this->value($node, 'field_brebo_opp_campaign')],
+            [$this->t('Klantbehoefte en scope'), $this->value($node, 'field_brebo_opp_requirement')],
+            [$this->t('Beslisser'), $this->value($node, 'field_brebo_opp_decision_maker')],
+            [$this->t('Budget bevestigd'), $node->hasField('field_brebo_opp_budget_confirmed') && (bool) $node->get('field_brebo_opp_budget_confirmed')->value ? $this->t('Ja') : $this->t('Nee')],
+            [$this->t('Beslis- of aanbestedingsdatum'), $this->value($node, 'field_brebo_opp_decision_date')],
             [$this->t('Verwachte sluitdatum'), $this->value($node, 'field_brebo_opp_close_date')],
             [$this->t('Volgende actiedatum'), $this->value($node, 'field_brebo_opp_next_date')],
             [$this->t('Volgende actie'), $this->value($node, 'field_brebo_opp_next_action')],
