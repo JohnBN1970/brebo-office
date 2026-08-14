@@ -63,10 +63,9 @@ class DocumentContextDossierController extends ControllerBase {
           'data' => [
             '#type' => 'link',
             '#title' => $documentTitle,
-            '#url' => Url::fromRoute('brebo_document_data.document_open', [
+            '#url' => Url::fromRoute('brebo_document_data.document_detail', [
               'document_id' => $documentId,
             ]),
-            '#attributes' => ['target' => '_blank', 'rel' => 'noopener'],
           ],
         ];
       }
@@ -85,6 +84,14 @@ class DocumentContextDossierController extends ControllerBase {
         ],
         'revision' => (string) ($current['revision_code'] ?? ''),
         'document' => $documentCell,
+        'original' => $documentId > 0 ? [
+          'data' => [
+            '#type' => 'link',
+            '#title' => 'Origineel',
+            '#url' => Url::fromRoute('brebo_document_data.document_open', ['document_id' => $documentId]),
+            '#attributes' => ['target' => '_blank', 'rel' => 'noopener'],
+          ],
+        ] : '',
         'source_time' => $timestamp > 0 ? date('d-m-Y H:i:s', $timestamp) : 'Geen betrouwbare brondatum',
         'document_id' => $documentId,
       ];
@@ -96,7 +103,7 @@ class DocumentContextDossierController extends ControllerBase {
       ],
       'table' => [
         '#type' => 'table',
-        '#header' => ['Documentfamilie', 'Revisie', 'Actueel document', 'Brondatum en -tijd', 'Document-ID'],
+        '#header' => ['Documentfamilie', 'Revisie', 'Actueel document', 'Bestand', 'Brondatum en -tijd', 'Document-ID'],
         '#rows' => $rows,
         '#empty' => 'Nog geen geclassificeerde documentfamilies voor deze context.',
       ],
