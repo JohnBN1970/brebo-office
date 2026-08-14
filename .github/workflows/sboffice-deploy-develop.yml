@@ -201,7 +201,12 @@ jobs:
           test -f "$document_routes"
           php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
           grep -F "DocumentDetailController::view" "$document_routes"
-          php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1
+          if ! php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1; then
+            echo "::warning::Normal cache rebuild failed; clearing only derived container and discovery caches."
+            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_container"
+            php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_discovery"
+            php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1
+          fi
           timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
 
           if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
