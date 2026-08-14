@@ -43,6 +43,7 @@ final class MailContextForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
+    $form['#attributes']['class'][] = 'brebo-mail-context-form';
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
       throw new NotFoundHttpException();
     }
@@ -80,7 +81,7 @@ final class MailContextForm extends FormBase {
       '#options' => [
         'project' => $this->t('Project'),
         'administration' => $this->t('Administratie'),
-        'personal' => $this->t('Persoonlijk'),
+        'personal' => $this->t('Privé'),
       ],
       '#default_value' => $defaultTarget,
       '#required' => TRUE,
@@ -122,7 +123,7 @@ final class MailContextForm extends FormBase {
       '#type' => 'container',
       '#states' => ['visible' => [':input[name="target_type"]' => ['value' => 'personal']]],
       'text' => [
-        '#markup' => '<p class="description">' . $this->t('Persoonlijk is bedoeld voor privécommunicatie en staat buiten het gedeelde zakelijke project- en administratiedossier.') . '</p>',
+        '#markup' => '<p class="description">' . $this->t('Privé is bedoeld voor privécommunicatie en staat buiten het gedeelde zakelijke project- en administratiedossier.') . '</p>',
       ],
     ];
 
