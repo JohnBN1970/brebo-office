@@ -48,12 +48,19 @@ final class MailContextForm extends FormBase {
     }
 
     $form_state->set('communication_nid', (int) $node->id());
+    $destination = (string) $this->getRequest()->query->get('destination', '');
+    $returnUrl = str_starts_with($destination, '/') && !str_starts_with($destination, '//')
+      ? Url::fromUserInput($destination)
+      : Url::fromRoute('brebo_mail_intake.mailbox_root');
+    $form_state->set('return_path', $returnUrl->toString());
     $project = $node->hasField('field_brebo_project_ref') ? $node->get('field_brebo_project_ref')->entity : NULL;
     $currentContext = $node->hasField('field_brebo_comm_context') ? trim((string) $node->get('field_brebo_comm_context')->value) : '';
     $defaultTarget = $project instanceof NodeInterface ? 'project'
       : ($currentContext === 'Persoonlijk' ? 'personal' : 'administration');
 
-    $return = Url::fromRoute('brebo_mail_intake.mail_context', ['node' => $node->id()])->toString();
+    $return = Url::fromRoute('brebo_mail_intake.mail_context', ['node' => $node->id()], [
+      'query' => ['destination' => $returnUrl->toString()],
+    ])->toString();
 
     $form['intro'] = [
       '#markup' => '<p><strong>' . $this->t('Waar hoort deze e-mail thuis?') . '</strong><br>'
@@ -140,7 +147,7 @@ final class MailContextForm extends FormBase {
     $form['actions']['back'] = [
       '#type' => 'link',
       '#title' => $this->t('Terug naar Mail'),
-      '#url' => Url::fromRoute('brebo_mail_intake.mailbox_root'),
+      '#url' => $returnUrl,
       '#attributes' => ['class' => ['button']],
     ];
 
@@ -153,8 +160,12 @@ final class MailContextForm extends FormBase {
       $form_state->setErrorByName('target_type', $this->t('Kies een geldige primaire bestemming.'));
       return;
     }
-    if ($target === 'project' && (int) $form_state->getValue(['project_wrap', 'project']) <= 0) {
-      $form_state->setErrorByName('project_wrap][project', $this->t('Kies een bestaand project of maak eerst een nieuw project aan.'));
+    if ($target === 'project') {
+      $projectId = (int) $form_state->getValue(['project_wrap', 'project']);
+      $project = $projectId > 0 ? $this->entityTypeManager->getStorage('node')->load($projectId) : NULL;
+      if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project' || !$project->access('view')) {
+        $form_state->setErrorByName('project_wrap][project', $this->t('Kies een bestaand, toegankelijk BREBO-project of maak eerst een nieuw project aan.'));
+      }
     }
   }
 
@@ -166,74 +177,129 @@ final class MailContextForm extends FormBase {
     }
 
     $target = (string) $form_state->getValue('target_type');
-    $contextId = 0;
-    $contextType = $target;
-
+    $project = NULL;
+    $projectId = 0;
+    $buildingId = 0;
     if ($target === 'project') {
-      $contextId = (int) $form_state->getValue(['project_wrap', 'project']);
-      if ($node->hasField('field_brebo_project_ref')) {
-        $node->set('field_brebo_project_ref', $contextId);
+      $projectId = (int) $form_state->getValue(['project_wrap', 'project']);
+      $project = $this->entityTypeManager->getStorage('node')->load($projectId);
+      if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project' || !$project->access('view')) {
+        $form_state->setErrorByName('project_wrap][project', $this->t('Het gekozen project is niet meer beschikbaar.'));
+        return;
       }
-      if ($node->hasField('field_brebo_comm_context')) {
-        $node->set('field_brebo_comm_context', 'Project');
+
+      $projectBuildingIds = [];
+      if ($project->hasField('field_brebo_building_refs')) {
+        $projectBuildingIds = array_values(array_filter(array_map(
+          static fn(array $item): int => (int) ($item['target_id'] ?? 0),
+          $project->get('field_brebo_building_refs')->getValue(),
+        )));
+      }
+      $currentBuildingId = $node->hasField('field_brebo_building_ref')
+        ? (int) ($node->get('field_brebo_building_ref')->target_id ?? 0)
+        : 0;
+      if ($currentBuildingId > 0 && in_array($currentBuildingId, $projectBuildingIds, TRUE)) {
+        $buildingId = $currentBuildingId;
+      }
+      elseif (count($projectBuildingIds) === 1) {
+        $buildingId = $projectBuildingIds[0];
       }
     }
-    elseif ($target === 'administration') {
-      if ($node->hasField('field_brebo_project_ref')) {
-        $node->set('field_brebo_project_ref', NULL);
-      }
-      if ($node->hasField('field_brebo_comm_context')) {
-        $node->set('field_brebo_comm_context', 'Administratie');
-      }
-    }
-    elseif ($target === 'personal') {
-      if ($node->hasField('field_brebo_project_ref')) {
-        $node->set('field_brebo_project_ref', NULL);
-      }
-      if ($node->hasField('field_brebo_comm_context')) {
-        $node->set('field_brebo_comm_context', 'Persoonlijk');
-      }
-    }
-    else {
+    elseif (!in_array($target, ['administration', 'personal'], TRUE)) {
       throw new \InvalidArgumentException('Onbekend mail contexttype.');
     }
 
-    $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
-    $node->save();
-
     $documentIds = [];
-    if ($this->documents !== NULL && $this->database->schema()->tableExists('brebo_document_source')) {
-      $documentIds = $this->database->select('brebo_document_source', 's')
-        ->fields('s', ['document_id'])
-        ->condition('communication_nid', $nid)
-        ->distinct()
-        ->execute()
-        ->fetchCol();
-    }
-
     if ($this->documents !== NULL) {
-      $now = $this->time->getRequestTime();
-      $uid = (int) $this->currentUser()->id();
-      foreach (array_map('intval', $documentIds) as $documentId) {
-        $this->documents->upsertContext($documentId, [
-          'context_type' => $contextType,
-          'context_id' => $contextId,
-          'relation_role' => 'supporting',
-          'confidence' => 1.0,
-          'relation_source' => 'mail_manual_confirmation',
-          'review_status' => 'confirmed',
-          'confirmed_by_uid' => $uid,
-          'confirmed_at' => $now,
-        ]);
+      foreach (['brebo_document_communication', 'brebo_document_source'] as $table) {
+        if (!$this->database->schema()->tableExists($table)) {
+          continue;
+        }
+        $ids = $this->database->select($table, 'd')
+          ->fields('d', ['document_id'])
+          ->condition('communication_nid', $nid)
+          ->distinct()
+          ->execute()
+          ->fetchCol();
+        foreach ($ids as $documentId) {
+          $documentIds[(int) $documentId] = (int) $documentId;
+        }
       }
     }
 
-    $this->messenger()->addStatus($this->t('Communicatie en @count document(en) zijn aan de gekozen primaire bestemming gekoppeld.', [
-      '@count' => count($documentIds),
-    ]));
+    $transaction = $this->database->startTransaction();
+    try {
+      if ($node->hasField('field_brebo_project_ref')) {
+        $node->set('field_brebo_project_ref', $projectId > 0 ? $projectId : NULL);
+      }
+      if ($node->hasField('field_brebo_building_ref')) {
+        $node->set('field_brebo_building_ref', $buildingId > 0 ? $buildingId : NULL);
+      }
+      if ($node->hasField('field_brebo_comm_scope_target')) {
+        $node->set('field_brebo_comm_scope_target', NULL);
+      }
+      if ($node->hasField('field_brebo_comm_context')) {
+        $node->set('field_brebo_comm_context', match ($target) {
+          'project' => 'Project',
+          'administration' => 'Administratie',
+          'personal' => 'Persoonlijk',
+        });
+      }
 
-    $form_state->setRedirect('brebo_mail_intake.mailbox_root');
+      $node->setNewRevision(TRUE);
+      $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
+      $node->save();
+
+      if ($documentIds !== [] && $this->database->schema()->tableExists('brebo_document_context')) {
+        $this->database->delete('brebo_document_context')
+          ->condition('document_id', array_values($documentIds), 'IN')
+          ->condition('relation_source', 'mail_manual_confirmation')
+          ->execute();
+      }
+
+      if ($this->documents !== NULL && $projectId > 0) {
+        $now = $this->time->getRequestTime();
+        $uid = (int) $this->currentUser()->id();
+        foreach ($documentIds as $documentId) {
+          $this->documents->upsertContext($documentId, [
+            'context_type' => 'project',
+            'context_id' => $projectId,
+            'relation_role' => 'supporting',
+            'confidence' => 1.0,
+            'relation_source' => 'mail_manual_confirmation',
+            'review_status' => 'confirmed',
+            'confirmed_by_uid' => $uid,
+            'confirmed_at' => $now,
+          ]);
+        }
+      }
+    }
+    catch (\Throwable $exception) {
+      $transaction->rollBack();
+      $this->getLogger('brebo_mail_intake')->error('Mailkoppeling voor communicatie @nid mislukt: @message', [
+        '@nid' => $nid,
+        '@message' => $exception->getMessage(),
+      ]);
+      $this->messenger()->addError($this->t('De koppeling kon niet volledig worden opgeslagen. Er is niets gewijzigd.'));
+      return;
+    }
+
+    $message = $projectId > 0
+      ? $this->t('Communicatie en @count document(en) zijn aan project @project gekoppeld.', [
+        '@count' => count($documentIds),
+        '@project' => $project?->label() ?? '',
+      ])
+      : $this->t('Communicatie is als @destination opgeslagen. @count document(en) blijven via deze communicatie vindbaar, zonder kunstmatige objectkoppeling.', [
+        '@destination' => $target === 'personal' ? $this->t('Persoonlijk') : $this->t('Administratie'),
+        '@count' => count($documentIds),
+      ]);
+    $this->messenger()->addStatus($message);
+
+    $returnPath = (string) $form_state->get('return_path');
+    $form_state->setRedirectUrl(
+      str_starts_with($returnPath, '/') && !str_starts_with($returnPath, '//')
+        ? Url::fromUserInput($returnPath)
+        : Url::fromRoute('brebo_mail_intake.mailbox_root'),
+    );
   }
-
 }
