@@ -61,14 +61,18 @@ final class MailComposeForm extends FormBase {
       $sourceBody = trim((string) ($source->get('field_brebo_transcript')->value ?? ''));
       $sourceFrom = trim((string) ($source->get('field_brebo_mail_from')->value ?? ''));
       $sourceDate = trim((string) ($source->get('field_brebo_comm_datetime')->value ?? ''));
+      $safeFrom = htmlspecialchars($sourceFrom, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $safeDate = htmlspecialchars($sourceDate, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $safeSourceSubject = htmlspecialchars($sourceSubject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+      $safeSourceBody = nl2br(htmlspecialchars($sourceBody, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), FALSE);
       if ($mode === 'reply') {
         $to = $this->extractAddress($sourceFrom);
         $subject = preg_match('/^re:/i', $sourceSubject) ? $sourceSubject : 'Re: ' . $sourceSubject;
-        $body = "\n\n--- Oorspronkelijk bericht ---\nVan: {$sourceFrom}\nDatum: {$sourceDate}\n\n{$sourceBody}";
+        $body = '<p><br></p><hr><p><strong>Oorspronkelijk bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '</p><blockquote>' . $safeSourceBody . '</blockquote>';
       }
       elseif ($mode === 'forward') {
         $subject = preg_match('/^(fw|fwd):/i', $sourceSubject) ? $sourceSubject : 'Fwd: ' . $sourceSubject;
-        $body = "\n\n--- Doorgestuurd bericht ---\nVan: {$sourceFrom}\nDatum: {$sourceDate}\nOnderwerp: {$sourceSubject}\n\n{$sourceBody}";
+        $body = '<p><br></p><hr><p><strong>Doorgestuurd bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '<br>Onderwerp: ' . $safeSourceSubject . '</p><blockquote>' . $safeSourceBody . '</blockquote>';
       }
     }
 
