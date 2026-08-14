@@ -278,6 +278,7 @@ final class CrmController extends ControllerBase {
     $rows = [];
     $totalValue = 0.0;
     $totalWeighted = 0.0;
+    $openCount = 0;
     $overdue = 0;
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
 
@@ -303,6 +304,7 @@ final class CrmController extends ControllerBase {
       $stageTotals[$stage]['value'] += $value;
       $stageTotals[$stage]['weighted'] += $weighted;
       if ($active && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE)) {
+        $openCount++;
         $totalValue += $value;
         $totalWeighted += $weighted;
       }
@@ -372,7 +374,7 @@ final class CrmController extends ControllerBase {
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
         '#header' => [$this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet'), $this->t('Achterstallige acties')],
-        '#rows' => [[count($opportunities), '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue]],
+        '#rows' => [[$openCount, '€ ' . number_format($totalValue, 2, ',', '.'), '€ ' . number_format($totalWeighted, 2, ',', '.'), $overdue]],
       ],
       'stages' => $this->section(
         $this->t('Funnel per fase'),
@@ -779,7 +781,7 @@ final class CrmController extends ControllerBase {
     }
 
     $opportunityRows = [];
-    $opportunityValue = 0.0;
+    $openOpportunityCount = 0;
     $opportunityWeighted = 0.0;
     foreach ($opportunities as $opportunity) {
       if (!$opportunity instanceof NodeInterface) {
@@ -791,7 +793,7 @@ final class CrmController extends ControllerBase {
       $weighted = $value * $probability / 100;
       if ((bool) $opportunity->get('field_brebo_opp_active')->value
         && !in_array($this->value($opportunity, 'field_brebo_opp_stage'), ['Gewonnen', 'Verloren'], TRUE)) {
-        $opportunityValue += $value;
+        $openOpportunityCount++;
         $opportunityWeighted += $weighted;
       }
       $opportunityRows[] = [
@@ -928,7 +930,7 @@ final class CrmController extends ControllerBase {
           $node->hasField('field_brebo_org_supplier') && (bool) $node->get('field_brebo_org_supplier')->value ? $this->t('Ja') : $this->t('Nee'),
           count($locations),
           count($affiliations),
-          count($opportunities),
+          $openOpportunityCount,
           '€ ' . number_format($opportunityWeighted, 2, ',', '.'),
           count($projects),
           count($buildings),
