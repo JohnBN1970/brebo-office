@@ -118,14 +118,22 @@ final class MailContextForm extends FormBase {
       ],
     ];
 
-    $documentCount = 0;
-    if ($this->database->schema()->tableExists('brebo_document_source')) {
-      $documentCount = (int) $this->database->select('brebo_document_source', 's')
+    $documentIds = [];
+    foreach (['brebo_document_communication', 'brebo_document_source'] as $table) {
+      if (!$this->database->schema()->tableExists($table)) {
+        continue;
+      }
+      $ids = $this->database->select($table, 'd')
+        ->fields('d', ['document_id'])
         ->condition('communication_nid', (int) $node->id())
-        ->countQuery()
+        ->distinct()
         ->execute()
-        ->fetchField();
+        ->fetchCol();
+      foreach ($ids as $documentId) {
+        $documentIds[(int) $documentId] = TRUE;
+      }
     }
+    $documentCount = count($documentIds);
     $form['documents'] = [
       '#type' => 'item',
       '#title' => $this->t('Geregistreerde bijlagen/documenten'),
