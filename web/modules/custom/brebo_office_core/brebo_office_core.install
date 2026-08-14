@@ -4901,3 +4901,176 @@ function brebo_office_core_update_11038(): string {
   );
 }
 
+
+/**
+ * Adds complete organization master data and multiple organization locations.
+ */
+function brebo_office_core_update_11039(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization',
+    'Organisatie',
+    'Centrale relatiekaart voor opdrachtgever, hoofdaannemer, leverancier, adviseur en overige ketenpartij.',
+    [
+      'field_brebo_org_kvk' => [
+        'label' => 'KvK-nummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Het officiële nummer in het Handelsregister.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_org_vat' => [
+        'label' => 'Btw-identificatienummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Het officiële btw-identificatienummer van de organisatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_org_payment_days' => [
+        'label' => 'Betaaltermijn (dagen)', 'type' => 'integer', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'De standaard betaaltermijn in kalenderdagen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 10,
+        'default_value' => [['value' => 30]],
+      ],
+      'field_brebo_org_active' => [
+        'label' => 'Actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of de organisatie actief gebruikt mag worden.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 11,
+        'default_value' => [['value' => 1]],
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization_location',
+    'Organisatielocatie',
+    'Zelfstandige vestiging, bezoeklocatie, postadres of factuuradres van een organisatie.',
+    [
+      'field_brebo_loc_org_ref' => [
+        'label' => 'Organisatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']]],
+        'description' => 'De organisatie waartoe deze locatie behoort.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_loc_type' => [
+        'label' => 'Locatietype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Vestiging, bezoekadres, postadres, factuuradres, magazijn of overige locatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+        'default_value' => [['value' => 'Vestiging']],
+      ],
+      'field_brebo_loc_name' => [
+        'label' => 'Locatienaam', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Bijvoorbeeld hoofdkantoor, administratie of magazijn.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_loc_address' => [
+        'label' => 'Straat en huisnummer', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Straat, huisnummer en eventuele toevoeging.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_loc_postal_code' => [
+        'label' => 'Postcode', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Postcode van de locatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_loc_city' => [
+        'label' => 'Plaats', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 128],
+        'description' => 'Vestigingsplaats van de locatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_loc_country' => [
+        'label' => 'Land', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Land van de locatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+        'default_value' => [['value' => 'Nederland']],
+      ],
+      'field_brebo_loc_primary' => [
+        'label' => 'Primaire locatie', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Markeert de standaardlocatie van de organisatie.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 8,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_loc_active' => [
+        'label' => 'Actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of deze locatie nog actief gebruikt mag worden.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 9,
+        'default_value' => [['value' => 1]],
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (["create brebo_organization_location content", "edit own brebo_organization_location content", "edit any brebo_organization_location content", "view brebo_organization_location revisions"] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $organization_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_organization')
+    ->execute();
+  $locations_created = 0;
+  foreach ($storage->loadMultiple($organization_ids) as $organization) {
+    if (!$organization instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $organization->set('field_brebo_org_active',
+      $organization->hasField('field_brebo_org_status')
+      && (string) $organization->get('field_brebo_org_status')->value === 'Actief'
+        ? 1
+        : 0
+    );
+    if ($organization->hasField('field_brebo_org_number')) {
+      $legacy_number = preg_replace('/\D+/', '', (string) $organization->get('field_brebo_org_number')->value);
+      if (is_string($legacy_number) && strlen($legacy_number) === 8) {
+        $organization->set('field_brebo_org_kvk', $legacy_number);
+      }
+    }
+    $organization->save();
+
+    if (!$organization->hasField('field_brebo_org_address') || $organization->get('field_brebo_org_address')->isEmpty()) {
+      continue;
+    }
+    $address = trim((string) $organization->get('field_brebo_org_address')->value);
+    if ($address === '') {
+      continue;
+    }
+    $existing = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_organization_location')
+      ->condition('field_brebo_loc_org_ref.target_id', $organization->id())
+      ->range(0, 1)
+      ->execute();
+    if ($existing !== []) {
+      continue;
+    }
+    $storage->create([
+      'type' => 'brebo_organization_location',
+      'title' => $organization->label() . ' — hoofdlocatie',
+      'field_brebo_loc_org_ref' => ['target_id' => $organization->id()],
+      'field_brebo_loc_type' => 'Vestiging',
+      'field_brebo_loc_name' => 'Hoofdlocatie',
+      'field_brebo_loc_address' => $address,
+      'field_brebo_loc_city' => 'Onbekend',
+      'field_brebo_loc_country' => 'Nederland',
+      'field_brebo_loc_primary' => 1,
+      'field_brebo_loc_active' => 1,
+      'status' => 1,
+    ])->save();
+    $locations_created++;
+  }
+
+  return sprintf('Organisatiestamgegevens en meerdere locaties ingericht; %d bestaande adressen gematerialiseerd.', $locations_created);
+}
