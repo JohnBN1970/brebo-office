@@ -702,7 +702,8 @@ final class CrmController extends ControllerBase {
           '#rows' => [
             [$this->t('KvK-nummer'), $this->value($node, 'field_brebo_org_kvk')],
             [$this->t('Btw-identificatienummer'), $this->value($node, 'field_brebo_org_vat')],
-            [$this->t('Betaaltermijn'), $this->value($node, 'field_brebo_org_payment_days') !== '—' ? $this->t('@days dagen', ['@days' => $this->value($node, 'field_brebo_org_payment_days')]) : '—'],
+            [$this->t('Betaaltermijn klant'), $this->value($node, 'field_brebo_org_customer_days') !== '—' ? $this->t('@days dagen', ['@days' => $this->value($node, 'field_brebo_org_customer_days')]) : '—'],
+            [$this->t('Betaaltermijn leverancier'), $this->value($node, 'field_brebo_org_supplier_days') !== '—' ? $this->t('@days dagen', ['@days' => $this->value($node, 'field_brebo_org_supplier_days')]) : '—'],
             [$this->t('Account van'), $accountOwnerLabel],
             [$this->t('Oud KvK-/relatienummer (overgang)'), $this->value($node, 'field_brebo_org_number')],
             [$this->t('E-mail'), ['data' => $this->emailLink($node, 'field_brebo_org_email')]],
