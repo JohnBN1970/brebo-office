@@ -155,15 +155,6 @@ final class MailComposeForm extends FormBase {
     $mailboxId = (int) $form_state->getValue('mailbox_id');
     $sourceId = (int) $form_state->getValue('source_id');
     $mode = (string) $form_state->getValue('mode');
-    $source = $sourceId > 0 ? $this->loadSource($sourceId) : NULL;
-    $projectId = ($source && $source->hasField('field_brebo_project_ref'))
-      ? (int) ($source->get('field_brebo_project_ref')->target_id ?? 0)
-      : 0;
-    $sourceContext = ($source && $source->hasField('field_brebo_comm_context'))
-      ? trim((string) ($source->get('field_brebo_comm_context')->value ?? ''))
-      : '';
-    $contextLabel = in_array($sourceContext, ['Administratie', 'Persoonlijk'], TRUE) ? $sourceContext : '';
-
     $bodyValue = $form_state->getValue('body');
     $bodyHtml = is_array($bodyValue) ? trim((string) ($bodyValue['value'] ?? '')) : trim((string) $bodyValue);
     $draft = $this->outbound->createDraft([
@@ -174,9 +165,6 @@ final class MailComposeForm extends FormBase {
       'subject' => trim((string) $form_state->getValue('subject')),
       'body' => $this->htmlToText($bodyHtml),
       'body_html' => $bodyHtml,
-      'project_id' => $projectId,
-      'context_label' => $contextLabel,
-      'source_id' => $source ? $sourceId : 0,
     ]);
     $uploadIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('uploads'))));
     $documentIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('documents'))));
@@ -188,7 +176,7 @@ final class MailComposeForm extends FormBase {
       ->execute();
     if ($sourceId > 0 && in_array($mode, ['reply', 'reply-all', 'forward'], TRUE)) {
       $draft->setNewRevision(TRUE);
-      $draft->setRevisionLogMessage(sprintf('Concept %s aangemaakt vanuit communicatie %d; bronrelatie en primaire Office-bestemming zijn overgenomen.', $mode, $sourceId));
+      $draft->setRevisionLogMessage(sprintf('Concept %s aangemaakt vanuit communicatie %d; bronbericht blijft ongewijzigd.', $mode, $sourceId));
       $draft->save();
     }
     $this->messenger()->addStatus($this->t('Concept opgeslagen in BREBO Office. Er is nog niets verzonden.'));
