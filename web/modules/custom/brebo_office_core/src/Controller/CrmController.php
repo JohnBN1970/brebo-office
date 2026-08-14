@@ -271,8 +271,8 @@ final class CrmController extends ControllerBase {
     $opportunities = $storage->loadMultiple($query->execute());
 
     $stages = [
-      'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie',
-      'Offerte', 'Onderhandeling', 'Gewonnen', 'Verloren',
+      'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte',
+      'Onderhandeling', 'Gewonnen', 'Verloren',
     ];
     $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0]);
     $rows = [];
