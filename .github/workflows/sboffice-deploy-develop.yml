@@ -206,12 +206,12 @@ jobs:
           grep -F "DocumentOpenController::view" "$document_routes"
           cache_log="$(mktemp)"
           if ! php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr >"$cache_log" 2>&1; then
-            cache_error="$(grep -Ei 'error|exception|fatal|undefined|not found|failed|invalid|route' "$cache_log" | tail -n 30 || true)"
+            cache_error="$(grep -Ei 'error|exception|fatal|undefined|not found|failed|invalid|route' "$cache_log" | tail -n 30 | tr '\n' ' ' | cut -c1-4000 || true)"
             if [[ -z "$cache_error" ]]; then
-              cache_error="$(tail -n 30 "$cache_log")"
+              cache_error="$(tail -n 15 "$cache_log" | tr '\n' ' ' | cut -c1-4000)"
             fi
-            cache_error="${cache_error//'%'/'%25'}"
-            cache_error="${cache_error//            rm -f "$cache_log"
+            echo "::error title=Drupal cache rebuild failed::$cache_error"
+            rm -f "$cache_log"
             exit 1
           fi
           cat "$cache_log"
