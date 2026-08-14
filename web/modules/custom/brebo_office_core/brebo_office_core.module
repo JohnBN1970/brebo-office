@@ -118,6 +118,18 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       && isset($form[$contact_field]['widget'][0]['target_id'])) {
       $form[$contact_field]['widget'][0]['target_id']['#default_value'] = $contact;
     }
+
+    if ($node->bundle() === 'brebo_contact_affiliation') {
+      $organization_id = (int) \Drupal::request()->query->get('organization', 0);
+      $organization = $organization_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($organization_id)
+        : NULL;
+      if ($organization instanceof NodeInterface
+        && $organization->bundle() === 'brebo_organization'
+        && isset($form['field_brebo_aff_org_ref']['widget'][0]['target_id'])) {
+        $form['field_brebo_aff_org_ref']['widget'][0]['target_id']['#default_value'] = $organization;
+      }
+    }
   }
 
   if ($node->bundle() === 'brebo_contact' && $node->isNew()) {
