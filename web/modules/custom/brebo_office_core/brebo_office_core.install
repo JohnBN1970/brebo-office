@@ -5310,3 +5310,100 @@ function brebo_office_core_update_11044(): string {
 
   return sprintf('%d kansen samengevoegd naar de fase Calculatie/offerte.', $updated);
 }
+
+/**
+ * Adds guided opportunity transitions, audit history and communication links.
+ */
+function brebo_office_core_update_11045(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_opportunity',
+    'Commerciële kans',
+    'Zelfstandige commerciële kans binnen de begeleide funnel.',
+    [
+      'field_brebo_opp_loss_reason' => [
+        'label' => 'Verliesreden', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Verplicht wanneer de kans als verloren wordt afgesloten.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+      ],
+      'field_brebo_opp_stage_note' => [
+        'label' => 'Toelichting fasewijziging', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Korte toelichting op de laatste faseovergang.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 13,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_opportunity_event',
+    'Funnelgebeurtenis',
+    'Onwijzigbare auditregel van een faseovergang binnen een commerciële kans.',
+    [
+      'field_brebo_event_opp_ref' => [
+        'label' => 'Commerciële kans', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_opportunity' => 'brebo_opportunity']]],
+        'description' => 'De kans waarop deze faseovergang betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_event_from_stage' => [
+        'label' => 'Van fase', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Fase vóór de overgang.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_event_to_stage' => [
+        'label' => 'Naar fase', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Fase na de overgang.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_event_user' => [
+        'label' => 'Gewijzigd door', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Gebruiker die de overgang heeft bevestigd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_event_datetime' => [
+        'label' => 'Datum en tijd', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Moment waarop de overgang is vastgelegd.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 5,
+      ],
+      'field_brebo_event_note' => [
+        'label' => 'Toelichting', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'Toelichting die bij de faseovergang is opgegeven.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+    ],
+  );
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_communication',
+    'Communicatie',
+    'Controleerbaar communicatie-item binnen BREBO Office.',
+    [
+      'field_brebo_comm_opp_ref' => [
+        'label' => 'Commerciële kans', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_opportunity' => 'brebo_opportunity']]],
+        'description' => 'Optionele commerciële kans waarop deze communicatie betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 10,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (["view brebo_opportunity_event revisions"] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Begeleide funnelworkflow, fasehistorie en communicatiekoppeling ingericht.';
+}
