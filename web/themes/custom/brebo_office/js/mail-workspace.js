@@ -146,6 +146,7 @@
 
     const composeHref = mailboxId ? '/mail/' + mailboxId + '/opstellen' : '';
     const replyHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply/' + selectedId : '';
+    const replyAllHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/reply-all/' + selectedId : '';
     const forwardHref = mailboxId && selectedId ? '/mail/' + mailboxId + '/opstellen/forward/' + selectedId : '';
     const processHref = selectedId ? '/communicatie/' + selectedId + '/verwerken' : '';
     const destination = window.location.pathname + window.location.search;
@@ -159,7 +160,7 @@
 
     const message = document.createElement('div');
     message.className = 'brebo-mail-toolbar__group';
-    message.append(action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref));
+    message.append(action('↩', 'Beantwoorden', replyHref), action('↩', 'Allen beantwoorden', replyAllHref), action('↪', 'Doorsturen', forwardHref));
     const stateForm = workspace.querySelector('form.brebo-mail-state-actions');
     if (stateForm) {
       stateForm.classList.add('brebo-mail-state-actions--toolbar');
