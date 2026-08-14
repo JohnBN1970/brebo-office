@@ -296,6 +296,8 @@ final class CrmController extends ControllerBase {
     $staleCount = 0;
     $missingActionCount = 0;
     $unqualifiedCount = 0;
+    $offerAttentionCount = 0;
+    $offerRows = [];
     $wonCount = 0;
     $lostCount = 0;
     $wonValue = 0.0;
@@ -426,6 +428,34 @@ final class CrmController extends ControllerBase {
           if ($qualificationMissing) {
             $unqualifiedCount++;
             $alerts[] = (string) $this->t('Kwalificatie niet compleet');
+          }
+        }
+        if (in_array($stage, ['Calculatie/offerte', 'Onderhandeling'], TRUE)) {
+          $linkedOffer = $opportunity->hasField('field_brebo_opp_offer_ref')
+            ? $opportunity->get('field_brebo_opp_offer_ref')->entity
+            : NULL;
+          $offerSignal = NULL;
+          if (!$linkedOffer instanceof NodeInterface) {
+            $offerSignal = (string) $this->t('Geen offerteversie gekoppeld');
+          }
+          elseif ($closeDate !== '—' && $closeDate < $today) {
+            $offerSignal = (string) $this->t('Besluitdatum verstreken');
+          }
+          elseif ($closeDate !== '—' && $closeDate <= $weekEnd) {
+            $offerSignal = (string) $this->t('Besluit binnen 7 dagen');
+          }
+          if ($offerSignal !== NULL) {
+            $offerAttentionCount++;
+            $alerts[] = $offerSignal;
+            $offerRows[] = [
+              ['data' => Link::fromTextAndUrl($opportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $opportunity->id()]))->toRenderable()],
+              $organizationLabel,
+              $stage,
+              $linkedOffer instanceof NodeInterface ? $linkedOffer->label() : '—',
+              $closeDate,
+              $offerSignal,
+              $ownerLabel,
+            ];
           }
         }
         if ($lastContact === '—' || substr($lastContact, 0, 10) < $staleCutoff) {
@@ -762,9 +792,15 @@ final class CrmController extends ControllerBase {
       'management_summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd')],
-        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount]],
+        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht')],
+        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount]],
       ],
+      'offer_monitoring' => $this->section(
+        $this->t('Offertebewaking'),
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Offerteversie'), $this->t('Verwachte besluitdatum'), $this->t('Signaal'), $this->t('Verantwoordelijke')],
+        $offerRows,
+        $this->t('Geen offertes die directe aandacht vragen.')
+      ),
       'sources' => $this->section(
         $this->t('Resultaat per leadbron'),
         [$this->t('Leadbron'), $this->t('Kanaal'), $this->t('Totaal'), $this->t('Open'), $this->t('Gewogen omzet'), $this->t('Gewonnen'), $this->t('Gewonnen omzet')],
