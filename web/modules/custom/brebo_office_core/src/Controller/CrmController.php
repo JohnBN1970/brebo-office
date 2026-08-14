@@ -26,7 +26,7 @@ final class CrmController extends ControllerBase {
     $activeOrganizationCount = (int) $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_organization')
-      ->condition('field_brebo_org_status', 'Actief')
+      ->condition('field_brebo_org_active', 1)
       ->count()
       ->execute();
     $contactCount = (int) $storage->getQuery()
@@ -51,14 +51,34 @@ final class CrmController extends ControllerBase {
     if ($search !== '') {
       $organizationMatch = $organizationQuery->orConditionGroup()
         ->condition('title', $search, 'CONTAINS')
-        ->condition('field_brebo_org_email', $search, 'CONTAINS');
+        ->condition('field_brebo_org_email', $search, 'CONTAINS')
+        ->condition('field_brebo_org_kvk', $search, 'CONTAINS')
+        ->condition('field_brebo_org_vat', $search, 'CONTAINS');
       $organizationQuery->condition($organizationMatch)
         ->sort('title')
         ->range(0, 50);
 
+      $contactPointIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_contact_point')
+        ->condition('field_brebo_cp_value', $search, 'CONTAINS')
+        ->execute();
+      $matchedContactIds = [];
+      foreach ($storage->loadMultiple($contactPointIds) as $contactPoint) {
+        if ($contactPoint instanceof NodeInterface) {
+          $matchedContact = $contactPoint->get('field_brebo_cp_contact_ref')->entity;
+          if ($matchedContact instanceof NodeInterface) {
+            $matchedContactIds[(int) $matchedContact->id()] = (int) $matchedContact->id();
+          }
+        }
+      }
+
       $contactMatch = $contactQuery->orConditionGroup()
         ->condition('title', $search, 'CONTAINS')
         ->condition('field_brebo_contact_email', $search, 'CONTAINS');
+      if ($matchedContactIds !== []) {
+        $contactMatch->condition('nid', array_values($matchedContactIds), 'IN');
+      }
       $contactQuery->condition($contactMatch)
         ->sort('title')
         ->range(0, 50);
@@ -76,13 +96,18 @@ final class CrmController extends ControllerBase {
       if (!$organization instanceof NodeInterface) {
         continue;
       }
+      $accountOwner = $organization->hasField('field_brebo_org_account_owner')
+        ? $organization->get('field_brebo_org_account_owner')->entity
+        : NULL;
       $organizationRows[] = [
         ['data' => Link::fromTextAndUrl(
           $organization->label(),
           Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
         )->toRenderable()],
-        $this->value($organization, 'field_brebo_org_type'),
-        $this->value($organization, 'field_brebo_org_status'),
+        $organization->hasField('field_brebo_org_customer') && (bool) $organization->get('field_brebo_org_customer')->value ? $this->t('Ja') : $this->t('Nee'),
+        $organization->hasField('field_brebo_org_supplier') && (bool) $organization->get('field_brebo_org_supplier')->value ? $this->t('Ja') : $this->t('Nee'),
+        $accountOwner !== NULL ? $accountOwner->label() : '—',
+        $organization->hasField('field_brebo_org_active') && (bool) $organization->get('field_brebo_org_active')->value ? $this->t('Ja') : $this->t('Nee'),
         ['data' => $this->emailLink($organization, 'field_brebo_org_email')],
       ];
     }
@@ -92,21 +117,50 @@ final class CrmController extends ControllerBase {
       if (!$contact instanceof NodeInterface) {
         continue;
       }
-      $organization = $contact->hasField('field_brebo_org_ref') ? $contact->get('field_brebo_org_ref')->entity : NULL;
-      $organizationLabel = '—';
-      if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
-        $organizationLabel = Link::fromTextAndUrl(
-          $organization->label(),
-          Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
-        )->toRenderable();
+      $affiliationIds = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_contact_affiliation')
+        ->condition('field_brebo_aff_contact_ref.target_id', $contact->id())
+        ->sort('field_brebo_aff_primary', 'DESC')
+        ->execute();
+      $organizationLinks = [];
+      $roleLabels = [];
+      foreach ($storage->loadMultiple($affiliationIds) as $affiliation) {
+        if (!$affiliation instanceof NodeInterface) {
+          continue;
+        }
+        $organization = $affiliation->get('field_brebo_aff_org_ref')->entity;
+        if ($organization instanceof NodeInterface && $organization->bundle() === 'brebo_organization') {
+          $organizationLinks[] = Link::fromTextAndUrl(
+            $organization->label(),
+            Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
+          )->toRenderable();
+        }
+        $role = $this->value($affiliation, 'field_brebo_aff_role');
+        if ($role !== '—') {
+          $roleLabels[] = $role;
+        }
       }
+      if ($organizationLinks === []) {
+        $legacyOrganization = $contact->hasField('field_brebo_org_ref') ? $contact->get('field_brebo_org_ref')->entity : NULL;
+        if ($legacyOrganization instanceof NodeInterface && $legacyOrganization->bundle() === 'brebo_organization') {
+          $organizationLinks[] = Link::fromTextAndUrl(
+            $legacyOrganization->label(),
+            Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $legacyOrganization->id()])
+          )->toRenderable();
+        }
+      }
+      $organizationsCell = $organizationLinks !== [] ? [
+        '#theme' => 'item_list',
+        '#items' => $organizationLinks,
+      ] : '—';
       $contactRows[] = [
         ['data' => Link::fromTextAndUrl(
           $contact->label(),
           Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $contact->id()])
         )->toRenderable()],
-        ['data' => $organizationLabel],
-        $this->value($contact, 'field_brebo_contact_role'),
+        ['data' => $organizationsCell],
+        $roleLabels !== [] ? implode(', ', array_unique($roleLabels)) : $this->value($contact, 'field_brebo_contact_role'),
         ['data' => $this->emailLink($contact, 'field_brebo_contact_email')],
       ];
     }
@@ -128,7 +182,7 @@ final class CrmController extends ControllerBase {
             'type' => 'search',
             'name' => 'q',
             'value' => $search,
-            'placeholder' => $this->t('Zoek op naam of e-mailadres'),
+            'placeholder' => $this->t('Zoek op naam, e-mail, KvK, btw of contactgegeven'),
             'aria-label' => $this->t('Relaties zoeken'),
           ],
         ],
@@ -181,19 +235,19 @@ final class CrmController extends ControllerBase {
       ],
       'organizations' => $this->section(
         $search !== '' ? $this->t('Gevonden organisaties') : $this->t('Recent gewijzigde organisaties'),
-        [$this->t('Organisatie'), $this->t('Type'), $this->t('Status'), $this->t('E-mail')],
+        [$this->t('Organisatie'), $this->t('Klant'), $this->t('Leverancier'), $this->t('Account van'), $this->t('Actief'), $this->t('E-mail')],
         $organizationRows,
         $search !== '' ? $this->t('Geen organisaties gevonden.') : $this->t('Nog geen organisaties aangemaakt.')
       ),
       'contacts' => $this->section(
         $search !== '' ? $this->t('Gevonden contactpersonen') : $this->t('Recent gewijzigde contactpersonen'),
-        [$this->t('Contactpersoon'), $this->t('Organisatie'), $this->t('Rol'), $this->t('E-mail')],
+        [$this->t('Contactpersoon'), $this->t('Organisaties'), $this->t('Rollen'), $this->t('E-mail')],
         $contactRows,
         $search !== '' ? $this->t('Geen contactpersonen gevonden.') : $this->t('Nog geen contactpersonen aangemaakt.')
       ),
       '#cache' => [
         'contexts' => ['user.permissions', 'url.query_args:q'],
-        'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact'],
+        'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact', 'node_list:brebo_contact_affiliation', 'node_list:brebo_contact_point'],
       ],
     ];
   }
