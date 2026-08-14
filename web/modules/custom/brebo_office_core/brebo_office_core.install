@@ -5192,3 +5192,99 @@ function brebo_office_core_update_11042(): string {
 
   return 'Afzonderlijke betaaltermijnen voor klant en leverancier ingericht.';
 }
+
+/**
+ * Creates the commercial opportunity funnel.
+ */
+function brebo_office_core_update_11043(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_opportunity',
+    'Commerciële kans',
+    'Zelfstandige commerciële kans binnen de funnel, gekoppeld aan een organisatie en verantwoordelijke gebruiker.',
+    [
+      'field_brebo_opp_org_ref' => [
+        'label' => 'Organisatie', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']]],
+        'description' => 'De organisatie waarop deze commerciële kans betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_opp_contact_ref' => [
+        'label' => 'Contactpersoon', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_contact' => 'brebo_contact']]],
+        'description' => 'De primaire contactpersoon voor deze kans.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_opp_owner' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'De BREBO-gebruiker die deze kans opvolgt.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_opp_stage' => [
+        'label' => 'Funnelfase', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32],
+        'description' => 'Lead, gekwalificeerd, afspraak, calculatie, offerte, onderhandeling, gewonnen of verloren.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+        'default_value' => [['value' => 'Lead']],
+      ],
+      'field_brebo_opp_value' => [
+        'label' => 'Verwachte omzet', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 14, 'scale' => 2],
+        'description' => 'Geschatte commerciële waarde exclusief btw.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_opp_probability' => [
+        'label' => 'Scoringskans (%)', 'type' => 'integer', 'required' => TRUE,
+        'storage' => [],
+        'description' => 'Kans op opdracht van 0 tot en met 100 procent.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 6,
+        'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_opp_close_date' => [
+        'label' => 'Verwachte sluitdatum', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Datum waarop een besluit of opdracht wordt verwacht.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 7,
+      ],
+      'field_brebo_opp_next_date' => [
+        'label' => 'Volgende actiedatum', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'],
+        'description' => 'Datum waarop deze kans uiterlijk opnieuw moet worden opgevolgd.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 8,
+      ],
+      'field_brebo_opp_next_action' => [
+        'label' => 'Volgende actie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 255],
+        'description' => 'De concrete eerstvolgende commerciële actie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_opp_active' => [
+        'label' => 'Actief', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of deze kans nog actief wordt opgevolgd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 10,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_opp_notes' => [
+        'label' => 'Notities', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Commerciële context, risico’s en afspraken rond deze kans.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 11,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach (["create brebo_opportunity content", "edit own brebo_opportunity content", "edit any brebo_opportunity content", "view brebo_opportunity revisions"] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Commerciële funnel met zelfstandige kansen ingericht.';
+}
