@@ -194,6 +194,9 @@ jobs:
           cd "$target"
           test -f vendor/drush/drush/drush.php
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake -y
+          echo "Clearing derived container and discovery caches before database updates."
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_container"
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_discovery"
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y
           document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
           document_routes="web/modules/custom/brebo_document_data/brebo_document_data.routing.yml"
@@ -201,9 +204,6 @@ jobs:
           test -f "$document_routes"
           php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
           grep -F "DocumentOpenController::view" "$document_routes"
-          echo "Clearing derived container and discovery caches before rebuild."
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_container"
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi sql:query "TRUNCATE TABLE cache_discovery"
           php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1
           timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
 
