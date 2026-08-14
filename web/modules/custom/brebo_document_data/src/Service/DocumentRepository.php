@@ -241,6 +241,84 @@ final class DocumentRepository {
       ->fetchAll(\PDO::FETCH_ASSOC) ?: [];
   }
 
+
+  public function upsertCommunicationRelation(int $documentId, int $communicationNid, string $role): array {
+    $this->assertDocument($documentId);
+    $role = strtolower($this->clean($role));
+    if ($communicationNid <= 0 || !in_array($role, ['received_with', 'sent_with', 'created_with'], TRUE)) {
+      throw new \InvalidArgumentException('Document-communicatierelatie vereist communicatie en geldige rol.');
+    }
+    $this->ensureCommunicationTable();
+    $existing = $this->database->select('brebo_document_communication', 'r')
+      ->fields('r', ['id'])
+      ->condition('document_id', $documentId)
+      ->condition('communication_nid', $communicationNid)
+      ->condition('relation_role', $role)
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+    if ($existing) {
+      return ['state' => 'reused', 'id' => (int) $existing];
+    }
+    $id = (int) $this->database->insert('brebo_document_communication')
+      ->fields([
+        'document_id' => $documentId,
+        'communication_nid' => $communicationNid,
+        'relation_role' => $role,
+        'created' => $this->time->getRequestTime(),
+      ])
+      ->execute();
+    return ['state' => 'created', 'id' => $id];
+  }
+
+  /** @return array<int,array<string,mixed>> */
+  public function communicationsForDocument(int $documentId): array {
+    $this->ensureCommunicationTable();
+    $query = $this->database->select('brebo_document_communication', 'r');
+    $query->leftJoin('node_field_data', 'n', 'n.nid = r.communication_nid AND n.default_langcode = 1');
+    $query->fields('r');
+    $query->addField('n', 'title', 'communication_title');
+    $query->condition('r.document_id', $documentId)->orderBy('r.created', 'DESC');
+    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+  }
+
+  /** @return array<int,array<string,mixed>> */
+  public function documentsForCommunication(int $communicationNid): array {
+    $this->ensureCommunicationTable();
+    $query = $this->database->select('brebo_document_communication', 'r');
+    $query->innerJoin('brebo_document', 'd', 'd.id = r.document_id');
+    $query->fields('r', ['relation_role']);
+    $query->fields('d', ['id', 'title', 'original_filename', 'document_family', 'revision_code', 'lifecycle_status']);
+    $query->condition('r.communication_nid', $communicationNid)
+      ->condition('d.lifecycle_status', 'deleted', '<>')
+      ->orderBy('r.created', 'DESC');
+    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+  }
+
+  private function ensureCommunicationTable(): void {
+    $schema = $this->database->schema();
+    if ($schema->tableExists('brebo_document_communication')) {
+      return;
+    }
+    $schema->createTable('brebo_document_communication', [
+      'description' => 'Explicit many-to-many relations between canonical documents and communication events.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+        'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'relation_role' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['document_communication_role' => ['document_id', 'communication_nid', 'relation_role']],
+      'indexes' => [
+        'document_id' => ['document_id'],
+        'communication_nid' => ['communication_nid'],
+        'communication_role' => ['communication_nid', 'relation_role'],
+      ],
+    ]);
+  }
+
   private function assertDocument(int $documentId): void {
     $exists = $this->database->select('brebo_document', 'd')
       ->fields('d', ['id'])
