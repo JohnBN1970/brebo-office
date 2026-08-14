@@ -6,6 +6,7 @@ core_version_requirement: ^10 || ^11
 dependencies:
   - brebo_office_core:brebo_office_core
   - brebo_building_data:brebo_building_data
+  - brebo_document_data:brebo_document_data
   - drupal:datetime
   - drupal:field
   - drupal:file
