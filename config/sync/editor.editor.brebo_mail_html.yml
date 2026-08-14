@@ -1,0 +1,41 @@
+langcode: nl
+status: true
+dependencies:
+  config:
+    - filter.format.brebo_mail_html
+  module:
+    - ckeditor5
+format: brebo_mail_html
+editor: ckeditor5
+settings:
+  toolbar:
+    items:
+      - bold
+      - italic
+      - underline
+      - '|'
+      - link
+      - '|'
+      - bulletedList
+      - numberedList
+      - '|'
+      - blockQuote
+      - heading
+      - '|'
+      - code
+      - '|'
+      - undo
+      - redo
+  plugins:
+    ckeditor5_heading:
+      enabled_headings:
+        - heading2
+        - heading3
+        - heading4
+    ckeditor5_list:
+      properties:
+        reversed: false
+        startIndex: true
+      multiBlock: true
+image_upload:
+  status: false
