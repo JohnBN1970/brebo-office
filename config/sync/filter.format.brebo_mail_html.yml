@@ -1,0 +1,25 @@
+uuid: 89b3ce59-814f-4edf-b361-72f0e8ac6d54
+langcode: nl
+status: true
+dependencies:
+  module:
+    - filter
+name: 'BREBO HTML-mail'
+format: brebo_mail_html
+weight: 0
+filters:
+  filter_html:
+    id: filter_html
+    provider: filter
+    status: true
+    weight: -10
+    settings:
+      allowed_html: '<p> <br> <strong> <b> <em> <i> <u> <a href title> <ul> <ol start reversed> <li> <blockquote> <h2> <h3> <h4> <pre> <code> <hr>'
+      filter_html_help: false
+      filter_html_nofollow: false
+  filter_htmlcorrector:
+    id: filter_htmlcorrector
+    provider: filter
+    status: true
+    weight: 10
+    settings: {  }
