@@ -43,13 +43,26 @@ brebo_mail_intake.runtime_readiness:
   requirements:
     _permission: 'review brebo mail intake'
 
+brebo_mail_intake.mail_context:
+  path: '/communicatie/{node}/koppelen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\MailContextForm'
+    _title: 'Koppelen in BREBO Office'
+  requirements:
+    _permission: 'review brebo mail intake'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_mail_intake.mailbox_root:
   path: '/mail'
   defaults:
     _controller: '\Drupal\brebo_mail_intake\Controller\MailboxController::page'
     _title: 'Mail'
     mailbox_id: 0
-    mail_state: 'inbox'
+    mail_state: inbox
     communication_id: 0
   requirements:
     _permission: 'review brebo mail intake'
@@ -59,7 +72,7 @@ brebo_mail_intake.mail_compose_new:
   defaults:
     _form: '\Drupal\brebo_mail_intake\Form\MailComposeForm'
     _title: 'Nieuw bericht'
-    mode: 'new'
+    mode: new
     communication_id: 0
   requirements:
     _permission: 'review brebo mail intake'
