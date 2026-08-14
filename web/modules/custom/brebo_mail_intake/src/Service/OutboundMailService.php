@@ -36,10 +36,11 @@ final class OutboundMailService {
   /**
    * Creates an outbound communication draft; it does not send anything.
    *
-   * @param array{from?:string,to:string,cc?:string,bcc?:string,subject:string,body:string,body_html?:string,building_id?:int,project_id?:int,context_id?:int} $draft
+   * @param array{from?:string,to:string,cc?:string,bcc?:string,subject:string,body:string,body_html?:string,building_id?:int,project_id?:int,context_id?:int,context_label?:string,source_id?:int} $draft
    */
   public function createDraft(array $draft): NodeInterface {
     $this->ensureOutboundFields();
+    $this->ensureParentField();
     $from = trim((string) ($draft['from'] ?? ''));
     $to = $this->validatedAddresses((string) ($draft['to'] ?? ''), TRUE);
     $cc = $this->validatedAddresses((string) ($draft['cc'] ?? ''), FALSE);
@@ -87,6 +88,15 @@ final class OutboundMailService {
       if ($targetId > 0) {
         $values[$field] = ['target_id' => $targetId];
       }
+    }
+
+    $contextLabel = trim((string) ($draft['context_label'] ?? ''));
+    if (in_array($contextLabel, ['Administratie', 'Persoonlijk'], TRUE)) {
+      $values['field_brebo_comm_context'] = $contextLabel;
+    }
+    $sourceId = (int) ($draft['source_id'] ?? 0);
+    if ($sourceId > 0) {
+      $values['field_brebo_mail_parent_ref'] = ['target_id' => $sourceId];
     }
 
     $node = $this->entityTypeManager->getStorage('node')->create($values);
@@ -219,6 +229,35 @@ final class OutboundMailService {
           'translatable' => TRUE,
         ])->save();
       }
+    }
+  }
+
+
+  private function ensureParentField(): void {
+    $fieldName = 'field_brebo_mail_parent_ref';
+    if (!FieldStorageConfig::loadByName('node', $fieldName)) {
+      FieldStorageConfig::create([
+        'field_name' => $fieldName,
+        'entity_type' => 'node',
+        'type' => 'entity_reference',
+        'module' => 'core',
+        'cardinality' => 1,
+        'settings' => ['target_type' => 'node'],
+      ])->save();
+    }
+    if (!FieldConfig::loadByName('node', 'brebo_communication', $fieldName)) {
+      FieldConfig::create([
+        'field_name' => $fieldName,
+        'entity_type' => 'node',
+        'bundle' => 'brebo_communication',
+        'label' => 'Broncommunicatie',
+        'description' => 'De oorspronkelijke e-mail waarop dit bericht antwoordt of die wordt doorgestuurd.',
+        'required' => FALSE,
+        'settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => ['brebo_communication' => 'brebo_communication']],
+        ],
+      ])->save();
     }
   }
 

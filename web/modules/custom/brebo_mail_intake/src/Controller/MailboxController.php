@@ -195,8 +195,8 @@ final class MailboxController extends ControllerBase {
     if ($objectContext !== []) {
       $contextMarkup = '<div class="brebo-mail-office-link-status"><strong>🔗 Gekoppeld in Office</strong><span>' . implode(' · ', $objectContext) . '</span></div>';
     }
-    elseif (in_array($contextLabel, ['Administratie', 'Persoonlijk'], TRUE)) {
-      $contextMarkup = '<div class="brebo-mail-office-link-status"><strong>✓ Ingedeeld in Office</strong><span>Bestemming: ' . htmlspecialchars($contextLabel, ENT_QUOTES, 'UTF-8') . '</span></div>';
+    elseif (in_array($contextLabel, ['Administratie', 'Persoonlijk', 'Junk'], TRUE)) {
+      $contextMarkup = '<div class="brebo-mail-office-link-status"><strong>✓ Ingedeeld in Office</strong><span>Bestemming: ' . htmlspecialchars($contextLabel === 'Persoonlijk' ? 'Privé' : $contextLabel, ENT_QUOTES, 'UTF-8') . '</span></div>';
     }
     else {
       $classification = $contextLabel !== ''
