@@ -1337,29 +1337,41 @@ final class CrmController extends ControllerBase {
       : '—';
 
     $stageAge = max(0, (int) floor((strtotime($today) - strtotime($stageSince)) / 86400));
+    $editHealthAction = Link::fromTextAndUrl(
+      $this->t('Kans bewerken'),
+      Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])
+    )->toRenderable();
+    $contactHealthAction = Link::fromTextAndUrl(
+      $this->t('Contactmoment vastleggen'),
+      Url::fromRoute('brebo_office_core.opportunity_contact', ['node' => $node->id()])
+    )->toRenderable();
+    $transitionHealthAction = Link::fromTextAndUrl(
+      $this->t('Fase wijzigen'),
+      Url::fromRoute('brebo_office_core.opportunity_transition', ['node' => $node->id()])
+    )->toRenderable();
     $healthScore = 100;
     $healthRows = [];
     $addHealthCheck = static function (array &$rows, mixed $label, bool $passed, int $deduction, mixed $action) use (&$healthScore): void {
       if (!$passed) {
         $healthScore -= $deduction;
       }
-      $rows[] = [$label, $passed ? 'Gereed' : 'Actie nodig', $passed ? '—' : $action];
+      $rows[] = [$label, $passed ? 'Gereed' : 'Actie nodig', $passed ? '—' : ['data' => $action]];
     };
     $isOpen = (bool) $node->get('field_brebo_opp_active')->value && !in_array($stage, ['Gewonnen', 'Verloren'], TRUE);
     if ($isOpen) {
-      $addHealthCheck($healthRows, $this->t('Primaire contactpersoon'), $contact instanceof NodeInterface, 20, $this->t('Koppel een contactpersoon.'));
+      $addHealthCheck($healthRows, $this->t('Primaire contactpersoon'), $contact instanceof NodeInterface, 20, $editHealthAction);
       $hasFollowUp = $this->value($node, 'field_brebo_opp_next_date') !== '—' && $this->value($node, 'field_brebo_opp_next_action') !== '—';
-      $addHealthCheck($healthRows, $this->t('Volgende actie'), $hasFollowUp, 20, $this->t('Leg actie en datum vast.'));
+      $addHealthCheck($healthRows, $this->t('Volgende actie'), $hasFollowUp, 20, $transitionHealthAction);
       $recentContact = $lastExternalContact !== '—' && substr($lastExternalContact, 0, 10) >= date('Y-m-d', strtotime($today . ' -14 days'));
-      $addHealthCheck($healthRows, $this->t('Recent klantcontact'), $recentContact, 20, $this->t('Leg een klantcontact vast.'));
+      $addHealthCheck($healthRows, $this->t('Recent klantcontact'), $recentContact, 20, $contactHealthAction);
       $stageLimit = $stageLimits[$stage] ?? 0;
-      $addHealthCheck($healthRows, $this->t('Doorlooptijd fase'), $stageLimit === 0 || $stageAge <= $stageLimit, 15, $this->t('Bepaal de volgende fase of sluit de kans.'));
+      $addHealthCheck($healthRows, $this->t('Doorlooptijd fase'), $stageLimit === 0 || $stageAge <= $stageLimit, 15, $transitionHealthAction);
       if (in_array($stage, ['Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling'], TRUE)) {
         $qualified = !$node->get('field_brebo_opp_requirement')->isEmpty() && !$node->get('field_brebo_opp_decision_maker')->isEmpty() && !$node->get('field_brebo_opp_decision_date')->isEmpty();
-        $addHealthCheck($healthRows, $this->t('Commerciële kwalificatie'), $qualified, 15, $this->t('Vul behoefte, beslisser en beslisdatum aan.'));
+        $addHealthCheck($healthRows, $this->t('Commerciële kwalificatie'), $qualified, 15, $editHealthAction);
       }
       if (in_array($stage, ['Calculatie/offerte', 'Onderhandeling'], TRUE)) {
-        $addHealthCheck($healthRows, $this->t('Actuele offerte'), $offer instanceof NodeInterface, 10, $this->t('Koppel de actuele offerteversie.'));
+        $addHealthCheck($healthRows, $this->t('Actuele offerte'), $offer instanceof NodeInterface, 10, $editHealthAction);
       }
     }
     $healthScore = max(0, $healthScore);
