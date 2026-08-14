@@ -46,7 +46,7 @@ body:has(.brebo-mail-context-form) .brebo-main {
 
 .brebo-mail-context-form .form-radios {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -133,21 +133,6 @@ body:has(.brebo-mail-context-form) .brebo-main {
 .brebo-mail-context-form .form-actions input[type="submit"] {
   order: 2;
   min-width: 190px;
-}
-
-.brebo-mail-send-summary {
-  margin-bottom: 18px;
-  padding: 14px 16px;
-  border: 1px solid var(--brebo-border);
-  border-radius: 11px;
-  background: #fff;
-  line-height: 1.55;
-}
-
-@media (max-width: 900px) {
-  .brebo-mail-context-form .form-radios {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 @media (max-width: 700px) {
