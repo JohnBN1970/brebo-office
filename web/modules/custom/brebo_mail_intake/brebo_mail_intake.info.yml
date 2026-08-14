@@ -7,7 +7,9 @@ dependencies:
   - brebo_office_core:brebo_office_core
   - brebo_building_data:brebo_building_data
   - brebo_document_data:brebo_document_data
+  - drupal:ckeditor5
   - drupal:datetime
+  - drupal:editor
   - drupal:field
   - drupal:file
   - drupal:node
