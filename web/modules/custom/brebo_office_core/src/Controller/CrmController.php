@@ -314,6 +314,7 @@ final class CrmController extends ControllerBase {
     $wonValue = 0.0;
     $lostValue = 0.0;
     $ownerTotals = [];
+    $ownerPerformance = [];
     $forecastTotals = [];
     $overdueCloseRows = [];
     $lossReasons = [];
@@ -349,6 +350,12 @@ final class CrmController extends ControllerBase {
       $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
       $organizationLabel = $organization instanceof NodeInterface ? (string) $organization->label() : '—';
       $ownerLabel = $owner !== NULL ? (string) $owner->label() : '—';
+      if (!isset($ownerPerformance[$ownerLabel])) {
+        $ownerPerformance[$ownerLabel] = ['new' => 0, 'transitions' => 0, 'contacts' => 0, 'won' => 0, 'lost' => 0, 'won_value' => 0.0];
+      }
+      if ($createdTime >= strtotime($activityCutoff . ' 00:00:00')) {
+        $ownerPerformance[$ownerLabel]['new']++;
+      }
       $lastContactIds = $storage->getQuery()
         ->accessCheck(TRUE)
         ->condition('type', 'brebo_communication')
@@ -746,14 +753,28 @@ final class CrmController extends ControllerBase {
         }
         $transitionCount++;
         $toStage = $this->value($event, 'field_brebo_event_to_stage');
+        $eventOpportunity = $event->get('field_brebo_event_opp_ref')->entity;
+        $eventOwnerLabel = '—';
+        if ($eventOpportunity instanceof NodeInterface) {
+          $eventOwner = $eventOpportunity->get('field_brebo_opp_owner')->entity;
+          $eventOwnerLabel = $eventOwner !== NULL ? (string) $eventOwner->label() : '—';
+        }
+        if (!isset($ownerPerformance[$eventOwnerLabel])) {
+          $ownerPerformance[$eventOwnerLabel] = ['new' => 0, 'transitions' => 0, 'contacts' => 0, 'won' => 0, 'lost' => 0, 'won_value' => 0.0];
+        }
+        $ownerPerformance[$eventOwnerLabel]['transitions']++;
         if ($toStage === 'Gewonnen') {
           $recentWonCount++;
+          $ownerPerformance[$eventOwnerLabel]['won']++;
+          if ($eventOpportunity instanceof NodeInterface) {
+            $ownerPerformance[$eventOwnerLabel]['won_value'] += (float) ($eventOpportunity->get('field_brebo_opp_value')->value ?? 0);
+          }
         }
         elseif ($toStage === 'Verloren') {
           $recentLostCount++;
+          $ownerPerformance[$eventOwnerLabel]['lost']++;
         }
         if (count($recentTransitionRows) < 25) {
-          $eventOpportunity = $event->get('field_brebo_event_opp_ref')->entity;
           $eventUser = $event->get('field_brebo_event_user')->entity;
           $recentTransitionRows[] = [
             $this->value($event, 'field_brebo_event_datetime'),
@@ -803,6 +824,16 @@ final class CrmController extends ControllerBase {
         }
         else {
           $recentContactCount++;
+          $communicationOpportunity = $communication->get('field_brebo_comm_opp_ref')->entity;
+          $communicationOwnerLabel = '—';
+          if ($communicationOpportunity instanceof NodeInterface) {
+            $communicationOwner = $communicationOpportunity->get('field_brebo_opp_owner')->entity;
+            $communicationOwnerLabel = $communicationOwner !== NULL ? (string) $communicationOwner->label() : '—';
+          }
+          if (!isset($ownerPerformance[$communicationOwnerLabel])) {
+            $ownerPerformance[$communicationOwnerLabel] = ['new' => 0, 'transitions' => 0, 'contacts' => 0, 'won' => 0, 'lost' => 0, 'won_value' => 0.0];
+          }
+          $ownerPerformance[$communicationOwnerLabel]['contacts']++;
         }
       }
       $previousCommunicationIds = $storage->getQuery()
@@ -823,6 +854,16 @@ final class CrmController extends ControllerBase {
       [$this->t('Verloren'), $recentLostCount, $previousLostCount, $recentLostCount - $previousLostCount],
       [$this->t('Klantcontacten'), $recentContactCount, $previousContactCount, $recentContactCount - $previousContactCount],
     ];
+
+    $ownerPerformanceRows = [];
+    ksort($ownerPerformance, SORT_NATURAL | SORT_FLAG_CASE);
+    foreach ($ownerPerformance as $ownerName => $performance) {
+      $ownerPerformanceRows[] = [
+        $ownerName, $performance['new'], $performance['transitions'], $performance['contacts'],
+        $performance['won'], $performance['lost'],
+        '€ ' . number_format($performance['won_value'], 2, ',', '.'),
+      ];
+    }
 
     $ownerRows = [];
     ksort($ownerTotals, SORT_NATURAL | SORT_FLAG_CASE);
@@ -971,6 +1012,12 @@ final class CrmController extends ControllerBase {
         [$this->t('Activiteit'), $this->t('Huidige periode'), $this->t('Vorige periode'), $this->t('Verschil')],
         $trendRows,
         $this->t('Geen trendgegevens beschikbaar.')
+      ),
+      'owner_performance' => $this->section(
+        $this->t('Commerciële prestaties per verantwoordelijke'),
+        [$this->t('Verantwoordelijke'), $this->t('Nieuwe kansen'), $this->t('Fasebewegingen'), $this->t('Klantcontacten'), $this->t('Gewonnen'), $this->t('Verloren'), $this->t('Gewonnen omzet')],
+        $ownerPerformanceRows,
+        $this->t('Geen commerciële activiteiten in deze periode.')
       ),
       'recent_transitions' => $this->section(
         $this->t('Recente funnelbewegingen — @days dagen', ['@days' => $period]),
