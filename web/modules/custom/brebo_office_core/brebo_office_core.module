@@ -83,7 +83,7 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     'field_brebo_org_type' => ['Opdrachtgever', 'Hoofdaannemer', 'Leverancier', 'Adviseur', 'Onderaannemer', 'Bevoegd gezag', 'Overige ketenpartij'],
     'field_brebo_org_status' => ['Prospect', 'Actief', 'Geblokkeerd', 'Historisch'],
     'field_brebo_loc_type' => ['Vestiging', 'Bezoekadres', 'Postadres', 'Factuuradres', 'Magazijn', 'Overige locatie'],
-    'field_brebo_opp_stage' => ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie', 'Offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'],
+    'field_brebo_opp_stage' => ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'],
     'field_brebo_contact_channel' => ['E-mail', 'Telefoon', 'Teams', 'Portaal', 'Overig'],
     'field_brebo_lens_domain' => ['Inzicht', 'Regie', 'Realisatie'],
     'field_brebo_scope_status' => ['Concept', 'Vastgesteld', 'In uitvoering', 'Afgesloten'],
