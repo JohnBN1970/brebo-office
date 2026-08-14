@@ -25,7 +25,7 @@ final class MailContextForm extends FormBase {
     private readonly ?DocumentRepository $documents,
     private readonly TimeInterface $time,
     private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly RequestStack $requestStack,
+    private readonly RequestStack $mailContextRequestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -51,7 +51,7 @@ final class MailContextForm extends FormBase {
     }
 
     $form_state->set('communication_nid', (int) $node->id());
-    $destination = (string) ($this->requestStack->getCurrentRequest()?->query->get('destination', '') ?? '');
+    $destination = (string) ($this->mailContextRequestStack->getCurrentRequest()?->query->get('destination', '') ?? '');
     $returnUrl = str_starts_with($destination, '/') && !str_starts_with($destination, '//')
       ? Url::fromUserInput($destination)
       : Url::fromRoute('brebo_mail_intake.mailbox_root');
