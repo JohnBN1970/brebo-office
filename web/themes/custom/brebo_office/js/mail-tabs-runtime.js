@@ -47,9 +47,9 @@
     return subject || 'E-mail ' + id;
   }
 
-  function render(reader, mailboxId, activeId) {
-    if (!reader) return;
-    const old = reader.querySelector('.brebo-mail-tabs');
+  function render(workspace, mailboxId, activeId) {
+    if (!workspace) return;
+    const old = workspace.querySelector(':scope > .brebo-mail-tabs');
     if (old) old.remove();
 
     const tabs = loadTabs(mailboxId);
@@ -84,14 +84,16 @@
           window.location.assign(next ? next.href : '/mail/' + mailboxId + '/inbox');
           return;
         }
-        render(reader, mailboxId, activeId);
+        render(workspace, mailboxId, activeId);
       });
 
       item.append(link, close);
       bar.append(item);
     });
 
-    reader.prepend(bar);
+    const layout = workspace.querySelector('.brebo-mail-layout');
+    if (layout) workspace.insertBefore(bar, layout);
+    else workspace.prepend(bar);
   }
 
   function init() {
@@ -108,7 +110,7 @@
         href: window.location.pathname + window.location.search,
         label: title && title.textContent.trim() ? title.textContent.trim() : 'E-mail ' + current.communicationId,
       });
-      render(reader, current.mailboxId, current.communicationId);
+      render(workspace, current.mailboxId, current.communicationId);
     }
 
     const list = workspace.querySelector('.brebo-mail-list');
