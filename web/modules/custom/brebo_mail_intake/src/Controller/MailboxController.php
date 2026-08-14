@@ -169,6 +169,7 @@ final class MailboxController extends ControllerBase {
     $title = htmlspecialchars((string) ($message['title'] ?? '(geen onderwerp)'), ENT_QUOTES, 'UTF-8');
     $from = htmlspecialchars((string) ($message['mail_from'] ?? ''), ENT_QUOTES, 'UTF-8');
     $to = htmlspecialchars((string) ($message['mail_to'] ?? ''), ENT_QUOTES, 'UTF-8');
+    $cc = htmlspecialchars((string) ($message['mail_cc'] ?? ''), ENT_QUOTES, 'UTF-8');
     $date = htmlspecialchars((string) ($message['mail_datetime'] ?? ''), ENT_QUOTES, 'UTF-8');
     $htmlBody = trim((string) ($message['mail_html'] ?? ''));
     $body = $htmlBody !== ''
@@ -199,7 +200,7 @@ final class MailboxController extends ControllerBase {
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
-      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br><strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
+      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
     ];
 
     if ($communicationId > 0) {
@@ -282,6 +283,7 @@ final class MailboxController extends ControllerBase {
       'title' => $node->label(),
       'mail_from' => $node->hasField('field_brebo_mail_from') ? (string) $node->get('field_brebo_mail_from')->value : '',
       'mail_to' => $node->hasField('field_brebo_mail_to') ? (string) $node->get('field_brebo_mail_to')->value : '',
+      'mail_cc' => $node->hasField('field_brebo_mail_cc') ? (string) $node->get('field_brebo_mail_cc')->value : '',
       'mail_datetime' => $node->hasField('field_brebo_comm_datetime') ? (string) $node->get('field_brebo_comm_datetime')->value : '',
       'transcript' => $node->hasField('field_brebo_transcript') ? (string) $node->get('field_brebo_transcript')->value : '',
       'mail_html' => $node->hasField('field_brebo_mail_html') ? (string) $node->get('field_brebo_mail_html')->value : '',

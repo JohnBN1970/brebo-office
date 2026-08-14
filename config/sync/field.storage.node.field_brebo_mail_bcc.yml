@@ -1,0 +1,19 @@
+uuid: d96dafc6-a3a4-4c25-b7b1-b98c46b75cd0
+langcode: nl
+status: true
+dependencies:
+  module:
+    - node
+id: node.field_brebo_mail_bcc
+field_name: field_brebo_mail_bcc
+entity_type: node
+type: string_long
+settings:
+  case_sensitive: false
+module: core
+locked: false
+cardinality: 1
+translatable: true
+indexes: {  }
+persist_with_no_fields: false
+custom_storage: false

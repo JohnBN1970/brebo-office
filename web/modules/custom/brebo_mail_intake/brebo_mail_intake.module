@@ -90,8 +90,16 @@ function brebo_mail_intake_mail(string $key, array &$message, array $params): vo
 
   $subject = trim((string) ($params['subject'] ?? ''));
   $body = trim((string) ($params['body'] ?? ''));
+  $bodyHtml = trim((string) ($params['body_html'] ?? ''));
+  $signature = is_array($params['signature'] ?? NULL) ? $params['signature'] : [];
   $message['subject'] = $subject;
-  $message['body'][] = \Drupal::service('brebo_mail_intake.html_renderer')->render($subject, $body);
+  $message['body'][] = \Drupal::service('brebo_mail_intake.html_renderer')->render($subject, $body, $bodyHtml, $signature);
+  foreach (['Cc' => 'cc', 'Bcc' => 'bcc'] as $header => $parameter) {
+    $value = trim((string) ($params[$parameter] ?? ''));
+    if ($value !== '') {
+      $message['headers'][$header] = $value;
+    }
+  }
   $message['headers']['X-BREBO-Communication-ID'] = (string) ((int) ($params['communication_id'] ?? 0));
   $message['headers']['X-BREBO-Mail-Format'] = 'controlled-html-v1';
 }

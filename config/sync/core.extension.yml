@@ -6,9 +6,11 @@ module:
   brebo_building_data: 0
   brebo_mail_intake: 0
   brebo_office_core: 0
+  ckeditor5: 0
   datetime: 0
   dblog: 0
   dynamic_page_cache: 0
+  editor: 0
   field: 0
   file: 0
   filter: 0

@@ -4,25 +4,30 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-/**
- * Renders approved dossier text into the fixed BREBO HTML mail shell.
- *
- * AI and editors own the variable message text. This renderer owns the
- * organisation presentation and escapes variable content so AI cannot inject
- * arbitrary markup, scripts or hidden external content into outgoing mail.
- */
+use Drupal\Component\Utility\Xss;
+
+/** Renders approved content into the controlled BREBO HTML mail shell. */
 final class MailHtmlRenderer {
 
-  public function render(string $subject, string $body): string {
+  /**
+   * @param array{name?:string,roles?:string,company?:string,email?:string,phone?:string,address?:string} $signature
+   */
+  public function render(string $subject, string $body, string $bodyHtml = '', array $signature = []): string {
     $subject = trim($subject);
     $body = trim($body);
-
-    if ($subject === '' || $body === '') {
+    $bodyHtml = trim($bodyHtml);
+    if ($subject === '' || ($body === '' && $bodyHtml === '')) {
       throw new \InvalidArgumentException('Onderwerp en berichtinhoud zijn verplicht voor HTML-rendering.');
     }
 
     $safeSubject = htmlspecialchars($subject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $safeBody = $this->paragraphs($body);
+    $safeBody = $bodyHtml !== ''
+      ? Xss::filter($bodyHtml, [
+        'a', 'b', 'blockquote', 'br', 'code', 'em', 'h2', 'h3', 'h4',
+        'hr', 'i', 'li', 'ol', 'p', 'pre', 'strong', 'u', 'ul',
+      ])
+      : $this->paragraphs($body);
+    $safeSignature = $this->signature($signature);
 
     return <<<HTML
 <!doctype html>
@@ -49,15 +54,18 @@ final class MailHtmlRenderer {
             </td>
           </tr>
           <tr>
-            <td style="padding:8px 32px 32px 32px;font-size:16px;line-height:25px;color:#2b2b2b;">
+            <td style="padding:8px 32px 24px 32px;font-size:16px;line-height:25px;color:#2b2b2b;">
               {$safeBody}
             </td>
           </tr>
           <tr>
-            <td style="padding:22px 32px;background:#f0f0f0;border-top:1px solid #dddddd;font-size:13px;line-height:20px;color:#555555;">
-              <strong>BREBO</strong><br>
-              E-mail: <a href="mailto:info@brebobv.nl" style="color:#222222;text-decoration:underline;">info@brebobv.nl</a><br>
-              <span style="font-size:12px;color:#777777;">Dit bericht is vanuit BREBO Office verzonden na gecontroleerde vrijgave.</span>
+            <td style="padding:0 32px 30px 32px;font-size:14px;line-height:21px;color:#333333;">
+              {$safeSignature}
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 32px;background:#f0f0f0;border-top:1px solid #dddddd;font-size:12px;line-height:18px;color:#777777;">
+              Dit bericht is vanuit BREBO Office verzonden na gecontroleerde vrijgave.
             </td>
           </tr>
         </table>
@@ -69,21 +77,50 @@ final class MailHtmlRenderer {
 HTML;
   }
 
+  /** @param array<string,string> $signature */
+  private function signature(array $signature): string {
+    $escape = static fn(string $value): string => htmlspecialchars(trim($value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $name = $escape((string) ($signature['name'] ?? ''));
+    $roles = $escape((string) ($signature['roles'] ?? ''));
+    $company = $escape((string) ($signature['company'] ?? 'BREBO'));
+    $email = trim((string) ($signature['email'] ?? ''));
+    $phone = $escape((string) ($signature['phone'] ?? ''));
+    $address = $escape((string) ($signature['address'] ?? ''));
+
+    $lines = ['<div style="border-top:1px solid #dddddd;padding-top:18px;">'];
+    if ($name !== '') {
+      $lines[] = '<strong>' . $name . '</strong><br>';
+    }
+    if ($roles !== '') {
+      $lines[] = $roles . '<br>';
+    }
+    $lines[] = '<strong>' . $company . '</strong><br>';
+    if ($email !== '' && filter_var($email, FILTER_VALIDATE_EMAIL)) {
+      $safeEmail = $escape($email);
+      $lines[] = 'E-mail: <a href="mailto:' . $safeEmail . '" style="color:#222222;text-decoration:underline;">' . $safeEmail . '</a><br>';
+    }
+    if ($phone !== '') {
+      $lines[] = 'Telefoon: ' . $phone . '<br>';
+    }
+    if ($address !== '') {
+      $lines[] = $address;
+    }
+    $lines[] = '</div>';
+    return implode("\n", $lines);
+  }
+
   private function paragraphs(string $body): string {
     $normalized = preg_replace("/\r\n?|\n/", "\n", $body) ?? $body;
     $blocks = preg_split('/\n{2,}/', $normalized) ?: [$normalized];
     $html = [];
-
     foreach ($blocks as $block) {
       $block = trim($block);
       if ($block === '') {
         continue;
       }
       $escaped = htmlspecialchars($block, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-      $escaped = nl2br($escaped, FALSE);
-      $html[] = '<p style="margin:0 0 18px 0;">' . $escaped . '</p>';
+      $html[] = '<p style="margin:0 0 18px 0;">' . nl2br($escaped, FALSE) . '</p>';
     }
-
     return implode("\n", $html);
   }
 

@@ -1,0 +1,19 @@
+uuid: 326437b5-1f4f-4ae0-a95c-a2e0ba3d1888
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_mail_bcc
+    - node.type.brebo_communication
+id: node.brebo_communication.field_brebo_mail_bcc
+field_name: field_brebo_mail_bcc
+entity_type: node
+bundle: brebo_communication
+label: BCC
+description: 'Niet-zichtbare kopieontvangers; alleen voor gecontroleerde uitgaande verzending.'
+required: false
+translatable: true
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string_long
