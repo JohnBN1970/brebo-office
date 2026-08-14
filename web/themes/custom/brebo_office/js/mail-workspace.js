@@ -188,7 +188,7 @@
       label.className = 'brebo-mail-office-actions__label';
       label.textContent = 'BREBO Office';
       actions.append(label);
-      actions.append(action('🔗', 'Koppelen in Office', contextHref), action('✓', 'Inhoud verwerken', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
+      actions.append(action('✓', 'Inhoud verwerken', processHref), action('↩', 'Beantwoorden', replyHref), action('↪', 'Doorsturen', forwardHref), action('↗', 'Communicatiedossier', selectedId ? '/node/' + selectedId : ''), action('✓', 'Maak taak'), action('▤', 'Naar dossier'));
 
       const meta = article.querySelector('.brebo-mail-reader__meta');
       const sticky = document.createElement('div');
