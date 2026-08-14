@@ -204,7 +204,16 @@ jobs:
           test -f "$document_routes"
           php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
           grep -F "DocumentOpenController::view" "$document_routes"
-          php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr 2>&1
+          cache_log="$(mktemp)"
+          if ! php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr >"$cache_log" 2>&1; then
+            tail -n 60 "$cache_log" | while IFS= read -r cache_line; do
+              echo "::error::Drupal cache rebuild: $cache_line"
+            done
+            rm -f "$cache_log"
+            exit 1
+          fi
+          cat "$cache_log"
+          rm -f "$cache_log"
           timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
 
           if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
