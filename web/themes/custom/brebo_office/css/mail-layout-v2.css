@@ -3,6 +3,24 @@
   gap: 8px;
 }
 
+/* Mail is a desktop workbench. Do not constrain it to the generic 1600px page
+ * width: on ultrawide screens that wastes most of the available workspace. */
+.path-mail .brebo-main,
+body:has(.brebo-mail-workspace) .brebo-main {
+  width: 100%;
+  max-width: none;
+  padding-right: clamp(14px, 1.5vw, 32px);
+  padding-left: clamp(14px, 1.5vw, 32px);
+}
+
+.path-mail .brebo-content,
+body:has(.brebo-mail-workspace) .brebo-content,
+.path-mail .region-content,
+body:has(.brebo-mail-workspace) .region-content {
+  width: 100%;
+  max-width: none;
+}
+
 /* Mail is self-explanatory: suppress the generic Drupal page title on Mail routes. */
 .path-mail .block-page-title-block,
 .path-mail .page-title,
