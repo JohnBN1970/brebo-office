@@ -153,7 +153,10 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
       }
     }
     elseif (isset($form['field_brebo_opp_owner']['widget'][0]['target_id'])) {
-      $form['field_brebo_opp_owner']['widget'][0]['target_id']['#default_value'] = \Drupal::currentUser();
+      $current_user = \Drupal\user\Entity\User::load((int) \Drupal::currentUser()->id());
+      if ($current_user !== NULL) {
+        $form['field_brebo_opp_owner']['widget'][0]['target_id']['#default_value'] = $current_user;
+      }
     }
   }
 
