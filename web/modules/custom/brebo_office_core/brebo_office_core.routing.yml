@@ -319,6 +319,18 @@ brebo_office_core.organizations:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.organization_dashboard:
+  path: '/relaties/organisaties/{node}'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\CrmController::organization'
+    _title_callback: '\\Drupal\\brebo_office_core\\Controller\\CrmController::organizationTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.contacts:
   path: '/relaties/contactpersonen'
   defaults:
