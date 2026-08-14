@@ -383,7 +383,6 @@ final class CrmController extends ControllerBase {
         $handoverMissing = [];
         foreach ([
           'field_brebo_opp_contact_ref' => $this->t('contactpersoon'),
-          'field_brebo_opp_calc_ref' => $this->t('calculatie'),
           'field_brebo_opp_offer_ref' => $this->t('offerte'),
           'field_brebo_opp_project_ref' => $this->t('project'),
         ] as $field => $label) {
