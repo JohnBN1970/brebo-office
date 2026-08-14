@@ -27,7 +27,7 @@ final class DocumentOpenController extends ControllerBase {
     private readonly DocumentStorageLocator $storageLocator,
     private readonly FileSystemInterface $fileSystem,
     private readonly DocumentRepository $documents,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $documentEntityTypeManager,
     private readonly ?object $sourceMailboxReader = NULL,
   ) {}
 
@@ -126,7 +126,7 @@ final class DocumentOpenController extends ControllerBase {
       $type = (string) ($context['context_type'] ?? '');
       $id = (int) ($context['context_id'] ?? 0);
       $label = $type === 'brebo' ? 'BREBO' : ucfirst($type) . ' ' . $id;
-      $node = $id > 0 ? $this->entityTypeManager->getStorage('node')->load($id) : NULL;
+      $node = $id > 0 ? $this->documentEntityTypeManager->getStorage('node')->load($id) : NULL;
       if ($node) {
         $label = (string) $node->label();
       }
