@@ -65,7 +65,9 @@ final class OutboundAttachmentService {
       $file->save();
       $files[] = ['target_id' => (int) $file->id(), 'description' => $file->getFilename()];
       $this->fileUsage->add($file, 'brebo_mail_intake', 'node', (string) $draft->id());
-      $this->registerUploadedDocument($draft, $file);
+      $documentId = $this->registerUploadedDocument($draft, $file);
+      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'created_with');
+      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'sent_with');
     }
     if ($draft->hasField('field_brebo_comm_attachments') && $files !== []) {
       $draft->set('field_brebo_comm_attachments', $files);
@@ -78,10 +80,7 @@ final class OutboundAttachmentService {
       if ($documentId <= 0 || !isset($this->documentOptions()[$documentId])) {
         continue;
       }
-      $this->database->merge('brebo_outbound_document_attachment')
-        ->keys(['communication_id' => (int) $draft->id(), 'document_id' => $documentId])
-        ->fields(['created' => time()])
-        ->execute();
+      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'sent_with');
     }
   }
 
@@ -106,15 +105,12 @@ final class OutboundAttachmentService {
       }
     }
 
-    $documentIds = $this->database->select('brebo_outbound_document_attachment', 'a')
-      ->fields('a', ['document_id'])
-      ->condition('communication_id', (int) $communication->id())
-      ->orderBy('document_id')
-      ->execute()
-      ->fetchCol();
-
-    foreach ($documentIds as $documentId) {
-      $documentId = (int) $documentId;
+    $relations = $this->documents->documentsForCommunication((int) $communication->id());
+    foreach ($relations as $relation) {
+      if (!in_array((string) ($relation['relation_role'] ?? ''), ['sent_with', 'created_with'], TRUE)) {
+        continue;
+      }
+      $documentId = (int) ($relation['id'] ?? 0);
       $document = $this->database->select('brebo_document', 'd')
         ->fields('d', ['title', 'original_filename', 'mime_type', 'sha256'])
         ->condition('id', $documentId)
@@ -164,7 +160,7 @@ final class OutboundAttachmentService {
     return $attachments;
   }
 
-  private function registerUploadedDocument(NodeInterface $draft, FileInterface $file): void {
+  private function registerUploadedDocument(NodeInterface $draft, FileInterface $file): int {
     $path = $this->fileSystem->realpath($file->getFileUri());
     if (!is_string($path) || !is_readable($path)) {
       throw new \RuntimeException('De geüploade bijlage kon niet worden gecontroleerd.');
@@ -195,6 +191,7 @@ final class OutboundAttachmentService {
       'confidence' => 1.0,
       'review_status' => 'confirmed',
     ]);
+    return (int) $document['id'];
   }
 
   /** @param array<int,array{filecontent:string,filename:string,filemime:string}> $attachments
