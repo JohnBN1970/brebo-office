@@ -261,10 +261,20 @@ final class CrmController extends ControllerBase {
   public function funnel(Request $request): array {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
+    $view = in_array($request->query->get('view'), ['list', 'kanban'], TRUE)
+      ? (string) $request->query->get('view')
+      : 'list';
+    $group = in_array($request->query->get('group'), ['none', 'stage', 'organization', 'owner'], TRUE)
+      ? (string) $request->query->get('group')
+      : 'none';
+    $sort = in_array($request->query->get('sort'), ['stage', 'organization', 'value', 'probability', 'close_date', 'next_date', 'owner'], TRUE)
+      ? (string) $request->query->get('sort')
+      : 'next_date';
+    $direction = $request->query->get('direction') === 'desc' ? 'desc' : 'asc';
+
     $query = $storage->getQuery()
       ->accessCheck(TRUE)
-      ->condition('type', 'brebo_opportunity')
-      ->sort('changed', 'DESC');
+      ->condition('type', 'brebo_opportunity');
     if ($mine) {
       $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
     }
@@ -274,8 +284,9 @@ final class CrmController extends ControllerBase {
       'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte',
       'Onderhandeling', 'Gewonnen', 'Verloren',
     ];
+    $stageOrder = array_flip($stages);
     $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0]);
-    $rows = [];
+    $entries = [];
     $totalValue = 0.0;
     $totalWeighted = 0.0;
     $openCount = 0;
@@ -293,7 +304,11 @@ final class CrmController extends ControllerBase {
       $probability = max(0, min(100, (int) ($opportunity->get('field_brebo_opp_probability')->value ?? 0)));
       $weighted = $value * $probability / 100;
       $active = (bool) $opportunity->get('field_brebo_opp_active')->value;
+      $closeDate = $this->value($opportunity, 'field_brebo_opp_close_date');
       $nextDate = $this->value($opportunity, 'field_brebo_opp_next_date');
+      $organizationLabel = $organization instanceof NodeInterface ? (string) $organization->label() : '—';
+      $ownerLabel = $owner !== NULL ? (string) $owner->label() : '—';
+
       if ($active && $nextDate !== '—' && $nextDate < $today) {
         $overdue++;
       }
@@ -316,20 +331,48 @@ final class CrmController extends ControllerBase {
           Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $organization->id()])
         )->toRenderable();
       }
-      $rows[] = [
+      $row = [
         ['data' => Link::fromTextAndUrl($opportunity->label(), $opportunity->toUrl())->toRenderable()],
         ['data' => $organizationCell],
         $stage,
         '€ ' . number_format($value, 2, ',', '.'),
         $probability . '%',
         '€ ' . number_format($weighted, 2, ',', '.'),
-        $this->value($opportunity, 'field_brebo_opp_close_date'),
+        $closeDate,
         $nextDate,
         $this->value($opportunity, 'field_brebo_opp_next_action'),
-        $owner !== NULL ? $owner->label() : '—',
+        $ownerLabel,
         ['data' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $opportunity->id()]))->toRenderable()],
       ];
+      $entries[] = [
+        'node' => $opportunity,
+        'row' => $row,
+        'stage' => $stage,
+        'stage_order' => $stageOrder[$stage] ?? 999,
+        'organization' => $organizationLabel,
+        'value' => $value,
+        'probability' => $probability,
+        'weighted' => $weighted,
+        'close_date' => $closeDate,
+        'next_date' => $nextDate,
+        'next_action' => $this->value($opportunity, 'field_brebo_opp_next_action'),
+        'owner' => $ownerLabel,
+      ];
     }
+
+    usort($entries, static function (array $left, array $right) use ($sort, $direction): int {
+      $key = $sort === 'stage' ? 'stage_order' : $sort;
+      $a = $left[$key] ?? '';
+      $b = $right[$key] ?? '';
+      if (in_array($key, ['close_date', 'next_date'], TRUE)) {
+        $a = $a === '—' ? '9999-12-31' : $a;
+        $b = $b === '—' ? '9999-12-31' : $b;
+      }
+      $comparison = is_numeric($a) && is_numeric($b)
+        ? ((float) $a <=> (float) $b)
+        : strnatcasecmp((string) $a, (string) $b);
+      return $direction === 'desc' ? -$comparison : $comparison;
+    });
 
     $stageRows = [];
     foreach ($stageTotals as $stage => $totals) {
@@ -341,7 +384,68 @@ final class CrmController extends ControllerBase {
       ];
     }
 
+    $listGroups = [];
+    foreach ($entries as $entry) {
+      $groupTitle = match ($group) {
+        'stage' => $entry['stage'],
+        'organization' => $entry['organization'],
+        'owner' => $entry['owner'],
+        default => $this->t('Alle kansen'),
+      };
+      $listGroups[(string) $groupTitle][] = $entry['row'];
+    }
+    $listBuild = [
+      '#type' => 'container',
+      '#access' => $view === 'list',
+    ];
+    foreach ($listGroups as $groupTitle => $groupRows) {
+      $listBuild['group_' . count($listBuild)] = $this->section(
+        $groupTitle,
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
+        $groupRows,
+        $this->t('Nog geen commerciële kansen vastgelegd.')
+      );
+    }
+    if ($listGroups === []) {
+      $listBuild['empty'] = ['#markup' => '<p>' . $this->t('Nog geen commerciële kansen vastgelegd.') . '</p>'];
+    }
+
+    $kanbanBuild = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-kanban']],
+      '#access' => $view === 'kanban',
+    ];
+    foreach ($stages as $stage) {
+      $cards = [];
+      foreach ($entries as $entry) {
+        if ($entry['stage'] !== $stage) {
+          continue;
+        }
+        $cards[] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-kanban-card']],
+          'title' => Link::fromTextAndUrl($entry['node']->label(), $entry['node']->toUrl())->toRenderable(),
+          'organization' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['organization']],
+          'value' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => '€ ' . number_format($entry['value'], 2, ',', '.') . ' · ' . $entry['probability'] . '%'],
+          'owner' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['owner']],
+          'next' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $entry['next_date'] . ' · ' . $entry['next_action']],
+          'edit' => Link::fromTextAndUrl($this->t('Bewerken'), Url::fromRoute('entity.node.edit_form', ['node' => $entry['node']->id()]))->toRenderable(),
+        ];
+      }
+      $kanbanBuild['stage_' . count($kanbanBuild)] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-kanban-column']],
+        'header' => ['#type' => 'html_tag', '#tag' => 'h3', '#value' => $stage . ' (' . count($cards) . ')'],
+        'cards' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-kanban-cards']],
+        ] + $cards,
+      ];
+    }
+
+    $queryBase = array_filter(['mine' => $mine ? 1 : NULL]);
     return [
+      '#attached' => ['library' => ['brebo_office_core/funnel']],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
@@ -351,16 +455,28 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_opportunity']),
           '#attributes' => ['class' => ['button']],
         ],
+        'list' => [
+          '#type' => 'link',
+          '#title' => $this->t('Lijst'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => $queryBase + ['view' => 'list', 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'kanban' => [
+          '#type' => 'link',
+          '#title' => $this->t('Kanban'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => $queryBase + ['view' => 'kanban', 'sort' => $sort, 'direction' => $direction]]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'all' => [
           '#type' => 'link',
           '#title' => $this->t('Alle kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'mine' => [
           '#type' => 'link',
           '#title' => $this->t('Mijn kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'crm' => [
@@ -369,6 +485,35 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_office_core.crm'),
           '#attributes' => ['class' => ['button']],
         ],
+      ],
+      'controls' => [
+        '#type' => 'html_tag',
+        '#tag' => 'form',
+        '#attributes' => ['method' => 'get', 'action' => Url::fromRoute('brebo_office_core.funnel')->toString(), 'class' => ['brebo-funnel-controls']],
+        'mine' => $mine ? ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'mine', 'value' => '1']] : [],
+        'view' => ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'view', 'value' => $view]],
+        'group' => [
+          '#type' => 'select',
+          '#title' => $this->t('Groeperen'),
+          '#name' => 'group',
+          '#default_value' => $group,
+          '#options' => ['none' => $this->t('Niet groeperen'), 'stage' => $this->t('Fase'), 'organization' => $this->t('Organisatie'), 'owner' => $this->t('Verantwoordelijke')],
+        ],
+        'sort' => [
+          '#type' => 'select',
+          '#title' => $this->t('Sorteren'),
+          '#name' => 'sort',
+          '#default_value' => $sort,
+          '#options' => ['stage' => $this->t('Fase'), 'organization' => $this->t('Organisatie'), 'value' => $this->t('Omzet'), 'probability' => $this->t('Scoringskans'), 'close_date' => $this->t('Sluitdatum'), 'next_date' => $this->t('Actiedatum'), 'owner' => $this->t('Verantwoordelijke')],
+        ],
+        'direction' => [
+          '#type' => 'select',
+          '#title' => $this->t('Volgorde'),
+          '#name' => 'direction',
+          '#default_value' => $direction,
+          '#options' => ['asc' => $this->t('Oplopend'), 'desc' => $this->t('Aflopend')],
+        ],
+        'submit' => ['#type' => 'html_tag', '#tag' => 'button', '#value' => $this->t('Toepassen'), '#attributes' => ['type' => 'submit', 'class' => ['button']]],
       ],
       'summary' => [
         '#type' => 'table',
@@ -382,14 +527,10 @@ final class CrmController extends ControllerBase {
         $stageRows,
         $this->t('Nog geen funnelgegevens.')
       ),
-      'opportunities' => $this->section(
-        $mine ? $this->t('Mijn kansen') : $this->t('Alle kansen'),
-        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Omzet'), $this->t('Kans'), $this->t('Gewogen'), $this->t('Sluitdatum'), $this->t('Volgende datum'), $this->t('Volgende actie'), $this->t('Verantwoordelijke'), $this->t('Actie')],
-        $rows,
-        $this->t('Nog geen commerciële kansen vastgelegd.')
-      ),
+      'list' => $listBuild,
+      'kanban' => $kanbanBuild,
       '#cache' => [
-        'contexts' => ['user.permissions', 'user', 'url.query_args:mine'],
+        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
         'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_organization'],
       ],
     ];
