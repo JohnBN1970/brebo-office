@@ -128,7 +128,8 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
-          set -euo pipefail
+          set -eEuo pipefail
+          trap 'rc=$?; echo "::error::Remote deploy failed at line $LINENO: $BASH_COMMAND (exit $rc)"; exit "$rc"' ERR
           export NO_COLOR=1
           export TERM=dumb
           target="public_html/sboffice"
