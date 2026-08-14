@@ -300,6 +300,9 @@ final class CrmController extends ControllerBase {
     $wonValue = 0.0;
     $lostValue = 0.0;
     $ownerTotals = [];
+    $forecastTotals = [];
+    $overdueCloseRows = [];
+    $lossReasons = [];
     $managementRows = [];
     $today = date('Y-m-d', (int) \Drupal::time()->getCurrentTime());
     $weekEnd = date('Y-m-d', strtotime($today . ' +7 days'));
@@ -363,6 +366,12 @@ final class CrmController extends ControllerBase {
       elseif ($stage === 'Verloren') {
         $lostCount++;
         $lostValue += $value;
+        $lossReason = $this->value($opportunity, 'field_brebo_opp_loss_reason');
+        if (!isset($lossReasons[$lossReason])) {
+          $lossReasons[$lossReason] = ['count' => 0, 'value' => 0.0];
+        }
+        $lossReasons[$lossReason]['count']++;
+        $lossReasons[$lossReason]['value'] += $value;
       }
 
       if (!isset($ownerTotals[$ownerLabel])) {
@@ -372,6 +381,25 @@ final class CrmController extends ControllerBase {
         $ownerTotals[$ownerLabel]['count']++;
         $ownerTotals[$ownerLabel]['value'] += $value;
         $ownerTotals[$ownerLabel]['weighted'] += $weighted;
+        if ($closeDate !== '—') {
+          $forecastMonth = substr($closeDate, 0, 7);
+          if (!isset($forecastTotals[$forecastMonth])) {
+            $forecastTotals[$forecastMonth] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
+          }
+          $forecastTotals[$forecastMonth]['count']++;
+          $forecastTotals[$forecastMonth]['value'] += $value;
+          $forecastTotals[$forecastMonth]['weighted'] += $weighted;
+          if ($closeDate < $today) {
+            $overdueCloseRows[] = [
+              ['data' => Link::fromTextAndUrl($opportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $opportunity->id()]))->toRenderable()],
+              $organizationLabel,
+              $stage,
+              $closeDate,
+              '€ ' . number_format($weighted, 2, ',', '.'),
+              $ownerLabel,
+            ];
+          }
+        }
         $alerts = [];
         if ($lastContact === '—' || substr($lastContact, 0, 10) < $staleCutoff) {
           $staleCount++;
@@ -591,6 +619,25 @@ final class CrmController extends ControllerBase {
         '€ ' . number_format($totals['weighted'], 2, ',', '.'),
       ];
     }
+    $forecastRows = [];
+    ksort($forecastTotals);
+    foreach ($forecastTotals as $month => $totals) {
+      $forecastRows[] = [
+        date('m-Y', strtotime($month . '-01')),
+        $totals['count'],
+        '€ ' . number_format($totals['value'], 2, ',', '.'),
+        '€ ' . number_format($totals['weighted'], 2, ',', '.'),
+      ];
+    }
+    $lossReasonRows = [];
+    uasort($lossReasons, static fn(array $a, array $b): int => $b['value'] <=> $a['value']);
+    foreach ($lossReasons as $reason => $totals) {
+      $lossReasonRows[] = [
+        $reason,
+        $totals['count'],
+        '€ ' . number_format($totals['value'], 2, ',', '.'),
+      ];
+    }
     $closedCount = $wonCount + $lostCount;
     $winRate = $closedCount > 0 ? round($wonCount * 100 / $closedCount, 1) . '%' : '—';
 
@@ -678,6 +725,24 @@ final class CrmController extends ControllerBase {
         '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie')],
         '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount]],
       ],
+      'forecast' => $this->section(
+        $this->t('Verkoopprognose per sluitmaand'),
+        [$this->t('Maand'), $this->t('Open kansen'), $this->t('Verwachte omzet'), $this->t('Gewogen omzet')],
+        $forecastRows,
+        $this->t('Geen open kansen met een verwachte sluitdatum.')
+      ),
+      'overdue_closes' => $this->section(
+        $this->t('Verlopen verwachte sluitdata'),
+        [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Sluitdatum'), $this->t('Gewogen omzet'), $this->t('Verantwoordelijke')],
+        $overdueCloseRows,
+        $this->t('Geen verlopen sluitdata.')
+      ),
+      'loss_reasons' => $this->section(
+        $this->t('Analyse verliesredenen'),
+        [$this->t('Verliesreden'), $this->t('Aantal'), $this->t('Verloren omzet')],
+        $lossReasonRows,
+        $this->t('Nog geen verloren kansen.')
+      ),
       'management_alerts' => $this->section(
         $this->t('Managementsignalen'),
         [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Dagen in fase'), $this->t('Laatste contact'), $this->t('Volgende datum'), $this->t('Signaal'), $this->t('Verantwoordelijke')],
