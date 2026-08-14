@@ -5074,3 +5074,51 @@ function brebo_office_core_update_11039(): string {
 
   return sprintf('Organisatiestamgegevens en meerdere locaties ingericht; %d bestaande adressen gematerialiseerd.', $locations_created);
 }
+
+/**
+ * Allows an organization to be both customer and supplier.
+ */
+function brebo_office_core_update_11040(): string {
+  _brebo_office_core_create_node_bundle(
+    'brebo_organization',
+    'Organisatie',
+    'Centrale relatiekaart voor opdrachtgever, leverancier en overige ketenpartij.',
+    [
+      'field_brebo_org_customer' => [
+        'label' => 'Klant', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of deze organisatie klant of opdrachtgever is.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 12,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_org_supplier' => [
+        'label' => 'Leverancier', 'type' => 'boolean', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Geeft aan of deze organisatie leverancier of uitvoerende ketenpartij is.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 13,
+        'default_value' => [['value' => 0]],
+      ],
+    ],
+  );
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $organization_ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_organization')
+    ->execute();
+  foreach ($storage->loadMultiple($organization_ids) as $organization) {
+    if (!$organization instanceof \Drupal\node\NodeInterface || !$organization->hasField('field_brebo_org_type')) {
+      continue;
+    }
+    $type = (string) $organization->get('field_brebo_org_type')->value;
+    if ($type === 'Opdrachtgever') {
+      $organization->set('field_brebo_org_customer', 1);
+    }
+    if (in_array($type, ['Leverancier', 'Onderaannemer', 'Hoofdaannemer'], TRUE)) {
+      $organization->set('field_brebo_org_supplier', 1);
+    }
+    $organization->save();
+  }
+
+  return 'Onafhankelijke klant- en leverancierkenmerken ingericht.';
+}
