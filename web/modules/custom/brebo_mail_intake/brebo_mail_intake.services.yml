@@ -133,6 +133,11 @@ services:
   brebo_mail_intake.source_mailbox_attachment_reader:
     class: Drupal\brebo_mail_intake\Service\SourceMailboxAttachmentReader
 
+  brebo_mail_intake.editor_provisioner:
+    class: Drupal\brebo_mail_intake\Service\MailEditorProvisioner
+    arguments:
+      - '@module_handler'
+
   brebo_mail_intake.signature_builder:
     class: Drupal\brebo_mail_intake\Service\MailSignatureBuilder
     arguments:
