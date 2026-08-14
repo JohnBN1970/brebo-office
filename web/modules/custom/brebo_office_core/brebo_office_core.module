@@ -163,6 +163,21 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         && isset($form['field_brebo_project_ref']['widget'][0]['target_id'])) {
         $form['field_brebo_project_ref']['widget'][0]['target_id']['#default_value'] = $project;
       }
+
+      foreach ([
+        'organization' => ['brebo_organization', 'field_brebo_comm_org_ref'],
+        'contact' => ['brebo_contact', 'field_brebo_comm_contact_ref'],
+      ] as $query_key => [$expected_bundle, $field_name]) {
+        $target_id = (int) \Drupal::request()->query->get($query_key, 0);
+        $target = $target_id > 0
+          ? \Drupal::entityTypeManager()->getStorage('node')->load($target_id)
+          : NULL;
+        if ($target instanceof NodeInterface
+          && $target->bundle() === $expected_bundle
+          && isset($form[$field_name]['widget'][0]['target_id'])) {
+          $form[$field_name]['widget'][0]['target_id']['#default_value'] = $target;
+        }
+      }
     }
     if (isset($form['title'])) {
       $form['title']['#access'] = FALSE;

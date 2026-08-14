@@ -299,6 +299,17 @@ final class CrmController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'communication' => [
+          '#type' => 'link',
+          '#title' => $this->t('Communicatie vastleggen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication'], [
+            'query' => array_filter([
+              'contact' => $node->id(),
+              'organization' => $organization instanceof NodeInterface ? $organization->id() : NULL,
+            ]),
+          ]),
+          '#attributes' => ['class' => ['button']],
+        ],
       ],
       'summary' => [
         '#type' => 'table',
@@ -461,6 +472,14 @@ final class CrmController extends ControllerBase {
           '#type' => 'link',
           '#title' => $this->t('Relatie bewerken'),
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'communication' => [
+          '#type' => 'link',
+          '#title' => $this->t('Communicatie vastleggen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_communication'], [
+            'query' => ['organization' => $node->id()],
+          ]),
           '#attributes' => ['class' => ['button']],
         ],
         'contact' => [
