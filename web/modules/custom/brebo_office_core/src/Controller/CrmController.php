@@ -298,6 +298,8 @@ final class CrmController extends ControllerBase {
     $unqualifiedCount = 0;
     $offerAttentionCount = 0;
     $offerRows = [];
+    $handoverRows = [];
+    $handoverPendingCount = 0;
     $wonCount = 0;
     $lostCount = 0;
     $wonValue = 0.0;
@@ -378,6 +380,27 @@ final class CrmController extends ControllerBase {
         $wonValue += $value;
         $sourceTotals[$sourceKey]['won']++;
         $sourceTotals[$sourceKey]['won_value'] += $value;
+        $handoverMissing = [];
+        foreach ([
+          'field_brebo_opp_contact_ref' => $this->t('contactpersoon'),
+          'field_brebo_opp_calc_ref' => $this->t('calculatie'),
+          'field_brebo_opp_offer_ref' => $this->t('offerte'),
+          'field_brebo_opp_project_ref' => $this->t('project'),
+        ] as $field => $label) {
+          if (!$opportunity->hasField($field) || $opportunity->get($field)->isEmpty()) {
+            $handoverMissing[] = (string) $label;
+          }
+        }
+        if ($handoverMissing !== []) {
+          $handoverPendingCount++;
+          $handoverRows[] = [
+            ['data' => Link::fromTextAndUrl($opportunity->label(), Url::fromRoute('brebo_office_core.opportunity_dashboard', ['node' => $opportunity->id()]))->toRenderable()],
+            $organizationLabel,
+            '€ ' . number_format($value, 2, ',', '.'),
+            implode(', ', $handoverMissing),
+            $ownerLabel,
+          ];
+        }
       }
       elseif ($stage === 'Verloren') {
         $lostCount++;
@@ -792,9 +815,15 @@ final class CrmController extends ControllerBase {
       'management_summary' => [
         '#type' => 'table',
         '#attributes' => ['class' => ['brebo-calc-summary']],
-        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht')],
-        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount]],
+        '#header' => [$this->t('Gewonnen'), $this->t('Verloren'), $this->t('Winratio'), $this->t('Gewonnen omzet'), $this->t('Verloren omzet'), $this->t('Zonder recent contact'), $this->t('Zonder vervolgactie'), $this->t('Onvolledig gekwalificeerd'), $this->t('Offerte-aandacht'), $this->t('Overdracht open')],
+        '#rows' => [[$wonCount, $lostCount, $winRate, '€ ' . number_format($wonValue, 2, ',', '.'), '€ ' . number_format($lostValue, 2, ',', '.'), $staleCount, $missingActionCount, $unqualifiedCount, $offerAttentionCount, $handoverPendingCount]],
       ],
+      'handover' => $this->section(
+        $this->t('Overdracht verkoop naar uitvoering'),
+        [$this->t('Gewonnen kans'), $this->t('Organisatie'), $this->t('Omzet'), $this->t('Ontbreekt'), $this->t('Verantwoordelijke')],
+        $handoverRows,
+        $this->t('Alle gewonnen kansen zijn volledig overgedragen.')
+      ),
       'offer_monitoring' => $this->section(
         $this->t('Offertebewaking'),
         [$this->t('Kans'), $this->t('Organisatie'), $this->t('Fase'), $this->t('Offerteversie'), $this->t('Verwachte besluitdatum'), $this->t('Signaal'), $this->t('Verantwoordelijke')],
