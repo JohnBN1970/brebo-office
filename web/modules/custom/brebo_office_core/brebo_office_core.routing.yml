@@ -310,6 +310,14 @@ brebo_office_core.communications:
     _permission: 'access content'
 
 
+brebo_office_core.crm:
+  path: '/relaties'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\CrmController::overview'
+    _title: 'Relaties'
+  requirements:
+    _permission: 'access content'
+
 brebo_office_core.organizations:
   path: '/relaties/organisaties'
   defaults:
