@@ -59,7 +59,11 @@ final class MailContextForm extends FormBase {
     $project = $node->hasField('field_brebo_project_ref') ? $node->get('field_brebo_project_ref')->entity : NULL;
     $currentContext = $node->hasField('field_brebo_comm_context') ? trim((string) $node->get('field_brebo_comm_context')->value) : '';
     $defaultTarget = $project instanceof NodeInterface ? 'project'
-      : ($currentContext === 'Persoonlijk' ? 'personal' : 'administration');
+      : match ($currentContext) {
+        'Administratie' => 'administration',
+        'Persoonlijk' => 'personal',
+        default => NULL,
+      };
 
     $return = Url::fromRoute('brebo_mail_intake.mail_context', ['node' => $node->id()], [
       'query' => ['destination' => $returnUrl->toString()],
@@ -79,6 +83,7 @@ final class MailContextForm extends FormBase {
         'personal' => $this->t('Persoonlijk'),
       ],
       '#default_value' => $defaultTarget,
+      '#required' => TRUE,
     ];
 
     $form['project_wrap'] = [
@@ -91,7 +96,7 @@ final class MailContextForm extends FormBase {
       '#target_type' => 'node',
       '#selection_settings' => ['target_bundles' => ['brebo_project']],
       '#default_value' => $project,
-      '#description' => $this->t('Zoek eerst naar een bestaand project. Gebouw, organisatie en contactpersonen volgen als relaties vanuit het project en de communicatie.'),
+      '#description' => $this->t('Koppel projectmail alleen aan het project. Gebouw en andere projectrelaties worden vanuit dat project afgeleid en niet dubbel op de e-mail opgeslagen.'),
     ];
     $form['project_wrap']['new_project'] = [
       '#type' => 'link',
@@ -199,22 +204,6 @@ final class MailContextForm extends FormBase {
         return;
       }
 
-      $projectBuildingIds = [];
-      if ($project->hasField('field_brebo_building_refs')) {
-        $projectBuildingIds = array_values(array_filter(array_map(
-          static fn(array $item): int => (int) ($item['target_id'] ?? 0),
-          $project->get('field_brebo_building_refs')->getValue(),
-        )));
-      }
-      $currentBuildingId = $node->hasField('field_brebo_building_ref')
-        ? (int) ($node->get('field_brebo_building_ref')->target_id ?? 0)
-        : 0;
-      if ($currentBuildingId > 0 && in_array($currentBuildingId, $projectBuildingIds, TRUE)) {
-        $buildingId = $currentBuildingId;
-      }
-      elseif (count($projectBuildingIds) === 1) {
-        $buildingId = $projectBuildingIds[0];
-      }
     }
     elseif (!in_array($target, ['administration', 'personal'], TRUE)) {
       throw new \InvalidArgumentException('Onbekend mail contexttype.');
@@ -251,7 +240,7 @@ final class MailContextForm extends FormBase {
       }
       if ($node->hasField('field_brebo_comm_context')) {
         $node->set('field_brebo_comm_context', match ($target) {
-          'project' => 'Project',
+          'project' => 'Projectgericht',
           'administration' => 'Administratie',
           'personal' => 'Persoonlijk',
         });
