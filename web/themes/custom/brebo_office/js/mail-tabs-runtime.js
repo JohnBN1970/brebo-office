@@ -73,7 +73,7 @@
     bar.className = 'brebo-mail-tabs';
     bar.setAttribute('aria-label', 'Open e-mails');
 
-    tabs.forEach((tab, tabIndex) => {
+    tabs.forEach((tab) => {
       const item = document.createElement('div');
       item.className = 'brebo-mail-tab' + (Number(tab.id) === Number(activeId) ? ' is-active' : '');
 
