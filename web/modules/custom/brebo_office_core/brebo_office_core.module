@@ -100,6 +100,18 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
     }
   }
 
+  if ($node->bundle() === 'brebo_contact' && $node->isNew()) {
+    $organization_id = (int) \Drupal::request()->query->get('organization', 0);
+    $organization = $organization_id > 0
+      ? \Drupal::entityTypeManager()->getStorage('node')->load($organization_id)
+      : NULL;
+    if ($organization instanceof NodeInterface
+      && $organization->bundle() === 'brebo_organization'
+      && isset($form['field_brebo_org_ref']['widget'][0]['target_id'])) {
+      $form['field_brebo_org_ref']['widget'][0]['target_id']['#default_value'] = $organization;
+    }
+  }
+
   if ($node->bundle() === 'brebo_project_scope') {
     if ($node->isNew()) {
       $node->setTitle('Nieuwe projectscope');
@@ -309,6 +321,16 @@ function brebo_office_core_form_node_form_alter(array &$form, FormStateInterface
         && $building->bundle() === 'brebo_building'
         && isset($form['field_brebo_building_refs']['widget'][0]['target_id'])) {
         $form['field_brebo_building_refs']['widget'][0]['target_id']['#default_value'] = $building;
+      }
+
+      $organization_id = (int) \Drupal::request()->query->get('organization', 0);
+      $organization = $organization_id > 0
+        ? \Drupal::entityTypeManager()->getStorage('node')->load($organization_id)
+        : NULL;
+      if ($organization instanceof NodeInterface
+        && $organization->bundle() === 'brebo_organization'
+        && isset($form['field_brebo_client_org_ref']['widget'][0]['target_id'])) {
+        $form['field_brebo_client_org_ref']['widget'][0]['target_id']['#default_value'] = $organization;
       }
     }
     $form['brebo_operating_model_intro'] = [
