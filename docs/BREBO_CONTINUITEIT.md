@@ -16,9 +16,10 @@ Lees eerst, in deze volgorde:
 4. `docs/ROADMAP.md`;
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
 6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor alle presentatie/UI-werkzaamheden;
-7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` voor calculatie-, parameter- en outputgeneratorwerk;
-8. dit continuïteitsdocument;
-9. de actuele GitHub-stand van `develop` en open pull requests.
+7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` voor calculatie- en parameterwerk;
+8. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor alle document-/rapportoutput;
+9. dit continuïteitsdocument;
+10. de actuele GitHub-stand van `develop` en open pull requests.
 
 Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onderwerp al in deze bronnen is vastgesteld.
 
@@ -40,12 +41,8 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - `web/themes/custom/brebo_office` is het centrale applicatietheme.
 - `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` is leidend voor UI/UX en presentatiepatronen.
 - Functionele modules leveren inhoud en gedrag; zij introduceren geen eigen parallelle visuele taal.
-- Vaste schermpatronen: cockpit/dashboard, detaildossier, lijst/tabel, kanban, formulier, look-ahead/risico en foto/bewijs.
-- Gebouwpagina presenteert permanente gebouwkennis; projectpagina presenteert operationele sturing.
-- Status, navigatie, KPI-kaarten, acties, informatiedichtheid en mobiel gedrag worden centraal gestandaardiseerd.
-- Nieuwe schermen moeten direct conform het design system worden gebouwd; bestaande schermen worden gefaseerd gemigreerd.
 - Calculatie gebruikt een spreadsheetachtige hiërarchische werkplek met inklapbare hoofdgroepen/paragrafen, inline regels, sticky headers en subtiele zebra-striping.
-- Presentatie-only migraties van grote controllers worden bij voorkeur via theme/template/preprocess/behavior uitgevoerd; volledige bronbestanden worden niet vervangen tenzij functionele logica daadwerkelijk moet wijzigen en de volledige inhoud gecontroleerd beschikbaar is.
+- Presentatie-only migraties van grote controllers worden bij voorkeur via theme/template/preprocess/behavior uitgevoerd.
 
 ## Actuele objectstructuur
 
@@ -71,20 +68,36 @@ Vastgelegd:
 - locatie is een tweede dimensie naast classificatie en verwijst naar canonieke gebouw-/projectscope;
 - normale regel combineert arbeid, materiaal, materieel, OA en overig;
 - regeltypen: normaal, stelpost, optie, notitie, verdisconterend en verrekenbaar;
-- aparte tab `Parameters` voor rekenmethodiek en commerciële opbouw, waaronder open/gesloten, staartkosten/enkele marge, grondslagen, tarieven, prijspeil/indexatie, BTW/afronding, bijzondere posten, verdiscontering, prijsbronbeleid, risico en status/lock;
-- outputpresentatie hoort niet in Parameters;
-- generieke `Outputgenerator` gebruikt versioneerbare outputmodellen waarmee dezelfde calculatie in verschillende vormen kan worden gegenereerd;
-- outputmodel is het presentatierecept; gegenereerde output is een onveranderlijke/auditbare snapshot van calculatieversie + outputmodelversie + selectie;
-- offerte blijft een afzonderlijk commercieel object en kan een outputmodel gebruiken.
+- aparte tab `Parameters` voor rekenmethodiek en commerciële opbouw;
+- outputpresentatie hoort niet in Parameters.
 
-Scheiding:
+## Generieke Outputgenerator
+
+`docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` is leidend.
+
+De Outputgenerator is een **BREBO Office-brede platformvoorziening** en niet een calculatiefunctie. Functionele modules leveren brondata; de centrale generator maakt daar via versioneerbare outputmodellen documenten en rapportages van.
+
+Voorbeelden zijn:
+
+- calculatie/offerte -> begroting, offertebijlage, hoeveelhedenstaat;
+- inkoop -> inkoopbrief, RFQ, offerte-uitvraag, inkoopopdracht, opdrachtbevestiging, inkoopspiegel;
+- project -> opdrachtbevestiging, projectstartbrief, statusrapport, voortgangsrapport, weekrapport, look-ahead;
+- bewoners/service -> bewonersbrief, toegangsbrief, afspraakbevestiging;
+- KAM/oplevering -> kwaliteitsrapport, opleverrapport, restpuntenrapport, fotobewijs;
+- gebouw/onderhoud -> inspectierapport, MJOP, MJOP-managementsamenvatting, jaarplan, meerjarenbegroting, onderhoudsadvies en scenariovergelijking;
+- management -> portfolio-, funnel-, risico-, forecast-, nacalculatie- en auditrapportages.
+
+Vaste scheiding:
 
 ```text
-Calculatie + Parameters = financiële waarheid en rekenmethodiek
-Outputmodel             = presentatierecept
-Outputsnapshot           = vastgelegd document/resultaat
-Offerte                  = commercieel klantdocument
+Bronobject(en)   = inhoudelijke waarheid
+Outputmodel      = presentatierecept
+Outputgeneratie  = toepassen model op brondata
+Outputsnapshot   = vastgelegd resultaat
+Distributie      = verzenden/publiceren/opslaan
 ```
+
+Outputmodellen zijn blokgebaseerd, herbruikbaar, kopieerbaar en versioneerbaar. Modellen kunnen varianten kennen (intern/extern, compact/uitgebreid, doelgroep, taal, concept/definitief) en conditionele inhoud tonen. Definitieve outputs leggen bronversies, modelversie, selectie, gebruiker, tijdstip en bestand/hash auditbaar vast. Generatie en distributie blijven gescheiden en definitief verzenden/vaststellen volgt bestaande mandaten.
 
 ## Bewoners, woningen, toegang en service
 
@@ -98,43 +111,41 @@ Vastgelegd en/of gebouwd:
 - bewoners/servicecontext, meldingen, klachten, schade en nazorg;
 - onveranderlijke foto's met niet-destructieve annotatielagen;
 - toegang/contact op project-, gebouw-, zone- en woningniveau;
-- effectieve toegang erft woning -> zone -> gebouw -> project;
-- bewoning, contact, toegang en startgereedheid zijn afzonderlijk;
 - leegstand geeft nooit automatisch toegang;
 - `ZoneAccessReadiness` -> `WorkPackageAccessReadiness` -> formele `brebo_release_gate`;
-- standaard look-ahead is 42 dagen: groen = gereed/n.v.t., oranje = niet gereed en >7 dagen, rood = niet gereed en <=7 dagen;
+- standaard look-ahead is 42 dagen;
 - look-ahead signaleert alleen en wijzigt planning of formele vrijgave niet zelfstandig.
 
 ## Huidige ontwikkelfase
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
 
-De calculatiearchitectuur is functioneel opnieuw vastgesteld en wordt als afzonderlijke spreadsheetachtige werkplek ontworpen. De Outputgenerator wordt generiek opgezet zodat outputkeuzes niet in de financiële calculatieparameters worden opgesloten.
+De calculatiearchitectuur is functioneel opnieuw vastgesteld en wordt als afzonderlijke spreadsheetachtige werkplek ontworpen. De Outputgenerator is nu architectonisch losgemaakt van calculatie en geldt als generieke document-/rapportengine voor BREBO Office.
 
 De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
-1. Calculatiegegevensmodel en UI implementeren volgens `BREBO_CALCULATIE_ARCHITECTUUR.md`, zonder bestaande bruikbare reken-/RFQ-data voortijdig te verwijderen.
-2. Generiek model voor Outputgenerator ontwerpen: outputmodel, modelversie, selectie/presentatieregels en outputsnapshot.
+1. Calculatiegegevensmodel en UI implementeren volgens `BREBO_CALCULATIE_ARCHITECTUUR.md`.
+2. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`: model, versie, blokken, bronmapping, generatie, snapshot, renderers en preview.
 3. Commerciële funnel verder migreren naar de centrale presentatielaag.
 4. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen.
-5. Look-ahead verbreden naar generiek readinessmodel voor materiaal, tekeningen, vergunningen, steiger en KAM.
-6. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
-7. Foto-editor voor niet-destructieve markeringen mobiel uitwerken conform het centrale design system.
+5. Look-ahead verbreden naar generiek readinessmodel.
+6. Directe canonieke relatie realiseren tussen technische woningscope en BAG-backed residence.
+7. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
 
 ## Integration API en deployment
 
 - Worker: `brebo-integration-api`.
 - Testendpoint: `https://brebo-integration-api.john-boon.workers.dev`.
 - HMAC v1-beveiliging blijft leidend.
-- Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route; geen ad-hoc handmatige Git-merge op de server.
+- Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route.
 
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
 
-Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert. Alleen in de chat melden dat continuïteit is bijgewerkt is niet voldoende.
+Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
 
 Bij iedere nieuwe of gewijzigde UI moet tevens worden getoetst aan `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`.
 
