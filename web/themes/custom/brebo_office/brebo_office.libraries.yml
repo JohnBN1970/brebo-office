@@ -1,5 +1,5 @@
 global:
-  version: 1.2.3
+  version: 1.2.4
   css:
     base:
       css/base.css: {}
@@ -24,6 +24,7 @@ global:
     js/work-package-cockpit.js: {}
     js/building-cockpit.js: {}
     js/residence-cockpit.js: {}
+    js/funnel-cockpit.js: {}
   dependencies:
     - core/drupal
     - core/once
