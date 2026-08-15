@@ -44,3 +44,13 @@ brebo_resident_service.residence_detail:
   requirements:
     _permission: 'access brebo resident service'
     residence_id: '\d+'
+
+brebo_resident_service.access_contact_add:
+  path: '/brebo/toegang/{scope_type}/{scope_id}/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_resident_service\Form\AccessContactForm'
+    _title: 'Aanspreekpunt & toegang vastleggen'
+  requirements:
+    _permission: 'manage brebo resident service'
+    scope_type: 'building|technical_zone|residence'
+    scope_id: '\d+'
