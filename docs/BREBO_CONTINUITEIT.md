@@ -75,29 +75,23 @@ Vastgelegd en/of gebouwd:
 - permanent digitaal woningdossier is beschikbaar, maar technische woninginformatie wordt alleen gebruikt wanneer de technische zone dat vereist;
 - meldingen, klachten, schade en service/nazorg kunnen aan woning/project worden gekoppeld;
 - foto's zijn onveranderlijke bewijsobjecten met afzonderlijke niet-destructieve annotatielagen;
-- annotaties kunnen pijlen, vormen, vrije markering, pins/nummers en tekst vertegenwoordigen en aan dossierobjecten worden gekoppeld;
 - toegang en aanspreekpunt zijn niet afhankelijk van technische woningdetaillering;
 - toegang/contact kan worden vastgelegd op project-, gebouw-, technische-zone- en woningniveau;
 - effectieve toegang erft van specifiek naar algemeen: woning -> technische zone -> gebouw -> project;
-- toegang kan een formele startvoorwaarde voor uitvoering zijn;
 - bewoningsstatus, contactstatus, toegangsstatus en startgereedheid zijn afzonderlijke begrippen;
 - leegstand geeft nooit automatisch toestemming tot betreden;
-- een lege woning kan startgereed zijn zonder bewonerscontact wanneer bevoegde toegang aantoonbaar is geregeld;
-- projectcockpit toont toegang/startgereedheid en leegstand afzonderlijk;
-- `ZoneAccessReadiness` berekent startgereedheid voor een technische zone/cluster binnen een project;
-- een zone zonder woningen in technische scope veroorzaakt niet automatisch woningregistratie: readiness wordt dan op zone/gebouw/projectniveau beoordeeld;
-- wanneer een zone wel woningen bevat, wordt alleen die expliciete technische scope beoordeeld en worden bewoning en toegang afzonderlijk meegenomen;
-- `WorkPackageAccessReadiness` vertaalt de technische-zone-readiness nu naar het gekoppelde `brebo_work_package`;
-- werkpakketten hebben een cockpit `/node/{node}/toegang-startgereed` met percentage, aantallen, blokkades en detailregels;
-- een werkpakket met ongeregelde verplichte toegang krijgt de operationele status `GEBLOKKEERD`; bij volledig geregelde toegang `GEREED`;
-- de bestaande `brebo_release_gate` blijft het formele vrijgaveobject en wordt niet gedupliceerd; toegangsreadiness levert het bewijs/input voor die poort;
-- de huidige koppeling van legacy `brebo_dwelling` naar de BAG-backed residence gebruikt tijdelijk het adres als bridge; dit moet bij de canonieke migratie een directe referentie worden.
+- `ZoneAccessReadiness` berekent startgereedheid voor technische scope zonder kunstmatig woningniveau af te dwingen;
+- `WorkPackageAccessReadiness` vertaalt deze beoordeling naar het gekoppelde werkpakket;
+- werkpakketten hebben een toegang/startgereed-cockpit met percentage, aantallen en detailregels;
+- `brebo_release_gate` blijft het enige formele vrijgaveobject;
+- op het release-gate-formulier wordt nu automatisch de actuele toegangsreadiness van het gekoppelde werkpakket getoond;
+- automatische readiness geeft beslisinformatie en mag een release gate nooit zelfstandig op `Akkoord` zetten;
+- bij ongeregelde toegang wordt de beoordelaar expliciet gewaarschuwd dat `Akkoord` alleen met aantoonbare afwijkings-/besluitgrond passend kan zijn;
+- de huidige legacy `brebo_dwelling` -> BAG-residence koppeling via adres is tijdelijk en moet een directe canonieke referentie worden.
 
 ## PDOK/BAG-principe
 
-Adres- en woninginformatie wordt waar mogelijk niet handmatig overgetypt. Een opgegeven huisnummerreeks uit ondersteunde communicatie wordt eerst geïnterpreteerd en daarna tegen de officiële BAG via PDOK gevalideerd. BREBO genereert geen fictieve tussenliggende huisnummers. BAG-identiteiten zijn leidend voor deduplicatie en projectoverstijgende herkenning van dezelfde gebruikseenheid.
-
-De keten is:
+Adresinformatie wordt waar mogelijk niet handmatig overgetypt. Een opgegeven huisnummerreeks wordt eerst geïnterpreteerd en daarna tegen BAG via PDOK gevalideerd. BREBO genereert geen fictieve tussenliggende huisnummers. BAG-identiteiten zijn leidend voor deduplicatie en projectoverstijgende herkenning.
 
 ```text
 communicatie / aanvraag / notitie / import
@@ -110,22 +104,19 @@ communicatie / aanvraag / notitie / import
   -> projectscope en operationele sturing
 ```
 
-## Toegang en aanspreekpunt
-
-Toegang en aanspreekpunt vormen een zelfstandige operationele laag. Algemene afspraken mogen hoger in de hiërarchie worden vastgelegd en hoeven niet per woning te worden gedupliceerd.
-
-Voorbeeld:
+## Toegang, readiness en formele vrijgave
 
 ```text
-Project: centrale bewonersbegeleider
-  -> Gebouw: sleutelbeheer via huismeester
-      -> Technische zone: woningtoegang vereist
-          -> Woning: specifieke afspraak met bewoner
+Toegangsdata
+  -> effectieve regel (woning -> zone -> gebouw -> project)
+  -> ZoneAccessReadiness
+  -> WorkPackageAccessReadiness
+  -> automatische beslisinformatie op brebo_release_gate
+  -> formele menselijke poortbeoordeling
+  -> planning / uitvoering
 ```
 
-De meest specifieke geldige regel geldt. Wanneer toegang voor een activiteit vereist is, wordt de effectieve toegangsstatus onderdeel van de startgereedheidscontrole en vervolgens input voor de bestaande release-gate van het werkpakket.
-
-De technische zone bepaalt daarbij de operationele populatie. Geen woningniveau in de technische scope betekent geen kunstmatig gegenereerde woningverplichting. Bij expliciete woningscope wordt readiness uitsluitend over die woningen berekend.
+Automatische readiness en formele vrijgave zijn bewust gescheiden. Het systeem mag risico's en blokkades berekenen, maar simuleert geen menselijke goedkeuring. De bestaande release-gate blijft het auditbare besluitobject.
 
 ## Huidige ontwikkelfase
 
@@ -135,9 +126,9 @@ De actuele bewoners/service-bouwslag bevindt zich op `agent/resident-service-mod
 
 ## Eerstvolgende technische punten
 
-1. Toegangsreadiness als automatische beoordeling/input aansluiten op bestaande `brebo_release_gate`-records van het werkpakket, zonder menselijke formele vrijgave te omzeilen.
-2. Dezelfde readiness opnemen in planning/look-ahead zodat komende werkpakketten vroegtijdig rood/oranje/groen worden gesignaleerd.
-3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence, zodat de tijdelijke adres-bridge verdwijnt.
+1. Toegangsreadiness opnemen in planning/look-ahead zodat toekomstige werkpakketten vroegtijdig rood/oranje/groen worden gesignaleerd vóór de formele vrijgave.
+2. Bepalen hoe automatische readiness-evidence auditbaar aan release-gate-historie wordt vastgelegd zonder de menselijke poortbeslissing te overschrijven.
+3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
 4. De oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
 5. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
 6. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
@@ -151,7 +142,6 @@ De actuele bewoners/service-bouwslag bevindt zich op `agent/resident-service-mod
 - HMAC v1-beveiliging blijft ongewijzigd leidend.
 - Worker healthcheck is als Drush-script gedeployd.
 - De echte end-to-end healthcheck met `BREBO_SHARED_SECRET` staat geparkeerd totdat het secret veilig beschikbaar is.
-- Deze geparkeerde controle blokkeert de functionele ontwikkeling niet.
 - Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route; geen ad-hoc handmatige Git-merge op de server.
 
 ## Ontwikkelregel bij nieuwe chats
