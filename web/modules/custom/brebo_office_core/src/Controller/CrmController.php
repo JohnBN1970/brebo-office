@@ -262,7 +262,19 @@ final class CrmController extends ControllerBase {
   public function funnelExport(Request $request): Response {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
+    $allowedStages = ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'];
+    $stageFilter = in_array((string) $request->query->get('stage_filter', ''), $allowedStages, TRUE) ? (string) $request->query->get('stage_filter') : '';
+    $statusFilter = in_array((string) $request->query->get('status', 'all'), ['all', 'open', 'closed'], TRUE) ? (string) $request->query->get('status', 'all') : 'all';
     $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_opportunity')->sort('field_brebo_opp_stage')->sort('title');
+    if ($stageFilter !== '') {
+      $query->condition('field_brebo_opp_stage', $stageFilter);
+    }
+    if ($statusFilter === 'open') {
+      $query->condition('field_brebo_opp_active', 1);
+    }
+    elseif ($statusFilter === 'closed') {
+      $query->condition('field_brebo_opp_active', 0);
+    }
     if ($mine) {
       $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
     }
@@ -312,6 +324,9 @@ final class CrmController extends ControllerBase {
   public function funnel(Request $request): array {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
+    $allowedStages = ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'];
+    $stageFilter = in_array((string) $request->query->get('stage_filter', ''), $allowedStages, TRUE) ? (string) $request->query->get('stage_filter') : '';
+    $statusFilter = in_array((string) $request->query->get('status', 'all'), ['all', 'open', 'closed'], TRUE) ? (string) $request->query->get('status', 'all') : 'all';
     $period = in_array((int) $request->query->get('period', 30), [7, 30, 90, 365], TRUE)
       ? (int) $request->query->get('period', 30)
       : 30;
@@ -332,12 +347,18 @@ final class CrmController extends ControllerBase {
     if ($mine) {
       $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
     }
+    if ($stageFilter !== '') {
+      $query->condition('field_brebo_opp_stage', $stageFilter);
+    }
+    if ($statusFilter === 'open') {
+      $query->condition('field_brebo_opp_active', 1);
+    }
+    elseif ($statusFilter === 'closed') {
+      $query->condition('field_brebo_opp_active', 0);
+    }
     $opportunities = $storage->loadMultiple($query->execute());
 
-    $stages = [
-      'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte',
-      'Onderhandeling', 'Gewonnen', 'Verloren',
-    ];
+    $stages = $allowedStages;
     $stageOrder = array_flip($stages);
     $stageTotals = array_fill_keys($stages, ['count' => 0, 'value' => 0.0, 'weighted' => 0.0, 'age_total' => 0, 'over_norm' => 0]);
     $stageLimits = [
@@ -1094,7 +1115,7 @@ final class CrmController extends ControllerBase {
     $closedCount = $wonCount + $lostCount;
     $winRate = $closedCount > 0 ? round($wonCount * 100 / $closedCount, 1) . '%' : '—';
 
-    $queryBase = array_filter(['mine' => $mine ? 1 : NULL, 'period' => $period]);
+    $queryBase = array_filter(['mine' => $mine ? 1 : NULL, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter]);
     return [
       '#attached' => ['library' => ['brebo_office_core/funnel']],
       'actions' => [
@@ -1121,19 +1142,19 @@ final class CrmController extends ControllerBase {
         'all' => [
           '#type' => 'link',
           '#title' => $this->t('Alle kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['period' => $period, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'mine' => [
           '#type' => 'link',
           '#title' => $this->t('Mijn kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'export' => [
           '#type' => 'link',
           '#title' => $this->t('Exporteren naar CSV'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel_export', [], ['query' => array_filter(['mine' => $mine ? 1 : NULL])]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel_export', [], ['query' => array_filter(['mine' => $mine ? 1 : NULL, 'stage_filter' => $stageFilter, 'status' => $statusFilter])]),
           '#attributes' => ['class' => ['button']],
         ],
         'crm' => [
@@ -1149,6 +1170,20 @@ final class CrmController extends ControllerBase {
         '#attributes' => ['method' => 'get', 'action' => Url::fromRoute('brebo_office_core.funnel')->toString(), 'class' => ['brebo-funnel-controls']],
         'mine' => $mine ? ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'mine', 'value' => '1']] : [],
         'view' => ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'view', 'value' => $view]],
+        'stage_filter' => [
+          '#type' => 'select',
+          '#title' => $this->t('Fase'),
+          '#name' => 'stage_filter',
+          '#default_value' => $stageFilter,
+          '#options' => ['' => $this->t('Alle fasen')] + array_combine($allowedStages, $allowedStages),
+        ],
+        'status' => [
+          '#type' => 'select',
+          '#title' => $this->t('Status'),
+          '#name' => 'status',
+          '#default_value' => $statusFilter,
+          '#options' => ['all' => $this->t('Open en afgesloten'), 'open' => $this->t('Alleen open'), 'closed' => $this->t('Alleen afgesloten')],
+        ],
         'period' => [
           '#type' => 'select',
           '#title' => $this->t('Rapportageperiode'),
@@ -1290,7 +1325,7 @@ final class CrmController extends ControllerBase {
       'list' => $listBuild,
       'kanban' => $kanbanBuild,
       '#cache' => [
-        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
+        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:stage_filter', 'url.query_args:status', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
         'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_opportunity_event', 'node_list:brebo_contact_affiliation', 'node_list:brebo_organization', 'node_list:brebo_communication'],
       ],
     ];
