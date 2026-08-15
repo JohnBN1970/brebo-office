@@ -9,6 +9,7 @@ use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** Provides the canonical CRM organization dossier. */
@@ -256,6 +257,56 @@ final class CrmController extends ControllerBase {
         'tags' => ['node_list:brebo_organization', 'node_list:brebo_contact', 'node_list:brebo_contact_affiliation', 'node_list:brebo_contact_point'],
       ],
     ];
+  }
+
+  public function funnelExport(Request $request): Response {
+    $storage = $this->entityTypeManager()->getStorage('node');
+    $mine = (bool) $request->query->get('mine', FALSE);
+    $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_opportunity')->sort('field_brebo_opp_stage')->sort('title');
+    if ($mine) {
+      $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
+    }
+    $stream = fopen('php://temp', 'w+');
+    if ($stream === FALSE) {
+      throw new \RuntimeException('CSV-export kon niet worden opgebouwd.');
+    }
+    fwrite($stream, "\xEF\xBB\xBF");
+    fputcsv($stream, ['Kans', 'Organisatie', 'Contactpersoon', 'Fase', 'Verwachte omzet', 'Scoringskans (%)', 'Gewogen omzet', 'Verwachte sluitdatum', 'Volgende actiedatum', 'Volgende actie', 'Verantwoordelijke', 'Leadbron', 'Acquisitiekanaal', 'Campagne', 'Actief'], ';', '"', '', "\n");
+    foreach ($storage->loadMultiple($query->execute()) as $opportunity) {
+      if (!$opportunity instanceof NodeInterface) {
+        continue;
+      }
+      $organization = $opportunity->get('field_brebo_opp_org_ref')->entity;
+      $contact = $opportunity->get('field_brebo_opp_contact_ref')->entity;
+      $owner = $opportunity->get('field_brebo_opp_owner')->entity;
+      $value = (float) ($opportunity->get('field_brebo_opp_value')->value ?? 0);
+      $probability = max(0, min(100, (int) ($opportunity->get('field_brebo_opp_probability')->value ?? 0)));
+      fputcsv($stream, [
+        $opportunity->label(),
+        $organization instanceof NodeInterface ? $organization->label() : '',
+        $contact instanceof NodeInterface ? $contact->label() : '',
+        $this->value($opportunity, 'field_brebo_opp_stage'),
+        number_format($value, 2, ',', ''),
+        $probability,
+        number_format($value * $probability / 100, 2, ',', ''),
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_close_date')),
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_next_date')),
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_next_action')),
+        $owner !== NULL ? $owner->label() : '',
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_source')),
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_channel')),
+        str_replace('—', '', $this->value($opportunity, 'field_brebo_opp_campaign')),
+        (bool) $opportunity->get('field_brebo_opp_active')->value ? 'Ja' : 'Nee',
+      ], ';', '"', '', "\n");
+    }
+    rewind($stream);
+    $csv = stream_get_contents($stream);
+    fclose($stream);
+    return new Response($csv === FALSE ? '' : $csv, 200, [
+      'Content-Type' => 'text/csv; charset=UTF-8',
+      'Content-Disposition' => 'attachment; filename="brebo-funnel-' . date('Y-m-d') . '.csv"',
+      'Cache-Control' => 'private, no-store',
+    ]);
   }
 
   public function funnel(Request $request): array {
@@ -1077,6 +1128,12 @@ final class CrmController extends ControllerBase {
           '#type' => 'link',
           '#title' => $this->t('Mijn kansen'),
           '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'export' => [
+          '#type' => 'link',
+          '#title' => $this->t('Exporteren naar CSV'),
+          '#url' => Url::fromRoute('brebo_office_core.funnel_export', [], ['query' => array_filter(['mine' => $mine ? 1 : NULL])]),
           '#attributes' => ['class' => ['button']],
         ],
         'crm' => [
