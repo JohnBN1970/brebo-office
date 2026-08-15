@@ -75,29 +75,33 @@ Vastgelegd:
 
 `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` is leidend.
 
-De Outputgenerator is een **BREBO Office-brede platformvoorziening** en niet een calculatiefunctie. Functionele modules leveren brondata; de centrale generator maakt daar via versioneerbare outputmodellen documenten en rapportages van.
-
-Voorbeelden zijn:
-
-- calculatie/offerte -> begroting, offertebijlage, hoeveelhedenstaat;
-- inkoop -> inkoopbrief, RFQ, offerte-uitvraag, inkoopopdracht, opdrachtbevestiging, inkoopspiegel;
-- project -> opdrachtbevestiging, projectstartbrief, statusrapport, voortgangsrapport, weekrapport, look-ahead;
-- bewoners/service -> bewonersbrief, toegangsbrief, afspraakbevestiging;
-- KAM/oplevering -> kwaliteitsrapport, opleverrapport, restpuntenrapport, fotobewijs;
-- gebouw/onderhoud -> inspectierapport, MJOP, MJOP-managementsamenvatting, jaarplan, meerjarenbegroting, onderhoudsadvies en scenariovergelijking;
-- management -> portfolio-, funnel-, risico-, forecast-, nacalculatie- en auditrapportages.
+De Outputgenerator is een BREBO Office-brede platformvoorziening en niet een calculatiefunctie. Functionele modules leveren brondata; de centrale generator maakt daar via versioneerbare outputmodellen documenten en rapportages van.
 
 Vaste scheiding:
 
 ```text
 Bronobject(en)   = inhoudelijke waarheid
-Outputmodel      = presentatierecept
-Outputgeneratie  = toepassen model op brondata
+Outputmodel      = inhoudelijk presentatierecept
+Lay-outprofiel   = visuele compositie en huisstijl
+Bijlagenpakket   = geselecteerde/ggegenereerde bijlagen
 Outputsnapshot   = vastgelegd resultaat
 Distributie      = verzenden/publiceren/opslaan
 ```
 
-Outputmodellen zijn blokgebaseerd, herbruikbaar, kopieerbaar en versioneerbaar. Modellen kunnen varianten kennen (intern/extern, compact/uitgebreid, doelgroep, taal, concept/definitief) en conditionele inhoud tonen. Definitieve outputs leggen bronversies, modelversie, selectie, gebruiker, tijdstip en bestand/hash auditbaar vast. Generatie en distributie blijven gescheiden en definitief verzenden/vaststellen volgt bestaande mandaten.
+Vastgelegd voor de Outputgenerator:
+
+- generiek inzetbaar voor calculatie/offerte, inkoop, project, bewoners/service, KAM/oplevering, gebouw/MJOP en management;
+- blokgebaseerde, herbruikbare en versioneerbare outputmodellen;
+- lay-out is first-class: centrale lay-outprofielen, documentfamilies, typografie, tabellen, grafieken, foto's, voorbladen, kop/voet, page-breakregels en live pagina-preview;
+- bijlagen zijn onderdeel van een formeel documentpakket en kunnen verplicht, conditioneel of optioneel zijn;
+- bijlagen kunnen door BREBO worden gegenereerd, bestaande vastgestelde documenten zijn, externe bronbestanden zijn of als BREBO-heruitvoer uit broninformatie worden opgebouwd;
+- voorbeeld: leveranciersofferte kan bron zijn voor een door BREBO gegenereerde kozijnstaat terwijl het originele leveranciersdocument herleidbaar bewaard blijft;
+- voorkeursuitvoer is waar passend één integraal document met hoofddocument + bijlagen;
+- integrale documenten hebben standaard doorlopende paginanummering over hoofddocument en bijlagen (`Pagina X van Y`), automatische bijlagenlijst/inhoudsopgave en PDF-bookmarks;
+- externe PDF's kunnen ongewijzigd worden ingevoegd of als BREBO-heruitvoer opnieuw worden opgebouwd;
+- documentpakket bewaart exacte bijlagevolgorde, bron-/versiereferenties, integratiemodus, start-/eindpagina en auditgegevens;
+- pre-flight controle voorkomt ongemerkt verzenden van een incompleet formeel pakket;
+- generatie en distributie blijven gescheiden; definitief vaststellen/verzenden volgt mandaat.
 
 ## Bewoners, woningen, toegang en service
 
@@ -120,14 +124,14 @@ Vastgelegd en/of gebouwd:
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
 
-De calculatiearchitectuur is functioneel opnieuw vastgesteld en wordt als afzonderlijke spreadsheetachtige werkplek ontworpen. De Outputgenerator is nu architectonisch losgemaakt van calculatie en geldt als generieke document-/rapportengine voor BREBO Office.
+De calculatiearchitectuur is functioneel opnieuw vastgesteld en wordt als afzonderlijke spreadsheetachtige werkplek ontworpen. De Outputgenerator is architectonisch losgemaakt van calculatie en geldt als generieke document-/rapportengine inclusief lay-out, bijlagenpakketten en integrale documentcompositie.
 
 De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
 1. Calculatiegegevensmodel en UI implementeren volgens `BREBO_CALCULATIE_ARCHITECTUUR.md`.
-2. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`: model, versie, blokken, bronmapping, generatie, snapshot, renderers en preview.
+2. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`: model, versie, lay-outprofiel, blokken, bronmapping, bijlagenpakket, integrale composer, generatie, snapshot, renderers en preview.
 3. Commerciële funnel verder migreren naar de centrale presentatielaag.
 4. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen.
 5. Look-ahead verbreden naar generiek readinessmodel.
