@@ -1,5 +1,5 @@
 global:
-  version: 1.2.0
+  version: 1.2.1
   css:
     base:
       css/base.css: {}
@@ -21,6 +21,10 @@ global:
     js/mail-list-controls.js: {}
     js/mail-resize.js: {}
     js/mail-context-actions.js: {}
+    js/work-package-cockpit.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
 
 project-tabs:
   version: 1.0.0
