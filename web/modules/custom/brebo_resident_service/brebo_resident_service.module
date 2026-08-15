@@ -3,35 +3,69 @@
 declare(strict_types=1);
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 
-/**
- * Implements hook_entity_insert().
- */
+/** Implements hook_entity_insert(). */
 function brebo_resident_service_entity_insert(EntityInterface $entity): void {
   brebo_resident_service_detect_communication_scope($entity);
 }
 
-/**
- * Detects address ranges in newly created BREBO communications.
- */
+/** Implements hook_form_node_form_alter(). */
+function brebo_resident_service_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
+  $gate = $form_state->getFormObject()->getEntity();
+  if (!$gate instanceof NodeInterface || $gate->bundle() !== 'brebo_release_gate') {
+    return;
+  }
+  if (!$gate->hasField('field_brebo_package_ref') || $gate->get('field_brebo_package_ref')->isEmpty()) {
+    return;
+  }
+  $package = $gate->get('field_brebo_package_ref')->entity;
+  if (!$package instanceof NodeInterface || $package->bundle() !== 'brebo_work_package') {
+    return;
+  }
+
+  try {
+    $assessment = \Drupal::service('brebo_resident_service.work_package_access_readiness')->evaluate($package);
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_resident_service')->warning('Toegangsreadiness voor vrijgavepoort @nid kon niet worden bepaald: @message', ['@nid' => $gate->id() ?: 'new', '@message' => $e->getMessage()]);
+    return;
+  }
+  if (!$assessment['applicable']) {
+    return;
+  }
+
+  $summary = $assessment['summary'];
+  $form['brebo_access_readiness'] = [
+    '#type' => 'container',
+    '#weight' => -20,
+    '#attributes' => ['class' => ['messages', $assessment['ready'] ? 'messages--status' : 'messages--warning']],
+    'title' => ['#markup' => '<strong>Automatische toegangscontrole</strong><br>'],
+    'status' => ['#markup' => $assessment['ready'] ? 'GEREED — toegang vormt geen blokkade.' : 'AANDACHT — toegang is nog niet volledig gereed.'],
+    'detail' => ['#markup' => isset($summary['percentage']) ? '<br>Startgereed: ' . (float) $summary['percentage'] . '% · Gereed: ' . (int) ($summary['ready'] ?? 0) . ' · Aandacht: ' . (int) ($summary['attention'] ?? 0) : ''],
+    'note' => ['#markup' => '<br><em>Dit is automatische beslisinformatie. De formele poortbeoordeling blijft een afzonderlijk menselijk besluit.</em>'],
+  ];
+
+  // Never silently approve a formal gate. When access is not ready, prevent a
+  // stale/default Akkoord from being submitted without an explicit deviation.
+  if (!$assessment['ready'] && isset($form['field_brebo_gate_result']['widget'][0]['value'])) {
+    $element =& $form['field_brebo_gate_result']['widget'][0]['value'];
+    $element['#description'] = trim(($element['#description'] ?? '') . ' Automatische toegangscontrole is niet gereed; kies geen Akkoord zonder aantoonbare afwijkings-/besluitgrond.');
+  }
+}
+
+/** Detects address ranges in newly created BREBO communications. */
 function brebo_resident_service_detect_communication_scope(EntityInterface $entity): void {
   if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_communication' || !$entity->id()) {
     return;
   }
-
   $database = \Drupal::database();
   $sourceId = (string) $entity->id();
-  $existing = $database->select('brebo_address_scope_intake', 'i')
-    ->condition('source_type', 'communication')
-    ->condition('source_id', $sourceId)
-    ->countQuery()
-    ->execute()
-    ->fetchField();
+  $existing = $database->select('brebo_address_scope_intake', 'i')->condition('source_type', 'communication')->condition('source_id', $sourceId)->countQuery()->execute()->fetchField();
   if ((int) $existing > 0) {
     return;
   }
-
   $parts = [$entity->label()];
   foreach (['field_brebo_comm_subject', 'field_brebo_comm_summary', 'field_brebo_transcript', 'field_brebo_ai_summary', 'field_brebo_reviewer_note'] as $fieldName) {
     if (!$entity->hasField($fieldName) || $entity->get($fieldName)->isEmpty()) {
@@ -47,30 +81,12 @@ function brebo_resident_service_detect_communication_scope(EntityInterface $enti
   if ($text === '') {
     return;
   }
-
-  $buildingNid = NULL;
-  if ($entity->hasField('field_brebo_building_ref') && !$entity->get('field_brebo_building_ref')->isEmpty()) {
-    $buildingNid = (int) $entity->get('field_brebo_building_ref')->target_id;
-  }
-  $projectId = NULL;
-  if ($entity->hasField('field_brebo_project_ref') && !$entity->get('field_brebo_project_ref')->isEmpty()) {
-    $projectId = (int) $entity->get('field_brebo_project_ref')->target_id;
-  }
-
+  $buildingNid = $entity->hasField('field_brebo_building_ref') && !$entity->get('field_brebo_building_ref')->isEmpty() ? (int) $entity->get('field_brebo_building_ref')->target_id : NULL;
+  $projectId = $entity->hasField('field_brebo_project_ref') && !$entity->get('field_brebo_project_ref')->isEmpty() ? (int) $entity->get('field_brebo_project_ref')->target_id : NULL;
   try {
-    \Drupal::service('brebo_resident_service.address_scope_intake')->propose(
-      $text,
-      'communication',
-      $sourceId,
-      $buildingNid,
-      $projectId,
-      (int) $entity->getOwnerId(),
-    );
+    \Drupal::service('brebo_resident_service.address_scope_intake')->propose($text, 'communication', $sourceId, $buildingNid, $projectId, (int) $entity->getOwnerId());
   }
   catch (\Throwable $e) {
-    \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt: @message', [
-      '@nid' => $entity->id(),
-      '@message' => $e->getMessage(),
-    ]);
+    \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt: @message', ['@nid' => $entity->id(), '@message' => $e->getMessage()]);
   }
 }
