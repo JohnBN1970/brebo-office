@@ -35,3 +35,12 @@ brebo_resident_service.building_residents:
     parameters:
       node:
         type: entity:node
+
+brebo_resident_service.residence_detail:
+  path: '/brebo/woning/{residence_id}'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidenceDetailController::detail'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ResidenceDetailController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    residence_id: '\d+'
