@@ -161,7 +161,38 @@ Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. R
 
 ## UI-principe
 
-De standaard calculatiewerkplek is een spreadsheetachtige hiërarchische tabel met inklapbare hoofdgroepen/paragrafen, inspringing, live subtotalen, direct bewerkbare regels, compacte locatiekolom, filter/groepering op locatie, regel-detail op aanvraag en een live kostprijsopbouw. Alleen eindparagrafen laten calculatieregels toe. Aparte werkruimten/tabs ondersteunen inkoop/RFQ, risico, varianten, versies en offerte.
+De standaard calculatiewerkplek is nadrukkelijk **spreadsheetachtig** en niet formulierachtig.
+
+- hoofdgroepen en paragrafen zijn inklapbaar;
+- inspringing maakt de hiërarchie direct zichtbaar;
+- regels zijn inline/direct bewerkbaar zonder voor iedere wijziging een apart Drupal-formulier te openen;
+- kolomkoppen blijven bij lange calculaties zichtbaar (sticky header);
+- omschrijving/structuurkolom blijft waar praktisch mogelijk zichtbaar bij horizontaal scrollen;
+- numerieke kolommen zijn rechts uitgelijnd en hebben vaste/voorspelbare breedtes;
+- toetsenbordnavigatie (Tab/Enter/pijltjes waar passend) ondersteunt snel calculeren;
+- rij toevoegen, dupliceren en verwijderen gebeurt direct vanuit de tabel;
+- totalen per paragraaf/hoofdgroep blijven visueel onderscheidbaar en zijn niet bewerkbaar;
+- compacte locatiekolom en filter/groepering op locatie blijven beschikbaar;
+- regel-detail opent alleen voor specialistische gegevens;
+- een live kostprijsopbouw blijft zichtbaar naast of onder de calculatie.
+
+### Rij- en kleurhiërarchie
+
+Normale calculatieregels gebruiken **subtiele zebra-striping**: afwisselend wit en een zeer lichte neutrale achtergrond. Het doel is horizontaal volgen van bedragen over brede tabellen, niet decoratie.
+
+De hiërarchische structurele rijen krijgen een eigen vaste visuele behandeling en doorbreken de zebra-striping:
+
+- hoofdgroep: duidelijkste structuur-/totaalrij;
+- paragraaf niveau 1: sterke subtotaalrij;
+- paragraaf niveau 2: lichtere subtotaalrij;
+- paragraaf niveau 3/eindparagraaf: compacte subtotaalrij;
+- calculatieregels: afwisselend lichte rijachtergrond;
+- geselecteerde/actieve rij: duidelijke focusmarkering die zebra-kleur overstemt;
+- fout/waarschuwing: statusmarkering aan de rand of cel, niet een volledig schreeuwerig gekleurde rij tenzij kritisch.
+
+Regeltypen mogen aanvullend een klein herkenbaar label/icoon krijgen (`Stelpost`, `Optie`, `Verrekenbaar`, enz.), maar de hele rij krijgt niet voor ieder regeltype een andere felle kleur. Zo blijft de spreadsheet rustig en scanbaar.
+
+Aparte werkruimten/tabs ondersteunen inkoop/RFQ, risico, varianten, versies en offerte.
 
 ## Bestaande data
 
