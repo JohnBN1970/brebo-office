@@ -1,0 +1,7 @@
+name: BREBO Resident Service
+core_version_requirement: ^10 || ^11
+type: module
+package: BREBO
+description: 'Bewoners, woningen, toegang, meldingen, klachten, service, schade, PDOK/BAG-scope en foto-annotaties voor BREBO Office.'
+dependencies:
+  - brebo_building_data:brebo_building_data

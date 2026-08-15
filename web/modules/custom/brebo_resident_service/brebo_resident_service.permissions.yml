@@ -1,0 +1,12 @@
+access brebo resident service:
+  title: 'BREBO bewonersservice bekijken'
+  description: 'Bekijk bewoners, woningen, meldingen, klachten en service.'
+
+manage brebo resident service:
+  title: 'BREBO bewonersservice beheren'
+  description: 'Maak en wijzig bewoners, toegang, meldingen, klachten en service.'
+
+manage brebo resident sensitive data:
+  title: 'BREBO gevoelige bewonersgegevens beheren'
+  description: 'Beheer contact-, toegangs- en privacygevoelige bewonersgegevens.'
+  restrict access: true

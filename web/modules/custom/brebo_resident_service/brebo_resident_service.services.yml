@@ -1,0 +1,35 @@
+services:
+  brebo_resident_service.address_scope_parser:
+    class: Drupal\brebo_resident_service\Service\AddressScopeParser
+
+  brebo_resident_service.pdok_bag_resolver:
+    class: Drupal\brebo_resident_service\Service\PdokBagResolver
+    arguments: ['@http_client']
+
+  brebo_resident_service.address_scope_intake:
+    class: Drupal\brebo_resident_service\Service\AddressScopeIntake
+    arguments:
+      - '@database'
+      - '@brebo_resident_service.address_scope_parser'
+      - '@brebo_resident_service.pdok_bag_resolver'
+
+  brebo_resident_service.access_contact_resolver:
+    class: Drupal\brebo_resident_service\Service\AccessContactResolver
+    arguments: ['@database']
+
+  brebo_resident_service.zone_access_readiness:
+    class: Drupal\brebo_resident_service\Service\ZoneAccessReadiness
+    arguments:
+      - '@database'
+      - '@brebo_resident_service.access_contact_resolver'
+
+  brebo_resident_service.work_package_access_readiness:
+    class: Drupal\brebo_resident_service\Service\WorkPackageAccessReadiness
+    arguments:
+      - '@brebo_resident_service.zone_access_readiness'
+
+  brebo_resident_service.look_ahead_access_readiness:
+    class: Drupal\brebo_resident_service\Service\LookAheadAccessReadiness
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_resident_service.work_package_access_readiness'

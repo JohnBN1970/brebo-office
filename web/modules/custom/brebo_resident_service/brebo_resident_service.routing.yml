@@ -1,0 +1,95 @@
+brebo_resident_service.dashboard:
+  path: '/brebo/bewoners'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidentServiceController::dashboard'
+    _title: 'Bewoners & service'
+  requirements:
+    _permission: 'access brebo resident service'
+
+brebo_resident_service.address_scopes:
+  path: '/brebo/bewoners/adresvoorstellen'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidentServiceController::addressScopes'
+    _title: 'Adresvoorstellen uit communicatie'
+  requirements:
+    _permission: 'manage brebo resident service'
+
+brebo_resident_service.address_scope_materialize:
+  path: '/brebo/bewoners/adresvoorstellen/{intake_id}/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_resident_service\Form\MaterializeAddressScopeForm'
+    _title: 'Adressen en woningen toevoegen'
+  requirements:
+    _permission: 'manage brebo resident service'
+    intake_id: '\d+'
+
+brebo_resident_service.building_residents:
+  path: '/node/{node}/woningen-bewoners'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\BuildingResidentController::overview'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\BuildingResidentController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_resident_service.residence_detail:
+  path: '/brebo/woning/{residence_id}'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidenceDetailController::detail'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ResidenceDetailController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    residence_id: '\d+'
+
+brebo_resident_service.access_contact_add:
+  path: '/brebo/toegang/{scope_type}/{scope_id}/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_resident_service\Form\AccessContactForm'
+    _title: 'Aanspreekpunt & toegang vastleggen'
+  requirements:
+    _permission: 'manage brebo resident service'
+    scope_type: 'project|building|technical_zone|residence'
+    scope_id: '\d+'
+
+brebo_resident_service.project_access:
+  path: '/node/{node}/toegang-aanspreekpunten'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ProjectAccessController::cockpit'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ProjectAccessController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_resident_service.project_look_ahead:
+  path: '/node/{node}/look-ahead-startgereed'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ProjectLookAheadController::cockpit'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ProjectLookAheadController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_resident_service.work_package_access:
+  path: '/node/{node}/toegang-startgereed'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\WorkPackageAccessController::cockpit'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\WorkPackageAccessController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
