@@ -1,0 +1,7 @@
+brebo_resident_service.dashboard:
+  path: '/brebo/bewoners'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidentServiceController::dashboard'
+    _title: 'Bewoners & service'
+  requirements:
+    _permission: 'access brebo resident service'
