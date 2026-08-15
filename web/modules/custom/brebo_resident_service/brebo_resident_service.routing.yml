@@ -5,3 +5,20 @@ brebo_resident_service.dashboard:
     _title: 'Bewoners & service'
   requirements:
     _permission: 'access brebo resident service'
+
+brebo_resident_service.address_scopes:
+  path: '/brebo/bewoners/adresvoorstellen'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ResidentServiceController::addressScopes'
+    _title: 'Adresvoorstellen uit communicatie'
+  requirements:
+    _permission: 'manage brebo resident service'
+
+brebo_resident_service.address_scope_materialize:
+  path: '/brebo/bewoners/adresvoorstellen/{intake_id}/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_resident_service\Form\MaterializeAddressScopeForm'
+    _title: 'Adressen en woningen toevoegen'
+  requirements:
+    _permission: 'manage brebo resident service'
+    intake_id: '\d+'
