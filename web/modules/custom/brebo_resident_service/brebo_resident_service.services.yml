@@ -27,3 +27,9 @@ services:
     class: Drupal\brebo_resident_service\Service\WorkPackageAccessReadiness
     arguments:
       - '@brebo_resident_service.zone_access_readiness'
+
+  brebo_resident_service.look_ahead_access_readiness:
+    class: Drupal\brebo_resident_service\Service\LookAheadAccessReadiness
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_resident_service.work_package_access_readiness'
