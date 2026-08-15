@@ -2,139 +2,99 @@
 
 declare(strict_types=1);
 
-/**
- * Implements hook_schema().
- */
+/** Implements hook_schema(). */
 function brebo_resident_service_schema(): array {
   $schema = [];
-
   $schema['brebo_residence'] = [
-    'description' => 'Projectgebonden woningen, adressen en overige gebruikseenheden.',
+    'description' => 'Canonical building-bound BAG addresses/use units for resident service.',
     'fields' => [
       'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
       'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'building_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_address_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'bag_nummeraanduiding_id' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'bag_verblijfsobject_id' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
       'address_line' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'street' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'house_number' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'house_letter' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'addition' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
       'postal_code' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
       'city' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
       'unit_code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'occupancy_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'occupied'],
+      'occupancy_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unknown'],
       'access_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unknown'],
       'access_notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'source' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
+      'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
     ],
     'primary key' => ['id'],
-    'indexes' => ['project' => ['project_id'], 'building' => ['building_id'], 'access_status' => ['access_status']],
+    'indexes' => ['project' => ['project_id'], 'building' => ['building_nid'], 'building_address' => ['building_address_id'], 'postal_house' => ['postal_code', 'house_number'], 'access_status' => ['access_status']],
   ];
-
+  $schema['brebo_address_scope_intake'] = [
+    'description' => 'Address/range fragments detected in communication and their PDOK/BAG resolution state.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'source_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'source_text' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'matched_text' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'street' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'range_from' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'range_to' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'range_parity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'all'],
+      'postal_code' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
+      'city' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'detected'],
+      'result_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'resolution_json' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'error_message' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'created_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'resolved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'materialized_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['building_status' => ['building_nid', 'status'], 'project_status' => ['project_id', 'status'], 'source' => ['source_type', 'source_id']],
+  ];
   $schema['brebo_resident'] = [
     'description' => 'Bewoners/contactpersonen gekoppeld aan een gebruikseenheid; minimale persoonsgegevens.',
     'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'residence_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'display_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'email' => ['type' => 'varchar', 'length' => 254, 'not null' => FALSE],
-      'phone' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'preferred_channel' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unknown'],
-      'contact_allowed' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
-      'privacy_notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => ['residence' => ['residence_id'], 'email' => ['email']],
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE], 'residence_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'display_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'email' => ['type' => 'varchar', 'length' => 254, 'not null' => FALSE], 'phone' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'preferred_channel' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unknown'], 'contact_allowed' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'privacy_notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ], 'primary key' => ['id'], 'indexes' => ['residence' => ['residence_id'], 'email' => ['email']],
   ];
-
   $schema['brebo_resident_case'] = [
     'description' => 'Meldingen, klachten, schade, servicevragen, toegangsproblemen en nazorg.',
     'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'case_number' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'case_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'melding'],
-      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'residence_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'resident_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'work_package_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'description' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'priority' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'normal'],
-      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
-      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'responsible_party_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'source' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
-      'reported_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'due_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'resolved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'resolution' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'resident_confirmed' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['case_number' => ['case_number']],
-    'indexes' => [
-      'project_status' => ['project_id', 'status'],
-      'residence' => ['residence_id'],
-      'resident' => ['resident_id'],
-      'owner_status' => ['owner_uid', 'status'],
-      'due_at' => ['due_at'],
-      'case_type' => ['case_type'],
-    ],
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE], 'case_number' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'case_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'melding'],
+      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'residence_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'resident_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'work_package_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'description' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'priority' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'normal'], 'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'responsible_party_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'source' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
+      'reported_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'due_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'resolved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'resolution' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'resident_confirmed' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ], 'primary key' => ['id'], 'unique keys' => ['case_number' => ['case_number']], 'indexes' => ['project_status' => ['project_id', 'status'], 'residence' => ['residence_id'], 'resident' => ['resident_id'], 'owner_status' => ['owner_uid', 'status'], 'due_at' => ['due_at'], 'case_type' => ['case_type']],
   ];
-
   $schema['brebo_resident_case_event'] = [
     'description' => 'Append-only tijdlijn voor communicatie, acties, statuswijzigingen en oplossingen.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'case_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'event_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'actor_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'task_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => ['case_created' => ['case_id', 'created'], 'communication' => ['communication_nid'], 'task' => ['task_id']],
+    'fields' => ['id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE], 'case_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'event_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'actor_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'communication_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'task_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]],
+    'primary key' => ['id'], 'indexes' => ['case_created' => ['case_id', 'created'], 'communication' => ['communication_nid'], 'task' => ['task_id']],
   ];
-
   $schema['brebo_photo'] = [
     'description' => 'Originele projectfoto als onveranderlijk bewijsobject.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'context_type' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
-      'context_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'sha256' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'original_uri' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
-      'captured_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => ['project' => ['project_id'], 'context' => ['context_type', 'context_id'], 'sha256' => ['sha256']],
+    'fields' => ['id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE], 'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'context_type' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'context_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'sha256' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'original_uri' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE], 'captured_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]],
+    'primary key' => ['id'], 'indexes' => ['project' => ['project_id'], 'context' => ['context_type', 'context_id'], 'sha256' => ['sha256']],
   ];
-
   $schema['brebo_photo_annotation'] = [
     'description' => 'Niet-destructieve annotatielaag boven een originele foto.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'photo_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'annotation_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
-      'geometry_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'style_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'linked_type' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
-      'linked_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => ['photo' => ['photo_id'], 'linked_object' => ['linked_type', 'linked_id']],
+    'fields' => ['id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE], 'photo_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'annotation_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'geometry_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'style_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'linked_type' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'linked_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]],
+    'primary key' => ['id'], 'indexes' => ['photo' => ['photo_id'], 'linked_object' => ['linked_type', 'linked_id']],
   ];
-
   return $schema;
 }
