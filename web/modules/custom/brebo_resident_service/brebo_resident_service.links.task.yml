@@ -9,3 +9,9 @@ brebo_resident_service.project_access:
   title: 'Toegang & aanspreekpunten'
   base_route: entity.node.canonical
   weight: 26
+
+brebo_resident_service.project_look_ahead:
+  route_name: brebo_resident_service.project_look_ahead
+  title: 'Look-ahead startgereed'
+  base_route: entity.node.canonical
+  weight: 27
