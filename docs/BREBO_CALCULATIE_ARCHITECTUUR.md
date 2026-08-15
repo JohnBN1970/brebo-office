@@ -11,9 +11,13 @@ De calculatie toont niet het onderliggende Drupal-datamodel. De gebruiker werkt 
 ```text
 Calculatie
   -> Hoofdgroep
-      -> Paragraaf
-          -> Calculatieregel
+      -> Paragraaf niveau 1
+          -> Paragraaf niveau 2 (optioneel)
+              -> Paragraaf niveau 3 (optioneel)
+                  -> Calculatieregels
 ```
+
+De paragraafstructuur is recursief: een paragraaf kan dus een andere paragraaf als parent hebben. Voor de normale gebruikerswerkplek ondersteunen we maximaal drie paragraafniveaus onder een hoofdgroep. Dit geeft voldoende diepte zonder dat de calculatie onleesbaar wordt.
 
 ## Classificatiesysteem op calculatieniveau
 
@@ -38,11 +42,11 @@ Een hoofdgroep bevat minimaal:
 
 Bij NL-SfB en STABU wordt de code uit de betreffende classificatie gekozen. Bij `Eigen` wordt de code en omschrijving door BREBO beheerd.
 
-Hoofdgroepen zijn structurele containers en bevatten geen losse kostprijslogica buiten de som van onderliggende paragrafen en regels.
+Hoofdgroepen zijn structurele containers. Hun financiële waarde wordt altijd berekend als de som van alle direct onderliggende paragrafen en daarmee indirect alle onderliggende regels.
 
 ## Paragraaf
 
-Onder iedere hoofdgroep kunnen één of meer paragrafen worden aangemaakt.
+Onder iedere hoofdgroep kunnen één of meer paragrafen worden aangemaakt. Een paragraaf kan vervolgens zelf weer één of meer subparagrafen bevatten.
 
 Een paragraaf heeft twee mogelijke bronnen:
 
@@ -52,6 +56,8 @@ Een paragraaf heeft twee mogelijke bronnen:
 De paragraaf bevat minimaal:
 
 - parent-hoofdgroep;
+- optionele parent-paragraaf;
+- niveau: 1, 2 of 3;
 - bron: `nlsfb_detail` of `eigen`;
 - paragraafcode;
 - paragraafomschrijving;
@@ -59,11 +65,22 @@ De paragraaf bevat minimaal:
 - optionele interne notitie;
 - actieve/inactieve status.
 
-Een calculatie mag dus bijvoorbeeld een NL-SfB-hoofdstructuur hebben met daaronder deels NL-SfB-detailparagrafen en deels praktische eigen paragrafen.
+Een calculatie mag dus bijvoorbeeld een NL-SfB-hoofdstructuur hebben met daaronder deels NL-SfB-detailparagrafen en deels praktische eigen paragrafen, ook gemengd over meerdere niveaus.
+
+## Regels voor de boomstructuur
+
+- Een paragraaf niveau 1 hangt rechtstreeks onder een hoofdgroep.
+- Een paragraaf niveau 2 hangt onder een paragraaf niveau 1.
+- Een paragraaf niveau 3 hangt onder een paragraaf niveau 2.
+- Alleen een eindparagraaf (leaf) bevat calculatieregels.
+- Een paragraaf die subparagrafen bevat, is uitsluitend een subtotalisatie-/structuurniveau en bevat zelf geen calculatieregels.
+- Wanneer een paragraaf later subparagrafen krijgt, moeten bestaande regels eerst gecontroleerd naar een eindparagraaf worden verplaatst; BREBO Office mag niet stilzwijgend een gemengde structuur creëren.
+
+Hierdoor blijft iedere euro exact herleidbaar en is er nooit twijfel of een bedrag uit regels of uit onderliggende paragrafen bestaat.
 
 ## Calculatieregel
 
-Een calculatieregel hangt altijd onder een paragraaf.
+Een calculatieregel hangt altijd onder de laatste/eindparagraaf in een tak.
 
 De primaire regelweergave bevat alleen de gegevens die nodig zijn om snel te calculeren:
 
@@ -82,11 +99,35 @@ Specialistische velden zoals normuren, uurtarief, afval, prijsbron, leverancier,
 
 ## Totalisering
 
-Totalisering volgt altijd de hiërarchie:
+Totalisering volgt altijd bottom-up de volledige boom.
+
+Voorbeeld:
 
 ```text
-Regels -> Paragraaf -> Hoofdgroep -> Directe kosten calculatie
+Hoofdgroep 31                         € 125.000
+  Paragraaf 31.1                     € 80.000
+    Paragraaf 31.1.1                 € 50.000
+      Regels                         € 50.000
+    Paragraaf 31.1.2                 € 30.000
+      Regels                         € 30.000
+  Paragraaf 31.2                     € 45.000
+    Regels                           € 45.000
 ```
+
+De regels zijn dus:
+
+```text
+Calculatieregels
+  -> totaal eindparagraaf
+  -> totaal parent-paragraaf
+  -> totaal eventueel hogere parent-paragraaf
+  -> totaal hoofdgroep
+  -> directe kosten calculatie
+```
+
+Een parent-paragraaf is altijd exact de som van zijn directe child-paragrafen. Een eindparagraaf is altijd exact de som van zijn onderliggende calculatieregels. De hoofdgroep is altijd exact de som van zijn directe paragrafen.
+
+Totalen worden afgeleid en zijn nooit vrij handmatig overschrijfbaar.
 
 Daarboven wordt de commerciële opbouw afzonderlijk getoond:
 
@@ -139,9 +180,12 @@ Classificatie vervangt dus niet de gebouwstructuur. Beide dimensies blijven naas
 De standaard calculatiewerkplek is een spreadsheetachtige hiërarchische tabel:
 
 - hoofdgroepen inklapbaar;
-- paragrafen inklapbaar;
+- paragraafniveau 1, 2 en 3 afzonderlijk inklapbaar;
+- inspringing maakt de hiërarchie direct zichtbaar;
+- parent-paragrafen tonen hun live subtotalen;
+- alleen eindparagrafen tonen/toestaan dat calculatieregels worden toegevoegd;
 - regels direct bewerkbaar;
-- totalen per paragraaf en hoofdgroep live zichtbaar;
+- totalen per eindparagraaf, parent-paragraaf en hoofdgroep live zichtbaar;
 - detailvelden alleen op aanvraag;
 - rechter- of onderpaneel met live kostprijsopbouw;
 - aparte werkruimten/tabs voor inkoop/RFQ, risico, varianten, versies en offerte.
