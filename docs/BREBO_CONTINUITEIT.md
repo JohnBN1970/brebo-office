@@ -84,9 +84,13 @@ Vastgelegd en/of gebouwd:
 - leegstand geeft nooit automatisch toestemming tot betreden;
 - een lege woning kan startgereed zijn zonder bewonerscontact wanneer bevoegde toegang aantoonbaar is geregeld;
 - projectcockpit toont toegang/startgereedheid en leegstand afzonderlijk;
-- `ZoneAccessReadiness` berekent nu startgereedheid voor een technische zone/cluster binnen een project;
+- `ZoneAccessReadiness` berekent startgereedheid voor een technische zone/cluster binnen een project;
 - een zone zonder woningen in technische scope veroorzaakt niet automatisch woningregistratie: readiness wordt dan op zone/gebouw/projectniveau beoordeeld;
 - wanneer een zone wel woningen bevat, wordt alleen die expliciete technische scope beoordeeld en worden bewoning en toegang afzonderlijk meegenomen;
+- `WorkPackageAccessReadiness` vertaalt de technische-zone-readiness nu naar het gekoppelde `brebo_work_package`;
+- werkpakketten hebben een cockpit `/node/{node}/toegang-startgereed` met percentage, aantallen, blokkades en detailregels;
+- een werkpakket met ongeregelde verplichte toegang krijgt de operationele status `GEBLOKKEERD`; bij volledig geregelde toegang `GEREED`;
+- de bestaande `brebo_release_gate` blijft het formele vrijgaveobject en wordt niet gedupliceerd; toegangsreadiness levert het bewijs/input voor die poort;
 - de huidige koppeling van legacy `brebo_dwelling` naar de BAG-backed residence gebruikt tijdelijk het adres als bridge; dit moet bij de canonieke migratie een directe referentie worden.
 
 ## PDOK/BAG-principe
@@ -119,7 +123,7 @@ Project: centrale bewonersbegeleider
           -> Woning: specifieke afspraak met bewoner
 ```
 
-De meest specifieke geldige regel geldt. Wanneer toegang voor een activiteit vereist is, moet de effectieve toegangsstatus onderdeel worden van de startgereedheidscontrole en look-ahead-planning.
+De meest specifieke geldige regel geldt. Wanneer toegang voor een activiteit vereist is, wordt de effectieve toegangsstatus onderdeel van de startgereedheidscontrole en vervolgens input voor de bestaande release-gate van het werkpakket.
 
 De technische zone bepaalt daarbij de operationele populatie. Geen woningniveau in de technische scope betekent geen kunstmatig gegenereerde woningverplichting. Bij expliciete woningscope wordt readiness uitsluitend over die woningen berekend.
 
@@ -131,8 +135,8 @@ De actuele bewoners/service-bouwslag bevindt zich op `agent/resident-service-mod
 
 ## Eerstvolgende technische punten
 
-1. `ZoneAccessReadiness` zichtbaar maken in de technische-zone/werkpakket-cockpit met aantallen en percentage startgereed.
-2. Toegangsreadiness koppelen aan planning/look-ahead en startvrijgave van werkpakketten.
+1. Toegangsreadiness als automatische beoordeling/input aansluiten op bestaande `brebo_release_gate`-records van het werkpakket, zonder menselijke formele vrijgave te omzeilen.
+2. Dezelfde readiness opnemen in planning/look-ahead zodat komende werkpakketten vroegtijdig rood/oranje/groen worden gesignaleerd.
 3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence, zodat de tijdelijke adres-bridge verdwijnt.
 4. De oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
 5. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
