@@ -6,6 +6,8 @@ namespace Drupal\brebo_resident_service\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Link;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -53,8 +55,12 @@ final class BuildingResidentController extends ControllerBase {
       $caseQuery = $this->database->select('brebo_resident_case', 'c')->condition('residence_id', (int) $residence->id)->condition('status', ['closed', 'cancelled'], 'NOT IN');
       $residenceOpenCases = (int) $caseQuery->countQuery()->execute()->fetchField();
       $openCases += $residenceOpenCases;
+      $addressLink = Link::fromTextAndUrl(
+        (string) $residence->address_line,
+        Url::fromRoute('brebo_resident_service.residence_detail', ['residence_id' => (int) $residence->id]),
+      )->toRenderable();
       $rows[] = [
-        $residence->address_line,
+        ['data' => $addressLink],
         $residence->bag_verblijfsobject_id ?: $residence->bag_nummeraanduiding_id ?: '—',
         ucfirst(str_replace('_', ' ', (string) $residence->occupancy_status)),
         ucfirst(str_replace('_', ' ', (string) $residence->access_status)),
