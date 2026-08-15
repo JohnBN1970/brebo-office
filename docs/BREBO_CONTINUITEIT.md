@@ -83,7 +83,11 @@ Vastgelegd en/of gebouwd:
 - bewoningsstatus, contactstatus, toegangsstatus en startgereedheid zijn afzonderlijke begrippen;
 - leegstand geeft nooit automatisch toestemming tot betreden;
 - een lege woning kan startgereed zijn zonder bewonerscontact wanneer bevoegde toegang aantoonbaar is geregeld;
-- projectcockpit toont toegang/startgereedheid en leegstand afzonderlijk.
+- projectcockpit toont toegang/startgereedheid en leegstand afzonderlijk;
+- `ZoneAccessReadiness` berekent nu startgereedheid voor een technische zone/cluster binnen een project;
+- een zone zonder woningen in technische scope veroorzaakt niet automatisch woningregistratie: readiness wordt dan op zone/gebouw/projectniveau beoordeeld;
+- wanneer een zone wel woningen bevat, wordt alleen die expliciete technische scope beoordeeld en worden bewoning en toegang afzonderlijk meegenomen;
+- de huidige koppeling van legacy `brebo_dwelling` naar de BAG-backed residence gebruikt tijdelijk het adres als bridge; dit moet bij de canonieke migratie een directe referentie worden.
 
 ## PDOK/BAG-principe
 
@@ -117,6 +121,8 @@ Project: centrale bewonersbegeleider
 
 De meest specifieke geldige regel geldt. Wanneer toegang voor een activiteit vereist is, moet de effectieve toegangsstatus onderdeel worden van de startgereedheidscontrole en look-ahead-planning.
 
+De technische zone bepaalt daarbij de operationele populatie. Geen woningniveau in de technische scope betekent geen kunstmatig gegenereerde woningverplichting. Bij expliciete woningscope wordt readiness uitsluitend over die woningen berekend.
+
 ## Huidige ontwikkelfase
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt de centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit moet deze bestaande ruggengraat gebruiken en geen parallelle objectstructuren introduceren.
@@ -125,13 +131,14 @@ De actuele bewoners/service-bouwslag bevindt zich op `agent/resident-service-mod
 
 ## Eerstvolgende technische punten
 
-1. Technische zones expliciet verbinden met de toegangscockpit en bepalen welke woningen/gebruiksobjecten voor een zone/werkpakket in scope zijn.
+1. `ZoneAccessReadiness` zichtbaar maken in de technische-zone/werkpakket-cockpit met aantallen en percentage startgereed.
 2. Toegangsreadiness koppelen aan planning/look-ahead en startvrijgave van werkpakketten.
-3. De oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
-4. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
-5. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
-6. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
-7. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` blijven binnen de bredere canonieke consolidatie te beoordelen/migreren zonder dataverlies.
+3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence, zodat de tijdelijke adres-bridge verdwijnt.
+4. De oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
+5. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
+6. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
+7. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
+8. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` blijven binnen de bredere canonieke consolidatie te beoordelen/migreren zonder dataverlies.
 
 ## Integration API en deployment
 
