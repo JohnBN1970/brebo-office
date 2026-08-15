@@ -15,16 +15,18 @@ Lees eerst, in deze volgorde:
 3. `docs/CIM.md`;
 4. `docs/ROADMAP.md`;
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
-6. de actuele GitHub-stand van `develop` en open pull requests.
+6. dit continuïteitsdocument;
+7. de actuele GitHub-stand van `develop` en open pull requests.
 
 Verzin geen nieuwe architectuur wanneer een onderwerp al in deze bronnen is vastgesteld.
 
 ## Vaste functionele uitgangspunten
 
 - Het gebouw staat centraal.
-- Het gebouw is het permanente beheerde object en blijft over meerdere projecten bestaan.
-- Een project is een tijdelijke uitvoeringseenheid rond een of meer gebouwen.
+- Het gebouw is het permanente beheerde object en de projectoverstijgende verzamelplaats/kaartenbak van gebouwinformatie.
+- Een project is een tijdelijke uitvoeringseenheid en het stuurmechanisme voor scope, tijd, geld, mensen, toegang, uitvoering en kwaliteit rond een of meer gebouwen.
 - Projectscope selecteert tijdelijk welke permanente gebouwobjecten binnen een opdracht vallen.
+- Technische zones bepalen welk technisch detailniveau voor de uitvoering nodig is; woning-, ruimte- of elementinformatie wordt alleen verlangd wanneer de technische zone/scope dat vereist.
 - BMS en CIM zijn leidend; Drupal is de technische vertaling.
 - Eén keer vastleggen, overal hergebruiken.
 - Persoonlijke mailboxen, WhatsApp, telefoon en losse berichten zijn aanvoerkanalen, geen blijvende primaire waarheid.
@@ -34,38 +36,102 @@ Verzin geen nieuwe architectuur wanneer een onderwerp al in deze bronnen is vast
 
 ## Actuele objectstructuur
 
-De huidige code bevat onder andere:
-
 ```text
-Gebouw
-  -> gebouwzone / cluster
-      -> woning / ruimte
-          -> productpositie
+Relatie = met wie BREBO zaken doet
 
-Project
+Gebouw = permanente projectoverstijgende gebouwkennis
+  -> BAG/PDOK-adressen en gebruikseenheden
+  -> gebouwzone / technische zone / cluster
+      -> woning / ruimte indien technisch relevant
+          -> productpositie / element indien technisch relevant
+  -> permanente documentatie, historie en gerealiseerde gebouwkennis
+
+Project = tijdelijke operationele sturing
+  -> een of meer gebouwen
   -> projectscope per gebouw
-      -> selectie van permanente gebouwobjecten
+      -> selectie van permanente gebouwobjecten / technische zones
+  -> WBS / werkpakketten
+  -> planning, toegang, taken, inkoop, financiën, uitvoering, kwaliteit en oplevering
+
+Toegang & aanspreekpunt = zelfstandige operationele laag
+  Project -> Gebouw -> Technische zone -> Woning
+  meest specifieke geldige afspraak wint
 ```
 
-Daarnaast bestaan reeds objecten en functies voor communicatie, controles/verificaties, afwijkingen, werkpakketten, vrijgavepoorten, projectroutes/procesvereisten, organisaties/contacten en financiële/calculatieprocessen.
+Gebouw levert kennis aan het project. Het project bestuurt de uitvoering. Na oplevering vloeit gerealiseerde, blijvende gebouwkennis terug naar het gebouw.
+
+## Bewoners, woningen, toegang en service
+
+De branch `agent/resident-service-module` / draft PR #286 bevat de nieuwe module `brebo_resident_service`.
+
+Vastgelegd en/of gebouwd:
+
+- koppeling aan het canonieke `brebo_building`; geen tweede gebouwmodel;
+- `building_nid` is de gebouwkoppeling voor woningen/gebruiksobjecten;
+- vrije adres- en huisnummerranges uit communicatie kunnen als scopevoorstel worden herkend;
+- PDOK/BAG valideert de werkelijk bestaande adressen/gebruiksobjecten voordat deze worden gematerialiseerd;
+- broncommunicatie en herkomst van een adresvoorstel blijven bewaard;
+- gebouwpagina toont woningen/gebruiksobjecten en bewoners/servicecontext;
+- permanent digitaal woningdossier is beschikbaar, maar technische woninginformatie wordt alleen gebruikt wanneer de technische zone dat vereist;
+- meldingen, klachten, schade en service/nazorg kunnen aan woning/project worden gekoppeld;
+- foto's zijn onveranderlijke bewijsobjecten met afzonderlijke niet-destructieve annotatielagen;
+- annotaties kunnen pijlen, vormen, vrije markering, pins/nummers en tekst vertegenwoordigen en aan dossierobjecten worden gekoppeld;
+- toegang en aanspreekpunt zijn niet afhankelijk van technische woningdetaillering;
+- toegang/contact kan worden vastgelegd op project-, gebouw-, technische-zone- en woningniveau;
+- effectieve toegang erft van specifiek naar algemeen: woning -> technische zone -> gebouw -> project;
+- toegang kan een formele startvoorwaarde voor uitvoering zijn;
+- bewoningsstatus, contactstatus, toegangsstatus en startgereedheid zijn afzonderlijke begrippen;
+- leegstand geeft nooit automatisch toestemming tot betreden;
+- een lege woning kan startgereed zijn zonder bewonerscontact wanneer bevoegde toegang aantoonbaar is geregeld;
+- projectcockpit toont toegang/startgereedheid en leegstand afzonderlijk.
+
+## PDOK/BAG-principe
+
+Adres- en woninginformatie wordt waar mogelijk niet handmatig overgetypt. Een opgegeven huisnummerreeks uit ondersteunde communicatie wordt eerst geïnterpreteerd en daarna tegen de officiële BAG via PDOK gevalideerd. BREBO genereert geen fictieve tussenliggende huisnummers. BAG-identiteiten zijn leidend voor deduplicatie en projectoverstijgende herkenning van dezelfde gebruikseenheid.
+
+De keten is:
+
+```text
+communicatie / aanvraag / notitie / import
+  -> adres- of rangeherkenning
+  -> PDOK/BAG-validatie
+  -> scopevoorstel
+  -> menselijke bevestiging waar vereist
+  -> canoniek gebouw
+  -> officiële adressen/gebruiksobjecten
+  -> projectscope en operationele sturing
+```
+
+## Toegang en aanspreekpunt
+
+Toegang en aanspreekpunt vormen een zelfstandige operationele laag. Algemene afspraken mogen hoger in de hiërarchie worden vastgelegd en hoeven niet per woning te worden gedupliceerd.
+
+Voorbeeld:
+
+```text
+Project: centrale bewonersbegeleider
+  -> Gebouw: sleutelbeheer via huismeester
+      -> Technische zone: woningtoegang vereist
+          -> Woning: specifieke afspraak met bewoner
+```
+
+De meest specifieke geldige regel geldt. Wanneer toegang voor een activiteit vereist is, moet de effectieve toegangsstatus onderdeel worden van de startgereedheidscontrole en look-ahead-planning.
 
 ## Huidige ontwikkelfase
 
-BREBO Office bevindt zich tussen fase 2 en fase 3 van de roadmap:
+BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt de centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit moet deze bestaande ruggengraat gebruiken en geen parallelle objectstructuren introduceren.
 
-- fase 2: canoniek gebouw- en projectmodel consolideren;
-- fase 3: centrale dossierlaag toetsen op samenhang, doublures en hiaten.
-
-De eerstvolgende ontwikkelopgave is niet een nieuw Projectdossier bouwen, maar de bestaande structuur canoniek maken.
+De actuele bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en is nog niet als productie-deployment beschouwd zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
-1. Historische verplichte `Cluster -> Project`-relatie veilig ontwarren van de permanente gebouwstructuur.
-2. Legacy `field_brebo_location` op Project beoordelen tegenover Gebouw.
-3. Relaties technisch beschermen tegen koppelingen naar objecten uit het verkeerde gebouw.
-4. Bestaande data zonder verlies migreren.
-5. Daarna vaststellen welke canonieke lagen voor acties, signalen, risico's, besluiten, garanties, feedback en leren reeds bestaan of nog ontbreken.
-6. Vervolgens Migrerende Mail Intake realiseren op de bestaande communicatiestructuur.
+1. Technische zones expliciet verbinden met de toegangscockpit en bepalen welke woningen/gebruiksobjecten voor een zone/werkpakket in scope zijn.
+2. Toegangsreadiness koppelen aan planning/look-ahead en startvrijgave van werkpakketten.
+3. De oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
+4. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
+5. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
+6. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
+7. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` blijven binnen de bredere canonieke consolidatie te beoordelen/migreren zonder dataverlies.
 
 ## Integration API en deployment
 
@@ -77,25 +143,14 @@ De eerstvolgende ontwikkelopgave is niet een nieuw Projectdossier bouwen, maar d
 - Deze geparkeerde controle blokkeert de functionele ontwikkeling niet.
 - Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route; geen ad-hoc handmatige Git-merge op de server.
 
-## Actuele documentatie-PR
-
-PR #90 op branch `docs/cim-reference` bevat de actuele consolidatiedocumentatie, waaronder:
-
-- `docs/CIM.md`;
-- `docs/APPENDIX_A.md`;
-- `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
-- bijgewerkte `docs/ROADMAP.md`;
-- dit continuïteitsdocument;
-- bijgewerkte documentindex.
-
-Controleer bij een nieuwe sessie altijd of deze PR inmiddels is gemerged en wat de actuele `develop`-HEAD is.
-
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
+
+Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer de actuele architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert. Alleen in de chat melden dat de continuïteit is bijgewerkt is niet voldoende.
 
 ## Beheer
 
 Werk dit document bij wanneer een belangrijke mijlpaal, architectuurbesluit, merge, deploymentwijziging of wijziging van de eerstvolgende ontwikkelstap plaatsvindt.
 
-Laatst bijgewerkt: 11 augustus 2026.
+Laatst bijgewerkt: 15 augustus 2026.
