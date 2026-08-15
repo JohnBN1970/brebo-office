@@ -52,5 +52,18 @@ brebo_resident_service.access_contact_add:
     _title: 'Aanspreekpunt & toegang vastleggen'
   requirements:
     _permission: 'manage brebo resident service'
-    scope_type: 'building|technical_zone|residence'
+    scope_type: 'project|building|technical_zone|residence'
     scope_id: '\d+'
+
+brebo_resident_service.project_access:
+  path: '/node/{node}/toegang-aanspreekpunten'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ProjectAccessController::cockpit'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ProjectAccessController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
