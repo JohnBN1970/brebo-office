@@ -1,0 +1,5 @@
+brebo_resident_service.building_residents:
+  route_name: brebo_resident_service.building_residents
+  title: 'Woningen & bewoners'
+  base_route: entity.node.canonical
+  weight: 25
