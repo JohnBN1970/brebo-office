@@ -23,28 +23,35 @@ final class AccessContactForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state, string $scope_type = 'building', int $scope_id = 0): array {
-    if (!in_array($scope_type, ['building', 'technical_zone', 'residence'], TRUE) || $scope_id <= 0) {
+    if (!in_array($scope_type, ['project', 'building', 'technical_zone', 'residence'], TRUE) || $scope_id <= 0) {
       throw new NotFoundHttpException();
     }
 
-    $buildingNid = 0;
+    $buildingNid = NULL;
     $technicalZoneId = NULL;
     $residenceId = NULL;
-    if ($scope_type === 'building') {
+    $projectId = NULL;
+    if ($scope_type === 'project') {
+      $projectId = $scope_id;
+    }
+    elseif ($scope_type === 'building') {
       $buildingNid = $scope_id;
+      $projectId = $this->getRequest()->query->getInt('project_id') ?: NULL;
     }
     elseif ($scope_type === 'residence') {
-      $residence = $this->database->select('brebo_residence', 'r')->fields('r', ['building_nid'])->condition('id', $scope_id)->execute()->fetchAssoc();
+      $residence = $this->database->select('brebo_residence', 'r')->fields('r', ['building_nid', 'project_id'])->condition('id', $scope_id)->execute()->fetchAssoc();
       if (!$residence) {
         throw new NotFoundHttpException();
       }
       $buildingNid = (int) $residence['building_nid'];
+      $projectId = !empty($residence['project_id']) ? (int) $residence['project_id'] : NULL;
       $residenceId = $scope_id;
     }
     else {
-      $buildingNid = (int) $this->getRequest()->query->get('building_nid', 0);
+      $buildingNid = $this->getRequest()->query->getInt('building_nid') ?: NULL;
+      $projectId = $this->getRequest()->query->getInt('project_id') ?: NULL;
       $technicalZoneId = $scope_id;
-      if ($buildingNid <= 0) {
+      if (!$buildingNid) {
         throw new NotFoundHttpException();
       }
     }
@@ -54,9 +61,9 @@ final class AccessContactForm extends FormBase {
     $form['building_nid'] = ['#type' => 'hidden', '#value' => $buildingNid];
     $form['technical_zone_id'] = ['#type' => 'hidden', '#value' => $technicalZoneId];
     $form['residence_id'] = ['#type' => 'hidden', '#value' => $residenceId];
-    $form['project_id'] = ['#type' => 'number', '#title' => $this->t('Project-ID'), '#min' => 1, '#required' => FALSE];
+    $form['project_id'] = ['#type' => 'number', '#title' => $this->t('Project-ID'), '#min' => 1, '#required' => $scope_type === 'project', '#default_value' => $projectId, '#disabled' => $scope_type === 'project'];
     $form['contact_name'] = ['#type' => 'textfield', '#title' => $this->t('Aanspreekpunt'), '#maxlength' => 255];
-    $form['contact_role'] = ['#type' => 'textfield', '#title' => $this->t('Rol'), '#description' => $this->t('Bijvoorbeeld bewoner, huismeester, beheerder of opdrachtgever.')];
+    $form['contact_role'] = ['#type' => 'textfield', '#title' => $this->t('Rol'), '#description' => $this->t('Bijvoorbeeld bewonersbegeleider, bewoner, huismeester, beheerder of opdrachtgever.')];
     $form['email'] = ['#type' => 'email', '#title' => $this->t('E-mail')];
     $form['phone'] = ['#type' => 'tel', '#title' => $this->t('Telefoon')];
     $form['preferred_channel'] = ['#type' => 'select', '#title' => $this->t('Voorkeurskanaal'), '#options' => ['unknown' => 'Onbekend', 'phone' => 'Telefoon', 'email' => 'E-mail', 'whatsapp' => 'WhatsApp', 'other' => 'Anders'], '#default_value' => 'unknown'];
@@ -81,7 +88,7 @@ final class AccessContactForm extends FormBase {
       'project_id' => $form_state->getValue('project_id') ?: NULL,
       'scope_type' => $form_state->getValue('scope_type'),
       'scope_id' => (int) $form_state->getValue('scope_id'),
-      'building_nid' => (int) $form_state->getValue('building_nid'),
+      'building_nid' => $form_state->getValue('building_nid') ?: 0,
       'technical_zone_id' => $form_state->getValue('technical_zone_id') ?: NULL,
       'residence_id' => $form_state->getValue('residence_id') ?: NULL,
       'contact_name' => trim((string) $form_state->getValue('contact_name')) ?: NULL,
@@ -107,8 +114,11 @@ final class AccessContactForm extends FormBase {
     if ($form_state->getValue('scope_type') === 'residence') {
       $form_state->setRedirect('brebo_resident_service.residence_detail', ['residence_id' => (int) $form_state->getValue('scope_id')]);
     }
-    else {
+    elseif ($form_state->getValue('building_nid')) {
       $form_state->setRedirect('brebo_resident_service.building_residents', ['node' => (int) $form_state->getValue('building_nid')]);
+    }
+    else {
+      $form_state->setRedirect('<front>');
     }
   }
 }
