@@ -1,0 +1,14 @@
+services:
+  brebo_resident_service.address_scope_parser:
+    class: Drupal\brebo_resident_service\Service\AddressScopeParser
+
+  brebo_resident_service.pdok_bag_resolver:
+    class: Drupal\brebo_resident_service\Service\PdokBagResolver
+    arguments: ['@http_client']
+
+  brebo_resident_service.address_scope_intake:
+    class: Drupal\brebo_resident_service\Service\AddressScopeIntake
+    arguments:
+      - '@database'
+      - '@brebo_resident_service.address_scope_parser'
+      - '@brebo_resident_service.pdok_bag_resolver'
