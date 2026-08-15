@@ -46,17 +46,14 @@ final class ProjectAccessController extends ControllerBase {
         $occupancyStatus = 'unknown';
       }
       $occupancy[$occupancyStatus]++;
-
       $effective = $this->resolver->resolve((int) $residence->building_nid, NULL, (int) $residence->id, $projectId);
       $status = $effective['access_status'] ?? 'unknown';
       $ready = $effective ? $this->resolver->isReady($effective) : FALSE;
       $bucket = $ready ? 'ready' : (array_key_exists($status, $counts) ? $status : 'unknown');
       $counts[$bucket]++;
-
       if (in_array($occupancyStatus, ['vacant', 'temporarily_vacant'], TRUE)) {
         $ready ? $vacantReady++ : $vacantAttention++;
       }
-
       $buildingId = (int) $residence->building_nid;
       $buildingCounts[$buildingId] ??= ['total' => 0, 'ready' => 0, 'attention' => 0, 'vacant' => 0];
       $buildingCounts[$buildingId]['total']++;
@@ -64,13 +61,12 @@ final class ProjectAccessController extends ControllerBase {
       if (in_array($occupancyStatus, ['vacant', 'temporarily_vacant'], TRUE)) {
         $buildingCounts[$buildingId]['vacant']++;
       }
-
       $address = Link::fromTextAndUrl((string) $residence->address_line, Url::fromRoute('brebo_resident_service.residence_detail', ['residence_id' => (int) $residence->id]))->toRenderable();
       $rows[] = [
-        ['data' => $address], $buildingId,
-        ucfirst(str_replace('_', ' ', $occupancyStatus)),
+        ['data' => $address], $buildingId, ucfirst(str_replace('_', ' ', $occupancyStatus)),
         $effective['contact_name'] ?? '—', $effective['contact_role'] ?? '—', $effective['access_via'] ?? '—',
-        ucfirst(str_replace('_', ' ', $status)), $effective['inherited_from'] ?? '—', $ready ? $this->t('Gereed') : $this->t('Aandacht'),
+        ucfirst(str_replace('_', ' ', $status)), $effective['inherited_from'] ?? '—',
+        ['data' => ['#markup' => '<span class="brebo-status ' . ($ready ? 'brebo-status--positive' : 'brebo-status--attention') . '">' . ($ready ? $this->t('Gereed') : $this->t('Aandacht')) . '</span>']],
       ];
     }
 
@@ -80,21 +76,53 @@ final class ProjectAccessController extends ControllerBase {
       $buildingRows[] = [Link::fromTextAndUrl((string) $label, Url::fromRoute('brebo_resident_service.building_residents', ['node' => $buildingId]))->toRenderable(), $stats['total'], $stats['vacant'], $stats['ready'], $stats['attention']];
     }
 
-    $items = [
-      $this->t('Gereed: @n', ['@n' => $counts['ready']]), $this->t('Nog regelen: @n', ['@n' => $counts['to_arrange']]),
-      $this->t('Geen contact: @n', ['@n' => $counts['no_contact']]), $this->t('Geweigerd: @n', ['@n' => $counts['refused']]),
-      $this->t('Geblokkeerd: @n', ['@n' => $counts['blocked']]), $this->t('Onbekend: @n', ['@n' => $counts['unknown']]),
-      $this->t('Leegstaand: @n (gereed @ready / aandacht @attention)', ['@n' => $occupancy['vacant'] + $occupancy['temporarily_vacant'], '@ready' => $vacantReady, '@attention' => $vacantAttention]),
-    ];
-    if ($projectAccess) {
-      $items[] = $this->t('Projectaanspreekpunt: @name (@role)', ['@name' => $projectAccess['contact_name'] ?: '—', '@role' => $projectAccess['contact_role'] ?: '—']);
-    }
+    $total = array_sum($counts);
+    $attention = $total - $counts['ready'] - $counts['not_needed'];
+    $vacant = $occupancy['vacant'] + $occupancy['temporarily_vacant'];
+    $percentage = $total > 0 ? round(($counts['ready'] / $total) * 100, 1) : 100;
+    $contactLabel = $projectAccess
+      ? trim(($projectAccess['contact_name'] ?: '—') . ' · ' . ($projectAccess['contact_role'] ?: '—'), ' ·')
+      : (string) $this->t('Niet vastgelegd');
 
     return [
-      'actions' => ['#type' => 'container', 'add' => Link::fromTextAndUrl($this->t('Projectaanspreekpunt / toegangsregel toevoegen'), Url::fromRoute('brebo_resident_service.access_contact_add', ['scope_type' => 'project', 'scope_id' => $projectId]))->toRenderable()],
-      'summary' => ['#theme' => 'item_list', '#items' => $items],
-      'buildings' => ['#type' => 'table', '#caption' => $this->t('Per gebouw'), '#header' => ['Gebouw', 'In scope', 'Leegstaand', 'Gereed', 'Aandacht'], '#rows' => $buildingRows, '#empty' => $this->t('Geen woningen aan dit project gekoppeld.')],
-      'residences' => ['#type' => 'table', '#caption' => $this->t('Toegang per woning'), '#header' => ['Adres', 'Gebouw', 'Bewoning', 'Aanspreekpunt', 'Rol', 'Toegang via', 'Status', 'Bron regel', 'Startgereed'], '#rows' => $rows, '#empty' => $this->t('Geen woningen aan dit project gekoppeld.')],
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-cockpit']],
+      'header' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-cockpit__header']],
+        'intro' => ['#markup' => '<p class="brebo-cockpit__intro">' . $this->t('Operationeel overzicht van toegang en aanspreekpunten. Bewoning en toegang worden afzonderlijk beoordeeld; leegstand betekent niet automatisch vrije toegang.') . '</p>'],
+        'actions' => [
+          '#type' => 'container', '#attributes' => ['class' => ['brebo-actions']],
+          'add' => Link::fromTextAndUrl($this->t('Toegangsregel toevoegen'), Url::fromRoute('brebo_resident_service.access_contact_add', ['scope_type' => 'project', 'scope_id' => $projectId]))->toRenderable(),
+        ],
+      ],
+      'kpis' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-kpis']],
+        'ready' => ['#markup' => '<div class="brebo-kpi brebo-kpi--positive"><span class="brebo-kpi__value">' . $percentage . '%</span><span class="brebo-kpi__label">Startgereed</span></div>'],
+        'attention' => ['#markup' => '<div class="brebo-kpi ' . ($attention > 0 ? 'brebo-kpi--attention' : 'brebo-kpi--positive') . '"><span class="brebo-kpi__value">' . $attention . '</span><span class="brebo-kpi__label">Aandacht toegang</span></div>'],
+        'vacant' => ['#markup' => '<div class="brebo-kpi brebo-kpi--neutral"><span class="brebo-kpi__value">' . $vacant . '</span><span class="brebo-kpi__label">Leegstaand · ' . $vacantReady . ' gereed / ' . $vacantAttention . ' aandacht</span></div>'],
+        'contact' => ['#markup' => '<div class="brebo-kpi brebo-kpi--neutral"><span class="brebo-kpi__value" style="font-size:1rem">' . htmlspecialchars($contactLabel, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-kpi__label">Projectaanspreekpunt</span></div>'],
+      ],
+      'exceptions' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-section']],
+        'header' => ['#markup' => '<div class="brebo-section__header"><h2 class="brebo-section__title">' . $this->t('Uitzonderingen') . '</h2></div>'],
+        'items' => ['#theme' => 'item_list', '#items' => [
+          $this->t('Nog regelen: @n', ['@n' => $counts['to_arrange']]),
+          $this->t('Geen contact: @n', ['@n' => $counts['no_contact']]),
+          $this->t('Geweigerd: @n', ['@n' => $counts['refused']]),
+          $this->t('Geblokkeerd: @n', ['@n' => $counts['blocked']]),
+          $this->t('Onbekend: @n', ['@n' => $counts['unknown']]),
+        ]],
+      ],
+      'buildings' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-section']],
+        'header' => ['#markup' => '<div class="brebo-section__header"><h2 class="brebo-section__title">' . $this->t('Per gebouw') . '</h2></div>'],
+        'table_wrap' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-table-wrap']], 'table' => ['#type' => 'table', '#header' => ['Gebouw', 'In scope', 'Leegstaand', 'Gereed', 'Aandacht'], '#rows' => $buildingRows, '#empty' => $this->t('Geen woningen aan dit project gekoppeld.')]],
+      ],
+      'residences' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-section']],
+        'header' => ['#markup' => '<div class="brebo-section__header"><h2 class="brebo-section__title">' . $this->t('Toegang per woning') . '</h2></div>'],
+        'table_wrap' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-table-wrap']], 'table' => ['#type' => 'table', '#header' => ['Adres', 'Gebouw', 'Bewoning', 'Aanspreekpunt', 'Rol', 'Toegang via', 'Status', 'Bron regel', 'Startgereed'], '#rows' => $rows, '#empty' => $this->t('Geen woningen aan dit project gekoppeld.')]],
+      ],
       '#cache' => ['max-age' => 0],
     ];
   }
