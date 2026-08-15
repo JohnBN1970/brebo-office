@@ -78,6 +78,62 @@ Een calculatie mag dus bijvoorbeeld een NL-SfB-hoofdstructuur hebben met daarond
 
 Hierdoor blijft iedere euro exact herleidbaar en is er nooit twijfel of een bedrag uit regels of uit onderliggende paragrafen bestaat.
 
+## Locatieaanduiding
+
+Classificatie en locatie zijn twee afzonderlijke dimensies van dezelfde calculatie.
+
+De classificatie vertelt **wat voor werk/kostensoort** het betreft. De locatieaanduiding vertelt **waar het werk plaatsvindt**.
+
+De locatieaanduiding moet zoveel mogelijk verwijzen naar bestaande canonieke gebouwobjecten en mag geen tweede gebouwstructuur binnen de calculatie creëren.
+
+Ondersteunde locatiecontext kan zijn:
+
+- gebouw;
+- technische zone;
+- gebouwdeel;
+- gevel/gevelvlak;
+- dakvlak;
+- verdieping;
+- trappenhuis/algemene ruimte;
+- woning/gebruiksobject;
+- ruimte;
+- productpositie/element;
+- vrije projectlocatie alleen wanneer geen passend canoniek object bestaat.
+
+Locatie werkt met overerving:
+
+```text
+Hoofdgroep locatie (optioneel)
+  -> Paragraaf locatie (optioneel; erft parent indien leeg)
+      -> Subparagraaf locatie (optioneel; erft parent indien leeg)
+          -> Calculatieregel locatie (optioneel; erft eindparagraaf indien leeg)
+```
+
+Praktisch betekent dit:
+
+- als een hele paragraaf uitsluitend over `Voorgevel` gaat, wordt `Voorgevel` één keer op de paragraaf vastgelegd;
+- alle onderliggende regels erven die locatie automatisch;
+- wijkt één regel af, dan kan die regel expliciet een eigen locatie krijgen;
+- een parent-paragraaf kan meerdere onderliggende locaties bevatten en wordt dan in de UI als `meerdere locaties` weergegeven in plaats van een fictieve enkele locatie;
+- locatie heeft geen invloed op de financiële totalisatie: totalisatie volgt de classificatieboom;
+- dezelfde calculatie kan daarnaast op locatie worden gefilterd, gegroepeerd en geanalyseerd.
+
+Hierdoor kunnen we bijvoorbeeld zowel zien:
+
+```text
+NL-SfB 31 Buitenwandopeningen -> € 125.000
+```
+
+als:
+
+```text
+Voorgevel -> € 55.000
+Achtergevel -> € 42.000
+Kopgevel -> € 28.000
+```
+
+zonder dezelfde regels dubbel op te slaan.
+
 ## Calculatieregel
 
 Een calculatieregel hangt altijd onder de laatste/eindparagraaf in een tak.
@@ -85,6 +141,7 @@ Een calculatieregel hangt altijd onder de laatste/eindparagraaf in een tak.
 De primaire regelweergave bevat alleen de gegevens die nodig zijn om snel te calculeren:
 
 - omschrijving;
+- locatie (compact, geërfd of expliciet);
 - hoeveelheid;
 - eenheid;
 - arbeid;
@@ -95,11 +152,11 @@ De primaire regelweergave bevat alleen de gegevens die nodig zijn om snel te cal
 - directe kostprijs;
 - status/signaal.
 
-Specialistische velden zoals normuren, uurtarief, afval, prijsbron, leverancier, materiaalcode, btw, memo, RFQ/inkoop en bewijs worden in regel-detail getoond en niet standaard als losse hoofdkolommen.
+Specialistische velden zoals normuren, uurtarief, afval, prijsbron, leverancier, materiaalcode, btw, memo, RFQ/inkoop, bewijs en volledige locatiecontext worden in regel-detail getoond en niet standaard als losse hoofdkolommen.
 
 ## Totalisering
 
-Totalisering volgt altijd bottom-up de volledige boom.
+Totalisering volgt altijd bottom-up de volledige classificatieboom.
 
 Voorbeeld:
 
@@ -128,6 +185,8 @@ Calculatieregels
 Een parent-paragraaf is altijd exact de som van zijn directe child-paragrafen. Een eindparagraaf is altijd exact de som van zijn onderliggende calculatieregels. De hoofdgroep is altijd exact de som van zijn directe paragrafen.
 
 Totalen worden afgeleid en zijn nooit vrij handmatig overschrijfbaar.
+
+Locatietotalen worden als alternatieve analyse uit dezelfde calculatieregels berekend en creëren geen tweede financieel grootboek.
 
 Daarboven wordt de commerciële opbouw afzonderlijk getoond:
 
@@ -168,12 +227,12 @@ De gebruikerswerkplek moet minimaal kunnen tonen:
 
 ## Relatie met gebouw en project
 
-Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. Regels kunnen aanvullend verwijzen naar technische zone, gebouwdeel, woning, productpositie of ander canoniek scopeobject wanneer dit nodig is voor hoeveelheden, uitvoering of nacalculatie.
+Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. Regels en paragrafen kunnen aanvullend verwijzen naar technische zone, gebouwdeel, woning, productpositie of ander canoniek scopeobject wanneer dit nodig is voor hoeveelheden, uitvoering of nacalculatie.
 
 Classificatie vervangt dus niet de gebouwstructuur. Beide dimensies blijven naast elkaar bestaan:
 
-- classificatie = hoe kosten worden geordend;
-- gebouw/projectscope = waar het werk plaatsvindt.
+- classificatie = hoe kosten worden geordend en primair getotaliseerd;
+- gebouw/projectscope = waar het werk plaatsvindt en secundair kan worden geanalyseerd.
 
 ## UI-principe
 
@@ -185,6 +244,8 @@ De standaard calculatiewerkplek is een spreadsheetachtige hiërarchische tabel:
 - parent-paragrafen tonen hun live subtotalen;
 - alleen eindparagrafen tonen/toestaan dat calculatieregels worden toegevoegd;
 - regels direct bewerkbaar;
+- compacte locatiekolom met geërfde locatie herkenbaar weergegeven;
+- filter/groepering op locatie naast de classificatieweergave;
 - totalen per eindparagraaf, parent-paragraaf en hoofdgroep live zichtbaar;
 - detailvelden alleen op aanvraag;
 - rechter- of onderpaneel met live kostprijsopbouw;
