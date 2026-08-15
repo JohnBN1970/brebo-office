@@ -36,11 +36,11 @@ final class ProjectLookAheadController extends ControllerBase {
     foreach ($items as $item) {
       $signal = $item['signal'];
       $counts[$signal]++;
-      $label = strtoupper($signal);
+      $tone = ['rood' => 'critical', 'oranje' => 'attention', 'groen' => 'positive'][$signal];
       $packageLink = Link::fromTextAndUrl((string) $item['package'], Url::fromRoute('entity.node.canonical', ['node' => (int) $item['package_id']]))->toRenderable();
-      $accessLink = Link::fromTextAndUrl($this->t('Toegang bekijken'), Url::fromRoute('brebo_resident_service.work_package_access', ['node' => (int) $item['package_id']]))->toRenderable();
+      $accessLink = Link::fromTextAndUrl($this->t('Bekijk'), Url::fromRoute('brebo_resident_service.work_package_access', ['node' => (int) $item['package_id']]))->toRenderable();
       $rows[] = [
-        $label,
+        ['data' => ['#markup' => '<span class="brebo-status brebo-status--' . $tone . '">' . strtoupper($signal) . '</span>']],
         ['data' => $packageLink],
         $item['planned_start'],
         $this->t('@n dagen', ['@n' => $item['days_until_start']]),
@@ -51,21 +51,41 @@ final class ProjectLookAheadController extends ControllerBase {
       ];
     }
 
+    $kpi = static function (string $label, int $value, string $tone): array {
+      return [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-kpi', 'brebo-kpi--' . $tone]],
+        'value' => ['#markup' => '<span class="brebo-kpi__value">' . $value . '</span>'],
+        'label' => ['#markup' => '<span class="brebo-kpi__label">' . $label . '</span>'],
+      ];
+    };
+
     return [
-      'intro' => ['#markup' => '<p>Vooruitblik 42 dagen. Groen = toegang gereed/n.v.t.; oranje = nog niet gereed; rood = nog niet gereed en start binnen 7 dagen. Signalering wijzigt de planning of formele vrijgave niet automatisch.</p>'],
-      'summary' => [
-        '#theme' => 'item_list',
-        '#items' => [
-          $this->t('Rood: @n', ['@n' => $counts['rood']]),
-          $this->t('Oranje: @n', ['@n' => $counts['oranje']]),
-          $this->t('Groen: @n', ['@n' => $counts['groen']]),
-        ],
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-cockpit']],
+      'header' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-cockpit__header']],
+        'intro' => ['#markup' => '<p class="brebo-cockpit__intro">Vooruitblik 42 dagen. Uitzonderingen staan voorop; signalering wijzigt planning of formele vrijgave niet automatisch.</p>'],
       ],
-      'table' => [
-        '#type' => 'table',
-        '#header' => ['Signaal', 'Werkpakket', 'Geplande start', 'Tot start', 'Startgereed', 'Aandacht', 'Reden', 'Detail'],
-        '#rows' => $rows,
-        '#empty' => $this->t('Geen geplande werkpakketten binnen de komende 42 dagen.'),
+      'kpis' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-kpis']],
+        'red' => $kpi('Blokkade binnen 7 dagen', $counts['rood'], 'critical'),
+        'orange' => $kpi('Aandacht', $counts['oranje'], 'attention'),
+        'green' => $kpi('Startgereed', $counts['groen'], 'positive'),
+        'total' => $kpi('Werkpakketten in 42 dagen', count($items), 'neutral'),
+      ],
+      'work' => [
+        '#type' => 'container', '#attributes' => ['class' => ['brebo-section']],
+        'heading' => ['#markup' => '<div class="brebo-section__header"><h2 class="brebo-section__title">Komende werkpakketten</h2></div>'],
+        'table_wrap' => [
+          '#type' => 'container', '#attributes' => ['class' => ['brebo-table-wrap']],
+          'table' => [
+            '#type' => 'table',
+            '#header' => ['Signaal', 'Werkpakket', 'Start', 'Tot start', 'Gereed', 'Aandacht', 'Reden', 'Detail'],
+            '#rows' => $rows,
+            '#empty' => $this->t('Geen geplande werkpakketten binnen de komende 42 dagen.'),
+          ],
+        ],
       ],
       '#cache' => ['max-age' => 0],
     ];
