@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\EntityInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_entity_insert().
+ */
+function brebo_resident_service_entity_insert(EntityInterface $entity): void {
+  brebo_resident_service_detect_communication_scope($entity);
+}
+
+/**
+ * Detects address ranges in newly created BREBO communications.
+ */
+function brebo_resident_service_detect_communication_scope(EntityInterface $entity): void {
+  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_communication' || !$entity->id()) {
+    return;
+  }
+
+  $database = \Drupal::database();
+  $sourceId = (string) $entity->id();
+  $existing = $database->select('brebo_address_scope_intake', 'i')
+    ->condition('source_type', 'communication')
+    ->condition('source_id', $sourceId)
+    ->countQuery()
+    ->execute()
+    ->fetchField();
+  if ((int) $existing > 0) {
+    return;
+  }
+
+  $parts = [$entity->label()];
+  foreach (['field_brebo_comm_subject', 'field_brebo_comm_summary', 'field_brebo_transcript', 'field_brebo_ai_summary', 'field_brebo_reviewer_note'] as $fieldName) {
+    if (!$entity->hasField($fieldName) || $entity->get($fieldName)->isEmpty()) {
+      continue;
+    }
+    foreach ($entity->get($fieldName) as $item) {
+      if (isset($item->value) && trim((string) $item->value) !== '') {
+        $parts[] = (string) $item->value;
+      }
+    }
+  }
+  $text = trim(implode("\n", array_unique(array_filter($parts))));
+  if ($text === '') {
+    return;
+  }
+
+  $buildingNid = NULL;
+  if ($entity->hasField('field_brebo_building_ref') && !$entity->get('field_brebo_building_ref')->isEmpty()) {
+    $buildingNid = (int) $entity->get('field_brebo_building_ref')->target_id;
+  }
+  $projectId = NULL;
+  if ($entity->hasField('field_brebo_project_ref') && !$entity->get('field_brebo_project_ref')->isEmpty()) {
+    $projectId = (int) $entity->get('field_brebo_project_ref')->target_id;
+  }
+
+  try {
+    \Drupal::service('brebo_resident_service.address_scope_intake')->propose(
+      $text,
+      'communication',
+      $sourceId,
+      $buildingNid,
+      $projectId,
+      (int) $entity->getOwnerId(),
+    );
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt: @message', [
+      '@nid' => $entity->id(),
+      '@message' => $e->getMessage(),
+    ]);
+  }
+}
