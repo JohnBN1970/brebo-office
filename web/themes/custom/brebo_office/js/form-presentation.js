@@ -60,7 +60,7 @@
 
         // Building coordinates are output from the dedicated location resolution
         // flow. Keep them inspectable but prevent manual coordinate drift.
-        if (form.classList.contains('brebo-form--brebo-building-form') || form.classList.contains('brebo-form--brebo-building-edit-form')) {
+        if (form.classList.contains('node-brebo-building-form') || form.classList.contains('node-brebo-building-edit-form')) {
           lockByName(form, ['field_brebo_latitude[', 'field_brebo_longitude['], 'Informatief · wordt beheerd via Locatie bepalen / BAG-PDOK.');
         }
 
