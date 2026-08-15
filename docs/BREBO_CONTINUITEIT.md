@@ -37,22 +37,10 @@ Verzin geen nieuwe architectuur wanneer een onderwerp al in deze bronnen is vast
 
 ```text
 Relatie = met wie BREBO zaken doet
-
 Gebouw = permanente gebouwkennis
-  -> BAG/PDOK-adressen en gebruikseenheden
-  -> technische zone / cluster
-      -> woning / ruimte indien technisch relevant
-          -> productpositie / element indien technisch relevant
-  -> permanente documentatie, historie en gerealiseerde kennis
-
 Project = tijdelijke operationele sturing
-  -> gebouwen en projectscope
-  -> WBS / werkpakketten
-  -> planning, toegang, taken, inkoop, financiën, uitvoering, kwaliteit en oplevering
-
-Toegang & aanspreekpunt
-  Project -> Gebouw -> Technische zone -> Woning
-  meest specifieke geldige afspraak wint
+Technische zone/WBS = waar en waaraan uitvoering plaatsvindt
+Taak/workflow = wie wanneer wat moet doen
 ```
 
 Gebouw levert kennis aan het project. Het project bestuurt de uitvoering. Na oplevering vloeit gerealiseerde blijvende kennis terug naar het gebouw.
@@ -64,56 +52,38 @@ Branch `agent/resident-service-module` / draft PR #286 bevat `brebo_resident_ser
 Vastgelegd en/of gebouwd:
 
 - koppeling aan canoniek `brebo_building`; geen tweede gebouwmodel;
-- BAG/PDOK-gevalideerde adressen/gebruiksobjecten met herkomst van adresvoorstellen;
-- gebouwpagina met woningen/gebruiksobjecten en bewoners/servicecontext;
-- technisch woningdetail alleen wanneer de technische zone dit vereist;
-- meldingen, klachten, schade en service/nazorg aan woning/project;
-- onveranderlijke foto's met afzonderlijke niet-destructieve annotatielagen;
+- BAG/PDOK-gevalideerde adressen/gebruiksobjecten;
+- technisch woningdetail alleen wanneer technische zone dit vereist;
+- bewoners/servicecontext, meldingen, klachten, schade en nazorg;
+- onveranderlijke foto's met niet-destructieve annotatielagen;
 - toegang/contact op project-, gebouw-, zone- en woningniveau;
 - effectieve toegang erft woning -> zone -> gebouw -> project;
-- bewoning, contact, toegang en startgereedheid zijn afzonderlijke begrippen;
-- leegstand geeft nooit automatisch toestemming tot betreden;
-- `ZoneAccessReadiness` berekent startgereedheid voor technische scope;
-- `WorkPackageAccessReadiness` vertaalt dit naar het werkpakket;
-- werkpakketten hebben een toegang/startgereed-cockpit;
-- `brebo_release_gate` blijft het enige formele vrijgaveobject;
-- release-gate-formulier toont automatische toegangsreadiness maar zet nooit zelfstandig `Akkoord`;
-- `LookAheadAccessReadiness` gebruikt nu de bestaande `field_brebo_planned_start` van werkpakketten voor vooruitkijkende signalering;
-- standaard kijkvenster is 42 dagen; alleen toekomstige werkpakketten binnen het venster worden beoordeeld;
-- groen = toegang gereed of niet van toepassing; oranje = toegang nog niet gereed maar start ligt meer dan 7 dagen weg; rood = toegang nog niet gereed en start ligt binnen 7 dagen;
-- look-ahead is signalering en wijzigt geen formele release-gate of planning zelfstandig;
-- legacy `brebo_dwelling` -> BAG-residence koppeling via adres blijft tijdelijk en moet een directe canonieke referentie worden.
+- bewoning, contact, toegang en startgereedheid zijn afzonderlijk;
+- leegstand geeft nooit automatisch toegang;
+- `ZoneAccessReadiness` -> `WorkPackageAccessReadiness` -> formele `brebo_release_gate`;
+- release gate toont automatische beslisinformatie maar blijft een menselijke formele beoordeling;
+- `LookAheadAccessReadiness` gebruikt de bestaande geplande start van werkpakketten;
+- standaard look-ahead is 42 dagen: groen = gereed/n.v.t., oranje = niet gereed en >7 dagen, rood = niet gereed en <=7 dagen;
+- project heeft nu de tab `Look-ahead startgereed` met samenvatting rood/oranje/groen en per werkpakket: geplande start, dagen tot start, readinesspercentage, aantal aandachtspunten, reden en doorklik naar toegangsdetail;
+- look-ahead signaleert alleen en wijzigt planning of formele vrijgave niet zelfstandig;
+- legacy `brebo_dwelling` -> BAG-residence adres-bridge blijft tijdelijk en moet een directe canonieke referentie worden.
 
-## PDOK/BAG-principe
-
-Adresinformatie wordt waar mogelijk niet handmatig overgetypt. Een opgegeven huisnummerreeks wordt eerst geïnterpreteerd en daarna tegen BAG via PDOK gevalideerd. BREBO genereert geen fictieve tussenliggende huisnummers. BAG-identiteiten zijn leidend voor deduplicatie en projectoverstijgende herkenning.
+## Operationele keten toegang
 
 ```text
-communicatie / aanvraag / notitie / import
-  -> adres- of rangeherkenning
-  -> PDOK/BAG-validatie
-  -> scopevoorstel
-  -> menselijke bevestiging waar vereist
-  -> canoniek gebouw
-  -> officiële adressen/gebruiksobjecten
-  -> projectscope en operationele sturing
-```
-
-## Toegang, look-ahead en formele vrijgave
-
-```text
-Toegangsdata
-  -> effectieve regel
+PDOK/BAG + gebouwkennis
+  -> technische scope
+  -> effectieve toegangsregel
   -> ZoneAccessReadiness
   -> WorkPackageAccessReadiness
-  -> LookAheadAccessReadiness + geplande start
+  -> Project Look-ahead (42 dagen)
        groen / oranje / rood
-  -> automatische beslisinformatie op brebo_release_gate
-  -> formele menselijke poortbeoordeling
+  -> release-gate beslisinformatie
+  -> formele menselijke vrijgave
   -> uitvoering
 ```
 
-Automatische readiness en formele vrijgave zijn bewust gescheiden. Het systeem berekent risico's en blokkades, maar simuleert geen menselijke goedkeuring. De bestaande release-gate blijft het auditbare besluitobject.
+Dit is tevens het herbruikbare modulepatroon voor andere readiness-soorten: data -> automatische beoordeling -> vroegsignalering -> formeel bestaand besluitobject -> uitvoering.
 
 ## Huidige ontwikkelfase
 
@@ -123,14 +93,13 @@ De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / P
 
 ## Eerstvolgende technische punten
 
-1. `LookAheadAccessReadiness` zichtbaar maken in de projectplanning/look-ahead UI met werkpakket, geplande start, dagen tot start, percentage en rood/oranje/groen signaal.
-2. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
+1. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
+2. Look-ahead vervolgens verbreden van alleen toegang naar een generiek readinessmodel voor o.a. materiaal, tekeningen, vergunningen, steiger en KAM, steeds via bestaande objecten/modules.
 3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
 4. Oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
-5. UI verder uitbouwen voor gebouw-, project-, zone- en woningniveau, inclusief effectieve regel en herkomst.
-6. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
-7. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
-8. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
+5. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
+6. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
+7. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
 
 ## Integration API en deployment
 
