@@ -40,11 +40,58 @@
 .brebo-table-wrap th { white-space: nowrap; }
 .brebo-actions { display: flex; gap: var(--brebo-space-2); flex-wrap: wrap; }
 
+/* Existing project dashboard, progressively aligned with the design system. */
+.brebo-project-tabs {
+  display: flex;
+  gap: var(--brebo-space-1);
+  overflow-x: auto;
+  margin-block: 0 var(--brebo-space-6);
+  padding: var(--brebo-space-1);
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius);
+  background: var(--brebo-surface-muted);
+}
+.brebo-project-tabs button {
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: calc(var(--brebo-radius) - .15rem);
+  background: transparent;
+  padding: .55rem .8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.brebo-project-tabs button.is-active,
+.brebo-project-tabs button[aria-selected="true"] {
+  background: var(--brebo-surface);
+  box-shadow: 0 1px 3px rgba(16, 24, 40, .12);
+}
+.brebo-project-signals,
+.brebo-lens-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: var(--brebo-space-3);
+  margin-bottom: var(--brebo-space-6);
+}
+.brebo-project-signals > *,
+.brebo-lens-grid > * {
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius);
+  background: var(--brebo-surface);
+}
+.brebo-tab-panel > h2,
+.brebo-tab-panel > .field + h2 { margin-top: var(--brebo-space-6); }
+.brebo-tab-panel table {
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius);
+  overflow: hidden;
+}
+
 @media (max-width: 48rem) {
   .brebo-cockpit { gap: var(--brebo-space-4); }
   .brebo-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .brebo-kpi { min-height: auto; }
   .brebo-table-wrap { margin-inline: calc(var(--brebo-space-4) * -1); padding-inline: var(--brebo-space-4); }
+  .brebo-project-tabs { margin-inline: calc(var(--brebo-space-4) * -1); border-inline: 0; border-radius: 0; }
 }
 
 @media (max-width: 30rem) {
