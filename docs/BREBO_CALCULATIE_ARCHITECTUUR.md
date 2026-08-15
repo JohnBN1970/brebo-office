@@ -60,7 +60,7 @@ Een calculatieregel hangt altijd onder de laatste/eindparagraaf in een tak.
 
 ### Kostendragers binnen één normale regel
 
-Een normale calculatieregel is bewust **samengesteld**. Er bestaan dus geen verplichte afzonderlijke regeltypen voor arbeid, materiaal, materieel en onderaanneming.
+Een normale calculatieregel is bewust samengesteld. Er bestaan dus geen verplichte afzonderlijke regeltypen voor arbeid, materiaal, materieel en onderaanneming.
 
 Eén regel kan tegelijk bevatten:
 
@@ -76,21 +76,29 @@ Voorbeeld:
 Bestaand houten kozijn herstellen | 12 st | Arbeid € 2.160 | Materiaal € 780 | Materieel € 120 | OA € 0 | Totaal € 3.060
 ```
 
-De directe kostprijs van de regel is de som van de ingevulde kostendragers. Niet gebruikte kostendragers blijven nul/leeg. Hierdoor kan een compleet werkonderdeel op één herkenbare regel worden gecalculeerd zonder kunstmatige opsplitsing.
+De directe kostprijs van de regel is de som van de ingevulde kostendragers. Niet gebruikte kostendragers blijven nul/leeg.
 
 ### Regeltypen
 
-`Regeltype` beschrijft het **gedrag van de regel**, niet de kostensoort. De kernset blijft daarom klein:
+`Regeltype` beschrijft uitsluitend afwijkend gedrag van een regel en nooit de kostensoort. De vaste kernset is:
 
-- `normaal` — financiële calculatieregel; kan alle kostendragers combineren;
-- `stelpost` — financieel bedrag met expliciete stelpoststatus en toelichting/verrekening;
-- `PM` — pro memorie; zichtbaar en signaleerbaar, maar zonder financieel bedrag in de normale totalisatie;
-- `tekst` — toelichting/kop/notitie zonder financiële werking;
-- `verrekenbaar` — financiële regel waarbij contracthoeveelheid en werkelijke/verrekenbare hoeveelheid afzonderlijk gevolgd kunnen worden.
+- `normaal` — standaard financiële calculatieregel; kan alle kostendragers combineren en telt volledig mee;
+- `stelpost` — financieel bedrag dat meetelt, maar als stelpost afzonderlijk herkenbaar, filterbaar en totaliseerbaar blijft;
+- `optie` — volledig doorgerekende financiële regel die standaard buiten de basisprijs/verkoopprijs blijft totdat de optie expliciet wordt opgenomen;
+- `notitie` — tekstuele regel zonder hoeveelheid, kostprijs of financiële werking;
+- `verdisconterend` — financiële bronregel waarvan het bedrag volgens een vastgelegde verdeelsleutel over andere geselecteerde regels wordt verdeeld; na verdeling telt de bronregel niet nogmaals mee;
+- `verrekenbaar` — financiële regel waarbij contracthoeveelheid en werkelijke/verrekenbare hoeveelheid afzonderlijk worden gevolgd, zodat meer-/minderwerk of hoeveelheidsverrekening controleerbaar kan worden berekend.
 
-Arbeid, materiaal, materieel, OA en overig zijn dus **kostendragers/kolommen**, geen regeltypen.
+Arbeid, materiaal, materieel, OA en overig blijven kostendragers/kolommen binnen financiële regels en zijn geen regeltypen.
 
-Het regeltype bepaalt welke aanvullende velden, validaties en signaleringen nodig zijn, maar een financiële regel behoudt waar relevant dezelfde kostendragers.
+### Financiële werking per regeltype
+
+- `normaal`: directe kostprijs = som kostendragers; telt volledig mee.
+- `stelpost`: telt mee in directe kosten én wordt apart als stelposttotaal gepresenteerd.
+- `optie`: wordt volledig gecalculeerd en apart getotaliseerd; standaard niet opgenomen in basisverkoopprijs. Een expliciete optie-status bepaalt of deze wel wordt opgenomen.
+- `notitie`: heeft altijd financieel effect nul.
+- `verdisconterend`: bronbedrag blijft auditbaar, maar wordt via verdeelregels in doelregels verwerkt; dubbele telling is technisch verboden.
+- `verrekenbaar`: basisbedrag en verrekeningsverschil worden afzonderlijk gevolgd op basis van contracthoeveelheid, werkelijke/verrekenbare hoeveelheid en overeengekomen prijsgrondslag.
 
 ### Primaire regelweergave
 
@@ -98,6 +106,7 @@ De primaire spreadsheetweergave bevat:
 
 - omschrijving;
 - locatie (compact, geërfd of expliciet);
+- regeltype;
 - hoeveelheid;
 - eenheid;
 - arbeid;
@@ -106,9 +115,9 @@ De primaire spreadsheetweergave bevat:
 - OA;
 - overig;
 - directe kostprijs;
-- regeltype/status/signaal.
+- status/signaal.
 
-Specialistische gegevens zoals normuren, uurtarief, afval, prijsbron, leverancier, materiaalcode, btw, memo, RFQ/inkoop, bewijs en volledige locatiecontext verschijnen in regel-detail en niet standaard als losse hoofdkolommen.
+Specialistische gegevens zoals normuren, uurtarief, afval, prijsbron, leverancier, materiaalcode, btw, memo, RFQ/inkoop, bewijs, volledige locatiecontext, optie-status, verdeelsleutel en verrekeningsgrondslag verschijnen in regel-detail en niet standaard als losse hoofdkolommen.
 
 ## Totalisering
 
@@ -122,7 +131,7 @@ Parent-paragrafen -> totaal hoofdgroep
 Hoofdgroepen -> directe kosten calculatie
 ```
 
-Parenttotalen en hoofdgroeptotalen zijn altijd afgeleid en nooit vrij handmatig overschrijfbaar. PM- en tekstregels hebben geen bedrag in de normale financiële totalisatie. Stelposten worden financieel meegenomen maar afzonderlijk herkenbaar gehouden. Verrekenbare regels volgen hun ingestelde hoeveelheid-/verrekeningslogica.
+Parenttotalen en hoofdgroeptotalen zijn altijd afgeleid en nooit vrij handmatig overschrijfbaar. Stelposten, opties, verdisconterende en verrekenbare regels krijgen daarnaast eigen analysetotalen zonder een tweede financieel grootboek te vormen.
 
 Daarboven wordt de commerciële opbouw afzonderlijk getoond:
 
