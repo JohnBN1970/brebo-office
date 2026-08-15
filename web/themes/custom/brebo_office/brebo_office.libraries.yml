@@ -1,5 +1,5 @@
 global:
-  version: 1.2.2
+  version: 1.2.3
   css:
     base:
       css/base.css: {}
@@ -23,6 +23,7 @@ global:
     js/mail-context-actions.js: {}
     js/work-package-cockpit.js: {}
     js/building-cockpit.js: {}
+    js/residence-cockpit.js: {}
   dependencies:
     - core/drupal
     - core/once
