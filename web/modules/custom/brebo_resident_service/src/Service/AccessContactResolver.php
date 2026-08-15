@@ -12,9 +12,9 @@ final class AccessContactResolver {
   public function __construct(private readonly Connection $database) {}
 
   /**
-   * Returns effective access/contact data using residence > zone > building.
+   * Returns effective access/contact data using residence > zone > building > project.
    */
-  public function resolve(int $buildingNid, ?int $technicalZoneId = NULL, ?int $residenceId = NULL, ?int $projectId = NULL): ?array {
+  public function resolve(?int $buildingNid = NULL, ?int $technicalZoneId = NULL, ?int $residenceId = NULL, ?int $projectId = NULL): ?array {
     $scopes = [];
     if ($residenceId) {
       $scopes[] = ['residence', $residenceId];
@@ -22,11 +22,19 @@ final class AccessContactResolver {
     if ($technicalZoneId) {
       $scopes[] = ['technical_zone', $technicalZoneId];
     }
-    $scopes[] = ['building', $buildingNid];
+    if ($buildingNid) {
+      $scopes[] = ['building', $buildingNid];
+    }
+    if ($projectId) {
+      $scopes[] = ['project', $projectId];
+    }
 
     foreach ($scopes as [$type, $id]) {
-      $query = $this->database->select('brebo_access_contact', 'a')->fields('a')->condition('scope_type', $type)->condition('scope_id', $id);
-      if ($projectId !== NULL) {
+      $query = $this->database->select('brebo_access_contact', 'a')
+        ->fields('a')
+        ->condition('scope_type', $type)
+        ->condition('scope_id', $id);
+      if ($type !== 'project' && $projectId !== NULL) {
         $or = $query->orConditionGroup()->condition('project_id', $projectId)->isNull('project_id');
         $query->condition($or);
       }
