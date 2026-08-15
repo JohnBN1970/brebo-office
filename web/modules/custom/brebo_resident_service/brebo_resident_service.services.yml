@@ -22,3 +22,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_resident_service.access_contact_resolver'
+
+  brebo_resident_service.work_package_access_readiness:
+    class: Drupal\brebo_resident_service\Service\WorkPackageAccessReadiness
+    arguments:
+      - '@brebo_resident_service.zone_access_readiness'
