@@ -263,10 +263,14 @@ final class CrmController extends ControllerBase {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
     $ownerFilter = max(0, (int) $request->query->get('owner_filter', 0));
+    $organizationFilter = max(0, (int) $request->query->get('organization_filter', 0));
     $allowedStages = ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'];
     $stageFilter = in_array((string) $request->query->get('stage_filter', ''), $allowedStages, TRUE) ? (string) $request->query->get('stage_filter') : '';
     $statusFilter = in_array((string) $request->query->get('status', 'all'), ['all', 'open', 'closed'], TRUE) ? (string) $request->query->get('status', 'all') : 'all';
     $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_opportunity')->sort('field_brebo_opp_stage')->sort('title');
+    if ($organizationFilter > 0) {
+      $query->condition('field_brebo_opp_org_ref.target_id', $organizationFilter);
+    }
     if ($stageFilter !== '') {
       $query->condition('field_brebo_opp_stage', $stageFilter);
     }
@@ -329,6 +333,7 @@ final class CrmController extends ControllerBase {
     $storage = $this->entityTypeManager()->getStorage('node');
     $mine = (bool) $request->query->get('mine', FALSE);
     $ownerFilter = max(0, (int) $request->query->get('owner_filter', 0));
+    $organizationFilter = max(0, (int) $request->query->get('organization_filter', 0));
     $allowedStages = ['Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte', 'Onderhandeling', 'Gewonnen', 'Verloren'];
     $stageFilter = in_array((string) $request->query->get('stage_filter', ''), $allowedStages, TRUE) ? (string) $request->query->get('stage_filter') : '';
     $statusFilter = in_array((string) $request->query->get('status', 'all'), ['all', 'open', 'closed'], TRUE) ? (string) $request->query->get('status', 'all') : 'all';
@@ -355,6 +360,9 @@ final class CrmController extends ControllerBase {
     elseif ($ownerFilter > 0) {
       $query->condition('field_brebo_opp_owner.target_id', $ownerFilter);
     }
+    if ($organizationFilter > 0) {
+      $query->condition('field_brebo_opp_org_ref.target_id', $organizationFilter);
+    }
     if ($stageFilter !== '') {
       $query->condition('field_brebo_opp_stage', $stageFilter);
     }
@@ -372,6 +380,13 @@ final class CrmController extends ControllerBase {
     foreach ($userStorage->loadMultiple($userIds) as $account) {
       if ((int) $account->id() > 0) {
         $ownerOptions[(int) $account->id()] = $account->label();
+      }
+    }
+    $organizationOptions = [0 => $this->t('Alle organisaties')];
+    $organizationIds = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_organization')->sort('title')->execute();
+    foreach ($storage->loadMultiple($organizationIds) as $organizationOption) {
+      if ($organizationOption instanceof NodeInterface) {
+        $organizationOptions[(int) $organizationOption->id()] = $organizationOption->label();
       }
     }
 
@@ -1132,7 +1147,7 @@ final class CrmController extends ControllerBase {
     $closedCount = $wonCount + $lostCount;
     $winRate = $closedCount > 0 ? round($wonCount * 100 / $closedCount, 1) . '%' : '—';
 
-    $queryBase = array_filter(['mine' => $mine ? 1 : NULL, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => $ownerFilter]);
+    $queryBase = array_filter(['mine' => $mine ? 1 : NULL, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => $ownerFilter, 'organization_filter' => $organizationFilter]);
     return [
       '#attached' => ['library' => ['brebo_office_core/funnel']],
       'actions' => [
@@ -1159,19 +1174,19 @@ final class CrmController extends ControllerBase {
         'all' => [
           '#type' => 'link',
           '#title' => $this->t('Alle kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => 0, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => 0, 'organization_filter' => $organizationFilter, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'mine' => [
           '#type' => 'link',
           '#title' => $this->t('Mijn kansen'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => 0, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => ['mine' => 1, 'period' => $period, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => 0, 'organization_filter' => $organizationFilter, 'view' => $view, 'group' => $group, 'sort' => $sort, 'direction' => $direction]]),
           '#attributes' => ['class' => ['button']],
         ],
         'export' => [
           '#type' => 'link',
           '#title' => $this->t('Exporteren naar CSV'),
-          '#url' => Url::fromRoute('brebo_office_core.funnel_export', [], ['query' => array_filter(['mine' => $mine ? 1 : NULL, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => $ownerFilter])]),
+          '#url' => Url::fromRoute('brebo_office_core.funnel_export', [], ['query' => array_filter(['mine' => $mine ? 1 : NULL, 'stage_filter' => $stageFilter, 'status' => $statusFilter, 'owner_filter' => $ownerFilter, 'organization_filter' => $organizationFilter])]),
           '#attributes' => ['class' => ['button']],
         ],
         'crm' => [
@@ -1187,6 +1202,13 @@ final class CrmController extends ControllerBase {
         '#attributes' => ['method' => 'get', 'action' => Url::fromRoute('brebo_office_core.funnel')->toString(), 'class' => ['brebo-funnel-controls']],
         'mine' => $mine ? ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'mine', 'value' => '1']] : [],
         'view' => ['#type' => 'html_tag', '#tag' => 'input', '#attributes' => ['type' => 'hidden', 'name' => 'view', 'value' => $view]],
+        'organization_filter' => [
+          '#type' => 'select',
+          '#title' => $this->t('Organisatie'),
+          '#name' => 'organization_filter',
+          '#default_value' => $organizationFilter,
+          '#options' => $organizationOptions,
+        ],
         'owner_filter' => [
           '#type' => 'select',
           '#title' => $this->t('Verantwoordelijke'),
@@ -1350,7 +1372,7 @@ final class CrmController extends ControllerBase {
       'list' => $listBuild,
       'kanban' => $kanbanBuild,
       '#cache' => [
-        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:stage_filter', 'url.query_args:status', 'url.query_args:owner_filter', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
+        'contexts' => ['user.permissions', 'user', 'url.query_args:mine', 'url.query_args:period', 'url.query_args:stage_filter', 'url.query_args:status', 'url.query_args:owner_filter', 'url.query_args:organization_filter', 'url.query_args:view', 'url.query_args:group', 'url.query_args:sort', 'url.query_args:direction'],
         'tags' => ['node_list:brebo_opportunity', 'node_list:brebo_opportunity_event', 'node_list:brebo_contact_affiliation', 'node_list:brebo_organization', 'node_list:brebo_communication'],
       ],
     ];
