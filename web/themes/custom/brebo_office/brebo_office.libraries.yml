@@ -1,5 +1,5 @@
 global:
-  version: 1.1.12
+  version: 1.2.0
   css:
     base:
       css/base.css: {}
@@ -7,6 +7,7 @@ global:
       css/layout.css: {}
     component:
       css/components.css: {}
+      css/design-system.css: {}
       css/dashboard.css: {}
       css/mail.css: {}
       css/mail-actions.css: {}
@@ -21,7 +22,6 @@ global:
     js/mail-resize.js: {}
     js/mail-context-actions.js: {}
 
-
 project-tabs:
   version: 1.0.0
   js:
@@ -35,7 +35,6 @@ building-map:
     js/building-map.js: {}
   dependencies:
     - core/drupal
-
 
 calculation-grid:
   version: 1.0.0
