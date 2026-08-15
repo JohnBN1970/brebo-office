@@ -16,3 +16,9 @@ services:
   brebo_resident_service.access_contact_resolver:
     class: Drupal\brebo_resident_service\Service\AccessContactResolver
     arguments: ['@database']
+
+  brebo_resident_service.zone_access_readiness:
+    class: Drupal\brebo_resident_service\Service\ZoneAccessReadiness
+    arguments:
+      - '@database'
+      - '@brebo_resident_service.access_contact_resolver'
