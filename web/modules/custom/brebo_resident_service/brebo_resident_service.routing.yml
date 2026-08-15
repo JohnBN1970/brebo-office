@@ -68,6 +68,19 @@ brebo_resident_service.project_access:
       node:
         type: entity:node
 
+brebo_resident_service.project_look_ahead:
+  path: '/node/{node}/look-ahead-startgereed'
+  defaults:
+    _controller: '\Drupal\brebo_resident_service\Controller\ProjectLookAheadController::cockpit'
+    _title_callback: '\Drupal\brebo_resident_service\Controller\ProjectLookAheadController::title'
+  requirements:
+    _permission: 'access brebo resident service'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_resident_service.work_package_access:
   path: '/node/{node}/toegang-startgereed'
   defaults:
