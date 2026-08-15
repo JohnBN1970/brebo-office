@@ -17,7 +17,7 @@ Calculatie
                   -> Calculatieregels
 ```
 
-De paragraafstructuur is recursief: een paragraaf kan dus een andere paragraaf als parent hebben. Voor de normale gebruikerswerkplek ondersteunen we maximaal drie paragraafniveaus onder een hoofdgroep. Dit geeft voldoende diepte zonder dat de calculatie onleesbaar wordt.
+De paragraafstructuur is recursief. Voor de normale gebruikerswerkplek ondersteunen we maximaal drie paragraafniveaus onder een hoofdgroep.
 
 ## Classificatiesysteem op calculatieniveau
 
@@ -27,101 +27,38 @@ Per calculatie wordt één primaire indelingssystematiek gekozen:
 - STABU
 - Eigen
 
-Deze keuze bepaalt hoe hoofdgroepen worden aangemaakt, gecodeerd, gesorteerd en getotaliseerd.
+## Hoofdgroep en paragrafen
 
-## Hoofdgroep
+Hoofdgroepen en paragrafen vormen de structurele calculatieboom. Hoofdgroepen worden uit NL-SfB, STABU of een eigen BREBO-structuur gekozen. Paragrafen kunnen uit NL-SfB-detail of een eigen invulling komen en maximaal drie niveaus diep worden genest.
 
-Een hoofdgroep bevat minimaal classificatiesysteem, code, omschrijving, sorteervolgorde, actieve/inactieve status en optionele eigen BREBO-weergavenaam. Bij NL-SfB en STABU wordt de code uit de betreffende classificatie gekozen. Bij `Eigen` wordt code en omschrijving door BREBO beheerd.
-
-Hoofdgroepen zijn structurele containers. Hun financiële waarde wordt altijd berekend als de som van alle direct onderliggende paragrafen en daarmee indirect alle onderliggende regels.
-
-## Paragraaf
-
-Onder iedere hoofdgroep kunnen één of meer paragrafen worden aangemaakt. Een paragraaf kan vervolgens zelf weer één of meer subparagrafen bevatten.
-
-Een paragraaf heeft als bron `NL-SfB detailcode` of `Eigen`. De paragraaf bevat minimaal parent-hoofdgroep, optionele parent-paragraaf, niveau 1/2/3, bron, code, omschrijving, sorteervolgorde, optionele interne notitie en actieve/inactieve status.
-
-## Regels voor de boomstructuur
-
-- Niveau 1 hangt rechtstreeks onder een hoofdgroep; niveau 2 onder niveau 1; niveau 3 onder niveau 2.
-- Alleen een eindparagraaf (leaf) bevat calculatieregels.
-- Een paragraaf met subparagrafen is uitsluitend subtotalisatie-/structuurniveau en bevat zelf geen calculatieregels.
-- Wanneer een paragraaf later subparagrafen krijgt, worden bestaande regels gecontroleerd naar een eindparagraaf verplaatst.
+Alleen een eindparagraaf bevat calculatieregels. Parent-paragrafen en hoofdgroepen zijn uitsluitend structuur- en subtotalisatieniveaus.
 
 ## Locatieaanduiding
 
 Classificatie en locatie zijn twee afzonderlijke dimensies. Classificatie vertelt wat voor werk het betreft; locatie vertelt waar het werk plaatsvindt. Locatie verwijst zoveel mogelijk naar bestaande canonieke gebouwobjecten en creëert geen tweede gebouwstructuur.
 
-Locatie kan worden vastgelegd op hoofdgroep, paragraaf/subparagraaf of regel en erft naar beneden wanneer een lager niveau geen expliciete afwijkende locatie heeft. Een parent met verschillende onderliggende locaties wordt als `meerdere locaties` weergegeven. Locatie beïnvloedt de financiële classificatietotalisatie niet; locatietotalen zijn een alternatieve analyse uit dezelfde regels.
+Locatie kan worden vastgelegd op hoofdgroep, paragraaf/subparagraaf of regel en erft naar beneden wanneer een lager niveau geen expliciete afwijkende locatie heeft. Locatie beïnvloedt de primaire financiële classificatietotalisatie niet; locatietotalen zijn een alternatieve analyse uit dezelfde regels.
 
 ## Calculatieregel
 
 Een calculatieregel hangt altijd onder de laatste/eindparagraaf in een tak.
 
-### Kostendragers binnen één normale regel
-
-Een normale calculatieregel is bewust samengesteld. Er bestaan dus geen verplichte afzonderlijke regeltypen voor arbeid, materiaal, materieel en onderaanneming.
-
-Eén regel kan tegelijk bevatten:
-
-- arbeid;
-- materiaal;
-- materieel;
-- onderaanneming (OA);
-- overig.
-
-Voorbeeld:
-
-```text
-Bestaand houten kozijn herstellen | 12 st | Arbeid € 2.160 | Materiaal € 780 | Materieel € 120 | OA € 0 | Totaal € 3.060
-```
-
-De directe kostprijs van de regel is de som van de ingevulde kostendragers. Niet gebruikte kostendragers blijven nul/leeg.
+Een normale regel kan tegelijk arbeid, materiaal, materieel, onderaanneming (OA) en overig bevatten. Deze zijn kostendragers, geen regeltypen.
 
 ### Regeltypen
 
-`Regeltype` beschrijft uitsluitend afwijkend gedrag van een regel en nooit de kostensoort. De vaste kernset is:
-
-- `normaal` — standaard financiële calculatieregel; kan alle kostendragers combineren en telt volledig mee;
-- `stelpost` — financieel bedrag dat meetelt, maar als stelpost afzonderlijk herkenbaar, filterbaar en totaliseerbaar blijft;
-- `optie` — volledig doorgerekende financiële regel die standaard buiten de basisprijs/verkoopprijs blijft totdat de optie expliciet wordt opgenomen;
-- `notitie` — tekstuele regel zonder hoeveelheid, kostprijs of financiële werking;
-- `verdisconterend` — financiële bronregel waarvan het bedrag volgens een vastgelegde verdeelsleutel over andere geselecteerde regels wordt verdeeld; na verdeling telt de bronregel niet nogmaals mee;
-- `verrekenbaar` — financiële regel waarbij contracthoeveelheid en werkelijke/verrekenbare hoeveelheid afzonderlijk worden gevolgd, zodat meer-/minderwerk of hoeveelheidsverrekening controleerbaar kan worden berekend.
-
-Arbeid, materiaal, materieel, OA en overig blijven kostendragers/kolommen binnen financiële regels en zijn geen regeltypen.
-
-### Financiële werking per regeltype
-
-- `normaal`: directe kostprijs = som kostendragers; telt volledig mee.
-- `stelpost`: telt mee in directe kosten én wordt apart als stelposttotaal gepresenteerd.
-- `optie`: wordt volledig gecalculeerd en apart getotaliseerd; standaard niet opgenomen in basisverkoopprijs. Een expliciete optie-status bepaalt of deze wel wordt opgenomen.
-- `notitie`: heeft altijd financieel effect nul.
-- `verdisconterend`: bronbedrag blijft auditbaar, maar wordt via verdeelregels in doelregels verwerkt; dubbele telling is technisch verboden.
-- `verrekenbaar`: basisbedrag en verrekeningsverschil worden afzonderlijk gevolgd op basis van contracthoeveelheid, werkelijke/verrekenbare hoeveelheid en overeengekomen prijsgrondslag.
+- `normaal` — standaard financiële calculatieregel;
+- `stelpost` — telt mee maar blijft afzonderlijk herkenbaar en totaliseerbaar;
+- `optie` — volledig doorgerekend, standaard buiten de basisprijs totdat expliciet opgenomen;
+- `notitie` — tekst zonder financiële werking;
+- `verdisconterend` — bronbedrag wordt volgens een verdeelsleutel over geselecteerde regels verdeeld zonder dubbele telling;
+- `verrekenbaar` — contracthoeveelheid en werkelijke/verrekenbare hoeveelheid worden afzonderlijk gevolgd.
 
 ### Primaire regelweergave
 
-De primaire spreadsheetweergave bevat:
-
-- omschrijving;
-- locatie (compact, geërfd of expliciet);
-- regeltype;
-- hoeveelheid;
-- eenheid;
-- arbeid;
-- materiaal;
-- materieel;
-- OA;
-- overig;
-- directe kostprijs;
-- status/signaal.
-
-Specialistische gegevens zoals normuren, uurtarief, afval, prijsbron, leverancier, materiaalcode, btw, memo, RFQ/inkoop, bewijs, volledige locatiecontext, optie-status, verdeelsleutel en verrekeningsgrondslag verschijnen in regel-detail en niet standaard als losse hoofdkolommen.
+De spreadsheet toont minimaal omschrijving, locatie, regeltype, hoeveelheid, eenheid, arbeid, materiaal, materieel, OA, overig, directe kostprijs en status/signaal. Specialistische gegevens verschijnen in regel-detail.
 
 ## Totalisering
-
-Totalisering volgt bottom-up de classificatieboom:
 
 ```text
 Kostendragers -> directe kostprijs regel
@@ -131,21 +68,188 @@ Parent-paragrafen -> totaal hoofdgroep
 Hoofdgroepen -> directe kosten calculatie
 ```
 
-Parenttotalen en hoofdgroeptotalen zijn altijd afgeleid en nooit vrij handmatig overschrijfbaar. Stelposten, opties, verdisconterende en verrekenbare regels krijgen daarnaast eigen analysetotalen zonder een tweede financieel grootboek te vormen.
+Totalen zijn altijd afgeleid en niet handmatig overschrijfbaar.
 
-Daarboven wordt de commerciële opbouw afzonderlijk getoond:
+## Tab Parameters
+
+Iedere calculatie krijgt een aparte tab **Parameters**. Hier wordt niet het werk zelf gecalculeerd, maar wordt vastgelegd **hoe deze calculatie rekent, presenteert en commercieel wordt opgebouwd**.
+
+Parameters zijn onderdeel van de calculatieversie. Een wijziging van een materiële parameter veroorzaakt herberekening en moet auditbaar zijn.
+
+### 1. Calculatiemodus
+
+- `Open` — transparante calculatie waarbij de relevante opbouw richting opdrachtgever kan worden getoond;
+- `Gesloten` — interne calculatie; opdrachtgever ontvangt uitsluitend de afgesproken commerciële prijs/opbouw;
+- optioneel `Intern open / extern gesloten` als praktische presentatievariant: intern volledige openheid, externe output beperkt.
+
+Open/gesloten bepaalt **presentatie en output**, niet of BREBO intern minder detail vastlegt. Intern blijft de volledige kostprijs altijd beschikbaar.
+
+### 2. Commerciële prijsopbouw
+
+Per calculatie wordt één hoofdmethodiek gekozen:
+
+- `Staartkosten` — afzonderlijke commerciële/indirecte componenten boven op de directe kosten;
+- `Enkele marge` — één gecombineerde commerciële opslag/marge op de gekozen grondslag.
+
+Bij `Staartkosten` kunnen componenten afzonderlijk worden geactiveerd en geconfigureerd, bijvoorbeeld:
+
+- algemene kosten / AK;
+- project-/bouwplaatskosten voor zover niet als directe calculatieregels opgenomen;
+- risico/onvoorzien;
+- winst;
+- commerciële correctie;
+- overige expliciete staartcomponenten.
+
+Iedere component toont minimaal percentage, eurobedrag, berekeningsgrondslag en volgorde. Hierdoor is zichtbaar of een percentage bijvoorbeeld over directe kosten, kostprijs na AK of een andere vastgelegde basis wordt berekend.
+
+Bij `Enkele marge` wordt minimaal vastgelegd:
+
+- marge/opslagpercentage;
+- berekeningsgrondslag;
+- resulterend eurobedrag;
+- doel/verantwoording indien afwijkend van de standaard.
+
+### 3. Opslaggrondslag en uitzonderingen
+
+Parameters bepalen waarop opslagen worden berekend:
+
+- alle directe kosten;
+- alleen geselecteerde kostendragers;
+- inclusief/exclusief stelposten;
+- inclusief/exclusief opgenomen opties;
+- inclusief/exclusief OA;
+- uitzonderingen per hoofdgroep/paragraaf/regel wanneer gemotiveerd.
+
+Regels kunnen aangeven dat een bepaalde opslag niet van toepassing is. Het systeem moet afwijkingen expliciet zichtbaar houden.
+
+### 4. Arbeid en tarieven
+
+- standaard arbeidsuurtarief of tariefset;
+- eventuele tariefgroepen;
+- standaard norm-/urenmethodiek;
+- loon-/prijspeildatum;
+- eventuele toeslagregels voor bijzondere werktijden of omstandigheden.
+
+Een regel mag hiervan afwijken, maar een afwijking moet herkenbaar zijn en de gebruikte bron/tariefdatum bewaren.
+
+### 5. Prijspeil en indexatie
+
+- prijspeildatum calculatie;
+- gewenste geldigheidsdatum;
+- indexatie wel/niet toepassen;
+- indexatiemethode/bron wanneer toegepast;
+- indexatie tot uitvoeringsmoment of offertepeil waar relevant.
+
+Prijspeil en indexatie blijven gescheiden: prijspeil beschrijft de basis van de gebruikte prijzen; indexatie beschrijft de correctie naar een ander moment.
+
+### 6. BTW en afronding
+
+- standaard BTW-regime/tarief voor output waar relevant;
+- bedragen intern standaard excl. BTW;
+- afronding per regel, subtotaal en eindprijs;
+- commerciële eindafronding optioneel afzonderlijk vastleggen;
+- afrondingsverschil altijd controleerbaar en nooit verborgen in de rekenregels.
+
+### 7. Opties, stelposten en verrekenbare posten
+
+Parameters bepalen de standaard behandeling:
+
+- opties standaard opgenomen of niet opgenomen;
+- stelposten wel/niet in basisprijs;
+- aparte totaalweergave van stelposten;
+- standaard verrekeningsgrondslag voor verrekenbare regels;
+- standaard presentatie in offerte/output.
+
+Individuele regels mogen hiervan gecontroleerd afwijken.
+
+### 8. Verdiscontering
+
+Voor verdisconterende regels wordt de standaard verdeelmethode ingesteld, bijvoorbeeld:
+
+- naar rato directe kostprijs;
+- naar rato hoeveelheid;
+- naar rato arbeid;
+- naar rato verkoopwaarde;
+- handmatige gewichten;
+- geselecteerde doelregels/paragrafen.
+
+Het verdeelde bedrag moet altijd volledig aansluiten op de bronregel. Verschil door afronding wordt expliciet gecorrigeerd en auditbaar vastgelegd.
+
+### 9. Inkoop- en prijsbronbeleid
+
+- voorkeursvolgorde prijsbronnen;
+- maximale ouderdom van prijzen voordat een signaal ontstaat;
+- leverancier/offerte verplicht vanaf een instelbare drempel of risicoklasse;
+- prijs zonder actuele bron wel/niet toegestaan;
+- RFQ/inkoopstatus meenemen als calculatiewaarschuwing.
+
+Dit is een kwaliteitsparameter en geen automatische blokkade tenzij BREBO dat expliciet instelt.
+
+### 10. Risico en onzekerheid
+
+Naast een algemeen risicopercentage kan de calculatie werken met expliciete risico-items. Parameters bepalen:
+
+- centraal risicopercentage wel/niet actief;
+- risico op regelniveau wel/niet toegestaan;
+- dubbel tellen van centraal en lokaal risico voorkomen;
+- onzekerheids-/prijsstatus zichtbaar maken;
+- drempel voor waarschuwing op onbeprijsde of onzekere scope.
+
+### 11. Output en commerciële zichtbaarheid
+
+Voor open/gesloten calculaties wordt vastgelegd welke gegevens in externe output mogen verschijnen:
+
+- hoeveelheden;
+- eenheidsprijzen;
+- kostendragers;
+- subtotalen;
+- staartkosten;
+- marge/winst;
+- stelposten;
+- opties;
+- notities;
+- locatie;
+- classificatiecodes.
+
+Externe zichtbaarheid verandert nooit de interne waarheid; het is uitsluitend een presentatiefilter.
+
+### 12. Calculatiestatus en lock
+
+De parameter-tab toont tevens:
+
+- concept / in calculatie / ter controle / vastgesteld / vervallen;
+- calculator/eigenaar;
+- controledatum en controleur;
+- actieve versie;
+- reden revisie;
+- lockstatus.
+
+Een vastgestelde calculatieversie wordt niet stilzwijgend aangepast. Materiële wijzigingen leiden tot een nieuwe versie of expliciete heropening volgens mandaat.
+
+## Commerciële opbouw
+
+De exacte eindopbouw volgt de gekozen parameters. Een staartkostenmodel kan bijvoorbeeld zijn:
 
 ```text
 Directe kosten
 + Algemene kosten
-+ Risico
-= Kostprijs na risico
-+ Winst / marge
++ Project-/bouwplaatskosten
++ Risico / onvoorzien
+= Kostprijs
++ Winst
 + Commerciële correctie
-= Verkoopprijs excl. btw
+= Verkoopprijs excl. BTW
 ```
 
-Percentages worden altijd tevens als eurobedrag zichtbaar gemaakt.
+Bij enkele marge:
+
+```text
+Directe kosten / gekozen kostprijsgrondslag
++ Enkele commerciële marge
+= Verkoopprijs excl. BTW
+```
+
+BREBO Office toont bij iedere stap zowel percentage als eurobedrag.
 
 ## Kostprijs versus offerte
 
@@ -153,46 +257,25 @@ De calculatie en offerte zijn verschillende objecten. Calculatie is technische/f
 
 ## Versies
 
-Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief verschillen in directe kosten, opslagen/marge en verkoopprijs en de reden van revisie.
+Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief wijzigingen in parameters. Een versieverschil moet dus niet alleen gewijzigde regels tonen, maar ook gewijzigde marge-, risico-, prijspeil- en outputparameters.
 
 ## Relatie met gebouw en project
 
-Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. Regels en paragrafen kunnen verwijzen naar technische zone, gebouwdeel, woning, productpositie of ander canoniek scopeobject. Classificatie ordent kosten; gebouw/projectscope bepaalt waar het werk plaatsvindt.
+Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. Classificatie ordent kosten; gebouw/projectscope bepaalt waar het werk plaatsvindt.
 
 ## UI-principe
 
-De standaard calculatiewerkplek is nadrukkelijk **spreadsheetachtig** en niet formulierachtig.
+De calculatiewerkplek is nadrukkelijk spreadsheetachtig en niet formulierachtig. Hoofdgroepen/paragrafen zijn inklapbaar, regels inline bewerkbaar, kolomkoppen sticky en normale regels gebruiken subtiele zebra-striping. Structurele subtotalen doorbreken deze striping en zijn duidelijk maar rustig herkenbaar.
 
-- hoofdgroepen en paragrafen zijn inklapbaar;
-- inspringing maakt de hiërarchie direct zichtbaar;
-- regels zijn inline/direct bewerkbaar zonder voor iedere wijziging een apart Drupal-formulier te openen;
-- kolomkoppen blijven bij lange calculaties zichtbaar (sticky header);
-- omschrijving/structuurkolom blijft waar praktisch mogelijk zichtbaar bij horizontaal scrollen;
-- numerieke kolommen zijn rechts uitgelijnd en hebben vaste/voorspelbare breedtes;
-- toetsenbordnavigatie (Tab/Enter/pijltjes waar passend) ondersteunt snel calculeren;
-- rij toevoegen, dupliceren en verwijderen gebeurt direct vanuit de tabel;
-- totalen per paragraaf/hoofdgroep blijven visueel onderscheidbaar en zijn niet bewerkbaar;
-- compacte locatiekolom en filter/groepering op locatie blijven beschikbaar;
-- regel-detail opent alleen voor specialistische gegevens;
-- een live kostprijsopbouw blijft zichtbaar naast of onder de calculatie.
+De hoofdwerkruimte krijgt minimaal tabs voor:
 
-### Rij- en kleurhiërarchie
-
-Normale calculatieregels gebruiken **subtiele zebra-striping**: afwisselend wit en een zeer lichte neutrale achtergrond. Het doel is horizontaal volgen van bedragen over brede tabellen, niet decoratie.
-
-De hiërarchische structurele rijen krijgen een eigen vaste visuele behandeling en doorbreken de zebra-striping:
-
-- hoofdgroep: duidelijkste structuur-/totaalrij;
-- paragraaf niveau 1: sterke subtotaalrij;
-- paragraaf niveau 2: lichtere subtotaalrij;
-- paragraaf niveau 3/eindparagraaf: compacte subtotaalrij;
-- calculatieregels: afwisselend lichte rijachtergrond;
-- geselecteerde/actieve rij: duidelijke focusmarkering die zebra-kleur overstemt;
-- fout/waarschuwing: statusmarkering aan de rand of cel, niet een volledig schreeuwerig gekleurde rij tenzij kritisch.
-
-Regeltypen mogen aanvullend een klein herkenbaar label/icoon krijgen (`Stelpost`, `Optie`, `Verrekenbaar`, enz.), maar de hele rij krijgt niet voor ieder regeltype een andere felle kleur. Zo blijft de spreadsheet rustig en scanbaar.
-
-Aparte werkruimten/tabs ondersteunen inkoop/RFQ, risico, varianten, versies en offerte.
+- `Calculatie` — spreadsheet;
+- `Parameters` — reken- en commerciële instellingen;
+- `Inkoop/RFQ`;
+- `Risico`;
+- `Varianten`;
+- `Versies`;
+- `Offerte`.
 
 ## Bestaande data
 
