@@ -4,7 +4,7 @@
 
 Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe chat opnieuw vanaf nul moet worden opgebouwd. Het bevat de compacte actuele werkstand en verwijst naar de leidende bronnen.
 
-Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap of wijzigingsregister.
+Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -15,10 +15,11 @@ Lees eerst, in deze volgorde:
 3. `docs/CIM.md`;
 4. `docs/ROADMAP.md`;
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
-6. dit continuïteitsdocument;
-7. de actuele GitHub-stand van `develop` en open pull requests.
+6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor alle presentatie/UI-werkzaamheden;
+7. dit continuïteitsdocument;
+8. de actuele GitHub-stand van `develop` en open pull requests.
 
-Verzin geen nieuwe architectuur wanneer een onderwerp al in deze bronnen is vastgesteld.
+Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onderwerp al in deze bronnen is vastgesteld.
 
 ## Vaste functionele uitgangspunten
 
@@ -32,6 +33,17 @@ Verzin geen nieuwe architectuur wanneer een onderwerp al in deze bronnen is vast
 - AI en digitale rollen signaleren en bereiden voor; formele materiële besluiten blijven binnen aantoonbaar mandaat.
 - Geen aannames wanneer bewijs nodig is.
 - Belangrijke implementatie geldt pas als duurzaam wanneer zij in GitHub staat.
+
+## Vaste presentatiearchitectuur
+
+- `web/themes/custom/brebo_office` is het centrale applicatietheme.
+- `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` is leidend voor UI/UX en presentatiepatronen.
+- Functionele modules leveren inhoud en gedrag; zij introduceren geen eigen parallelle visuele taal.
+- Vaste schermpatronen: cockpit/dashboard, detaildossier, lijst/tabel, kanban, formulier, look-ahead/risico en foto/bewijs.
+- Gebouwpagina presenteert permanente gebouwkennis; projectpagina presenteert operationele sturing.
+- Status, navigatie, KPI-kaarten, acties, informatiedichtheid en mobiel gedrag worden centraal gestandaardiseerd.
+- Nieuwe schermen moeten direct conform het design system worden gebouwd; bestaande schermen worden gefaseerd gemigreerd.
+- Prioriteit voor presentatie-migratie: projectcockpit/look-ahead -> gebouwcockpit -> werkpakket/release-gate -> bewoners/toegang/woningdossier -> commerciële funnel -> overige modules.
 
 ## Actuele objectstructuur
 
@@ -89,17 +101,20 @@ Dit is tevens het herbruikbare modulepatroon voor andere readiness-soorten: data
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
 
+De eerder ontbrekende centrale UI/UX-specificatie is op 15 augustus 2026 hersteld met `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`. Het bestaande `brebo_office` theme blijft de technische presentatielaag. Dit voorkomt dat de groeiende modules ieder een eigen, onoverzichtelijke interface ontwikkelen.
+
 De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
-1. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
-2. Look-ahead vervolgens verbreden van alleen toegang naar een generiek readinessmodel voor o.a. materiaal, tekeningen, vergunningen, steiger en KAM, steeds via bestaande objecten/modules.
-3. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
-4. Oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
-5. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
-6. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
-7. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
+1. Centrale theme-componenten voor cockpit/KPI/status/tabel/acties opbouwen volgens `BREBO_OFFICE_UI_DESIGN_SYSTEM.md`, te beginnen bij projectcockpit en look-ahead.
+2. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
+3. Look-ahead verbreden van alleen toegang naar een generiek readinessmodel voor o.a. materiaal, tekeningen, vergunningen, steiger en KAM, steeds via bestaande objecten/modules.
+4. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
+5. Oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
+6. Foto-editor voor niet-destructieve markeringen mobiel uitwerken conform het centrale design system.
+7. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
+8. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
 
 ## Integration API en deployment
 
@@ -115,6 +130,8 @@ De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / P
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
 
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert. Alleen in de chat melden dat continuïteit is bijgewerkt is niet voldoende.
+
+Bij iedere nieuwe of gewijzigde UI moet tevens worden getoetst aan `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`. Een lokale afwijking wordt alleen duurzaam wanneer het centrale design system die afwijking expliciet toestaat of zelf wordt bijgewerkt.
 
 ## Beheer
 
