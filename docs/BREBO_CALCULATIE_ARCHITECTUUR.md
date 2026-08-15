@@ -72,17 +72,17 @@ Totalen zijn altijd afgeleid en niet handmatig overschrijfbaar.
 
 ## Tab Parameters
 
-Iedere calculatie krijgt een aparte tab **Parameters**. Hier wordt niet het werk zelf gecalculeerd, maar wordt vastgelegd **hoe deze calculatie rekent, presenteert en commercieel wordt opgebouwd**.
+Iedere calculatie krijgt een aparte tab **Parameters**. Hier wordt vastgelegd **hoe de calculatie rekent en commercieel wordt opgebouwd**. Outputpresentatie hoort nadrukkelijk niet in deze tab.
 
 Parameters zijn onderdeel van de calculatieversie. Een wijziging van een materiële parameter veroorzaakt herberekening en moet auditbaar zijn.
 
 ### 1. Calculatiemodus
 
-- `Open` — transparante calculatie waarbij de relevante opbouw richting opdrachtgever kan worden getoond;
-- `Gesloten` — interne calculatie; opdrachtgever ontvangt uitsluitend de afgesproken commerciële prijs/opbouw;
-- optioneel `Intern open / extern gesloten` als praktische presentatievariant: intern volledige openheid, externe output beperkt.
+- `Open` — calculatiemethodiek waarbij transparante prijsopbouw mogelijk is;
+- `Gesloten` — calculatiemethodiek waarbij BREBO commercieel met een gesloten prijsopbouw werkt;
+- `Intern open / extern gesloten` kan als praktische commerciële werkvorm worden ondersteund.
 
-Open/gesloten bepaalt **presentatie en output**, niet of BREBO intern minder detail vastlegt. Intern blijft de volledige kostprijs altijd beschikbaar.
+Open/gesloten is een eigenschap van de calculatie/commerciële methodiek. Welke onderdelen uiteindelijk in een document zichtbaar worden, wordt door de Outputgenerator bepaald.
 
 ### 2. Commerciële prijsopbouw
 
@@ -100,7 +100,7 @@ Bij `Staartkosten` kunnen componenten afzonderlijk worden geactiveerd en geconfi
 - commerciële correctie;
 - overige expliciete staartcomponenten.
 
-Iedere component toont minimaal percentage, eurobedrag, berekeningsgrondslag en volgorde. Hierdoor is zichtbaar of een percentage bijvoorbeeld over directe kosten, kostprijs na AK of een andere vastgelegde basis wordt berekend.
+Iedere component toont minimaal percentage, eurobedrag, berekeningsgrondslag en volgorde.
 
 Bij `Enkele marge` wordt minimaal vastgelegd:
 
@@ -120,8 +120,6 @@ Parameters bepalen waarop opslagen worden berekend:
 - inclusief/exclusief OA;
 - uitzonderingen per hoofdgroep/paragraaf/regel wanneer gemotiveerd.
 
-Regels kunnen aangeven dat een bepaalde opslag niet van toepassing is. Het systeem moet afwijkingen expliciet zichtbaar houden.
-
 ### 4. Arbeid en tarieven
 
 - standaard arbeidsuurtarief of tariefset;
@@ -130,35 +128,31 @@ Regels kunnen aangeven dat een bepaalde opslag niet van toepassing is. Het syste
 - loon-/prijspeildatum;
 - eventuele toeslagregels voor bijzondere werktijden of omstandigheden.
 
-Een regel mag hiervan afwijken, maar een afwijking moet herkenbaar zijn en de gebruikte bron/tariefdatum bewaren.
-
 ### 5. Prijspeil en indexatie
 
 - prijspeildatum calculatie;
-- gewenste geldigheidsdatum;
+- geldigheids-/referentiedatum;
 - indexatie wel/niet toepassen;
-- indexatiemethode/bron wanneer toegepast;
+- indexatiemethode/bron;
 - indexatie tot uitvoeringsmoment of offertepeil waar relevant.
 
-Prijspeil en indexatie blijven gescheiden: prijspeil beschrijft de basis van de gebruikte prijzen; indexatie beschrijft de correctie naar een ander moment.
+Prijspeil en indexatie blijven gescheiden.
 
 ### 6. BTW en afronding
 
-- standaard BTW-regime/tarief voor output waar relevant;
-- bedragen intern standaard excl. BTW;
+- intern standaard excl. BTW;
+- standaard BTW-regime/tarief waar relevant;
 - afronding per regel, subtotaal en eindprijs;
-- commerciële eindafronding optioneel afzonderlijk vastleggen;
-- afrondingsverschil altijd controleerbaar en nooit verborgen in de rekenregels.
+- commerciële eindafronding optioneel afzonderlijk;
+- afrondingsverschillen altijd controleerbaar.
 
 ### 7. Opties, stelposten en verrekenbare posten
 
-Parameters bepalen de standaard behandeling:
+Parameters bepalen de standaard rekenkundige behandeling:
 
 - opties standaard opgenomen of niet opgenomen;
 - stelposten wel/niet in basisprijs;
-- aparte totaalweergave van stelposten;
-- standaard verrekeningsgrondslag voor verrekenbare regels;
-- standaard presentatie in offerte/output.
+- standaard verrekeningsgrondslag voor verrekenbare regels.
 
 Individuele regels mogen hiervan gecontroleerd afwijken.
 
@@ -173,21 +167,17 @@ Voor verdisconterende regels wordt de standaard verdeelmethode ingesteld, bijvoo
 - handmatige gewichten;
 - geselecteerde doelregels/paragrafen.
 
-Het verdeelde bedrag moet altijd volledig aansluiten op de bronregel. Verschil door afronding wordt expliciet gecorrigeerd en auditbaar vastgelegd.
+Het verdeelde bedrag moet altijd volledig aansluiten op de bronregel; dubbele telling is verboden.
 
 ### 9. Inkoop- en prijsbronbeleid
 
 - voorkeursvolgorde prijsbronnen;
 - maximale ouderdom van prijzen voordat een signaal ontstaat;
-- leverancier/offerte verplicht vanaf een instelbare drempel of risicoklasse;
+- leverancier/offerte gewenst of verplicht vanaf ingestelde drempel/risicoklasse;
 - prijs zonder actuele bron wel/niet toegestaan;
-- RFQ/inkoopstatus meenemen als calculatiewaarschuwing.
-
-Dit is een kwaliteitsparameter en geen automatische blokkade tenzij BREBO dat expliciet instelt.
+- RFQ/inkoopstatus als calculatiewaarschuwing.
 
 ### 10. Risico en onzekerheid
-
-Naast een algemeen risicopercentage kan de calculatie werken met expliciete risico-items. Parameters bepalen:
 
 - centraal risicopercentage wel/niet actief;
 - risico op regelniveau wel/niet toegestaan;
@@ -195,25 +185,7 @@ Naast een algemeen risicopercentage kan de calculatie werken met expliciete risi
 - onzekerheids-/prijsstatus zichtbaar maken;
 - drempel voor waarschuwing op onbeprijsde of onzekere scope.
 
-### 11. Output en commerciële zichtbaarheid
-
-Voor open/gesloten calculaties wordt vastgelegd welke gegevens in externe output mogen verschijnen:
-
-- hoeveelheden;
-- eenheidsprijzen;
-- kostendragers;
-- subtotalen;
-- staartkosten;
-- marge/winst;
-- stelposten;
-- opties;
-- notities;
-- locatie;
-- classificatiecodes.
-
-Externe zichtbaarheid verandert nooit de interne waarheid; het is uitsluitend een presentatiefilter.
-
-### 12. Calculatiestatus en lock
+### 11. Calculatiestatus en lock
 
 De parameter-tab toont tevens:
 
@@ -224,7 +196,76 @@ De parameter-tab toont tevens:
 - reden revisie;
 - lockstatus.
 
-Een vastgestelde calculatieversie wordt niet stilzwijgend aangepast. Materiële wijzigingen leiden tot een nieuwe versie of expliciete heropening volgens mandaat.
+Een vastgestelde calculatieversie wordt niet stilzwijgend aangepast.
+
+## Outputgenerator
+
+Output wordt een **aparte generieke BREBO Outputgenerator** en geen verzameling zichtbaarheidsschakelaars in de calculatieparameters.
+
+De Outputgenerator gebruikt de calculatie als brondata, maar bepaalt zelfstandig **hoe die data in een specifiek documentmodel wordt gepresenteerd**.
+
+### Outputmodel
+
+Een outputmodel is een herbruikbaar en versioneerbaar sjabloon/profiel. Voorbeelden:
+
+- interne calculatie volledig;
+- interne calculatiesamenvatting;
+- open-begroting opdrachtgever;
+- gesloten prijsopgave;
+- offerte met hoofdgroepen;
+- offerte met paragrafen;
+- stelposten- en optiebijlage;
+- hoeveelhedenstaat;
+- inkoop-/RFQ-spiegel;
+- projectbegroting;
+- nacalculatievergelijking.
+
+BREBO kan eigen modellen aanmaken, kopiëren, wijzigen, vastleggen en versiebeheer geven. Een model kan organisatiebreed beschikbaar zijn of projectspecifiek worden gemaakt.
+
+### Per model instelbaar
+
+Een outputmodel bepaalt onder andere:
+
+- welke hoofdgroepen/paragraafniveaus worden getoond;
+- hoeveelheden wel/niet;
+- eenheden wel/niet;
+- eenheidsprijzen wel/niet;
+- kostendragers arbeid/materiaal/materieel/OA/overig wel/niet;
+- directe kostprijs, verkoopprijs of beide;
+- staartkosten en margecomponenten wel/niet;
+- stelposten en opties opnemen, uitsluiten of als aparte sectie tonen;
+- notitieregels wel/niet;
+- locatie wel/niet;
+- NL-SfB/STABU/eigen codes wel/niet;
+- subtotale niveaus;
+- afronding/presentatieniveau;
+- titelblokken, begeleidende teksten en voorwaarden;
+- sortering en groepering;
+- huisstijl/documentlay-out.
+
+### Model versus snapshot
+
+Het outputmodel is het herbruikbare recept. Een gegenereerde output is een **vastgelegde snapshot** van:
+
+- gebruikte calculatieversie;
+- gebruikte outputmodelversie;
+- datum/tijd;
+- gebruiker;
+- toegepaste selectie/filters;
+- gegenereerde documentversie.
+
+Een later gewijzigd outputmodel verandert dus nooit stilzwijgend een eerder uitgegeven document.
+
+### Scheiding van verantwoordelijkheden
+
+```text
+Calculatie + Parameters = financiële waarheid en rekenmethodiek
+Outputmodel             = presentatierecept
+Outputsnapshot           = vastgelegd document/resultaat
+Offerte                  = commercieel klantdocument dat een outputmodel kan gebruiken
+```
+
+Hierdoor kan dezelfde calculatie zonder duplicatie meerdere betrouwbare outputs opleveren.
 
 ## Commerciële opbouw
 
@@ -253,11 +294,11 @@ BREBO Office toont bij iedere stap zowel percentage als eurobedrag.
 
 ## Kostprijs versus offerte
 
-De calculatie en offerte zijn verschillende objecten. Calculatie is technische/financiële onderbouwing; verkoopprijs is commerciële uitkomst; offerte is klantgerichte aanbieding. Een offerte verwijst naar een vastgezette calculatieversie/snapshot en wijzigt nooit stilzwijgend door latere calculatiewijzigingen.
+De calculatie en offerte zijn verschillende objecten. Calculatie is technische/financiële onderbouwing; verkoopprijs is commerciële uitkomst; offerte is klantgerichte aanbieding. Een offerte verwijst naar een vastgezette calculatieversie/snapshot en kan voor haar documentopbouw een vastgelegde versie van een Outputmodel gebruiken.
 
 ## Versies
 
-Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief wijzigingen in parameters. Een versieverschil moet dus niet alleen gewijzigde regels tonen, maar ook gewijzigde marge-, risico-, prijspeil- en outputparameters.
+Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief wijzigingen in parameters. Outputmodellen kennen zelfstandig versiebeheer.
 
 ## Relatie met gebouw en project
 
@@ -275,7 +316,8 @@ De hoofdwerkruimte krijgt minimaal tabs voor:
 - `Risico`;
 - `Varianten`;
 - `Versies`;
-- `Offerte`.
+- `Output` — opent/gebruikt de generieke Outputgenerator;
+- `Offerte` — commerciële aanbieding, desgewenst gevoed door een outputmodel.
 
 ## Bestaande data
 
