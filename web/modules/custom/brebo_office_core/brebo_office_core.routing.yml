@@ -326,6 +326,13 @@ brebo_office_core.funnel:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.funnel_export:
+  path: '/relaties/funnel/export'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CrmController::funnelExport'
+  requirements:
+    _permission: 'access content'
+
 brebo_office_core.opportunity_dashboard:
   path: '/relaties/funnel/{node}'
   defaults:
