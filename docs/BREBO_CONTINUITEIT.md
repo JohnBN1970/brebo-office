@@ -43,7 +43,10 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - Gebouwpagina presenteert permanente gebouwkennis; projectpagina presenteert operationele sturing.
 - Status, navigatie, KPI-kaarten, acties, informatiedichtheid en mobiel gedrag worden centraal gestandaardiseerd.
 - Nieuwe schermen moeten direct conform het design system worden gebouwd; bestaande schermen worden gefaseerd gemigreerd.
-- Prioriteit voor presentatie-migratie: projectcockpit/look-ahead -> gebouwcockpit -> werkpakket/release-gate -> bewoners/toegang/woningdossier -> commerciële funnel -> overige modules.
+- `css/design-system.css` bevat de eerste centrale herbruikbare componenten: cockpit-layout, KPI-kaarten, statusbadges, sectiecontainers, actiegroepen en responsieve tabelwrapper.
+- De globale themelibrary laadt deze componenten vanaf versie 1.2.0.
+- `ProjectLookAheadController` is het eerste operationele scherm dat naar deze componenten is gemigreerd: uitzonderingen/KPI's eerst, daarna de detailtabel.
+- Prioriteit voor verdere presentatie-migratie: bredere projectcockpit -> gebouwcockpit -> werkpakket/release-gate -> bewoners/toegang/woningdossier -> commerciële funnel -> overige modules.
 
 ## Actuele objectstructuur
 
@@ -76,7 +79,7 @@ Vastgelegd en/of gebouwd:
 - release gate toont automatische beslisinformatie maar blijft een menselijke formele beoordeling;
 - `LookAheadAccessReadiness` gebruikt de bestaande geplande start van werkpakketten;
 - standaard look-ahead is 42 dagen: groen = gereed/n.v.t., oranje = niet gereed en >7 dagen, rood = niet gereed en <=7 dagen;
-- project heeft nu de tab `Look-ahead startgereed` met samenvatting rood/oranje/groen en per werkpakket: geplande start, dagen tot start, readinesspercentage, aantal aandachtspunten, reden en doorklik naar toegangsdetail;
+- project heeft de tab `Look-ahead startgereed`; deze gebruikt nu het centrale cockpit/KPI/status/tabel-patroon;
 - look-ahead signaleert alleen en wijzigt planning of formele vrijgave niet zelfstandig;
 - legacy `brebo_dwelling` -> BAG-residence adres-bridge blijft tijdelijk en moet een directe canonieke referentie worden.
 
@@ -101,20 +104,21 @@ Dit is tevens het herbruikbare modulepatroon voor andere readiness-soorten: data
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
 
-De eerder ontbrekende centrale UI/UX-specificatie is op 15 augustus 2026 hersteld met `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`. Het bestaande `brebo_office` theme blijft de technische presentatielaag. Dit voorkomt dat de groeiende modules ieder een eigen, onoverzichtelijke interface ontwikkelen.
+De centrale UI/UX-specificatie staat in `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`; de eerste centrale theme-componenten zijn nu daadwerkelijk geïmplementeerd en toegepast op de project-look-ahead. De presentatielaag is daarmee van documentatie naar uitvoerbare standaard gegaan.
 
 De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
-1. Centrale theme-componenten voor cockpit/KPI/status/tabel/acties opbouwen volgens `BREBO_OFFICE_UI_DESIGN_SYSTEM.md`, te beginnen bij projectcockpit en look-ahead.
-2. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
-3. Look-ahead verbreden van alleen toegang naar een generiek readinessmodel voor o.a. materiaal, tekeningen, vergunningen, steiger en KAM, steeds via bestaande objecten/modules.
-4. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
-5. Oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
-6. Foto-editor voor niet-destructieve markeringen mobiel uitwerken conform het centrale design system.
-7. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
-8. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
+1. De bredere projectcockpit en toegangscockpit migreren naar dezelfde centrale cockpit/KPI/status/tabel-componenten.
+2. Werkpakket/release-gate vervolgens visueel conform hetzelfde patroon brengen.
+3. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen zonder de menselijke poortbeslissing te overschrijven.
+4. Look-ahead verbreden van alleen toegang naar een generiek readinessmodel voor o.a. materiaal, tekeningen, vergunningen, steiger en KAM, steeds via bestaande objecten/modules.
+5. Directe canonieke relatie realiseren tussen technische woningscope (`brebo_dwelling`) en BAG-backed residence.
+6. Oude directe `access_status` op `brebo_residence` uitfaseren als primaire waarheid; `brebo_access_contact` + resolver wordt leidend.
+7. Foto-editor voor niet-destructieve markeringen mobiel uitwerken conform het centrale design system.
+8. Bewoners/service-objecten aansluiten op centrale taken, workflow, communicatie en oplever-/kwaliteitsprocessen zonder duplicatie.
+9. Historische verplichte `Cluster -> Project`-relatie en legacy `field_brebo_location` binnen canonieke consolidatie beoordelen/migreren zonder dataverlies.
 
 ## Integration API en deployment
 
