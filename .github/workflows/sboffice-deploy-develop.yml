@@ -194,7 +194,7 @@ jobs:
 
           cd "$target"
           test -f vendor/drush/drush/drush.php
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake -y
+          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service -y
           echo "Clearing derived container and discovery caches before database updates."
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y --no-cache-clear
