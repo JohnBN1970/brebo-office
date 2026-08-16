@@ -8,6 +8,7 @@ use Drupal\brebo_calculation\Service\SubcalculationManager;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -53,7 +54,7 @@ final class SubcalculationOverviewForm extends FormBase {
 
     $form['overview'] = [
       '#type' => 'table',
-      '#header' => ['Code', 'Deelcalculatie', 'Type', 'Eenheid', 'Scope', 'Toepassingen', 'Directe kostprijs / eenheid', 'Status'],
+      '#header' => ['Code', 'Deelcalculatie', 'Type', 'Eenheid', 'Scope', 'Toepassingen', 'Directe kostprijs / eenheid', 'Status', 'Actie'],
       '#empty' => 'Nog geen deelcalculaties aangemaakt.',
       '#attributes' => ['class' => ['brebo-subcalculation-table']],
     ];
@@ -76,6 +77,7 @@ final class SubcalculationOverviewForm extends FormBase {
         'applications' => ['#markup' => (string) $applicationCount],
         'direct' => ['#markup' => '<strong>€ ' . number_format($totals['direct'], 2, ',', '.') . '</strong>'],
         'status' => ['#markup' => htmlspecialchars((string) $record['status'])],
+        'action' => ['#type' => 'link', '#title' => 'Samenstellen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_detail', ['node' => $node->id(), 'subcalculation' => $id])],
       ];
     }
 
