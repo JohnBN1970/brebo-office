@@ -1,0 +1,10 @@
+brebo_calculation.migration_audit:
+  path: '/admin/brebo/calculations/{node}/migration-audit'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\MigrationAuditController::audit'
+    _title: 'Calculatie migratiecontrole'
+  requirements:
+    _permission: 'view brebo calculation migration audit'
+    node: '\d+'
+  options:
+    _admin_route: true
