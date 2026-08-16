@@ -34,9 +34,7 @@ final class SubcalculationSchema {
         'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       ],
       'primary key' => ['id'],
-      'unique keys' => [
-        'calculation_version_code' => ['calculation_id', 'version', 'code'],
-      ],
+      'unique keys' => ['calculation_version_code' => ['calculation_id', 'version', 'code']],
       'indexes' => [
         'calculation_version' => ['calculation_id', 'version'],
         'type_status' => ['subcalculation_type', 'status'],
@@ -60,12 +58,8 @@ final class SubcalculationSchema {
         'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       ],
       'primary key' => ['id'],
-      'unique keys' => [
-        'subcalculation_scope' => ['subcalculation_id', 'scope_type', 'scope_ref'],
-      ],
-      'indexes' => [
-        'subcalculation_sort' => ['subcalculation_id', 'sort_order'],
-      ],
+      'unique keys' => ['subcalculation_scope' => ['subcalculation_id', 'scope_type', 'scope_ref']],
+      'indexes' => ['subcalculation_sort' => ['subcalculation_id', 'sort_order']],
     ];
   }
 
@@ -112,13 +106,16 @@ final class SubcalculationSchema {
         'factor' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 1],
         'is_exception' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
         'exception_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+        'exception_labour' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+        'exception_material' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+        'exception_equipment' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+        'exception_subcontracting' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+        'exception_other' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
         'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
         'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       ],
       'primary key' => ['id'],
-      'unique keys' => [
-        'application_object' => ['application_id', 'object_type', 'object_ref'],
-      ],
+      'unique keys' => ['application_object' => ['application_id', 'object_type', 'object_ref']],
       'indexes' => [
         'application' => ['application_id'],
         'canonical_object' => ['object_type', 'object_ref'],
@@ -126,5 +123,4 @@ final class SubcalculationSchema {
       ],
     ];
   }
-
 }
