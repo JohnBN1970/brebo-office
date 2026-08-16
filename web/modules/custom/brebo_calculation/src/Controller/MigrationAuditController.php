@@ -6,6 +6,10 @@ namespace Drupal\brebo_calculation\Controller;
 
 use Drupal\brebo_calculation\Service\LegacyDryRunService;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Database\Connection;
+use Drupal\Core\Link;
+use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Read-only legacy calculation migration audit. */
@@ -13,15 +17,63 @@ final class MigrationAuditController extends ControllerBase {
 
   public function __construct(
     private readonly LegacyDryRunService $dryRun,
+    private readonly Connection $database,
+    private readonly AccountProxyInterface $currentUserAccount,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_calculation.legacy_dry_run'));
+    return new static(
+      $container->get('brebo_calculation.legacy_dry_run'),
+      $container->get('database'),
+      $container->get('current_user'),
+    );
   }
 
   public function audit(int $node): array {
     $result = $this->dryRun->preview($node);
     $reconciliation = $result->reconciliation;
+    $migration = $this->migrationStatus($node);
+    $safe = $result->isSafeToMigrate();
+
+    $build['state'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-calculation-migration-state']],
+    ];
+
+    if ($migration !== NULL) {
+      $build['state']['message'] = [
+        '#type' => 'status_messages',
+      ];
+      $build['state']['existing'] = [
+        '#markup' => '<p><strong>' . $this->t(
+          'Nieuwe domeinversie aanwezig: @version · status @status · @nodes structuurnodes · @rows regels.',
+          [
+            '@version' => $migration['version'],
+            '@status' => $migration['status'],
+            '@nodes' => $migration['structure_count'],
+            '@rows' => $migration['row_count'],
+          ],
+        ) . '</strong></p>',
+      ];
+    }
+    elseif ($safe) {
+      $build['state']['ready'] = [
+        '#markup' => '<p><strong>🟢 ' . $this->t('Audit is schoon. Deze calculatie kan gecontroleerd worden gemigreerd.') . '</strong></p>',
+      ];
+      if ($this->currentUserAccount->hasPermission('migrate brebo calculation')) {
+        $build['state']['action'] = Link::fromTextAndUrl(
+          $this->t('Gecontroleerd migreren'),
+          Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $node]),
+        )->toRenderable();
+        $build['state']['action']['#attributes']['class'][] = 'button';
+        $build['state']['action']['#attributes']['class'][] = 'button--primary';
+      }
+    }
+    else {
+      $build['state']['blocked'] = [
+        '#markup' => '<p><strong>🔴 ' . $this->t('Migratie geblokkeerd. Los eerst de financiële verschillen en/of waarschuwingen hieronder op.') . '</strong></p>',
+      ];
+    }
 
     $build['summary'] = [
       '#type' => 'table',
@@ -36,7 +88,8 @@ final class MigrationAuditController extends ControllerBase {
         [$this->t('Verschil'), '€ ' . number_format($reconciliation->difference, 2, ',', '.')],
         [$this->t('Tolerantie'), '€ ' . number_format($reconciliation->tolerance, 2, ',', '.')],
         [$this->t('Financiële aansluiting'), $reconciliation->matches ? $this->t('JA') : $this->t('NEE')],
-        [$this->t('Veilig voor migratie'), $result->isSafeToMigrate() ? $this->t('JA') : $this->t('NEE')],
+        [$this->t('Veilig voor migratie'), $safe ? $this->t('JA') : $this->t('NEE')],
+        [$this->t('Nieuwe domeinversie'), $migration !== NULL ? $migration['version'] : $this->t('Nog niet gemigreerd')],
       ],
     ];
 
@@ -77,6 +130,31 @@ final class MigrationAuditController extends ControllerBase {
 
     $build['#cache']['max-age'] = 0;
     return $build;
+  }
+
+  /** @return array<string, mixed>|null */
+  private function migrationStatus(int $calculationId): ?array {
+    $record = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v', ['version', 'status', 'content_hash'])
+      ->condition('calculation_id', $calculationId)
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()->fetchAssoc();
+
+    if (!$record) {
+      return NULL;
+    }
+
+    $record['structure_count'] = (int) $this->database->select('brebo_calculation_structure', 's')
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', (string) $record['version'])
+      ->countQuery()->execute()->fetchField();
+    $record['row_count'] = (int) $this->database->select('brebo_calculation_row_domain', 'r')
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', (string) $record['version'])
+      ->countQuery()->execute()->fetchField();
+
+    return $record;
   }
 
 }
