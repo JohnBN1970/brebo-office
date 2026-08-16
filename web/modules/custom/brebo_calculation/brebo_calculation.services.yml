@@ -53,3 +53,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
     arguments:
       - '@database'
+
+  brebo_calculation.subcalculation_manager:
+    class: Drupal\brebo_calculation\Service\SubcalculationManager
+    arguments:
+      - '@database'
