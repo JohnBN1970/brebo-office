@@ -87,6 +87,9 @@ function brebo_calculation_schema(): array {
     ],
   ];
 
+  $schema['brebo_calculation_price_source'] = brebo_calculation_price_source_schema();
+  $schema['brebo_calculation_price_source_line'] = brebo_calculation_price_source_line_schema();
+
   $schema['brebo_calculation_snapshot'] = [
     'description' => 'Immutable normalized snapshot payload for locked calculation versions.',
     'fields' => [
@@ -104,4 +107,99 @@ function brebo_calculation_schema(): array {
   ];
 
   return $schema;
+}
+
+/** Price source master record: document, email or other traceable source. */
+function brebo_calculation_price_source_schema(): array {
+  return [
+    'description' => 'Auditable external price sources used by calculation rows.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'email_message_id' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'supplier_email' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'offer_number' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'offer_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'valid_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'quoted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'received'],
+      'extraction_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
+      'extraction_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'scope_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'conditions_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'internal_note' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'supersedes_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'calculation_version' => ['calculation_id', 'version'],
+      'source_type' => ['source_type'],
+      'supplier' => ['supplier_name'],
+      'offer_number' => ['offer_number'],
+      'extraction_status' => ['extraction_status'],
+    ],
+  ];
+}
+
+/** Mapping of a source to one or more calculation lines and approval state. */
+function brebo_calculation_price_source_line_schema(): array {
+  return [
+    'description' => 'Mapping and approval of price source values for calculation rows.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'price_source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_line_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'extracted_description' => ['type' => 'text', 'not null' => FALSE],
+      'extracted_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'extracted_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'extracted_unit_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'extracted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'proposed_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'approved_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+      'approval_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'review'],
+      'is_active_source' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'approval_note' => ['type' => 'text', 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_calculation_line' => ['price_source_id', 'calc_line_id', 'version'],
+    ],
+    'indexes' => [
+      'calculation_line' => ['calculation_id', 'version', 'calc_line_id'],
+      'active_source' => ['calculation_id', 'version', 'calc_line_id', 'is_active_source'],
+      'approval_status' => ['approval_status'],
+    ],
+  ];
+}
+
+/**
+ * Install price-source tables for existing BREBO Calculation installations.
+ */
+function brebo_calculation_update_10001(): string {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_price_source')) {
+    $schema->createTable('brebo_calculation_price_source', brebo_calculation_price_source_schema());
+  }
+  if (!$schema->tableExists('brebo_calculation_price_source_line')) {
+    $schema->createTable('brebo_calculation_price_source_line', brebo_calculation_price_source_line_schema());
+  }
+  return 'BREBO Calculation price-source tables created.';
 }
