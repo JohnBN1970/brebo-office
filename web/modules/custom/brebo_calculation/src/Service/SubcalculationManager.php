@@ -73,8 +73,13 @@ final class SubcalculationManager {
     ])->execute();
   }
 
-  /** Add one concrete canonical building/project object to an application. */
-  public function addApplicationObject(int $applicationId, string $objectType, string $objectRef, float $factor, bool $exception, ?string $exceptionPayload, AccountInterface $account): int {
+  /**
+   * Add one concrete canonical building/project object to an application.
+   *
+   * @param array<string,float|int|string|null> $exceptionCosts
+   *   Optional additive cost deviations per cost carrier.
+   */
+  public function addApplicationObject(int $applicationId, string $objectType, string $objectRef, float $factor, bool $exception, ?string $exceptionPayload, AccountInterface $account, array $exceptionCosts = []): int {
     $application = $this->database->select('brebo_calculation_subcalculation_application', 'a')
       ->fields('a', ['subcalculation_id', 'locked_at'])
       ->condition('id', $applicationId)
@@ -87,13 +92,34 @@ final class SubcalculationManager {
     if ($objectRef === '') {
       throw new \InvalidArgumentException('Canonical object reference is required.');
     }
+
+    $costs = [
+      'exception_labour' => (float) ($exceptionCosts['exception_labour'] ?? 0),
+      'exception_material' => (float) ($exceptionCosts['exception_material'] ?? 0),
+      'exception_equipment' => (float) ($exceptionCosts['exception_equipment'] ?? 0),
+      'exception_subcontracting' => (float) ($exceptionCosts['exception_subcontracting'] ?? 0),
+      'exception_other' => (float) ($exceptionCosts['exception_other'] ?? 0),
+    ];
+    foreach ($costs as $value) {
+      if ($value < 0) {
+        throw new \InvalidArgumentException('Financial exception costs cannot be negative.');
+      }
+    }
+    $hasFinancialException = array_sum($costs) > 0.000001;
+    $isException = $exception || $hasFinancialException || trim((string) $exceptionPayload) !== '';
+
     return (int) $this->database->insert('brebo_calculation_subcalculation_application_object')->fields([
       'application_id' => $applicationId,
       'object_type' => trim($objectType),
       'object_ref' => $objectRef,
       'factor' => max(0, $factor),
-      'is_exception' => $exception ? 1 : 0,
-      'exception_payload' => $exceptionPayload,
+      'is_exception' => $isException ? 1 : 0,
+      'exception_payload' => trim((string) $exceptionPayload) ?: NULL,
+      'exception_labour' => $costs['exception_labour'],
+      'exception_material' => $costs['exception_material'],
+      'exception_equipment' => $costs['exception_equipment'],
+      'exception_subcontracting' => $costs['exception_subcontracting'],
+      'exception_other' => $costs['exception_other'],
       'created' => time(),
       'created_by' => (int) $account->id(),
     ])->execute();
@@ -150,6 +176,43 @@ final class SubcalculationManager {
     }
     $totals['direct'] = $totals['labour'] + $totals['material'] + $totals['equipment'] + $totals['subcontracting'] + $totals['other'];
     return $totals;
+  }
+
+  /** @return array<string,float> */
+  public function applicationTotals(int $applicationId): array {
+    $application = $this->database->select('brebo_calculation_subcalculation_application', 'a')
+      ->fields('a', ['subcalculation_id', 'quantity'])
+      ->condition('id', $applicationId)
+      ->execute()->fetchAssoc();
+    if (!$application) {
+      throw new \InvalidArgumentException('Application not found.');
+    }
+    $unit = $this->totals((int) $application['subcalculation_id']);
+    $objects = $this->database->select('brebo_calculation_subcalculation_application_object', 'o')
+      ->fields('o', ['factor', 'exception_labour', 'exception_material', 'exception_equipment', 'exception_subcontracting', 'exception_other'])
+      ->condition('application_id', $applicationId)
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+
+    $result = [
+      'base' => $unit['direct'] * (float) $application['quantity'],
+      'exception_labour' => 0.0,
+      'exception_material' => 0.0,
+      'exception_equipment' => 0.0,
+      'exception_subcontracting' => 0.0,
+      'exception_other' => 0.0,
+      'exceptions' => 0.0,
+      'total' => 0.0,
+    ];
+    foreach ($objects as $object) {
+      $factor = (float) $object['factor'];
+      foreach (['labour', 'material', 'equipment', 'subcontracting', 'other'] as $carrier) {
+        $key = 'exception_' . $carrier;
+        $result[$key] += (float) $object[$key] * $factor;
+      }
+    }
+    $result['exceptions'] = $result['exception_labour'] + $result['exception_material'] + $result['exception_equipment'] + $result['exception_subcontracting'] + $result['exception_other'];
+    $result['total'] = $result['base'] + $result['exceptions'];
+    return $result;
   }
 
   /** @return array<string,mixed> */
@@ -210,5 +273,4 @@ final class SubcalculationManager {
       ->execute()->fetchField();
     return ((int) $max) + 10;
   }
-
 }
