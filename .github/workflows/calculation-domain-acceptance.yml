@@ -1,0 +1,98 @@
+name: Calculation domain acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_calculation/**'
+      - '.github/workflows/calculation-domain-acceptance.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_calculation/**'
+      - '.github/workflows/calculation-domain-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          coverage: none
+
+      - name: Lint calculation module PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 \
+            | xargs -0 -n1 php -l
+
+      - name: Prove calculation schema invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          install_file='web/modules/custom/brebo_calculation/brebo_calculation.install'
+          grep -q "brebo_calculation_structure" "$install_file"
+          grep -q "brebo_calculation_version" "$install_file"
+          grep -q "brebo_calculation_row_domain" "$install_file"
+          grep -q "brebo_calculation_snapshot" "$install_file"
+          grep -q "calculation_version_node" "$install_file"
+          grep -q "calculation_version_snapshot" "$install_file"
+
+      - name: Prove domain model invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          rule='web/modules/custom/brebo_calculation/src/Domain/RuleType.php'
+          row='web/modules/custom/brebo_calculation/src/Domain/CalculationRow.php'
+          tree='web/modules/custom/brebo_calculation/src/Domain/CalculationTree.php'
+          params='web/modules/custom/brebo_calculation/src/Domain/CalculationParameters.php'
+          version='web/modules/custom/brebo_calculation/src/Domain/CalculationVersion.php'
+          grep -q "case Normal" "$rule"
+          grep -q "case Allowance" "$rule"
+          grep -q "case Option" "$rule"
+          grep -q "case Note" "$rule"
+          grep -q "case Distributed" "$rule"
+          grep -q "case Adjustable" "$rule"
+          grep -q "Only leaf paragraphs may contain calculation rows" "$tree"
+          grep -q "effectiveQuantity" "$row"
+          grep -q "commercialMethod" "$params"
+          grep -q "Locked calculation versions require establishment audit data" "$version"
+
+      - name: Prove migration guardrails
+        shell: bash
+        run: |
+          set -euo pipefail
+          migrator='web/modules/custom/brebo_calculation/src/Service/GuardedLegacyMigrator.php'
+          audit='web/modules/custom/brebo_calculation/src/Controller/MigrationAuditController.php'
+          confirm='web/modules/custom/brebo_calculation/src/Form/MigrationConfirmForm.php'
+          routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
+          permissions='web/modules/custom/brebo_calculation/brebo_calculation.permissions.yml'
+          grep -q "isSafeToMigrate" "$migrator"
+          grep -q "target migration version already exists" "$migrator"
+          grep -q "startTransaction" "$migrator"
+          grep -q "assertWritten" "$migrator"
+          grep -q "Gecontroleerd migreren" "$confirm"
+          grep -q "migration_overview" "$routing"
+          grep -q "migration_confirm" "$routing"
+          grep -q "migrate brebo calculation" "$permissions"
+          grep -q "max-age.*0" "$audit"
+
+      - name: Prove calculation financial invariants
+        shell: bash
+        run: |
+          set -euo pipefail
+          totalizer='web/modules/custom/brebo_calculation/src/Service/CalculationTotalizer.php'
+          commercial='web/modules/custom/brebo_calculation/src/Service/CommercialCalculator.php'
+          distribution='web/modules/custom/brebo_calculation/src/Service/DistributionCalculator.php'
+          grep -q "RuleType::Option" "$totalizer"
+          grep -q "RuleType::Note => NULL" "$totalizer"
+          grep -q "single_margin" "$commercial"
+          grep -q "tail_costs" web/modules/custom/brebo_calculation/src/Domain/CalculationParameters.php
+          grep -q "sourceAmount - \$allocated" "$distribution"
+          grep -q "Only distributed rows can be allocated" "$distribution"
