@@ -93,6 +93,7 @@ function brebo_calculation_schema(): array {
   $schema['brebo_calculation_subcalculation_scope'] = \Drupal\brebo_calculation\Schema\SubcalculationSchema::scope();
   $schema['brebo_calculation_subcalculation_application'] = \Drupal\brebo_calculation\Schema\SubcalculationSchema::application();
   $schema['brebo_calculation_subcalculation_application_object'] = \Drupal\brebo_calculation\Schema\SubcalculationSchema::applicationObject();
+  $schema['brebo_calculation_subcalculation_object_exception_line'] = \Drupal\brebo_calculation\Schema\SubcalculationSchema::applicationObjectExceptionLine();
 
   $schema['brebo_calculation_snapshot'] = [
     'description' => 'Immutable normalized snapshot payload for locked calculation versions.',
@@ -192,37 +193,4 @@ function brebo_calculation_price_source_line_schema(): array {
       'approval_status' => ['approval_status'],
     ],
   ];
-}
-
-/**
- * Install price-source tables for existing BREBO Calculation installations.
- */
-function brebo_calculation_update_10001(): string {
-  $schema = \Drupal::database()->schema();
-  if (!$schema->tableExists('brebo_calculation_price_source')) {
-    $schema->createTable('brebo_calculation_price_source', brebo_calculation_price_source_schema());
-  }
-  if (!$schema->tableExists('brebo_calculation_price_source_line')) {
-    $schema->createTable('brebo_calculation_price_source_line', brebo_calculation_price_source_line_schema());
-  }
-  return 'BREBO Calculation price-source tables created.';
-}
-
-/**
- * Install reusable subcalculation tables for existing installations.
- */
-function brebo_calculation_update_10002(): string {
-  $schema = \Drupal::database()->schema();
-  $tables = [
-    'brebo_calculation_subcalculation' => \Drupal\brebo_calculation\Schema\SubcalculationSchema::subcalculation(),
-    'brebo_calculation_subcalculation_scope' => \Drupal\brebo_calculation\Schema\SubcalculationSchema::scope(),
-    'brebo_calculation_subcalculation_application' => \Drupal\brebo_calculation\Schema\SubcalculationSchema::application(),
-    'brebo_calculation_subcalculation_application_object' => \Drupal\brebo_calculation\Schema\SubcalculationSchema::applicationObject(),
-  ];
-  foreach ($tables as $table => $definition) {
-    if (!$schema->tableExists($table)) {
-      $schema->createTable($table, $definition);
-    }
-  }
-  return 'BREBO Calculation reusable subcalculation tables created.';
 }
