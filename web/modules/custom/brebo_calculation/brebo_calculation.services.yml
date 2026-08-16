@@ -26,3 +26,10 @@ services:
   brebo_calculation.persistence:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPersistence
     arguments: ['@database']
+
+  brebo_calculation.guarded_legacy_migrator:
+    class: Drupal\brebo_calculation\Service\GuardedLegacyMigrator
+    arguments:
+      - '@brebo_calculation.legacy_dry_run'
+      - '@brebo_calculation.persistence'
+      - '@database'
