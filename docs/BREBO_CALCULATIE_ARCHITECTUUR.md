@@ -58,6 +58,78 @@ Een normale regel kan tegelijk arbeid, materiaal, materieel, onderaanneming (OA)
 
 De spreadsheet toont minimaal omschrijving, locatie, regeltype, hoeveelheid, eenheid, arbeid, materiaal, materieel, OA, overig, directe kostprijs en status/signaal. Specialistische gegevens verschijnen in regel-detail.
 
+## Deelcalculaties
+
+Een **deelcalculatie** is een herbruikbare, afgebakende calculatiescope binnen dezelfde financiële waarheid. Een deelcalculatie kopieert calculatieregels niet onnodig, maar verwijst naar een gecontroleerde set regels, paragrafen of structurele selectie uit de broncalculatie.
+
+Voorbeelden:
+
+- woningtype A / B / C;
+- gevel noord;
+- kozijnpakket;
+- steigerwerk;
+- bouwdeel of technische zone;
+- fase 1 / fase 2;
+- inkooppakket schilderwerk;
+- meerwerkpakket.
+
+Een deelcalculatie heeft minimaal:
+
+- naam en code;
+- type/doel;
+- status;
+- broncalculatie en bronversie;
+- geselecteerde structuur/regels;
+- hoeveelheid/vermenigvuldigingsfactor;
+- optionele koppeling aan gebouwobject, woningtype, technische zone, werkpakket of projectfase;
+- eigen subtotalen per kostendrager en verkoopprijs;
+- auditbare herkomst en versie.
+
+### Woningtype als herbruikbare toepassing
+
+Voor woningtypen geldt een specifiek vast patroon:
+
+```text
+Woningtype
+  -> concrete woningen die onder dit type vallen
+  -> gekoppelde deelcalculatie per 1 woningtype-eenheid
+  -> aantal woningen
+  -> vermenigvuldigd projecttotaal
+  -> expliciete uitzonderingen per individuele woning
+```
+
+Voorbeeld:
+
+```text
+Woningtype A
+  24 woningen
+  deelcalculatie per woning: € 42.850
+  projecttotaal type A: 24 x € 42.850 = € 1.028.400
+```
+
+De concrete woningen achter de factor blijven altijd aantoonbaar. Het systeem bewaart dus niet alleen `aantal = 24`, maar ook welke woningen tot woningtype A behoren. Hierdoor kunnen afwijkingen per woning afzonderlijk worden gemodelleerd zonder 24 calculaties te dupliceren.
+
+Standaard geldt:
+
+- de deelcalculatie bevat de standaard technische en financiële scope per type-eenheid;
+- projecttoepassing bepaalt het aantal concrete exemplaren;
+- individuele afwijkingen worden als expliciete correctie/variant op de betreffende woning vastgelegd;
+- één wijziging aan de onderliggende typecalculatie kan gecontroleerd doorwerken naar alle nog niet vastgezette toepassingen;
+- vastgestelde project-/offerteversies veranderen nooit stilzwijgend mee;
+- woningtype en woningidentiteit komen uit het canonieke gebouw-/projectmodel en worden niet opnieuw in calculatie gemodelleerd.
+
+### Geen dubbele waarheid
+
+Een deelcalculatie is geen losstaand duplicaat van dezelfde calculatieregels. Waar hergebruik mogelijk is, blijft de bronregel één financiële waarheid. Pas wanneer een projecttoepassing bewust wordt losgemaakt of vastgezet ontstaat een versie/snapshot met eigen auditspoor.
+
+### Commerciële behandeling
+
+Een deelcalculatie erft standaard de commerciële parameters van de broncalculatie. Een afwijkende commerciële behandeling is alleen toegestaan als expliciete, auditbare override. Zo blijft duidelijk of een verkoopprijs is ontstaan uit:
+
+- dezelfde AK/risico/winst-parameters als de hoofdcalculatie;
+- een specifieke deelcalculatie-override;
+- een project-/offertescenario.
+
 ## Totalisering
 
 ```text
@@ -66,6 +138,8 @@ Calculatieregels -> totaal eindparagraaf
 Eindparagrafen -> totaal parent-paragraaf
 Parent-paragrafen -> totaal hoofdgroep
 Hoofdgroepen -> directe kosten calculatie
+Deelcalculatie-eenheid x toepassingsaantal -> deelcalculatietotaal project
+Deelcalculaties + overige projectregels -> projectcalculatie
 ```
 
 Totalen zijn altijd afgeleid en niet handmatig overschrijfbaar.
@@ -177,6 +251,8 @@ Het verdeelde bedrag moet altijd volledig aansluiten op de bronregel; dubbele te
 - prijs zonder actuele bron wel/niet toegestaan;
 - RFQ/inkoopstatus als calculatiewaarschuwing.
 
+Prijsbron en kostendrager zijn afzonderlijke begrippen. Een externe prijs kan na controle naar arbeid, materiaal, materieel, OA of overig worden geboekt. Een steigerprijs kan bijvoorbeeld materieel zijn, terwijl uitbesteed schilderwerk OA is.
+
 ### 10. Risico en onzekerheid
 
 - centraal risicopercentage wel/niet actief;
@@ -214,6 +290,7 @@ Een outputmodel is een herbruikbaar en versioneerbaar sjabloon/profiel. Voorbeel
 - gesloten prijsopgave;
 - offerte met hoofdgroepen;
 - offerte met paragrafen;
+- woningtype-/deelcalculatieoverzicht;
 - stelposten- en optiebijlage;
 - hoeveelhedenstaat;
 - inkoop-/RFQ-spiegel;
@@ -227,6 +304,9 @@ BREBO kan eigen modellen aanmaken, kopiëren, wijzigen, vastleggen en versiebehe
 Een outputmodel bepaalt onder andere:
 
 - welke hoofdgroepen/paragraafniveaus worden getoond;
+- welke deelcalculaties/woningtypen worden getoond;
+- concrete woningen per woningtype wel/niet tonen;
+- aantallen en vermenigvuldigingsfactoren wel/niet tonen;
 - hoeveelheden wel/niet;
 - eenheden wel/niet;
 - eenheidsprijzen wel/niet;
@@ -243,23 +323,28 @@ Een outputmodel bepaalt onder andere:
 - sortering en groepering;
 - huisstijl/documentlay-out.
 
+Voor woningtype-output moet één document bijvoorbeeld automatisch kunnen tonen: typeomschrijving, concrete woningen, aantal, technische scope, calculatie per woningtype-eenheid, totaal per woningtype, afwijkende woningen, prijsbronnen waar relevant en het totaal van het project.
+
 ### Model versus snapshot
 
 Het outputmodel is het herbruikbare recept. Een gegenereerde output is een **vastgelegde snapshot** van:
 
 - gebruikte calculatieversie;
+- gebruikte deelcalculatie-/toepassingsversies;
 - gebruikte outputmodelversie;
 - datum/tijd;
 - gebruiker;
 - toegepaste selectie/filters;
 - gegenereerde documentversie.
 
-Een later gewijzigd outputmodel verandert dus nooit stilzwijgend een eerder uitgegeven document.
+Een later gewijzigd outputmodel of gewijzigde deelcalculatie verandert dus nooit stilzwijgend een eerder uitgegeven document.
 
 ### Scheiding van verantwoordelijkheden
 
 ```text
 Calculatie + Parameters = financiële waarheid en rekenmethodiek
+Deelcalculatie          = herbruikbare geselecteerde financiële scope
+Projecttoepassing       = concrete objecten + aantal/vermenigvuldiging
 Outputmodel             = presentatierecept
 Outputsnapshot           = vastgelegd document/resultaat
 Offerte                  = commercieel klantdocument dat een outputmodel kan gebruiken
@@ -298,11 +383,13 @@ De calculatie en offerte zijn verschillende objecten. Calculatie is technische/f
 
 ## Versies
 
-Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief wijzigingen in parameters. Outputmodellen kennen zelfstandig versiebeheer.
+Iedere materiële calculatiewijziging is herleidbaar. Vastgestelde versies blijven beschikbaar voor vergelijking en audit, inclusief wijzigingen in parameters. Deelcalculaties en projecttoepassingen kennen eveneens versie-/snapshotgedrag zodra zij materieel in een vastgestelde calculatie of output worden gebruikt. Outputmodellen kennen zelfstandig versiebeheer.
 
 ## Relatie met gebouw en project
 
 Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. Classificatie ordent kosten; gebouw/projectscope bepaalt waar het werk plaatsvindt.
+
+Woningtypen en concrete woningen worden niet opnieuw als calculatieobject uitgevonden. Calculatie koppelt aan de canonieke gebouw-/projectobjecten. De deelcalculatie beschrijft de financiële scope per type-eenheid; de projecttoepassing legt vast welke concrete woningen/gebouweenheden die scope gebruiken en met welke factor.
 
 ## UI-principe
 
@@ -311,6 +398,7 @@ De calculatiewerkplek is nadrukkelijk spreadsheetachtig en niet formulierachtig.
 De hoofdwerkruimte krijgt minimaal tabs voor:
 
 - `Calculatie` — spreadsheet;
+- `Deelcalculaties` — herbruikbare scopes, woningtypen en projecttoepassingen;
 - `Parameters` — reken- en commerciële instellingen;
 - `Inkoop/RFQ`;
 - `Risico`;
@@ -323,4 +411,4 @@ De hoofdwerkruimte krijgt minimaal tabs voor:
 
 Bestaande `brebo_calc_line`-velden worden niet verwijderd voordat per veld is vastgesteld of zij behouden, afgeleid, naar regel-detail verplaatst, gemigreerd of verwijderd worden. Bestaande koppelingen met RFQ/inkoop worden bij voorkeur behouden.
 
-Vastgesteld: 15 augustus 2026.
+Vastgesteld: 16 augustus 2026.
