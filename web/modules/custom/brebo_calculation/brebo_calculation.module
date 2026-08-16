@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Runtime hooks for the BREBO Calculation module.
+ */
+
+use Drupal\Core\Form\FormStateInterface;
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$form, FormStateInterface $form_state): void {
+  $calculationId = (int) ($form['calculation_id']['#value'] ?? 0);
+  $version = (string) ($form['version']['#value'] ?? '');
+  if ($calculationId <= 0 || $version === '') {
+    return;
+  }
+
+  $record = \Drupal::database()->select('brebo_calculation_version', 'v')
+    ->fields('v', [
+      'commercial_method',
+      'general_cost_pct',
+      'risk_pct',
+      'profit_pct',
+      'single_margin_pct',
+      'commercial_adjustment',
+    ])
+    ->condition('calculation_id', $calculationId)
+    ->condition('version', $version)
+    ->execute()
+    ->fetchAssoc();
+
+  if (!$record) {
+    return;
+  }
+
+  $form['#attached']['drupalSettings']['breboCalculation']['commercial'] = [
+    'method' => (string) $record['commercial_method'],
+    'generalCostPct' => (float) $record['general_cost_pct'],
+    'riskPct' => (float) $record['risk_pct'],
+    'profitPct' => (float) $record['profit_pct'],
+    'singleMarginPct' => (float) $record['single_margin_pct'],
+    'commercialAdjustment' => (float) $record['commercial_adjustment'],
+  ];
+}
