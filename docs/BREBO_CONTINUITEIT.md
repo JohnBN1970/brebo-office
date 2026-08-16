@@ -41,7 +41,7 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - `web/themes/custom/brebo_office` is het centrale applicatietheme.
 - `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` is leidend voor UI/UX en presentatiepatronen.
 - Functionele modules leveren inhoud en gedrag; zij introduceren geen eigen parallelle visuele taal.
-- Calculatie gebruikt een spreadsheetachtige hiërarchische werkplek met inklapbare hoofdgroepen/paragrafen, inline regels, sticky headers en subtiele zebra-striping.
+- Calculatie gebruikt een spreadsheetachtige hiërarchische werkplek met inklapbare hoofdgroepen/paragrafen, inline regels, sticky headers en compacte totalisatie.
 - Presentatie-only migraties van grote controllers worden bij voorkeur via theme/template/preprocess/behavior uitgevoerd.
 
 ## Actuele objectstructuur
@@ -56,20 +56,100 @@ Taak/workflow = wie wanneer wat moet doen
 
 Gebouw levert kennis aan het project. Het project bestuurt de uitvoering. Na oplevering vloeit gerealiseerde blijvende kennis terug naar het gebouw.
 
-## Calculatiearchitectuur
+## Calculatiearchitectuur — leidend en actuele implementatiestand
 
-`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` is leidend.
+`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` is functioneel leidend. De implementatie staat inmiddels substantieel verder dan alleen architectuur.
 
-Vastgelegd:
+Vastgelegd en/of gebouwd:
 
-- calculatieboom: Calculatie -> Hoofdgroep -> maximaal drie paragraafniveaus -> calculatieregels;
-- hoofdindeling NL-SfB, STABU of Eigen; paragrafen kunnen NL-SfB-detail of Eigen zijn;
-- alleen eindparagrafen bevatten regels; hogere niveaus zijn subtotalen;
-- locatie is een tweede dimensie naast classificatie en verwijst naar canonieke gebouw-/projectscope;
+- calculatieboom: Calculatie -> Hoofdgroep -> paragrafen -> calculatieregels;
+- hoofdindeling NL-SfB, STABU of Eigen; classificatie en locatie blijven afzonderlijke dimensies;
+- alleen eindparagrafen bevatten regels; hogere niveaus zijn structuur- en subtotalisatieniveaus;
 - normale regel combineert arbeid, materiaal, materieel, OA en overig;
 - regeltypen: normaal, stelpost, optie, notitie, verdisconterend en verrekenbaar;
-- aparte tab `Parameters` voor rekenmethodiek en commerciële opbouw;
-- outputpresentatie hoort niet in Parameters.
+- versiegebonden parameters en lockstatus;
+- migratie-audit voor overgang van legacy calculaties naar het nieuwe domein;
+- calculatiewerkbank met spreadsheetachtige grid, AJAX, inline celbewerking en autosave;
+- live herberekening van directe kostprijs en totalen;
+- toevoegen, dupliceren, verplaatsen en verwijderen van regels via bewaakte mutaties;
+- hoofdgroepen en paragrafen kunnen vanuit BREBO Office worden aangemaakt met behoud van legacy-identiteit zolang de migratieperiode loopt;
+- centrale calculatienavigatie: `Calculatie | Structuur | Parameters | Audit`;
+- structuur kan rechtstreeks vanuit de werkbank worden toegevoegd;
+- hoofdgroepen en paragrafen kunnen worden ingeklapt; de persoonlijke inklapstatus wordt per calculatie onthouden;
+- subtotalen op paragraaf- en hoofdgroepniveau;
+- kostenuitsplitsing op structuur: arbeid, materiaal, materieel, OA, overig en directe kostprijs;
+- commerciële kolommen: AK, risico, winst/marge en verkoopprijs;
+- commerciële opbouw volgt de centrale `CommercialCalculator`: staartkosten sequentieel of als alternatief één enkele marge;
+- vaste commerciële correctie blijft expliciet op calculatieniveau en wordt niet stil over regels verdeeld;
+- commerciële scenariovergelijking `Basis | Scherp | Doel` is als niet-destructieve rekenhulp in de werkbank opgenomen; de directe kostprijs blijft daarbij ongewijzigd;
+- werkbankroutes bestaan voor calculatie, structuur, parameters en audit.
+
+Belangrijke recente implementatiepunten op `develop` zijn onder meer de werkbank, AJAX-autosave, structuur- en rijmanagers, inline structuurcreatie, inklapbare hiërarchie, subtotalen, commerciële verkoopprijskolommen en de prijsbronnenfundering.
+
+## Prijsbronnen / inkooponderbouwing — nieuw vast werkprincipe
+
+Een externe prijs is in BREBO Office niet alleen een bedrag of bestand maar een **prijsbron**.
+
+Een prijsbron kan onder meer zijn:
+
+- leveranciersofferte als PDF/document;
+- e-mail waarin een leverancier rechtstreeks een prijs noemt, ook zonder bijlage;
+- later eventueel een andere traceerbare externe prijsopgave.
+
+Vaste procesketen:
+
+```text
+Calculatieregel
+  -> prijs nodig / offerteaanvraag
+  -> document of e-mail ontvangen
+  -> bron registreren
+  -> gegevens automatisch uitlezen
+  -> voorstel tonen
+  -> menselijke controle/goedkeuring
+  -> goedgekeurde prijs naar OA
+  -> bronkoppeling aan calculatieregel
+  -> interne notitie / onderbouwing
+  -> bron ook in projectdossier bewaren
+```
+
+Kernregels:
+
+- AI/extractie mag nooit zelfstandig `subcontracting_unit_cost` overschrijven;
+- extractie levert een voorstel; goedkeuring is een expliciete stap;
+- voorgestelde en goedgekeurde OA-prijs zijn afzonderlijke gegevens;
+- de originele bron blijft altijd aantoonbaar;
+- herziene offerte/e-mail vervangt de oude bron niet destructief; revisie/herkomst blijft zichtbaar;
+- één prijsbron kan aan één of meerdere calculatieregels worden gekoppeld;
+- één calculatieregel kan meerdere prijsbronnen hebben, waarvan er één als actieve/goedgekeurde bron kan gelden;
+- bronmetadata omvat waar beschikbaar leverancier, afzender, offerte-/referentienummer, datum, geldigheid, valuta, totaal, scope, voorwaarden, extractieresultaat en interne notitie;
+- vanuit de calculatie moet later zichtbaar zijn waar een OA-prijs vandaan komt, bijvoorbeeld: `OA €18.750 — bron: offerte/e-mail leverancier X`;
+- prijsbronverwerking moet later ook leveranciersvergelijking ondersteunen op prijs, scope, uitsluitingen, levertijd, garantie, voorwaarden en TCO/risico.
+
+### Gebouwde prijsbronnenfundering
+
+In `brebo_calculation.install` zijn op `develop` twee nieuwe domeintabellen toegevoegd:
+
+- `brebo_calculation_price_source` — hoofdrecord van document/e-mail/andere traceerbare prijsbron;
+- `brebo_calculation_price_source_line` — koppeling van bron naar calculatieregel inclusief extractievoorstel, goedgekeurde OA-prijs, goedkeuringsstatus en actieve-bronstatus.
+
+Er is tevens een update hook voor bestaande installaties toegevoegd. Recente funderingscommit: `3813c2ca`.
+
+## Eerstvolgende calculatiestap
+
+De eerstvolgende functionele bouwslag is **prijsbronbediening in de calculatiewerkbank**.
+
+Gewenste bediening per calculatieregel, direct naast/gerelateerd aan OA:
+
+- zichtbaar bron/status-icoon;
+- `Document toevoegen`;
+- `E-mail koppelen`;
+- `Prijsbronnen bekijken`;
+- status zoals geen bron / ontvangen / uitgelezen / te controleren / akkoord / vervangen;
+- na akkoord de goedgekeurde bronwaarde gecontroleerd naar OA boeken;
+- bron en interne notitie vanuit de regel kunnen openen;
+- originele document/e-mail tevens aan projectdossier koppelen.
+
+Daarna volgen extractieservice, reviewformulier, Gmail-selectie/koppeling, documentupload, bronvergelijking en leveranciers-/inkoopanalyse.
 
 ## Generieke Outputgenerator
 
@@ -83,7 +163,7 @@ Vaste scheiding:
 Bronobject(en)   = inhoudelijke waarheid
 Outputmodel      = inhoudelijk presentatierecept
 Lay-outprofiel   = visuele compositie en huisstijl
-Bijlagenpakket   = geselecteerde/ggegenereerde bijlagen
+Bijlagenpakket   = geselecteerde/gegenereerde bijlagen
 Outputsnapshot   = vastgelegd resultaat
 Distributie      = verzenden/publiceren/opslaan
 ```
@@ -94,8 +174,7 @@ Vastgelegd voor de Outputgenerator:
 - blokgebaseerde, herbruikbare en versioneerbare outputmodellen;
 - lay-out is first-class: centrale lay-outprofielen, documentfamilies, typografie, tabellen, grafieken, foto's, voorbladen, kop/voet, page-breakregels en live pagina-preview;
 - bijlagen zijn onderdeel van een formeel documentpakket en kunnen verplicht, conditioneel of optioneel zijn;
-- bijlagen kunnen door BREBO worden gegenereerd, bestaande vastgestelde documenten zijn, externe bronbestanden zijn of als BREBO-heruitvoer uit broninformatie worden opgebouwd;
-- voorbeeld: leveranciersofferte kan bron zijn voor een door BREBO gegenereerde kozijnstaat terwijl het originele leveranciersdocument herleidbaar bewaard blijft;
+- leveranciersofferte/e-mail kan inhoudelijke bron zijn voor calculatie en later voor gegenereerde inkoop-/offertedocumenten, terwijl de originele bron herleidbaar bewaard blijft;
 - voorkeursuitvoer is waar passend één integraal document met hoofddocument + bijlagen;
 - integrale documenten hebben standaard doorlopende paginanummering over hoofddocument en bijlagen (`Pagina X van Y`), automatische bijlagenlijst/inhoudsopgave en PDF-bookmarks;
 - externe PDF's kunnen ongewijzigd worden ingevoegd of als BREBO-heruitvoer opnieuw worden opgebouwd;
@@ -124,19 +203,26 @@ Vastgelegd en/of gebouwd:
 
 BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
 
-De calculatiearchitectuur is functioneel opnieuw vastgesteld en wordt als afzonderlijke spreadsheetachtige werkplek ontworpen. De Outputgenerator is architectonisch losgemaakt van calculatie en geldt als generieke document-/rapportengine inclusief lay-out, bijlagenpakketten en integrale documentcompositie.
+De calculatiemodule bevindt zich niet meer alleen in de architectuurfase: er staat op `develop` een serieuze nieuwe calculatiewerkbank met hiërarchie, AJAX, mutaties, subtotalen, commerciële opbouw en scenariovergelijking. De volgende kernlaag is auditbare prijsbron-/inkooponderbouwing vanuit documenten en e-mails rechtstreeks naar gecontroleerde OA-kostprijzen.
+
+De Outputgenerator blijft architectonisch los van calculatie en geldt als generieke document-/rapportengine inclusief lay-out, bijlagenpakketten en integrale documentcompositie.
 
 De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
 
 ## Eerstvolgende technische punten
 
-1. Calculatiegegevensmodel en UI implementeren volgens `BREBO_CALCULATIE_ARCHITECTUUR.md`.
-2. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`: model, versie, lay-outprofiel, blokken, bronmapping, bijlagenpakket, integrale composer, generatie, snapshot, renderers en preview.
-3. Commerciële funnel verder migreren naar de centrale presentatielaag.
-4. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen.
-5. Look-ahead verbreden naar generiek readinessmodel.
-6. Directe canonieke relatie realiseren tussen technische woningscope en BAG-backed residence.
-7. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
+1. Prijsbronbediening per calculatieregel in de werkbank bouwen.
+2. Documentprijsbron-upload + extractievoorstel + review/goedkeuring + OA-boeking bouwen.
+3. Gmail/e-mail zonder bijlage als volwaardige prijsbron kunnen selecteren en koppelen.
+4. Prijsbronnen aan intern calculatienotitie-/auditspoor en projectdocumentatie koppelen.
+5. Meerdere prijsbronnen per regel vergelijkbaar maken voor inkoopkeuze en TCO/risicobeoordeling.
+6. Calculatiewerkbank verder afronden met volgorde/drag-and-drop, zoeken, filteren, kopiëren/import en bronbibliotheken.
+7. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`.
+8. Commerciële funnel verder migreren naar de centrale presentatielaag.
+9. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen.
+10. Look-ahead verbreden naar generiek readinessmodel.
+11. Directe canonieke relatie realiseren tussen technische woningscope en BAG-backed residence.
+12. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
 
 ## Integration API en deployment
 
@@ -149,6 +235,8 @@ De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / P
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
 
+Voor de calculatiemodule geldt bij hervatten expliciet: **ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat. Hervat bij prijsbronbediening / document- en e-mailbronverwerking tenzij GitHub inmiddels een latere stand toont.**
+
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
 
 Bij iedere nieuwe of gewijzigde UI moet tevens worden getoetst aan `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`.
@@ -157,4 +245,4 @@ Bij iedere nieuwe of gewijzigde UI moet tevens worden getoetst aan `docs/BREBO_O
 
 Werk dit document bij bij een belangrijke mijlpaal, architectuurbesluit, merge, deploymentwijziging of wijziging van de eerstvolgende ontwikkelstap.
 
-Laatst bijgewerkt: 15 augustus 2026.
+Laatst bijgewerkt: 16 augustus 2026.
