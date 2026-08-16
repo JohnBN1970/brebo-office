@@ -3,3 +3,9 @@ workbench:
   css:
     theme:
       css/calculation-workbench.css: {}
+  js:
+    js/calculation-workbench.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupal.ajax
