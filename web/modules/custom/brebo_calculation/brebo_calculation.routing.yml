@@ -8,3 +8,14 @@ brebo_calculation.migration_audit:
     node: '\d+'
   options:
     _admin_route: true
+
+brebo_calculation.migration_confirm:
+  path: '/admin/brebo/calculations/{node}/migration-audit/migrate'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\MigrationConfirmForm'
+    _title: 'Calculatie gecontroleerd migreren'
+  requirements:
+    _permission: 'migrate brebo calculation'
+    node: '\d+'
+  options:
+    _admin_route: true
