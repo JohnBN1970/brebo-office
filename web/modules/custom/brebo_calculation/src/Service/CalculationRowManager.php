@@ -134,12 +134,39 @@ final class CalculationRowManager {
     $this->assertEditable($calculationId, $version, $account);
     $this->domainRow($calculationId, $version, $lineId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
-    $this->database->update('brebo_calculation_row_domain')
-      ->fields(['paragraph_key' => $targetParagraphKey])
-      ->condition('calc_line_id', $lineId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute();
+
+    $targetElementId = $this->resolveLegacyElementId($calculationId, $targetParagraphKey);
+    if ($targetElementId === NULL) {
+      throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
+    }
+
+    $storage = $this->entityTypeManager->getStorage('node');
+    $line = $storage->load($lineId);
+    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+      throw new \InvalidArgumentException('Calculation row not found.');
+    }
+
+    $transaction = $this->database->startTransaction();
+    try {
+      $line->set('field_brebo_calc_element_ref', ['target_id' => $targetElementId]);
+      if ($line->hasField('field_brebo_line_sequence')) {
+        $line->set('field_brebo_line_sequence', $this->nextSequence($targetElementId));
+      }
+      $line->setNewRevision(TRUE);
+      $line->setRevisionLogMessage('Calculatieregel via nieuwe calculatiewerkbank naar andere paragraaf verplaatst.');
+      $line->save();
+
+      $this->database->update('brebo_calculation_row_domain')
+        ->fields(['paragraph_key' => $targetParagraphKey])
+        ->condition('calc_line_id', $lineId)
+        ->condition('calculation_id', $calculationId)
+        ->condition('version', $version)
+        ->execute();
+    }
+    catch (\Throwable $e) {
+      $transaction->rollBack();
+      throw $e;
+    }
   }
 
   /** @return array<string,mixed> */
