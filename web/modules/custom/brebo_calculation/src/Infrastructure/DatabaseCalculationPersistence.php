@@ -17,6 +17,7 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
   public function __construct(private readonly Connection $database) {}
 
   public function saveVersion(int $calculationId, CalculationVersion $version): void {
+    $lockedAt = $version->establishedAt !== NULL ? strtotime($version->establishedAt) : FALSE;
     $this->database->merge('brebo_calculation_version')
       ->keys(['calculation_id' => $calculationId, 'version' => $version->version])
       ->fields([
@@ -31,8 +32,8 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
         'commercial_adjustment' => $version->parameters->commercialAdjustment,
         'price_date' => $version->parameters->priceDate,
         'price_level' => $version->parameters->priceLevel,
-        'locked_at' => $version->lockedAt,
-        'locked_by' => $version->lockedBy,
+        'locked_at' => $lockedAt !== FALSE ? $lockedAt : NULL,
+        'locked_by' => $version->establishedBy,
         'content_hash' => $version->contentHash,
       ])->execute();
   }
