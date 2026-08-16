@@ -5,6 +5,24 @@ services:
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
 
+  brebo_calculation.legacy_reconciler:
+    class: Drupal\brebo_calculation\Service\LegacyReconciler
+
+  brebo_calculation.legacy_rule_mapper:
+    class: Drupal\brebo_calculation\Service\LegacyRuleMapper
+
+  brebo_calculation.legacy_cost_mapper:
+    class: Drupal\brebo_calculation\Service\LegacyCostMapper
+
+  brebo_calculation.legacy_dry_run:
+    class: Drupal\brebo_calculation\Service\LegacyDryRunService
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_calculation.legacy_rule_mapper'
+      - '@brebo_calculation.legacy_cost_mapper'
+      - '@brebo_calculation.totalizer'
+      - '@brebo_calculation.legacy_reconciler'
+
   brebo_calculation.persistence:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPersistence
     arguments: ['@database']
