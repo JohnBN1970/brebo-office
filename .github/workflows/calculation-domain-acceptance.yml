@@ -54,6 +54,8 @@ jobs:
           workbench='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           initializer='web/modules/custom/brebo_calculation/src/Service/CalculationDraftInitializer.php'
           libraries='web/modules/custom/brebo_calculation/brebo_calculation.libraries.yml'
+          create_js='web/modules/custom/brebo_calculation/js/calculation-create.js'
+          onboarding_css='web/modules/custom/brebo_calculation/css/calculation-onboarding.css'
           grep -q "brebo_calculation_form_node_form_alter" "$module"
           grep -q "brebo_calculation_node_insert" "$module"
           grep -q "Opslaan en calculatiewerkbank openen" "$module"
@@ -62,6 +64,11 @@ jobs:
           grep -q "brebo_calculation.workbench" "$routing"
           grep -q "Deelcalculaties" "$workbench"
           grep -q "calculation-onboarding.css" "$libraries"
+          grep -q "calculation-create.js" "$libraries"
+          grep -q "field_brebo_calc_version" "$create_js"
+          grep -q "layout-region-node-secondary" "$create_js"
+          grep -q "field--name-field-brebo-calc-status" "$onboarding_css"
+          grep -q "filter-wrapper" "$onboarding_css"
 
       - name: Prove domain model invariants
         shell: bash
