@@ -1,0 +1,31 @@
+brebo_calculation.migration_overview:
+  path: '/admin/brebo/calculations/migration-audit'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\MigrationOverviewController::overview'
+    _title: 'Calculatie migratieoverzicht'
+  requirements:
+    _permission: 'view brebo calculation migration audit'
+  options:
+    _admin_route: true
+
+brebo_calculation.migration_audit:
+  path: '/admin/brebo/calculations/{node}/migration-audit'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\MigrationAuditController::audit'
+    _title: 'Calculatie migratiecontrole'
+  requirements:
+    _permission: 'view brebo calculation migration audit'
+    node: '\d+'
+  options:
+    _admin_route: true
+
+brebo_calculation.migration_confirm:
+  path: '/admin/brebo/calculations/{node}/migration-audit/migrate'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\MigrationConfirmForm'
+    _title: 'Calculatie gecontroleerd migreren'
+  requirements:
+    _permission: 'migrate brebo calculation'
+    node: '\d+'
+  options:
+    _admin_route: true

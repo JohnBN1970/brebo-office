@@ -1,0 +1,107 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Persistence schema for the BREBO Calculation domain.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_calculation_schema(): array {
+  $schema = [];
+
+  $schema['brebo_calculation_structure'] = [
+    'description' => 'Hierarchical structure nodes for calculation versions.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'node_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'parent_key' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'node_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'depth' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE],
+      'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['calculation_version_node' => ['calculation_id', 'version', 'node_key']],
+    'indexes' => [
+      'calculation_version_parent' => ['calculation_id', 'version', 'parent_key'],
+      'calculation_version_sort' => ['calculation_id', 'version', 'sort_order'],
+    ],
+  ];
+
+  $schema['brebo_calculation_version'] = [
+    'description' => 'Version-bound calculation parameters and immutable lock metadata.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'nl_sfb'],
+      'pricing_mode' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'closed'],
+      'commercial_method' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'tail_costs'],
+      'general_cost_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'risk_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'profit_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'single_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'commercial_adjustment' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'price_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'price_level' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'locked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'locked_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['calculation_version' => ['calculation_id', 'version']],
+    'indexes' => ['calculation_status' => ['calculation_id', 'status']],
+  ];
+
+  $schema['brebo_calculation_row_domain'] = [
+    'description' => 'Additive domain data for existing brebo_calc_line identities.',
+    'fields' => [
+      'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'paragraph_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'rule_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'normal'],
+      'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'labour_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'material_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'equipment_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'subcontracting_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'other_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'distribution_method' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'distribution_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+    ],
+    'primary key' => ['calc_line_id', 'version'],
+    'indexes' => [
+      'calculation_version_paragraph' => ['calculation_id', 'version', 'paragraph_key'],
+      'calculation_version_rule_type' => ['calculation_id', 'version', 'rule_type'],
+    ],
+  ];
+
+  $schema['brebo_calculation_snapshot'] = [
+    'description' => 'Immutable normalized snapshot payload for locked calculation versions.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['calculation_version_snapshot' => ['calculation_id', 'version']],
+    'indexes' => ['content_hash' => ['content_hash']],
+  ];
+
+  return $schema;
+}

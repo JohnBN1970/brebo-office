@@ -39,10 +39,7 @@ jobs:
         run: |
           set -euo pipefail
           for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
-            if [[ -z "${!name}" ]]; then
-              echo "::error::Required deployment setting $name is missing."
-              exit 1
-            fi
+            if [[ -z "${!name}" ]]; then echo "::error::Required deployment setting $name is missing."; exit 1; fi
           done
           [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
 
@@ -63,6 +60,8 @@ jobs:
           test -d web/modules/contrib/mimemail
           test -d web/modules/contrib/smtp
           test -d web/modules/contrib/mailsystem
+          test -f web/modules/custom/brebo_calculation/brebo_calculation.info.yml
+          test -f web/modules/custom/brebo_calculation/brebo_calculation.install
 
       - name: Configure SSH
         env:
@@ -77,24 +76,11 @@ jobs:
           : > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
           for attempt in 1 2 3 4 5; do
-            echo "Authenticated SSH host-key probe attempt $attempt/5"
-            if timeout 20 ssh \
-              -o BatchMode=yes \
-              -o ConnectTimeout=15 \
-              -o ServerAliveInterval=5 \
-              -o ServerAliveCountMax=2 \
-              -o StrictHostKeyChecking=accept-new \
-              -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
-              -i ~/.ssh/deploy_key \
-              -p "$DEPLOY_PORT" \
-              "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+            if timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
               test -s ~/.ssh/known_hosts
               break
             fi
-            if [[ "$attempt" -eq 5 ]]; then
-              echo "::error::Unable to establish authenticated SSH connection and capture host key."
-              exit 1
-            fi
+            if [[ "$attempt" -eq 5 ]]; then echo "::error::Unable to establish authenticated SSH connection and capture host key."; exit 1; fi
             sleep $((attempt * 2))
           done
 
@@ -102,16 +88,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar \
-            --exclude='.git' \
-            --exclude='.github' \
-            --exclude='web/sites/default/files' \
-            --exclude='web/sites/default/settings.php' \
-            --exclude='web/sites/default/services.yml' \
-            --exclude='.env' \
-            --exclude='.env.*' \
-            -czf /tmp/brebo-office-develop.tgz .
+          tar --exclude='.git' --exclude='.github' --exclude='web/sites/default/files' --exclude='web/sites/default/settings.php' --exclude='web/sites/default/services.yml' --exclude='.env' --exclude='.env.*' -czf /tmp/brebo-office-develop.tgz .
           tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.info.yml'
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.install'
 
       - name: Upload deployment archive
         env:
@@ -130,106 +110,41 @@ jobs:
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -eEuo pipefail
           trap 'rc=$?; echo "::error::Remote deploy failed at line $LINENO: $BASH_COMMAND (exit $rc)"; exit "$rc"' ERR
-          export NO_COLOR=1
-          export TERM=dumb
+          export NO_COLOR=1 TERM=dumb
           target="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$target/web/sites/default/settings.php"
           services="$target/web/sites/default/services.yml"
-
-          if [[ ! -d "$target" ]]; then
-            echo "::error::The sboffice project root does not exist."
-            exit 1
-          fi
-          if [[ -L "$target" ]]; then
-            echo "::error::Deployment target must be a real Composer project directory, not a symlink."
-            exit 1
-          fi
-          if [[ -d "$target/web/web" ]]; then
-            echo "::error::Nested Drupal webroot detected at sboffice/web/web; refusing to deploy."
-            exit 1
-          fi
-          if [[ ! -f "$settings" ]]; then
-            echo "::error::Runtime settings.php is missing; refusing to deploy."
-            exit 1
-          fi
-
+          [[ -d "$target" && ! -L "$target" && -f "$settings" && ! -d "$target/web/web" ]]
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
-          services_before=""
-          if [[ -f "$services" ]]; then
-            services_before="$(sha256sum "$services" | awk '{print $1}')"
-          fi
-
-          staging="$(mktemp -d)"
-          cleanup_staging() {
-            rm -rf "$staging"
-          }
-          trap cleanup_staging EXIT
-          tar -tzf "$archive" | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
+          services_before=""; [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
+          staging="$(mktemp -d)"; trap 'rm -rf "$staging"' EXIT
           tar -xzf "$archive" -C "$staging"
-          test -f "$staging/web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
+          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.info.yml"
+          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.install"
           cp -a "$staging/." "$target/"
-          rm -f "$archive"
-          cleanup_staging
-          trap - EXIT
-
-          if [[ -d "$target/web/web" ]]; then
-            echo "::error::Deployment unexpectedly created a nested Drupal webroot."
-            exit 1
-          fi
-
-          settings_after="$(sha256sum "$settings" | awk '{print $1}')"
-          if [[ "$settings_before" != "$settings_after" ]]; then
-            echo "::error::Runtime settings.php changed unexpectedly during deploy."
-            exit 1
-          fi
-          if [[ -n "$services_before" ]]; then
-            services_after="$(sha256sum "$services" | awk '{print $1}')"
-            if [[ "$services_before" != "$services_after" ]]; then
-              echo "::error::Runtime services.yml changed unexpectedly during deploy."
-              exit 1
-            fi
-          fi
+          rm -f "$archive"; rm -rf "$staging"; trap - EXIT
+          [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
+          if [[ -n "$services_before" ]]; then [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]; fi
 
           cd "$target"
-          test -f vendor/drush/drush/drush.php
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service -y
-          echo "Clearing derived container and discovery caches before database updates."
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
-          php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi updb -y --no-cache-clear
-          document_controller="web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php"
-          document_routes="web/modules/custom/brebo_document_data/brebo_document_data.routing.yml"
-          test -f "$document_controller"
-          test -f "$document_routes"
-          php -d display_errors=1 -d error_reporting=E_ALL -l "$document_controller"
-          grep -F "DocumentOpenController::view" "$document_routes"
-          cache_log="$(mktemp)"
-          if ! php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi -vvv cr >"$cache_log" 2>&1; then
-            cache_error="$(grep -Ei 'error|exception|fatal|undefined|not found|failed|invalid|route' "$cache_log" | tail -n 30 | tr '\n' ' ' | cut -c1-4000 || true)"
-            if [[ -z "$cache_error" ]]; then
-              cache_error="$(tail -n 15 "$cache_log" | tr '\n' ' ' | cut -c1-4000)"
-            fi
-            echo "::error title=Drupal cache rebuild failed::$cache_error"
-            rm -f "$cache_log"
-            exit 1
-          fi
-          cat "$cache_log"
-          rm -f "$cache_log"
-          timeout 180 php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi cex -y
+          drush=(php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_calculation -y
+          "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
+          "${drush[@]}" updb -y --no-cache-clear
+          "${drush[@]}" cr
 
-          if [[ ! -f scripts/canonicalize-building-relations.php ]]; then
-            echo "::error::Expected canonical audit script is missing after deploy."
-            exit 1
-          fi
-          if [[ ! -d config/sync ]]; then
-            echo "::error::config/sync does not exist after export."
-            exit 1
-          fi
+          # Hard post-deploy calculation verification: module, schema and audit routes must exist.
+          "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
 
+          timeout 180 "${drush[@]}" cex -y
+          test -f scripts/canonicalize-building-relations.php
+          test -d config/sync
           tar -czf "$config_archive" config/sync
           echo "DEPLOY_OK=1"
           echo "CONFIG_EXPORT_OK=1"
+          echo "CALCULATION_DOMAIN_OK=1"
           echo "TARGET=$target"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE

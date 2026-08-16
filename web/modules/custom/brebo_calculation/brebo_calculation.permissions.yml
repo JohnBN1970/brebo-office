@@ -1,0 +1,9 @@
+view brebo calculation migration audit:
+  title: 'View BREBO calculation migration audit'
+  description: 'Run read-only legacy-to-new calculation dry-runs and inspect reconciliation results.'
+  restrict access: true
+
+migrate brebo calculation:
+  title: 'Migrate BREBO calculation'
+  description: 'Persist a calculation into the new calculation domain after a clean dry-run.'
+  restrict access: true

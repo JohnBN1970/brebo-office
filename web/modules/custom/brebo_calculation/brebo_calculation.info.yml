@@ -1,0 +1,7 @@
+name: BREBO Calculation
+core_version_requirement: ^10 || ^11
+type: module
+package: BREBO
+description: 'Zelfstandig calculatiedomein voor calculatiestructuur, parameters, rekenlogica, versies en spreadsheetwerkplek.'
+dependencies:
+  - drupal:node

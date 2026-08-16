@@ -1,0 +1,38 @@
+services:
+  brebo_calculation.commercial_calculator:
+    class: Drupal\brebo_calculation\Service\CommercialCalculator
+
+  brebo_calculation.totalizer:
+    class: Drupal\brebo_calculation\Service\CalculationTotalizer
+
+  brebo_calculation.distribution_calculator:
+    class: Drupal\brebo_calculation\Service\DistributionCalculator
+
+  brebo_calculation.legacy_reconciler:
+    class: Drupal\brebo_calculation\Service\LegacyReconciler
+
+  brebo_calculation.legacy_rule_mapper:
+    class: Drupal\brebo_calculation\Service\LegacyRuleMapper
+
+  brebo_calculation.legacy_cost_mapper:
+    class: Drupal\brebo_calculation\Service\LegacyCostMapper
+
+  brebo_calculation.legacy_dry_run:
+    class: Drupal\brebo_calculation\Service\LegacyDryRunService
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_calculation.legacy_rule_mapper'
+      - '@brebo_calculation.legacy_cost_mapper'
+      - '@brebo_calculation.totalizer'
+      - '@brebo_calculation.legacy_reconciler'
+
+  brebo_calculation.persistence:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPersistence
+    arguments: ['@database']
+
+  brebo_calculation.guarded_legacy_migrator:
+    class: Drupal\brebo_calculation\Service\GuardedLegacyMigrator
+    arguments:
+      - '@brebo_calculation.legacy_dry_run'
+      - '@brebo_calculation.persistence'
+      - '@database'
