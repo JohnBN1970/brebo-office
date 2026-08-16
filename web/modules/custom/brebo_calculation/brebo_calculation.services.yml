@@ -4,3 +4,7 @@ services:
 
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
+
+  brebo_calculation.persistence:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPersistence
+    arguments: ['@database']
