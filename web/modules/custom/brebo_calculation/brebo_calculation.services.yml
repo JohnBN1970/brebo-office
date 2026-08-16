@@ -36,3 +36,9 @@ services:
       - '@brebo_calculation.legacy_dry_run'
       - '@brebo_calculation.persistence'
       - '@database'
+
+  brebo_calculation.row_manager:
+    class: Drupal\brebo_calculation\Service\CalculationRowManager
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
