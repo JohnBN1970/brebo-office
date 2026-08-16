@@ -33,10 +33,10 @@ brebo_calculation.migration_confirm:
 brebo_calculation.workbench:
   path: '/admin/brebo/calculations/{node}/workbench'
   defaults:
-    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::workbench'
-    _title_callback: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::title'
+    _form: '\Drupal\brebo_calculation\Form\CalculationWorkbenchForm'
+    _title: 'Calculatiewerkbank'
   requirements:
-    _permission: 'view brebo calculation migration audit'
+    _permission: 'edit brebo calculation workbench'
     node: '\d+'
   options:
     _admin_route: true
