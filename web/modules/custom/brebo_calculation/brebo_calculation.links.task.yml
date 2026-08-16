@@ -1,0 +1,23 @@
+brebo_calculation.workbench_tab:
+  route_name: brebo_calculation.workbench
+  title: 'Calculatie'
+  base_route: brebo_calculation.workbench
+  weight: 0
+
+brebo_calculation.structure_tab:
+  route_name: brebo_calculation.structure
+  title: 'Structuur'
+  base_route: brebo_calculation.workbench
+  weight: 10
+
+brebo_calculation.parameters_tab:
+  route_name: brebo_calculation.parameters
+  title: 'Parameters'
+  base_route: brebo_calculation.workbench
+  weight: 20
+
+brebo_calculation.audit_tab:
+  route_name: brebo_calculation.migration_audit
+  title: 'Audit'
+  base_route: brebo_calculation.workbench
+  weight: 90
