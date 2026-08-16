@@ -26,9 +26,7 @@
         }).format(Number.isFinite(value) ? value : 0);
 
         const num = (input) => {
-          if (!input) {
-            return 0;
-          }
+          if (!input) return 0;
           const value = parseFloat(String(input.value).replace(',', '.'));
           return Number.isFinite(value) ? value : 0;
         };
@@ -37,47 +35,30 @@
           let grandTotal = 0;
           grid.querySelectorAll('tr.brebo-calc-workbench__line').forEach((row) => {
             const quantity = num(row.querySelector('input[name$="[quantity]"]'));
-            const unitTotal = [
-              'labour_unit_cost',
-              'material_unit_cost',
-              'equipment_unit_cost',
-              'subcontracting_unit_cost',
-              'other_unit_cost',
-            ].reduce((sum, field) => sum + num(row.querySelector(`input[name$="[${field}]"]`)), 0);
+            const unitTotal = ['labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost', 'other_unit_cost']
+              .reduce((sum, field) => sum + num(row.querySelector(`input[name$="[${field}]"]`)), 0);
             const total = quantity * unitTotal;
             const derived = row.querySelectorAll('.brebo-calc-derived');
-            if (derived[0]) {
-              derived[0].textContent = money(unitTotal);
-            }
-            if (derived[1]) {
-              derived[1].textContent = money(total);
-            }
+            if (derived[0]) derived[0].textContent = money(unitTotal);
+            if (derived[1]) derived[1].textContent = money(total);
             const type = row.querySelector('select[name$="[rule_type]"]')?.value || 'normal';
             row.className = row.className.replace(/\brule-[^\s]+/g, '').trim() + ` rule-${type}`;
-            if (type !== 'option' && type !== 'note') {
-              grandTotal += total;
-            }
+            if (type !== 'option' && type !== 'note') grandTotal += total;
           });
           const totalEl = form.querySelector('.brebo-calc-workbench__total strong');
-          if (totalEl) {
-            totalEl.textContent = money(grandTotal);
-          }
+          if (totalEl) totalEl.textContent = money(grandTotal);
         };
 
         const setState = (state) => {
           const workbench = form.querySelector('#brebo-calculation-workbench');
-          if (!workbench) {
-            return;
-          }
+          if (!workbench) return;
           workbench.dataset.saveState = state;
           workbench.classList.toggle('is-dirty', state === 'dirty');
           workbench.classList.toggle('is-saving', state === 'saving');
         };
 
         const autosave = () => {
-          if (!dirty || saving || saveButton.disabled) {
-            return;
-          }
+          if (!dirty || saving || saveButton.disabled) return;
           dirty = false;
           saving = true;
           setState('saving');
@@ -85,9 +66,7 @@
           window.setTimeout(() => {
             saving = false;
             setState('saved');
-            if (dirty) {
-              autosave();
-            }
+            if (dirty) autosave();
           }, 900);
         };
 
@@ -100,14 +79,10 @@
         };
 
         grid.addEventListener('input', (event) => {
-          if (event.target.matches('input.brebo-calc-cell')) {
-            schedule();
-          }
+          if (event.target.matches('input.brebo-calc-cell')) schedule();
         });
         grid.addEventListener('change', (event) => {
-          if (event.target.matches('select.brebo-calc-cell, input.brebo-calc-cell')) {
-            schedule();
-          }
+          if (event.target.matches('select.brebo-calc-cell, input.brebo-calc-cell')) schedule();
         });
         grid.addEventListener('keydown', (event) => {
           if (event.key === 'Enter' && event.target.matches('input.brebo-calc-cell')) {
@@ -121,6 +96,14 @@
             }
           }
         });
+        grid.addEventListener('click', (event) => {
+          const button = event.target.closest('[data-brebo-confirm-delete]');
+          if (!button) return;
+          if (!window.confirm(button.dataset.breboConfirmDelete || 'Deze regel verwijderen?')) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+          }
+        }, true);
       });
     }
   };
