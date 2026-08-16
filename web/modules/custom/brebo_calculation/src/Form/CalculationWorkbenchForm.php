@@ -1,0 +1,269 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Drupal\brebo_calculation\Form;
+
+use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Form\FormBase;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
+
+/** AJAX spreadsheet editor for the active calculation version. */
+final class CalculationWorkbenchForm extends FormBase {
+
+  public function __construct(
+    private readonly Connection $database,
+    private readonly EntityTypeManagerInterface $calculationEntityTypeManager,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('database'),
+      $container->get('entity_type.manager'),
+    );
+  }
+
+  public function getFormId(): string {
+    return 'brebo_calculation_workbench_form';
+  }
+
+  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+      return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
+    }
+
+    $version = $this->latestVersion((int) $node->id());
+    if ($version === NULL) {
+      return ['message' => ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie. Voer eerst de migratie-audit uit.</p>']];
+    }
+
+    $locked = $version['locked_at'] !== NULL;
+    $editable = !$locked && $node->access('update') && $this->currentUser()->hasPermission('edit brebo calculation workbench');
+
+    $form['#tree'] = TRUE;
+    $form['#attached']['library'][] = 'brebo_calculation/workbench';
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['version'] = ['#type' => 'hidden', '#value' => $version['version']];
+
+    $form['workbench'] = [
+      '#type' => 'container',
+      '#attributes' => ['id' => 'brebo-calculation-workbench', 'class' => ['brebo-calc-workbench']],
+    ];
+    $form['workbench']['meta'] = [
+      '#markup' => '<div class="brebo-calc-workbench__meta">'
+        . '<span><strong>Versie</strong> ' . htmlspecialchars((string) $version['version']) . '</span>'
+        . '<span><strong>Status</strong> ' . htmlspecialchars((string) $version['status']) . '</span>'
+        . '<span><strong>Classificatie</strong> ' . htmlspecialchars(strtoupper((string) $version['classification_system'])) . '</span>'
+        . '<span class="' . ($locked ? 'is-locked' : 'is-open') . '">' . ($locked ? '🔒 Vergrendeld' : '● Bewerkbaar') . '</span>'
+        . '</div>',
+    ];
+    $form['workbench']['messages'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']],
+    ];
+    if ($form_state->get('ajax_message')) {
+      $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>'];
+    }
+
+    $structure = $this->database->select('brebo_calculation_structure', 's')
+      ->fields('s')
+      ->condition('calculation_id', (int) $node->id())
+      ->condition('version', $version['version'])
+      ->orderBy('sort_order')
+      ->orderBy('depth')
+      ->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
+
+    $domains = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r')
+      ->condition('calculation_id', (int) $node->id())
+      ->condition('version', $version['version'])
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $domains);
+    $lines = $lineIds ? $this->calculationEntityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    $byParagraph = [];
+    foreach ($domains as $domain) {
+      $byParagraph[(string) $domain['paragraph_key']][] = $domain;
+    }
+
+    $form['workbench']['grid'] = [
+      '#type' => 'table',
+      '#header' => ['Code', 'Omschrijving', 'Locatie', 'Type', 'Aantal', 'EH', 'Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig', 'Kostprijs/EH', 'Totaal'],
+      '#attributes' => ['class' => ['brebo-calc-workbench__grid', 'brebo-calc-workbench__grid--editable']],
+      '#sticky' => TRUE,
+    ];
+
+    $grandTotal = 0.0;
+    foreach ($structure as $key => $item) {
+      $depth = (int) $item['depth'];
+      $structureKey = 'structure_' . md5((string) $key);
+      $form['workbench']['grid'][$structureKey] = [
+        '#attributes' => ['class' => ['brebo-calc-workbench__structure', 'depth-' . $depth, 'type-' . $item['node_type']]],
+        'code' => ['#markup' => htmlspecialchars((string) ($item['code'] ?: '—'))],
+        'description' => ['#markup' => '<strong>' . str_repeat('&nbsp;&nbsp;&nbsp;', $depth) . htmlspecialchars((string) $item['label']) . '</strong>'],
+        'location' => ['#markup' => htmlspecialchars((string) ($item['location_ref'] ?: '—'))],
+        'type' => ['#markup' => htmlspecialchars(strtoupper((string) $item['classification_system']))],
+        'quantity' => ['#markup' => ''], 'unit' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => ''],
+      ];
+
+      foreach ($byParagraph[$key] ?? [] as $domain) {
+        $lineId = (int) $domain['calc_line_id'];
+        $line = $lines[$lineId] ?? NULL;
+        $quantity = $line instanceof NodeInterface ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0) : 0.0;
+        $unit = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_unit')->value ?? '') : '';
+        $description = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_line_description')->value ?? $line->label()) : ('Regel ' . $lineId);
+        $labour = (float) $domain['labour_unit_cost'];
+        $material = (float) $domain['material_unit_cost'];
+        $equipment = (float) $domain['equipment_unit_cost'];
+        $subcontracting = (float) $domain['subcontracting_unit_cost'];
+        $other = (float) $domain['other_unit_cost'];
+        $unitTotal = $labour + $material + $equipment + $subcontracting + $other;
+        $total = $quantity * $unitTotal;
+        if (!in_array($domain['rule_type'], ['option', 'note'], TRUE)) {
+          $grandTotal += $total;
+        }
+        $rowKey = 'line_' . $lineId;
+        $common = ['#disabled' => !$editable, '#attributes' => ['class' => ['brebo-calc-cell']]];
+        $form['workbench']['grid'][$rowKey] = [
+          '#attributes' => ['class' => ['brebo-calc-workbench__line', 'rule-' . $domain['rule_type']]],
+          'code' => ['#markup' => ''],
+          'description' => ['#type' => 'textfield', '#default_value' => $description, '#size' => 38] + $common,
+          'location_ref' => ['#type' => 'textfield', '#default_value' => (string) ($domain['location_ref'] ?? ''), '#size' => 16] + $common,
+          'rule_type' => [
+            '#type' => 'select',
+            '#default_value' => $domain['rule_type'],
+            '#options' => [
+              'normal' => 'Normaal',
+              'allowance' => 'Stelpost',
+              'option' => 'Optie',
+              'note' => 'Notitie',
+              'distributed' => 'Verdisconterend',
+              'adjustable' => 'Verrekenbaar',
+            ],
+          ] + $common,
+          'quantity' => ['#type' => 'number', '#default_value' => $quantity, '#step' => '0.0001', '#min' => 0] + $common,
+          'unit' => ['#type' => 'textfield', '#default_value' => $unit, '#size' => 6, '#maxlength' => 16] + $common,
+          'labour_unit_cost' => ['#type' => 'number', '#default_value' => $labour, '#step' => '0.0001', '#min' => 0] + $common,
+          'material_unit_cost' => ['#type' => 'number', '#default_value' => $material, '#step' => '0.0001', '#min' => 0] + $common,
+          'equipment_unit_cost' => ['#type' => 'number', '#default_value' => $equipment, '#step' => '0.0001', '#min' => 0] + $common,
+          'subcontracting_unit_cost' => ['#type' => 'number', '#default_value' => $subcontracting, '#step' => '0.0001', '#min' => 0] + $common,
+          'other_unit_cost' => ['#type' => 'number', '#default_value' => $other, '#step' => '0.0001', '#min' => 0] + $common,
+          'unit_total' => ['#markup' => '<span class="brebo-calc-derived">€ ' . number_format($unitTotal, 2, ',', '.') . '</span>'],
+          'total' => ['#markup' => '<strong class="brebo-calc-derived">€ ' . number_format($total, 2, ',', '.') . '</strong>'],
+        ];
+      }
+    }
+
+    $form['workbench']['total'] = [
+      '#markup' => '<div class="brebo-calc-workbench__total"><span>Calculatietotaal excl. opties</span><strong>€ ' . number_format($grandTotal, 2, ',', '.') . '</strong></div>',
+    ];
+
+    $form['workbench']['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-calc-workbench__actions']]];
+    $form['workbench']['actions']['save'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('Wijzigingen opslaan'),
+      '#button_type' => 'primary',
+      '#disabled' => !$editable,
+      '#ajax' => [
+        'callback' => '::ajaxRefresh',
+        'wrapper' => 'brebo-calculation-workbench',
+        'progress' => ['type' => 'throbber', 'message' => $this->t('Herberekenen…')],
+      ],
+    ];
+
+    if (!$editable && !$locked) {
+      $form['workbench']['actions']['notice'] = ['#markup' => '<span class="description">Alleen gebruikers met bewerkrechten kunnen deze versie aanpassen.</span>'];
+    }
+    return $form;
+  }
+
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $calculationId = (int) $form_state->getValue('calculation_id');
+    $version = (string) $form_state->getValue('version');
+    $current = $this->latestVersion($calculationId);
+    if ($current === NULL || $current['version'] !== $version || $current['locked_at'] !== NULL) {
+      $form_state->setErrorByName('version', $this->t('Deze calculatieversie is inmiddels gewijzigd of vergrendeld. Vernieuw de pagina.'));
+      return;
+    }
+
+    $calculation = $this->calculationEntityTypeManager->getStorage('node')->load($calculationId);
+    if (!$calculation instanceof NodeInterface || !$calculation->access('update') || !$this->currentUser()->hasPermission('edit brebo calculation workbench')) {
+      $form_state->setErrorByName('calculation_id', $this->t('U heeft geen recht om deze calculatie te wijzigen.'));
+      return;
+    }
+
+    $gridValues = (array) ($form_state->getValue(['workbench', 'grid']) ?? []);
+    $transaction = $this->database->startTransaction();
+    try {
+      foreach ($gridValues as $key => $values) {
+        if (!is_string($key) || !str_starts_with($key, 'line_') || !is_array($values)) {
+          continue;
+        }
+        $lineId = (int) substr($key, 5);
+        $line = $this->calculationEntityTypeManager->getStorage('node')->load($lineId);
+        if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+          continue;
+        }
+        $domain = $this->database->select('brebo_calculation_row_domain', 'r')
+          ->fields('r', ['paragraph_key'])
+          ->condition('calc_line_id', $lineId)
+          ->condition('calculation_id', $calculationId)
+          ->condition('version', $version)
+          ->execute()->fetchAssoc();
+        if (!$domain) {
+          continue;
+        }
+
+        if ($line->hasField('field_brebo_line_description')) {
+          $line->set('field_brebo_line_description', trim((string) ($values['description'] ?? '')));
+        }
+        if ($line->hasField('field_brebo_contract_quantity')) {
+          $line->set('field_brebo_contract_quantity', max(0, (float) ($values['quantity'] ?? 0)));
+        }
+        if ($line->hasField('field_brebo_unit')) {
+          $line->set('field_brebo_unit', trim((string) ($values['unit'] ?? '')));
+        }
+        $line->save();
+
+        $this->database->update('brebo_calculation_row_domain')
+          ->fields([
+            'rule_type' => (string) ($values['rule_type'] ?? 'normal'),
+            'location_ref' => trim((string) ($values['location_ref'] ?? '')) ?: NULL,
+            'labour_unit_cost' => max(0, (float) ($values['labour_unit_cost'] ?? 0)),
+            'material_unit_cost' => max(0, (float) ($values['material_unit_cost'] ?? 0)),
+            'equipment_unit_cost' => max(0, (float) ($values['equipment_unit_cost'] ?? 0)),
+            'subcontracting_unit_cost' => max(0, (float) ($values['subcontracting_unit_cost'] ?? 0)),
+            'other_unit_cost' => max(0, (float) ($values['other_unit_cost'] ?? 0)),
+          ])
+          ->condition('calc_line_id', $lineId)
+          ->condition('calculation_id', $calculationId)
+          ->condition('version', $version)
+          ->execute();
+      }
+      $form_state->set('ajax_message', 'Wijzigingen opgeslagen en calculatie opnieuw doorgerekend.');
+      $form_state->setRebuild(TRUE);
+    }
+    catch (\Throwable $e) {
+      $transaction->rollBack();
+      throw $e;
+    }
+  }
+
+  public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
+    return $form['workbench'];
+  }
+
+  /** @return array<string, mixed>|null */
+  private function latestVersion(int $calculationId): ?array {
+    $record = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', $calculationId)
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()->fetchAssoc();
+    return $record ?: NULL;
+  }
+
+}
