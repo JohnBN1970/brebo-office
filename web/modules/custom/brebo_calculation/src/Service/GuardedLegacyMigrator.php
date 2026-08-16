@@ -27,14 +27,17 @@ final class GuardedLegacyMigrator {
   ) {}
 
   public function migrate(int $calculationId, string $version = 'migration-1'): MigrationWriteResult {
-    $preview = $this->dryRun->preview($calculationId);
-    if (!$preview->isSafeToMigrate()) {
-      throw new \RuntimeException('Calculation migration blocked: dry-run is not clean.');
-    }
-
     $version = trim($version);
     if ($version === '') {
       throw new \InvalidArgumentException('Migration version is required.');
+    }
+    if ($this->versionExists($calculationId, $version)) {
+      throw new \RuntimeException('Calculation migration blocked: target migration version already exists.');
+    }
+
+    $preview = $this->dryRun->preview($calculationId);
+    if (!$preview->isSafeToMigrate()) {
+      throw new \RuntimeException('Calculation migration blocked: dry-run is not clean.');
     }
 
     $hash = $this->migrationHash($preview);
@@ -80,6 +83,13 @@ final class GuardedLegacyMigrator {
       rowCount: count($preview->rows),
       contentHash: $hash,
     );
+  }
+
+  private function versionExists(int $calculationId, string $version): bool {
+    return (bool) $this->database->select('brebo_calculation_version', 'v')
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->countQuery()->execute()->fetchField();
   }
 
   private function assertWritten(int $calculationId, string $version, int $structureCount, int $rowCount, string $hash): void {
