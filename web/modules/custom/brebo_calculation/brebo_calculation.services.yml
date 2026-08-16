@@ -1,3 +1,6 @@
 services:
   brebo_calculation.commercial_calculator:
     class: Drupal\brebo_calculation\Service\CommercialCalculator
+
+  brebo_calculation.totalizer:
+    class: Drupal\brebo_calculation\Service\CalculationTotalizer
