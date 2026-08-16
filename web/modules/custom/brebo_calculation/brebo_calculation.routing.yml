@@ -29,3 +29,31 @@ brebo_calculation.migration_confirm:
     node: '\d+'
   options:
     _admin_route: true
+
+brebo_calculation.workbench:
+  path: '/admin/brebo/calculations/{node}/workbench'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::workbench'
+    _title_callback: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::title'
+  requirements:
+    _permission: 'view brebo calculation migration audit'
+    node: '\d+'
+  options:
+    _admin_route: true
+    parameters:
+      node:
+        type: entity:node
+
+brebo_calculation.parameters:
+  path: '/admin/brebo/calculations/{node}/parameters'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::parameters'
+    _title: 'Calculatieparameters'
+  requirements:
+    _permission: 'view brebo calculation migration audit'
+    node: '\d+'
+  options:
+    _admin_route: true
+    parameters:
+      node:
+        type: entity:node
