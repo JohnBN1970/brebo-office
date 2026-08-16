@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -17,12 +18,14 @@ final class CalculationWorkbenchForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $calculationEntityTypeManager,
+    private readonly CalculationRowManager $rowManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
       $container->get('entity_type.manager'),
+      $container->get('brebo_calculation.row_manager'),
     );
   }
 
@@ -41,7 +44,10 @@ final class CalculationWorkbenchForm extends FormBase {
     }
 
     $locked = $version['locked_at'] !== NULL;
-    $editable = !$locked && $node->access('update') && $this->currentUser()->hasPermission('edit brebo calculation workbench');
+    $editable = !$locked
+      && $version['status'] === 'draft'
+      && $node->access('update')
+      && $this->currentUser()->hasPermission('edit brebo calculation workbench');
 
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
@@ -57,7 +63,7 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<span><strong>Versie</strong> ' . htmlspecialchars((string) $version['version']) . '</span>'
         . '<span><strong>Status</strong> ' . htmlspecialchars((string) $version['status']) . '</span>'
         . '<span><strong>Classificatie</strong> ' . htmlspecialchars(strtoupper((string) $version['classification_system'])) . '</span>'
-        . '<span class="' . ($locked ? 'is-locked' : 'is-open') . '">' . ($locked ? '🔒 Vergrendeld' : '● Bewerkbaar') . '</span>'
+        . '<span class="' . ($locked ? 'is-locked' : 'is-open') . '">' . ($locked ? '🔒 Vergrendeld' : ($editable ? '● Bewerkbaar' : '○ Alleen lezen')) . '</span>'
         . '</div>',
     ];
     $form['workbench']['messages'] = [
@@ -65,7 +71,9 @@ final class CalculationWorkbenchForm extends FormBase {
       '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']],
     ];
     if ($form_state->get('ajax_message')) {
-      $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>'];
+      $form['workbench']['messages']['text'] = [
+        '#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>',
+      ];
     }
 
     $structure = $this->database->select('brebo_calculation_structure', 's')
@@ -75,6 +83,19 @@ final class CalculationWorkbenchForm extends FormBase {
       ->orderBy('sort_order')
       ->orderBy('depth')
       ->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
+
+    $childCounts = [];
+    foreach ($structure as $item) {
+      if (!empty($item['parent_key'])) {
+        $childCounts[(string) $item['parent_key']] = ($childCounts[(string) $item['parent_key']] ?? 0) + 1;
+      }
+    }
+    $leafParagraphOptions = [];
+    foreach ($structure as $key => $item) {
+      if ($item['node_type'] === 'paragraph' && empty($childCounts[(string) $key])) {
+        $leafParagraphOptions[(string) $key] = trim((string) ($item['code'] ?: '') . ' — ' . (string) $item['label'], ' —');
+      }
+    }
 
     $domains = $this->database->select('brebo_calculation_row_domain', 'r')
       ->fields('r')
@@ -90,7 +111,7 @@ final class CalculationWorkbenchForm extends FormBase {
 
     $form['workbench']['grid'] = [
       '#type' => 'table',
-      '#header' => ['Code', 'Omschrijving', 'Locatie', 'Type', 'Aantal', 'EH', 'Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig', 'Kostprijs/EH', 'Totaal'],
+      '#header' => ['Code', 'Omschrijving', 'Locatie', 'Type', 'Aantal', 'EH', 'Arbeid', 'Materiaal', 'Materieel', 'Onderaanneming', 'Overig', 'Kostprijs/EH', 'Totaal', 'Acties'],
       '#attributes' => ['class' => ['brebo-calc-workbench__grid', 'brebo-calc-workbench__grid--editable']],
       '#sticky' => TRUE,
     ];
@@ -98,6 +119,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $grandTotal = 0.0;
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
+      $isLeafParagraph = $item['node_type'] === 'paragraph' && empty($childCounts[(string) $key]);
       $structureKey = 'structure_' . md5((string) $key);
       $form['workbench']['grid'][$structureKey] = [
         '#attributes' => ['class' => ['brebo-calc-workbench__structure', 'depth-' . $depth, 'type-' . $item['node_type']]],
@@ -105,7 +127,26 @@ final class CalculationWorkbenchForm extends FormBase {
         'description' => ['#markup' => '<strong>' . str_repeat('&nbsp;&nbsp;&nbsp;', $depth) . htmlspecialchars((string) $item['label']) . '</strong>'],
         'location' => ['#markup' => htmlspecialchars((string) ($item['location_ref'] ?: '—'))],
         'type' => ['#markup' => htmlspecialchars(strtoupper((string) $item['classification_system']))],
-        'quantity' => ['#markup' => ''], 'unit' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => ''],
+        'quantity' => ['#markup' => ''],
+        'unit' => ['#markup' => ''],
+        'labour' => ['#markup' => ''],
+        'material' => ['#markup' => ''],
+        'equipment' => ['#markup' => ''],
+        'subcontracting' => ['#markup' => ''],
+        'other' => ['#markup' => ''],
+        'unit_total' => ['#markup' => ''],
+        'total' => ['#markup' => ''],
+        'operations' => $isLeafParagraph ? [
+          '#type' => 'submit',
+          '#value' => $this->t('+ Regel'),
+          '#name' => 'add_' . md5((string) $key),
+          '#submit' => ['::addRow'],
+          '#paragraph_key' => (string) $key,
+          '#disabled' => !$editable,
+          '#limit_validation_errors' => [],
+          '#ajax' => $this->ajaxDefinition($this->t('Regel toevoegen…')),
+          '#attributes' => ['class' => ['button', 'button--small', 'brebo-calc-row-action']],
+        ] : ['#markup' => ''],
       ];
 
       foreach ($byParagraph[$key] ?? [] as $domain) {
@@ -124,10 +165,14 @@ final class CalculationWorkbenchForm extends FormBase {
         if (!in_array($domain['rule_type'], ['option', 'note'], TRUE)) {
           $grandTotal += $total;
         }
+
         $rowKey = 'line_' . $lineId;
         $common = ['#disabled' => !$editable, '#attributes' => ['class' => ['brebo-calc-cell']]];
         $form['workbench']['grid'][$rowKey] = [
-          '#attributes' => ['class' => ['brebo-calc-workbench__line', 'rule-' . $domain['rule_type']]],
+          '#attributes' => [
+            'class' => ['brebo-calc-workbench__line', 'rule-' . $domain['rule_type']],
+            'data-line-id' => $lineId,
+          ],
           'code' => ['#markup' => ''],
           'description' => ['#type' => 'textfield', '#default_value' => $description, '#size' => 38] + $common,
           'location_ref' => ['#type' => 'textfield', '#default_value' => (string) ($domain['location_ref'] ?? ''), '#size' => 16] + $common,
@@ -152,6 +197,58 @@ final class CalculationWorkbenchForm extends FormBase {
           'other_unit_cost' => ['#type' => 'number', '#default_value' => $other, '#step' => '0.0001', '#min' => 0] + $common,
           'unit_total' => ['#markup' => '<span class="brebo-calc-derived">€ ' . number_format($unitTotal, 2, ',', '.') . '</span>'],
           'total' => ['#markup' => '<strong class="brebo-calc-derived">€ ' . number_format($total, 2, ',', '.') . '</strong>'],
+          'operations' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-calc-row-operations']],
+            'duplicate' => [
+              '#type' => 'submit',
+              '#value' => '⧉',
+              '#title' => $this->t('Regel dupliceren'),
+              '#name' => 'duplicate_' . $lineId,
+              '#submit' => ['::duplicateRow'],
+              '#line_id' => $lineId,
+              '#disabled' => !$editable,
+              '#limit_validation_errors' => [],
+              '#ajax' => $this->ajaxDefinition($this->t('Dupliceren…')),
+              '#attributes' => ['class' => ['button', 'button--small', 'brebo-calc-row-action']],
+            ],
+            'target' => [
+              '#type' => 'select',
+              '#title' => $this->t('Verplaats naar'),
+              '#title_display' => 'invisible',
+              '#options' => $leafParagraphOptions,
+              '#default_value' => (string) $key,
+              '#disabled' => !$editable,
+              '#attributes' => ['class' => ['brebo-calc-move-target']],
+            ],
+            'move' => [
+              '#type' => 'submit',
+              '#value' => '↕',
+              '#title' => $this->t('Naar geselecteerde paragraaf verplaatsen'),
+              '#name' => 'move_' . $lineId,
+              '#submit' => ['::moveRow'],
+              '#line_id' => $lineId,
+              '#disabled' => !$editable,
+              '#limit_validation_errors' => [],
+              '#ajax' => $this->ajaxDefinition($this->t('Verplaatsen…')),
+              '#attributes' => ['class' => ['button', 'button--small', 'brebo-calc-row-action']],
+            ],
+            'delete' => [
+              '#type' => 'submit',
+              '#value' => '×',
+              '#title' => $this->t('Regel verwijderen'),
+              '#name' => 'delete_' . $lineId,
+              '#submit' => ['::deleteRow'],
+              '#line_id' => $lineId,
+              '#disabled' => !$editable,
+              '#limit_validation_errors' => [],
+              '#ajax' => $this->ajaxDefinition($this->t('Verwijderen…')),
+              '#attributes' => [
+                'class' => ['button', 'button--small', 'button--danger', 'brebo-calc-row-action'],
+                'data-brebo-confirm-delete' => $this->t('Deze calculatieregel verwijderen?'),
+              ],
+            ],
+          ],
         ];
       }
     }
@@ -166,35 +263,104 @@ final class CalculationWorkbenchForm extends FormBase {
       '#value' => $this->t('Wijzigingen opslaan'),
       '#button_type' => 'primary',
       '#disabled' => !$editable,
-      '#ajax' => [
-        'callback' => '::ajaxRefresh',
-        'wrapper' => 'brebo-calculation-workbench',
-        'progress' => ['type' => 'throbber', 'message' => $this->t('Herberekenen…')],
-      ],
+      '#ajax' => $this->ajaxDefinition($this->t('Herberekenen…')),
     ];
 
     if (!$editable && !$locked) {
-      $form['workbench']['actions']['notice'] = ['#markup' => '<span class="description">Alleen gebruikers met bewerkrechten kunnen deze versie aanpassen.</span>'];
+      $form['workbench']['actions']['notice'] = [
+        '#markup' => '<span class="description">Alleen een ontgrendelde conceptversie met bewerkrechten kan worden aangepast.</span>',
+      ];
     }
     return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    if (!$this->persistGrid($form_state)) {
+      return;
+    }
+    $form_state->set('ajax_message', 'Wijzigingen opgeslagen en calculatie opnieuw doorgerekend.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function addRow(array &$form, FormStateInterface $form_state): void {
+    $this->persistGrid($form_state);
+    $trigger = $form_state->getTriggeringElement();
+    $this->rowManager->add(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      (string) ($trigger['#paragraph_key'] ?? ''),
+      $this->currentUser(),
+    );
+    $form_state->set('ajax_message', 'Nieuwe calculatieregel toegevoegd.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function duplicateRow(array &$form, FormStateInterface $form_state): void {
+    $this->persistGrid($form_state);
+    $trigger = $form_state->getTriggeringElement();
+    $this->rowManager->duplicate(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      (int) ($trigger['#line_id'] ?? 0),
+      $this->currentUser(),
+    );
+    $form_state->set('ajax_message', 'Calculatieregel gedupliceerd.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function moveRow(array &$form, FormStateInterface $form_state): void {
+    $this->persistGrid($form_state);
+    $trigger = $form_state->getTriggeringElement();
+    $parents = $trigger['#array_parents'] ?? [];
+    array_pop($parents);
+    $parents[] = 'target';
+    $target = (string) $form_state->getValue($parents);
+    $this->rowManager->move(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      (int) ($trigger['#line_id'] ?? 0),
+      $target,
+      $this->currentUser(),
+    );
+    $form_state->set('ajax_message', 'Calculatieregel verplaatst.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function deleteRow(array &$form, FormStateInterface $form_state): void {
+    $this->persistGrid($form_state);
+    $trigger = $form_state->getTriggeringElement();
+    $this->rowManager->delete(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      (int) ($trigger['#line_id'] ?? 0),
+      $this->currentUser(),
+    );
+    $form_state->set('ajax_message', 'Calculatieregel verwijderd.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
+    return $form['workbench'];
+  }
+
+  private function persistGrid(FormStateInterface $form_state): bool {
     $calculationId = (int) $form_state->getValue('calculation_id');
     $version = (string) $form_state->getValue('version');
     $current = $this->latestVersion($calculationId);
-    if ($current === NULL || $current['version'] !== $version || $current['locked_at'] !== NULL) {
-      $form_state->setErrorByName('version', $this->t('Deze calculatieversie is inmiddels gewijzigd of vergrendeld. Vernieuw de pagina.'));
-      return;
+    if ($current === NULL || $current['version'] !== $version || $current['locked_at'] !== NULL || $current['status'] !== 'draft') {
+      $form_state->setErrorByName('version', $this->t('Deze calculatieversie is inmiddels gewijzigd, vastgesteld of vergrendeld. Vernieuw de pagina.'));
+      return FALSE;
     }
 
     $calculation = $this->calculationEntityTypeManager->getStorage('node')->load($calculationId);
     if (!$calculation instanceof NodeInterface || !$calculation->access('update') || !$this->currentUser()->hasPermission('edit brebo calculation workbench')) {
       $form_state->setErrorByName('calculation_id', $this->t('U heeft geen recht om deze calculatie te wijzigen.'));
-      return;
+      return FALSE;
     }
 
+    $allowedRuleTypes = ['normal', 'allowance', 'option', 'note', 'distributed', 'adjustable'];
     $gridValues = (array) ($form_state->getValue(['workbench', 'grid']) ?? []);
+    $storage = $this->calculationEntityTypeManager->getStorage('node');
     $transaction = $this->database->startTransaction();
     try {
       foreach ($gridValues as $key => $values) {
@@ -202,7 +368,7 @@ final class CalculationWorkbenchForm extends FormBase {
           continue;
         }
         $lineId = (int) substr($key, 5);
-        $line = $this->calculationEntityTypeManager->getStorage('node')->load($lineId);
+        $line = $storage->load($lineId);
         if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
           continue;
         }
@@ -216,20 +382,29 @@ final class CalculationWorkbenchForm extends FormBase {
           continue;
         }
 
+        $description = trim((string) ($values['description'] ?? ''));
+        $unit = trim((string) ($values['unit'] ?? ''));
+        $quantity = max(0, (float) ($values['quantity'] ?? 0));
         if ($line->hasField('field_brebo_line_description')) {
-          $line->set('field_brebo_line_description', trim((string) ($values['description'] ?? '')));
+          $line->set('field_brebo_line_description', $description);
         }
         if ($line->hasField('field_brebo_contract_quantity')) {
-          $line->set('field_brebo_contract_quantity', max(0, (float) ($values['quantity'] ?? 0)));
+          $line->set('field_brebo_contract_quantity', $quantity);
         }
         if ($line->hasField('field_brebo_unit')) {
-          $line->set('field_brebo_unit', trim((string) ($values['unit'] ?? '')));
+          $line->set('field_brebo_unit', $unit);
         }
+        $line->setNewRevision(TRUE);
+        $line->setRevisionLogMessage('Calculatieregel via AJAX-werkbank bijgewerkt.');
         $line->save();
 
+        $ruleType = (string) ($values['rule_type'] ?? 'normal');
+        if (!in_array($ruleType, $allowedRuleTypes, TRUE)) {
+          $ruleType = 'normal';
+        }
         $this->database->update('brebo_calculation_row_domain')
           ->fields([
-            'rule_type' => (string) ($values['rule_type'] ?? 'normal'),
+            'rule_type' => $ruleType,
             'location_ref' => trim((string) ($values['location_ref'] ?? '')) ?: NULL,
             'labour_unit_cost' => max(0, (float) ($values['labour_unit_cost'] ?? 0)),
             'material_unit_cost' => max(0, (float) ($values['material_unit_cost'] ?? 0)),
@@ -242,8 +417,7 @@ final class CalculationWorkbenchForm extends FormBase {
           ->condition('version', $version)
           ->execute();
       }
-      $form_state->set('ajax_message', 'Wijzigingen opgeslagen en calculatie opnieuw doorgerekend.');
-      $form_state->setRebuild(TRUE);
+      return TRUE;
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -251,8 +425,13 @@ final class CalculationWorkbenchForm extends FormBase {
     }
   }
 
-  public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
-    return $form['workbench'];
+  /** @return array<string, mixed> */
+  private function ajaxDefinition(string $message): array {
+    return [
+      'callback' => '::ajaxRefresh',
+      'wrapper' => 'brebo-calculation-workbench',
+      'progress' => ['type' => 'throbber', 'message' => $message],
+    ];
   }
 
   /** @return array<string, mixed>|null */
