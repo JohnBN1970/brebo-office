@@ -1,0 +1,78 @@
+name: sboffice cache rebuild diagnostics
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office develop to sboffice'
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sboffice-deploy
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: 77.37.34.160
+      DEPLOY_PORT: '65002'
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Reproduce cache rebuild with full diagnostics
+        env:
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set +e
+          cd public_html/sboffice
+          drush=(php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo '=== Runtime ==='
+          php -v
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version
+
+          echo '=== brebo_calculation state ==='
+          "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version
+
+          echo '=== Symfony parse of calculation services ==='
+          php -r 'require "vendor/autoload.php"; $p=Symfony\Component\Yaml\Yaml::parseFile("web/modules/custom/brebo_calculation/brebo_calculation.services.yml"); var_export(array_keys($p["services"] ?? [])); echo PHP_EOL;'
+
+          echo '=== Router rebuild isolated ==='
+          "${drush[@]}" -vvv php:eval 'try { $result = \Drupal::service("router.builder")->rebuild(); var_dump($result); } catch (\Throwable $e) { fwrite(STDERR, get_class($e).": ".$e->getMessage()."\n".$e->getTraceAsString()."\n"); exit(1); }'
+          router_rc=$?
+          echo "ROUTER_REBUILD_EXIT=$router_rc"
+
+          echo '=== Container/cache rebuild verbose ==='
+          "${drush[@]}" -vvv cr
+          cr_rc=$?
+          echo "CACHE_REBUILD_EXIT=$cr_rc"
+
+          echo '=== Latest Drupal log after reproduction ==='
+          "${drush[@]}" watchdog:show --count=25 --extended || "${drush[@]}" ws --count=25 --extended || true
+
+          echo '=== Recent host error logs ==='
+          find "$HOME/domains/brebobv.nl" -maxdepth 4 -type f \( -iname 'error_log' -o -iname '*error*.log' \) -mmin -60 -print -exec tail -n 80 {} \; 2>/dev/null || true
+
+          if [[ "$router_rc" -ne 0 || "$cr_rc" -ne 0 ]]; then
+            exit 1
+          fi
+          REMOTE
