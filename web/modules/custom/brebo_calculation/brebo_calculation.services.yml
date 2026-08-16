@@ -1,0 +1,3 @@
+services:
+  brebo_calculation.commercial_calculator:
+    class: Drupal\brebo_calculation\Service\CommercialCalculator
