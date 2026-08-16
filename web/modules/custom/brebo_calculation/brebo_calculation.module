@@ -37,12 +37,71 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
     return;
   }
 
+  $commercialMethod = (string) $record['commercial_method'];
   $form['#attached']['drupalSettings']['breboCalculation']['commercial'] = [
-    'method' => (string) $record['commercial_method'],
+    'method' => $commercialMethod,
     'generalCostPct' => (float) $record['general_cost_pct'],
     'riskPct' => (float) $record['risk_pct'],
     'profitPct' => (float) $record['profit_pct'],
     'singleMarginPct' => (float) $record['single_margin_pct'],
     'commercialAdjustment' => (float) $record['commercial_adjustment'],
   ];
+
+  if (!isset($form['workbench']['grid']['#header']) || !is_array($form['workbench']['grid']['#header'])) {
+    return;
+  }
+
+  $marginHeader = $commercialMethod === 'single_margin' ? 'Marge' : 'Winst';
+  array_splice($form['workbench']['grid']['#header'], -1, 0, ['AK', 'Risico', $marginHeader, 'Verkoopprijs']);
+
+  foreach ($form['workbench']['grid'] as $rowKey => &$row) {
+    if (!is_string($rowKey) || str_starts_with($rowKey, '#') || !is_array($row)) {
+      continue;
+    }
+
+    $classes = (array) ($row['#attributes']['class'] ?? []);
+    $isStructure = in_array('brebo-calc-workbench__structure', $classes, TRUE);
+    $isLine = in_array('brebo-calc-workbench__line', $classes, TRUE);
+    if (!$isStructure && !$isLine) {
+      continue;
+    }
+
+    if ($isStructure) {
+      $row['labour'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="labour">€ 0,00</span>'];
+      $row['material'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="material">€ 0,00</span>'];
+      $row['equipment'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="equipment">€ 0,00</span>'];
+      $row['subcontracting'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="subcontracting">€ 0,00</span>'];
+      $row['other'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="other">€ 0,00</span>'];
+      $row['unit_total'] = ['#markup' => '<span class="brebo-calc-structure-cost" data-cost-kind="direct">€ 0,00</span>'];
+      $row['total'] = ['#markup' => '<strong class="brebo-calc-structure-subtotal">€ 0,00</strong>'];
+    }
+
+    $commercialCells = [
+      'general_cost' => ['#markup' => '<span class="brebo-calc-commercial" data-commercial-kind="general-cost">€ 0,00</span>'],
+      'risk' => ['#markup' => '<span class="brebo-calc-commercial" data-commercial-kind="risk">€ 0,00</span>'],
+      'margin' => ['#markup' => '<span class="brebo-calc-commercial" data-commercial-kind="margin">€ 0,00</span>'],
+      'sales_price' => ['#markup' => '<strong class="brebo-calc-commercial brebo-calc-sales-price" data-commercial-kind="sales-price">€ 0,00</strong>'],
+    ];
+
+    $rebuilt = [];
+    foreach ($row as $cellKey => $cell) {
+      if ($cellKey === 'operations') {
+        foreach ($commercialCells as $commercialKey => $commercialCell) {
+          $rebuilt[$commercialKey] = $commercialCell;
+        }
+      }
+      $rebuilt[$cellKey] = $cell;
+    }
+    $row = $rebuilt;
+  }
+  unset($row);
+
+  $form['workbench']['total']['#markup'] = '<div class="brebo-calc-workbench__total">'
+    . '<span><small>Directe kostprijs</small><strong data-total-kind="direct">€ 0,00</strong></span>'
+    . '<span><small>AK</small><strong data-total-kind="general-cost">€ 0,00</strong></span>'
+    . '<span><small>Risico</small><strong data-total-kind="risk">€ 0,00</strong></span>'
+    . '<span><small>' . ($commercialMethod === 'single_margin' ? 'Marge' : 'Winst') . '</small><strong data-total-kind="margin">€ 0,00</strong></span>'
+    . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ 0,00</strong></span>'
+    . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ 0,00</strong></span>'
+    . '</div>';
 }
