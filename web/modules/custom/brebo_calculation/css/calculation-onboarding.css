@@ -37,6 +37,53 @@
   margin-top: 14px;
 }
 
+/* The creation form is an operational start screen, not a generic CMS form. */
+form.node-brebo-calculation-form .layout-region-node-secondary,
+form.node-brebo-calculation-edit-form .layout-region-node-secondary,
+form.node-brebo-calculation-form .entity-meta,
+form.node-brebo-calculation-edit-form .entity-meta,
+form.node-brebo-calculation-form .field--name-field-brebo-calc-version,
+form.node-brebo-calculation-edit-form .field--name-field-brebo-calc-version,
+form.node-brebo-calculation-form .field--name-field-brebo-calc-status,
+form.node-brebo-calculation-edit-form .field--name-field-brebo-calc-status,
+form.node-brebo-calculation-form .filter-wrapper,
+form.node-brebo-calculation-edit-form .filter-wrapper,
+.brebo-calc-create__automatic-field,
+.brebo-calc-create__technical-control,
+.brebo-calc-create__cms-meta {
+  display: none !important;
+}
+
+form.node-brebo-calculation-form .layout-region-node-main,
+form.node-brebo-calculation-edit-form .layout-region-node-main,
+form.node-brebo-calculation-form .layout-region-node-footer,
+form.node-brebo-calculation-edit-form .layout-region-node-footer,
+.brebo-calc-create__main,
+.brebo-calc-create__footer {
+  float: none;
+  width: 100%;
+  max-width: 980px;
+  padding-inline: 0;
+}
+
+form.node-brebo-calculation-form .form-item,
+form.node-brebo-calculation-edit-form .form-item {
+  max-width: 760px;
+}
+
+form.node-brebo-calculation-form .field--name-field-brebo-calc-description,
+form.node-brebo-calculation-edit-form .field--name-field-brebo-calc-description {
+  max-width: 980px;
+}
+
+form.node-brebo-calculation-form .field--name-field-brebo-calc-description .form-item,
+form.node-brebo-calculation-edit-form .field--name-field-brebo-calc-description .form-item,
+form.node-brebo-calculation-form .field--name-field-brebo-calc-description textarea,
+form.node-brebo-calculation-edit-form .field--name-field-brebo-calc-description textarea {
+  width: 100%;
+  max-width: 980px;
+}
+
 .brebo-calc-create-commercial {
   max-width: 760px;
   margin-top: 18px;
@@ -49,6 +96,18 @@
 .brebo-calc-create-commercial > summary {
   padding: 11px 0;
   color: #162235;
+  font-weight: 800;
+}
+
+.brebo-calc-create-form .form-actions {
+  max-width: 980px;
+  margin-top: 22px;
+}
+
+.brebo-calc-create-form .form-actions .button--primary,
+.brebo-calc-create-form .form-actions input.button--primary {
+  min-height: 44px;
+  padding-inline: 20px;
   font-weight: 800;
 }
 
@@ -75,6 +134,13 @@
 
   .brebo-calc-onboarding__title {
     font-size: 19px;
+  }
+
+  form.node-brebo-calculation-form .layout-region-node-main,
+  form.node-brebo-calculation-edit-form .layout-region-node-main,
+  form.node-brebo-calculation-form .layout-region-node-footer,
+  form.node-brebo-calculation-edit-form .layout-region-node-footer {
+    max-width: none;
   }
 
   .brebo-calc-workbench__navigation .button {
