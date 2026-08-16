@@ -5,24 +5,17 @@
     attach(context) {
       once('brebo-calc-workbench', '.brebo-calc-workbench__grid--editable', context).forEach((grid) => {
         const form = grid.closest('form');
-        if (!form) {
-          return;
-        }
+        if (!form) return;
 
         const saveButton = form.querySelector('[data-drupal-selector="edit-workbench-actions-save"]');
-        if (!saveButton || saveButton.disabled) {
-          return;
-        }
+        if (!saveButton || saveButton.disabled) return;
 
         let timer = null;
         let dirty = false;
         let saving = false;
 
         const money = (value) => new Intl.NumberFormat('nl-NL', {
-          style: 'currency',
-          currency: 'EUR',
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
+          style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2,
         }).format(Number.isFinite(value) ? value : 0);
 
         const num = (input) => {
@@ -78,6 +71,65 @@
           timer = window.setTimeout(autosave, 650);
         };
 
+        const collapseStorageKey = `brebo-calc-collapse:${window.location.pathname}`;
+        const collapsed = new Set(JSON.parse(window.localStorage.getItem(collapseStorageKey) || '[]'));
+        const structureRows = Array.from(grid.querySelectorAll('tr.brebo-calc-workbench__structure'));
+
+        const childRows = (structureRow) => {
+          const rows = [];
+          const isMainGroup = structureRow.classList.contains('type-main_group');
+          let current = structureRow.nextElementSibling;
+          while (current) {
+            if (current.classList.contains('brebo-calc-workbench__structure')) {
+              if (isMainGroup && current.classList.contains('depth-0')) break;
+              if (!isMainGroup) break;
+            }
+            rows.push(current);
+            current = current.nextElementSibling;
+          }
+          return rows;
+        };
+
+        const applyCollapse = () => {
+          structureRows.forEach((row) => {
+            const key = row.dataset.structureKey;
+            if (!key) return;
+            const isCollapsed = collapsed.has(key);
+            row.classList.toggle('is-collapsed', isCollapsed);
+            const toggle = row.querySelector('.brebo-calc-collapse-toggle');
+            if (toggle) {
+              toggle.textContent = isCollapsed ? '▸' : '▾';
+              toggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+            }
+            if (isCollapsed) childRows(row).forEach((child) => child.classList.add('is-collapsed-child'));
+          });
+          structureRows.forEach((row) => {
+            if (collapsed.has(row.dataset.structureKey)) return;
+            childRows(row).forEach((child) => {
+              const hiddenByParent = structureRows.some((parent) => collapsed.has(parent.dataset.structureKey) && childRows(parent).includes(child));
+              if (!hiddenByParent) child.classList.remove('is-collapsed-child');
+            });
+          });
+        };
+
+        structureRows.forEach((row) => {
+          const descriptionCell = row.cells[1];
+          const key = row.dataset.structureKey;
+          if (!descriptionCell || !key || descriptionCell.querySelector('.brebo-calc-collapse-toggle')) return;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'brebo-calc-collapse-toggle';
+          button.setAttribute('aria-label', 'In- of uitklappen');
+          button.addEventListener('click', () => {
+            if (collapsed.has(key)) collapsed.delete(key); else collapsed.add(key);
+            window.localStorage.setItem(collapseStorageKey, JSON.stringify(Array.from(collapsed)));
+            grid.querySelectorAll('.is-collapsed-child').forEach((rowEl) => rowEl.classList.remove('is-collapsed-child'));
+            applyCollapse();
+          });
+          descriptionCell.prepend(button);
+        });
+        applyCollapse();
+
         grid.addEventListener('input', (event) => {
           if (event.target.matches('input.brebo-calc-cell')) schedule();
         });
@@ -88,7 +140,8 @@
           if (event.key === 'Enter' && event.target.matches('input.brebo-calc-cell')) {
             event.preventDefault();
             autosave();
-            const inputs = Array.from(grid.querySelectorAll('input.brebo-calc-cell, select.brebo-calc-cell'));
+            const inputs = Array.from(grid.querySelectorAll('input.brebo-calc-cell, select.brebo-calc-cell'))
+              .filter((input) => input.offsetParent !== null);
             const index = inputs.indexOf(event.target);
             if (index >= 0 && inputs[index + 1]) {
               inputs[index + 1].focus();
