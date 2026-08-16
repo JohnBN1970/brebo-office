@@ -8,6 +8,137 @@ declare(strict_types=1);
  */
 
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_form_BASE_FORM_ID_alter() for node forms.
+ */
+function brebo_calculation_form_node_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  $formObject = $form_state->getFormObject();
+  if (!method_exists($formObject, 'getEntity')) {
+    return;
+  }
+
+  $calculation = $formObject->getEntity();
+  if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') {
+    return;
+  }
+
+  $isNew = $calculation->isNew();
+  $form['#attached']['library'][] = 'brebo_calculation/workbench';
+  $form['brebo_calculation_onboarding'] = [
+    '#type' => 'container',
+    '#weight' => -100,
+    '#attributes' => ['class' => ['brebo-calc-onboarding']],
+    'eyebrow' => [
+      '#markup' => '<div class="brebo-calc-onboarding__eyebrow">' . ($isNew ? 'Stap 1 van 2' : 'Basisgegevens') . '</div>',
+    ],
+    'title' => [
+      '#markup' => '<h2 class="brebo-calc-onboarding__title">' . ($isNew ? 'Nieuwe calculatie starten' : 'Calculatiegegevens beheren') . '</h2>',
+    ],
+    'text' => [
+      '#markup' => '<p class="brebo-calc-onboarding__text">' . ($isNew
+        ? 'Leg hier alleen de basis vast. Na opslaan maakt BREBO Office automatisch de eerste conceptversie aan en opent direct de spreadsheetwerkbank voor hoofdgroepen, paragrafen, calculatieregels en deelcalculaties.'
+        : 'Deze pagina bevat alleen de basisgegevens van de calculatie. De technische en financiële uitwerking vindt plaats in de Calculatiewerkbank.') . '</p>',
+    ],
+  ];
+
+  if (!$isNew && $calculation->id() !== NULL) {
+    $form['brebo_calculation_onboarding']['action'] = [
+      '#type' => 'link',
+      '#title' => 'Calculatiewerkbank openen',
+      '#url' => \Drupal\Core\Url::fromRoute('brebo_calculation.workbench', ['node' => (int) $calculation->id()]),
+      '#attributes' => ['class' => ['button', 'button--primary']],
+    ];
+  }
+
+  // The sales price is derived in the calculation domain and is never entered
+  // manually on the node form.
+  if (isset($form['field_brebo_sales_price'])) {
+    $form['field_brebo_sales_price']['#access'] = FALSE;
+  }
+
+  if (!$isNew) {
+    return;
+  }
+
+  // Keep Drupal/CMS metadata out of the normal BREBO creation flow.
+  foreach (['uid', 'created', 'status', 'revision_information', 'author'] as $key) {
+    if (isset($form[$key])) {
+      $form[$key]['#access'] = FALSE;
+    }
+  }
+
+  // Commercial settings remain available at creation, but are secondary and
+  // can be changed later from Parameters & opslagen in the workbench.
+  $form['brebo_commercial_start'] = [
+    '#type' => 'details',
+    '#title' => 'Commerciële startinstellingen',
+    '#description' => 'Optioneel. Deze waarden worden als startparameters in de eerste conceptversie overgenomen.',
+    '#open' => FALSE,
+    '#weight' => 20,
+    '#attributes' => ['class' => ['brebo-calc-create-commercial']],
+  ];
+  foreach ([
+    'field_brebo_general_cost_pct',
+    'field_brebo_risk_pct',
+    'field_brebo_profit_pct',
+    'field_brebo_com_adjustment',
+  ] as $fieldName) {
+    if (isset($form[$fieldName])) {
+      $form['brebo_commercial_start'][$fieldName] = $form[$fieldName];
+      unset($form[$fieldName]);
+    }
+  }
+
+  if (isset($form['field_brebo_calc_version']['widget'][0]['value'])) {
+    $form['field_brebo_calc_version']['widget'][0]['value']['#description'] = 'Eerste conceptversie. BREBO Office beheert latere versies vanuit de calculatiewerkbank.';
+  }
+  if (isset($form['field_brebo_calc_code']['widget'][0]['value'])) {
+    $form['field_brebo_calc_code']['widget'][0]['value']['#placeholder'] = 'Bijvoorbeeld CALC-2026-001';
+  }
+
+  if (isset($form['actions']['submit'])) {
+    $form['actions']['submit']['#value'] = 'Opslaan en calculatiewerkbank openen';
+    $handlers = $form['actions']['submit']['#submit'] ?? NULL;
+    if (is_array($handlers)) {
+      if (!in_array('brebo_calculation_open_workbench_after_create', $handlers, TRUE)) {
+        $form['actions']['submit']['#submit'][] = 'brebo_calculation_open_workbench_after_create';
+      }
+    }
+    else {
+      $form['#submit'][] = 'brebo_calculation_open_workbench_after_create';
+    }
+  }
+}
+
+/**
+ * Implements hook_node_insert().
+ */
+function brebo_calculation_node_insert(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_calculation') {
+    return;
+  }
+  \Drupal::service('brebo_calculation.draft_initializer')->ensure($node);
+}
+
+/**
+ * Redirect a freshly saved calculation to its spreadsheet workbench.
+ */
+function brebo_calculation_open_workbench_after_create(array &$form, FormStateInterface $form_state): void {
+  $formObject = $form_state->getFormObject();
+  if (!method_exists($formObject, 'getEntity')) {
+    return;
+  }
+
+  $calculation = $formObject->getEntity();
+  if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation' || $calculation->isNew() || $calculation->id() === NULL) {
+    return;
+  }
+
+  \Drupal::service('brebo_calculation.draft_initializer')->ensure($calculation);
+  $form_state->setRedirect('brebo_calculation.workbench', ['node' => (int) $calculation->id()]);
+}
 
 /**
  * Implements hook_form_FORM_ID_alter().
