@@ -16,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class MigrationOverviewController extends ControllerBase {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $calculationEntityTypeManager,
     private readonly LegacyDryRunService $dryRun,
     private readonly Connection $database,
   ) {}
@@ -30,7 +30,7 @@ final class MigrationOverviewController extends ControllerBase {
   }
 
   public function overview(): array {
-    $storage = $this->entityTypeManager->getStorage('node');
+    $storage = $this->calculationEntityTypeManager->getStorage('node');
     $ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_calculation')
