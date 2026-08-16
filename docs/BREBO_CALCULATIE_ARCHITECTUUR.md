@@ -130,6 +130,121 @@ Een deelcalculatie erft standaard de commerciële parameters van de broncalculat
 - een specifieke deelcalculatie-override;
 - een project-/offertescenario.
 
+## Hoeveelheidswerelden: begroot, voorbereid en gerealiseerd
+
+BREBO Office behandelt hoeveelheden niet als één veld met steeds de nieuwste waarheid. Er zijn drie afzonderlijke, auditbare werelden:
+
+```text
+Begroot      = calculatiehoeveelheid / aanbieding
+Voorbereid   = technisch uitgewerkte bestel- en productiehoeveelheid
+Gerealiseerd = werkelijk geleverd, verwerkt, gemonteerd of uitgevoerd
+```
+
+Vast principe:
+
+**Begroot ≠ Voorbereid ≠ Gerealiseerd.**
+
+Geen van deze werelden overschrijft een andere stilzwijgend. Een verschil is informatie en moet juist zichtbaar blijven.
+
+### Begroot
+
+De begrote hoeveelheid is de hoeveelheid waarop calculatie, kostprijs en offerte zijn gebaseerd. De bron kan bijvoorbeeld zijn:
+
+- opname;
+- tekening;
+- woningtype;
+- kengetal;
+- meetstaat;
+- handmatige calculatie-inschatting;
+- afgeleide hoeveelheid uit het gebouwmodel.
+
+De bron, datum en eventuele onzekerheid van de calculatiehoeveelheid blijven herleidbaar.
+
+### Voorbereid
+
+De voorbereide hoeveelheid ontstaat tijdens werkvoorbereiding uit definitieve technische uitwerking. Voorbeelden:
+
+- definitieve maatvoering;
+- stuklijst;
+- zaaglijst;
+- legplan;
+- plaatoptimalisatie;
+- handelslengte-optimalisatie;
+- bestelstaat;
+- productielijst.
+
+Een voorbereide hoeveelheid mag als **controle of wijzigingsvoorstel** naast de begrote hoeveelheid worden gelegd, maar verandert een vastgestelde calculatie nooit automatisch.
+
+### Gerealiseerd
+
+De gerealiseerde hoeveelheid volgt uit de uitvoering en kan meerdere werkelijkheden bevatten, bijvoorbeeld:
+
+- besteld;
+- geleverd;
+- verwerkt/gemonteerd;
+- retour;
+- restmateriaal;
+- uitval/afval;
+- meer-/minderwerk.
+
+Hierdoor kan BREBO Office niet alleen nacalculeren, maar ook verklaren waar afwijkingen zijn ontstaan.
+
+### Afwijkingsanalyse
+
+BREBO Office moet per relevante regel of scope de keten kunnen tonen:
+
+```text
+Begroot      850,0 m¹
+Voorbereid   947,7 m¹
+Geleverd     972,0 m¹
+Verwerkt     931,0 m¹
+Rest/uitval   41,0 m¹
+```
+
+Afwijkingen worden niet alleen als euroverschil gepresenteerd, maar waar mogelijk voorzien van oorzaak, bijvoorbeeld maatwijziging, opnameverschil, snijverlies, uitvoeringsverlies, extra scope of bewonersafwijking.
+
+## Stuk-, zaag- en productielijsten
+
+Zaaglijsten zijn geen los einddocument van de calculatie. Zij zijn een output van een generieke **hoeveelheden-/productiemotor** die technisch gekoppeld is aan gebouwobjecten, woningtypen, deelcalculaties en werkvoorbereidingsdata.
+
+Dezelfde motor kan onder andere leveren:
+
+- stuklijsten;
+- zaaglijsten;
+- materiaalstaten;
+- bestelstaten;
+- handelslengte-optimalisatie;
+- plaatoptimalisatie;
+- productielijsten;
+- bewerkingslijsten;
+- hoeveelhedenstaten voor calculatiecontrole.
+
+Een zaaglijst kan minimaal bevatten:
+
+- object-/onderdeelreferentie;
+- woningtype/woning/zone;
+- materiaal en profiel;
+- netto maat;
+- bruto maat;
+- aantal;
+- zaaghoek/bewerking waar relevant;
+- zaagsnede/kerf;
+- handelslengte of plaatformaat;
+- geoptimaliseerde indeling;
+- restlengte/restplaat;
+- berekend afvalpercentage;
+- totale bestel-/productiehoeveelheid.
+
+### Relatie met calculatie
+
+De hoeveelheden-/productiemotor mag calculatie voeden met een onderbouwd voorstel voor materiaalhoeveelheid, materiaalverlies en waar beschikbaar bewerkings-/montagenormen. Dit is echter altijd broninformatie voor de **begrote** wereld en geen automatische vervanging van een bestaande, laat staan vastgestelde, calculatiehoeveelheid.
+
+Bij woningtypen kan één technische stuk-/zaaglijst per type worden vermenigvuldigd over de concrete woningen, waarna afwijkende woningen expliciet als afwijking worden verwerkt.
+
+### Lerende gegevens
+
+Vergelijking tussen begroot, voorbereid en gerealiseerd vormt de basis voor latere kengetallen en normverbetering. Werkelijke projectdata mag toekomstige calculaties ondersteunen, maar wordt nooit blind als nieuw calculatiekengetal aangenomen zonder context en beoordeling.
+
 ## Totalisering
 
 ```text
@@ -293,6 +408,7 @@ Een outputmodel is een herbruikbaar en versioneerbaar sjabloon/profiel. Voorbeel
 - woningtype-/deelcalculatieoverzicht;
 - stelposten- en optiebijlage;
 - hoeveelhedenstaat;
+- zaag-/stuklijst;
 - inkoop-/RFQ-spiegel;
 - projectbegroting;
 - nacalculatievergelijking.
@@ -345,12 +461,13 @@ Een later gewijzigd outputmodel of gewijzigde deelcalculatie verandert dus nooit
 Calculatie + Parameters = financiële waarheid en rekenmethodiek
 Deelcalculatie          = herbruikbare geselecteerde financiële scope
 Projecttoepassing       = concrete objecten + aantal/vermenigvuldiging
+Hoeveelhedenmotor       = technische hoeveelheden/productiegegevens per wereld
 Outputmodel             = presentatierecept
-Outputsnapshot           = vastgelegd document/resultaat
-Offerte                  = commercieel klantdocument dat een outputmodel kan gebruiken
+Outputsnapshot          = vastgelegd document/resultaat
+Offerte                 = commercieel klantdocument dat een outputmodel kan gebruiken
 ```
 
-Hierdoor kan dezelfde calculatie zonder duplicatie meerdere betrouwbare outputs opleveren.
+Hierdoor kan dezelfde brondata zonder duplicatie betrouwbare calculatie-, werkvoorbereidings-, productie- en documentoutputs opleveren.
 
 ## Commerciële opbouw
 
@@ -391,6 +508,8 @@ Een calculatie blijft gekoppeld aan project en waar relevant werkpakket/scope. C
 
 Woningtypen en concrete woningen worden niet opnieuw als calculatieobject uitgevonden. Calculatie koppelt aan de canonieke gebouw-/projectobjecten. De deelcalculatie beschrijft de financiële scope per type-eenheid; de projecttoepassing legt vast welke concrete woningen/gebouweenheden die scope gebruiken en met welke factor.
 
+De hoeveelheden-/productiemotor gebruikt dezelfde canonieke objectreferenties. Daarmee kunnen begrote, voorbereide en gerealiseerde hoeveelheden naast elkaar worden gelegd zonder een parallel gebouwmodel te maken.
+
 ## UI-principe
 
 De calculatiewerkplek is nadrukkelijk spreadsheetachtig en niet formulierachtig. Hoofdgroepen/paragrafen zijn inklapbaar, regels inline bewerkbaar, kolomkoppen sticky en normale regels gebruiken subtiele zebra-striping. Structurele subtotalen doorbreken deze striping en zijn duidelijk maar rustig herkenbaar.
@@ -399,6 +518,7 @@ De hoofdwerkruimte krijgt minimaal tabs voor:
 
 - `Calculatie` — spreadsheet;
 - `Deelcalculaties` — herbruikbare scopes, woningtypen en projecttoepassingen;
+- `Hoeveelheden` — vergelijking begroot/voorbereid/gerealiseerd en toegang tot stuk-/zaag-/productielijsten;
 - `Parameters` — reken- en commerciële instellingen;
 - `Inkoop/RFQ`;
 - `Risico`;
