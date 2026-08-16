@@ -44,6 +44,25 @@ jobs:
           grep -q "calculation_version_node" "$install_file"
           grep -q "calculation_version_snapshot" "$install_file"
 
+      - name: Prove calculation creation-to-workbench flow
+        shell: bash
+        run: |
+          set -euo pipefail
+          module='web/modules/custom/brebo_calculation/brebo_calculation.module'
+          services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
+          routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
+          workbench='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
+          initializer='web/modules/custom/brebo_calculation/src/Service/CalculationDraftInitializer.php'
+          libraries='web/modules/custom/brebo_calculation/brebo_calculation.libraries.yml'
+          grep -q "brebo_calculation_form_node_form_alter" "$module"
+          grep -q "brebo_calculation_node_insert" "$module"
+          grep -q "Opslaan en calculatiewerkbank openen" "$module"
+          grep -q "brebo_calculation.draft_initializer" "$services"
+          grep -q "brebo_calculation_version" "$initializer"
+          grep -q "brebo_calculation.workbench" "$routing"
+          grep -q "Deelcalculaties" "$workbench"
+          grep -q "calculation-onboarding.css" "$libraries"
+
       - name: Prove domain model invariants
         shell: bash
         run: |
