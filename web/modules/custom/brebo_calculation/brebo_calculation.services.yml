@@ -48,3 +48,8 @@ services:
     arguments:
       - '@database'
       - '@entity_type.manager'
+
+  brebo_calculation.price_source_manager:
+    class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
+    arguments:
+      - '@database'
