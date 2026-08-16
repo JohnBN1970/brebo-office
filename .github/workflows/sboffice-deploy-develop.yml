@@ -109,7 +109,6 @@ jobs:
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -eEuo pipefail
-          trap 'rc=$?; echo "::error::Remote deploy failed at line $LINENO: $BASH_COMMAND (exit $rc)"; exit "$rc"' ERR
           export NO_COLOR=1 TERM=dumb
           target="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
@@ -130,12 +129,34 @@ jobs:
 
           cd "$target"
           drush=(php vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_calculation -y
+
+          diagnose() {
+            rc="$1"; line="$2"; command="$3"
+            set +e
+            echo "::group::BREBO Drupal failure diagnostics"
+            echo "FAILED_EXIT=$rc"
+            echo "FAILED_LINE=$line"
+            echo "FAILED_COMMAND=$command"
+            echo "--- Drupal status ---"
+            "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version 2>&1 || true
+            echo "--- Recent Drupal log ---"
+            "${drush[@]}" watchdog:show --count=40 --extended 2>&1 || "${drush[@]}" ws --count=40 --extended 2>&1 || true
+            echo "--- brebo_calculation module info ---"
+            "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version 2>&1 || true
+            echo "--- PHP syntax brebo_calculation ---"
+            find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 | xargs -0 -n1 php -l 2>&1 || true
+            echo "::endgroup::"
+            exit "$rc"
+          }
+          trap 'diagnose $? $LINENO "$BASH_COMMAND"' ERR
+
+          # Enable calculation separately and verbose: if it fails, diagnostics identify the real cause.
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service -y
+          "${drush[@]}" -vvv pm:enable brebo_calculation -y
           "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           "${drush[@]}" updb -y --no-cache-clear
           "${drush[@]}" cr
 
-          # Hard post-deploy calculation verification: module, schema and audit routes must exist.
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
 
           timeout 180 "${drush[@]}" cex -y
