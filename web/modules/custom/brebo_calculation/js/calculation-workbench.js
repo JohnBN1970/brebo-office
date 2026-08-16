@@ -1,4 +1,4 @@
-(function (Drupal, once) {
+(function (Drupal, once, drupalSettings) {
   'use strict';
 
   Drupal.behaviors.breboCalculationWorkbench = {
@@ -12,16 +12,36 @@
         let timer = null;
         let dirty = false;
         let saving = false;
+        const settings = drupalSettings.breboCalculation?.commercial || {};
         const money = (value) => new Intl.NumberFormat('nl-NL', {style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(Number.isFinite(value) ? value : 0);
         const num = (input) => { if (!input) return 0; const value = parseFloat(String(input.value).replace(',', '.')); return Number.isFinite(value) ? value : 0; };
+        const pct = (name) => Number(settings[name] || 0) / 100;
         const structureRows = Array.from(grid.querySelectorAll('tr.brebo-calc-workbench__structure'));
+
+        const commercial = (direct) => {
+          if (settings.method === 'single_margin') {
+            const margin = direct * pct('singleMarginPct');
+            return {generalCost: 0, risk: 0, margin, salesPrice: direct + margin};
+          }
+          const generalCost = direct * pct('generalCostPct');
+          const risk = (direct + generalCost) * pct('riskPct');
+          const margin = (direct + generalCost + risk) * pct('profitPct');
+          return {generalCost, risk, margin, salesPrice: direct + generalCost + risk + margin};
+        };
 
         const lineTotal = (row) => {
           const quantity = num(row.querySelector('input[name$="[quantity]"]'));
-          const unitTotal = ['labour_unit_cost','material_unit_cost','equipment_unit_cost','subcontracting_unit_cost','other_unit_cost']
-            .reduce((sum, field) => sum + num(row.querySelector(`input[name$="[${field}]"]`)), 0);
+          const components = {
+            labour: quantity * num(row.querySelector('input[name$="[labour_unit_cost]"]')),
+            material: quantity * num(row.querySelector('input[name$="[material_unit_cost]"]')),
+            equipment: quantity * num(row.querySelector('input[name$="[equipment_unit_cost]"]')),
+            subcontracting: quantity * num(row.querySelector('input[name$="[subcontracting_unit_cost]"]')),
+            other: quantity * num(row.querySelector('input[name$="[other_unit_cost]"]')),
+          };
+          const unitTotal = quantity > 0 ? Object.values(components).reduce((sum, value) => sum + value, 0) / quantity : 0;
+          const total = Object.values(components).reduce((sum, value) => sum + value, 0);
           const type = row.querySelector('select[name$="[rule_type]"]')?.value || 'normal';
-          return {unitTotal, total: quantity * unitTotal, included: type !== 'option' && type !== 'note', type};
+          return {unitTotal, total, components, included: type !== 'option' && type !== 'note', type, commercial: commercial(total)};
         };
 
         const childRows = (structureRow) => {
@@ -39,39 +59,52 @@
           return rows;
         };
 
+        const setText = (root, selector, value) => { const el = root.querySelector(selector); if (el) el.textContent = money(value); };
+
         const refreshClientTotals = () => {
-          let grandTotal = 0;
+          const grand = {direct:0, labour:0, material:0, equipment:0, subcontracting:0, other:0};
           grid.querySelectorAll('tr.brebo-calc-workbench__line').forEach((row) => {
             const calc = lineTotal(row);
             const derived = row.querySelectorAll('.brebo-calc-derived');
             if (derived[0]) derived[0].textContent = money(calc.unitTotal);
             if (derived[1]) derived[1].textContent = money(calc.total);
+            setText(row, '[data-commercial-kind="general-cost"]', calc.commercial.generalCost);
+            setText(row, '[data-commercial-kind="risk"]', calc.commercial.risk);
+            setText(row, '[data-commercial-kind="margin"]', calc.commercial.margin);
+            setText(row, '[data-commercial-kind="sales-price"]', calc.commercial.salesPrice);
             row.className = row.className.replace(/\brule-[^\s]+/g, '').trim() + ` rule-${calc.type}`;
-            if (calc.included) grandTotal += calc.total;
-          });
-
-          structureRows.forEach((row) => {
-            let subtotal = 0;
-            childRows(row).forEach((child) => {
-              if (!child.classList.contains('brebo-calc-workbench__line')) return;
-              const calc = lineTotal(child);
-              if (calc.included) subtotal += calc.total;
-            });
-            const totalCell = row.cells[12];
-            if (totalCell) {
-              let subtotalEl = totalCell.querySelector('.brebo-calc-structure-subtotal');
-              if (!subtotalEl) {
-                subtotalEl = document.createElement('strong');
-                subtotalEl.className = 'brebo-calc-structure-subtotal';
-                totalCell.appendChild(subtotalEl);
-              }
-              subtotalEl.textContent = money(subtotal);
-              subtotalEl.title = 'Subtotaal excl. opties en notities';
+            if (calc.included) {
+              grand.direct += calc.total;
+              Object.keys(calc.components).forEach((key) => { grand[key] += calc.components[key]; });
             }
           });
 
-          const totalEl = form.querySelector('.brebo-calc-workbench__total strong');
-          if (totalEl) totalEl.textContent = money(grandTotal);
+          structureRows.forEach((row) => {
+            const subtotal = {direct:0, labour:0, material:0, equipment:0, subcontracting:0, other:0};
+            childRows(row).forEach((child) => {
+              if (!child.classList.contains('brebo-calc-workbench__line')) return;
+              const calc = lineTotal(child);
+              if (!calc.included) return;
+              subtotal.direct += calc.total;
+              Object.keys(calc.components).forEach((key) => { subtotal[key] += calc.components[key]; });
+            });
+            const sale = commercial(subtotal.direct);
+            Object.keys(subtotal).forEach((key) => setText(row, `[data-cost-kind="${key}"]`, subtotal[key]));
+            setText(row, '.brebo-calc-structure-subtotal', subtotal.direct);
+            setText(row, '[data-commercial-kind="general-cost"]', sale.generalCost);
+            setText(row, '[data-commercial-kind="risk"]', sale.risk);
+            setText(row, '[data-commercial-kind="margin"]', sale.margin);
+            setText(row, '[data-commercial-kind="sales-price"]', sale.salesPrice);
+          });
+
+          const totalCommercial = commercial(grand.direct);
+          const adjustment = Number(settings.commercialAdjustment || 0);
+          setText(form, '[data-total-kind="direct"]', grand.direct);
+          setText(form, '[data-total-kind="general-cost"]', totalCommercial.generalCost);
+          setText(form, '[data-total-kind="risk"]', totalCommercial.risk);
+          setText(form, '[data-total-kind="margin"]', totalCommercial.margin);
+          setText(form, '[data-total-kind="adjustment"]', adjustment);
+          setText(form, '[data-total-kind="sales-price"]', totalCommercial.salesPrice + adjustment);
         };
 
         const setState = (state) => {
@@ -144,4 +177,4 @@
       });
     }
   };
-})(Drupal, once);
+})(Drupal, once, drupalSettings);
