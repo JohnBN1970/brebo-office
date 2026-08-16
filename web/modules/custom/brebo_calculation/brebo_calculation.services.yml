@@ -58,3 +58,8 @@ services:
     class: Drupal\brebo_calculation\Service\SubcalculationManager
     arguments:
       - '@database'
+
+  brebo_calculation.object_exception_line_manager:
+    class: Drupal\brebo_calculation\Service\ObjectExceptionLineManager
+    arguments:
+      - '@database'
