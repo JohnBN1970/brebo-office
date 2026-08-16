@@ -73,12 +73,7 @@ final class SubcalculationManager {
     ])->execute();
   }
 
-  /**
-   * Add one concrete canonical building/project object to an application.
-   *
-   * @param array<string,float|int|string|null> $exceptionCosts
-   *   Optional additive cost deviations per cost carrier.
-   */
+  /** @param array<string,float|int|string|null> $exceptionCosts */
   public function addApplicationObject(int $applicationId, string $objectType, string $objectRef, float $factor, bool $exception, ?string $exceptionPayload, AccountInterface $account, array $exceptionCosts = []): int {
     $application = $this->database->select('brebo_calculation_subcalculation_application', 'a')
       ->fields('a', ['subcalculation_id', 'locked_at'])
@@ -92,7 +87,6 @@ final class SubcalculationManager {
     if ($objectRef === '') {
       throw new \InvalidArgumentException('Canonical object reference is required.');
     }
-
     $costs = [
       'exception_labour' => (float) ($exceptionCosts['exception_labour'] ?? 0),
       'exception_material' => (float) ($exceptionCosts['exception_material'] ?? 0),
@@ -105,9 +99,7 @@ final class SubcalculationManager {
         throw new \InvalidArgumentException('Financial exception costs cannot be negative.');
       }
     }
-    $hasFinancialException = array_sum($costs) > 0.000001;
-    $isException = $exception || $hasFinancialException || trim((string) $exceptionPayload) !== '';
-
+    $isException = $exception || array_sum($costs) > 0.000001 || trim((string) $exceptionPayload) !== '';
     return (int) $this->database->insert('brebo_calculation_subcalculation_application_object')->fields([
       'application_id' => $applicationId,
       'object_type' => trim($objectType),
@@ -134,30 +126,26 @@ final class SubcalculationManager {
     if (!$sub) {
       throw new \InvalidArgumentException('Subcalculation not found.');
     }
-
     $totals = ['labour' => 0.0, 'material' => 0.0, 'equipment' => 0.0, 'subcontracting' => 0.0, 'other' => 0.0, 'direct' => 0.0];
     $scopes = $this->database->select('brebo_calculation_subcalculation_scope', 'ss')
       ->fields('ss', ['scope_type', 'scope_ref', 'multiplier'])
       ->condition('subcalculation_id', $subcalculationId)
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
-
     $lineIds = [];
     foreach ($scopes as $scope) {
       if ($scope['scope_type'] === 'line') {
         $lineIds[(int) $scope['scope_ref']] = (float) $scope['multiplier'];
         continue;
       }
-      $structureKey = (string) $scope['scope_ref'];
       $query = $this->database->select('brebo_calculation_row_domain', 'r');
       $query->fields('r', ['calc_line_id']);
       $query->condition('r.calculation_id', (int) $sub['calculation_id']);
       $query->condition('r.version', (string) $sub['version']);
-      $query->condition('r.paragraph_key', $structureKey);
+      $query->condition('r.paragraph_key', (string) $scope['scope_ref']);
       foreach ($query->execute()->fetchCol() as $lineId) {
         $lineIds[(int) $lineId] = (float) $scope['multiplier'];
       }
     }
-
     foreach ($lineIds as $lineId => $multiplier) {
       $row = $this->database->select('brebo_calculation_row_domain', 'r')
         ->fields('r', ['labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost', 'other_unit_cost'])
@@ -168,11 +156,9 @@ final class SubcalculationManager {
       if (!$row) {
         continue;
       }
-      $totals['labour'] += (float) $row['labour_unit_cost'] * $multiplier;
-      $totals['material'] += (float) $row['material_unit_cost'] * $multiplier;
-      $totals['equipment'] += (float) $row['equipment_unit_cost'] * $multiplier;
-      $totals['subcontracting'] += (float) $row['subcontracting_unit_cost'] * $multiplier;
-      $totals['other'] += (float) $row['other_unit_cost'] * $multiplier;
+      foreach (['labour', 'material', 'equipment', 'subcontracting', 'other'] as $carrier) {
+        $totals[$carrier] += (float) $row[$carrier . '_unit_cost'] * $multiplier;
+      }
     }
     $totals['direct'] = $totals['labour'] + $totals['material'] + $totals['equipment'] + $totals['subcontracting'] + $totals['other'];
     return $totals;
@@ -189,28 +175,56 @@ final class SubcalculationManager {
     }
     $unit = $this->totals((int) $application['subcalculation_id']);
     $objects = $this->database->select('brebo_calculation_subcalculation_application_object', 'o')
-      ->fields('o', ['factor', 'exception_labour', 'exception_material', 'exception_equipment', 'exception_subcontracting', 'exception_other'])
+      ->fields('o', ['id', 'factor', 'exception_labour', 'exception_material', 'exception_equipment', 'exception_subcontracting', 'exception_other'])
       ->condition('application_id', $applicationId)
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
 
     $result = [
       'base' => $unit['direct'] * (float) $application['quantity'],
-      'exception_labour' => 0.0,
-      'exception_material' => 0.0,
-      'exception_equipment' => 0.0,
-      'exception_subcontracting' => 0.0,
-      'exception_other' => 0.0,
+      'legacy_exception_labour' => 0.0,
+      'legacy_exception_material' => 0.0,
+      'legacy_exception_equipment' => 0.0,
+      'legacy_exception_subcontracting' => 0.0,
+      'legacy_exception_other' => 0.0,
+      'legacy_exceptions' => 0.0,
+      'line_exception_labour' => 0.0,
+      'line_exception_material' => 0.0,
+      'line_exception_equipment' => 0.0,
+      'line_exception_subcontracting' => 0.0,
+      'line_exception_other' => 0.0,
+      'line_exceptions' => 0.0,
       'exceptions' => 0.0,
       'total' => 0.0,
     ];
+
+    $factors = [];
     foreach ($objects as $object) {
+      $objectId = (int) $object['id'];
       $factor = (float) $object['factor'];
+      $factors[$objectId] = $factor;
       foreach (['labour', 'material', 'equipment', 'subcontracting', 'other'] as $carrier) {
-        $key = 'exception_' . $carrier;
-        $result[$key] += (float) $object[$key] * $factor;
+        $result['legacy_exception_' . $carrier] += (float) $object['exception_' . $carrier] * $factor;
       }
     }
-    $result['exceptions'] = $result['exception_labour'] + $result['exception_material'] + $result['exception_equipment'] + $result['exception_subcontracting'] + $result['exception_other'];
+
+    if ($factors) {
+      $query = $this->database->select('brebo_calculation_subcalculation_object_exception_line', 'l');
+      $query->fields('l', ['application_object_id', 'quantity', 'labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost', 'other_unit_cost']);
+      $query->condition('application_object_id', array_keys($factors), 'IN');
+      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $line) {
+        $factor = $factors[(int) $line['application_object_id']] ?? 0.0;
+        $quantity = (float) $line['quantity'];
+        foreach (['labour', 'material', 'equipment', 'subcontracting', 'other'] as $carrier) {
+          $result['line_exception_' . $carrier] += $factor * $quantity * (float) $line[$carrier . '_unit_cost'];
+        }
+      }
+    }
+
+    foreach (['labour', 'material', 'equipment', 'subcontracting', 'other'] as $carrier) {
+      $result['legacy_exceptions'] += $result['legacy_exception_' . $carrier];
+      $result['line_exceptions'] += $result['line_exception_' . $carrier];
+    }
+    $result['exceptions'] = $result['legacy_exceptions'] + $result['line_exceptions'];
     $result['total'] = $result['base'] + $result['exceptions'];
     return $result;
   }
@@ -220,10 +234,7 @@ final class SubcalculationManager {
     if (!$account->hasPermission('edit brebo calculation workbench')) {
       throw new \RuntimeException('Missing calculation workbench edit permission.');
     }
-    $sub = $this->database->select('brebo_calculation_subcalculation', 's')
-      ->fields('s')
-      ->condition('id', $subcalculationId)
-      ->execute()->fetchAssoc();
+    $sub = $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')->condition('id', $subcalculationId)->execute()->fetchAssoc();
     if (!$sub || $sub['status'] !== 'draft' || $sub['locked_at'] !== NULL) {
       throw new \RuntimeException('Only unlocked draft subcalculations may be changed.');
     }
@@ -267,10 +278,9 @@ final class SubcalculationManager {
   }
 
   private function nextScopeOrder(int $subcalculationId): int {
-    $max = $this->database->select('brebo_calculation_subcalculation_scope', 's')
-      ->condition('subcalculation_id', $subcalculationId)
-      ->addExpression('MAX(sort_order)', 'max_order')
-      ->execute()->fetchField();
+    $query = $this->database->select('brebo_calculation_subcalculation_scope', 's');
+    $query->addExpression('MAX(sort_order)', 'max_order');
+    $max = $query->condition('subcalculation_id', $subcalculationId)->execute()->fetchField();
     return ((int) $max) + 10;
   }
 }
