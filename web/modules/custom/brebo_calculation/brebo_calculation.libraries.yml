@@ -7,5 +7,6 @@ workbench:
     js/calculation-workbench.js: {}
   dependencies:
     - core/drupal
+    - core/drupalSettings
     - core/once
     - core/drupal.ajax
