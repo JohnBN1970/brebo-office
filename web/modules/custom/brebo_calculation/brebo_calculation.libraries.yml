@@ -3,6 +3,7 @@ workbench:
   css:
     theme:
       css/calculation-workbench.css: {}
+      css/calculation-onboarding.css: {}
   js:
     js/calculation-workbench.js: {}
   dependencies:
