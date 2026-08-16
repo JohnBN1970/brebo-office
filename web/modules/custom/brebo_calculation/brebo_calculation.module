@@ -62,6 +62,12 @@ function brebo_calculation_form_node_form_alter(array &$form, FormStateInterface
     return;
   }
 
+  // A calculation is an independent commercial object. A work package may be
+  // related later in the process, but is not a prerequisite for starting one.
+  if (isset($form['field_brebo_work_package'])) {
+    $form['field_brebo_work_package']['#access'] = FALSE;
+  }
+
   // Keep Drupal/CMS metadata out of the normal BREBO creation flow.
   foreach (['uid', 'created', 'status', 'revision_information', 'author'] as $key) {
     if (isset($form[$key])) {
