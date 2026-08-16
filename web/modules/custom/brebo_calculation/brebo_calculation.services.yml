@@ -5,6 +5,9 @@ services:
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
 
+  brebo_calculation.distribution_calculator:
+    class: Drupal\brebo_calculation\Service\DistributionCalculator
+
   brebo_calculation.legacy_reconciler:
     class: Drupal\brebo_calculation\Service\LegacyReconciler
 
