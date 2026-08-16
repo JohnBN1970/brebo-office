@@ -63,3 +63,8 @@ services:
     class: Drupal\brebo_calculation\Service\ObjectExceptionLineManager
     arguments:
       - '@database'
+
+  brebo_calculation.draft_initializer:
+    class: Drupal\brebo_calculation\Service\CalculationDraftInitializer
+    arguments:
+      - '@database'
