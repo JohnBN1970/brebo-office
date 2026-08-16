@@ -7,6 +7,7 @@ namespace Drupal\brebo_calculation\Infrastructure;
 use Drupal\brebo_calculation\Contract\CalculationPersistenceInterface;
 use Drupal\brebo_calculation\Domain\CalculationSnapshot;
 use Drupal\brebo_calculation\Domain\CalculationVersion;
+use Drupal\brebo_calculation\Domain\ClassificationSystem;
 use Drupal\brebo_calculation\Domain\StructureNode;
 use Drupal\Core\Database\Connection;
 
@@ -36,7 +37,7 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
       ])->execute();
   }
 
-  public function replaceStructure(int $calculationId, string $version, array $nodes): void {
+  public function replaceStructure(int $calculationId, string $version, ClassificationSystem $classificationSystem, array $nodes): void {
     $transaction = $this->database->startTransaction();
     try {
       $this->database->delete('brebo_calculation_structure')
@@ -54,7 +55,7 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
           'parent_key' => $node->parentId,
           'node_type' => $node->type->value,
           'depth' => $node->depth,
-          'classification_system' => '',
+          'classification_system' => $classificationSystem->value,
           'code' => $node->code,
           'label' => $node->label,
           'sort_order' => $node->sortOrder,
@@ -75,7 +76,10 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
       'other_unit_cost', 'distribution_method', 'distribution_payload',
     ];
     $fields = array_intersect_key($data, array_flip($allowed));
-    $fields += ['calculation_id' => $calculationId];
+    if (!isset($fields['paragraph_key'], $fields['rule_type'])) {
+      throw new \InvalidArgumentException('Row domain requires paragraph_key and rule_type.');
+    }
+    $fields['calculation_id'] = $calculationId;
     $this->database->merge('brebo_calculation_row_domain')
       ->keys(['calc_line_id' => $calcLineId, 'version' => $version])
       ->fields($fields)
@@ -83,17 +87,32 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
   }
 
   public function saveSnapshot(CalculationSnapshot $snapshot, int $created, ?int $createdBy = NULL): void {
+    $hash = $snapshot->contentHash();
     $payload = [
       'calculation_id' => $snapshot->calculationId,
       'version' => $snapshot->version->version,
-      'content_hash' => $snapshot->contentHash(),
+      'content_hash' => $hash,
+      'structure' => array_map(static fn (StructureNode $node): array => get_object_vars($node), $snapshot->structure),
+      'rows' => array_map(static fn ($row): array => [
+        'legacy_line_id' => $row->legacyLineId,
+        'paragraph_id' => $row->paragraphId,
+        'type' => $row->type->value,
+        'description' => $row->description,
+        'quantity' => $row->quantity,
+        'actual_quantity' => $row->actualQuantity,
+        'unit' => $row->unit,
+        'unit_costs' => $row->unitCosts->toArray(),
+        'sort_order' => $row->sortOrder,
+        'location_ref' => $row->locationRef,
+        'memo' => $row->memo,
+      ], $snapshot->rows),
       'totals' => $snapshot->totals->toArray(),
       'commercial' => $snapshot->commercial->toArray(),
     ];
     $this->database->merge('brebo_calculation_snapshot')
       ->keys(['calculation_id' => $snapshot->calculationId, 'version' => $snapshot->version->version])
       ->fields([
-        'content_hash' => $snapshot->contentHash(),
+        'content_hash' => $hash,
         'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
         'created' => $created,
         'created_by' => $createdBy,
