@@ -10,11 +10,20 @@ use Drupal\Core\Session\AccountInterface;
 /** Guarded creation and approval of auditable calculation price sources. */
 final class CalculationPriceSourceManager {
 
+  private const COST_FIELDS = [
+    'labour' => 'labour_unit_cost',
+    'material' => 'material_unit_cost',
+    'equipment' => 'equipment_unit_cost',
+    'subcontracting' => 'subcontracting_unit_cost',
+    'other' => 'other_unit_cost',
+  ];
+
   public function __construct(private readonly Connection $database) {}
 
   /** @param array<string,mixed> $values */
   public function createForLine(int $calculationId, string $version, int $lineId, array $values, AccountInterface $account): int {
     $this->assertEditable($calculationId, $version, $lineId, $account);
+    $costCarrier = $this->normalizeCostCarrier((string) ($values['cost_carrier'] ?? 'subcontracting'));
     $now = time();
     $transaction = $this->database->startTransaction();
     try {
@@ -44,17 +53,20 @@ final class CalculationPriceSourceManager {
         'changed_by' => (int) $account->id(),
       ])->execute();
 
+      // The legacy column name proposed_oa_unit_cost is retained temporarily for
+      // migration compatibility; source_line_ref carries the explicit carrier.
       $this->database->insert('brebo_calculation_price_source_line')->fields([
         'price_source_id' => $sourceId,
         'calculation_id' => $calculationId,
         'version' => $version,
         'calc_line_id' => $lineId,
+        'source_line_ref' => 'cost_carrier:' . $costCarrier,
         'extracted_description' => trim((string) ($values['extracted_description'] ?? '')) ?: NULL,
         'extracted_quantity' => ($values['extracted_quantity'] ?? '') !== '' ? (float) $values['extracted_quantity'] : NULL,
         'extracted_unit' => trim((string) ($values['extracted_unit'] ?? '')) ?: NULL,
         'extracted_unit_price' => ($values['extracted_unit_price'] ?? '') !== '' ? (float) $values['extracted_unit_price'] : NULL,
         'extracted_total' => ($values['extracted_total'] ?? '') !== '' ? (float) $values['extracted_total'] : NULL,
-        'proposed_oa_unit_cost' => ($values['proposed_oa_unit_cost'] ?? '') !== '' ? (float) $values['proposed_oa_unit_cost'] : NULL,
+        'proposed_oa_unit_cost' => ($values['proposed_unit_cost'] ?? '') !== '' ? (float) $values['proposed_unit_cost'] : NULL,
         'approval_status' => 'review',
         'is_active_source' => 0,
         'created' => $now,
@@ -68,11 +80,13 @@ final class CalculationPriceSourceManager {
     }
   }
 
-  public function approveForLine(int $calculationId, string $version, int $lineId, int $sourceId, float $oaUnitCost, ?string $note, AccountInterface $account): void {
+  public function approveForLine(int $calculationId, string $version, int $lineId, int $sourceId, string $costCarrier, float $unitCost, ?string $note, AccountInterface $account): void {
     $this->assertEditable($calculationId, $version, $lineId, $account);
-    if ($oaUnitCost < 0) {
-      throw new \InvalidArgumentException('OA unit cost cannot be negative.');
+    $costCarrier = $this->normalizeCostCarrier($costCarrier);
+    if ($unitCost < 0) {
+      throw new \InvalidArgumentException('Unit cost cannot be negative.');
     }
+
     $mapping = $this->database->select('brebo_calculation_price_source_line', 'm')
       ->fields('m', ['id'])
       ->condition('price_source_id', $sourceId)
@@ -84,6 +98,7 @@ final class CalculationPriceSourceManager {
       throw new \InvalidArgumentException('Price source is not linked to this calculation row.');
     }
 
+    $targetField = self::COST_FIELDS[$costCarrier];
     $transaction = $this->database->startTransaction();
     try {
       $this->database->update('brebo_calculation_price_source_line')
@@ -91,20 +106,22 @@ final class CalculationPriceSourceManager {
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->condition('calc_line_id', $lineId)
+        ->condition('source_line_ref', 'cost_carrier:' . $costCarrier)
         ->execute();
       $this->database->update('brebo_calculation_price_source_line')
         ->fields([
-          'approved_oa_unit_cost' => $oaUnitCost,
+          'approved_oa_unit_cost' => $unitCost,
           'approval_status' => 'approved',
           'is_active_source' => 1,
-          'approval_note' => $note ?: NULL,
+          'approval_note' => trim('Kostendrager: ' . $costCarrier . '. ' . ($note ?? '')),
           'approved' => time(),
           'approved_by' => (int) $account->id(),
+          'source_line_ref' => 'cost_carrier:' . $costCarrier,
         ])
         ->condition('id', (int) $mapping)
         ->execute();
       $this->database->update('brebo_calculation_row_domain')
-        ->fields(['subcontracting_unit_cost' => $oaUnitCost])
+        ->fields([$targetField => $unitCost])
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->condition('calc_line_id', $lineId)
@@ -118,6 +135,13 @@ final class CalculationPriceSourceManager {
       $transaction->rollBack();
       throw $e;
     }
+  }
+
+  private function normalizeCostCarrier(string $costCarrier): string {
+    if (!isset(self::COST_FIELDS[$costCarrier])) {
+      throw new \InvalidArgumentException('Unknown calculation cost carrier.');
+    }
+    return $costCarrier;
   }
 
   private function assertEditable(int $calculationId, string $version, int $lineId, AccountInterface $account): void {
