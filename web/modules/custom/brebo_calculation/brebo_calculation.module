@@ -47,6 +47,24 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
     'commercialAdjustment' => (float) $record['commercial_adjustment'],
   ];
 
+  $form['workbench']['scenario_compare'] = [
+    '#type' => 'details',
+    '#title' => 'Scenariovergelijking',
+    '#open' => FALSE,
+    '#weight' => -8,
+    '#attributes' => ['class' => ['brebo-calc-scenarios']],
+  ];
+  $form['workbench']['scenario_compare']['intro'] = [
+    '#markup' => '<p class="description">Rekenhulp voor Basis, Scherp en Doel. Wijzigt de kostprijs of opgeslagen calculatie niet.</p>',
+  ];
+  $form['workbench']['scenario_compare']['cards'] = [
+    '#markup' => '<div class="brebo-calc-scenario-grid">'
+      . '<section class="brebo-calc-scenario" data-scenario="basis"><h3>Basis</h3><div class="brebo-calc-scenario__inputs"></div><dl><dt>Verkoopprijs</dt><dd data-scenario-output="sales">€ 0,00</dd><dt>Brutomarge</dt><dd data-scenario-output="gross">€ 0,00</dd><dt>Brutomarge %</dt><dd data-scenario-output="gross-pct">0,0%</dd></dl></section>'
+      . '<section class="brebo-calc-scenario" data-scenario="scherp"><h3>Scherp</h3><div class="brebo-calc-scenario__inputs"></div><dl><dt>Verkoopprijs</dt><dd data-scenario-output="sales">€ 0,00</dd><dt>Brutomarge</dt><dd data-scenario-output="gross">€ 0,00</dd><dt>Brutomarge %</dt><dd data-scenario-output="gross-pct">0,0%</dd></dl></section>'
+      . '<section class="brebo-calc-scenario" data-scenario="doel"><h3>Doel</h3><div class="brebo-calc-scenario__inputs"></div><dl><dt>Verkoopprijs</dt><dd data-scenario-output="sales">€ 0,00</dd><dt>Brutomarge</dt><dd data-scenario-output="gross">€ 0,00</dd><dt>Brutomarge %</dt><dd data-scenario-output="gross-pct">0,0%</dd></dl></section>'
+      . '</div>',
+  ];
+
   if (!isset($form['workbench']['grid']['#header']) || !is_array($form['workbench']['grid']['#header'])) {
     return;
   }
