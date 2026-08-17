@@ -81,24 +81,49 @@ final class CalculationWorkbenchForm extends FormBase {
     }
 
     $structure = $this->database->select('brebo_calculation_structure', 's')->fields('s')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('sort_order')->orderBy('depth')->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
-    $childCounts = [];
-    $mainGroupOptions = [];
-    foreach ($structure as $key => $item) {
-      if (!empty($item['parent_key'])) { $childCounts[(string) $item['parent_key']] = ($childCounts[(string) $item['parent_key']] ?? 0) + 1; }
-      if ($item['node_type'] === 'main_group') { $mainGroupOptions[(string) $key] = trim((string) ($item['code'] ?: '') . ' — ' . (string) $item['label'], ' —'); }
+
+    if (!$structure) {
+      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString();
+      $form['workbench']['empty_state'] = [
+        '#markup' => '<div class="brebo-calc-empty-state"><strong>Start met de calculatiestructuur.</strong><p>Maak eerst een hoofdgroep en paragraaf aan. Daarna voeg je hier direct calculatieregels toe.</p><a class="button button--primary" href="' . htmlspecialchars($structureUrl) . '">Structuur aanmaken</a></div>',
+      ];
     }
 
-    // row_domain intentionally stores only additive domain fields. It has no
-    // sort_order column, so the stable legacy line identity is the safe order.
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenheid','Aantal','Arbeid','Materiaal','Materieel','Onderaanneming','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
+      $isParagraph = (string) $item['node_type'] === 'paragraph';
+      $operations = ['#markup' => ''];
+      if ($isParagraph && $editable) {
+        $operations = [
+          '#type' => 'submit',
+          '#value' => '+ Regel',
+          '#submit' => ['::addRow'],
+          '#paragraph_key' => (string) $key,
+          '#limit_validation_errors' => [],
+          '#ajax' => [
+            'callback' => '::ajaxRefresh',
+            'wrapper' => 'brebo-calculation-workbench',
+            'progress' => ['type' => 'throbber', 'message' => 'Calculatieregel toevoegen…'],
+          ],
+        ];
+      }
+
       $form['workbench']['grid']['structure_' . $key] = [
         '#attributes' => ['class' => ['brebo-calc-workbench__structure','depth-' . $depth], 'data-structure-key' => (string) $key, 'data-parent-key' => (string) ($item['parent_key'] ?? '')],
         'code' => ['#markup' => htmlspecialchars((string) ($item['code'] ?: ''))],
         'description' => ['#markup' => '<button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="In-/uitklappen">▾</button><strong>' . htmlspecialchars((string) $item['label']) . '</strong>'],
-        'unit' => ['#markup' => ''], 'quantity' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => '<strong class="brebo-calc-structure-subtotal">€ 0,00</strong>'], 'operations' => ['#markup' => ''],
+        'unit' => ['#markup' => ''],
+        'quantity' => ['#markup' => ''],
+        'labour' => ['#markup' => ''],
+        'material' => ['#markup' => ''],
+        'equipment' => ['#markup' => ''],
+        'subcontracting' => ['#markup' => ''],
+        'other' => ['#markup' => ''],
+        'unit_total' => ['#markup' => ''],
+        'total' => ['#markup' => '<strong class="brebo-calc-structure-subtotal">€ 0,00</strong>'],
+        'operations' => $operations,
       ];
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
@@ -129,10 +154,28 @@ final class CalculationWorkbenchForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
 
+  public function addRow(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    $paragraphKey = (string) ($trigger['#paragraph_key'] ?? '');
+    if ($paragraphKey === '') {
+      throw new \RuntimeException('Paragraaf ontbreekt bij het toevoegen van de calculatieregel.');
+    }
+    $this->rowManager->add(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      $paragraphKey,
+      $this->currentUser(),
+    );
+    $form_state->set('ajax_message', 'Calculatieregel toegevoegd.');
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
+    return $form['workbench'];
+  }
+
   /** @return array<string,mixed>|null */
   private function latestVersion(int $calculationId): ?array {
-    // brebo_calculation_version has no created timestamp. The serial id is the
-    // authoritative insertion order for successive versions.
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v')
       ->condition('calculation_id', $calculationId)
@@ -151,7 +194,9 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @param array<int,array<string,mixed>> $rows */
   private function directTotal(array $rows): float {
     $total = 0.0;
-    foreach ($rows as $row) { $total += (float) ($row['quantity'] ?? 0) * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); }
+    foreach ($rows as $row) {
+      $total += (float) ($row['quantity'] ?? 0) * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']);
+    }
     return $total;
   }
 }
