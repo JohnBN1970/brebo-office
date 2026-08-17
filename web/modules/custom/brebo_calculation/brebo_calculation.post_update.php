@@ -55,3 +55,20 @@ function brebo_calculation_post_update_create_object_exception_line_table(&$sand
   $schema->createTable($table, \Drupal\brebo_calculation\Schema\SubcalculationSchema::applicationObjectExceptionLine());
   return 'BREBO Calculation object exception-line table created.';
 }
+
+/**
+ * Make the calculation-to-work-package relation optional in active config.
+ */
+function brebo_calculation_post_update_optional_work_package(&$sandbox = NULL): string {
+  $field = \Drupal\field\Entity\FieldConfig::loadByName('node', 'brebo_calculation', 'field_brebo_package_ref');
+  if ($field === NULL) {
+    throw new \RuntimeException('Calculation work package field field_brebo_package_ref was not found.');
+  }
+
+  $field
+    ->setRequired(FALSE)
+    ->setDescription('Optionele koppeling naar een werkpakket. Een calculatie kan zelfstandig worden gestart en later worden gekoppeld.')
+    ->save();
+
+  return 'Werkpakket is nu een optionele relatie voor calculaties.';
+}
