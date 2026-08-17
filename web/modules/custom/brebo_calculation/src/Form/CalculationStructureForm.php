@@ -256,11 +256,11 @@ final class CalculationStructureForm extends FormBase {
   }
 
   /** @return array<string,mixed> */
-  private function ajaxDefinition(string $message): array {
+  private function ajaxDefinition(mixed $message): array {
     return [
       'callback' => '::ajaxRefresh',
       'wrapper' => 'brebo-calculation-structure-editor',
-      'progress' => ['type' => 'throbber', 'message' => $message],
+      'progress' => ['type' => 'throbber', 'message' => (string) $message],
     ];
   }
 
