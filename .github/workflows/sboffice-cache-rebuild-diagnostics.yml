@@ -35,7 +35,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Inspect runtime and recent Drupal errors
+      - name: Inspect runtime and calculation form
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         shell: bash
@@ -51,12 +51,13 @@ jobs:
           "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version
 
           echo '=== brebo_calculation state ==='
+          sha256sum web/modules/custom/brebo_calculation/brebo_calculation.module
           "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version
-          "${drush[@]}" php:eval '$f=\Drupal\field\Entity\FieldConfig::loadByName("node","brebo_calculation","field_brebo_package_ref"); print "WORK_PACKAGE_REQUIRED=".(int)($f?->isRequired() ?? true)."\n";'
+          "${drush[@]}" php:eval 'print "HOOK_FUNCTION_EXISTS=".(int)function_exists("brebo_calculation_form_node_form_alter")."\n"; $f=\Drupal\field\Entity\FieldConfig::loadByName("node","brebo_calculation","field_brebo_package_ref"); print "WORK_PACKAGE_REQUIRED=".(int)($f?->isRequired() ?? true)."\n";'
+
+          echo '=== Fresh calculation form probe ==='
+          "${drush[@]}" php:eval '$node=\Drupal::entityTypeManager()->getStorage("node")->create(["type"=>"brebo_calculation"]); $form=\Drupal::service("entity.form_builder")->getForm($node,"default"); foreach (["brebo_calculation_onboarding","field_brebo_calc_code","field_brebo_package_ref","field_brebo_calc_version","field_brebo_calc_status","field_brebo_price_date"] as $k) { $exists=array_key_exists($k,$form); $access=$exists ? ($form[$k]["#access"] ?? "unset") : "missing"; print $k." EXISTS=".(int)$exists." ACCESS=".(is_bool($access)?(int)$access:$access)."\n"; } if (isset($form["field_brebo_price_date"]["widget"][0]["value"])) { $e=$form["field_brebo_price_date"]["widget"][0]["value"]; print "PRICE_DATE_DEFAULT=".($e["#default_value"] ?? "")."\n"; }'
 
           echo '=== Latest Drupal log ==='
-          "${drush[@]}" watchdog:show --count=60 --extended || "${drush[@]}" ws --count=60 --extended || true
-
-          echo '=== Recent host error logs ==='
-          find "$HOME/domains/brebobv.nl" -maxdepth 4 -type f \( -iname 'error_log' -o -iname '*error*.log' \) -mmin -120 -print -exec tail -n 120 {} \; 2>/dev/null || true
+          "${drush[@]}" watchdog:show --count=30 --extended || "${drush[@]}" ws --count=30 --extended || true
           REMOTE
