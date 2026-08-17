@@ -11,8 +11,8 @@ field_name: field_brebo_package_ref
 entity_type: node
 bundle: brebo_calculation
 label: Werkpakket
-description: 'Werkpakket waarvoor wordt gecalculeerd.'
-required: true
+description: 'Optionele koppeling naar een werkpakket. Een calculatie kan zelfstandig worden gestart en later worden gekoppeld.'
+required: false
 translatable: true
 default_value: {  }
 default_value_callback: ''
