@@ -62,6 +62,8 @@ jobs:
           test -d web/modules/contrib/mailsystem
           test -f web/modules/custom/brebo_calculation/brebo_calculation.info.yml
           test -f web/modules/custom/brebo_calculation/brebo_calculation.install
+          test -f web/modules/custom/brebo_calculation/brebo_calculation.module
+          sha256sum web/modules/custom/brebo_calculation/brebo_calculation.module | awk '{print $1}' > /tmp/brebo-calculation-module.sha256
 
       - name: Configure SSH
         env:
@@ -92,6 +94,7 @@ jobs:
           tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
           tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.info.yml'
           tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.install'
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.module'
 
       - name: Upload deployment archive
         env:
@@ -99,7 +102,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz /tmp/brebo-calculation-module.sha256 "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
 
       - name: Deploy, update and export active config
         env:
@@ -112,6 +115,7 @@ jobs:
           export NO_COLOR=1 TERM=dumb
           target="public_html/sboffice"
           archive="/tmp/brebo-office-develop.tgz"
+          expected_hash_file="/tmp/brebo-calculation-module.sha256"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$target/web/sites/default/settings.php"
           services="$target/web/sites/default/services.yml"
@@ -122,8 +126,14 @@ jobs:
           tar -xzf "$archive" -C "$staging"
           test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.info.yml"
           test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.install"
+          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.module"
+          expected_hash="$(cat "$expected_hash_file")"
+          staging_hash="$(sha256sum "$staging/web/modules/custom/brebo_calculation/brebo_calculation.module" | awk '{print $1}')"
+          [[ "$staging_hash" == "$expected_hash" ]]
           cp -a "$staging/." "$target/"
-          rm -f "$archive"; rm -rf "$staging"; trap - EXIT
+          deployed_hash="$(sha256sum "$target/web/modules/custom/brebo_calculation/brebo_calculation.module" | awk '{print $1}')"
+          [[ "$deployed_hash" == "$expected_hash" ]]
+          rm -f "$archive" "$expected_hash_file"; rm -rf "$staging"; trap - EXIT
           [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
           if [[ -n "$services_before" ]]; then [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]; fi
 
@@ -137,26 +147,20 @@ jobs:
             echo "FAILED_EXIT=$rc"
             echo "FAILED_LINE=$line"
             echo "FAILED_COMMAND=$command"
-            echo "--- Drupal status ---"
             "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version 2>&1 || true
-            echo "--- Recent Drupal log ---"
             "${drush[@]}" watchdog:show --count=40 --extended 2>&1 || "${drush[@]}" ws --count=40 --extended 2>&1 || true
-            echo "--- brebo_calculation module info ---"
             "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version 2>&1 || true
-            echo "--- PHP syntax brebo_calculation ---"
             find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 | xargs -0 -n1 php -l 2>&1 || true
             echo "::endgroup::"
             exit "$rc"
           }
           trap 'diagnose $? $LINENO "$BASH_COMMAND"' ERR
 
-          # Enable calculation separately and verbose: if it fails, diagnostics identify the real cause.
           "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service -y
           "${drush[@]}" -vvv pm:enable brebo_calculation -y
           "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           "${drush[@]}" updb -y --no-cache-clear
           "${drush[@]}" cr
-
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
 
           timeout 180 "${drush[@]}" cex -y
@@ -166,6 +170,7 @@ jobs:
           echo "DEPLOY_OK=1"
           echo "CONFIG_EXPORT_OK=1"
           echo "CALCULATION_DOMAIN_OK=1"
+          echo "CALCULATION_MODULE_HASH_OK=$deployed_hash"
           echo "TARGET=$target"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
@@ -194,4 +199,4 @@ jobs:
         shell: bash
         run: |
           set +e
-          timeout 15 ssh -o ConnectTimeout=8 -o ServerAliveInterval=5 -o ServerAliveCountMax=1 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz' || true
+          timeout 15 ssh -o ConnectTimeout=8 -o ServerAliveInterval=5 -o ServerAliveCountMax=1 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz /tmp/brebo-calculation-module.sha256' || true
