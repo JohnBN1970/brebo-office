@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   diagnose:
-    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -35,7 +35,7 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Reproduce cache rebuild with full diagnostics
+      - name: Inspect runtime and recent Drupal errors
         env:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         shell: bash
@@ -52,27 +52,11 @@ jobs:
 
           echo '=== brebo_calculation state ==='
           "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version
+          "${drush[@]}" php:eval '$f=\Drupal\field\Entity\FieldConfig::loadByName("node","brebo_calculation","field_brebo_package_ref"); print "WORK_PACKAGE_REQUIRED=".(int)($f?->isRequired() ?? true)."\n";'
 
-          echo '=== Symfony parse of calculation services ==='
-          php -r 'require "vendor/autoload.php"; $p=Symfony\Component\Yaml\Yaml::parseFile("web/modules/custom/brebo_calculation/brebo_calculation.services.yml"); var_export(array_keys($p["services"] ?? [])); echo PHP_EOL;'
-
-          echo '=== Router rebuild isolated ==='
-          "${drush[@]}" -vvv php:eval 'try { $result = \Drupal::service("router.builder")->rebuild(); var_dump($result); } catch (\Throwable $e) { fwrite(STDERR, get_class($e).": ".$e->getMessage()."\n".$e->getTraceAsString()."\n"); exit(1); }'
-          router_rc=$?
-          echo "ROUTER_REBUILD_EXIT=$router_rc"
-
-          echo '=== Container/cache rebuild verbose ==='
-          "${drush[@]}" -vvv cr
-          cr_rc=$?
-          echo "CACHE_REBUILD_EXIT=$cr_rc"
-
-          echo '=== Latest Drupal log after reproduction ==='
-          "${drush[@]}" watchdog:show --count=25 --extended || "${drush[@]}" ws --count=25 --extended || true
+          echo '=== Latest Drupal log ==='
+          "${drush[@]}" watchdog:show --count=60 --extended || "${drush[@]}" ws --count=60 --extended || true
 
           echo '=== Recent host error logs ==='
-          find "$HOME/domains/brebobv.nl" -maxdepth 4 -type f \( -iname 'error_log' -o -iname '*error*.log' \) -mmin -60 -print -exec tail -n 80 {} \; 2>/dev/null || true
-
-          if [[ "$router_rc" -ne 0 || "$cr_rc" -ne 0 ]]; then
-            exit 1
-          fi
+          find "$HOME/domains/brebobv.nl" -maxdepth 4 -type f \( -iname 'error_log' -o -iname '*error*.log' \) -mmin -120 -print -exec tail -n 120 {} \; 2>/dev/null || true
           REMOTE
