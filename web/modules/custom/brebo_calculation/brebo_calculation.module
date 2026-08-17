@@ -54,8 +54,12 @@ function brebo_calculation_form_node_form_alter(array &$form, FormStateInterface
     return;
   }
 
-  if (isset($form['field_brebo_work_package'])) {
-    $form['field_brebo_work_package']['#access'] = FALSE;
+  // A calculation starts independently. The real Drupal field is package_ref;
+  // retain the legacy alias defensively, but neither belongs in this start flow.
+  foreach (['field_brebo_package_ref', 'field_brebo_work_package'] as $fieldName) {
+    if (isset($form[$fieldName])) {
+      $form[$fieldName]['#access'] = FALSE;
+    }
   }
 
   $automaticCode = brebo_calculation_next_code();
@@ -68,9 +72,6 @@ function brebo_calculation_form_node_form_alter(array &$form, FormStateInterface
     $form['field_brebo_calc_code']['#access'] = FALSE;
   }
 
-  // Price date means the price level/reference date of imported or obtained
-  // prices. For a new calculation today is the sensible default, but the user
-  // can deliberately change it when older/newer supplier prices are used.
   $today = date('Y-m-d', \Drupal::time()->getCurrentTime());
   if ($calculation->hasField('field_brebo_price_date') && $calculation->get('field_brebo_price_date')->isEmpty()) {
     $calculation->set('field_brebo_price_date', $today);
@@ -183,7 +184,8 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
     ->fields('v', ['commercial_method', 'general_cost_pct', 'risk_pct', 'profit_pct', 'single_margin_pct', 'commercial_adjustment'])
     ->condition('calculation_id', $calculationId)
     ->condition('version', $version)
-    ->execute()->fetchAssoc();
+    ->execute()
+    ->fetchAssoc();
   if (!$record) {
     return;
   }
