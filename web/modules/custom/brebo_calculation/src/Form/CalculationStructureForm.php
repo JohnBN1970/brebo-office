@@ -50,6 +50,14 @@ final class CalculationStructureForm extends FormBase {
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
     $form['version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
 
+    // Keep authoritative context server-side for partial AJAX submits. The
+    // structure buttons deliberately limit validation to their own subtree,
+    // so top-level hidden values are not a reliable mutation context.
+    $form_state->set('calculation_context', [
+      'calculation_id' => (int) $node->id(),
+      'version' => (string) $version['version'],
+    ]);
+
     $form['editor'] = [
       '#type' => 'container',
       '#attributes' => ['id' => 'brebo-calculation-structure-editor', 'class' => ['brebo-calc-structure-editor']],
@@ -170,10 +178,11 @@ final class CalculationStructureForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
 
   public function addMainGroup(array &$form, FormStateInterface $form_state): void {
+    [$calculationId, $version] = $this->calculationContext($form, $form_state);
     $values = (array) $form_state->getValue(['editor', 'create', 'main_group']);
     $this->structureManager->addMainGroup(
-      (int) $form_state->getValue('calculation_id'),
-      (string) $form_state->getValue('version'),
+      $calculationId,
+      $version,
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
       $this->currentUser(),
@@ -183,10 +192,11 @@ final class CalculationStructureForm extends FormBase {
   }
 
   public function addParagraph(array &$form, FormStateInterface $form_state): void {
+    [$calculationId, $version] = $this->calculationContext($form, $form_state);
     $values = (array) $form_state->getValue(['editor', 'create', 'paragraph']);
     $this->structureManager->addParagraph(
-      (int) $form_state->getValue('calculation_id'),
-      (string) $form_state->getValue('version'),
+      $calculationId,
+      $version,
       (string) ($values['parent'] ?? ''),
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
@@ -198,6 +208,7 @@ final class CalculationStructureForm extends FormBase {
   }
 
   public function saveOrder(array &$form, FormStateInterface $form_state): void {
+    [$calculationId, $version] = $this->calculationContext($form, $form_state);
     foreach ((array) $form_state->getValue(['editor', 'structure']) as $rowKey => $values) {
       if (!is_array($values) || !str_starts_with((string) $rowKey, 'node_')) {
         continue;
@@ -208,8 +219,8 @@ final class CalculationStructureForm extends FormBase {
         continue;
       }
       $this->structureManager->reorder(
-        (int) $form_state->getValue('calculation_id'),
-        (string) $form_state->getValue('version'),
+        $calculationId,
+        $version,
         $key,
         (int) ($values['sort_order'] ?? 0),
         $this->currentUser(),
@@ -220,18 +231,19 @@ final class CalculationStructureForm extends FormBase {
   }
 
   public function moveStructure(array &$form, FormStateInterface $form_state): void {
+    [$calculationId, $version] = $this->calculationContext($form, $form_state);
     $trigger = $form_state->getTriggeringElement();
     $key = (string) ($trigger['#node_key'] ?? '');
     $delta = (int) ($trigger['#delta'] ?? 0);
     $current = $this->database->select('brebo_calculation_structure', 's')
       ->fields('s', ['sort_order'])
-      ->condition('calculation_id', (int) $form_state->getValue('calculation_id'))
-      ->condition('version', (string) $form_state->getValue('version'))
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
       ->condition('node_key', $key)
       ->execute()->fetchField();
     $this->structureManager->reorder(
-      (int) $form_state->getValue('calculation_id'),
-      (string) $form_state->getValue('version'),
+      $calculationId,
+      $version,
       $key,
       (int) $current + $delta,
       $this->currentUser(),
@@ -242,6 +254,17 @@ final class CalculationStructureForm extends FormBase {
 
   public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
     return $form['editor'];
+  }
+
+  /** @return array{0:int,1:string} */
+  private function calculationContext(array $form, FormStateInterface $form_state): array {
+    $context = (array) $form_state->get('calculation_context');
+    $calculationId = (int) ($context['calculation_id'] ?? $form['calculation_id']['#value'] ?? $form_state->getValue('calculation_id'));
+    $version = (string) ($context['version'] ?? $form['version']['#value'] ?? $form_state->getValue('version'));
+    if ($calculationId <= 0 || $version === '') {
+      throw new \RuntimeException('Calculation context is missing from the structure form submit.');
+    }
+    return [$calculationId, $version];
   }
 
   /** @return array<string,mixed>|null */
