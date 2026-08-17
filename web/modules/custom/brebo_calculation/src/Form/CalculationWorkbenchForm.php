@@ -128,7 +128,15 @@ final class CalculationWorkbenchForm extends FormBase {
 
   /** @return array<string,mixed>|null */
   private function latestVersion(int $calculationId): ?array {
-    $row = $this->database->select('brebo_calculation_version', 'v')->fields('v')->condition('calculation_id', $calculationId)->orderBy('created', 'DESC')->range(0, 1)->execute()->fetchAssoc();
+    // brebo_calculation_version has no created timestamp. The serial id is the
+    // authoritative insertion order for successive versions.
+    $row = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', $calculationId)
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
     return $row ?: NULL;
   }
 
