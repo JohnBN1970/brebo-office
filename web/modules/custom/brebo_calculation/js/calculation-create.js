@@ -28,10 +28,11 @@
 
         form.classList.add('brebo-calc-create-form');
 
-        // Version and lifecycle status are initialized by BREBO Office. They are
-        // submitted with their existing defaults, but are not daily user input.
+        // These values are governed by BREBO Office and do not belong in the
+        // calculator's operational start flow.
         hideFieldByName(form, 'field_brebo_calc_version[');
         hideFieldByName(form, 'field_brebo_calc_status[');
+        hideFieldByName(form, 'field_brebo_package_ref[');
 
         // The assumptions field has one governed BREBO text format. Showing the
         // Drupal text-format selector only exposes implementation details.
@@ -59,7 +60,7 @@
           ? priceDateContainer.querySelector('.description')
           : null;
         if (priceDateDescription) {
-          priceDateDescription.textContent = 'Prijspeildatum van de gebruikte tarieven en prijsbronnen.';
+          priceDateDescription.textContent = 'Datum waarop de gebruikte prijzen zijn opgehaald of ontvangen. Standaard vandaag; pas aan wanneer je met een andere prijsbasis werkt.';
         }
       });
     }
