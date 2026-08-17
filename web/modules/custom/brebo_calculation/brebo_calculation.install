@@ -7,86 +7,35 @@ declare(strict_types=1);
  * Persistence schema for the BREBO Calculation domain.
  */
 
-/**
- * Implements hook_schema().
- */
+/** Implements hook_schema(). */
 function brebo_calculation_schema(): array {
   $schema = [];
 
   $schema['brebo_calculation_structure'] = [
     'description' => 'Hierarchical structure nodes for calculation versions.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'node_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'parent_key' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'node_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
-      'depth' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE],
-      'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
-      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
-      'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'node_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'parent_key' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'node_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'depth' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE], 'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
     ],
-    'primary key' => ['id'],
-    'unique keys' => ['calculation_version_node' => ['calculation_id', 'version', 'node_key']],
-    'indexes' => [
-      'calculation_version_parent' => ['calculation_id', 'version', 'parent_key'],
-      'calculation_version_sort' => ['calculation_id', 'version', 'sort_order'],
-    ],
+    'primary key' => ['id'], 'unique keys' => ['calculation_version_node' => ['calculation_id', 'version', 'node_key']], 'indexes' => ['calculation_version_parent' => ['calculation_id', 'version', 'parent_key'], 'calculation_version_sort' => ['calculation_id', 'version', 'sort_order']],
   ];
 
   $schema['brebo_calculation_version'] = [
     'description' => 'Version-bound calculation parameters and immutable lock metadata.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
-      'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'nl_sfb'],
-      'pricing_mode' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'closed'],
-      'commercial_method' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'tail_costs'],
-      'general_cost_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'risk_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'profit_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'single_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'commercial_adjustment' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'price_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
-      'price_level' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'locked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'locked_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'], 'classification_system' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'nl_sfb'], 'pricing_mode' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'closed'], 'commercial_method' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'tail_costs'], 'general_cost_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'risk_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'profit_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'single_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'commercial_adjustment' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'price_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE], 'price_level' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'locked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'locked_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
     ],
-    'primary key' => ['id'],
-    'unique keys' => ['calculation_version' => ['calculation_id', 'version']],
-    'indexes' => ['calculation_status' => ['calculation_id', 'status']],
+    'primary key' => ['id'], 'unique keys' => ['calculation_version' => ['calculation_id', 'version']], 'indexes' => ['calculation_status' => ['calculation_id', 'status']],
   ];
 
   $schema['brebo_calculation_row_domain'] = [
     'description' => 'Additive domain data for existing brebo_calc_line identities.',
     'fields' => [
-      'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'paragraph_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'rule_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'normal'],
-      'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'labour_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'material_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'equipment_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'subcontracting_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'other_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
-      'distribution_method' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
-      'distribution_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'paragraph_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'rule_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'normal'], 'location_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'labour_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'material_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'equipment_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'subcontracting_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'other_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'distribution_method' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'distribution_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
     ],
-    'primary key' => ['calc_line_id', 'version'],
-    'indexes' => [
-      'calculation_version_paragraph' => ['calculation_id', 'version', 'paragraph_key'],
-      'calculation_version_rule_type' => ['calculation_id', 'version', 'rule_type'],
-    ],
+    'primary key' => ['calc_line_id', 'version'], 'indexes' => ['calculation_version_paragraph' => ['calculation_id', 'version', 'paragraph_key'], 'calculation_version_rule_type' => ['calculation_id', 'version', 'rule_type']],
   ];
 
+  $schema += brebo_calculation_recipe_schema();
   $schema['brebo_calculation_price_source'] = brebo_calculation_price_source_schema();
   $schema['brebo_calculation_price_source_line'] = brebo_calculation_price_source_line_schema();
   $schema['brebo_calculation_subcalculation'] = \Drupal\brebo_calculation\Schema\SubcalculationSchema::subcalculation();
@@ -97,63 +46,60 @@ function brebo_calculation_schema(): array {
 
   $schema['brebo_calculation_snapshot'] = [
     'description' => 'Immutable normalized snapshot payload for locked calculation versions.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['calculation_version_snapshot' => ['calculation_id', 'version']],
-    'indexes' => ['content_hash' => ['content_hash']],
+    'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+    'primary key' => ['id'], 'unique keys' => ['calculation_version_snapshot' => ['calculation_id', 'version']], 'indexes' => ['content_hash' => ['content_hash']],
   ];
-
   return $schema;
+}
+
+/** Recipe library, version, parameter, line and calculation snapshot tables. */
+function brebo_calculation_recipe_schema(): array {
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE];
+  return [
+    'brebo_calculation_recipe' => [
+      'description' => 'Stable recipe identities in the reusable BREBO calculation library.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'scope' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'brebo'], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'active'], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+      'primary key' => ['id'], 'unique keys' => ['recipe_key' => ['recipe_key']], 'indexes' => ['scope_status' => ['scope', 'status']],
+    ],
+    'brebo_calculation_recipe_version' => [
+      'description' => 'Immutable published versions of reusable recipes.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'], 'description' => ['type' => 'text', 'not null' => FALSE], 'base_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'st'], 'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+      'primary key' => ['id'], 'unique keys' => ['recipe_version' => ['recipe_id', 'version']], 'indexes' => ['recipe_status' => ['recipe_id', 'status']],
+    ],
+    'brebo_calculation_recipe_parameter' => [
+      'description' => 'Typed parameters available to formulas in a recipe version.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_version_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'parameter_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'data_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'decimal'], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'default_value' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'formula' => ['type' => 'text', 'not null' => FALSE], 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'required' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0]],
+      'primary key' => ['id'], 'unique keys' => ['version_parameter' => ['recipe_version_id', 'parameter_key']], 'indexes' => ['version_sort' => ['recipe_version_id', 'sort_order']],
+    ],
+    'brebo_calculation_recipe_line' => [
+      'description' => 'Component lines and formulas in a reusable recipe version.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_version_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'line_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'line_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'material'], 'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'quantity_formula' => ['type' => 'text', 'not null' => FALSE], 'waste_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'material_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'price_source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'unit_cost' => $money, 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'metadata' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE]],
+      'primary key' => ['id'], 'unique keys' => ['version_line' => ['recipe_version_id', 'line_key']], 'indexes' => ['version_sort' => ['recipe_version_id', 'sort_order'], 'material_ref' => ['material_ref']],
+    ],
+    'brebo_calculation_recipe_instance' => [
+      'description' => 'Version-pinned recipe snapshot placed as a block in a calculation paragraph.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'paragraph_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'recipe_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'recipe_version_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 1], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'snapshot_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'snapshot_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+      'primary key' => ['id'], 'indexes' => ['calculation_paragraph' => ['calculation_id', 'calculation_version', 'paragraph_key', 'sort_order'], 'recipe_version' => ['recipe_version_id']],
+    ],
+    'brebo_calculation_recipe_instance_parameter' => [
+      'description' => 'Parameter values captured for one calculation recipe instance.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_instance_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'parameter_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'value' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'calculated_value' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE]],
+      'primary key' => ['id'], 'unique keys' => ['instance_parameter' => ['recipe_instance_id', 'parameter_key']],
+    ],
+    'brebo_calculation_recipe_instance_line' => [
+      'description' => 'Editable snapshot lines generated from a recipe inside a calculation.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_instance_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'source_recipe_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'line_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'line_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'quantity_formula' => ['type' => 'text', 'not null' => FALSE], 'calculated_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'manual_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'waste_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'material_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'price_source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'unit_cost' => $money, 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'is_custom' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0]],
+      'primary key' => ['id'], 'unique keys' => ['instance_line' => ['recipe_instance_id', 'line_key']], 'indexes' => ['instance_sort' => ['recipe_instance_id', 'sort_order'], 'material_ref' => ['material_ref']],
+    ],
+  ];
 }
 
 /** Price source master record: document, email or other traceable source. */
 function brebo_calculation_price_source_schema(): array {
   return [
     'description' => 'Auditable external price sources used by calculation rows.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'source_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
-      'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
-      'file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'email_message_id' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'supplier_email' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'offer_number' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-      'offer_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
-      'valid_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
-      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
-      'quoted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'received'],
-      'extraction_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
-      'extraction_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'scope_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'conditions_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'internal_note' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'supersedes_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => [
-      'calculation_version' => ['calculation_id', 'version'],
-      'source_type' => ['source_type'],
-      'supplier' => ['supplier_name'],
-      'offer_number' => ['offer_number'],
-      'extraction_status' => ['extraction_status'],
-    ],
+    'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'source_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE], 'file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'email_message_id' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'supplier_email' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'offer_number' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'offer_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE], 'valid_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE], 'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'], 'quoted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'received'], 'extraction_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'], 'extraction_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'scope_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'conditions_summary' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'internal_note' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'supersedes_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+    'primary key' => ['id'], 'indexes' => ['calculation_version' => ['calculation_id', 'version'], 'source_type' => ['source_type'], 'supplier' => ['supplier_name'], 'offer_number' => ['offer_number'], 'extraction_status' => ['extraction_status']],
   ];
 }
 
@@ -161,36 +107,7 @@ function brebo_calculation_price_source_schema(): array {
 function brebo_calculation_price_source_line_schema(): array {
   return [
     'description' => 'Mapping and approval of price source values for calculation rows.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'price_source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'source_line_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-      'extracted_description' => ['type' => 'text', 'not null' => FALSE],
-      'extracted_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'extracted_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
-      'extracted_unit_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'extracted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'proposed_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'approved_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
-      'approval_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'review'],
-      'is_active_source' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'approval_note' => ['type' => 'text', 'not null' => FALSE],
-      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    ],
-    'primary key' => ['id'],
-    'unique keys' => [
-      'source_calculation_line' => ['price_source_id', 'calc_line_id', 'version'],
-    ],
-    'indexes' => [
-      'calculation_line' => ['calculation_id', 'version', 'calc_line_id'],
-      'active_source' => ['calculation_id', 'version', 'calc_line_id', 'is_active_source'],
-      'approval_status' => ['approval_status'],
-    ],
+    'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'price_source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'source_line_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'extracted_description' => ['type' => 'text', 'not null' => FALSE], 'extracted_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'extracted_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'extracted_unit_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'extracted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'proposed_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'approved_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'approval_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'review'], 'is_active_source' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0], 'approval_note' => ['type' => 'text', 'not null' => FALSE], 'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+    'primary key' => ['id'], 'unique keys' => ['source_calculation_line' => ['price_source_id', 'calc_line_id', 'version']], 'indexes' => ['calculation_line' => ['calculation_id', 'version', 'calc_line_id'], 'active_source' => ['calculation_id', 'version', 'calc_line_id', 'is_active_source'], 'approval_status' => ['approval_status']],
   ];
 }
