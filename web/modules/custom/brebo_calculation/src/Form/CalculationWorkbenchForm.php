@@ -88,7 +88,9 @@ final class CalculationWorkbenchForm extends FormBase {
       if ($item['node_type'] === 'main_group') { $mainGroupOptions[(string) $key] = trim((string) ($item['code'] ?: '') . ' — ' . (string) $item['label'], ' —'); }
     }
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('sort_order')->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    // row_domain intentionally stores only additive domain fields. It has no
+    // sort_order column, so the stable legacy line identity is the safe order.
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenheid','Aantal','Arbeid','Materiaal','Materieel','Onderaanneming','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
@@ -101,14 +103,15 @@ final class CalculationWorkbenchForm extends FormBase {
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
         $lineId = (int) $row['calc_line_id'];
+        $quantity = (float) ($row['quantity'] ?? 0);
         $directUnit = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
-        $lineTotal = (float) $row['quantity'] * $directUnit;
+        $lineTotal = $quantity * $directUnit;
         $form['workbench']['grid']['line_' . $lineId] = [
           '#attributes' => ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',(string) $row['rule_type'])], 'data-structure-key' => (string) $key, 'data-line-id' => (string) $lineId],
-          'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?: ''))],
-          'description' => ['#markup' => htmlspecialchars((string) $row['description'])],
-          'unit' => ['#markup' => htmlspecialchars((string) ($row['unit'] ?: ''))],
-          'quantity' => $this->editableNumber($lineId, 'quantity', (float) $row['quantity'], $editable, '0.0001'),
+          'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?? ''))],
+          'description' => ['#markup' => htmlspecialchars((string) ($row['description'] ?? 'Calculatieregel'))],
+          'unit' => ['#markup' => htmlspecialchars((string) ($row['unit'] ?? ''))],
+          'quantity' => $this->editableNumber($lineId, 'quantity', $quantity, $editable, '0.0001'),
           'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
           'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
           'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
@@ -148,7 +151,7 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @param array<int,array<string,mixed>> $rows */
   private function directTotal(array $rows): float {
     $total = 0.0;
-    foreach ($rows as $row) { $total += (float) $row['quantity'] * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); }
+    foreach ($rows as $row) { $total += (float) ($row['quantity'] ?? 0) * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); }
     return $total;
   }
 }
