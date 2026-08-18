@@ -23,3 +23,9 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.vat_calculator'
+
+  brebo_finance.three_way_match_manager:
+    class: Drupal\brebo_finance\Service\ThreeWayMatchManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
