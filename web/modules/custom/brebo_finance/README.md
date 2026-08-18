@@ -108,3 +108,11 @@ Failure costs are recorded as financial learning records rather than generic com
 Labour, material, equipment, subcontracting and other cost components remain separate. Total cost, recoverable value, verified recovery and net failure cost are calculated with exact decimals. A second person must validate the original record. Final closure requires another verifier, closure evidence and an authorized decision reference for any recoverable value that was not recovered.
 
 The Digital Controller flags records not independently validated within two days and any open recovery or prevention action beyond its deadline. The cockpit reports gross failure cost, recovered value and the net amount still carried by the project.
+
+### Supplier and subcontractor scorecards
+
+Supplier performance is scored from traceable project evidence rather than subjective ratings. The scorecard measures on-time delivery, accepted quality, invoice matching, price variance and supplier-attributable net failure cost. A versioned policy defines metric weights, intervention and critical thresholds, and sample sizes for confidence classes A-E.
+
+Missing evidence is not converted into a flattering zero-risk score. Unavailable metrics remain null and the available weights are transparently renormalized. Every daily score snapshot seals the policy, underlying order, receipt and invoice identifiers, financial aggregates, component scores and content hash.
+
+The Digital Controller flags the latest score when it falls below the policy threshold and explains the weakest measured component. It may require a human review before new procurement, but never autonomously excludes or selects a supplier.
