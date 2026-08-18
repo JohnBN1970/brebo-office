@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Service\CalculationNormFeedbackService;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -12,10 +13,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Manage central BREBO calculation norms without direct database access. */
 final class CalculationNormLibraryForm extends FormBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly CalculationNormFeedbackService $feedback,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('database'), $container->get('brebo_calculation.norm_feedback'));
   }
 
   public function getFormId(): string { return 'brebo_calculation_norm_library_form'; }
@@ -27,18 +31,28 @@ final class CalculationNormLibraryForm extends FormBase {
     }
 
     $form['existing'] = ['#type' => 'table', '#header' => [
-      $this->t('Domein'), $this->t('Norm'), $this->t('Omschrijving'), $this->t('Waarde'), $this->t('Eenheid'), $this->t('Voorwaarden'), $this->t('Prioriteit'), $this->t('Actief'), $this->t('Bron'),
+      $this->t('Domein'), $this->t('Norm'), $this->t('Omschrijving'), $this->t('Waarde'), $this->t('Eenheid'),
+      $this->t('Steekproef'), $this->t('Werkelijk gem.'), $this->t('Afwijking'), $this->t('Voorstel'),
+      $this->t('Voorwaarden'), $this->t('Prioriteit'), $this->t('Actief'), $this->t('Bron'),
     ], '#empty' => $this->t('Nog geen normen vastgelegd.')];
     $rows = $this->database->select('brebo_calculation_norm', 'n')->fields('n')->orderBy('domain')->orderBy('norm_key')->orderBy('priority', 'DESC')->execute();
     foreach ($rows as $row) {
+      $summary = $this->database->schema()->tableExists('brebo_calculation_norm_observation')
+        ? $this->feedback->summary((string) $row->domain, (string) $row->norm_key)
+        : ['samples' => 0, 'actual_avg' => NULL, 'delta_pct_avg' => NULL, 'proposed_value' => NULL];
       $form['existing'][$row->id] = [
         'domain' => ['#plain_text' => $row->domain], 'key' => ['#plain_text' => $row->norm_key], 'label' => ['#plain_text' => $row->label],
         'value' => ['#plain_text' => (string) $row->value], 'unit' => ['#plain_text' => (string) $row->unit],
+        'samples' => ['#plain_text' => (string) $summary['samples']],
+        'actual' => ['#plain_text' => $summary['actual_avg'] !== NULL ? number_format((float) $summary['actual_avg'], 4, ',', '.') : '—'],
+        'delta' => ['#plain_text' => $summary['delta_pct_avg'] !== NULL ? number_format((float) $summary['delta_pct_avg'], 1, ',', '.') . '%' : '—'],
+        'proposal' => ['#plain_text' => $summary['proposed_value'] !== NULL ? number_format((float) $summary['proposed_value'], 4, ',', '.') : 'Nog onvoldoende data'],
         'conditions' => ['#plain_text' => $row->conditions_json ?: '{}'], 'priority' => ['#plain_text' => (string) $row->priority],
         'active' => ['#plain_text' => $row->active ? $this->t('Ja') : $this->t('Nee')], 'source' => ['#plain_text' => (string) $row->source],
       ];
     }
 
+    $form['feedback_note'] = ['#markup' => '<p><strong>Zelflerend, maar gecontroleerd:</strong> een voorgestelde waarde wordt alleen getoond na minimaal drie observaties. BREBO Office wijzigt een bedrijfsnorm nooit automatisch.</p>'];
     $form['add'] = ['#type' => 'details', '#title' => $this->t('Norm toevoegen'), '#open' => TRUE];
     $form['add']['domain'] = ['#type' => 'textfield', '#title' => $this->t('Domein'), '#required' => TRUE, '#default_value' => 'glass', '#description' => $this->t('Bijvoorbeeld glass, painting, facade of roofing.')];
     $form['add']['norm_key'] = ['#type' => 'textfield', '#title' => $this->t('Normsleutel'), '#required' => TRUE, '#description' => $this->t('Bijvoorbeeld installation_hours_per_m2 of waste_pct.')];
