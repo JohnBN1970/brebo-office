@@ -21,3 +21,8 @@ review brebo finance ai:
   title: 'BREBO financiële AI-beoordelingen reviewen'
   description: 'AI-analyses accepteren, afwijzen of omzetten naar een controlebevinding.'
   restrict access: true
+
+manage brebo finance controls:
+  title: 'BREBO financiële controleacties beheren'
+  description: 'Controlebevindingen toewijzen, oplossingen indienen en volgens het vierogenprincipe verifiëren.'
+  restrict access: true
