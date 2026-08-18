@@ -126,6 +126,7 @@ final class ProjectPlanningController extends ControllerBase {
     $build['#cache'] = [
       'contexts' => ['user.permissions'],
       'tags' => array_merge($node->getCacheTags(), ['node_list:brebo_route_item']),
+      'max-age' => 3600,
     ];
     return $build;
   }
