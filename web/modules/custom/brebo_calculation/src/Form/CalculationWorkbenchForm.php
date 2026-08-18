@@ -63,6 +63,12 @@ final class CalculationWorkbenchForm extends FormBase {
       '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()]),
       '#attributes' => ['class' => ['button', 'button--primary']],
     ];
+    $form['workbench']['navigation']['recipes'] = [
+      '#type' => 'link',
+      '#title' => 'Recept plaatsen',
+      '#url' => Url::fromRoute('brebo_calculation.recipe_place', ['node' => $node->id()]),
+      '#attributes' => ['class' => ['button']],
+    ];
     $form['workbench']['navigation']['structure'] = [
       '#type' => 'link',
       '#title' => 'Calculatiestructuur',
