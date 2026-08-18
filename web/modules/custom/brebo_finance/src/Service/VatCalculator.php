@@ -63,6 +63,37 @@ final class VatCalculator {
   }
 
   /**
+   * Multiplies two four-decimal values using half-up rounding.
+   */
+  public function multiply(string $left, string $right): string {
+    $leftUnits = $this->parseDecimal($left, self::MONEY_SCALE, 'left');
+    $rightUnits = $this->parseDecimal($right, self::MONEY_SCALE, 'right');
+    return $this->formatDecimal(
+      $this->roundDivide($leftUnits * $rightUnits, self::SCALE_FACTOR),
+      self::MONEY_SCALE,
+    );
+  }
+
+  /**
+   * Compares two four-decimal values.
+   */
+  public function compare(string $left, string $right): int {
+    return $this->parseDecimal($left, self::MONEY_SCALE, 'left')
+      <=> $this->parseDecimal($right, self::MONEY_SCALE, 'right');
+  }
+
+  /**
+   * Subtracts two four-decimal values.
+   */
+  public function subtract(string $left, string $right): string {
+    return $this->formatDecimal(
+      $this->parseDecimal($left, self::MONEY_SCALE, 'left')
+      - $this->parseDecimal($right, self::MONEY_SCALE, 'right'),
+      self::MONEY_SCALE,
+    );
+  }
+
+  /**
    * Parses a signed decimal into a scaled integer.
    */
   private function parseDecimal(string $value, int $scale, string $field): int {
