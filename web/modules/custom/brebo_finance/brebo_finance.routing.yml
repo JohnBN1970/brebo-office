@@ -44,6 +44,29 @@ brebo_finance.project_ledger:
   options:
     no_cache: TRUE
 
+brebo_finance.performance_receipt_submit:
+  path: '/brebo-office/api/finance/performance-receipts'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\PerformanceReceiptController::submit'
+    _title: 'Prestatie registreren'
+  requirements:
+    _permission: 'manage brebo procurement'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_finance.performance_receipt_verify:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/verification'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\PerformanceReceiptController::verify'
+    _title: 'Prestatie verifiëren'
+  requirements:
+    _permission: 'approve brebo finance'
+    receipt_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
 brebo_finance.euro_trace:
   path: '/brebo-office/api/finance/trace/{entity_type}/{entity_id}'
   defaults:
