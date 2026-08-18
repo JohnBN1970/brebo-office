@@ -27,6 +27,7 @@ final class GlassPositionRepository {
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly TimeInterface $time,
+    private readonly GlassApprovalPolicy $approvalPolicy,
   ) {}
 
   /**
@@ -115,15 +116,9 @@ final class GlassPositionRepository {
     if ((string) $position['technical_status'] === 'approved') {
       throw new \InvalidArgumentException('Glaspositie is al technisch vrijgegeven.');
     }
-    if (
-      (string) $position['technical_status'] !== 'measured'
-      || (string) $position['technical_check_state'] !== 'passed'
-      || (int) $position['measurement_verified'] !== 1
-      || (int) $position['wind_verified'] !== 1
-      || (float) $position['wind_utilization'] > 1.0
-      || trim((string) $position['recommended_glass_ref']) === ''
-    ) {
-      throw new \InvalidArgumentException('Glaspositie voldoet niet aan alle harde vrijgave-eisen.');
+    $policy = $this->approvalPolicy->evaluate($position);
+    if (!$policy['allowed']) {
+      throw new \InvalidArgumentException(implode(' ', $policy['issues']));
     }
     if (trim($reference) === '' || trim($note) === '') {
       throw new \InvalidArgumentException('Vrijgavereferentie en motivatie zijn verplicht.');
