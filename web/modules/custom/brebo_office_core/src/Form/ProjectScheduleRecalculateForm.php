@@ -56,10 +56,9 @@ final class ProjectScheduleRecalculateForm extends FormBase {
     $rows = [];
     $changed = 0;
     foreach ($result['activities'] as $activity) {
-      if (!($activity['changed'] ?? FALSE)) {
-        continue;
-      }
-      $changed++;
+      $requires_update = (bool) ($activity['changed'] ?? FALSE)
+        || (bool) ($activity['critical_changed'] ?? FALSE);
+      $changed += $requires_update ? 1 : 0;
       $rows[] = [
         $activity['code'],
         $activity['label'],
@@ -67,6 +66,8 @@ final class ProjectScheduleRecalculateForm extends FormBase {
         $activity['proposed_start'],
         $activity['end'],
         $activity['proposed_end'],
+        $activity['total_float'] . ' wd',
+        ($activity['calculated_critical'] ?? FALSE) ? $this->t('Ja') : $this->t('Nee'),
         $activity['reason'],
       ];
     }
@@ -75,22 +76,23 @@ final class ProjectScheduleRecalculateForm extends FormBase {
       '#header' => [
         $this->t('Code'), $this->t('Activiteit'), $this->t('Huidige start'),
         $this->t('Nieuwe start'), $this->t('Huidig gereed'),
-        $this->t('Nieuw gereed'), $this->t('Reden'),
+        $this->t('Nieuw gereed'), $this->t('Totale speling'),
+        $this->t('Kritiek pad'), $this->t('Reden'),
       ],
       '#rows' => $rows,
-      '#empty' => $this->t('Alle activiteiten staan al overeenkomstig hun relaties.'),
+      '#empty' => $this->t('Nog geen complete activiteiten om door te rekenen.'),
       '#sticky' => TRUE,
     ];
     $form['confirmation'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Ik heb de voorgestelde datumwijzigingen gecontroleerd.'),
+      '#title' => $this->t('Ik heb de voorgestelde datums, speling en het kritieke pad gecontroleerd.'),
       '#required' => $changed > 0,
       '#access' => $changed > 0,
     ];
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#value' => $this->t('@count datumwijzigingen toepassen', ['@count' => $changed]),
+      '#value' => $this->t('@count planningswijzigingen toepassen', ['@count' => $changed]),
       '#button_type' => 'primary',
       '#disabled' => $changed === 0,
       '#access' => $changed > 0,
@@ -112,7 +114,7 @@ final class ProjectScheduleRecalculateForm extends FormBase {
     $storage = $this->entityTypeManager->getStorage('node');
     $updated = 0;
     foreach ($result['activities'] as $id => $proposal) {
-      if (!($proposal['changed'] ?? FALSE)) {
+      if (!($proposal['changed'] ?? FALSE) && !($proposal['critical_changed'] ?? FALSE)) {
         continue;
       }
       $activity = $storage->load($id);
@@ -125,8 +127,9 @@ final class ProjectScheduleRecalculateForm extends FormBase {
       }
       $activity->set('field_brebo_plan_start', $proposal['proposed_start']);
       $activity->set('field_brebo_plan_end', $proposal['proposed_end']);
+      $activity->set('field_brebo_plan_critical', (bool) $proposal['calculated_critical']);
       $activity->setNewRevision(TRUE);
-      $activity->setRevisionLogMessage('Planning doorgerekend vanuit vastgelegde voorgangers en relaties.');
+      $activity->setRevisionLogMessage('Planning, totale speling en kritisch pad doorgerekend vanuit vastgelegde voorgangers en relaties.');
       $activity->save();
       $updated++;
     }
@@ -171,6 +174,7 @@ final class ProjectScheduleRecalculateForm extends FormBase {
         'predecessors' => $predecessors,
         'relation' => (string) ($activity->get('field_brebo_plan_relation')->value ?? 'FS'),
         'lag' => (int) ($activity->get('field_brebo_plan_lag_days')->value ?? 0),
+        'current_critical' => (bool) ($activity->get('field_brebo_plan_critical')->value ?? FALSE),
       ];
     }
     return $activities;
