@@ -28,6 +28,24 @@ function brebo_finance_cron(): void {
 
   $queue = \Drupal::queue('brebo_finance_digital_controller');
   foreach ($projectIds as $projectNid) {
+    $now = time();
+    $database->merge('brebo_finance_controller_run')
+      ->keys([
+        'project_nid' => (int) $projectNid,
+        'run_date' => $today,
+        'run_type' => 'scheduled',
+      ])
+      ->fields([
+        'status' => 'queued',
+        'control_counts' => '{}',
+        'evidence_payload' => '{}',
+        'evidence_hash' => hash('sha256', '{}'),
+        'started' => $now,
+        'created' => $now,
+        'changed' => $now,
+      ])
+      ->execute();
+
     $queue->createItem([
       'project_nid' => (int) $projectNid,
       'scheduled_date' => $today,
