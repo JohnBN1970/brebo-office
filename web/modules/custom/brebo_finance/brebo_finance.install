@@ -996,6 +996,88 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_billing_instalment'] = [
+    'description' => 'Approved project billing instalment from contractual trigger to Moneybird invoice.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'contract_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'change_order_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'sales_invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'instalment_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'trigger_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'trigger_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'trigger_threshold' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => FALSE],
+      'trigger_evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'building_object_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'building_object_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'planned_invoice_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'amount_ex_vat' => $money,
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE],
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'planned'],
+      'evidence_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'billable_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'billable_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_instalment_number' => ['project_nid', 'instalment_number'],
+      'sales_invoice' => ['sales_invoice_id'],
+    ],
+    'indexes' => [
+      'project_status_date' => ['project_nid', 'status', 'planned_invoice_date'],
+      'contract_status' => ['contract_id', 'status'],
+      'building_object' => ['building_object_type', 'building_object_id'],
+    ],
+  ];
+
+  $schema['brebo_finance_sales_invoice'] = [
+    'description' => 'Operational mirror of a client invoice; Moneybird remains the accounting source.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'instalment_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'change_order_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'invoice_number' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'invoice_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'paid_amount_inc_vat' => $money,
+      'regular_account_amount' => $money,
+      'g_account_amount' => $money,
+      'dispute_reason' => ['type' => 'text', 'not null' => FALSE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'recorded_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'moneybird_id' => ['moneybird_id'],
+      'invoice_number' => ['invoice_number'],
+    ],
+    'indexes' => [
+      'project_status_due' => ['project_nid', 'status', 'due_date'],
+      'instalment' => ['instalment_id'],
+      'change_order' => ['change_order_id'],
+      'source_hash' => ['source_hash'],
+    ],
+  ];
+
   $schema['brebo_finance_audit'] = [
     'description' => 'Append-only audit trail for financial and procurement changes.',
     'fields' => [
