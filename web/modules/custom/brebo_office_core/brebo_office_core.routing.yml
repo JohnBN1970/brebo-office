@@ -598,3 +598,21 @@ brebo_office_core.inzet_schedule:
     _title: 'BREBO Inzet — Weekrooster'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.inzet_skills:
+  path: '/inzet/vakbekwaamheden'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'BREBO Inzet — Vakbekwaamheden'
+    bundle: 'brebo_work_skill'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_qualifications:
+  path: '/inzet/kwalificaties'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'BREBO Inzet — Kwalificatiebewijzen'
+    bundle: 'brebo_qualification'
+  requirements:
+    _permission: 'access content'
