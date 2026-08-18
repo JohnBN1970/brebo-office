@@ -133,3 +133,12 @@ Contract, calendar, verified-progress, milestone and approved-change triggers ar
 Sent client invoices are synchronized as an idempotent operational mirror from Moneybird. Source timestamps and hashes prevent older data from overwriting newer accounting state. Invoice totals, VAT, paid value and the regular/G-account split are checked with exact decimals.
 
 The Digital Controller flags planned terms whose trigger needs review, billable terms not invoiced within three days, disputed invoices and overdue receivables. More than thirty days overdue is critical. The cockpit separately reports planned revenue, billable but unbilled revenue, invoiced amounts excluding and including VAT, paid cash, overdue invoices and disputes.
+
+
+### Building-bound historical cost intelligence
+
+Verified performance, matched purchase invoices, approved labour actuals and closed failure-cost records can become immutable cost observations. Every observation retains the project, central building-model object where available, cost code, work type, exact specification hash, unit, quantity, region, supplier, source identity, source hash, quality acceptance and failure-cost adjustment.
+
+A rejected or unverified result is never allowed to train the reference price. Benchmarks compare only the same cost code, work type, specification, unit and region. They use the upper observed median for even sample sizes, preventing an optimistic low midpoint, and publish minimum, benchmark, maximum, observation count, project count and confidence class A-E.
+
+No inflation, market correction or regional factor is silently invented. A candidate calculation or purchase price may be compared with a sealed benchmark, but the result always requires human technical and commercial review. The benchmark supports the calculator and purchaser; it never selects a supplier or rewrites an approved budget.
