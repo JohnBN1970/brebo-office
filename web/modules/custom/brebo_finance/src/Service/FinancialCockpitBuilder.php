@@ -39,6 +39,17 @@ final class FinancialCockpitBuilder {
       'forecast' => $forecast,
       'forecast_age_days' => $ageDays,
       'forecast_is_stale' => $ageDays === NULL || $ageDays > 30,
+      'cost_intelligence' => [
+        'verified_observation_count' => (int) $this->database->select('brebo_finance_cost_observation', 'o')
+          ->condition('project_nid', $projectNid)
+          ->condition('quality_accepted', 1)
+          ->countQuery()
+          ->execute()
+          ->fetchField(),
+        'observed_cost_codes' => $this->observedCostCodes($projectNid),
+        'latest_exact_benchmarks' => $this->latestCostBenchmarks($projectNid),
+        'basis' => 'Exact specification, unit and region; historical values are not silently indexed.',
+      ],
       'billing_position' => [
         'planned_ex_vat' => $this->sumByStatus(
           'brebo_finance_billing_instalment',
@@ -251,6 +262,54 @@ final class FinancialCockpitBuilder {
   }
 
 
+
+  /**
+   * @return list<string>
+   */
+  private function observedCostCodes(int $projectNid): array {
+    $values = $this->database->select('brebo_finance_cost_observation', 'o')
+      ->distinct()
+      ->fields('o', ['cost_code'])
+      ->condition('project_nid', $projectNid)
+      ->condition('quality_accepted', 1)
+      ->orderBy('cost_code')
+      ->execute()
+      ->fetchCol();
+    return array_values(array_map('strval', $values));
+  }
+
+  /**
+   * @return list<array<string, mixed>>
+   */
+  private function latestCostBenchmarks(int $projectNid): array {
+    $costCodes = $this->observedCostCodes($projectNid);
+    if ($costCodes === []) {
+      return [];
+    }
+    $rows = $this->database->select('brebo_finance_cost_benchmark_snapshot', 'b')
+      ->fields('b', [
+        'id', 'cost_code', 'work_type', 'specification_hash', 'unit', 'region',
+        'snapshot_date', 'sample_count', 'project_count',
+        'minimum_unit_cost_ex_vat', 'benchmark_unit_cost_ex_vat',
+        'maximum_unit_cost_ex_vat', 'confidence_class', 'content_hash',
+      ])
+      ->condition('cost_code', $costCodes, 'IN')
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $latest = [];
+    foreach ($rows as $row) {
+      $key = implode('|', [
+        $row['cost_code'], $row['work_type'], $row['specification_hash'],
+        $row['unit'], $row['region'],
+      ]);
+      if (!isset($latest[$key])) {
+        $latest[$key] = $row;
+      }
+    }
+    return array_values($latest);
+  }
 
   /**
    * @return list<array<string, mixed>>
