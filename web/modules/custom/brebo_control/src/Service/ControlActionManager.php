@@ -16,6 +16,7 @@ final class ControlActionManager {
   public function __construct(
     private readonly Connection $database,
     private readonly ProjectControllerActionService $controllerActions,
+    private readonly ControlEscalationMatrix $escalationMatrix,
   ) {}
 
   /**
@@ -48,7 +49,6 @@ final class ControlActionManager {
       ];
 
       if ($existing) {
-        // A resolved issue that becomes active again is reopened deliberately.
         if (in_array($existing['status'], ['completed', 'resolved', 'auto_resolved'], TRUE)) {
           $values['status'] = 'reopened';
           $values['completed_by'] = NULL;
@@ -69,7 +69,6 @@ final class ControlActionManager {
       }
     }
 
-    // Open actions disappear only when the underlying risk disappears.
     $query = $this->database->select('brebo_control_action', 'a')->fields('a')
       ->condition('project_nid', (int) $project->id())
       ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN');
@@ -87,9 +86,6 @@ final class ControlActionManager {
     return $this->loadProjectActions((int) $project->id());
   }
 
-  /**
-   * Complete an action only with evidence and resolution.
-   */
   public function complete(int $actionId, int $userId, string $evidence, string $resolution): void {
     if (trim($evidence) === '' || trim($resolution) === '') {
       throw new \InvalidArgumentException('Bewijs en afrondingsverklaring zijn verplicht.');
@@ -106,7 +102,7 @@ final class ControlActionManager {
   }
 
   /**
-   * Escalate overdue actions and return those requiring attention.
+   * Escalate overdue actions according to financial impact, age and risk.
    *
    * @return array<int, array<string, mixed>>
    */
@@ -117,8 +113,10 @@ final class ControlActionManager {
       ->condition('due_at', 0, '>')->condition('due_at', $now, '<')
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
 
-    foreach ($rows as $row) {
-      $level = min(3, (int) $row['escalation_level'] + 1);
+    foreach ($rows as &$row) {
+      $decision = $this->escalationMatrix->determine($row, $now);
+      $currentLevel = (int) $row['escalation_level'];
+      $level = max($currentLevel, (int) $decision['level']);
       $this->database->update('brebo_control_action')->fields([
         'status' => 'escalated',
         'escalation_level' => $level,
@@ -126,7 +124,11 @@ final class ControlActionManager {
       ])->condition('id', (int) $row['id'])->execute();
       $row['status'] = 'escalated';
       $row['escalation_level'] = $level;
+      $row['escalation_recipients'] = $decision['recipients'];
+      $row['escalation_reason'] = $decision['reason'];
+      $row['overdue_hours'] = $decision['age_hours'];
     }
+    unset($row);
     return $rows;
   }
 
