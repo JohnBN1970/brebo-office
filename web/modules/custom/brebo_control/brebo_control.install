@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_control_schema(): array {
+  $schema['brebo_control_action'] = [
+    'description' => 'Persistente controlleracties uit BREBO Early Warning.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'driver_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'instruction' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'done_when' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'owner_role' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'urgency' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'risk_points' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'source_value' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'due_at' => ['type' => 'int', 'not null' => FALSE],
+      'escalation_level' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'resolution' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'completed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'completed_at' => ['type' => 'int', 'not null' => FALSE],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['project_driver' => ['project_nid', 'driver_code']],
+    'indexes' => [
+      'project_status' => ['project_nid', 'status'],
+      'owner_status' => ['owner_uid', 'status'],
+      'due_status' => ['due_at', 'status'],
+    ],
+  ];
+
+  return $schema;
+}
