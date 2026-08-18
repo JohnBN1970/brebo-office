@@ -644,3 +644,33 @@ brebo_office_core.inzet_resources:
     _title: 'BREBO Inzet — Materieel en voertuigen'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.inzet_day_starts:
+  path: '/inzet/dagstarts'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'BREBO Inzet — Digitale dagstarts'
+    bundle: 'brebo_day_start'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_day_acknowledgements:
+  path: '/inzet/dagstarts/bevestigingen'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _title: 'BREBO Inzet — Dagstartbevestigingen'
+    bundle: 'brebo_day_ack'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_shift_day_start:
+  path: '/inzet/diensten/{node}/dagstart/maken'
+  defaults:
+    _form: '\\Drupal\\brebo_office_core\\Form\\WorkforceDayStartForm'
+    _title: 'BREBO Inzet — Digitale dagstart maken'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
