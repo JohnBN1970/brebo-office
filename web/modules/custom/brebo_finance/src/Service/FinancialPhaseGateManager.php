@@ -87,11 +87,13 @@ final class FinancialPhaseGateManager {
   public function exceptionMetadata(int $exceptionId): array {
     $this->ensureStorage();
     $exception = $this->loadException($exceptionId);
+    $findingIds = json_decode((string) $exception['finding_ids'], TRUE, 512, JSON_THROW_ON_ERROR);
     return [
       'id' => (int) $exception['id'],
       'project_nid' => (int) $exception['project_nid'],
       'gate' => (string) $exception['gate'],
       'status' => (string) $exception['status'],
+      'finding_ids' => array_values(array_map('intval', is_array($findingIds) ? $findingIds : [])),
       'requested_by' => (int) $exception['requested_by'],
       'expires_at' => (int) $exception['expires_at'],
     ];
