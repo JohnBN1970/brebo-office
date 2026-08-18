@@ -48,6 +48,29 @@ final class ProjectScheduleCalculatorTest extends TestCase {
     self::assertSame('2026-08-19', $result['activities'][2]['proposed_end']);
   }
 
+  public function testCriticalPathAndFloatAreCalculated(): void {
+    $result = $this->calculator->calculate([
+      1 => $this->activity(1, 'Kritieke start', '2026-08-17', '2026-08-18', 2),
+      2 => $this->activity(2, 'Kritieke vervolgtaak', '2026-08-19', '2026-08-24', 4, [1], 'FS'),
+      3 => $this->activity(3, 'Parallel met speling', '2026-08-17', '2026-08-18', 2),
+    ]);
+
+    self::assertTrue($result['activities'][1]['calculated_critical']);
+    self::assertTrue($result['activities'][2]['calculated_critical']);
+    self::assertSame(0, $result['activities'][1]['total_float']);
+    self::assertFalse($result['activities'][3]['calculated_critical']);
+    self::assertSame(4, $result['activities'][3]['total_float']);
+  }
+
+  public function testCriticalFlagChangeIsReported(): void {
+    $activity = $this->activity(1, 'A', '2026-08-17', '2026-08-18', 2);
+    $activity['current_critical'] = FALSE;
+    $result = $this->calculator->calculate([1 => $activity]);
+
+    self::assertTrue($result['activities'][1]['calculated_critical']);
+    self::assertTrue($result['activities'][1]['critical_changed']);
+  }
+
   public function testCycleBlocksCalculation(): void {
     $result = $this->calculator->calculate([
       1 => $this->activity(1, 'A', '2026-08-17', '2026-08-18', 2, [2]),
