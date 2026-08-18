@@ -83,6 +83,84 @@ final class FinancialControlScanner {
       }
     }
 
+    $changeQuery = $this->database->select('brebo_finance_change_order', 'c');
+    $changeQuery->fields('c', [
+      'id',
+      'change_number',
+      'status',
+      'title',
+      'sales_amount_ex_vat',
+      'margin_amount_ex_vat',
+      'offered_at',
+      'executed_at',
+      'created',
+    ]);
+    $changeQuery->condition('project_nid', $projectNid);
+    $changeQuery->condition('status', ['client_rejected', 'paid'], 'NOT IN');
+    foreach ($changeQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $change) {
+      if (in_array($change['status'], ['observed', 'priced'], TRUE) && (int) $change['created'] < $now - (2 * 86400)) {
+        $this->record($projectNid, 'FIN-CHANGE-NOT-OFFERED', 'medium', 'change_order', (int) $change['id'],
+          'Projectafwijking is nog niet aangeboden',
+          'De afwijking is geregistreerd of geprijsd maar niet tijdig formeel aan de opdrachtgever aangeboden.',
+          'Bewijspositie, omzet en marge kunnen verloren gaan terwijl uitvoering mogelijk doorloopt.',
+          'Maak scope, prijs, contractgrond en bewijs compleet en bied het meer- of minderwerk formeel aan.',
+          $now,
+          [
+            'change_number' => $change['change_number'],
+            'amount_ex_vat' => $change['sales_amount_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CHANGE-NOT-OFFERED', 'change_order', (int) $change['id']);
+        $counts['medium']++;
+      }
+      if ($change['status'] === 'offered' && (int) $change['offered_at'] < $now - (7 * 86400)) {
+        $this->record($projectNid, 'FIN-CHANGE-CLIENT-DECISION-PENDING', 'high', 'change_order', (int) $change['id'],
+          'Besluit over aangeboden projectafwijking blijft uit',
+          'De opdrachtgever heeft niet binnen zeven dagen aantoonbaar besloten.',
+          'Planning, uitvoering, omzet en marge blijven onzeker en bewijs kan verouderen.',
+          'Vraag een traceerbaar besluit, leg het contactmoment vast en blokkeer uitvoering zonder akkoord of vierogen-risicobesluit.',
+          $now,
+          [
+            'change_number' => $change['change_number'],
+            'amount_ex_vat' => $change['sales_amount_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CHANGE-CLIENT-DECISION-PENDING', 'change_order', (int) $change['id']);
+        $counts['high']++;
+      }
+      if ($change['status'] === 'risk_accepted') {
+        $this->record($projectNid, 'FIN-CHANGE-EXECUTION-AT-RISK', 'high', 'change_order', (int) $change['id'],
+          'Projectafwijking is voor uitvoering op eigen risico vrijgegeven',
+          'Er is nog geen aantoonbaar opdrachtgeverakkoord; een bevoegde tweede persoon heeft het uitvoeringsrisico geaccepteerd.',
+          'De verkoopwaarde en marge zijn niet contractueel zeker en kunnen geheel verloren gaan.',
+          'Blijf actief opdrachtgeverakkoord verkrijgen en bewaak bewijs, kostenplafond en stopmoment vóór verdere uitvoering.',
+          $now,
+          [
+            'change_number' => $change['change_number'],
+            'amount_ex_vat' => $change['sales_amount_ex_vat'],
+            'forecast_impact_ex_vat' => $change['margin_amount_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CHANGE-EXECUTION-AT-RISK', 'change_order', (int) $change['id']);
+        $counts['high']++;
+      }
+      if ($change['status'] === 'executed' && (int) $change['executed_at'] < $now - (3 * 86400)) {
+        $this->record($projectNid, 'FIN-CHANGE-NOT-INVOICED', 'high', 'change_order', (int) $change['id'],
+          'Uitgevoerd meer- of minderwerk is nog niet gefactureerd',
+          'De uitvoering is langer dan drie dagen gereed zonder gekoppelde verkoopfactuur.',
+          'Omzet, liquiditeit en projectresultaat worden te laat of mogelijk helemaal niet gerealiseerd.',
+          'Controleer gereedbewijs en opdrachtgeverakkoord en maak of koppel direct de verkoopfactuur.',
+          $now,
+          [
+            'change_number' => $change['change_number'],
+            'amount_ex_vat' => $change['sales_amount_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CHANGE-NOT-INVOICED', 'change_order', (int) $change['id']);
+        $counts['high']++;
+      }
+    }
+
     $cashForecast = $this->database->select('brebo_finance_cash_forecast_snapshot', 'c')
       ->fields('c', [
         'id',
