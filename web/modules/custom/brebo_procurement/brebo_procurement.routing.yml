@@ -8,3 +8,25 @@ brebo_procurement.offer_workbench:
     request_id: '\d+'
   options:
     _admin_route: true
+
+brebo_procurement.order_create:
+  path: '/admin/brebo/procurement/{request_id}/order'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementOrderCreateForm'
+    _title: 'Bestelling plaatsen'
+  requirements:
+    _permission: 'place brebo procurement orders'
+    request_id: '\d+'
+  options:
+    _admin_route: true
+
+brebo_procurement.order_receive:
+  path: '/admin/brebo/procurement/orders/{order_id}/receive'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementReceiptForm'
+    _title: 'Levering ontvangen'
+  requirements:
+    _permission: 'receive brebo procurement orders'
+    order_id: '\d+'
+  options:
+    _admin_route: true
