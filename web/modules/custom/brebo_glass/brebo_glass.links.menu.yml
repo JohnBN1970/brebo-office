@@ -1,0 +1,27 @@
+brebo_glass.position_overview:
+  title: 'Glasstaat'
+  description: 'Bekijk en filter alle glasposities.'
+  route_name: brebo_glass.position_overview
+  parent: system.admin_content
+  weight: 29
+
+brebo_glass.position_add:
+  title: 'Glasopname'
+  description: 'Registreer een glaspositie bij een gebouw of project.'
+  route_name: brebo_glass.position_add
+  parent: brebo_glass.position_overview
+  weight: 0
+
+brebo_glass.product_overview:
+  title: 'Glasproductcatalogus'
+  description: 'Bekijk de verificatie- en activatiestatus van glasproducten.'
+  route_name: brebo_glass.product_overview
+  parent: brebo_glass.position_overview
+  weight: 10
+
+brebo_glass.product_add:
+  title: 'Glasproduct toevoegen'
+  description: 'Voeg een glasproduct als concept toe voor technische verificatie.'
+  route_name: brebo_glass.product_add
+  parent: brebo_glass.product_overview
+  weight: 0

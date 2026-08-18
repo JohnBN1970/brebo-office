@@ -1,0 +1,245 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_glass_schema(): array {
+  $schema['brebo_glass_position'] = [
+    'description' => 'Canonical glass positions linked to BREBO buildings and projects.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar_ascii', 'length' => 36, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'position_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'location' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'frame_material' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => FALSE],
+      'application_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'standard'],
+      'glass_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'composition' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'performance_declaration_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'width_top_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_middle_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_bottom_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_left_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_middle_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_right_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_deduction_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_deduction_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_spread_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'height_spread_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'quantity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'area_m2' => ['type' => 'numeric', 'precision' => 12, 'scale' => 3, 'not null' => TRUE],
+      'perimeter_m' => ['type' => 'numeric', 'precision' => 12, 'scale' => 3, 'not null' => TRUE],
+      'estimated_weight_kg' => ['type' => 'numeric', 'precision' => 12, 'scale' => 2, 'not null' => FALSE],
+      'measurement_source' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
+      'measurement_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'wind_check_required' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'peak_velocity_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'external_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'internal_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_partial_factor' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'design_wind_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'glass_wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_utilization' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_standard_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'wind_calculation_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'wind_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'recommended_glass_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'technical_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
+      'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+      'technical_notes' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'approval_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'approval_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'uuid' => ['uuid'],
+      'building_position' => ['building_nid', 'position_code'],
+    ],
+    'indexes' => [
+      'building' => ['building_nid'],
+      'project' => ['project_nid'],
+      'glass_type' => ['glass_type'],
+      'status' => ['technical_status'],
+      'technical_check' => ['technical_check_state'],
+    ],
+  ];
+
+  $schema['brebo_glass_product'] = [
+    'description' => 'Verified glass products used for demand-driven recommendations.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'product_code' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
+      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'glass_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'composition' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => TRUE],
+      'max_width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'max_height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'weight_kg_m2' => ['type' => 'numeric', 'precision' => 8, 'scale' => 2, 'not null' => TRUE],
+      'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'verified_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verified_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verification_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['product_code' => ['product_code']],
+    'indexes' => [
+      'active_verified' => ['active', 'verified'],
+      'glass_type' => ['glass_type'],
+    ],
+  ];
+
+  return $schema;
+}
+
+/**
+ * Adds technical pre-check fields to early glass-module installations.
+ */
+function brebo_glass_update_11001(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'application_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'standard'],
+    'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+    'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+    'performance_declaration_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+  ];
+
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
+    }
+  }
+
+  if (!$schema->indexExists('brebo_glass_position', 'technical_check')) {
+    $schema->addIndex('brebo_glass_position', 'technical_check', ['technical_check_state']);
+  }
+}
+
+
+/**
+ * Adds source measurements and deductions for mandatory three-point measurement.
+ */
+function brebo_glass_update_11002(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'width_top_mm',
+    'width_middle_mm',
+    'width_bottom_mm',
+    'height_left_mm',
+    'height_middle_mm',
+    'height_right_mm',
+    'width_deduction_mm',
+    'height_deduction_mm',
+    'width_spread_mm',
+    'height_spread_mm',
+  ];
+
+  foreach ($fields as $name) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ]);
+    }
+  }
+}
+
+
+/**
+ * Adds traceable wind-load assessment fields.
+ */
+function brebo_glass_update_11003(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'wind_check_required' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+    'peak_velocity_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'external_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'internal_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_partial_factor' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'design_wind_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'glass_wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_utilization' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_standard_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'wind_calculation_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'wind_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    'recommended_glass_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
+    }
+  }
+}
+
+
+/**
+ * Creates the verified glass product catalog for demand-driven selection.
+ */
+function brebo_glass_update_11004(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_glass_product')) {
+    $definitions = brebo_glass_schema();
+    $schema->createTable('brebo_glass_product', $definitions['brebo_glass_product']);
+  }
+}
+
+
+/**
+ * Adds immutable verification metadata to catalog products.
+ */
+function brebo_glass_update_11005(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'verified_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'verified_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'verification_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_product', $name)) {
+      $schema->addField('brebo_glass_product', $name, $specification);
+    }
+  }
+}
+
+
+/**
+ * Adds immutable technical approval metadata to glass positions.
+ */
+function brebo_glass_update_11006(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'approved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+    'approval_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'approval_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
+    }
+  }
+}

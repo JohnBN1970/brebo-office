@@ -4,6 +4,7 @@ module:
   block: 0
   brebo_article: 0
   brebo_building_data: 0
+  brebo_glass: 0
   brebo_mail_intake: 0
   brebo_office_core: 0
   ckeditor5: 0

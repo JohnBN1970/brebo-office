@@ -1,0 +1,49 @@
+brebo_glass.position_overview:
+  path: '/brebo/glas'
+  defaults:
+    _controller: '\Drupal\brebo_glass\Controller\GlassPositionOverviewController::overview'
+    _title: 'Glasstaat'
+  requirements:
+    _permission: 'view brebo glass'
+
+brebo_glass.position_add:
+  path: '/brebo/glas/opname'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassPositionForm'
+    _title: 'Glasopname'
+  requirements:
+    _permission: 'administer brebo glass'
+
+brebo_glass.position_approve:
+  path: '/brebo/glas/{position_id}/vrijgeven'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassPositionApproveForm'
+    _title: 'Glaspositie technisch vrijgeven'
+  requirements:
+    _permission: 'approve brebo glass positions'
+    position_id: '\d+'
+
+brebo_glass.product_overview:
+  path: '/brebo/glas/producten'
+  defaults:
+    _controller: '\Drupal\brebo_glass\Controller\GlassProductOverviewController::overview'
+    _title: 'Glasproductcatalogus'
+  requirements:
+    _permission: 'view brebo glass'
+
+brebo_glass.product_add:
+  path: '/brebo/glas/producten/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProductForm'
+    _title: 'Glasproduct toevoegen'
+  requirements:
+    _permission: 'administer brebo glass'
+
+brebo_glass.product_verify:
+  path: '/brebo/glas/producten/{product_id}/verifieren'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProductVerifyForm'
+    _title: 'Glasproduct verifiëren'
+  requirements:
+    _permission: 'verify brebo glass products'
+    product_id: '\d+'
