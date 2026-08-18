@@ -4,3 +4,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_control.supplier_bid_evaluation'
+
+  brebo_procurement_control.outcomes:
+    class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeService
+    arguments:
+      - '@database'
