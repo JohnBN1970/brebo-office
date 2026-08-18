@@ -8,3 +8,8 @@ services:
       - '@database'
       - '@brebo_office_core.project_controller_actions'
       - '@brebo_control.escalation_matrix'
+
+  brebo_control.inbox:
+    class: Drupal\brebo_control\Service\ControlInboxService
+    arguments:
+      - '@database'
