@@ -9,14 +9,30 @@ BREBO Finance is the operational financial cockpit of BREBO Office.
 - Cash flow, invoices and payments are monitored including VAT.
 - Every financial record belongs to a BREBO project.
 - Every record is allocated to one or more central building-model objects whenever technically possible.
-- An approved calculation becomes an immutable zero budget.
+- An approved calculation is the commercial source, but does not automatically become the project baseline.
+- The calculation is translated into a technically executable working budget.
+- Only the approved working budget is frozen as the original project baseline.
 - Changes are recorded as auditable mutations; historical values are never silently overwritten.
 - A commitment precedes invoice approval.
 - Invoice approval will use three-way matching: order, verified performance and invoice.
 
+## Calculation to working budget
+
+The controlled transition is:
+
+1. approved calculation and quotation;
+2. transfer to a draft working budget;
+3. regrouping into executable cost codes and work packages;
+4. verification of quantities, labour, materials, subcontracting, logistics, risk and planning;
+5. allocation to project and building-model objects;
+6. review by calculator/purchaser, work planner and project manager;
+7. formal approval and locking of the original working budget.
+
+The commercial calculation therefore remains traceable while the working budget becomes the operational control instrument. Commercial allowances, mark-ups and sales structure are not silently treated as executable cost lines.
+
 ## Initial data model
 
-- `brebo_finance_budget`: versioned project budget.
+- `brebo_finance_budget`: versioned project budget, including draft and approved working budgets.
 - `brebo_finance_budget_line`: cost-code and work-package budget rows including VAT treatment.
 - `brebo_finance_commitment`: purchase order or subcontract commitment.
 - `brebo_finance_commitment_line`: detailed ordered, delivered and invoiced values.
@@ -30,8 +46,9 @@ A contractual purchase order remains one document. Its lines may be distributed 
 ## Next tranche
 
 1. VAT value object and calculation service.
-2. Budget import from an approved calculation snapshot.
-3. Project and building financial summary queries.
-4. Commitment workflow and approval rules.
-5. Performance receipt and three-way invoice matching.
-6. Moneybird synchronization through the BREBO integration API.
+2. Controlled transfer from approved calculation snapshot to draft working budget.
+3. Working-budget review, approval and immutable baseline snapshot.
+4. Project and building financial summary queries.
+5. Commitment workflow and approval rules.
+6. Performance receipt and three-way invoice matching.
+7. Moneybird synchronization through the BREBO integration API.
