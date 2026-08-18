@@ -55,6 +55,11 @@ function brebo_glass_schema(): array {
       'technical_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
       'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
       'technical_notes' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'approval_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'approval_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
       'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
@@ -215,6 +220,26 @@ function brebo_glass_update_11005(): void {
   foreach ($fields as $name => $specification) {
     if (!$schema->fieldExists('brebo_glass_product', $name)) {
       $schema->addField('brebo_glass_product', $name, $specification);
+    }
+  }
+}
+
+
+/**
+ * Adds immutable technical approval metadata to glass positions.
+ */
+function brebo_glass_update_11006(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'approved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+    'approval_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'approval_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
     }
   }
 }
