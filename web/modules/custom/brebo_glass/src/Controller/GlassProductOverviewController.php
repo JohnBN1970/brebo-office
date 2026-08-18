@@ -46,7 +46,7 @@ final class GlassProductOverviewController extends ControllerBase {
       }
 
       $rows[] = [
-        'code' => $product['code'],
+        'code' => $product['product_code'],
         'label' => $product['label'],
         'type' => $product['glass_type'],
         'composition' => $product['composition'],
