@@ -49,6 +49,34 @@ final class DigitalController {
   }
 
   /**
+   * Executes and stores one scheduled evidence run.
+   */
+  public function createScheduledRun(int $projectNid, int $systemUserId = 0): int {
+    $package = $this->prepareReview($projectNid);
+    $now = time();
+    return (int) $this->database->insert('brebo_finance_controller_run')
+      ->fields([
+        'project_nid' => $projectNid,
+        'run_date' => date('Y-m-d', $now),
+        'run_type' => 'scheduled',
+        'status' => 'evidence_ready',
+        'control_counts' => json_encode($package['controls'], JSON_THROW_ON_ERROR),
+        'evidence_payload' => json_encode(
+          $package,
+          JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION,
+        ),
+        'evidence_hash' => $package['evidence_hash'],
+        'started' => $now,
+        'completed' => $now,
+        'created' => $now,
+        'created_by' => $systemUserId,
+        'changed' => $now,
+        'changed_by' => $systemUserId,
+      ])
+      ->execute();
+  }
+
+  /**
    * Registers AI analysis only when it refers to the exact evidence package.
    */
   public function registerAiReview(
