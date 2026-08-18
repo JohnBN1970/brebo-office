@@ -61,3 +61,8 @@ services:
     arguments:
       - '@brebo_contract_control.root_cause_intelligence'
       - '@brebo_contract_control.control_effectiveness'
+
+  brebo_contract_control.organizational_learning:
+    class: Drupal\brebo_contract_control\Service\OrganizationalLearningRegistry
+    arguments:
+      - '@database'
