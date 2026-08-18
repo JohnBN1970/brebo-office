@@ -64,3 +64,9 @@ The G-account percentage is not assumed or derived from VAT. It must be agreed a
 ## Digital Controller
 
 The BREBO Digital Controller orchestrates deterministic controls before AI analysis. It seals the exact forecast, open findings, payment exceptions, budget state and model provenance into a hashed evidence package. AI output is rejected when that package changes. The Digital Controller may signal, predict, prioritize and block unsafe workflow transitions, but never grants its own financial approval.
+
+### Decision briefing
+
+Each scheduled run also produces a concise decision briefing from the sealed deterministic findings. Critical and high findings are never hidden. Medium findings are limited to the most urgent watch items; low findings remain available in the complete evidence package.
+
+Every briefing item follows the fixed chain: deviation, cause, financial consequence, control measure, owner and deadline. Amounts are shown only when they exist in verified source evidence. Missing ownership or deadlines are reported explicitly; the system never invents them.
