@@ -1728,9 +1728,59 @@ function brebo_office_core_entity_presave(\Drupal\Core\Entity\EntityInterface $e
 }
 
 /**
+ * Synchronizes approved leave with operational availability.
+ */
+function brebo_office_core_sync_leave_availability(NodeInterface $leave): void {
+  if ($leave->bundle() !== 'brebo_leave_request') {
+    return;
+  }
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $availability = $leave->get('field_brebo_leave_avail_ref')->entity;
+  $approved = (string) $leave->get('field_brebo_leave_status')->value === 'Goedgekeurd';
+
+  if (!$approved) {
+    if ($availability instanceof NodeInterface
+      && (string) ($availability->get('field_brebo_avail_status')->value ?? '') !== 'Vervallen') {
+      $availability->set('field_brebo_avail_status', 'Vervallen');
+      $availability->setNewRevision(TRUE);
+      $availability->setRevisionLogMessage('Beschikbaarheid vervallen doordat verlof niet langer is goedgekeurd.');
+      $availability->save();
+    }
+    return;
+  }
+
+  if (!$availability instanceof NodeInterface) {
+    $availability = $storage->create([
+      'type' => 'brebo_availability',
+      'title' => 'Verlof — ' . $leave->label(),
+      'status' => 1,
+    ]);
+  }
+  $availability->set('field_brebo_avail_contact', $leave->get('field_brebo_leave_contact')->target_id);
+  $availability->set('field_brebo_avail_user', $leave->get('field_brebo_leave_user')->target_id);
+  $availability->set('field_brebo_avail_start', $leave->get('field_brebo_leave_start')->value);
+  $availability->set('field_brebo_avail_end', $leave->get('field_brebo_leave_end')->value);
+  $availability->set('field_brebo_avail_hours_day', $leave->get('field_brebo_leave_hours')->value);
+  $availability->set('field_brebo_avail_type', 'Niet beschikbaar');
+  $availability->set('field_brebo_avail_status', 'Bevestigd');
+  $availability->set('field_brebo_avail_note', 'Automatisch vanuit goedgekeurde verlofaanvraag ' . $leave->id() . '.');
+  $availability->setNewRevision(TRUE);
+  $availability->setRevisionLogMessage('Beschikbaarheid gesynchroniseerd vanuit goedgekeurd verlof.');
+  $availability->save();
+
+  if ((int) ($leave->get('field_brebo_leave_avail_ref')->target_id ?? 0) !== (int) $availability->id()) {
+    $leave->set('field_brebo_leave_avail_ref', $availability->id());
+    $leave->save();
+  }
+}
+
+/**
  * Implements hook_entity_insert().
  */
 function brebo_office_core_entity_insert(\Drupal\Core\Entity\EntityInterface $entity): void {
+  if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_leave_request') {
+    brebo_office_core_sync_leave_availability($entity);
+  }
   if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_project') {
     brebo_office_core_sync_project_route($entity);
   }
@@ -1740,6 +1790,9 @@ function brebo_office_core_entity_insert(\Drupal\Core\Entity\EntityInterface $en
  * Implements hook_entity_update().
  */
 function brebo_office_core_entity_update(\Drupal\Core\Entity\EntityInterface $entity): void {
+  if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_leave_request') {
+    brebo_office_core_sync_leave_availability($entity);
+  }
   if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_project') {
     brebo_office_core_sync_project_route($entity);
   }
