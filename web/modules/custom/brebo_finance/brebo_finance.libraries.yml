@@ -21,3 +21,14 @@ notification_bell:
     - core/drupal
     - core/once
     - core/drupalSettings
+
+command_center:
+  version: 1.x
+  css:
+    component:
+      css/command-center.css: {}
+  js:
+    js/command-center.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
