@@ -8,9 +8,7 @@ use Drupal\Core\Database\Connection;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
-/**
- * Enforces deterministic financial release gates per project phase.
- */
+/** Enforces deterministic financial release gates per project phase. */
 final class FinancialPhaseGateManager {
 
   private const GATES = [
@@ -21,7 +19,46 @@ final class FinancialPhaseGateManager {
     'project_closeout',
   ];
 
-  private const BLOCKING_SEVERITIES = ['critical', 'high'];
+  /**
+   * High-severity findings that are specifically blocking for each gate.
+   * Critical findings always block every gate, regardless of this policy.
+   */
+  private const GATE_HIGH_POLICY = [
+    'procurement_release' => [
+      'FIN-CONTRACT-OBLIGATION-OVERDUE',
+      'FIN-CASH-GACCOUNT-SHORTFALL',
+      'FIN-SCENARIO-CASH-DELAY',
+    ],
+    'execution_start' => [
+      'FIN-LABOUR-FORECAST-OVERRUN',
+      'FIN-CONTRACT-OBLIGATION-OVERDUE',
+      'FIN-CHANGE-COST-NOT-CONTROLLED',
+      'FIN-CHANGE-EXECUTION-AT-RISK',
+    ],
+    'billing_release' => [
+      'FIN-CONTRACT-OBLIGATION-OVERDUE',
+      'FIN-SALES-INVOICE-DISPUTED',
+      'FIN-BILLABLE-NOT-INVOICED',
+      'FIN-CHANGE-NOT-INVOICED',
+    ],
+    'payment_release' => [
+      'FIN-INVOICE-EXCEPTION',
+      'FIN-INVOICE-OVERDUE',
+      'FIN-GACCOUNT-EXPIRED',
+      'FIN-CASH-GACCOUNT-SHORTFALL',
+      'FIN-CONTRACT-OBLIGATION-OVERDUE',
+    ],
+    'project_closeout' => [
+      'FIN-INVOICE-EXCEPTION',
+      'FIN-INVOICE-OVERDUE',
+      'FIN-SALES-INVOICE-DISPUTED',
+      'FIN-BILLABLE-NOT-INVOICED',
+      'FIN-CHANGE-NOT-INVOICED',
+      'FIN-RECEIVABLE-OVERDUE',
+      'FIN-CONTRACT-OBLIGATION-OVERDUE',
+      'FIN-LABOUR-FORECAST-OVERRUN',
+    ],
+  ];
 
   public function __construct(private readonly Connection $database) {}
 
@@ -30,7 +67,7 @@ final class FinancialPhaseGateManager {
     $this->assertGate($gate);
     $this->ensureStorage();
 
-    $blockers = $this->loadBlockingFindings($projectNid);
+    $blockers = $this->loadBlockingFindings($projectNid, $gate);
     $exception = $this->loadActiveException($projectNid, $gate);
     $effectiveBlockers = [];
     foreach ($blockers as $blocker) {
@@ -44,6 +81,10 @@ final class FinancialPhaseGateManager {
       'gate' => $gate,
       'released' => $effectiveBlockers === [],
       'decision' => $effectiveBlockers === [] ? 'released' : 'blocked',
+      'policy' => [
+        'critical_findings' => 'always_block',
+        'high_control_codes' => self::GATE_HIGH_POLICY[$gate],
+      ],
       'blocking_findings' => array_values($effectiveBlockers),
       'exception' => $exception,
       'ai_override_allowed' => FALSE,
@@ -65,10 +106,10 @@ final class FinancialPhaseGateManager {
     if ($findingIds === [] || in_array(0, $findingIds, TRUE)) {
       throw new InvalidArgumentException('Gate exception must name the exact blocking findings.');
     }
-    $knownIds = array_map(static fn(array $row): int => (int) $row['id'], $this->loadBlockingFindings($projectNid));
+    $knownIds = array_map(static fn(array $row): int => (int) $row['id'], $this->loadBlockingFindings($projectNid, $gate));
     foreach ($findingIds as $findingId) {
       if (!in_array($findingId, $knownIds, TRUE)) {
-        throw new UnexpectedValueException('An exception can only cover an active critical or high financial finding.');
+        throw new UnexpectedValueException('An exception can only cover an active finding that blocks this exact phase gate.');
       }
     }
 
@@ -79,6 +120,7 @@ final class FinancialPhaseGateManager {
       'control_measure' => trim($controlMeasure),
       'expires_at' => $expiresAt,
       'evidence' => $evidence,
+      'gate_policy' => self::GATE_HIGH_POLICY[$gate],
     ];
     $contentHash = $this->hash($payload);
     $id = (int) $this->database->insert('brebo_finance_phase_gate_exception')->fields([
@@ -134,15 +176,19 @@ final class FinancialPhaseGateManager {
   public function requireRelease(int $projectNid, string $gate): void {
     $decision = $this->evaluate($projectNid, $gate);
     if (!$decision['released']) {
-      throw new UnexpectedValueException(sprintf('Financial phase gate %s is blocked for project %d.', $gate, $projectNid));
+      $codes = array_values(array_unique(array_map(static fn(array $row): string => (string) $row['control_code'], $decision['blocking_findings'])));
+      throw new UnexpectedValueException(sprintf(
+        'Financial phase gate %s is blocked for project %d by: %s.',
+        $gate,
+        $projectNid,
+        implode(', ', $codes),
+      ));
     }
   }
 
   private function ensureStorage(): void {
     $schema = $this->database->schema();
-    if ($schema->tableExists('brebo_finance_phase_gate_exception')) {
-      return;
-    }
+    if ($schema->tableExists('brebo_finance_phase_gate_exception')) return;
     $schema->createTable('brebo_finance_phase_gate_exception', [
       'description' => 'Temporary four-eyes exceptions for deterministic financial phase gates.',
       'fields' => [
@@ -172,12 +218,20 @@ final class FinancialPhaseGateManager {
   }
 
   /** @return array<int, array<string, mixed>> */
-  private function loadBlockingFindings(int $projectNid): array {
-    return $this->database->select('brebo_finance_control_finding', 'f')->fields('f')
-      ->condition('project_nid', $projectNid)
-      ->condition('severity', self::BLOCKING_SEVERITIES, 'IN')
-      ->condition('status', ['resolved_verified'], 'NOT IN')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  private function loadBlockingFindings(int $projectNid, string $gate): array {
+    $query = $this->database->select('brebo_finance_control_finding', 'f')->fields('f');
+    $query->condition('project_nid', $projectNid);
+    $query->condition('status', ['resolved_verified', 'resolved_automatically'], 'NOT IN');
+
+    $or = $query->orConditionGroup()
+      ->condition('severity', 'critical');
+    $high = $query->andConditionGroup()
+      ->condition('severity', 'high')
+      ->condition('control_code', self::GATE_HIGH_POLICY[$gate], 'IN');
+    $or->condition($high);
+    $query->condition($or);
+
+    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
   /** @return array<string, mixed>|null */
@@ -196,16 +250,12 @@ final class FinancialPhaseGateManager {
   /** @return array<string, mixed> */
   private function loadException(int $exceptionId): array {
     $row = $this->database->select('brebo_finance_phase_gate_exception', 'e')->fields('e')->condition('id', $exceptionId)->execute()->fetchAssoc();
-    if ($row === FALSE) {
-      throw new UnexpectedValueException('Financial phase gate exception does not exist.');
-    }
+    if ($row === FALSE) throw new UnexpectedValueException('Financial phase gate exception does not exist.');
     return $row;
   }
 
   private function assertGate(string $gate): void {
-    if (!in_array($gate, self::GATES, TRUE)) {
-      throw new InvalidArgumentException('Unknown financial phase gate.');
-    }
+    if (!in_array($gate, self::GATES, TRUE)) throw new InvalidArgumentException('Unknown financial phase gate.');
   }
 
   private function validFutureDateTime(string $value): bool {
@@ -236,5 +286,4 @@ final class FinancialPhaseGateManager {
       'created_by' => $actorUid,
     ])->execute();
   }
-
 }
