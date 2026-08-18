@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_glass\Controller;
 
 use Drupal\brebo_glass\Form\GlassPositionFilterForm;
+use Drupal\brebo_glass\Service\GlassApprovalPolicy;
 use Drupal\brebo_glass\Service\GlassPositionRepository;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -49,6 +50,7 @@ final class GlassPositionOverviewController extends ControllerBase {
     private readonly GlassPositionRepository $repository,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly RequestStack $requestStack,
+    private readonly GlassApprovalPolicy $approvalPolicy,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -56,6 +58,7 @@ final class GlassPositionOverviewController extends ControllerBase {
       $container->get('brebo_glass.position_repository'),
       $container->get('entity_type.manager'),
       $container->get('request_stack'),
+      $container->get('brebo_glass.approval_policy'),
     );
   }
 
@@ -87,13 +90,8 @@ final class GlassPositionOverviewController extends ControllerBase {
     foreach ($positions as $position) {
       $buildingId = (int) $position['building_nid'];
       $projectId = (int) ($position['project_nid'] ?? 0);
-      $canRelease = $canApprove
-        && (string) $position['technical_status'] === 'measured'
-        && (string) $position['technical_check_state'] === 'passed'
-        && (int) $position['measurement_verified'] === 1
-        && (int) $position['wind_verified'] === 1
-        && (float) $position['wind_utilization'] <= 1.0
-        && trim((string) $position['recommended_glass_ref']) !== '';
+      $approvalPolicy = $this->approvalPolicy->evaluate($position);
+      $canRelease = $canApprove && $approvalPolicy['allowed'];
       $approvalAction = $canRelease
         ? Link::createFromRoute(
           $this->t('Vrijgeven'),
