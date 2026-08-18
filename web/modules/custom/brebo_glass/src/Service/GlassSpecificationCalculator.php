@@ -21,17 +21,19 @@ final class GlassSpecificationCalculator {
       throw new \InvalidArgumentException('Breedte, hoogte en aantal moeten groter zijn dan nul.');
     }
 
-    $area = ($widthMm / 1000) * ($heightMm / 1000) * $quantity;
+    $paneArea = ($widthMm / 1000) * ($heightMm / 1000);
+    $area = $paneArea * $quantity;
     $perimeter = 2 * (($widthMm + $heightMm) / 1000) * $quantity;
     $glassThickness = $this->glassThicknessFromComposition($composition);
-    $weight = $area * $glassThickness * self::GLASS_DENSITY_KG_M2_MM;
+    $paneWeight = $paneArea * $glassThickness * self::GLASS_DENSITY_KG_M2_MM;
+    $weight = $paneWeight * $quantity;
     $warnings = [];
 
-    if ($area > 12.0) {
-      $warnings[] = 'Groot glasoppervlak: controleer handling, transport en montagevoorzieningen.';
+    if ($paneArea > 6.0) {
+      $warnings[] = 'Grote glasruit: controleer maakbaarheid, handling, transport en montagevoorzieningen.';
     }
-    if ($weight > 150.0) {
-      $warnings[] = 'Hoog berekend gewicht: hijs- en bezettingsplan verplicht verifiëren.';
+    if ($paneWeight > 150.0) {
+      $warnings[] = 'Hoog gewicht per ruit: hijs- en bezettingsplan verplicht verifiëren.';
     }
     if ($glassThickness === 0.0) {
       $warnings[] = 'Glasdikte kon niet betrouwbaar uit de opbouw worden afgeleid; gewicht is nog niet bepaald.';
@@ -49,18 +51,43 @@ final class GlassSpecificationCalculator {
    * Adds only glass layers; cavity widths are excluded from weight.
    */
   private function glassThicknessFromComposition(string $composition): float {
-    if (!preg_match_all('/(?<!\d)(\d+(?:[.,]\d+)?)(?!\d)/', $composition, $matches)) {
+    $layers = preg_split('/\s*-\s*/', trim($composition));
+    if (!$layers) {
       return 0.0;
     }
 
-    $values = array_map(static fn(string $value): float => (float) str_replace(',', '.', $value), $matches[1]);
-    if (count($values) === 1) {
-      return $values[0];
+    $thickness = 0.0;
+    foreach ($layers as $index => $layer) {
+      // Conventional insulating-glass notation alternates glass and cavity.
+      if ($index % 2 !== 0) {
+        continue;
+      }
+
+      $parsed = $this->glassLayerThickness($layer);
+      if ($parsed === NULL) {
+        return 0.0;
+      }
+      $thickness += $parsed;
     }
 
-    // Conventional insulating-glass notation alternates glass and cavity.
-    return array_sum(array_filter($values, static fn(float $value, int $index): bool => $index % 2 === 0, ARRAY_FILTER_USE_BOTH));
+    return $thickness;
+  }
+
+  /**
+   * Parses plain and common laminated-glass notation (for example 44.2).
+   */
+  private function glassLayerThickness(string $layer): ?float {
+    $layer = trim(str_replace(',', '.', $layer));
+
+    if (preg_match('/^(\d)(\d)\.[1-9]$/', $layer, $matches)) {
+      return (float) ((int) $matches[1] + (int) $matches[2]);
+    }
+
+    if (preg_match('/^\d+(?:\.\d+)?$/', $layer)) {
+      return (float) $layer;
+    }
+
+    return NULL;
   }
 
 }
-
