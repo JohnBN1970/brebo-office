@@ -17,11 +17,9 @@ final class CommitmentManager {
   public function __construct(
     private readonly Connection $database,
     private readonly VatCalculator $vatCalculator,
+    private readonly FinancialPhaseGateManager $phaseGateManager,
   ) {}
 
-  /**
-   * Creates a draft commitment for a project with an approved baseline.
-   */
   public function createDraft(
     int $projectNid,
     string $commitmentNumber,
@@ -35,6 +33,7 @@ final class CommitmentManager {
     if (!$this->hasLockedWorkingBudget($projectNid)) {
       throw new RuntimeException('Purchasing is blocked until the working budget baseline is locked.');
     }
+    $this->phaseGateManager->requireRelease($projectNid, 'procurement_release');
 
     $now = time();
     return (int) $this->database->insert('brebo_finance_commitment')
@@ -56,9 +55,6 @@ final class CommitmentManager {
       ->execute();
   }
 
-  /**
-   * Adds one commitment line without exceeding its baseline budget line.
-   */
   public function addLine(
     int $commitmentId,
     int $budgetLineId,
@@ -72,6 +68,7 @@ final class CommitmentManager {
     int $userId,
   ): int {
     $commitment = $this->loadDraftCommitment($commitmentId);
+    $this->phaseGateManager->requireRelease((int) $commitment['project_nid'], 'procurement_release');
     $budgetLine = $this->loadLockedBudgetLine($budgetLineId, (int) $commitment['project_nid']);
 
     $quantityValue = $this->positiveDecimal($quantity, 'quantity');
@@ -138,7 +135,6 @@ final class CommitmentManager {
         $now,
         $userId,
       );
-
       return $lineId;
     }
     catch (\Throwable $exception) {
@@ -245,14 +241,7 @@ final class CommitmentManager {
     return $normalized;
   }
 
-  private function audit(
-    int $projectNid,
-    int $commitmentId,
-    string $action,
-    array $payload,
-    int $now,
-    int $userId,
-  ): void {
+  private function audit(int $projectNid, int $commitmentId, string $action, array $payload, int $now, int $userId): void {
     $this->database->insert('brebo_finance_audit')
       ->fields([
         'project_nid' => $projectNid,
@@ -260,11 +249,10 @@ final class CommitmentManager {
         'entity_id' => $commitmentId,
         'action' => $action,
         'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
-        'reason' => 'Controlled purchase commitment against locked working budget.',
+        'reason' => 'Controlled purchase commitment after financial procurement phase gate against locked working budget.',
         'created' => $now,
         'created_by' => $userId,
       ])
       ->execute();
   }
-
 }
