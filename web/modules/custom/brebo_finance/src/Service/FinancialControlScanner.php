@@ -128,6 +128,30 @@ final class FinancialControlScanner {
         $seen[] = $this->key('FIN-CHANGE-CLIENT-DECISION-PENDING', 'change_order', (int) $change['id']);
         $counts['high']++;
       }
+      if (in_array($change['status'], ['client_approved', 'risk_accepted', 'executed', 'invoiced'], TRUE)) {
+        $costMutationExists = (int) $this->database->select('brebo_finance_budget_mutation', 'm')
+          ->condition('project_nid', $projectNid)
+          ->condition('mutation_number', $change['change_number'])
+          ->countQuery()
+          ->execute()
+          ->fetchField();
+        if ($costMutationExists === 0) {
+          $this->record($projectNid, 'FIN-CHANGE-COST-NOT-CONTROLLED', 'high', 'change_order', (int) $change['id'],
+            'Kosten van projectafwijking zijn niet in de budgetbewaking verwerkt',
+            'De afwijking is vrijgegeven of uitgevoerd zonder gekoppelde budgetmutatie voor de kostenkant.',
+            'Omzet wordt verhoogd terwijl de actuele kostenruimte en prognose onvolledig kunnen blijven.',
+            'Maak een afzonderlijke budgetmutatie met dezelfde wijzigingscode en laat deze volgens het vierogenprincipe beoordelen.',
+            $now,
+            [
+              'change_number' => $change['change_number'],
+              'amount_ex_vat' => $change['sales_amount_ex_vat'],
+              'forecast_impact_ex_vat' => $change['margin_amount_ex_vat'],
+            ],
+          );
+          $seen[] = $this->key('FIN-CHANGE-COST-NOT-CONTROLLED', 'change_order', (int) $change['id']);
+          $counts['high']++;
+        }
+      }
       if ($change['status'] === 'risk_accepted') {
         $this->record($projectNid, 'FIN-CHANGE-EXECUTION-AT-RISK', 'high', 'change_order', (int) $change['id'],
           'Projectafwijking is voor uitvoering op eigen risico vrijgegeven',
