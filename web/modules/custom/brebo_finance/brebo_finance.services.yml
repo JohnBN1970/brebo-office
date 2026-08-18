@@ -17,3 +17,9 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.vat_calculator'
+
+  brebo_finance.budget_mutation_manager:
+    class: Drupal\brebo_finance\Service\BudgetMutationManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
