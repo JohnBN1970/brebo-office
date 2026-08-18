@@ -70,6 +70,7 @@ final class WorkforceScheduleController extends ControllerBase {
         'status' => (string) ($shift->get('field_brebo_shift_status')->value ?? '—'),
         'building' => $building instanceof NodeInterface ? (string) $building->label() : '—',
         'activity' => $activity instanceof NodeInterface ? (string) $activity->label() : '—',
+        'id' => (int) $shift->id(),
         'url' => $shift->toUrl(),
       ];
     }
@@ -125,7 +126,17 @@ final class WorkforceScheduleController extends ControllerBase {
           if ($shift['conflicts']) {
             $text .= ' ⚠ ' . implode(', ', $shift['conflicts']);
           }
-          $items[] = Link::fromTextAndUrl($text, $shift['url'])->toRenderable();
+          $items[] = [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-inzet-shift']],
+            'shift' => Link::fromTextAndUrl($text, $shift['url'])->toRenderable(),
+            'separator' => ['#markup' => ' · '],
+            'proposal' => [
+              '#type' => 'link',
+              '#title' => $this->t('Personeelsvoorstel'),
+              '#url' => Url::fromRoute('brebo_office_core.inzet_shift_proposal', ['node' => $shift['id']]),
+            ],
+          ];
         }
         $row[] = ['data' => ['#theme' => 'item_list', '#items' => $items, '#attributes' => ['class' => ['brebo-inzet-day']]]];
       }
