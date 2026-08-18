@@ -1048,3 +1048,136 @@ function brebo_office_core_post_update_brebo_inzet(array &$sandbox = NULL): stri
 
   return 'BREBO Inzet met diensten, uren, klokmomenten, verlof, PDOK-locatiecontrole en rolrechten toegevoegd.';
 }
+
+
+/**
+ * Adds the BREBO Inzet competency and certificate register.
+ */
+function brebo_office_core_post_update_inzet_competencies(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  $node_ref = static function (string $label, string $bundle, string $description, int $weight, bool $required = FALSE, int $cardinality = 1): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => $required,
+      'storage' => ['target_type' => 'node'], 'cardinality' => $cardinality,
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [$bundle => $bundle]]],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $user_ref = static function (string $label, string $description, int $weight): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $date = static function (string $label, string $description, int $weight, bool $required = FALSE, string $type = 'date'): array {
+    return [
+      'label' => $label, 'type' => 'datetime', 'required' => $required,
+      'storage' => ['datetime_type' => $type], 'description' => $description,
+      'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => $weight,
+    ];
+  };
+
+  _brebo_office_core_create_node_bundle('brebo_work_skill', 'Vakbekwaamheid',
+    'Beheerde vaardigheid, bevoegdheid of certificaateis voor veilige en kwalitatieve personeelsinzet.', [
+      'field_brebo_skill_code' => [
+        'label' => 'Code', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Unieke herkenbare code, bijvoorbeeld VCA-B of ETICS-VAK.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_skill_category' => [
+        'label' => 'Categorie', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Vakmanschap, veiligheid, materieel, certificaat of projectbevoegdheid.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_skill_description' => [
+        'label' => 'Toetsingscriteria', 'type' => 'text_long', 'required' => TRUE, 'storage' => [],
+        'description' => 'Objectieve criteria waaraan een geldig bewijs moet voldoen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 3,
+      ],
+      'field_brebo_skill_expiring' => [
+        'label' => 'Heeft vervaldatum', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Geeft aan dat geldigheid periodiek opnieuw moet worden aangetoond.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 4,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_skill_active' => [
+        'label' => 'Actief', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Alleen actieve vakbekwaamheden mogen aan nieuwe diensten worden gekoppeld.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 5,
+        'default_value' => [['value' => 1]],
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_qualification', 'Kwalificatiebewijs',
+    'Controleerbaar bewijs dat een persoon een vereiste vakbekwaamheid bezit.', [
+      'field_brebo_qual_contact' => $node_ref('Persoon', 'brebo_contact', 'Eigen of ingehuurde persoon waarop het bewijs betrekking heeft.', 1),
+      'field_brebo_qual_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account waarop het bewijs betrekking heeft.', 2),
+      'field_brebo_qual_skill' => $node_ref('Vakbekwaamheid', 'brebo_work_skill', 'Aangetoonde vaardigheid of bevoegdheid.', 3, TRUE),
+      'field_brebo_qual_issuer' => [
+        'label' => 'Uitgevende instantie', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 255], 'description' => 'Opleider, certificerende instelling of bevoegde beoordelaar.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 4,
+      ],
+      'field_brebo_qual_number' => [
+        'label' => 'Bewijsnummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128], 'description' => 'Certificaat-, pas- of registratienummer.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_qual_issued' => $date('Afgiftedatum', 'Datum waarop het bewijs is afgegeven.', 6),
+      'field_brebo_qual_expires' => $date('Geldig tot', 'Laatste geldige dag; leeg indien het bewijs niet vervalt.', 7),
+      'field_brebo_qual_status' => [
+        'label' => 'Bewijsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, te controleren, geldig, verlopen, afgewezen of ingetrokken.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+        'default_value' => [['value' => 'Te controleren']],
+      ],
+      'field_brebo_qual_verified_by' => $user_ref('Gecontroleerd door', 'BREBO-gebruiker die bron en geldigheid heeft gecontroleerd.', 9),
+      'field_brebo_qual_verified_at' => $date('Controlemoment', 'Datum en tijd van de laatste inhoudelijke controle.', 10, FALSE, 'datetime'),
+      'field_brebo_qual_note' => [
+        'label' => 'Controletoelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Bron, uitzonderingen en afwijs- of intrekkingsreden; geen bijzondere persoonsgegevens.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 11,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_shift', 'Dienst',
+    'BREBO Inzet-dienst gekoppeld aan project, gebouw, activiteit en vrijgegeven werkbegrotingsuren.', [
+      'field_brebo_shift_skills' => $node_ref('Vereiste vakbekwaamheden', 'brebo_work_skill', 'Alle harde vak-, veiligheids- en certificaateisen voor deze dienst.', 17, FALSE, -1),
+      'field_brebo_shift_match' => [
+        'label' => 'Kwalificatiematch', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Niet gecontroleerd, passend, waarschuwing of blokkade.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 18,
+        'default_value' => [['value' => 'Niet gecontroleerd']],
+      ],
+      'field_brebo_shift_match_note' => [
+        'label' => 'Matchtoelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Automatische toelichting op ontbrekende of verlopen kwalificaties.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 19,
+      ],
+    ]);
+
+  $permissions = [];
+  foreach (['brebo_work_skill', 'brebo_qualification'] as $bundle) {
+    $permissions = array_merge($permissions, [
+      "create $bundle content", "edit own $bundle content",
+      "edit any $bundle content", "view $bundle revisions",
+    ]);
+  }
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Vakbekwaamheden, kwalificatiebewijzen, diensteisen en rolrechten toegevoegd aan BREBO Inzet.';
+}
