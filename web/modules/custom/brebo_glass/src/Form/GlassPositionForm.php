@@ -8,6 +8,7 @@ use Drupal\brebo_glass\Service\GlassPositionRepository;
 use Drupal\brebo_glass\Service\GlassThreePointMeasurementCalculator;
 use Drupal\brebo_glass\Service\GlassSpecificationCalculator;
 use Drupal\brebo_glass\Service\GlassTechnicalRuleEvaluator;
+use Drupal\brebo_glass\Service\GlassWindLoadCalculator;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -22,6 +23,7 @@ final class GlassPositionForm extends FormBase {
     private readonly GlassThreePointMeasurementCalculator $measurementCalculator,
     private readonly GlassSpecificationCalculator $calculator,
     private readonly GlassTechnicalRuleEvaluator $technicalRules,
+    private readonly GlassWindLoadCalculator $windCalculator,
     private readonly GlassPositionRepository $repository,
     private readonly UuidInterface $uuid,
   ) {}
@@ -31,6 +33,7 @@ final class GlassPositionForm extends FormBase {
       $container->get('brebo_glass.three_point_measurement_calculator'),
       $container->get('brebo_glass.specification_calculator'),
       $container->get('brebo_glass.technical_rule_evaluator'),
+      $container->get('brebo_glass.wind_load_calculator'),
       $container->get('brebo_glass.position_repository'),
       $container->get('uuid'),
     );
@@ -84,6 +87,17 @@ final class GlassPositionForm extends FormBase {
     $form['measurement']['height_deduction_mm'] = ['#type' => 'number', '#title' => $this->t('Aftrek hoogte (mm)'), '#min' => 0, '#step' => 1, '#required' => TRUE, '#description' => $this->t('Totale aftrek op de kleinste gemeten hoogte.')];
     $form['measurement']['quantity'] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#min' => 1, '#step' => 1, '#required' => TRUE, '#default_value' => 1];
 
+    $form['wind'] = ['#type' => 'details', '#title' => $this->t('Verplichte windbelasting en glaskeuze'), '#open' => TRUE];
+    $form['wind']['peak_velocity_pressure_kpa'] = ['#type' => 'number', '#title' => $this->t('Pieksnelheidsdruk qₚ(z) (kPa)'), '#step' => 0.001, '#min' => 0.001, '#required' => TRUE];
+    $form['wind']['external_pressure_coefficient'] = ['#type' => 'number', '#title' => $this->t('Buitendrukcoëfficiënt cₚₑ'), '#step' => 0.001, '#required' => TRUE];
+    $form['wind']['internal_pressure_coefficient'] = ['#type' => 'number', '#title' => $this->t('Binnendrukcoëfficiënt cₚᵢ'), '#step' => 0.001, '#required' => TRUE];
+    $form['wind']['wind_partial_factor'] = ['#type' => 'number', '#title' => $this->t('Veiligheidsfactor γ'), '#step' => 0.001, '#min' => 0.001, '#required' => TRUE];
+    $form['wind']['glass_wind_resistance_kpa'] = ['#type' => 'number', '#title' => $this->t('Geverifieerde weerstand geadviseerd glas (kPa)'), '#step' => 0.001, '#min' => 0.001, '#required' => TRUE, '#description' => $this->t('Afkomstig uit de geverifieerde productcatalogus of NEN 2608-berekening.')];
+    $form['wind']['wind_standard_ref'] = ['#type' => 'textfield', '#title' => $this->t('Norm en versie'), '#maxlength' => 255, '#required' => TRUE];
+    $form['wind']['wind_calculation_ref'] = ['#type' => 'textfield', '#title' => $this->t('Bronberekening'), '#maxlength' => 255, '#required' => TRUE];
+    $form['wind']['recommended_glass_ref'] = ['#type' => 'textfield', '#title' => $this->t('Geadviseerd glasproduct/opbouw'), '#maxlength' => 255, '#required' => TRUE, '#description' => $this->t('Uitkomst van de selectie op winddruk, maat en harde toepassingseisen.')];
+    $form['wind']['wind_verified'] = ['#type' => 'checkbox', '#title' => $this->t('Windberekening en glasadvies door deskundige geverifieerd'), '#required' => TRUE];
+
     $form['evidence'] = ['#type' => 'details', '#title' => $this->t('Classificaties en bewijs'), '#open' => TRUE];
     $form['evidence']['safety_class'] = ['#type' => 'textfield', '#title' => $this->t('Letselveiligheidsclassificatie'), '#maxlength' => 64, '#description' => $this->t('Neem de exacte classificatie uit certificaat of prestatieverklaring over.')];
     $form['evidence']['fire_class'] = ['#type' => 'textfield', '#title' => $this->t('Brandwerendheidsclassificatie'), '#maxlength' => 64, '#description' => $this->t('Bijvoorbeeld de projectspecifiek vereiste E/EW/EI-classificatie met tijdsduur.')];
@@ -101,6 +115,7 @@ final class GlassPositionForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     try {
       $this->calculateMeasurement($form_state);
+      $this->calculateWind($form_state);
     }
     catch (\InvalidArgumentException $exception) {
       $form_state->setErrorByName('width_top_mm', $this->t('@message', ['@message' => $exception->getMessage()]));
@@ -116,6 +131,7 @@ final class GlassPositionForm extends FormBase {
     $application = (string) $form_state->getValue('application_type');
     $glassType = (string) $form_state->getValue('glass_type');
     $measurement = $this->calculateMeasurement($form_state);
+    $wind = $this->calculateWind($form_state);
     $result = $this->calculator->calculate(
       $measurement['width_mm'],
       $measurement['height_mm'],
@@ -129,6 +145,8 @@ final class GlassPositionForm extends FormBase {
       'safety_class' => $form_state->getValue('safety_class'),
       'fire_class' => $form_state->getValue('fire_class'),
       'performance_declaration_ref' => $form_state->getValue('performance_declaration_ref'),
+      'wind_check_required' => TRUE,
+      'wind_check_state' => $wind['state'],
     ]);
 
     $this->repository->insert([
@@ -160,6 +178,18 @@ final class GlassPositionForm extends FormBase {
       'area_m2' => $result['area_m2'],
       'perimeter_m' => $result['perimeter_m'],
       'estimated_weight_kg' => $result['estimated_weight_kg'] ?: NULL,
+      'wind_check_required' => 1,
+      'peak_velocity_pressure_kpa' => (float) $form_state->getValue('peak_velocity_pressure_kpa'),
+      'external_pressure_coefficient' => (float) $form_state->getValue('external_pressure_coefficient'),
+      'internal_pressure_coefficient' => (float) $form_state->getValue('internal_pressure_coefficient'),
+      'wind_partial_factor' => (float) $form_state->getValue('wind_partial_factor'),
+      'design_wind_pressure_kpa' => $wind['design_pressure_kpa'],
+      'glass_wind_resistance_kpa' => (float) $form_state->getValue('glass_wind_resistance_kpa'),
+      'wind_utilization' => $wind['utilization'],
+      'wind_standard_ref' => trim((string) $form_state->getValue('wind_standard_ref')),
+      'wind_calculation_ref' => trim((string) $form_state->getValue('wind_calculation_ref')),
+      'wind_verified' => 1,
+      'recommended_glass_ref' => trim((string) $form_state->getValue('recommended_glass_ref')),
       'measurement_source' => (string) $form_state->getValue('measurement_source'),
       'measurement_verified' => $verified ? 1 : 0,
       'technical_status' => $verified ? 'measured' : 'concept',
@@ -168,6 +198,7 @@ final class GlassPositionForm extends FormBase {
         (string) $form_state->getValue('technical_notes'),
         ...$measurement['warnings'],
         ...$result['warnings'],
+        ...$wind['issues'],
         ...$technical['issues'],
       ]))),
       'created_by' => (int) $this->currentUser()->id(),
@@ -187,6 +218,22 @@ final class GlassPositionForm extends FormBase {
   /**
    * @return array{width_mm: int, height_mm: int, width_spread_mm: int, height_spread_mm: int, warnings: string[]}
    */
+  /**
+   * @return array{design_pressure_kpa: float, utilization: float, state: string, issues: string[]}
+   */
+  private function calculateWind(FormStateInterface $formState): array {
+    return $this->windCalculator->calculate(
+      (float) $formState->getValue('peak_velocity_pressure_kpa'),
+      (float) $formState->getValue('external_pressure_coefficient'),
+      (float) $formState->getValue('internal_pressure_coefficient'),
+      (float) $formState->getValue('wind_partial_factor'),
+      (float) $formState->getValue('glass_wind_resistance_kpa'),
+      (string) $formState->getValue('wind_standard_ref'),
+      (string) $formState->getValue('wind_calculation_ref'),
+      (bool) $formState->getValue('wind_verified'),
+    );
+  }
+
   private function calculateMeasurement(FormStateInterface $formState): array {
     return $this->measurementCalculator->calculate(
       [
