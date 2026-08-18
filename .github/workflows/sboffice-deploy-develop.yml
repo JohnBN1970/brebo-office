@@ -142,7 +142,12 @@ jobs:
           if [[ -n "$services_before" ]]; then [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]; fi
 
           cd "$target"
-          drush=(php -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d log_errors=1 -d error_log=/dev/stderr vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          remote_php="/opt/alt/php83/usr/bin/php"
+          [[ -x "$remote_php" ]] || { echo "::error::Required remote PHP 8.3 binary not found: $remote_php"; exit 1; }
+          remote_php_version="$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
+          [[ "$remote_php_version" == "8.3" ]] || { echo "::error::Expected remote PHP 8.3, got $remote_php_version"; exit 1; }
+          "$remote_php" -v
+          drush=("$remote_php" -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d log_errors=1 -d error_log=/dev/stderr vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           diagnose() {
             rc="$1"; line="$2"; command="$3"
@@ -151,15 +156,15 @@ jobs:
             echo "FAILED_EXIT=$rc"
             echo "FAILED_LINE=$line"
             echo "FAILED_COMMAND=$command"
-            php --ini 2>&1 || true
-            php -r 'foreach (["memory_limit","display_errors","display_startup_errors","log_errors","error_log"] as $key) { echo "PHP_" . strtoupper($key) . "=" . ini_get($key) . PHP_EOL; }' 2>&1 || true
+            "$remote_php" --ini 2>&1 || true
+            "$remote_php" -r 'foreach (["memory_limit","display_errors","display_startup_errors","log_errors","error_log"] as $key) { echo "PHP_" . strtoupper($key) . "=" . ini_get($key) . PHP_EOL; }' 2>&1 || true
             for logfile in "$HOME/domains/brebobv.nl/logs/error.log" "$HOME/domains/brebobv.nl/logs/php_error.log" "$target/error_log" "$target/web/error_log"; do
               if [[ -f "$logfile" ]]; then echo "--- $logfile"; tail -n 100 "$logfile" 2>&1 || true; fi
             done
             "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version 2>&1 || true
             "${drush[@]}" watchdog:show --count=40 --extended 2>&1 || "${drush[@]}" ws --count=40 --extended 2>&1 || true
             "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version 2>&1 || true
-            find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 | xargs -0 -n1 php -l 2>&1 || true
+            find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 | xargs -0 -n1 "$remote_php" -l 2>&1 || true
             echo "::endgroup::"
             exit "$rc"
           }
