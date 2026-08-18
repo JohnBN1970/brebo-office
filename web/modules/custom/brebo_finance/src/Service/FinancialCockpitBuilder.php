@@ -107,6 +107,41 @@ final class FinancialCockpitBuilder {
         ),
       ],
       'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
+      'failure_costs' => [
+        'open_count' => $this->countByStatus(
+          'brebo_finance_failure_cost',
+          $projectNid,
+          ['observed', 'validated', 'recovery_pending'],
+        ),
+        'awaiting_validation' => $this->countByStatus(
+          'brebo_finance_failure_cost',
+          $projectNid,
+          ['observed'],
+        ),
+        'recovery_pending' => $this->countByStatus(
+          'brebo_finance_failure_cost',
+          $projectNid,
+          ['recovery_pending'],
+        ),
+        'total_cost_ex_vat' => $this->sumByStatus(
+          'brebo_finance_failure_cost',
+          'total_cost_ex_vat',
+          $projectNid,
+          ['observed', 'validated', 'recovery_pending', 'closed'],
+        ),
+        'recovered_ex_vat' => $this->sumByStatus(
+          'brebo_finance_failure_cost',
+          'recovered_amount_ex_vat',
+          $projectNid,
+          ['observed', 'validated', 'recovery_pending', 'closed'],
+        ),
+        'net_failure_cost_ex_vat' => $this->sumByStatus(
+          'brebo_finance_failure_cost',
+          'net_failure_cost_ex_vat',
+          $projectNid,
+          ['observed', 'validated', 'recovery_pending', 'closed'],
+        ),
+      ],
       'change_orders' => [
         'open_count' => $this->countExceptStatus(
           'brebo_finance_change_order',
