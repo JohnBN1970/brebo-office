@@ -21,3 +21,28 @@ brebo_finance.phase_gates:
   methods: [GET]
   options:
     no_cache: TRUE
+
+brebo_finance.phase_gate_exception_request:
+  path: '/brebo-office/api/finance/projects/{project_nid}/phase-gates/{gate}/exceptions'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::requestException'
+    _title: 'Fasepoortuitzondering aanvragen'
+  requirements:
+    _permission: 'manage brebo finance'
+    project_nid: '\d+'
+    gate: 'procurement_release|execution_start|billing_release|payment_release|project_closeout'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_finance.phase_gate_exception_decide:
+  path: '/brebo-office/api/finance/phase-gate-exceptions/{exception_id}/decision'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::decide'
+    _title: 'Fasepoortuitzondering beoordelen'
+  requirements:
+    _permission: 'manage brebo finance'
+    exception_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
