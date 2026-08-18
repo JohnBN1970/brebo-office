@@ -29,6 +29,10 @@ services:
     class: Drupal\brebo_finance\Service\FinancialDecisionAssignmentResolver
     arguments: ['@entity_type.manager']
 
+  brebo_finance.financial_decision_inbox:
+    class: Drupal\brebo_finance\Service\FinancialDecisionInbox
+    arguments: ['@database', '@brebo_finance.financial_gate_exposure_resolver', '@brebo_finance.financial_approval_matrix', '@brebo_finance.financial_decision_assignment_resolver']
+
   brebo_finance.project_phase_transition_manager:
     class: Drupal\brebo_finance\Service\ProjectPhaseTransitionManager
     arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_phase_gate_manager']
