@@ -11,7 +11,7 @@ final class ComplianceEvidenceEngine {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly PolicyEnforcementService $policyEnforcement,
+    private readonly PolicyStandardEnforcementService $policyEnforcement,
   ) {}
 
   /** @param array<string, mixed> $context
@@ -30,6 +30,7 @@ final class ComplianceEvidenceEngine {
       $decision['message'] = 'Compliance kan niet aantoonbaar worden vastgesteld zonder bewijsreferentie.';
     }
 
+    $encodedEvidence = json_encode($evidence, JSON_THROW_ON_ERROR);
     $id = (int) $this->database->insert('brebo_compliance_evidence')->fields([
       'policy_code' => $policyCode,
       'policy_version' => (string) ($decision['policy_version'] ?? ''),
@@ -37,9 +38,9 @@ final class ComplianceEvidenceEngine {
       'result' => $result,
       'actor_uid' => $actorUid,
       'context_json' => json_encode($context, JSON_THROW_ON_ERROR),
-      'evidence_json' => json_encode($evidence, JSON_THROW_ON_ERROR),
+      'evidence_json' => $encodedEvidence,
       'decision_json' => json_encode($decision, JSON_THROW_ON_ERROR),
-      'evidence_hash' => hash('sha256', json_encode($evidence, JSON_THROW_ON_ERROR)),
+      'evidence_hash' => hash('sha256', $encodedEvidence),
       'evaluated_at' => $now,
     ])->execute();
 
