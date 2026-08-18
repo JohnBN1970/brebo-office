@@ -98,6 +98,7 @@ final class GlassPositionOverviewController extends ControllerBase {
         'application' => $this->t(self::APPLICATION_LABELS[$position['application_type']] ?? $position['application_type']),
         'specification' => $position['composition'],
         'dimensions' => $position['width_mm'] . ' × ' . $position['height_mm'] . ' mm',
+        'measurement_spread' => $position['width_spread_mm'] . ' / ' . $position['height_spread_mm'] . ' mm',
         'quantity' => $position['quantity'],
         'area' => number_format((float) $position['area_m2'], 3, ',', '.') . ' m²',
         'weight' => $position['estimated_weight_kg'] !== NULL
@@ -138,7 +139,8 @@ final class GlassPositionOverviewController extends ControllerBase {
         $this->sortHeader($this->t('Locatie'), 'location', $sort, $direction, $search, $status),
         $this->t('Toepassing'),
         $this->t('Opbouw'),
-        $this->t('Maat'),
+        $this->t('Bestelmaat'),
+        $this->t('Meetverschil B/H'),
         $this->t('Aantal'),
         $this->sortHeader($this->t('Oppervlak'), 'area', $sort, $direction, $search, $status),
         $this->sortHeader($this->t('Gewicht'), 'weight', $sort, $direction, $search, $status),
