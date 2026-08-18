@@ -40,6 +40,18 @@ function brebo_glass_schema(): array {
       'estimated_weight_kg' => ['type' => 'numeric', 'precision' => 12, 'scale' => 2, 'not null' => FALSE],
       'measurement_source' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
       'measurement_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'wind_check_required' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'peak_velocity_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'external_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'internal_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_partial_factor' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'design_wind_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'glass_wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_utilization' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+      'wind_standard_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'wind_calculation_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'wind_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'recommended_glass_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'technical_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
       'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
       'technical_notes' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
@@ -115,6 +127,33 @@ function brebo_glass_update_11002(): void {
         'not null' => TRUE,
         'default' => 0,
       ]);
+    }
+  }
+}
+
+
+/**
+ * Adds traceable wind-load assessment fields.
+ */
+function brebo_glass_update_11003(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'wind_check_required' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+    'peak_velocity_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'external_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'internal_pressure_coefficient' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_partial_factor' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'design_wind_pressure_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'glass_wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_utilization' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => FALSE],
+    'wind_standard_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'wind_calculation_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'wind_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    'recommended_glass_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
     }
   }
 }
