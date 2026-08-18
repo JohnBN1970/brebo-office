@@ -85,16 +85,58 @@ final class ProjectFinancialControl {
       }
     }
 
-    // Only labor actuals are currently backed by approved operational data.
-    // Non-labor actuals/commitments stay explicitly unknown until the finance
-    // objects are linked, rather than being guessed from budget data.
     $budgetLaborCost = 0.0;
     foreach ($rows as $row) {
       $budgetLaborCost += (float) $row['budget_hours'] * (float) $row['labor_rate'];
     }
     $nonLaborBudget = max(0.0, $budgetCost - $budgetLaborCost);
-    $forecastCost = $nonLaborBudget + $forecastLaborCost;
+
+    // A selected supplier quote is treated as an explicit procurement
+    // commitment. The RFQ already links to project/work budget, so we can
+    // include this without introducing a second procurement truth.
+    $commitmentCost = 0.0;
+    $commitmentRows = [];
+    $rfqIds = $storage->getQuery()->accessCheck(FALSE)
+      ->condition('type', 'brebo_rfq')
+      ->condition('field_brebo_project_ref', $project->id())
+      ->execute();
+    if ($rfqIds) {
+      $quoteIds = $storage->getQuery()->accessCheck(FALSE)
+        ->condition('type', 'brebo_supplier_quote')
+        ->condition('field_brebo_rfq_ref', array_values($rfqIds), 'IN')
+        ->condition('field_brebo_quote_selected', 1)
+        ->execute();
+      foreach ($storage->loadMultiple($quoteIds) as $quote) {
+        if (!$quote instanceof NodeInterface) {
+          continue;
+        }
+        $rfq = $quote->get('field_brebo_rfq_ref')->entity;
+        $amount = max(0.0, (float) ($quote->get('field_brebo_quote_total')->value ?? 0));
+        $commitmentCost += $amount;
+        $commitmentRows[] = [
+          'supplier' => (string) ($quote->get('field_brebo_supplier_name')->value ?? $quote->label()),
+          'quote_number' => (string) ($quote->get('field_brebo_quote_number')->value ?? ''),
+          'rfq' => $rfq?->label() ?? '—',
+          'amount' => round($amount, 2),
+          'status' => (string) ($quote->get('field_brebo_quote_status')->value ?? 'Geselecteerd'),
+        ];
+      }
+    }
+
+    $nonLaborForecast = $commitmentCost > 0.0
+      ? max($commitmentCost, $nonLaborBudget)
+      : $nonLaborBudget;
+    $forecastCost = $nonLaborForecast + $forecastLaborCost;
     $variance = $forecastCost - $budgetCost;
+    $commitmentCoverage = $nonLaborBudget > 0 ? ($commitmentCost / $nonLaborBudget) * 100 : 0.0;
+
+    if ($commitmentCost > $nonLaborBudget + 0.01) {
+      $signals[] = 'Geselecteerde inkoopverplichtingen overschrijden het niet-arbeidsbudget met € ' . number_format($commitmentCost - $nonLaborBudget, 2, ',', '.') . '.';
+    }
+    elseif ($commitmentCost > 0 && $commitmentCoverage >= 90) {
+      $signals[] = 'Minimaal 90% van het niet-arbeidsbudget is reeds door geselecteerde leveranciersoffertes vastgelegd.';
+    }
+
     $status = 'Akkoord';
     if ($variance > 0.01) {
       $status = 'Overschrijding verwacht';
@@ -114,6 +156,8 @@ final class ProjectFinancialControl {
       'budget_cost' => round($budgetCost, 2),
       'budget_labor_cost' => round($budgetLaborCost, 2),
       'non_labor_budget' => round($nonLaborBudget, 2),
+      'commitment_cost' => round($commitmentCost, 2),
+      'commitment_coverage_pct' => round($commitmentCoverage, 1),
       'actual_labor_cost' => round($actualLaborCost, 2),
       'forecast_labor_cost' => round($forecastLaborCost, 2),
       'forecast_cost' => round($forecastCost, 2),
@@ -123,7 +167,8 @@ final class ProjectFinancialControl {
       'forecast_hours' => round($forecastHours, 2),
       'signals' => array_values(array_unique($signals)),
       'rows' => $rows,
-      'actual_scope' => 'Arbeid op basis van goedgekeurde uren; overige werkelijke kosten en verplichtingen nog niet gekoppeld.',
+      'commitment_rows' => $commitmentRows,
+      'actual_scope' => 'Werkelijke arbeid uit goedgekeurde uren plus geselecteerde leveranciersoffertes als inkoopverplichting. Ontvangen facturen en betalingen zijn nog niet als afzonderlijke financiële objecten gekoppeld.',
     ];
   }
 
