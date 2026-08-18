@@ -172,7 +172,7 @@ final class DigitalController {
         'last_seen',
       ])
       ->condition('project_nid', $projectNid)
-      ->condition('status', 'open')
+      ->condition('status', ['open', 'pending_verification'], 'IN')
       ->orderBy('severity')
       ->orderBy('detected')
       ->execute()
