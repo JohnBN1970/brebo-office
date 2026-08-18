@@ -95,6 +95,77 @@ final class GlassPositionRepository {
     return $counts;
   }
 
+  /**
+   * @return array<string, mixed>|null
+   */
+  public function find(int $id): ?array {
+    $record = $this->database->select('brebo_glass_position', 'g')
+      ->fields('g')
+      ->condition('id', $id)
+      ->execute()
+      ->fetchAssoc();
+    return $record ?: NULL;
+  }
+
+  public function approve(int $id, int $userId, string $reference, string $note): void {
+    $position = $this->find($id);
+    if (!$position) {
+      throw new \InvalidArgumentException('Glaspositie bestaat niet.');
+    }
+    if ((string) $position['technical_status'] === 'approved') {
+      throw new \InvalidArgumentException('Glaspositie is al technisch vrijgegeven.');
+    }
+    if (
+      (string) $position['technical_status'] !== 'measured'
+      || (string) $position['technical_check_state'] !== 'passed'
+      || (int) $position['measurement_verified'] !== 1
+      || (int) $position['wind_verified'] !== 1
+      || (float) $position['wind_utilization'] > 1.0
+      || trim((string) $position['recommended_glass_ref']) === ''
+    ) {
+      throw new \InvalidArgumentException('Glaspositie voldoet niet aan alle harde vrijgave-eisen.');
+    }
+    if (trim($reference) === '' || trim($note) === '') {
+      throw new \InvalidArgumentException('Vrijgavereferentie en motivatie zijn verplicht.');
+    }
+
+    $checksumData = [
+      'position_code' => $position['position_code'],
+      'application_type' => $position['application_type'],
+      'composition' => $position['composition'],
+      'width_mm' => $position['width_mm'],
+      'height_mm' => $position['height_mm'],
+      'quantity' => $position['quantity'],
+      'design_wind_pressure_kpa' => $position['design_wind_pressure_kpa'],
+      'glass_wind_resistance_kpa' => $position['glass_wind_resistance_kpa'],
+      'wind_utilization' => $position['wind_utilization'],
+      'wind_standard_ref' => $position['wind_standard_ref'],
+      'wind_calculation_ref' => $position['wind_calculation_ref'],
+      'recommended_glass_ref' => $position['recommended_glass_ref'],
+    ];
+    $checksum = hash('sha256', json_encode($checksumData, JSON_THROW_ON_ERROR));
+    $now = $this->time->getRequestTime();
+
+    $affected = $this->database->update('brebo_glass_position')
+      ->fields([
+        'technical_status' => 'approved',
+        'approved_by' => $userId,
+        'approved_at' => $now,
+        'approval_note' => trim($note),
+        'approval_reference' => trim($reference),
+        'approval_checksum' => $checksum,
+        'changed' => $now,
+      ])
+      ->condition('id', $id)
+      ->condition('technical_status', 'measured')
+      ->condition('approved_at', NULL, 'IS NULL')
+      ->execute();
+
+    if ($affected !== 1) {
+      throw new \RuntimeException('Vrijgave is niet opgeslagen; de positie is gelijktijdig gewijzigd.');
+    }
+  }
+
   private function assertNodeBundle(int $nid, string $bundle, string $label): void {
     $node = $this->entityTypeManager->getStorage('node')->load($nid);
     if (!$node || $node->bundle() !== $bundle) {
