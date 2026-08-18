@@ -25,3 +25,11 @@ services:
     arguments:
       - '@database'
       - '@brebo_contract_control.payment_anomaly_intelligence'
+
+  brebo_contract_control.management_control_center:
+    class: Drupal\brebo_contract_control\Service\ManagementControlCenterService
+    arguments:
+      - '@database'
+      - '@brebo_control.portfolio_early_warning'
+      - '@brebo_control.supplier_scorecards'
+      - '@brebo_procurement_control.decision_intelligence'
