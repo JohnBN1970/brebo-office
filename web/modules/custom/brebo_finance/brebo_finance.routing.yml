@@ -1,0 +1,11 @@
+brebo_finance.project_cockpit:
+  path: '/brebo-office/api/finance/projects/{projectNid}/cockpit'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialCockpitController::view'
+    _title: 'BREBO financiële projectcockpit'
+  requirements:
+    _permission: 'access brebo finance'
+    projectNid: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
