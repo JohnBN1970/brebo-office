@@ -43,13 +43,13 @@ final class GlassProductVerifyForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
-    return Url::fromRoute('brebo_glass.product_add');
+    return Url::fromRoute('brebo_glass.product_overview');
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $this->repository->verify($this->productId, (int) $this->currentUser()->id(), (string) $form_state->getValue('verification_note'));
     $this->messenger()->addStatus($this->t('Product geverifieerd en beschikbaar voor automatische glaskeuze.'));
-    $form_state->setRedirect('brebo_glass.product_add');
+    $form_state->setRedirect('brebo_glass.product_overview');
   }
 
 }
