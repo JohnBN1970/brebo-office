@@ -12,9 +12,16 @@ brebo_glass.position_add:
   parent: brebo_glass.position_overview
   weight: 0
 
-brebo_glass.product_add:
+brebo_glass.product_overview:
   title: 'Glasproductcatalogus'
-  description: 'Voeg glasproducten als concept toe voor technische verificatie.'
-  route_name: brebo_glass.product_add
+  description: 'Bekijk de verificatie- en activatiestatus van glasproducten.'
+  route_name: brebo_glass.product_overview
   parent: brebo_glass.position_overview
   weight: 10
+
+brebo_glass.product_add:
+  title: 'Glasproduct toevoegen'
+  description: 'Voeg een glasproduct als concept toe voor technische verificatie.'
+  route_name: brebo_glass.product_add
+  parent: brebo_glass.product_overview
+  weight: 0
