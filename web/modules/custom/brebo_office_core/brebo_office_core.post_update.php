@@ -660,3 +660,198 @@ function brebo_office_core_post_update_project_execution_planning(array &$sandbo
 
   return 'Objectgekoppelde uitvoeringsplanning met baseline, afhankelijkheden en bewijs toegevoegd.';
 }
+
+
+/**
+ * Adds resource capacity, availability and crew planning.
+ */
+function brebo_office_core_post_update_personnel_planning(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  $node_ref = static function (string $label, string $bundle, string $description, int $weight, bool $required = FALSE, int $cardinality = 1): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => $required,
+      'storage' => ['target_type' => 'node'], 'cardinality' => $cardinality,
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [$bundle => $bundle]]],
+      'description' => $description,
+      'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $date = static function (string $label, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'datetime', 'required' => $required,
+      'storage' => ['datetime_type' => 'date'], 'description' => $description,
+      'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => $weight,
+    ];
+  };
+
+  _brebo_office_core_create_node_bundle('brebo_staff_team', 'Ploeg',
+    'Herbruikbare ploeg van eigen of ingehuurde vakmensen met capaciteit en vakbekwaamheden.', [
+      'field_brebo_team_code' => [
+        'label' => 'Ploegcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Unieke herkenbare code van de ploeg.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_team_org' => $node_ref('Organisatie', 'brebo_organization', 'Werkgever, onderaannemer of inlenende organisatie.', 2),
+      'field_brebo_team_members' => $node_ref('Ploegleden', 'brebo_contact', 'Actieve personen die normaal deel uitmaken van deze ploeg.', 3, FALSE, -1),
+      'field_brebo_team_lead' => $node_ref('Voorman', 'brebo_contact', 'Eerste operationele aanspreekpunt van de ploeg.', 4),
+      'field_brebo_team_capacity' => [
+        'label' => 'Normcapaciteit uren per dag', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => ['precision' => 8, 'scale' => 2], 'description' => 'Beschikbare gezamenlijke dagcapaciteit bij volledige bezetting.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 5,
+      ],
+      'field_brebo_team_skills' => [
+        'label' => 'Vakbekwaamheden', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Werksoorten, certificaten en aantoonbare vakbekwaamheden van de ploeg.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 6,
+      ],
+      'field_brebo_team_active' => [
+        'label' => 'Actief inzetbaar', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Geeft aan dat de ploeg voor nieuwe inzet mag worden gepland.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 7, 'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_team_notes' => [
+        'label' => 'Planningsnotities', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Niet-medische operationele aandachtspunten voor inzet en logistiek.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 8,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_availability', 'Beschikbaarheid',
+    'Tijdvak waarin een persoon of ploeg inzetbaar, gereserveerd of niet beschikbaar is.', [
+      'field_brebo_avail_contact' => $node_ref('Persoon', 'brebo_contact', 'Contactpersoon waarop de beschikbaarheid betrekking heeft.', 1),
+      'field_brebo_avail_user' => [
+        'label' => 'Intern account', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Optionele koppeling voor een interne BREBO-medewerker.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_avail_team' => $node_ref('Ploeg', 'brebo_staff_team', 'Ploeg waarop de beschikbaarheid betrekking heeft.', 3),
+      'field_brebo_avail_start' => $date('Startdatum', 'Eerste dag van dit beschikbaarheidstijdvak.', 4, TRUE),
+      'field_brebo_avail_end' => $date('Einddatum', 'Laatste dag van dit beschikbaarheidstijdvak.', 5, TRUE),
+      'field_brebo_avail_hours_day' => [
+        'label' => 'Beschikbare uren per dag', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 6, 'scale' => 2], 'description' => 'Netto inzetbare uren per werkdag binnen het tijdvak.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_avail_type' => [
+        'label' => 'Beschikbaarheidstype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Beschikbaar, gereserveerd, verlof, opleiding of niet beschikbaar.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7, 'default_value' => [['value' => 'Beschikbaar']],
+      ],
+      'field_brebo_avail_status' => [
+        'label' => 'Status', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, bevestigd of vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8, 'default_value' => [['value' => 'Bevestigd']],
+      ],
+      'field_brebo_avail_note' => [
+        'label' => 'Operationele toelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Alleen planningsinformatie; geen medische gegevens vastleggen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 9,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_staff_assignment', 'Personeelsinzet',
+    'Geplande inzet van een persoon of ploeg op een objectgekoppelde projectactiviteit.', [
+      'field_brebo_staff_project' => $node_ref('Project', 'brebo_project', 'Tijdelijke projectcontext van de inzet.', 1, TRUE),
+      'field_brebo_staff_activity' => $node_ref('Planningsactiviteit', 'brebo_plan_activity', 'Uitvoeringsactiviteit waarop capaciteit wordt ingezet.', 2, TRUE),
+      'field_brebo_staff_building' => $node_ref('Gebouw', 'brebo_building', 'Permanent gebouw waarop de inzet plaatsvindt.', 3),
+      'field_brebo_staff_object' => [
+        'label' => 'Gebouwobject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [
+          'brebo_building_zone' => 'brebo_building_zone', 'brebo_cluster' => 'brebo_cluster',
+          'brebo_dwelling' => 'brebo_dwelling', 'brebo_product_position' => 'brebo_product_position',
+        ]]],
+        'description' => 'Zone, cluster, woning of productpositie waarop de inzet betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_staff_contact' => $node_ref('Persoon', 'brebo_contact', 'Eigen of ingehuurde vakmens die wordt ingezet.', 5),
+      'field_brebo_staff_user' => [
+        'label' => 'Intern account', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Optionele interne BREBO-gebruiker die wordt ingezet.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 6,
+      ],
+      'field_brebo_staff_team' => $node_ref('Ploeg', 'brebo_staff_team', 'Ploeg die geheel of gedeeltelijk wordt ingezet.', 7),
+      'field_brebo_staff_org' => $node_ref('Uitvoerende organisatie', 'brebo_organization', 'Werkgever, onderaannemer of inleenorganisatie.', 8),
+      'field_brebo_staff_role' => [
+        'label' => 'Rol of vak', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 128], 'description' => 'Bijvoorbeeld uitvoerder, voorman, schilder, glaszetter of timmerman.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+      ],
+      'field_brebo_staff_start' => $date('Geplande start', 'Eerste geplande inzetdag.', 10, TRUE),
+      'field_brebo_staff_end' => $date('Gepland gereed', 'Laatste geplande inzetdag.', 11, TRUE),
+      'field_brebo_staff_plan_hours' => [
+        'label' => 'Geplande uren', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => ['precision' => 10, 'scale' => 2], 'description' => 'Totale netto geplande inzet binnen dit tijdvak.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 12,
+      ],
+      'field_brebo_staff_hours_day' => [
+        'label' => 'Uren per dag', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 6, 'scale' => 2], 'description' => 'Gemiddeld geplande inzet per werkdag.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 13,
+      ],
+      'field_brebo_staff_alloc_pct' => [
+        'label' => 'Inzetpercentage', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 5, 'scale' => 2], 'description' => 'Aandeel van de beschikbare capaciteit van 0 tot en met 100 procent.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 14,
+      ],
+      'field_brebo_staff_status' => [
+        'label' => 'Inzetstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Voorlopig, bevestigd, gestart, afgerond of vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 15, 'default_value' => [['value' => 'Voorlopig']],
+      ],
+      'field_brebo_staff_skill_req' => [
+        'label' => 'Vereiste vakbekwaamheden', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Benodigde vaardigheden, VCA, certificaten of projectkwalificaties.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 16,
+      ],
+      'field_brebo_staff_skill_ok' => [
+        'label' => 'Vakbekwaamheid gecontroleerd', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Bevestigt dat de vereiste kwalificaties aantoonbaar zijn gecontroleerd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 17, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_staff_check_by' => [
+        'label' => 'Gecontroleerd door', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'BREBO-gebruiker die de vakbekwaamheid heeft gecontroleerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 18,
+      ],
+      'field_brebo_staff_check_date' => $date('Controledatum', 'Datum waarop de vakbekwaamheid is gecontroleerd.', 19),
+      'field_brebo_staff_actual_hours' => [
+        'label' => 'Werkelijke uren', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 10, 'scale' => 2], 'description' => 'Bevestigde werkelijk bestede uren voor voortgang en nacalculatie.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 20,
+      ],
+      'field_brebo_staff_conflict' => [
+        'label' => 'Capaciteitsconflict', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Geen, waarschuwing of blokkade na capaciteitscontrole.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 21, 'default_value' => [['value' => 'Geen']],
+      ],
+      'field_brebo_staff_finance_ref' => $node_ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Financiële bron voor kostprijs, inhuurafspraak en nacalculatie.', 22),
+    ]);
+
+  $permissions = [];
+  foreach (['brebo_staff_team', 'brebo_availability', 'brebo_staff_assignment'] as $bundle) {
+    $permissions = array_merge($permissions, [
+      "create $bundle content",
+      "edit own $bundle content",
+      "edit any $bundle content",
+      "view $bundle revisions",
+    ]);
+  }
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Personeelsinzet, beschikbaarheid en ploegen met project-, object-, capaciteit- en kwalificatiekoppelingen toegevoegd.';
+}
