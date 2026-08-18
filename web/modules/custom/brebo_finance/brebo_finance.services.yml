@@ -50,6 +50,12 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.labour_productivity_manager:
+    class: Drupal\brebo_finance\Service\LabourProductivityManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
+
   brebo_finance.financial_cockpit_builder:
     class: Drupal\brebo_finance\Service\FinancialCockpitBuilder
     arguments:
