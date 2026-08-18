@@ -589,6 +589,7 @@ function brebo_finance_schema(): array {
       'id' => ['type' => 'serial', 'not null' => TRUE],
       'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'control_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'origin' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
       'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
       'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
       'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
