@@ -1,0 +1,5 @@
+services:
+  brebo_contract_control.monitoring:
+    class: Drupal\brebo_contract_control\Service\ContractMonitoringService
+    arguments:
+      - '@database'
