@@ -49,6 +49,10 @@ services:
     class: Drupal\brebo_finance\Service\CommitmentManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
 
+  brebo_finance.performance_receipt_manager:
+    class: Drupal\brebo_finance\Service\PerformanceReceiptManager
+    arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+
   brebo_finance.budget_mutation_manager:
     class: Drupal\brebo_finance\Service\BudgetMutationManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
