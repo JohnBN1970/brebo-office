@@ -37,6 +37,10 @@ services:
     class: Drupal\brebo_finance\Service\FinancialDecisionEscalationEngine
     arguments: ['@database', '@brebo_finance.financial_decision_inbox']
 
+  brebo_finance.financial_notification_outbox:
+    class: Drupal\brebo_finance\Service\FinancialNotificationOutbox
+    arguments: ['@database', '@queue']
+
   brebo_finance.project_phase_transition_manager:
     class: Drupal\brebo_finance\Service\ProjectPhaseTransitionManager
     arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_phase_gate_manager']
