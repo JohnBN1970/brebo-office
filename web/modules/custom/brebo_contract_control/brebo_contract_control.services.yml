@@ -55,3 +55,9 @@ services:
     class: Drupal\brebo_contract_control\Service\RootCauseIntelligenceService
     arguments:
       - '@database'
+
+  brebo_contract_control.continuous_improvement:
+    class: Drupal\brebo_contract_control\Service\ContinuousImprovementEngine
+    arguments:
+      - '@brebo_contract_control.root_cause_intelligence'
+      - '@brebo_contract_control.control_effectiveness'
