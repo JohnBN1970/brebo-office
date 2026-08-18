@@ -19,3 +19,6 @@ services:
 
   brebo_office_core.project_schedule_calculator:
     class: Drupal\brebo_office_core\Service\ProjectScheduleCalculator
+
+  brebo_office_core.personnel_budget_control:
+    class: Drupal\brebo_office_core\Service\PersonnelBudgetControl
