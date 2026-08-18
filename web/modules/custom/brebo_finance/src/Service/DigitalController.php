@@ -15,6 +15,7 @@ final class DigitalController {
   public function __construct(
     private readonly Connection $database,
     private readonly FinancialControlScanner $controlScanner,
+    private readonly ControllerBriefingBuilder $briefingBuilder,
     private readonly AiFinancialAssessmentManager $aiAssessmentManager,
   ) {}
 
@@ -31,6 +32,7 @@ final class DigitalController {
       'pending_ai_assessments' => $this->pendingAiCount($projectNid),
       'payment_exceptions' => $this->paymentExceptions($projectNid),
       'budget_state' => $this->budgetState($projectNid),
+      'decision_briefing' => $this->briefingBuilder->build($projectNid),
     ];
     $generatedAt = time();
     $canonical = [
