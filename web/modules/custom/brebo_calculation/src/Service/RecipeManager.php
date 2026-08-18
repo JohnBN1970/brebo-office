@@ -48,7 +48,6 @@ final class RecipeManager {
     catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
   }
 
-  /** Changes the recipe-level quantity and recalculates all generated lines. */
   public function updateQuantity(int $instanceId, float $quantity, AccountInterface $actor): void {
     if ($quantity < 0) { throw new \InvalidArgumentException('Recipe quantity cannot be negative.'); }
     $instance = $this->loadInstance($instanceId);
@@ -57,7 +56,22 @@ final class RecipeManager {
     $this->recalculate($instanceId, $actor);
   }
 
-  /** Recalculates parameters and generated lines from current instance values. */
+  /** @param array<string,int|float|string> $values */
+  public function updateParameters(int $instanceId, array $values, AccountInterface $actor): void {
+    $instance = $this->loadInstance($instanceId);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $snapshot = json_decode((string) $instance['snapshot_payload'], TRUE, 512, JSON_THROW_ON_ERROR);
+    $definitions = is_array($snapshot['parameters'] ?? NULL) ? $snapshot['parameters'] : [];
+    $allowed = [];
+    foreach ($definitions as $definition) { $allowed[(string) $definition['parameter_key']] = $definition; }
+    foreach ($values as $key => $value) {
+      if (!isset($allowed[$key])) { throw new \InvalidArgumentException('Unknown recipe parameter: ' . $key); }
+      if ($value !== '' && !is_numeric($value)) { throw new \InvalidArgumentException('Recipe parameter must be numeric: ' . $key); }
+      $this->database->update('brebo_calculation_recipe_instance_parameter')->fields(['value' => (string) $value])->condition('recipe_instance_id', $instanceId)->condition('parameter_key', $key)->execute();
+    }
+    $this->recalculate($instanceId, $actor);
+  }
+
   public function recalculate(int $instanceId, AccountInterface $actor): void {
     $instance = $this->loadInstance($instanceId);
     $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
@@ -68,9 +82,7 @@ final class RecipeManager {
     $result = $this->database->select('brebo_calculation_recipe_instance_parameter', 'p')->fields('p')->condition('recipe_instance_id', $instanceId)->execute();
     foreach ($result as $parameter) { $stored[(string) $parameter->parameter_key] = (string) $parameter->value; }
     $resolved = $this->resolveParameters($parameters, $stored, $quantity);
-    foreach ($resolved as $key => $value) {
-      $this->database->update('brebo_calculation_recipe_instance_parameter')->fields(['calculated_value' => (string) $value])->condition('recipe_instance_id', $instanceId)->condition('parameter_key', $key)->execute();
-    }
+    foreach ($resolved as $key => $value) { $this->database->update('brebo_calculation_recipe_instance_parameter')->fields(['calculated_value' => (string) $value])->condition('recipe_instance_id', $instanceId)->condition('parameter_key', $key)->execute(); }
     $variables = $resolved + ['quantity' => $quantity];
     $result = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l', ['id', 'quantity_formula'])->condition('recipe_instance_id', $instanceId)->condition('is_custom', 0)->execute();
     foreach ($result as $line) {
