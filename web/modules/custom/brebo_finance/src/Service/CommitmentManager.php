@@ -76,13 +76,13 @@ final class CommitmentManager {
 
     $quantityValue = $this->positiveDecimal($quantity, 'quantity');
     $unitPriceValue = $this->positiveDecimal($unitPriceExVat, 'unitPriceExVat');
-    $amountExVat = number_format($quantityValue * $unitPriceValue, 4, '.', '');
+    $amountExVat = $this->vatCalculator->multiply($quantityValue, $unitPriceValue);
 
     $remaining = $this->remainingBudget($budgetLineId, (string) $budgetLine['amount_ex_vat']);
-    if ((float) $amountExVat > $remaining + 0.00005) {
+    if ($this->vatCalculator->compare($amountExVat, $remaining) > 0) {
       throw new RuntimeException(sprintf(
-        'Commitment exceeds the remaining working-budget amount by EUR %.4f.',
-        (float) $amountExVat - $remaining,
+        'Commitment exceeds the remaining working-budget amount by EUR %s.',
+        $this->vatCalculator->subtract($amountExVat, $remaining),
       ));
     }
 
@@ -103,9 +103,9 @@ final class CommitmentManager {
           'budget_line_id' => $budgetLineId,
           'line_number' => $lineNumber,
           'description' => trim($description) !== '' ? trim($description) : $budgetLine['description'],
-          'quantity' => number_format($quantityValue, 4, '.', ''),
+          'quantity' => $quantityValue,
           'unit' => trim($unit) !== '' ? trim($unit) : NULL,
-          'unit_price_ex_vat' => number_format($unitPriceValue, 4, '.', ''),
+          'unit_price_ex_vat' => $unitPriceValue,
           'amount_ex_vat' => $vat->amountExVat,
           'vat_code' => $reverseCharge ? 'NL_REVERSE' : 'NL_' . str_replace('.0000', '', $vat->vatRate),
           'vat_rate' => $vat->vatRate,
@@ -133,7 +133,7 @@ final class CommitmentManager {
           'vat_amount' => $vat->vatAmount,
           'amount_inc_vat' => $vat->amountIncVat,
           'reverse_charge' => $vat->reverseCharge,
-          'remaining_budget_after' => number_format($remaining - (float) $amountExVat, 4, '.', ''),
+          'remaining_budget_after' => $this->vatCalculator->subtract($remaining, $amountExVat),
         ],
         $now,
         $userId,
@@ -186,17 +186,15 @@ final class CommitmentManager {
     return $record;
   }
 
-  private function remainingBudget(int $budgetLineId, string $budgetAmount): float {
+  private function remainingBudget(int $budgetLineId, string $budgetAmount): string {
     $query = $this->database->select('brebo_finance_commitment_line', 'l');
     $query->join('brebo_finance_commitment', 'c', 'c.id = l.commitment_id');
-    $committed = $query
-      ->condition('l.budget_line_id', $budgetLineId)
-      ->condition('c.status', ['cancelled'], 'NOT IN')
-      ->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)', 'committed_total')
-      ->execute()
-      ->fetchField();
+    $query->condition('l.budget_line_id', $budgetLineId);
+    $query->condition('c.status', ['cancelled'], 'NOT IN');
+    $query->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)', 'committed_total');
+    $committed = (string) $query->execute()->fetchField();
 
-    return (float) $budgetAmount - (float) $committed;
+    return $this->vatCalculator->subtract($budgetAmount, $committed);
   }
 
   private function nextLineNumber(int $commitmentId): int {
@@ -226,12 +224,17 @@ final class CommitmentManager {
       ->execute();
   }
 
-  private function positiveDecimal(string $value, string $field): float {
+  private function positiveDecimal(string $value, string $field): string {
     $normalized = str_replace(',', '.', trim($value));
-    if (!is_numeric($normalized) || (float) $normalized <= 0) {
-      throw new InvalidArgumentException("$field must be greater than zero.");
+    try {
+      if ($this->vatCalculator->compare($normalized, '0') <= 0) {
+        throw new InvalidArgumentException("$field must be greater than zero.");
+      }
     }
-    return (float) $normalized;
+    catch (InvalidArgumentException) {
+      throw new InvalidArgumentException("$field must be a positive decimal with at most four decimal places.");
+    }
+    return $normalized;
   }
 
   private function audit(
