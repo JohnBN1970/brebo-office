@@ -32,6 +32,15 @@ brebo_glass.position_to_calculation:
     _permission: 'export brebo glass to calculation'
     position_id: '\d+'
 
+brebo_glass.position_to_procurement:
+  path: '/brebo/glas/{position_id}/inkoopaanvraag'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProcurementRequestForm'
+    _title: 'Glas leveranciersaanvraag'
+  requirements:
+    _permission: 'create brebo procurement requests'
+    position_id: '\d+'
+
 brebo_glass.position_complete:
   path: '/brebo/glas/{position_id}/gereedmelden'
   defaults:
