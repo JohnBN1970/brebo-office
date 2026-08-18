@@ -28,7 +28,7 @@ brebo_finance.phase_gate_exception_request:
     _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::requestException'
     _title: 'Fasepoortuitzondering aanvragen'
   requirements:
-    _permission: 'manage brebo finance'
+    _permission: 'request brebo finance gate exception'
     project_nid: '\d+'
     gate: 'procurement_release|execution_start|billing_release|payment_release|project_closeout'
   methods: [POST]
@@ -41,7 +41,7 @@ brebo_finance.phase_gate_exception_decide:
     _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::decide'
     _title: 'Fasepoortuitzondering beoordelen'
   requirements:
-    _permission: 'manage brebo finance'
+    _permission: 'approve brebo finance'
     exception_id: '\d+'
   methods: [POST]
   options:
