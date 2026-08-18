@@ -624,3 +624,15 @@ brebo_office_core.inzet_capacity:
     _title: 'BREBO Inzet — Capaciteitsprognose'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.inzet_shift_proposal:
+  path: '/inzet/diensten/{node}/personeelsvoorstel'
+  defaults:
+    _form: '\\Drupal\\brebo_office_core\\Form\\WorkforceAssignmentProposalForm'
+    _title: 'BREBO Inzet — Personeelsvoorstel'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
