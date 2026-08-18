@@ -1,0 +1,25 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Reacts to generic procurement source status changes.
+ *
+ * @param array<string,mixed> $event
+ */
+function brebo_glass_brebo_procurement_source_status_changed(array $event): void {
+  if (($event['source_domain'] ?? '') !== 'brebo_glass_position') return;
+  $positionId = (int) ($event['source_reference'] ?? 0);
+  if ($positionId <= 0) return;
+  $status = (string) ($event['status'] ?? '');
+  $mapped = match ($status) {
+    'ordered' => 'ordered',
+    'received' => 'delivered',
+    default => NULL,
+  };
+  if ($mapped === NULL) return;
+  \Drupal::database()->update('brebo_glass_position')
+    ->fields(['technical_status'=>$mapped,'changed'=>time()])
+    ->condition('id',$positionId)
+    ->execute();
+}
