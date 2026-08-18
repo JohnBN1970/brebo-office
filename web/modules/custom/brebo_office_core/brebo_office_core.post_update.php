@@ -488,3 +488,175 @@ function brebo_office_core_post_update_funnel_qualification(array &$sandbox = NU
 
   return 'Klantbehoefte, beslisser, budgetbevestiging en beslisdatum aan commerciële kansen toegevoegd.';
 }
+
+/**
+ * Adds object-linked execution activities without replacing project route gates.
+ */
+function brebo_office_core_post_update_project_execution_planning(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle('brebo_plan_activity', 'Planningsactiviteit',
+    'Uitvoeringsactiviteit onder de bestuurlijke projectroute, gekoppeld aan permanente gebouwobjecten.', [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Tijdelijke projectcontext van deze activiteit.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_plan_code' => [
+        'label' => 'Activiteitcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Unieke WBS- of activiteitcode binnen het project.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_plan_phase' => [
+        'label' => 'Projectfase', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Initiatie, opname, werkvoorbereiding, inkoop, uitvoering, oplevering of nazorg.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+      ],
+      'field_brebo_route_item_ref' => [
+        'label' => 'Route- of vrijgavestap', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_route_item' => 'brebo_route_item']]],
+        'description' => 'Bestuurlijke stap, mijlpaal of vrijgave waarvan deze activiteit afhankelijk is.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 4,
+      ],
+      'field_brebo_building_ref' => [
+        'label' => 'Gebouw', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']]],
+        'description' => 'Permanent gebouw waarop de activiteit betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 5,
+      ],
+      'field_brebo_plan_object_ref' => [
+        'label' => 'Gebouwobject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [
+          'brebo_building_zone' => 'brebo_building_zone', 'brebo_cluster' => 'brebo_cluster',
+          'brebo_dwelling' => 'brebo_dwelling', 'brebo_product_position' => 'brebo_product_position',
+        ]]],
+        'description' => 'Permanente zone, cluster, woning of productpositie waarop het werk wordt uitgevoerd.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 6,
+      ],
+      'field_brebo_plan_sequence' => [
+        'label' => 'Volgorde', 'type' => 'integer', 'required' => TRUE, 'storage' => [],
+        'description' => 'Sorteervolgorde binnen fase of werkstroom.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 7, 'default_value' => [['value' => 10]],
+      ],
+      'field_brebo_plan_baseline_start' => [
+        'label' => 'Baseline start', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Goedgekeurde oorspronkelijke startdatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 8,
+      ],
+      'field_brebo_plan_baseline_end' => [
+        'label' => 'Baseline gereed', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Goedgekeurde oorspronkelijke einddatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 9,
+      ],
+      'field_brebo_plan_start' => [
+        'label' => 'Actuele start', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Huidig geplande startdatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 10,
+      ],
+      'field_brebo_plan_end' => [
+        'label' => 'Actueel gereed', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Huidig geplande einddatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 11,
+      ],
+      'field_brebo_plan_actual_start' => [
+        'label' => 'Werkelijke start', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Aantoonbare werkelijke startdatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 12,
+      ],
+      'field_brebo_plan_actual_end' => [
+        'label' => 'Werkelijk gereed', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'date'], 'description' => 'Aantoonbare werkelijke gereeddatum.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 13,
+      ],
+      'field_brebo_plan_duration' => [
+        'label' => 'Doorlooptijd in werkdagen', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Geplande netto doorlooptijd in werkdagen.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 14,
+      ],
+      'field_brebo_plan_predecessors' => [
+        'label' => 'Voorgangers', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'], 'cardinality' => -1,
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_plan_activity' => 'brebo_plan_activity']]],
+        'description' => 'Activiteiten die volgens de afhankelijkheidsrelatie eerst of gelijktijdig moeten starten of eindigen.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 15,
+      ],
+      'field_brebo_plan_relation' => [
+        'label' => 'Afhankelijkheidsrelatie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 8], 'description' => 'FS, SS, FF of SF; standaard einde-start.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 16, 'default_value' => [['value' => 'FS']],
+      ],
+      'field_brebo_plan_lag_days' => [
+        'label' => 'Wachttijd in werkdagen', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Positieve wachttijd of negatieve overlap na de voorganger.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 17, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_plan_status' => [
+        'label' => 'Activiteitstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Niet gestart, In uitvoering, Geblokkeerd, Gereed of Vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 18, 'default_value' => [['value' => 'Niet gestart']],
+      ],
+      'field_brebo_plan_progress' => [
+        'label' => 'Voortgang percentage', 'type' => 'decimal', 'required' => TRUE,
+        'storage' => ['precision' => 5, 'scale' => 2], 'description' => 'Aantoonbare voortgang van 0 tot en met 100 procent.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 19, 'default_value' => [['value' => '0.00']],
+      ],
+      'field_brebo_plan_owner' => [
+        'label' => 'Verantwoordelijke', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'BREBO-eigenaar van planning, opvolging en gereedmelding.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 20,
+      ],
+      'field_brebo_plan_supplier' => [
+        'label' => 'Uitvoerende partij', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_organization' => 'brebo_organization']]],
+        'description' => 'Onderaannemer, leverancier of andere uitvoerende organisatie.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 21,
+      ],
+      'field_brebo_plan_milestone' => [
+        'label' => 'Mijlpaal', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Activiteit zonder doorlooptijd die een formeel moment markeert.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 22, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_plan_critical' => [
+        'label' => 'Kritieke activiteit', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Vertraging beïnvloedt direct de project- of opleverdatum.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 23, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_plan_proof_required' => [
+        'label' => 'Bewijs vereist', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Gereedmelding vereist foto, controle, document of ander afsluitbewijs.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 24, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_plan_evidence' => [
+        'label' => 'Gereedbewijs', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Herleidbare verwijzing naar foto, document, controle of opleverbewijs.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 25,
+      ],
+      'field_brebo_plan_block_reason' => [
+        'label' => 'Blokkeringsreden', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Oorzaak, gevolg en benodigde deblokkeringsactie.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 26,
+      ],
+    ]);
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach (['create brebo_plan_activity content', 'edit own brebo_plan_activity content',
+        'edit any brebo_plan_activity content', 'view brebo_plan_activity revisions'] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Objectgekoppelde uitvoeringsplanning met baseline, afhankelijkheden en bewijs toegevoegd.';
+}

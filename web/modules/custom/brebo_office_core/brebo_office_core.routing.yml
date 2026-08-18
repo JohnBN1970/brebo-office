@@ -52,9 +52,8 @@ brebo_office_core.building_geocode:
 brebo_office_core.projects:
   path: '/projecten'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\ProjectPortfolioController::overview'
     _title: 'Projecten'
-    bundle: 'brebo_project'
   requirements:
     _permission: 'access content'
 
@@ -136,6 +135,18 @@ brebo_office_core.project_dashboard:
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboard'
     _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::projectDashboardTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_office_core.project_planning:
+  path: '/projecten/{node}/planning'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\ProjectPlanningController::overview'
+    _title_callback: '\Drupal\brebo_office_core\Controller\ProjectPlanningController::title'
   requirements:
     _entity_access: 'node.view'
   options:
