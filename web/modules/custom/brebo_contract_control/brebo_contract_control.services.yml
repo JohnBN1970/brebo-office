@@ -99,3 +99,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_contract_control.audit_package_verification'
+
+  brebo_contract_control.audit_document_renderer:
+    class: Drupal\brebo_contract_control\Service\AuditDocumentRenderer
+    arguments:
+      - '@brebo_contract_control.audit_package_export'
