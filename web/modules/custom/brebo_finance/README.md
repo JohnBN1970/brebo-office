@@ -60,3 +60,7 @@ A contractual purchase order remains one document. Its lines may be distributed 
 ## G-account control
 
 The G-account percentage is not assumed or derived from VAT. It must be agreed and approved per contract, commitment or invoice basis. BREBO Office records the basis, percentage or fixed amount, regular-account share, G-account share, masked IBAN reference, actual bank transaction and supporting evidence. Variances remain blocked for review.
+
+## Digital Controller
+
+The BREBO Digital Controller orchestrates deterministic controls before AI analysis. It seals the exact forecast, open findings, payment exceptions, budget state and model provenance into a hashed evidence package. AI output is rejected when that package changes. The Digital Controller may signal, predict, prioritize and block unsafe workflow transitions, but never grants its own financial approval.
