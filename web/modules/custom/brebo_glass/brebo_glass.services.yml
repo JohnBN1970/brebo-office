@@ -1,4 +1,7 @@
 services:
+  brebo_glass.three_point_measurement_calculator:
+    class: Drupal\brebo_glass\Service\GlassThreePointMeasurementCalculator
+
   brebo_glass.specification_calculator:
     class: Drupal\brebo_glass\Service\GlassSpecificationCalculator
 
