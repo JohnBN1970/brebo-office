@@ -33,8 +33,8 @@ final class GlassCompletionForm extends FormBase {
     $this->positionId = (int) $position_id;
     $position = $this->positions->find($this->positionId);
     if (!$position) throw new \InvalidArgumentException('Glaspositie bestaat niet.');
-    if (!in_array((string) $position['technical_status'], ['approved', 'ordered'], TRUE)) {
-      $form['blocked'] = ['#markup' => '<p>Alleen vrijgegeven of bestelde glasposities kunnen als gemonteerd worden afgerond.</p>'];
+    if (!in_array((string) $position['technical_status'], ['approved', 'ordered', 'delivered'], TRUE)) {
+      $form['blocked'] = ['#markup' => '<p>Alleen vrijgegeven, bestelde of geleverde glasposities kunnen als gemonteerd worden afgerond.</p>'];
       return $form;
     }
     $planned = $this->planned($position);
