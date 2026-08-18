@@ -41,6 +41,14 @@ brebo_glass.position_to_procurement:
     _permission: 'create brebo procurement requests'
     position_id: '\d+'
 
+brebo_glass.procurement_batch:
+  path: '/brebo/glas/inkoop/bundelen'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProcurementBatchForm'
+    _title: 'Glasposities bundelen voor inkoop'
+  requirements:
+    _permission: 'create brebo procurement requests'
+
 brebo_glass.position_complete:
   path: '/brebo/glas/{position_id}/gereedmelden'
   defaults:
