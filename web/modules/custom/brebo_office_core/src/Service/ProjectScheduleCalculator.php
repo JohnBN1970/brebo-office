@@ -19,6 +19,39 @@ final class ProjectScheduleCalculator {
    */
   public function calculate(array $activities): array {
     $errors = [];
+    foreach ($activities as $id => $activity) {
+      $label = (string) ($activity['label'] ?? $id);
+      foreach (['start' => 'startdatum', 'end' => 'einddatum'] as $key => $description) {
+        $value = (string) ($activity[$key] ?? '');
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value);
+        if (!$date instanceof \DateTimeImmutable || $date->format('Y-m-d') !== $value) {
+          $errors[] = sprintf('%s heeft geen geldige %s.', $label, $description);
+        }
+      }
+      if ((int) ($activity['duration'] ?? 0) < 1) {
+        $errors[] = sprintf('%s heeft geen geldige werkduur.', $label);
+      }
+      $relation = strtoupper((string) ($activity['relation'] ?? 'FS'));
+      if (!in_array($relation, ['FS', 'SS', 'FF', 'SF'], TRUE)) {
+        $errors[] = sprintf('%s heeft een onbekende relatie %s.', $label, $relation);
+      }
+      foreach ((array) ($activity['predecessors'] ?? []) as $predecessor_id) {
+        if ((string) $predecessor_id === (string) $id) {
+          $errors[] = sprintf('%s kan niet zijn eigen voorganger zijn.', $label);
+        }
+        elseif (!isset($activities[$predecessor_id])) {
+          $errors[] = sprintf(
+            '%s verwijst naar voorganger %s die niet in dit project of deze planning voorkomt.',
+            $label,
+            $predecessor_id
+          );
+        }
+      }
+    }
+    if ($errors) {
+      return ['activities' => $activities, 'errors' => array_values(array_unique($errors))];
+    }
+
     $order = $this->topologicalOrder($activities, $errors);
     if ($errors) {
       return ['activities' => $activities, 'errors' => $errors];
