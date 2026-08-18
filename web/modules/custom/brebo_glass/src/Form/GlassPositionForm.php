@@ -6,6 +6,7 @@ namespace Drupal\brebo_glass\Form;
 
 use Drupal\brebo_glass\Service\GlassPositionRepository;
 use Drupal\brebo_glass\Service\GlassSpecificationCalculator;
+use Drupal\brebo_glass\Service\GlassTechnicalRuleEvaluator;
 use Drupal\Component\Uuid\UuidInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -18,6 +19,7 @@ final class GlassPositionForm extends FormBase {
 
   public function __construct(
     private readonly GlassSpecificationCalculator $calculator,
+    private readonly GlassTechnicalRuleEvaluator $technicalRules,
     private readonly GlassPositionRepository $repository,
     private readonly UuidInterface $uuid,
   ) {}
@@ -25,6 +27,7 @@ final class GlassPositionForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_glass.specification_calculator'),
+      $container->get('brebo_glass.technical_rule_evaluator'),
       $container->get('brebo_glass.position_repository'),
       $container->get('uuid'),
     );
@@ -42,6 +45,23 @@ final class GlassPositionForm extends FormBase {
     $form['context']['location'] = ['#type' => 'textfield', '#title' => $this->t('Locatie'), '#description' => $this->t('Bijvoorbeeld: voorgevel, verdieping 2, kozijn K-2.14.'), '#required' => TRUE];
 
     $form['specification'] = ['#type' => 'details', '#title' => $this->t('Glasspecificatie'), '#open' => TRUE];
+    $form['specification']['application_type'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Toepassing'),
+      '#options' => [
+        'standard' => $this->t('Standaard raam/gevel'),
+        'door' => $this->t('In deur'),
+        'adjacent_door' => $this->t('Naast deur'),
+        'low_level' => $this->t('Laag bij vloer/loopzone'),
+        'wet_area' => $this->t('Natte ruimte'),
+        'ceiling' => $this->t('Tegen of onder plafond'),
+        'overhead' => $this->t('Beglazing boven personen'),
+        'fall_protection' => $this->t('Vloerafscheiding/doorvalbeveiliging'),
+        'fire_separation' => $this->t('Brandwerende scheiding'),
+      ],
+      '#description' => $this->t('Bepaalt welke technische controles en bewijsstukken verplicht zijn.'),
+      '#required' => TRUE,
+    ];
     $form['specification']['glass_type'] = ['#type' => 'select', '#title' => $this->t('Glastype'), '#options' => ['single' => $this->t('Enkelglas'), 'insulating' => $this->t('Isolatieglas'), 'laminated' => $this->t('Gelaagd glas'), 'tempered' => $this->t('Gehard glas'), 'fire_resistant' => $this->t('Brandwerend glas'), 'other' => $this->t('Overig')], '#required' => TRUE];
     $form['specification']['composition'] = ['#type' => 'textfield', '#title' => $this->t('Opbouw'), '#description' => $this->t('Bijvoorbeeld 4-16-4 of 44.2-15-6.'), '#required' => TRUE];
     $form['specification']['frame_material'] = ['#type' => 'select', '#title' => $this->t('Kozijnmateriaal'), '#empty_option' => $this->t('- Onbekend -'), '#options' => ['wood' => $this->t('Hout'), 'aluminium' => $this->t('Aluminium'), 'plastic' => $this->t('Kunststof'), 'steel' => $this->t('Staal'), 'other' => $this->t('Overig')]];
@@ -49,12 +69,17 @@ final class GlassPositionForm extends FormBase {
       $form['specification'][$key] = ['#type' => 'number', '#title' => $this->t($title), '#min' => 1, '#step' => 1, '#required' => TRUE, '#default_value' => $key === 'quantity' ? 1 : NULL];
     }
 
+    $form['evidence'] = ['#type' => 'details', '#title' => $this->t('Classificaties en bewijs'), '#open' => TRUE];
+    $form['evidence']['safety_class'] = ['#type' => 'textfield', '#title' => $this->t('Letselveiligheidsclassificatie'), '#maxlength' => 64, '#description' => $this->t('Neem de exacte classificatie uit certificaat of prestatieverklaring over.')];
+    $form['evidence']['fire_class'] = ['#type' => 'textfield', '#title' => $this->t('Brandwerendheidsclassificatie'), '#maxlength' => 64, '#description' => $this->t('Bijvoorbeeld de projectspecifiek vereiste E/EW/EI-classificatie met tijdsduur.')];
+    $form['evidence']['performance_declaration_ref'] = ['#type' => 'textfield', '#title' => $this->t('Prestatieverklaring/certificaat'), '#maxlength' => 255, '#description' => $this->t('Referentie naar DoP, productcertificaat, berekening of gelijkwaardige onderbouwing.')];
+
     $form['verification'] = ['#type' => 'details', '#title' => $this->t('Herkomst en verificatie'), '#open' => TRUE];
     $form['verification']['measurement_source'] = ['#type' => 'select', '#title' => $this->t('Bron maatvoering'), '#options' => ['manual' => $this->t('Handmatig ingemeten'), 'drawing' => $this->t('Tekening'), 'photo_ai' => $this->t('Foto/AI'), 'import' => $this->t('Import')], '#required' => TRUE];
     $form['verification']['measurement_verified'] = ['#type' => 'checkbox', '#title' => $this->t('Maatvoering handmatig gecontroleerd')];
     $form['verification']['technical_notes'] = ['#type' => 'textarea', '#title' => $this->t('Technische opmerkingen')];
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Glaspositie opslaan'), '#button_type' => 'primary'];
+    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Glaspositie opslaan en controleren'), '#button_type' => 'primary'];
     return $form;
   }
 
@@ -65,8 +90,24 @@ final class GlassPositionForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $result = $this->calculator->calculate((int) $form_state->getValue('width_mm'), (int) $form_state->getValue('height_mm'), (int) $form_state->getValue('quantity'), (string) $form_state->getValue('composition'));
     $verified = (bool) $form_state->getValue('measurement_verified');
+    $application = (string) $form_state->getValue('application_type');
+    $glassType = (string) $form_state->getValue('glass_type');
+    $result = $this->calculator->calculate(
+      (int) $form_state->getValue('width_mm'),
+      (int) $form_state->getValue('height_mm'),
+      (int) $form_state->getValue('quantity'),
+      (string) $form_state->getValue('composition'),
+    );
+    $technical = $this->technicalRules->evaluate([
+      'application_type' => $application,
+      'glass_type' => $glassType,
+      'measurement_verified' => $verified,
+      'safety_class' => $form_state->getValue('safety_class'),
+      'fire_class' => $form_state->getValue('fire_class'),
+      'performance_declaration_ref' => $form_state->getValue('performance_declaration_ref'),
+    ]);
+
     $this->repository->insert([
       'uuid' => $this->uuid->generate(),
       'building_nid' => (int) $form_state->getValue('building_nid'),
@@ -74,8 +115,12 @@ final class GlassPositionForm extends FormBase {
       'position_code' => trim((string) $form_state->getValue('position_code')),
       'location' => trim((string) $form_state->getValue('location')),
       'frame_material' => $form_state->getValue('frame_material') ?: NULL,
-      'glass_type' => (string) $form_state->getValue('glass_type'),
+      'application_type' => $application,
+      'glass_type' => $glassType,
       'composition' => trim((string) $form_state->getValue('composition')),
+      'safety_class' => trim((string) $form_state->getValue('safety_class')) ?: NULL,
+      'fire_class' => trim((string) $form_state->getValue('fire_class')) ?: NULL,
+      'performance_declaration_ref' => trim((string) $form_state->getValue('performance_declaration_ref')) ?: NULL,
       'width_mm' => (int) $form_state->getValue('width_mm'),
       'height_mm' => (int) $form_state->getValue('height_mm'),
       'quantity' => (int) $form_state->getValue('quantity'),
@@ -85,12 +130,24 @@ final class GlassPositionForm extends FormBase {
       'measurement_source' => (string) $form_state->getValue('measurement_source'),
       'measurement_verified' => $verified ? 1 : 0,
       'technical_status' => $verified ? 'measured' : 'concept',
-      'technical_notes' => trim(implode("\n", array_filter([(string) $form_state->getValue('technical_notes'), ...$result['warnings']]))),
+      'technical_check_state' => $technical['state'],
+      'technical_notes' => trim(implode("\n", array_filter([
+        (string) $form_state->getValue('technical_notes'),
+        ...$result['warnings'],
+        ...$technical['issues'],
+      ]))),
       'created_by' => (int) $this->currentUser()->id(),
     ]);
-    $this->messenger()->addStatus($this->t('Glaspositie opgeslagen: @area m², circa @weight kg.', ['@area' => $result['area_m2'], '@weight' => $result['estimated_weight_kg']]));
-    $form_state->setRedirect('brebo_glass.position_add');
+
+    foreach ($technical['issues'] as $issue) {
+      $this->messenger()->addWarning($this->t('@issue', ['@issue' => $issue]));
+    }
+    $this->messenger()->addStatus($this->t('Glaspositie opgeslagen: @area m², circa @weight kg. Technische voorcontrole: @state.', [
+      '@area' => $result['area_m2'],
+      '@weight' => $result['estimated_weight_kg'],
+      '@state' => $technical['state'],
+    ]));
+    $form_state->setRedirect('brebo_glass.position_overview');
   }
 
 }
-
