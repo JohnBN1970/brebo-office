@@ -19,3 +19,9 @@ services:
     class: Drupal\brebo_contract_control\Service\PaymentAnomalyIntelligenceService
     arguments:
       - '@database'
+
+  brebo_contract_control.controller_cases:
+    class: Drupal\brebo_contract_control\Service\ControllerCaseManagementService
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.payment_anomaly_intelligence'
