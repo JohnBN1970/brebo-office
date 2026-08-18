@@ -20,6 +20,13 @@ services:
   brebo_glass.calculation_line_factory:
     class: Drupal\brebo_glass\Service\GlassCalculationLineFactory
 
+  brebo_glass.calculation_exporter:
+    class: Drupal\brebo_glass\Service\GlassCalculationExporter
+    arguments:
+      - '@brebo_glass.position_repository'
+      - '@brebo_glass.calculation_line_factory'
+      - '@brebo_calculation.object_line_writer'
+
   brebo_glass.position_repository:
     class: Drupal\brebo_glass\Service\GlassPositionRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@brebo_glass.approval_policy']
