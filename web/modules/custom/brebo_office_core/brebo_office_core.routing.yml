@@ -52,9 +52,8 @@ brebo_office_core.building_geocode:
 brebo_office_core.projects:
   path: '/projecten'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\ProjectPortfolioController::overview'
     _title: 'Projecten'
-    bundle: 'brebo_project'
   requirements:
     _permission: 'access content'
 
