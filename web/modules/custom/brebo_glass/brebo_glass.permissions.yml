@@ -1,0 +1,8 @@
+administer brebo glass:
+  title: 'BREBO glas beheren'
+  description: 'Glasposities aanmaken, wijzigen en technisch vrijgeven.'
+  restrict access: true
+
+view brebo glass:
+  title: 'BREBO glas bekijken'
+

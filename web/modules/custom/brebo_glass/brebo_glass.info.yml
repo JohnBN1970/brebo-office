@@ -1,0 +1,10 @@
+name: 'BREBO Glass'
+type: module
+description: 'Objectgerichte glasopname, technische validatie en hoeveelheden binnen BREBO Office.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - brebo_office_core:brebo_office_core
+  - brebo_building_data:brebo_building_data
+

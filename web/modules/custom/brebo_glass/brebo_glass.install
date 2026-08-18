@@ -1,0 +1,50 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_glass_schema(): array {
+  $schema['brebo_glass_position'] = [
+    'description' => 'Canonical glass positions linked to BREBO buildings and projects.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar_ascii', 'length' => 36, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'position_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'location' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'frame_material' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => FALSE],
+      'glass_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'composition' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'quantity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'area_m2' => ['type' => 'numeric', 'precision' => 12, 'scale' => 3, 'not null' => TRUE],
+      'perimeter_m' => ['type' => 'numeric', 'precision' => 12, 'scale' => 3, 'not null' => TRUE],
+      'estimated_weight_kg' => ['type' => 'numeric', 'precision' => 12, 'scale' => 2, 'not null' => FALSE],
+      'measurement_source' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
+      'measurement_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'technical_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
+      'technical_notes' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'uuid' => ['uuid'],
+      'building_position' => ['building_nid', 'position_code'],
+    ],
+    'indexes' => [
+      'building' => ['building_nid'],
+      'project' => ['project_nid'],
+      'glass_type' => ['glass_type'],
+      'status' => ['technical_status'],
+    ],
+  ];
+
+  return $schema;
+}
+

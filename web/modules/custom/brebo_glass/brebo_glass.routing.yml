@@ -1,0 +1,8 @@
+brebo_glass.position_add:
+  path: '/brebo/glas/opname'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassPositionForm'
+    _title: 'Glasopname'
+  requirements:
+    _permission: 'administer brebo glass'
+
