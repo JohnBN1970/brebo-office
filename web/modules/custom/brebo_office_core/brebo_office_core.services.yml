@@ -43,3 +43,8 @@ services:
 
   brebo_office_core.workforce_time_entry_control:
     class: Drupal\brebo_office_core\Service\WorkforceTimeEntryControl
+
+  brebo_office_core.workforce_labor_cost:
+    class: Drupal\brebo_office_core\Service\WorkforceLaborCostService
+    arguments:
+      - '@entity_type.manager'
