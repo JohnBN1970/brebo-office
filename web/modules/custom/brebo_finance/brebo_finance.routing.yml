@@ -22,6 +22,17 @@ brebo_finance.phase_gates:
   options:
     no_cache: TRUE
 
+brebo_finance.financial_decision_page:
+  path: '/brebo-office/finance/decision-inbox'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialDecisionPageController::page'
+    _title: 'Financiële beslisinbox'
+  requirements:
+    _permission: 'approve brebo finance'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
 brebo_finance.financial_decision_inbox:
   path: '/brebo-office/api/finance/decision-inbox'
   defaults:
