@@ -33,3 +33,9 @@ services:
       - '@brebo_control.portfolio_early_warning'
       - '@brebo_control.supplier_scorecards'
       - '@brebo_procurement_control.decision_intelligence'
+
+  brebo_contract_control.management_actions:
+    class: Drupal\brebo_contract_control\Service\ManagementActionEngine
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.management_control_center'
