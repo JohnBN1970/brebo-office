@@ -9,3 +9,15 @@ brebo_finance.project_cockpit:
   methods: [GET]
   options:
     no_cache: TRUE
+
+brebo_finance.phase_gates:
+  path: '/brebo-office/api/finance/projects/{project_nid}/phase-gates'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateController::overview'
+    _title: 'BREBO financiële fasepoorten'
+  requirements:
+    _permission: 'access brebo finance'
+    project_nid: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
