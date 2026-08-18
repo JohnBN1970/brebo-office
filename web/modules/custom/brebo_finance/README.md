@@ -124,3 +124,12 @@ Material contract clauses become explicit obligations with contract and clause r
 Only the assigned owner may submit completion evidence and another user must verify it. Waiving an obligation requires a documented request and separate approver; a clause can never disappear through a simple status edit.
 
 The Digital Controller warns fourteen days before an active obligation expires and escalates overdue items. Missed claim and notice periods, bank guarantees, insurance and penalty conditions are critical because a single missed date can directly remove rights or create financial exposure.
+
+
+### Term invoicing and debtor control
+
+Contract, calendar, verified-progress, milestone and approved-change triggers are recorded as project billing instalments, optionally linked to a central building-model object. A planned instalment becomes billable only when a second person verifies its trigger evidence. BREBO Office never creates, approves or sends the accounting invoice autonomously.
+
+Sent client invoices are synchronized as an idempotent operational mirror from Moneybird. Source timestamps and hashes prevent older data from overwriting newer accounting state. Invoice totals, VAT, paid value and the regular/G-account split are checked with exact decimals.
+
+The Digital Controller flags planned terms whose trigger needs review, billable terms not invoiced within three days, disputed invoices and overdue receivables. More than thirty days overdue is critical. The cockpit separately reports planned revenue, billable but unbilled revenue, invoiced amounts excluding and including VAT, paid cash, overdue invoices and disputes.
