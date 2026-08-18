@@ -1,3 +1,8 @@
 services:
   brebo_finance.three_way_match:
     class: Drupal\brebo_finance\Service\ThreeWayMatchService
+
+  brebo_finance.invoice_control:
+    class: Drupal\brebo_finance\Service\InvoiceControlService
+    arguments:
+      - '@brebo_finance.three_way_match'
