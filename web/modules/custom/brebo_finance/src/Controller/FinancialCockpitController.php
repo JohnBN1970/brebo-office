@@ -28,15 +28,16 @@ final class FinancialCockpitController implements ContainerInjectionInterface {
     );
   }
 
-  public function view(int $projectNid): JsonResponse {
+  public function view(string $projectNid): JsonResponse {
+    $projectId = (int) $projectNid;
     $project = $this->entityTypeManager
       ->getStorage('node')
-      ->load($projectNid);
+      ->load($projectId);
     if ($project === NULL) {
       throw new NotFoundHttpException('BREBO project does not exist.');
     }
 
-    $response = new JsonResponse($this->cockpitBuilder->build($projectNid));
+    $response = new JsonResponse($this->cockpitBuilder->build($projectId));
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     $response->headers->set('X-Content-Type-Options', 'nosniff');
     return $response;
