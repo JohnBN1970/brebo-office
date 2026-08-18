@@ -12,6 +12,7 @@ final class FinancialDecisionEscalationEngine {
   public function __construct(
     private readonly Connection $database,
     private readonly FinancialDecisionInbox $inbox,
+    private readonly FinancialNotificationOutbox $notificationOutbox,
   ) {}
 
   /** @return list<array<string, mixed>> */
@@ -45,9 +46,13 @@ final class FinancialDecisionEscalationEngine {
         || (string) $state['attention'] !== $attention
         || (int) $state['escalation_level'] !== $escalationLevel;
 
+      $outboxId = NULL;
       if ($changed) {
         $this->storeState((int) $item['exception_id'], (int) $item['project_nid'], $attention, $escalationLevel, $dueAt, $now);
         $this->audit($item, $attention, $escalationLevel, $dueAt, $now);
+        if (in_array($attention, ['reminder_due', 'overdue', 'assignment_escalation'], TRUE)) {
+          $outboxId = $this->notificationOutbox->enqueue($item, $attention, $escalationLevel, $dueAt);
+        }
       }
 
       $actions[] = [
@@ -60,7 +65,8 @@ final class FinancialDecisionEscalationEngine {
         'primary_candidate' => $item['assignment']['primary_candidate'] ?? NULL,
         'candidate_count' => (int) ($item['assignment']['candidate_count'] ?? 0),
         'notification_required' => in_array($attention, ['reminder_due', 'overdue', 'assignment_escalation'], TRUE),
-        'notification_channel' => 'pending_channel_adapter',
+        'notification_channel' => 'outbox',
+        'outbox_id' => $outboxId,
       ];
     }
 
