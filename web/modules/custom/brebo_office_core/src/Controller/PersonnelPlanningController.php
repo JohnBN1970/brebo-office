@@ -33,9 +33,9 @@ final class PersonnelPlanningController extends ControllerBase {
   public function title(?NodeInterface $node = NULL): string {
     if ($node instanceof NodeInterface) {
       $this->assertProject($node);
-      return (string) $this->t('Personeelsplanning — @project', ['@project' => $node->label()]);
+      return (string) $this->t('BREBO Inzet — @project', ['@project' => $node->label()]);
     }
-    return (string) $this->t('Personeelsplanning');
+    return (string) $this->t('BREBO Inzet');
   }
 
   public function overview(?NodeInterface $node = NULL): array {
@@ -208,6 +208,21 @@ final class PersonnelPlanningController extends ControllerBase {
         'team' => [
           '#type' => 'link', '#title' => $this->t('Ploeg toevoegen'),
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_staff_team']),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'shift' => [
+          '#type' => 'link', '#title' => $this->t('Dienst toevoegen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_shift']),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
+        'hours' => [
+          '#type' => 'link', '#title' => $this->t('Uren registreren'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_time_entry']),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'leave' => [
+          '#type' => 'link', '#title' => $this->t('Verlof aanvragen'),
+          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_leave_request']),
           '#attributes' => ['class' => ['button']],
         ],
       ],
