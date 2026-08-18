@@ -88,3 +88,14 @@ services:
     arguments:
       - '@database'
       - '@brebo_contract_control.audit_readiness'
+
+  brebo_contract_control.audit_package_verification:
+    class: Drupal\brebo_contract_control\Service\AuditPackageVerificationService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.audit_package_export:
+    class: Drupal\brebo_contract_control\Service\AuditPackageExportService
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.audit_package_verification'
