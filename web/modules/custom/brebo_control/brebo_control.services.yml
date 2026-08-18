@@ -20,9 +20,23 @@ services:
       - '@database'
       - '@brebo_control.escalation_matrix'
 
+  brebo_control.history:
+    class: Drupal\brebo_control\Service\ControlHistoryService
+    arguments:
+      - '@database'
+      - '@brebo_office_core.project_early_warning'
+
+  brebo_control.trend_actions:
+    class: Drupal\brebo_control\Service\ControlTrendActionService
+    arguments:
+      - '@database'
+      - '@brebo_control.history'
+
   brebo_control.automation_runner:
     class: Drupal\brebo_control\Service\ControlAutomationRunner
     arguments:
       - '@entity_type.manager'
       - '@brebo_control.action_manager'
       - '@brebo_control.notification_engine'
+      - '@brebo_control.history'
+      - '@brebo_control.trend_actions'
