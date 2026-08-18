@@ -39,6 +39,12 @@ services:
       - '@brebo_office_core.project_early_warning'
       - '@brebo_control.history'
 
+  brebo_control.portfolio_early_warning:
+    class: Drupal\brebo_control\Service\PortfolioEarlyWarningService
+    arguments:
+      - '@brebo_control.portfolio'
+      - '@database'
+
   brebo_control.automation_runner:
     class: Drupal\brebo_control\Service\ControlAutomationRunner
     arguments:
