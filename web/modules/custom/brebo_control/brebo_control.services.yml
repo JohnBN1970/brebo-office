@@ -45,10 +45,16 @@ services:
       - '@brebo_control.portfolio'
       - '@database'
 
+  brebo_control.supplier_performance:
+    class: Drupal\brebo_control\Service\SupplierPerformanceService
+    arguments:
+      - '@database'
+
   brebo_control.supplier_scorecard:
     class: Drupal\brebo_control\Service\SupplierScorecardService
     arguments:
       - '@database'
+      - '@brebo_control.supplier_performance'
 
   brebo_control.automation_runner:
     class: Drupal\brebo_control\Service\ControlAutomationRunner
