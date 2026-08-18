@@ -89,6 +89,9 @@ function brebo_glass_schema(): array {
       'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
       'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
       'verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'verified_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verified_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verification_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
       'active' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
       'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
@@ -195,5 +198,23 @@ function brebo_glass_update_11004(): void {
   if (!$schema->tableExists('brebo_glass_product')) {
     $definitions = brebo_glass_schema();
     $schema->createTable('brebo_glass_product', $definitions['brebo_glass_product']);
+  }
+}
+
+
+/**
+ * Adds immutable verification metadata to catalog products.
+ */
+function brebo_glass_update_11005(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'verified_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'verified_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    'verification_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_product', $name)) {
+      $schema->addField('brebo_glass_product', $name, $specification);
+    }
   }
 }
