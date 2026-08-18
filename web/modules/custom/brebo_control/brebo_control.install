@@ -39,5 +39,41 @@ function brebo_control_schema(): array {
     ],
   ];
 
+  $schema['brebo_control_notification'] = [
+    'description' => 'Gededupliceerde notificaties voor controlleracties.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'action_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'event_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'recipient_key' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'dedup_key' => ['type' => 'varchar', 'length' => 190, 'not null' => TRUE],
+      'subject' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'message' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'sent_at' => ['type' => 'int', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['dedup_key' => ['dedup_key']],
+    'indexes' => [
+      'status_created' => ['status', 'created'],
+      'action_event' => ['action_id', 'event_type'],
+      'recipient_status' => ['recipient_key', 'status'],
+    ],
+  ];
+
   return $schema;
+}
+
+/**
+ * Add the notification ledger to existing BREBO Control installations.
+ */
+function brebo_control_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_control_notification')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_control_notification', $definitions['brebo_control_notification']);
 }
