@@ -9,3 +9,8 @@ services:
     class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeService
     arguments:
       - '@database'
+
+  brebo_procurement_control.learning:
+    class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeLearningService
+    arguments:
+      - '@database'
