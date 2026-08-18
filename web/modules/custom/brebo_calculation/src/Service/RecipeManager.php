@@ -72,6 +72,26 @@ final class RecipeManager {
     $this->recalculate($instanceId, $actor);
   }
 
+  /** Changes a line override without touching its formula-driven base quantity. */
+  public function updateLineOverride(int $lineId, ?float $manualQuantity, float $wastePct, AccountInterface $actor): void {
+    if ($manualQuantity !== NULL && $manualQuantity < 0) { throw new \InvalidArgumentException('Manual recipe line quantity cannot be negative.'); }
+    if ($wastePct < 0 || $wastePct > 1000) { throw new \InvalidArgumentException('Recipe line waste percentage is outside the allowed range.'); }
+    $line = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')->condition('id', $lineId)->execute()->fetchAssoc();
+    if (!$line) { throw new \InvalidArgumentException('Recipe instance line not found.'); }
+    $instance = $this->loadInstance((int) $line['recipe_instance_id']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->database->update('brebo_calculation_recipe_instance_line')->fields(['manual_quantity' => $manualQuantity, 'waste_pct' => $wastePct])->condition('id', $lineId)->execute();
+  }
+
+  /** Removes the manual quantity override so the calculated value becomes active again. */
+  public function resetLineQuantityOverride(int $lineId, AccountInterface $actor): void {
+    $line = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')->condition('id', $lineId)->execute()->fetchAssoc();
+    if (!$line) { throw new \InvalidArgumentException('Recipe instance line not found.'); }
+    $instance = $this->loadInstance((int) $line['recipe_instance_id']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->database->update('brebo_calculation_recipe_instance_line')->fields(['manual_quantity' => NULL])->condition('id', $lineId)->execute();
+  }
+
   public function recalculate(int $instanceId, AccountInterface $actor): void {
     $instance = $this->loadInstance($instanceId);
     $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
