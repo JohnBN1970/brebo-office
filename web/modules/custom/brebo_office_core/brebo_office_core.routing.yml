@@ -24,7 +24,6 @@ brebo_office_core.building_zones:
   requirements:
     _permission: 'access content'
 
-
 brebo_office_core.building_dashboard:
   path: '/gebouwen/{node}'
   defaults:
@@ -195,7 +194,6 @@ brebo_office_core.project_personnel_planning:
       node:
         type: entity:node
 
-
 brebo_office_core.work_package_dashboard:
   path: '/werkpakketten/{node}'
   defaults:
@@ -228,7 +226,6 @@ brebo_office_core.calculation_dashboard:
       node:
         type: entity:node
 
-
 brebo_office_core.create_offer_version:
   path: '/calculaties/{node}/offerte-maken'
   defaults:
@@ -241,7 +238,6 @@ brebo_office_core.create_offer_version:
       node:
         type: entity:node
 
-
 brebo_office_core.generate_work_budget:
   path: '/calculaties/{node}/werkbegroting-maken'
   defaults:
@@ -253,7 +249,6 @@ brebo_office_core.generate_work_budget:
     parameters:
       node:
         type: entity:node
-
 
 brebo_office_core.work_budgets:
   path: '/werkbegrotingen'
@@ -276,7 +271,6 @@ brebo_office_core.work_budget_dashboard:
       node:
         type: entity:node
 
-
 brebo_office_core.rfqs:
   path: '/prijsaanvragen'
   defaults:
@@ -295,7 +289,6 @@ brebo_office_core.supplier_quotes:
   requirements:
     _permission: 'access content'
 
-
 brebo_office_core.budget_changes:
   path: '/budgetwijzigingen'
   defaults:
@@ -304,7 +297,6 @@ brebo_office_core.budget_changes:
     bundle: 'brebo_budget_change'
   requirements:
     _permission: 'access content'
-
 
 brebo_office_core.project_routes:
   path: '/projectroutes'
@@ -315,7 +307,6 @@ brebo_office_core.project_routes:
   requirements:
     _permission: 'access content'
 
-
 brebo_office_core.project_scopes:
   path: '/projectscopes'
   defaults:
@@ -324,7 +315,6 @@ brebo_office_core.project_scopes:
     bundle: 'brebo_project_scope'
   requirements:
     _permission: 'access content'
-
 
 brebo_office_core.scope_requirements:
   path: '/statusonderdelen'
@@ -335,7 +325,6 @@ brebo_office_core.scope_requirements:
   requirements:
     _permission: 'access content'
 
-
 brebo_office_core.regie_actions:
   path: '/regie-acties'
   defaults:
@@ -344,7 +333,6 @@ brebo_office_core.regie_actions:
   requirements:
     _permission: 'access content'
 
-
 brebo_office_core.communications:
   path: '/communicatie'
   defaults:
@@ -352,7 +340,6 @@ brebo_office_core.communications:
     _title: 'Communicatie-inbox'
   requirements:
     _permission: 'access content'
-
 
 brebo_office_core.crm:
   path: '/relaties'
@@ -541,6 +528,26 @@ brebo_office_core.inzet_shift_day_start:
   defaults:
     _form: '\Drupal\brebo_office_core\Form\WorkforceDayStartForm'
     _title: 'BREBO Inzet — Digitale dagstart maken'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_office_core.inzet_time_approval:
+  path: '/inzet/urencontrole'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\WorkforceTimeApprovalController::overview'
+    _title: 'BREBO Inzet — Urencontrole'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_time_review:
+  path: '/inzet/urencontrole/{node}'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\WorkforceTimeReviewForm'
+    _title: 'BREBO Inzet — Uren beoordelen'
   requirements:
     _entity_access: 'node.update'
   options:
