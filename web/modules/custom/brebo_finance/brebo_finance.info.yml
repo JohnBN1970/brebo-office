@@ -1,0 +1,9 @@
+name: BREBO Finance
+type: module
+description: 'Financiële projectsturing voor inkooporders, leveranciersfacturen, betalingen en 3-way match.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - drupal:field
+  - brebo_office_core:brebo_office_core
