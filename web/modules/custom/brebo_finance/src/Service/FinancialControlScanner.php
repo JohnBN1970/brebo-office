@@ -99,6 +99,20 @@ final class FinancialControlScanner {
       ->range(0, 1)
       ->execute()
       ->fetchAssoc();
+    $cashForecastLimit = date('Y-m-d', $now - (7 * 86400));
+    if ($cashForecast === FALSE || $cashForecast['snapshot_date'] < $cashForecastLimit) {
+      $this->record($projectNid, 'FIN-CASH-FORECAST-STALE', 'medium', 'project', $projectNid,
+        'Dertienweeks kasprognose ontbreekt of is verouderd',
+        'Er is geen committed kasprognose van de laatste zeven dagen.',
+        'Komende tekorten op de reguliere rekening of G-rekening kunnen te laat zichtbaar worden.',
+        'Werk bevestigde ontvangsten en betalingen bij en maak een nieuwe verzegelde dertienweeks kasprognose.',
+        $now,
+        ['latest_snapshot_date' => $cashForecast !== FALSE ? $cashForecast['snapshot_date'] : NULL],
+      );
+      $seen[] = $this->key('FIN-CASH-FORECAST-STALE', 'project', $projectNid);
+      $counts['medium']++;
+    }
+
     if ($cashForecast !== FALSE && $cashForecast['first_regular_shortfall_date'] !== NULL) {
       $this->record($projectNid, 'FIN-CASH-REGULAR-SHORTFALL', 'critical', 'cash_forecast_snapshot', (int) $cashForecast['id'],
         'Reguliere rekening dreigt binnen dertien weken negatief te worden',
