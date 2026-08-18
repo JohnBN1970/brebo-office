@@ -11,3 +11,10 @@ brebo_glass.position_add:
   route_name: brebo_glass.position_add
   parent: brebo_glass.position_overview
   weight: 0
+
+brebo_glass.product_add:
+  title: 'Glasproductcatalogus'
+  description: 'Voeg glasproducten als concept toe voor technische verificatie.'
+  route_name: brebo_glass.product_add
+  parent: brebo_glass.position_overview
+  weight: 10
