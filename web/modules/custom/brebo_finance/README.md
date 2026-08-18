@@ -86,3 +86,9 @@ Access requires both the BREBO Finance view permission and view access to the un
 Labour lines in an approved working budget must contain explicit budget hours and an hourly cost; labour money without an executable hours baseline cannot be locked. Personnel planning and time-registration systems synchronize through an auditable bridge rather than becoming a second financial source of truth. Every source record retains its external identity, version, timestamp, source hash, project, budget line, activity and building-object reference.
 
 The cockpit compares budget, planned, submitted and approved actual hours. Only approved actual hours affect the financial actual. Forecast end hours use the strongest available evidence from planning, submitted hours, approved hours and progress-based productivity. Planning and forecast overruns automatically become Digital Controller findings with quantified labour-cost impact. The same bridge can accept BREBO personnel-planning records and later Shiftbase records without changing the financial baseline.
+
+### Thirteen-week cash forecast
+
+Traceable incoming and outgoing cash events feed two immutable thirteen-week scenarios: committed events only, and committed plus explicitly expected events. Expected events require a recorded confidence but are shown at their full amount rather than being silently probability-weighted. Every event retains its source identity, timestamp and evidence hash.
+
+Regular cash and G-account cash remain separate balances throughout the forecast. Each weekly bucket shows incoming, outgoing and closing balances including VAT. The Digital Controller raises a critical finding for a committed regular-account shortfall, a high finding for a committed G-account shortfall and a high finding for overdue confirmed receipts. It never assumes that restricted G-account cash is freely available for regular payments.
