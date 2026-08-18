@@ -29,6 +29,107 @@ function brebo_finance_schema(): array {
     'not null' => FALSE,
   ];
 
+  $schema['brebo_finance_project_contract'] = [
+    'description' => 'Approved client contract value and commercial project baseline.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'contract_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'client_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'g_account_applicable' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'payment_term_days' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'contract_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_contract' => ['project_nid'],
+      'contract_number' => ['contract_number'],
+    ],
+    'indexes' => [
+      'status' => ['status'],
+    ],
+  ];
+
+  $schema['brebo_finance_revenue_mutation'] = [
+    'description' => 'Client-approved additional or reduced work changing project revenue.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'contract_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'mutation_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'mutation_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'description' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'cause' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'amount_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'vat_amount' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'amount_inc_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'client_approval_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_mutation_number' => ['project_nid', 'mutation_number'],
+    ],
+    'indexes' => [
+      'contract_status' => ['contract_id', 'status'],
+      'project_status' => ['project_nid', 'status'],
+    ],
+  ];
+
+  $schema['brebo_finance_forecast_snapshot'] = [
+    'description' => 'Immutable point-in-time project financial position and end forecast.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'snapshot_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'contract_revenue_ex_vat' => $money,
+      'approved_revenue_mutations_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'current_revenue_ex_vat' => $money,
+      'baseline_cost_ex_vat' => $money,
+      'approved_budget_mutations_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'current_budget_ex_vat' => $money,
+      'committed_ex_vat' => $money,
+      'verified_performance_ex_vat' => $money,
+      'invoiced_ex_vat' => $money,
+      'paid_inc_vat' => $money,
+      'forecast_remaining_cost_ex_vat' => $money,
+      'forecast_end_cost_ex_vat' => $money,
+      'forecast_result_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'forecast_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => FALSE],
+      'risk_reserve_ex_vat' => $money,
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_snapshot_date' => ['project_nid', 'snapshot_date'],
+    ],
+    'indexes' => [
+      'project_created' => ['project_nid', 'created'],
+      'content_hash' => ['content_hash'],
+    ],
+  ];
+
   $schema['brebo_finance_budget'] = [
     'description' => 'Versioned financial budget per BREBO project.',
     'fields' => [
