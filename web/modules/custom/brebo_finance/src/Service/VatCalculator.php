@@ -105,6 +105,21 @@ final class VatCalculator {
   }
 
   /**
+   * Returns a four-decimal percentage for a numerator and denominator.
+   */
+  public function percentage(string $numerator, string $denominator): ?string {
+    $numeratorUnits = $this->parseDecimal($numerator, self::MONEY_SCALE, 'numerator');
+    $denominatorUnits = $this->parseDecimal($denominator, self::MONEY_SCALE, 'denominator');
+    if ($denominatorUnits === 0) {
+      return NULL;
+    }
+    return $this->formatDecimal(
+      $this->roundDivide($numeratorUnits * 100 * self::SCALE_FACTOR, $denominatorUnits),
+      self::MONEY_SCALE,
+    );
+  }
+
+  /**
    * Parses a signed decimal into a scaled integer.
    */
   private function parseDecimal(string $value, int $scale, string $field): int {
