@@ -149,6 +149,72 @@ final class FinancialControlScanner {
       }
     }
 
+    $instalments = $this->database->select('brebo_finance_billing_instalment', 'i')
+      ->fields('i', ['id', 'instalment_number', 'description', 'status', 'planned_invoice_date', 'amount_ex_vat', 'amount_inc_vat', 'billable_at'])
+      ->condition('project_nid', $projectNid)
+      ->condition('status', ['planned', 'billable'], 'IN')
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    foreach ($instalments as $instalment) {
+      if ($instalment['status'] === 'planned' && $instalment['planned_invoice_date'] < $today) {
+        $this->record($projectNid, 'FIN-BILLING-TRIGGER-REVIEW', 'medium', 'billing_instalment', (int) $instalment['id'],
+          'Geplande factuurtermijn is nog niet vrijgegeven',
+          sprintf('Termijn %s stond gepland op %s, maar het contractuele of voortgangstrigger is nog niet door een tweede persoon bevestigd.', $instalment['instalment_number'], $instalment['planned_invoice_date']),
+          'Omzet en kasontvangst kunnen vertragen; vrijgave zonder bewijs kan juist tot een betwiste factuur leiden.',
+          'Controleer het triggerbewijs en laat een bevoegde tweede persoon de termijn factureerbaar stellen of gemotiveerd herplannen.',
+          $now,
+          ['amount_ex_vat' => $instalment['amount_ex_vat'], 'planned_invoice_date' => $instalment['planned_invoice_date']],
+        );
+        $seen[] = $this->key('FIN-BILLING-TRIGGER-REVIEW', 'billing_instalment', (int) $instalment['id']);
+        $counts['medium']++;
+      }
+      elseif ($instalment['status'] === 'billable' && (int) $instalment['billable_at'] < $now - (3 * 86400)) {
+        $this->record($projectNid, 'FIN-BILLABLE-NOT-INVOICED', 'high', 'billing_instalment', (int) $instalment['id'],
+          'Vrijgegeven termijn is niet gefactureerd',
+          sprintf('Termijn %s is langer dan drie dagen factureerbaar zonder gekoppelde verzonden Moneybird-factuur.', $instalment['instalment_number']),
+          'Verdiende omzet blijft onderhanden en de projectcashflow schuift onnodig naar achteren.',
+          'Maak en controleer de factuur in Moneybird, verzend deze na menselijke autorisatie en synchroniseer het bronrecord.',
+          $now,
+          ['amount_ex_vat' => $instalment['amount_ex_vat'], 'amount_inc_vat' => $instalment['amount_inc_vat'], 'billable_at' => $instalment['billable_at']],
+        );
+        $seen[] = $this->key('FIN-BILLABLE-NOT-INVOICED', 'billing_instalment', (int) $instalment['id']);
+        $counts['high']++;
+      }
+    }
+
+    $salesInvoices = $this->database->select('brebo_finance_sales_invoice', 'i')
+      ->fields('i', ['id', 'invoice_number', 'status', 'due_date', 'amount_inc_vat', 'paid_amount_inc_vat', 'dispute_reason'])
+      ->condition('project_nid', $projectNid)
+      ->condition('status', ['sent', 'overdue', 'disputed'], 'IN')
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    foreach ($salesInvoices as $invoice) {
+      if ($invoice['status'] === 'disputed') {
+        $this->record($projectNid, 'FIN-SALES-INVOICE-DISPUTED', 'high', 'sales_invoice', (int) $invoice['id'],
+          'Klantfactuur is betwist',
+          trim((string) $invoice['dispute_reason']) !== '' ? (string) $invoice['dispute_reason'] : sprintf('Moneybird-factuur %s heeft status betwist zonder vastgelegde oorzaak.', $invoice['invoice_number']),
+          'De ontvangst is onzeker en kan omzet, liquiditeit en relatie met de opdrachtgever raken.',
+          'Wijs een eigenaar toe, onderbouw de contractuele prestatie en los de inhoudelijke afwijking met bewijs op; creditering blijft een menselijke beslissing.',
+          $now,
+          ['amount_inc_vat' => $invoice['amount_inc_vat'], 'paid_amount_inc_vat' => $invoice['paid_amount_inc_vat'], 'due_date' => $invoice['due_date']],
+        );
+        $seen[] = $this->key('FIN-SALES-INVOICE-DISPUTED', 'sales_invoice', (int) $invoice['id']);
+        $counts['high']++;
+      }
+      elseif ($invoice['due_date'] < $today) {
+        $daysOverdue = (int) floor(($now - strtotime((string) $invoice['due_date'])) / 86400);
+        $severity = $daysOverdue > 30 ? 'critical' : 'high';
+        $this->record($projectNid, 'FIN-RECEIVABLE-OVERDUE', $severity, 'sales_invoice', (int) $invoice['id'],
+          'Openstaande klantfactuur is vervallen',
+          sprintf('Moneybird-factuur %s is %d dagen over de vervaldatum.', $invoice['invoice_number'], $daysOverdue),
+          'De projectliquiditeit verslechtert en het krediet- of geschilrisico neemt toe.',
+          'Controleer betaling en klantcontact, leg de oorzaak vast en voer het bevoegde debiteurenproces uit.',
+          $now,
+          ['amount_inc_vat' => $invoice['amount_inc_vat'], 'paid_amount_inc_vat' => $invoice['paid_amount_inc_vat'], 'due_date' => $invoice['due_date'], 'days_overdue' => $daysOverdue],
+        );
+        $seen[] = $this->key('FIN-RECEIVABLE-OVERDUE', 'sales_invoice', (int) $invoice['id']);
+        $counts[$severity]++;
+      }
+    }
+
     $scoreRows = $this->database->select('brebo_finance_supplier_score_snapshot', 's')
       ->fields('s', [
         'id',
