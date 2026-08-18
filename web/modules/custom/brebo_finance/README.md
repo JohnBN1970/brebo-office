@@ -116,3 +116,11 @@ Supplier performance is scored from traceable project evidence rather than subje
 Missing evidence is not converted into a flattering zero-risk score. Unavailable metrics remain null and the available weights are transparently renormalized. Every daily score snapshot seals the policy, underlying order, receipt and invoice identifiers, financial aggregates, component scores and content hash.
 
 The Digital Controller flags the latest score when it falls below the policy threshold and explains the weakest measured component. It may require a human review before new procurement, but never autonomously excludes or selects a supplier.
+
+### Contract obligation monitoring
+
+Material contract clauses become explicit obligations with contract and clause references, responsible side, condition, consequence, control measure, deadline, financial exposure, owner and sealed source evidence. Supported categories include payment terms, notice and claim periods, guarantees, retention, bank guarantees, insurance, indexation, penalties, delivery conditions and required documents.
+
+Only the assigned owner may submit completion evidence and another user must verify it. Waiving an obligation requires a documented request and separate approver; a clause can never disappear through a simple status edit.
+
+The Digital Controller warns fourteen days before an active obligation expires and escalates overdue items. Missed claim and notice periods, bank guarantees, insurance and penalty conditions are critical because a single missed date can directly remove rights or create financial exposure.
