@@ -11,6 +11,11 @@ approve brebo glass positions:
   description: 'Glasposities na controle formeel vrijgeven met een auditregistratie.'
   restrict access: true
 
+export brebo glass to calculation:
+  title: 'BREBO glas naar calculatie doorzetten'
+  description: 'Technisch vrijgegeven glasposities als objectregels naar een open BREBO-calculatie doorzetten.'
+  restrict access: true
+
 verify brebo glass products:
   title: 'BREBO glasproducten technisch verifiëren'
   description: 'Conceptproducten na inhoudelijke controle activeren voor automatische glaskeuze.'
