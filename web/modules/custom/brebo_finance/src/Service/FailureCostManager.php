@@ -68,7 +68,7 @@ final class FailureCostManager {
     if (($buildingObjectType === NULL) !== ($buildingObjectId === NULL)) {
       throw new InvalidArgumentException('Building-object type and identifier must be supplied together.');
     }
-    if ($ownerUid <= 0 || $userId <= 0 || !$this->validDate($dueDate) || $evidence === []) {
+    if ($ownerUid <= 0 || $userId <= 0 || !$this->validDate($dueDate) || $dueDate < date('Y-m-d') || $evidence === []) {
       throw new InvalidArgumentException('Failure cost requires owner, valid deadline, evidence and recorder.');
     }
 
@@ -176,6 +176,9 @@ final class FailureCostManager {
     $failure = $this->requireStatus($failureId, ['recovery_pending']);
     if ($this->decimal->compare($recoveredAmountExVat, (string) $failure['recoverable_amount_ex_vat']) > 0) {
       throw new InvalidArgumentException('Recovered amount cannot exceed the validated recoverable amount.');
+    }
+    if ($this->decimal->compare($recoveredAmountExVat, (string) $failure['recovered_amount_ex_vat']) < 0) {
+      throw new InvalidArgumentException('Verified recovery cannot be reduced by a later entry.');
     }
 
     $net = $this->decimal->subtract((string) $failure['total_cost_ex_vat'], $recoveredAmountExVat);
