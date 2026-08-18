@@ -47,6 +47,7 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.labour_productivity_manager'
+      - '@brebo_finance.vat_calculator'
 
   brebo_finance.controller_briefing_builder:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
