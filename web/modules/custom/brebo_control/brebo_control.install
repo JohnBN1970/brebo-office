@@ -87,6 +87,32 @@ function brebo_control_schema(): array {
     ],
   ];
 
+  $schema['brebo_supplier_performance_event'] = [
+    'description' => 'Bewijsbare positieve en negatieve leveranciersprestatie-events.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'category' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'event_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'impact' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'severity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'financial_impact' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'hours_impact' => ['type' => 'numeric', 'precision' => 12, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'description' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'occurred_at' => ['type' => 'int', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'supplier_category' => ['supplier_name', 'category'],
+      'project_supplier' => ['project_nid', 'supplier_name'],
+      'occurred_at' => ['occurred_at'],
+    ],
+  ];
+
   return $schema;
 }
 
@@ -99,9 +125,6 @@ function brebo_control_update_10001(): void {
   $schema->createTable('brebo_control_notification', $definitions['brebo_control_notification']);
 }
 
-/**
- * Add project control history snapshots to existing installations.
- */
 function brebo_control_update_10002(): void {
   $schema = \Drupal::database()->schema();
   if ($schema->tableExists('brebo_control_snapshot')) {
@@ -109,4 +132,16 @@ function brebo_control_update_10002(): void {
   }
   $definitions = brebo_control_schema();
   $schema->createTable('brebo_control_snapshot', $definitions['brebo_control_snapshot']);
+}
+
+/**
+ * Add supplier performance events to existing installations.
+ */
+function brebo_control_update_10003(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_supplier_performance_event')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_supplier_performance_event', $definitions['brebo_supplier_performance_event']);
 }
