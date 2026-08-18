@@ -16,3 +16,8 @@ approve brebo finance:
   title: 'BREBO financiële wijzigingen goedkeuren'
   description: 'Budgetversies, verplichtingen en afwijkingen goedkeuren.'
   restrict access: true
+
+review brebo finance ai:
+  title: 'BREBO financiële AI-beoordelingen reviewen'
+  description: 'AI-analyses accepteren, afwijzen of omzetten naar een controlebevinding.'
+  restrict access: true
