@@ -27,31 +27,27 @@ function brebo_contract_control_schema(): array {
   $schema['brebo_controller_case'] = [
     'description' => 'Onderzoeksdossier voor financiële anomalieën en controllerbevindingen.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'case_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
-      'risk_score' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'financial_exposure' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
-      'signals_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'reviewer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
-      'deadline_at' => ['type' => 'int', 'not null' => TRUE],
-      'conclusion' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-      'created_at' => ['type' => 'int', 'not null' => TRUE],
-      'concluded_at' => ['type' => 'int', 'not null' => FALSE],
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'case_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'risk_score' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0], 'financial_exposure' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'signals_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'reviewer_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'], 'deadline_at' => ['type' => 'int', 'not null' => TRUE], 'conclusion' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'created_at' => ['type' => 'int', 'not null' => TRUE], 'concluded_at' => ['type' => 'int', 'not null' => FALSE],
     ],
     'primary key' => ['id'], 'unique keys' => ['case_ref' => ['case_ref']], 'indexes' => ['status_deadline' => ['status', 'deadline_at'], 'severity' => ['severity']],
+  ];
+  $schema['brebo_management_action'] = [
+    'description' => 'Managementacties die automatisch uit controlsignalen worden aangemaakt en bewaakt.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'action_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE], 'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'], 'due_at' => ['type' => 'int', 'not null' => TRUE], 'context_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'resolution' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'resolved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created_at' => ['type' => 'int', 'not null' => TRUE], 'resolved_at' => ['type' => 'int', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'], 'indexes' => ['key_status' => ['action_key', 'status'], 'owner_status' => ['owner_uid', 'status'], 'due_status' => ['due_at', 'status']],
   ];
   return $schema;
 }
 
-/** Add controller investigation cases to existing installations. */
-function brebo_contract_control_update_10001(): void {
-  $schema = \Drupal::database()->schema();
-  if (!$schema->tableExists('brebo_controller_case')) {
-    $definitions = brebo_contract_control_schema();
-    $schema->createTable('brebo_controller_case', $definitions['brebo_controller_case']);
-  }
-}
+function brebo_contract_control_update_10001(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_controller_case')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_controller_case', $d['brebo_controller_case']); } }
+/** Add management action tracking to existing installations. */
+function brebo_contract_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_management_action')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_management_action', $d['brebo_management_action']); } }
