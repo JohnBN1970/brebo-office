@@ -13,3 +13,9 @@ services:
     class: Drupal\brebo_control\Service\ControlInboxService
     arguments:
       - '@database'
+
+  brebo_control.notification_engine:
+    class: Drupal\brebo_control\Service\ControlNotificationEngine
+    arguments:
+      - '@database'
+      - '@brebo_control.escalation_matrix'
