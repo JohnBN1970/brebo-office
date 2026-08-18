@@ -30,6 +30,41 @@ final class GlassProductRepository {
   }
 
   /**
+   * @return array<string, mixed>|null
+   */
+  public function find(int $id): ?array {
+    $record = $this->database->select('brebo_glass_product', 'p')
+      ->fields('p')
+      ->condition('id', $id)
+      ->execute()
+      ->fetchAssoc();
+    return $record ?: NULL;
+  }
+
+  public function verify(int $id, int $userId, string $note): void {
+    $product = $this->find($id);
+    if (!$product || (int) $product['verified'] === 1) {
+      throw new \InvalidArgumentException('Product bestaat niet of is al geverifieerd.');
+    }
+    if (trim($note) === '') {
+      throw new \InvalidArgumentException('Verificatiemotivatie is verplicht.');
+    }
+
+    $this->database->update('brebo_glass_product')
+      ->fields([
+        'verified' => 1,
+        'active' => 1,
+        'verified_by' => $userId,
+        'verified_at' => $this->time->getRequestTime(),
+        'verification_note' => trim($note),
+        'changed' => $this->time->getRequestTime(),
+      ])
+      ->condition('id', $id)
+      ->condition('verified', 0)
+      ->execute();
+  }
+
+  /**
    * @return array<int, array<string, mixed>>
    */
   public function activeVerifiedCandidates(): array {
