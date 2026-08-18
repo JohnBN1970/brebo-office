@@ -225,6 +225,16 @@ final class PersonnelPlanningController extends ControllerBase {
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_time_entry']),
           '#attributes' => ['class' => ['button']],
         ],
+        'skills' => [
+          '#type' => 'link', '#title' => $this->t('Vakbekwaamheden'),
+          '#url' => Url::fromRoute('brebo_office_core.inzet_skills'),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'qualifications' => [
+          '#type' => 'link', '#title' => $this->t('Kwalificatiebewijzen'),
+          '#url' => Url::fromRoute('brebo_office_core.inzet_qualifications'),
+          '#attributes' => ['class' => ['button']],
+        ],
         'leave' => [
           '#type' => 'link', '#title' => $this->t('Verlof aanvragen'),
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_leave_request']),
