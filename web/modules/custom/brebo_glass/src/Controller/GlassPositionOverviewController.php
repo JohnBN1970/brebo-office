@@ -18,6 +18,25 @@ use Symfony\Component\HttpFoundation\RequestStack;
  */
 final class GlassPositionOverviewController extends ControllerBase {
 
+  private const APPLICATION_LABELS = [
+    'standard' => 'Standaard',
+    'door' => 'Deur',
+    'adjacent_door' => 'Naast deur',
+    'low_level' => 'Laag bij vloer',
+    'wet_area' => 'Natte ruimte',
+    'ceiling' => 'Plafond',
+    'overhead' => 'Boven personen',
+    'fall_protection' => 'Doorvalbeveiliging',
+    'fire_separation' => 'Brandscheiding',
+  ];
+
+  private const CHECK_LABELS = [
+    'pending' => 'Nog niet gecontroleerd',
+    'passed' => 'Voorcontrole akkoord',
+    'expert_review' => 'Deskundige beoordeling',
+    'blocked' => 'Geblokkeerd',
+  ];
+
   private const STATUS_LABELS = [
     'concept' => 'Concept',
     'measured' => 'Ingemeten',
@@ -76,6 +95,7 @@ final class GlassPositionOverviewController extends ControllerBase {
           : '-',
         'position' => $position['position_code'],
         'location' => $position['location'],
+        'application' => $this->t(self::APPLICATION_LABELS[$position['application_type']] ?? $position['application_type']),
         'specification' => $position['composition'],
         'dimensions' => $position['width_mm'] . ' × ' . $position['height_mm'] . ' mm',
         'quantity' => $position['quantity'],
@@ -84,6 +104,7 @@ final class GlassPositionOverviewController extends ControllerBase {
           ? number_format((float) $position['estimated_weight_kg'], 2, ',', '.') . ' kg'
           : $this->t('Te bepalen'),
         'verified' => (int) $position['measurement_verified'] === 1 ? $this->t('Ja') : $this->t('Nee'),
+        'technical_check' => $this->t(self::CHECK_LABELS[$position['technical_check_state']] ?? $position['technical_check_state']),
         'status' => $this->t(self::STATUS_LABELS[$position['technical_status']] ?? $position['technical_status']),
       ];
     }
@@ -111,16 +132,18 @@ final class GlassPositionOverviewController extends ControllerBase {
     $build['table'] = [
       '#type' => 'table',
       '#header' => [
-        $this->sortHeader($this->t('Gebouw'), 'changed', $sort, $direction, $search, $status),
+        $this->t('Gebouw'),
         $this->t('Project'),
         $this->sortHeader($this->t('Positie'), 'position', $sort, $direction, $search, $status),
         $this->sortHeader($this->t('Locatie'), 'location', $sort, $direction, $search, $status),
+        $this->t('Toepassing'),
         $this->t('Opbouw'),
         $this->t('Maat'),
         $this->t('Aantal'),
         $this->sortHeader($this->t('Oppervlak'), 'area', $sort, $direction, $search, $status),
         $this->sortHeader($this->t('Gewicht'), 'weight', $sort, $direction, $search, $status),
-        $this->t('Gecontroleerd'),
+        $this->t('Maat gecontroleerd'),
+        $this->t('Technische voorcontrole'),
         $this->sortHeader($this->t('Status'), 'status', $sort, $direction, $search, $status),
       ],
       '#rows' => $rows,
