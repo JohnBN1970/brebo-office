@@ -50,8 +50,13 @@ final class WorkforcePlanningOptimizer {
     }
 
     usort($ranked, static function (array $left, array $right): int {
-      return [$right['eligible'], $right['score'], (string) ($left['label'] ?? '')]
-        <=> [$left['eligible'], $left['score'], (string) ($right['label'] ?? '')];
+      if ($left['eligible'] !== $right['eligible']) {
+        return $left['eligible'] ? -1 : 1;
+      }
+      $scoreOrder = $right['score'] <=> $left['score'];
+      return $scoreOrder !== 0
+        ? $scoreOrder
+        : strcmp((string) ($left['label'] ?? ''), (string) ($right['label'] ?? ''));
     });
     return $ranked;
   }
