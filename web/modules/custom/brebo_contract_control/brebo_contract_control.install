@@ -75,6 +75,16 @@ function brebo_contract_control_schema(): array {
     ],
     'primary key' => ['id'], 'indexes' => ['policy_status' => ['policy_id', 'status'], 'valid_until' => ['valid_until']],
   ];
+  $schema['brebo_compliance_evidence'] = [
+    'description' => 'Auditbewijs van policytoetsingen, context, bewijs en uitkomst.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'policy_code' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE], 'policy_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => ''],
+      'scope' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE], 'result' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE], 'actor_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'context_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'decision_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'evidence_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'evaluated_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'], 'indexes' => ['policy_scope' => ['policy_code', 'scope'], 'result' => ['result'], 'evaluated_at' => ['evaluated_at']],
+  ];
   return $schema;
 }
 
@@ -82,9 +92,6 @@ function brebo_contract_control_update_10001(): void { $schema = \Drupal::databa
 function brebo_contract_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_management_action')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_management_action', $d['brebo_management_action']); } }
 function brebo_contract_control_update_10003(): void { $schema = \Drupal::database()->schema(); if (!$schema->fieldExists('brebo_management_action', 'verified_at')) { $schema->addField('brebo_management_action', 'verified_at', ['type' => 'int', 'not null' => FALSE]); } if (!$schema->fieldExists('brebo_management_action', 'verification_result')) { $schema->addField('brebo_management_action', 'verification_result', ['type' => 'text', 'size' => 'normal', 'not null' => FALSE]); } }
 function brebo_contract_control_update_10004(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_organizational_learning')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_organizational_learning', $d['brebo_organizational_learning']); } }
-/** Add versioned executable policy and exception registers. */
-function brebo_contract_control_update_10005(): void {
-  $schema = \Drupal::database()->schema(); $d = brebo_contract_control_schema();
-  if (!$schema->tableExists('brebo_policy_rule')) { $schema->createTable('brebo_policy_rule', $d['brebo_policy_rule']); }
-  if (!$schema->tableExists('brebo_policy_exception')) { $schema->createTable('brebo_policy_exception', $d['brebo_policy_exception']); }
-}
+function brebo_contract_control_update_10005(): void { $schema = \Drupal::database()->schema(); $d = brebo_contract_control_schema(); if (!$schema->tableExists('brebo_policy_rule')) { $schema->createTable('brebo_policy_rule', $d['brebo_policy_rule']); } if (!$schema->tableExists('brebo_policy_exception')) { $schema->createTable('brebo_policy_exception', $d['brebo_policy_exception']); } }
+/** Add compliance evidence audit trail. */
+function brebo_contract_control_update_10006(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_compliance_evidence')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_compliance_evidence', $d['brebo_compliance_evidence']); } }
