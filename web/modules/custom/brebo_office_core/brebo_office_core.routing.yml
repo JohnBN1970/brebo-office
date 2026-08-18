@@ -154,6 +154,18 @@ brebo_office_core.project_planning:
       node:
         type: entity:node
 
+brebo_office_core.project_planning_recalculate:
+  path: '/projecten/{node}/planning/doorrekenen'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\ProjectScheduleRecalculateForm'
+    _title: 'Planning doorrekenen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_office_core.work_packages:
   path: '/werkpakketten'
   defaults:
