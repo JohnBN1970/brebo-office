@@ -1,3 +1,13 @@
+brebo_calculation.norm_library:
+  path: '/admin/brebo/calculations/norms'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\CalculationNormLibraryForm'
+    _title: 'BREBO normenbibliotheek'
+  requirements:
+    _permission: 'manage brebo calculation norms'
+  options:
+    _admin_route: true
+
 brebo_calculation.migration_overview:
   path: '/admin/brebo/calculations/migration-audit'
   defaults:
