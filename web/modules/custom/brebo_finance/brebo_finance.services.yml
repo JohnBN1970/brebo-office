@@ -4,50 +4,39 @@ services:
 
   brebo_finance.working_budget_importer:
     class: Drupal\brebo_finance\Service\WorkingBudgetImporter
-    arguments:
-      - '@database'
-      - '@entity_type.manager'
+    arguments: ['@database', '@entity_type.manager']
 
   brebo_finance.working_budget_approval_manager:
     class: Drupal\brebo_finance\Service\WorkingBudgetApprovalManager
     arguments: ['@database']
 
+  brebo_finance.financial_phase_gate_manager:
+    class: Drupal\brebo_finance\Service\FinancialPhaseGateManager
+    arguments: ['@database']
+
   brebo_finance.commitment_manager:
     class: Drupal\brebo_finance\Service\CommitmentManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.budget_mutation_manager:
     class: Drupal\brebo_finance\Service\BudgetMutationManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.three_way_match_manager:
     class: Drupal\brebo_finance\Service\ThreeWayMatchManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager']
 
   brebo_finance.project_financial_position:
     class: Drupal\brebo_finance\Service\ProjectFinancialPosition
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.control_scanner:
     class: Drupal\brebo_finance\Service\FinancialControlScanner
-    arguments:
-      - '@database'
-      - '@brebo_finance.labour_productivity_manager'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.labour_productivity_manager', '@brebo_finance.vat_calculator']
 
   brebo_finance.controller_briefing_builder:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
@@ -55,71 +44,46 @@ services:
 
   brebo_finance.financial_scenario_engine:
     class: Drupal\brebo_finance\Service\FinancialScenarioEngine
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.building_cost_intelligence_manager:
     class: Drupal\brebo_finance\Service\BuildingCostIntelligenceManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.billing_control_manager:
     class: Drupal\brebo_finance\Service\BillingControlManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.contract_obligation_manager:
     class: Drupal\brebo_finance\Service\ContractObligationManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.supplier_performance_scorecard:
     class: Drupal\brebo_finance\Service\SupplierPerformanceScorecard
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.failure_cost_manager:
     class: Drupal\brebo_finance\Service\FailureCostManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.change_order_manager:
     class: Drupal\brebo_finance\Service\ChangeOrderManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.cash_flow_forecast_manager:
     class: Drupal\brebo_finance\Service\CashFlowForecastManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.labour_productivity_manager:
     class: Drupal\brebo_finance\Service\LabourProductivityManager
-    arguments:
-      - '@database'
-      - '@brebo_finance.vat_calculator'
+    arguments: ['@database', '@brebo_finance.vat_calculator']
 
   brebo_finance.financial_cockpit_builder:
     class: Drupal\brebo_finance\Service\FinancialCockpitBuilder
-    arguments:
-      - '@database'
-      - '@brebo_finance.controller_briefing_builder'
-      - '@brebo_finance.labour_productivity_manager'
+    arguments: ['@database', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
 
   brebo_finance.control_finding_manager:
     class: Drupal\brebo_finance\Service\ControlFindingManager
-    arguments: ['@database']
-
-  brebo_finance.financial_phase_gate_manager:
-    class: Drupal\brebo_finance\Service\FinancialPhaseGateManager
     arguments: ['@database']
 
   brebo_finance.ai_assessment_manager:
@@ -128,8 +92,4 @@ services:
 
   brebo_finance.digital_controller:
     class: Drupal\brebo_finance\Service\DigitalController
-    arguments:
-      - '@database'
-      - '@brebo_finance.control_scanner'
-      - '@brebo_finance.controller_briefing_builder'
-      - '@brebo_finance.ai_assessment_manager'
+    arguments: ['@database', '@brebo_finance.control_scanner', '@brebo_finance.controller_briefing_builder', '@brebo_finance.ai_assessment_manager']
