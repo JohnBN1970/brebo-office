@@ -47,16 +47,30 @@ function brebo_procurement_control_schema(): array {
     ],
     'primary key' => ['id'], 'unique keys' => ['decision_id' => ['decision_id']],
   ];
+  $schema['brebo_procurement_award'] = [
+    'description' => 'Definitieve opdrachtverstrekking na alle inkoopcontroles.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'procurement_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'requested_mode' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'required_mode' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'reviewed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'awarded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'awarded_at' => ['type' => 'int', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'awarded'],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['decision_id' => ['decision_id']],
+    'indexes' => ['project_ref' => ['project_nid', 'procurement_ref'], 'supplier' => ['supplier_name']],
+  ];
   return $schema;
 }
 
-function brebo_procurement_control_update_10001(): void {
-  $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_outcome')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_outcome', $d['brebo_procurement_outcome']); }
-}
-function brebo_procurement_control_update_10002(): void {
-  $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_model_review')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_model_review', $d['brebo_procurement_model_review']); }
-}
-/** Add decision context snapshots to existing installations. */
-function brebo_procurement_control_update_10003(): void {
-  $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_decision_context')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_decision_context', $d['brebo_procurement_decision_context']); }
-}
+function brebo_procurement_control_update_10001(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_outcome')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_outcome', $d['brebo_procurement_outcome']); } }
+function brebo_procurement_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_model_review')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_model_review', $d['brebo_procurement_model_review']); } }
+function brebo_procurement_control_update_10003(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_decision_context')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_decision_context', $d['brebo_procurement_decision_context']); } }
+/** Add final procurement award audit trail. */
+function brebo_procurement_control_update_10004(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_award')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_award', $d['brebo_procurement_award']); } }
