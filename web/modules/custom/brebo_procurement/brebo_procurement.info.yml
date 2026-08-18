@@ -1,0 +1,8 @@
+name: 'BREBO Procurement'
+type: module
+description: 'Centrale leveranciersaanvragen, bestellingen en ontvangstcontrole voor BREBO Office.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_office_core:brebo_office_core
+  - brebo_calculation:brebo_calculation
