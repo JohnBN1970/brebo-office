@@ -17,6 +17,8 @@ final class GlassTechnicalRuleEvaluatorTest extends TestCase {
 
   public function testStandardVerifiedPositionPasses(): void {
     $result = $this->evaluator->evaluate([
+      'wind_check_required' => TRUE,
+      'wind_check_state' => 'passed',
       'application_type' => 'standard',
       'glass_type' => 'insulating',
       'measurement_verified' => TRUE,
@@ -28,6 +30,8 @@ final class GlassTechnicalRuleEvaluatorTest extends TestCase {
 
   public function testUnverifiedMeasurementBlocksApproval(): void {
     $result = $this->evaluator->evaluate([
+      'wind_check_required' => TRUE,
+      'wind_check_state' => 'passed',
       'application_type' => 'standard',
       'glass_type' => 'insulating',
       'measurement_verified' => FALSE,
@@ -38,6 +42,8 @@ final class GlassTechnicalRuleEvaluatorTest extends TestCase {
 
   public function testDoorWithoutSafetyGlassIsBlocked(): void {
     $result = $this->evaluator->evaluate([
+      'wind_check_required' => TRUE,
+      'wind_check_state' => 'passed',
       'application_type' => 'door',
       'glass_type' => 'insulating',
       'measurement_verified' => TRUE,
@@ -50,6 +56,8 @@ final class GlassTechnicalRuleEvaluatorTest extends TestCase {
 
   public function testFallProtectionAlwaysNeedsExpertReview(): void {
     $result = $this->evaluator->evaluate([
+      'wind_check_required' => TRUE,
+      'wind_check_state' => 'passed',
       'application_type' => 'fall_protection',
       'glass_type' => 'laminated',
       'measurement_verified' => TRUE,
@@ -61,6 +69,8 @@ final class GlassTechnicalRuleEvaluatorTest extends TestCase {
 
   public function testFireSeparationNeedsClassification(): void {
     $result = $this->evaluator->evaluate([
+      'wind_check_required' => TRUE,
+      'wind_check_state' => 'passed',
       'application_type' => 'fire_separation',
       'glass_type' => 'fire_resistant',
       'measurement_verified' => TRUE,
