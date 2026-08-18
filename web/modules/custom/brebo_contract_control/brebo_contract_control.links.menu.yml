@@ -1,0 +1,6 @@
+brebo_contract_control.audit_center:
+  title: 'Audit Center'
+  description: 'Audit readiness, bewijs en auditpakketten.'
+  route_name: brebo_contract_control.audit_center
+  parent: system.admin_reports
+  weight: 30
