@@ -39,6 +39,48 @@ final class FinancialCockpitBuilder {
       'forecast' => $forecast,
       'forecast_age_days' => $ageDays,
       'forecast_is_stale' => $ageDays === NULL || $ageDays > 30,
+      'billing_position' => [
+        'planned_ex_vat' => $this->sumByStatus(
+          'brebo_finance_billing_instalment',
+          'amount_ex_vat',
+          $projectNid,
+          ['planned'],
+        ),
+        'billable_not_invoiced_ex_vat' => $this->sumByStatus(
+          'brebo_finance_billing_instalment',
+          'amount_ex_vat',
+          $projectNid,
+          ['billable'],
+        ),
+        'invoiced_ex_vat' => $this->sumExceptStatus(
+          'brebo_finance_sales_invoice',
+          'amount_ex_vat',
+          $projectNid,
+          ['draft', 'cancelled'],
+        ),
+        'invoiced_inc_vat' => $this->sumExceptStatus(
+          'brebo_finance_sales_invoice',
+          'amount_inc_vat',
+          $projectNid,
+          ['draft', 'cancelled'],
+        ),
+        'paid_inc_vat' => $this->sumExceptStatus(
+          'brebo_finance_sales_invoice',
+          'paid_amount_inc_vat',
+          $projectNid,
+          ['draft', 'cancelled'],
+        ),
+        'overdue_count' => $this->countByStatus(
+          'brebo_finance_sales_invoice',
+          $projectNid,
+          ['overdue'],
+        ),
+        'disputed_count' => $this->countByStatus(
+          'brebo_finance_sales_invoice',
+          $projectNid,
+          ['disputed'],
+        ),
+      ],
       'procurement_pipeline' => [
         'committed_ex_vat' => $this->sumExceptStatus(
           'brebo_finance_commitment',
