@@ -83,6 +83,80 @@ final class FinancialControlScanner {
       }
     }
 
+    $cashForecast = $this->database->select('brebo_finance_cash_forecast_snapshot', 'c')
+      ->fields('c', [
+        'id',
+        'snapshot_date',
+        'lowest_regular_balance',
+        'lowest_g_account_balance',
+        'first_regular_shortfall_date',
+        'first_g_account_shortfall_date',
+      ])
+      ->condition('project_nid', $projectNid)
+      ->condition('scenario', 'committed')
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if ($cashForecast !== FALSE && $cashForecast['first_regular_shortfall_date'] !== NULL) {
+      $this->record($projectNid, 'FIN-CASH-REGULAR-SHORTFALL', 'critical', 'cash_forecast_snapshot', (int) $cashForecast['id'],
+        'Reguliere rekening dreigt binnen dertien weken negatief te worden',
+        'Bevestigde ontvangsten en uitgaven veroorzaken volgens de kasprognose een tekort.',
+        'Reguliere betalingen, lonen of projectverplichtingen kunnen niet tijdig worden voldaan.',
+        'Verifieer de bronposten en bepaal vóór de tekortdatum een concrete incasso-, betaal- of financieringsmaatregel.',
+        $now,
+        [
+          'snapshot_date' => $cashForecast['snapshot_date'],
+          'shortfall_date' => $cashForecast['first_regular_shortfall_date'],
+          'lowest_balance' => $cashForecast['lowest_regular_balance'],
+        ],
+      );
+      $seen[] = $this->key('FIN-CASH-REGULAR-SHORTFALL', 'cash_forecast_snapshot', (int) $cashForecast['id']);
+      $counts['critical']++;
+    }
+    if ($cashForecast !== FALSE && $cashForecast['first_g_account_shortfall_date'] !== NULL) {
+      $this->record($projectNid, 'FIN-CASH-GACCOUNT-SHORTFALL', 'high', 'cash_forecast_snapshot', (int) $cashForecast['id'],
+        'G-rekening dreigt binnen dertien weken onvoldoende saldo te hebben',
+        'Bevestigde G-rekeningontvangsten en -betalingen veroorzaken volgens de prognose een tekort.',
+        'Een verplichte G-rekeningbetaling kan niet volgens de goedgekeurde splitsing worden uitgevoerd.',
+        'Controleer ontvangsten, instructies en betaalmomenten zonder geldstromen tussen reguliere en G-rekening stilzwijgend te vermengen.',
+        $now,
+        [
+          'snapshot_date' => $cashForecast['snapshot_date'],
+          'shortfall_date' => $cashForecast['first_g_account_shortfall_date'],
+          'lowest_balance' => $cashForecast['lowest_g_account_balance'],
+        ],
+      );
+      $seen[] = $this->key('FIN-CASH-GACCOUNT-SHORTFALL', 'cash_forecast_snapshot', (int) $cashForecast['id']);
+      $counts['high']++;
+    }
+
+    $receivableQuery = $this->database->select('brebo_finance_cash_event', 'e');
+    $receivableQuery->fields('e', ['id', 'description', 'amount_inc_vat', 'due_date', 'source_type', 'source_id']);
+    $receivableQuery->condition('project_nid', $projectNid);
+    $receivableQuery->condition('direction', 'incoming');
+    $receivableQuery->condition('status', 'confirmed');
+    $receivableQuery->condition('due_date', $today, '<');
+    foreach ($receivableQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $receivable) {
+      $this->record($projectNid, 'FIN-RECEIVABLE-OVERDUE', 'high', 'cash_event', (int) $receivable['id'],
+        'Bevestigde ontvangst is vervallen maar niet ontvangen',
+        'De overeengekomen ontvangstdatum is verstreken en de bronpost staat nog open.',
+        'De liquiditeitsruimte neemt af en geplande projectbetalingen kunnen onder druk komen.',
+        'Controleer factuur en bankmutatie, neem gericht contact op en leg de concrete opvolgactie vast.',
+        $now,
+        [
+          'description' => $receivable['description'],
+          'amount_inc_vat' => $receivable['amount_inc_vat'],
+          'due_date' => $receivable['due_date'],
+          'source_type' => $receivable['source_type'],
+          'source_id' => $receivable['source_id'],
+        ],
+      );
+      $seen[] = $this->key('FIN-RECEIVABLE-OVERDUE', 'cash_event', (int) $receivable['id']);
+      $counts['high']++;
+    }
+
     $invoiceQuery = $this->database->select('brebo_finance_purchase_invoice', 'i');
     $invoiceQuery->fields('i', ['id', 'invoice_number', 'match_status', 'status', 'due_date', 'amount_inc_vat']);
     $invoiceQuery->condition('project_nid', $projectNid);
