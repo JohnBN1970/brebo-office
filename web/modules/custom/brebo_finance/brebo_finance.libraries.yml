@@ -1,0 +1,11 @@
+decision_inbox:
+  version: 1.x
+  css:
+    component:
+      css/decision-inbox.css: {}
+  js:
+    js/decision-inbox.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
