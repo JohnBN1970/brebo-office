@@ -50,3 +50,8 @@ services:
     class: Drupal\brebo_contract_control\Service\ControlEffectivenessIntelligenceService
     arguments:
       - '@database'
+
+  brebo_contract_control.root_cause_intelligence:
+    class: Drupal\brebo_contract_control\Service\RootCauseIntelligenceService
+    arguments:
+      - '@database'
