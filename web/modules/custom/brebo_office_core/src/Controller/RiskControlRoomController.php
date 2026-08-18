@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\brebo_office_core\Service\RiskEscalationActionBridge;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -14,14 +15,31 @@ use Symfony\Component\HttpFoundation\RequestStack;
 
 /** Cross-domain operational escalation cockpit. */
 final class RiskControlRoomController extends ControllerBase {
-  public function __construct(private readonly Connection $database,private readonly EntityTypeManagerInterface $entityTypeManager,private readonly RequestStack $requestStack) {}
-  public static function create(ContainerInterface $container): static{return new static($container->get('database'),$container->get('entity_type.manager'),$container->get('request_stack'));}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly RequestStack $requestStack,
+    private readonly RiskEscalationActionBridge $actionBridge,
+  ) {}
 
-  public function overview():array{
-    if(!$this->database->schema()->tableExists('brebo_risk_escalation'))return['#markup'=>'<p>De escalatielaag wordt automatisch aangemaakt zodra het eerste risico wordt geëscaleerd.</p>'];
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('database'),
+      $container->get('entity_type.manager'),
+      $container->get('request_stack'),
+      $container->get('brebo_office_core.risk_escalation_action_bridge'),
+    );
+  }
+
+  public function overview(): array {
+    if(!$this->database->schema()->tableExists('brebo_risk_escalation')) return ['#markup'=>'<p>De escalatielaag wordt automatisch aangemaakt zodra het eerste risico wordt geëscaleerd.</p>'];
+
+    $reconciled=$this->actionBridge->reconcileCompletedActions();
+    if($reconciled>0) $this->messenger()->addStatus($this->formatPlural($reconciled,'1 escalatie automatisch gesloten vanuit een gereedgemelde BREBO Actie.','@count escalaties automatisch gesloten vanuit gereedgemelde BREBO Acties.'));
+
     $audience=trim((string)$this->requestStack->getCurrentRequest()->query->get('audience',''));
     $q=$this->database->select('brebo_risk_escalation','e')->fields('e')->condition('status',['open','assigned','in_progress'],'IN')->orderBy('created','DESC')->range(0,250);
-    if($audience!=='')$q->condition('audiences_json','%"'.$this->database->escapeLike($audience).'"%','LIKE');
+    if($audience!=='') $q->condition('audiences_json','%"'.$this->database->escapeLike($audience).'"%','LIKE');
     $items=$q->execute()->fetchAllAssoc('id',\PDO::FETCH_ASSOC);$projectIds=[];$ownerIds=[];
     foreach($items as$item){$payload=json_decode((string)$item['payload_json'],TRUE)?:[];if(!empty($payload['project_nid']))$projectIds[]=(int)$payload['project_nid'];if(!empty($item['owner_uid']))$ownerIds[]=(int)$item['owner_uid'];}
     $projects=$this->entityTypeManager->getStorage('node')->loadMultiple(array_unique($projectIds));$owners=$this->entityTypeManager->getStorage('user')->loadMultiple(array_unique($ownerIds));
@@ -30,14 +48,9 @@ final class RiskControlRoomController extends ControllerBase {
       $payload=json_decode((string)$item['payload_json'],TRUE)?:[];$audiences=json_decode((string)$item['audiences_json'],TRUE)?:[];$level=(string)$item['level'];if(isset($counts[$level]))$counts[$level]++;
       $pid=(int)($payload['project_nid']??0);$impact=$payload['impact']??[];$forecast=$payload['forecast']??[];$ownerId=(int)($item['owner_uid']??0);$due=(string)($item['due_date']??'');$isOverdue=$due!==''&&$due<$today;if($isOverdue)$overdue++;
       $rows[]=[
-        'level'=>strtoupper($level),
-        'title'=>$item['title'],
-        'project'=>$pid&&isset($projects[$pid])?$projects[$pid]->label():($pid?'Project #'.$pid:'-'),
-        'audiences'=>implode(', ',$audiences),
-        'owner'=>$ownerId&&isset($owners[$ownerId])?$owners[$ownerId]->getDisplayName():'Nog niet toegewezen',
-        'due'=>$due!==''?($isOverdue?'TE LAAT · '.$due:$due):'-',
-        'status'=>(string)$item['status'],
-        'impact'=>$impact['summary']??'-',
+        'level'=>strtoupper($level),'title'=>$item['title'],'project'=>$pid&&isset($projects[$pid])?$projects[$pid]->label():($pid?'Project #'.$pid:'-'),
+        'audiences'=>implode(', ',$audiences),'owner'=>$ownerId&&isset($owners[$ownerId])?$owners[$ownerId]->getDisplayName():'Nog niet toegewezen',
+        'due'=>$due!==''?($isOverdue?'TE LAAT · '.$due:$due):'-','status'=>(string)$item['status'],'impact'=>$impact['summary']??'-',
         'exposure'=>isset($forecast['expected_known_exposure'])?'€ '.number_format((float)$forecast['expected_known_exposure'],2,',','.'):'-',
         'action'=>Link::fromTextAndUrl($this->t('Afhandelen'),Url::fromRoute('brebo_glass.control_room_handle',['escalation_id'=>(int)$item['id']])),
       ];
