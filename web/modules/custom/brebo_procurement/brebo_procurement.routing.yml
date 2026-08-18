@@ -1,3 +1,13 @@
+brebo_procurement.order_overview:
+  path: '/admin/brebo/procurement/orders'
+  defaults:
+    _controller: '\Drupal\brebo_procurement\Controller\ProcurementOrderOverviewController::overview'
+    _title: 'Inkoop en leveringsbewaking'
+  requirements:
+    _permission: 'view brebo procurement'
+  options:
+    _admin_route: true
+
 brebo_procurement.offer_workbench:
   path: '/admin/brebo/procurement/{request_id}/offers'
   defaults:
