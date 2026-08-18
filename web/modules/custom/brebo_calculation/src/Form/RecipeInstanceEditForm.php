@@ -56,12 +56,16 @@ final class RecipeInstanceEditForm extends FormBase {
       $form['lines']['line_' . $lineId] = $row;
     }
 
-    $form['custom_line'] = ['#type' => 'details', '#title' => $this->t('Regel toevoegen aan recept'), '#open' => FALSE];
+    $form['custom_line'] = ['#type' => 'details', '#title' => $this->t('Regel toevoegen aan recept'), '#open' => FALSE, '#attributes' => ['class' => ['brebo-calc-ingredient-row']]];
+    $form['custom_line']['line_type'] = ['#type' => 'select', '#title' => $this->t('Kostensoort'), '#options' => ['material' => $this->t('Materiaal'), 'labour' => $this->t('Arbeid'), 'equipment' => $this->t('Materieel'), 'subcontracting' => $this->t('Onderaanneming'), 'other' => $this->t('Overig')], '#default_value' => 'material'];
+    $form['custom_line']['picker'] = ['#type' => 'button', '#value' => $this->t('Materiaal uit artikelstam kiezen'), '#attributes' => ['data-brebo-article-picker' => '1', 'class' => ['button', 'button--small']]];
     $form['custom_line']['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving')];
-    $form['custom_line']['line_type'] = ['#type' => 'select', '#title' => $this->t('Kostensoort'), '#options' => ['material' => $this->t('Materiaal'), 'labour' => $this->t('Arbeid'), 'equipment' => $this->t('Materieel'), 'subcontracting' => $this->t('Onderaanneming'), 'other' => $this->t('Overig')]];
     $form['custom_line']['quantity'] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#step' => '0.0001', '#min' => 0];
     $form['custom_line']['unit'] = ['#type' => 'textfield', '#title' => $this->t('Eenheid'), '#maxlength' => 32];
     $form['custom_line']['unit_cost'] = ['#type' => 'number', '#title' => $this->t('Eenheidsprijs'), '#step' => '0.0001', '#min' => 0];
+    foreach (['article_id', 'supplier_article_id', 'price_id', 'catalog_import_id', 'article_code', 'supplier_name', 'supplier_article_no', 'price_date', 'category'] as $hidden) {
+      $form['custom_line'][$hidden] = ['#type' => 'hidden', '#default_value' => $hidden === 'category' ? 'Materiaal' : ''];
+    }
     $form['custom_line']['add'] = ['#type' => 'submit', '#value' => $this->t('+ Regel toevoegen'), '#submit' => ['::addCustomLine'], '#limit_validation_errors' => [['custom_line'], ['recipe_instance']]];
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['save'] = ['#type' => 'submit', '#value' => $this->t('Hoeveelheid opslaan en herberekenen'), '#button_type' => 'primary'];
@@ -70,5 +74,16 @@ final class RecipeInstanceEditForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void { $this->recipeManager->updateQuantity((int) $form_state->getValue('recipe_instance'), (float) $form_state->getValue('quantity'), $this->currentUser()); $this->messenger()->addStatus($this->t('Recepthoeveelheid aangepast en onderliggende regels herberekend.')); $form_state->setRebuild(TRUE); }
   public function selectMaterial(array &$form, FormStateInterface $form_state): void { $trigger = $form_state->getTriggeringElement(); $lineId = (int) ($trigger['#recipe_line_id'] ?? 0); $values = (array) $form_state->getValue(['lines', 'line_' . $lineId, 'description']); $this->materialSelector->select($lineId, ['article_id' => $values['article_id'] ?? NULL, 'supplier_article_id' => $values['supplier_article_id'] ?? NULL, 'price_id' => $values['price_id'] ?? NULL, 'catalog_import_id' => $values['catalog_import_id'] ?? NULL], $this->currentUser()); $this->messenger()->addStatus($this->t('Artikel en prijs aan receptregel gekoppeld.')); $form_state->setRebuild(TRUE); }
-  public function addCustomLine(array &$form, FormStateInterface $form_state): void { $instanceId = (int) $form_state->getValue('recipe_instance'); $values = (array) $form_state->getValue('custom_line'); $this->recipeManager->addCustomLine($instanceId, ['description' => (string) ($values['description'] ?? ''), 'line_type' => (string) ($values['line_type'] ?? 'material'), 'quantity' => (float) ($values['quantity'] ?? 0), 'unit' => trim((string) ($values['unit'] ?? '')) ?: NULL, 'unit_cost' => isset($values['unit_cost']) && $values['unit_cost'] !== '' ? (float) $values['unit_cost'] : NULL], $this->currentUser()); $this->messenger()->addStatus($this->t('Regel aan recept toegevoegd.')); $form_state->setRebuild(TRUE); }
+
+  public function addCustomLine(array &$form, FormStateInterface $form_state): void {
+    $instanceId = (int) $form_state->getValue('recipe_instance');
+    $values = (array) $form_state->getValue('custom_line');
+    $lineType = (string) ($values['line_type'] ?? 'material');
+    $lineId = $this->recipeManager->addCustomLine($instanceId, ['description' => (string) ($values['description'] ?? ''), 'line_type' => $lineType, 'quantity' => (float) ($values['quantity'] ?? 0), 'unit' => trim((string) ($values['unit'] ?? '')) ?: NULL, 'unit_cost' => isset($values['unit_cost']) && $values['unit_cost'] !== '' ? (float) $values['unit_cost'] : NULL], $this->currentUser());
+    if (in_array(strtolower($lineType), ['material', 'materiaal'], TRUE) && !empty($values['article_id']) && !empty($values['supplier_article_id']) && !empty($values['price_id']) && !empty($values['catalog_import_id'])) {
+      $this->materialSelector->select($lineId, ['article_id' => $values['article_id'], 'supplier_article_id' => $values['supplier_article_id'], 'price_id' => $values['price_id'], 'catalog_import_id' => $values['catalog_import_id']], $this->currentUser());
+    }
+    $this->messenger()->addStatus($this->t('Regel aan recept toegevoegd.'));
+    $form_state->setRebuild(TRUE);
+  }
 }
