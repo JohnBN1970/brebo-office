@@ -19,6 +19,7 @@ final class WorkingBudgetApprovalManager {
       'scope_complete',
       'quantities_checked',
       'prices_traceable',
+      'labour_hours_and_rates_checked',
       'risk_and_tco_checked',
     ],
     'work_preparation' => [
@@ -100,6 +101,7 @@ final class WorkingBudgetApprovalManager {
       $status = $decision === 'rejected' ? 'rejected' : 'in_review';
       $locked = FALSE;
       if ($decision === 'approved' && $this->allDisciplinesApproved($budgetId)) {
+        $this->assertLabourBaselineComplete($budgetId);
         $status = 'locked';
         $locked = TRUE;
       }
@@ -163,6 +165,26 @@ final class WorkingBudgetApprovalManager {
     return TRUE;
   }
 
+
+  /**
+   * Prevents approval of labour money without an executable hours baseline.
+   */
+  private function assertLabourBaselineComplete(int $budgetId): void {
+    $query = $this->database->select('brebo_finance_budget_line', 'l');
+    $query->fields('l', ['id']);
+    $query->condition('budget_id', $budgetId);
+    $query->condition('cost_code', 'arbeid');
+    $invalid = $query->orConditionGroup()
+      ->condition('budget_hours', '0.0000', '<=')
+      ->condition('hourly_cost_ex_vat', '0.0000', '<=');
+    $query->condition($invalid);
+    if ((int) $query->countQuery()->execute()->fetchField() > 0) {
+      throw new UnexpectedValueException(
+        'Every labour line requires approved budget hours and an hourly cost before baseline locking.',
+      );
+    }
+  }
+
   /**
    * Hashes the operational baseline independently from its calculation source.
    */
@@ -178,6 +200,8 @@ final class WorkingBudgetApprovalManager {
         'unit',
         'unit_cost_ex_vat',
         'amount_ex_vat',
+        'budget_hours',
+        'hourly_cost_ex_vat',
         'vat_code',
         'vat_rate',
         'vat_amount',
