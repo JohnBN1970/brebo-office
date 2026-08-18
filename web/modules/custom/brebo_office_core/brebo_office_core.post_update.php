@@ -832,7 +832,7 @@ function brebo_office_core_post_update_personnel_planning(array &$sandbox = NULL
         'storage' => ['max_length' => 32], 'description' => 'Geen, waarschuwing of blokkade na capaciteitscontrole.',
         'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 21, 'default_value' => [['value' => 'Geen']],
       ],
-      'field_brebo_staff_finance_ref' => $node_ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Financiële bron voor kostprijs, inhuurafspraak en nacalculatie.', 22),
+      'field_brebo_staff_finance_ref' => $node_ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Verplichte bron voor vrijgegeven uren, kostprijs, inhuurafspraak en nacalculatie.', 22, TRUE),
     ]);
 
   $permissions = [];
