@@ -9,3 +9,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_contract_control.monitoring'
+
+  brebo_contract_control.payment_batch_control:
+    class: Drupal\brebo_contract_control\Service\PaymentBatchControlService
+    arguments:
+      - '@database'
