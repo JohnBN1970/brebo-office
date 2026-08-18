@@ -37,6 +37,7 @@ final class ProjectPlanningController extends ControllerBase {
       ->sort('field_brebo_plan_start', 'ASC')
       ->execute();
     $activity_groups = [];
+    $dependency_rows = [];
     $activity_counts = ['total' => 0, 'done' => 0, 'late' => 0, 'blocked' => 0, 'critical' => 0];
     $today = date('Y-m-d');
     $gantt_source = [];
@@ -69,6 +70,21 @@ final class ProjectPlanningController extends ControllerBase {
         static fn (NodeInterface $predecessor): string => (string) $predecessor->label(),
         array_filter($predecessors, static fn ($predecessor): bool => $predecessor instanceof NodeInterface)
       );
+      $relation = $this->value($activity, 'field_brebo_plan_relation');
+      $lag = (int) ($activity->get('field_brebo_plan_lag_days')->value ?? 0);
+      foreach ($predecessors as $predecessor) {
+        if (!$predecessor instanceof NodeInterface) {
+          continue;
+        }
+        $dependency_rows[] = [
+          ['data' => Link::fromTextAndUrl($predecessor->label(), $predecessor->toUrl())->toRenderable()],
+          ['data' => Link::fromTextAndUrl($activity->label(), $activity->toUrl())->toRenderable()],
+          $relation,
+          $lag === 0 ? $this->t('Geen') : $this->t('@days werkdagen', ['@days' => $lag]),
+          $critical ? $this->t('Kritiek') : $this->t('Niet kritiek'),
+          $status,
+        ];
+      }
       $variance = '—';
       if ($baseline_end !== '—' && $end !== '—') {
         $baseline = new \DateTimeImmutable($baseline_end);
@@ -341,6 +357,20 @@ final class ProjectPlanningController extends ControllerBase {
         '#markup' => '<p>' . $this->t('Nog geen uitvoeringsactiviteiten gepland.') . '</p>',
       ];
     }
+
+    $build['dependencies_heading'] = [
+      '#markup' => '<h2>' . $this->t('Relatie-overzicht') . '</h2>',
+    ];
+    $build['dependencies'] = [
+      '#type' => 'table',
+      '#header' => [
+        $this->t('Voorganger'), $this->t('Opvolger'), $this->t('Relatie'),
+        $this->t('Wachttijd/overlap'), $this->t('Pad'), $this->t('Status opvolger'),
+      ],
+      '#rows' => $dependency_rows,
+      '#empty' => $this->t('Nog geen relaties tussen planningsactiviteiten vastgelegd.'),
+      '#sticky' => TRUE,
+    ];
 
     $build['route_heading'] = [
       '#markup' => '<h2>' . $this->t('Projectroute, mijlpalen en vrijgaven') . '</h2>',
