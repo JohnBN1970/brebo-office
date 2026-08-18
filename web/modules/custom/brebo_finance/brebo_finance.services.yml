@@ -11,3 +11,9 @@ services:
   brebo_finance.working_budget_approval_manager:
     class: Drupal\brebo_finance\Service\WorkingBudgetApprovalManager
     arguments: ['@database']
+
+  brebo_finance.commitment_manager:
+    class: Drupal\brebo_finance\Service\CommitmentManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
