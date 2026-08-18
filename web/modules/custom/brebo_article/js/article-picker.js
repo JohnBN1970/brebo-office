@@ -59,14 +59,16 @@
             button.classList.add('has-article');
             dialog.close();
 
-            // Trigger the existing live calculation once more after every
-            // article field has been populated, so row and recipe totals use
-            // one complete and consistent set of values.
             window.requestAnimationFrame(function () {
               var price = row.querySelector('[name$="[unit_price]"]');
               if (price) {
                 price.dispatchEvent(new Event('input', {bubbles: true}));
                 price.dispatchEvent(new Event('change', {bubbles: true}));
+              }
+
+              var autoSave = row.querySelector('[data-brebo-article-save]');
+              if (autoSave && !autoSave.disabled) {
+                autoSave.click();
               }
             });
           }
