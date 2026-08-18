@@ -14,6 +14,14 @@ brebo_glass.position_add:
   requirements:
     _permission: 'administer brebo glass'
 
+brebo_glass.product_overview:
+  path: '/brebo/glas/producten'
+  defaults:
+    _controller: '\Drupal\brebo_glass\Controller\GlassProductOverviewController::overview'
+    _title: 'Glasproductcatalogus'
+  requirements:
+    _permission: 'view brebo glass'
+
 brebo_glass.product_add:
   path: '/brebo/glas/producten/toevoegen'
   defaults:
