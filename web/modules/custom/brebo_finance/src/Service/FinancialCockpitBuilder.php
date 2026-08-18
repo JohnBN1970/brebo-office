@@ -107,6 +107,7 @@ final class FinancialCockpitBuilder {
         ),
       ],
       'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
+      'supplier_scorecards' => $this->latestSupplierScores($projectNid),
       'failure_costs' => [
         'open_count' => $this->countByStatus(
           'brebo_finance_failure_cost',
@@ -184,6 +185,46 @@ final class FinancialCockpitBuilder {
     ];
   }
 
+
+
+  /**
+   * @return list<array<string, mixed>>
+   */
+  private function latestSupplierScores(int $projectNid): array {
+    $rows = $this->database->select('brebo_finance_supplier_score_snapshot', 's')
+      ->fields('s', [
+        'id',
+        'supplier_ref',
+        'supplier_name',
+        'snapshot_date',
+        'policy_version',
+        'weighted_score',
+        'confidence_class',
+        'delivery_score',
+        'quality_score',
+        'invoice_score',
+        'price_score',
+        'failure_cost_score',
+        'order_count',
+        'receipt_count',
+        'invoice_count',
+        'content_hash',
+      ])
+      ->condition('project_nid', $projectNid)
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+
+    $latest = [];
+    foreach ($rows as $row) {
+      $supplier = (string) $row['supplier_ref'];
+      if (!isset($latest[$supplier])) {
+        $latest[$supplier] = $row;
+      }
+    }
+    return array_values($latest);
+  }
 
   /**
    * @return array<string, mixed>|null
