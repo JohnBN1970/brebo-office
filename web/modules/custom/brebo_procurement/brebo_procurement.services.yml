@@ -1,0 +1,4 @@
+services:
+  brebo_procurement.request_manager:
+    class: Drupal\brebo_procurement\Service\ProcurementRequestManager
+    arguments: ['@database']
