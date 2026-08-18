@@ -26,3 +26,33 @@ manage brebo finance controls:
   title: 'BREBO financiële controleacties beheren'
   description: 'Controlebevindingen toewijzen, oplossingen indienen en volgens het vierogenprincipe verifiëren.'
   restrict access: true
+
+request brebo finance gate exception:
+  title: 'BREBO fasepoortuitzondering aanvragen'
+  description: 'Een tijdelijke, onderbouwde uitzondering op een financiële fasepoort aanvragen.'
+  restrict access: true
+
+approve brebo procurement gate exception:
+  title: 'BREBO inkooppoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële inkoopvrijgave beoordelen.'
+  restrict access: true
+
+approve brebo execution gate exception:
+  title: 'BREBO uitvoeringspoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële start-uitvoeringpoort beoordelen.'
+  restrict access: true
+
+approve brebo billing gate exception:
+  title: 'BREBO facturatiepoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële facturatievrijgave beoordelen.'
+  restrict access: true
+
+approve brebo payment gate exception:
+  title: 'BREBO betaalpoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële betaalvrijgave beoordelen.'
+  restrict access: true
+
+approve brebo closeout gate exception:
+  title: 'BREBO afsluitpoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële projectafsluiting beoordelen.'
+  restrict access: true
