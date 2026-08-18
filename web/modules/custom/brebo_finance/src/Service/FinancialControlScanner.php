@@ -168,6 +168,39 @@ final class FinancialControlScanner {
     int $now,
     array $payload = [],
   ): void {
+    $currentStatus = $this->database->select('brebo_finance_control_finding', 'f')
+      ->fields('f', ['status'])
+      ->condition('project_nid', $projectNid)
+      ->condition('control_code', $code)
+      ->condition('source_type', $sourceType)
+      ->condition('source_id', $sourceId)
+      ->execute()
+      ->fetchField();
+    $pendingVerification = $currentStatus === 'pending_verification';
+
+    $fields = [
+      'origin' => self::SOURCE,
+      'severity' => $severity,
+      'title' => $title,
+      'cause' => $cause,
+      'consequence' => $consequence,
+      'control_measure' => $measure,
+      'status' => $pendingVerification ? 'pending_verification' : 'open',
+      'last_seen' => $now,
+      'payload' => $payload !== [] ? json_encode($payload, JSON_THROW_ON_ERROR) : NULL,
+      'changed' => $now,
+    ];
+    if (!$pendingVerification) {
+      $fields += [
+        'resolved' => NULL,
+        'resolved_by' => NULL,
+        'resolution_note' => NULL,
+        'resolution_evidence' => NULL,
+        'resolution_submitted_by' => NULL,
+        'resolution_verified_by' => NULL,
+      ];
+    }
+
     $this->database->merge('brebo_finance_control_finding')
       ->keys([
         'project_nid' => $projectNid,
@@ -179,21 +212,7 @@ final class FinancialControlScanner {
         'detected' => $now,
         'created' => $now,
       ])
-      ->fields([
-        'origin' => self::SOURCE,
-        'severity' => $severity,
-        'title' => $title,
-        'cause' => $cause,
-        'consequence' => $consequence,
-        'control_measure' => $measure,
-        'status' => 'open',
-        'last_seen' => $now,
-        'resolved' => NULL,
-        'resolved_by' => NULL,
-        'resolution_note' => NULL,
-        'payload' => $payload !== [] ? json_encode($payload, JSON_THROW_ON_ERROR) : NULL,
-        'changed' => $now,
-      ])
+      ->fields($fields)
       ->execute();
   }
 
