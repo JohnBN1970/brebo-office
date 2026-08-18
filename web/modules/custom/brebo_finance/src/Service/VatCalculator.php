@@ -83,6 +83,17 @@ final class VatCalculator {
   }
 
   /**
+   * Adds two four-decimal values.
+   */
+  public function add(string $left, string $right): string {
+    return $this->formatDecimal(
+      $this->parseDecimal($left, self::MONEY_SCALE, 'left')
+      + $this->parseDecimal($right, self::MONEY_SCALE, 'right'),
+      self::MONEY_SCALE,
+    );
+  }
+
+  /**
    * Subtracts two four-decimal values.
    */
   public function subtract(string $left, string $right): string {
