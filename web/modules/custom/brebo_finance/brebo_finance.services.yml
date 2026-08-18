@@ -55,7 +55,7 @@ services:
 
   brebo_finance.three_way_match_manager:
     class: Drupal\brebo_finance\Service\ThreeWayMatchManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer']
 
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
