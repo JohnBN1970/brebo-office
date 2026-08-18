@@ -49,3 +49,10 @@ services:
   brebo_finance.ai_assessment_manager:
     class: Drupal\brebo_finance\Service\AiFinancialAssessmentManager
     arguments: ['@database']
+
+  brebo_finance.digital_controller:
+    class: Drupal\brebo_finance\Service\DigitalController
+    arguments:
+      - '@database'
+      - '@brebo_finance.control_scanner'
+      - '@brebo_finance.ai_assessment_manager'
