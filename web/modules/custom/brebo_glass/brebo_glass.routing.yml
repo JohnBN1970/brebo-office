@@ -1,3 +1,11 @@
+brebo_glass.position_overview:
+  path: '/brebo/glas'
+  defaults:
+    _controller: '\Drupal\brebo_glass\Controller\GlassPositionOverviewController::overview'
+    _title: 'Glasstaat'
+  requirements:
+    _permission: 'view brebo glass'
+
 brebo_glass.position_add:
   path: '/brebo/glas/opname'
   defaults:
@@ -5,4 +13,3 @@ brebo_glass.position_add:
     _title: 'Glasopname'
   requirements:
     _permission: 'administer brebo glass'
-
