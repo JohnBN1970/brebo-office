@@ -25,3 +25,6 @@ services:
 
   brebo_office_core.workforce_geofence:
     class: Drupal\brebo_office_core\Service\WorkforceGeoFence
+
+  brebo_office_core.workforce_schedule_control:
+    class: Drupal\brebo_office_core\Service\WorkforceScheduleControl
