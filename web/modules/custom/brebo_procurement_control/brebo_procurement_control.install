@@ -30,5 +30,38 @@ function brebo_procurement_control_schema(): array {
       'selected_supplier' => ['selected_supplier'],
     ],
   ];
+
+  $schema['brebo_procurement_outcome'] = [
+    'description' => 'Nacalculatie van inkoopbeslissingen voor mens-versus-model leren.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'actual_purchase_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'actual_failure_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_delay_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_warranty_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_other_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'model_error' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'outcome' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'assessment' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'recorded_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['decision_id' => ['decision_id']],
+    'indexes' => ['outcome' => ['outcome']],
+  ];
+
   return $schema;
+}
+
+/** Add procurement outcome learning to existing installations. */
+function brebo_procurement_control_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_procurement_outcome')) {
+    return;
+  }
+  $definitions = brebo_procurement_control_schema();
+  $schema->createTable('brebo_procurement_outcome', $definitions['brebo_procurement_outcome']);
 }
