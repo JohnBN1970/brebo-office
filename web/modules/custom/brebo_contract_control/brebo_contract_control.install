@@ -49,23 +49,31 @@ function brebo_contract_control_schema(): array {
   $schema['brebo_organizational_learning'] = [
     'description' => 'Geversioneerde, goedgekeurde BREBO-organisatielessen en proceswijzigingen.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'lesson_code' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE],
-      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'lesson' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'process_change' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'approved'],
-      'effective_at' => ['type' => 'int', 'not null' => TRUE],
-      'review_at' => ['type' => 'int', 'not null' => TRUE],
-      'created_at' => ['type' => 'int', 'not null' => TRUE],
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'lesson_code' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'lesson' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'process_change' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'approved'], 'effective_at' => ['type' => 'int', 'not null' => TRUE], 'review_at' => ['type' => 'int', 'not null' => TRUE], 'created_at' => ['type' => 'int', 'not null' => TRUE],
     ],
-    'primary key' => ['id'],
-    'unique keys' => ['lesson_version' => ['lesson_code', 'version']],
-    'indexes' => ['status_review' => ['status', 'review_at'], 'effective_at' => ['effective_at']],
+    'primary key' => ['id'], 'unique keys' => ['lesson_version' => ['lesson_code', 'version']], 'indexes' => ['status_review' => ['status', 'review_at'], 'effective_at' => ['effective_at']],
+  ];
+  $schema['brebo_policy_rule'] = [
+    'description' => 'Geversioneerde uitvoerbare BREBO-policyregels.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'policy_code' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'scope' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE], 'requirements_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'source_lesson_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'exception_allowed' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 0],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'], 'effective_from' => ['type' => 'int', 'not null' => TRUE], 'created_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'], 'unique keys' => ['policy_version' => ['policy_code', 'version']], 'indexes' => ['status_effective' => ['status', 'effective_from'], 'scope' => ['scope']],
+  ];
+  $schema['brebo_policy_exception'] = [
+    'description' => 'Vier-ogen uitzonderingen op actieve BREBO-policyregels.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'policy_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'reason' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'requested_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'approved_at' => ['type' => 'int', 'not null' => TRUE],
+      'valid_until' => ['type' => 'int', 'not null' => FALSE], 'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'approved'],
+    ],
+    'primary key' => ['id'], 'indexes' => ['policy_status' => ['policy_id', 'status'], 'valid_until' => ['valid_until']],
   ];
   return $schema;
 }
@@ -73,5 +81,10 @@ function brebo_contract_control_schema(): array {
 function brebo_contract_control_update_10001(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_controller_case')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_controller_case', $d['brebo_controller_case']); } }
 function brebo_contract_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_management_action')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_management_action', $d['brebo_management_action']); } }
 function brebo_contract_control_update_10003(): void { $schema = \Drupal::database()->schema(); if (!$schema->fieldExists('brebo_management_action', 'verified_at')) { $schema->addField('brebo_management_action', 'verified_at', ['type' => 'int', 'not null' => FALSE]); } if (!$schema->fieldExists('brebo_management_action', 'verification_result')) { $schema->addField('brebo_management_action', 'verification_result', ['type' => 'text', 'size' => 'normal', 'not null' => FALSE]); } }
-/** Add versioned organizational learning registry. */
 function brebo_contract_control_update_10004(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_organizational_learning')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_organizational_learning', $d['brebo_organizational_learning']); } }
+/** Add versioned executable policy and exception registers. */
+function brebo_contract_control_update_10005(): void {
+  $schema = \Drupal::database()->schema(); $d = brebo_contract_control_schema();
+  if (!$schema->tableExists('brebo_policy_rule')) { $schema->createTable('brebo_policy_rule', $d['brebo_policy_rule']); }
+  if (!$schema->tableExists('brebo_policy_exception')) { $schema->createTable('brebo_policy_exception', $d['brebo_policy_exception']); }
+}
