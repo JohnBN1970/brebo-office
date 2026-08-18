@@ -37,3 +37,6 @@ services:
 
   brebo_office_core.workforce_resource_control:
     class: Drupal\brebo_office_core\Service\WorkforceResourceControl
+
+  brebo_office_core.workforce_day_start_control:
+    class: Drupal\brebo_office_core\Service\WorkforceDayStartControl
