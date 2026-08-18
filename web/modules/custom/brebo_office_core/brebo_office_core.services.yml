@@ -12,6 +12,10 @@ services:
   brebo_office_core.integration_api_request_signer:
     class: Drupal\brebo_office_core\Service\IntegrationApiRequestSigner
 
+  brebo_office_core.risk_escalation_manager:
+    class: Drupal\brebo_office_core\Service\RiskEscalationManager
+    arguments: ['@database']
+
   logger.channel.brebo_office_core:
     parent: logger.channel_base
     arguments:
