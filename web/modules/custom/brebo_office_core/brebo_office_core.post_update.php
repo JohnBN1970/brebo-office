@@ -1221,3 +1221,143 @@ function brebo_office_core_post_update_inzet_proposal_audit(array &$sandbox = NU
 
   return 'Auditvelden voor menselijke goedkeuring van personeelsvoorstellen toegevoegd.';
 }
+
+
+/**
+ * Adds vehicles, equipment and auditable resource bookings to BREBO Inzet.
+ */
+function brebo_office_core_post_update_inzet_resources(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  $ref = static function (string $label, string $bundle, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => $required,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [$bundle => $bundle]]],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $user_ref = static function (string $label, string $description, int $weight): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $date = static function (string $label, string $description, int $weight, bool $required = FALSE, string $type = 'date'): array {
+    return [
+      'label' => $label, 'type' => 'datetime', 'required' => $required,
+      'storage' => ['datetime_type' => $type], 'description' => $description,
+      'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => $weight,
+    ];
+  };
+
+  _brebo_office_core_create_node_bundle('brebo_work_resource', 'Materieel of voertuig',
+    'Planbaar voertuig, machine, hoogwerker, gereedschap of toegangsmiddel voor BREBO-projecten.', [
+      'field_brebo_resource_code' => [
+        'label' => 'Materieelcode', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Unieke herkenbare materieel- of voertuigcode.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 1,
+      ],
+      'field_brebo_resource_type' => [
+        'label' => 'Type', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Voertuig, hoogwerker, steiger, gereedschap, sleutel of overig middel.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 2,
+      ],
+      'field_brebo_resource_status' => [
+        'label' => 'Operationele status', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Beschikbaar, gereserveerd, in gebruik, onderhoud, defect of buiten dienst.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 3,
+        'default_value' => [['value' => 'Beschikbaar']],
+      ],
+      'field_brebo_resource_owner' => $ref('Eigenaar/verhuurder', 'brebo_organization', 'Eigenaar, leverancier of verhuurder van het middel.', 4),
+      'field_brebo_resource_serial' => [
+        'label' => 'Serie- of chassisnummer', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128], 'description' => 'Controleerbare technische identificatie.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_resource_plate' => [
+        'label' => 'Kenteken', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Kenteken indien het middel een voertuig is.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_resource_capacity' => [
+        'label' => 'Capaciteit', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 12, 'scale' => 2], 'description' => 'Laadvermogen, werkhoogte, aantal personen of andere relevante capaciteit.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_resource_unit' => [
+        'label' => 'Capaciteitseenheid', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Bijvoorbeeld kg, meter, personen of m².',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+      ],
+      'field_brebo_resource_location' => $ref('Standplaats', 'brebo_building', 'Actuele of vaste objectgebonden standplaats.', 9),
+      'field_brebo_resource_inspection' => $date('Keuring geldig tot', 'Laatste dag waarop de formele keuring geldig is.', 10),
+      'field_brebo_resource_maintenance' => $date('Onderhoud uiterlijk', 'Datum waarop gepland onderhoud uiterlijk uitgevoerd moet zijn.', 11),
+      'field_brebo_resource_skill' => $ref('Vereiste bevoegdheid', 'brebo_work_skill', 'Vakbekwaamheid of bevoegdheid die de bestuurder of bediener moet bezitten.', 12),
+      'field_brebo_resource_cost_hour' => [
+        'label' => 'Kostprijs per uur', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 12, 'scale' => 4], 'description' => 'Interne of externe uurkostprijs voor begroting en nacalculatie.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 13,
+      ],
+      'field_brebo_resource_active' => [
+        'label' => 'Actief planbaar', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Alleen actieve middelen kunnen definitief worden gereserveerd.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 14,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_resource_note' => [
+        'label' => 'Materieelnotitie', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Gebruikseisen, beperkingen, schade of overdrachtsinformatie.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 15,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_resource_booking', 'Materieelreservering',
+    'Tijdgebonden reservering van materieel of voertuig aan dienst, project, gebouw en werkbegroting.', [
+      'field_brebo_booking_resource' => $ref('Materieel/voertuig', 'brebo_work_resource', 'Het te reserveren middel.', 1, TRUE),
+      'field_brebo_booking_shift' => $ref('Dienst', 'brebo_shift', 'Operationele dienst waarvoor het middel nodig is.', 2, TRUE),
+      'field_brebo_booking_project' => $ref('Project', 'brebo_project', 'Projectcontext van de reservering.', 3, TRUE),
+      'field_brebo_booking_building' => $ref('Gebouw', 'brebo_building', 'Objectlocatie waar het middel wordt ingezet.', 4, TRUE),
+      'field_brebo_booking_budget' => $ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Vrijgegeven budgetbron voor inzetkosten.', 5, TRUE),
+      'field_brebo_booking_start' => $date('Start reservering', 'Geplande uitgifte- of inzetdatum en -tijd.', 6, TRUE, 'datetime'),
+      'field_brebo_booking_end' => $date('Einde reservering', 'Geplande retourdatum en -tijd.', 7, TRUE, 'datetime'),
+      'field_brebo_booking_driver' => $ref('Bestuurder/bediener', 'brebo_contact', 'Persoon die bevoegd moet zijn om het middel te gebruiken.', 8),
+      'field_brebo_booking_status' => [
+        'label' => 'Reserveringsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, aangevraagd, bevestigd, uitgegeven, retour of geannuleerd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 9,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_booking_approved_by' => $user_ref('Vrijgegeven door', 'Planner die de reservering formeel heeft vrijgegeven.', 10),
+      'field_brebo_booking_approved_at' => $date('Vrijgavemoment', 'Servervastgelegd moment van formele vrijgave.', 11, FALSE, 'datetime'),
+      'field_brebo_booking_note' => [
+        'label' => 'Uitgifte- en retournotitie', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Sleutels, brandstof, schade, accessoires en overdrachtsafspraken.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+      ],
+    ]);
+
+  $permissions = [];
+  foreach (['brebo_work_resource', 'brebo_resource_booking'] as $bundle) {
+    $permissions = array_merge($permissions, [
+      "create $bundle content", "edit own $bundle content",
+      "edit any $bundle content", "view $bundle revisions",
+    ]);
+  }
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Materieel, voertuigen, tijdgebonden reserveringen, werkbegrotingskoppeling en rolrechten toegevoegd.';
+}
