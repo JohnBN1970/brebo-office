@@ -142,6 +142,12 @@ final class WorkforceScheduleController extends ControllerBase {
               '#title' => $this->t('Dagstart'),
               '#url' => Url::fromRoute('brebo_office_core.inzet_shift_day_start', ['node' => $shift['id']]),
             ],
+            'separator_clock' => ['#markup' => ' · '],
+            'clock' => [
+              '#type' => 'link',
+              '#title' => $this->t('Klokken'),
+              '#url' => Url::fromRoute('brebo_office_core.inzet_shift_clock', ['node' => $shift['id']]),
+            ],
           ];
         }
         $row[] = ['data' => ['#theme' => 'item_list', '#items' => $items, '#attributes' => ['class' => ['brebo-inzet-day']]]];
