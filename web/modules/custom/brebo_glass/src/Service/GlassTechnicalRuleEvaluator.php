@@ -32,6 +32,11 @@ final class GlassTechnicalRuleEvaluator {
     $safetyClass = trim((string) ($position['safety_class'] ?? ''));
     $fireClass = trim((string) ($position['fire_class'] ?? ''));
 
+    if ((bool) ($position['wind_check_required'] ?? TRUE) && ($position['wind_check_state'] ?? 'blocked') !== 'passed') {
+      $issues[] = 'Windbelasting is niet aantoonbaar akkoord; technische vrijgave blijft geblokkeerd.';
+      $blocked = TRUE;
+    }
+
     if ($application === '') {
       $issues[] = 'Toepassing ontbreekt; technische beoordeling is niet mogelijk.';
       $blocked = TRUE;
