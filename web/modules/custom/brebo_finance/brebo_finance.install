@@ -583,6 +583,48 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_ai_assessment'] = [
+    'description' => 'Evidence-backed AI financial assessment requiring human review.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'assessment_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'model_provider' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'model_name' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'model_version' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'prompt_version' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'confidence' => ['type' => 'numeric', 'precision' => 7, 'scale' => 6, 'not null' => TRUE],
+      'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'analysis' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'recommendation' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'evidence_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'output_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'input_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'output_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending_review'],
+      'control_finding_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'reviewed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'reviewed_by' => $user,
+      'review_note' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_input_model' => ['project_nid', 'assessment_type', 'source_type', 'source_id', 'input_hash', 'model_name'],
+    ],
+    'indexes' => [
+      'project_status_severity' => ['project_nid', 'status', 'severity'],
+      'reviewed_by' => ['reviewed_by'],
+      'confidence' => ['confidence'],
+    ],
+  ];
+
   $schema['brebo_finance_control_finding'] = [
     'description' => 'Actionable financial control finding with cause, consequence and ownership.',
     'fields' => [
