@@ -13,3 +13,11 @@ brebo_contract_control.audit_generate:
   requirements:
     _permission: 'generate brebo audit packages'
   methods: [POST]
+
+brebo_contract_control.management_control_center:
+  path: '/brebo/control-center'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::overview'
+    _title: 'Management Control Center'
+  requirements:
+    _permission: 'view brebo management control center'
