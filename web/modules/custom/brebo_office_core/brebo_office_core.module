@@ -1128,6 +1128,93 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_day_start') {
+    $shift = $node->get('field_brebo_day_shift')->entity;
+    $project = $node->get('field_brebo_day_project')->entity;
+    $building = $node->get('field_brebo_day_building')->entity;
+    if (!$shift instanceof NodeInterface || $shift->bundle() !== 'brebo_shift') {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een digitale dagstart vereist een geldige dienst.');
+    }
+
+    if ($node->get('field_brebo_day_generated_by')->isEmpty() && \Drupal::currentUser()->isAuthenticated()) {
+      $node->set('field_brebo_day_generated_by', (int) \Drupal::currentUser()->id());
+    }
+    if ($node->get('field_brebo_day_generated_at')->isEmpty()) {
+      $node->set('field_brebo_day_generated_at', gmdate('Y-m-d\\TH:i:s', \Drupal::time()->getRequestTime()));
+    }
+
+    $resourceControls = [];
+    foreach ($node->get('field_brebo_day_bookings')->referencedEntities() as $booking) {
+      if (!$booking instanceof NodeInterface || $booking->bundle() !== 'brebo_resource_booking'
+        || $booking->get('field_brebo_booking_shift')->target_id !== $shift->id()) {
+        $resourceControls[] = 'Blokkade';
+        continue;
+      }
+      $resourceControls[] = (string) ($booking->get('field_brebo_booking_control')->value ?? 'Niet gecontroleerd');
+    }
+
+    $result = \Drupal::service('brebo_office_core.workforce_day_start_control')->assess([
+      'work' => (string) ($node->get('field_brebo_day_work')->value ?? ''),
+      'access' => (string) ($node->get('field_brebo_day_access')->value ?? ''),
+      'risks' => (string) ($node->get('field_brebo_day_risks')->value ?? ''),
+      'controls' => (string) ($node->get('field_brebo_day_controls')->value ?? ''),
+      'contacts' => (string) ($node->get('field_brebo_day_contacts')->value ?? ''),
+      'project_matches' => $project instanceof NodeInterface
+        && $node->get('field_brebo_day_project')->target_id === $shift->get('field_brebo_shift_project')->target_id,
+      'building_matches' => $building instanceof NodeInterface
+        && $node->get('field_brebo_day_building')->target_id === $shift->get('field_brebo_shift_building')->target_id,
+      'shift_status' => (string) ($shift->get('field_brebo_shift_status')->value ?? ''),
+      'shift_open' => (bool) ($shift->get('field_brebo_shift_open')->value ?? FALSE),
+      'qualification_status' => (string) ($shift->get('field_brebo_shift_match')->value ?? 'Niet gecontroleerd'),
+      'resource_controls' => $resourceControls,
+      'has_building_location' => $building instanceof NodeInterface
+        && !$building->get('field_brebo_latitude')->isEmpty()
+        && !$building->get('field_brebo_longitude')->isEmpty(),
+    ]);
+    $node->set('field_brebo_day_ready', $result['status']);
+    $messages = array_merge($result['blocks'], $result['warnings']);
+    $node->set('field_brebo_day_ready_note', $messages === [] ? 'Alle dagstartbronnen en beheersmaatregelen zijn gereed.' : implode("\n", $messages));
+    $node->setTitle('Dagstart v' . (int) $node->get('field_brebo_day_version')->value . ' — ' . $shift->label());
+
+    if ((string) $node->get('field_brebo_day_status')->value === 'Vrijgegeven') {
+      if ($result['status'] === 'Blokkade') {
+        throw new \Drupal\Core\Entity\EntityStorageException('Dagstart kan niet worden vrijgegeven: ' . implode(', ', $result['blocks']) . '.');
+      }
+      if ($node->get('field_brebo_day_released_by')->isEmpty()
+        || $node->get('field_brebo_day_released_at')->isEmpty()) {
+        throw new \Drupal\Core\Entity\EntityStorageException('Een vrijgegeven dagstart vereist een vrijgever en vrijgavemoment.');
+      }
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_day_ack') {
+    $dayStart = $node->get('field_brebo_ack_day')->entity;
+    if (!$dayStart instanceof NodeInterface || $dayStart->bundle() !== 'brebo_day_start'
+      || (string) $dayStart->get('field_brebo_day_status')->value !== 'Vrijgegeven') {
+      throw new \Drupal\Core\Entity\EntityStorageException('Bevestiging is alleen mogelijk op een vrijgegeven digitale dagstart.');
+    }
+    if ($node->get('field_brebo_ack_contact')->isEmpty() && $node->get('field_brebo_ack_user')->isEmpty()) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een dagstartbevestiging vereist een persoon of intern account.');
+    }
+
+    $version = (int) $dayStart->get('field_brebo_day_version')->value;
+    $understood = (bool) ($node->get('field_brebo_ack_understood')->value ?? FALSE);
+    $question = (string) ($node->get('field_brebo_ack_question')->value ?? '');
+    $result = \Drupal::service('brebo_office_core.workforce_day_start_control')
+      ->assessAcknowledgement($version, $version, $understood, $question);
+    if ($result['status'] === 'Blokkade') {
+      throw new \Drupal\Core\Entity\EntityStorageException($result['message']);
+    }
+
+    $node->set('field_brebo_ack_version', $version);
+    $node->set('field_brebo_ack_at', gmdate('Y-m-d\\TH:i:s', \Drupal::time()->getRequestTime()));
+    $node->set('field_brebo_ack_status', $result['status']);
+    $recipient = $node->get('field_brebo_ack_contact')->entity ?? $node->get('field_brebo_ack_user')->entity;
+    $node->setTitle('Dagstartbevestiging v' . $version . ' — ' . ($recipient ? $recipient->label() : 'ontvanger'));
+    return;
+  }
+
   if ($node->bundle() === 'brebo_resource_booking') {
     $resource = $node->get('field_brebo_booking_resource')->entity;
     $shift = $node->get('field_brebo_booking_shift')->entity;
