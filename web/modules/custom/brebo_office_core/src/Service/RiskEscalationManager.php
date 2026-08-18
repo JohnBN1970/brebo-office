@@ -70,9 +70,11 @@ final class RiskEscalationManager {
       'evidence_ref'=>['type'=>'varchar','length'=>1024,'not null'=>FALSE],
       'closed_at'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],
       'closed_by'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],
+      'action_nid'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],
     ];
     foreach($fields as$name=>$definition)if(!$schema->fieldExists('brebo_risk_escalation',$name))$schema->addField('brebo_risk_escalation',$name,$definition);
     if(!$schema->indexExists('brebo_risk_escalation','owner_status'))$schema->addIndex('brebo_risk_escalation','owner_status',['owner_uid','status']);
     if(!$schema->indexExists('brebo_risk_escalation','due_status'))$schema->addIndex('brebo_risk_escalation','due_status',['due_date','status']);
+    if(!$schema->indexExists('brebo_risk_escalation','action_nid'))$schema->addIndex('brebo_risk_escalation','action_nid',['action_nid']);
   }
 }
