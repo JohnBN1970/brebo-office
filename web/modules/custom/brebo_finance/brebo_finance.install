@@ -624,6 +624,51 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_contract_obligation'] = [
+    'description' => 'Auditable contractual deadline, condition or financial obligation with evidence-based closure.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'contract_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'obligation_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'obligation_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'responsible_side' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'clause_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'condition_text' => ['type' => 'text', 'not null' => TRUE],
+      'consequence' => ['type' => 'text', 'not null' => TRUE],
+      'control_measure' => ['type' => 'text', 'not null' => TRUE],
+      'trigger_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'financial_exposure_ex_vat' => $money,
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_evidence' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'completion_evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'completion_submitted' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'completion_submitted_by' => $user,
+      'verified' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verified_by' => $user,
+      'waiver_reason' => ['type' => 'text', 'not null' => FALSE],
+      'waiver_requested_by' => $user,
+      'waiver_approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'contract_obligation_number' => ['contract_id', 'obligation_number'],
+    ],
+    'indexes' => [
+      'project_status_due' => ['project_nid', 'status', 'due_date'],
+      'contract_type' => ['contract_id', 'obligation_type'],
+      'owner_due' => ['owner_uid', 'due_date'],
+    ],
+  ];
+
   $schema['brebo_finance_supplier_score_snapshot'] = [
     'description' => 'Immutable evidence-backed supplier performance score under a versioned scoring policy.',
     'fields' => [
