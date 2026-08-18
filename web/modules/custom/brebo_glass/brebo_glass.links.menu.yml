@@ -1,7 +1,13 @@
+brebo_glass.position_overview:
+  title: 'Glasstaat'
+  description: 'Bekijk en filter alle glasposities.'
+  route_name: brebo_glass.position_overview
+  parent: system.admin_content
+  weight: 29
+
 brebo_glass.position_add:
   title: 'Glasopname'
   description: 'Registreer een glaspositie bij een gebouw of project.'
   route_name: brebo_glass.position_add
-  parent: system.admin_content
-  weight: 30
-
+  parent: brebo_glass.position_overview
+  weight: 0
