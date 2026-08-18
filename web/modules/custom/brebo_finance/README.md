@@ -100,3 +100,11 @@ A project scope deviation is controlled from observation, cause, consequence and
 Client approval automatically creates the signed approved contract-revenue mutation: additional work increases revenue and omitted work reduces it. The cost side remains a separate four-eyes budget mutation so commercial approval never silently rewrites the immutable cost baseline. Execution without client approval is blocked unless one person requests and another person explicitly accepts the documented risk.
 
 The Digital Controller flags changes that are not offered promptly, client decisions outstanding longer than seven days, execution at risk, approved work without controlled cost mutation and executed work not invoiced within three days.
+
+### Failure-cost accounting
+
+Failure costs are recorded as financial learning records rather than generic complaints. Each record contains the root-cause category, source, working-budget line, building-model object, responsible party, cause, consequence, preventive measure, owner, deadline and sealed evidence.
+
+Labour, material, equipment, subcontracting and other cost components remain separate. Total cost, recoverable value, verified recovery and net failure cost are calculated with exact decimals. A second person must validate the original record. Final closure requires another verifier, closure evidence and an authorized decision reference for any recoverable value that was not recovered.
+
+The Digital Controller flags records not independently validated within two days and any open recovery or prevention action beyond its deadline. The cockpit reports gross failure cost, recovered value and the net amount still carried by the project.
