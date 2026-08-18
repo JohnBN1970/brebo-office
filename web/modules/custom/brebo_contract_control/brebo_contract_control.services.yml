@@ -71,3 +71,9 @@ services:
     class: Drupal\brebo_contract_control\Service\PolicyStandardEnforcementService
     arguments:
       - '@database'
+
+  brebo_contract_control.compliance_evidence:
+    class: Drupal\brebo_contract_control\Service\ComplianceEvidenceEngine
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.policy_enforcement'
