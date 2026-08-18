@@ -50,3 +50,9 @@ calculation-grid:
     js/calculation-grid.js: {}
   dependencies:
     - core/drupal
+
+project-gantt:
+  version: 1.0.0
+  css:
+    component:
+      css/project-gantt.css: {}
