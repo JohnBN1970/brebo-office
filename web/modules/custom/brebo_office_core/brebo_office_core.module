@@ -1128,6 +1128,110 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_resource_booking') {
+    $resource = $node->get('field_brebo_booking_resource')->entity;
+    $shift = $node->get('field_brebo_booking_shift')->entity;
+    if (!$resource instanceof NodeInterface || $resource->bundle() !== 'brebo_work_resource'
+      || !$shift instanceof NodeInterface || $shift->bundle() !== 'brebo_shift') {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een materieelreservering vereist geldig materieel en een geldige dienst.');
+    }
+
+    foreach ([
+      'field_brebo_booking_project' => 'field_brebo_shift_project',
+      'field_brebo_booking_building' => 'field_brebo_shift_building',
+      'field_brebo_booking_budget' => 'field_brebo_shift_budget',
+    ] as $bookingField => $shiftField) {
+      if ($node->get($bookingField)->target_id !== $shift->get($shiftField)->target_id) {
+        throw new \Drupal\Core\Entity\EntityStorageException('Project, gebouw en werkbegrotingsregel moeten exact overeenkomen met de gekoppelde dienst.');
+      }
+    }
+
+    $start = (string) $node->get('field_brebo_booking_start')->value;
+    $end = (string) $node->get('field_brebo_booking_end')->value;
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    $query = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_resource_booking')
+      ->condition('field_brebo_booking_resource.target_id', $resource->id())
+      ->condition('field_brebo_booking_start', $end, '<')
+      ->condition('field_brebo_booking_end', $start, '>');
+    if (!$node->isNew()) {
+      $query->condition('nid', $node->id(), '<>');
+    }
+    $existing = [];
+    foreach ($storage->loadMultiple($query->execute()) as $other) {
+      if ($other instanceof NodeInterface) {
+        $existing[] = [
+          'start' => (string) $other->get('field_brebo_booking_start')->value,
+          'end' => (string) $other->get('field_brebo_booking_end')->value,
+          'status' => (string) $other->get('field_brebo_booking_status')->value,
+        ];
+      }
+    }
+
+    $requiredSkill = $resource->get('field_brebo_resource_skill')->entity;
+    $driverQualification = 'Passend';
+    if ($requiredSkill instanceof NodeInterface) {
+      $driver = $node->get('field_brebo_booking_driver')->entity;
+      if (!$driver instanceof NodeInterface) {
+        $driverQualification = 'Blokkade';
+      }
+      else {
+        $qualificationIds = $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_qualification')
+          ->condition('field_brebo_qual_contact.target_id', $driver->id())
+          ->condition('field_brebo_qual_skill.target_id', $requiredSkill->id())
+          ->execute();
+        $qualifications = [];
+        foreach ($storage->loadMultiple($qualificationIds) as $qualification) {
+          if ($qualification instanceof NodeInterface) {
+            $qualifications[] = [
+              'skill_id' => (string) $requiredSkill->id(),
+              'label' => (string) $requiredSkill->label(),
+              'status' => (string) ($qualification->get('field_brebo_qual_status')->value ?? ''),
+              'expires' => (string) ($qualification->get('field_brebo_qual_expires')->value ?? ''),
+            ];
+          }
+        }
+        $driverQualification = \Drupal::service('brebo_office_core.workforce_qualification_matcher')
+          ->match(
+            [(string) $requiredSkill->id() => (string) $requiredSkill->label()],
+            $qualifications,
+            new \DateTimeImmutable(substr($start, 0, 10)),
+          )['status'];
+      }
+    }
+
+    $result = \Drupal::service('brebo_office_core.workforce_resource_control')->assess(
+      [
+        'active' => (bool) ($resource->get('field_brebo_resource_active')->value ?? FALSE),
+        'status' => (string) ($resource->get('field_brebo_resource_status')->value ?? ''),
+        'inspection_until' => (string) ($resource->get('field_brebo_resource_inspection')->value ?? ''),
+        'maintenance_due' => (string) ($resource->get('field_brebo_resource_maintenance')->value ?? ''),
+        'requires_skill' => $requiredSkill instanceof NodeInterface,
+      ],
+      ['start' => $start, 'end' => $end],
+      $existing,
+      $driverQualification,
+    );
+    $node->set('field_brebo_booking_control', $result['status']);
+    $messages = array_merge($result['blocks'], $result['warnings']);
+    $node->set('field_brebo_booking_control_note', $messages === [] ? 'Alle materieelcontroles zijn akkoord.' : implode("\n", $messages));
+
+    $status = (string) $node->get('field_brebo_booking_status')->value;
+    if (in_array($status, ['Bevestigd', 'Uitgegeven'], TRUE)) {
+      if ($result['status'] === 'Blokkade') {
+        throw new \Drupal\Core\Entity\EntityStorageException('Materieelreservering kan niet worden vrijgegeven: ' . implode(', ', $result['blocks']) . '.');
+      }
+      if ($node->get('field_brebo_booking_approved_by')->isEmpty()
+        || $node->get('field_brebo_booking_approved_at')->isEmpty()) {
+        throw new \Drupal\Core\Entity\EntityStorageException('Een vrijgegeven materieelreservering vereist een beoordelaar en vrijgavemoment.');
+      }
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_qualification') {
     $has_subject = !$node->get('field_brebo_qual_contact')->isEmpty()
       || !$node->get('field_brebo_qual_user')->isEmpty();
