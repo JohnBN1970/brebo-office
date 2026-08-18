@@ -44,6 +44,13 @@ function brebo_calculation_post_update_optional_work_package(&$sandbox = NULL): 
  * and calculation-instance snapshots are deliberately separate persistence.
  */
 function brebo_calculation_post_update_create_recipe_domain(&$sandbox = NULL): string {
+  if (!function_exists('brebo_calculation_recipe_schema')) {
+    \Drupal::moduleHandler()->loadInclude('brebo_calculation', 'install');
+  }
+  if (!function_exists('brebo_calculation_recipe_schema')) {
+    throw new \RuntimeException('BREBO Calculation recipe schema definition could not be loaded.');
+  }
+
   $schema = \Drupal::database()->schema();
   $definitions = brebo_calculation_recipe_schema();
   $created = [];
