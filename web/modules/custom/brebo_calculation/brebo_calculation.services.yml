@@ -50,6 +50,10 @@ services:
       - '@entity_type.manager'
       - '@brebo_calculation.row_manager'
 
+  brebo_calculation.norm_library:
+    class: Drupal\brebo_calculation\Service\CalculationNormLibrary
+    arguments: ['@database']
+
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
