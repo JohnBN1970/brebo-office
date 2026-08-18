@@ -20,3 +20,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_procurement_control.learning'
+
+  brebo_procurement_control.decision_intelligence:
+    class: Drupal\brebo_procurement_control\Service\ProcurementDecisionIntelligenceService
+    arguments:
+      - '@database'
