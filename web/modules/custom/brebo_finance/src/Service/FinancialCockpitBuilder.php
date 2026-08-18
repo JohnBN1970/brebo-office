@@ -107,6 +107,29 @@ final class FinancialCockpitBuilder {
         ),
       ],
       'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
+      'contract_obligations' => [
+        'open_count' => $this->countByStatus(
+          'brebo_finance_contract_obligation',
+          $projectNid,
+          ['open', 'pending_verification', 'waiver_review'],
+        ),
+        'pending_verification' => $this->countByStatus(
+          'brebo_finance_contract_obligation',
+          $projectNid,
+          ['pending_verification'],
+        ),
+        'waiver_review' => $this->countByStatus(
+          'brebo_finance_contract_obligation',
+          $projectNid,
+          ['waiver_review'],
+        ),
+        'open_exposure_ex_vat' => $this->sumByStatus(
+          'brebo_finance_contract_obligation',
+          'financial_exposure_ex_vat',
+          $projectNid,
+          ['open', 'pending_verification', 'waiver_review'],
+        ),
+      ],
       'supplier_scorecards' => $this->latestSupplierScores($projectNid),
       'failure_costs' => [
         'open_count' => $this->countByStatus(
