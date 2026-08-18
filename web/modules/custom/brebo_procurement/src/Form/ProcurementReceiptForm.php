@@ -56,9 +56,10 @@ final class ProcurementReceiptForm extends FormBase {
       foreach (['quantity_ok','dimensions_ok','specification_ok','damage_free','checksum_ok'] as $key) $inspection[$key]=(bool)$form_state->getValue($key);
       $inspection['note']=(string)$form_state->getValue('note');
       $this->orders->receive($this->orderId,$inspection,$this->currentUser());
-      $accepted=!in_array(FALSE,array_values(array_intersect_key($inspection,array_flip(['quantity_ok','dimensions_ok','specification_ok','damage_free','checksum_ok']))),TRUE);
-      $this->messenger()->addStatus($accepted ? $this->t('Levering akkoord. Bronobjecten zijn op geleverd gezet.') : $this->t('Levering heeft een ontvangstafwijking en is niet vrijgegeven voor montage.'));
-      $form_state->setRedirect('brebo_glass.position_overview');
+      $accepted=TRUE;
+      foreach (['quantity_ok','dimensions_ok','specification_ok','damage_free','checksum_ok'] as $key) $accepted=$accepted && $inspection[$key];
+      $this->messenger()->addStatus($accepted ? $this->t('Levering akkoord. Bronobjecten zijn door hun eigen domein bijgewerkt.') : $this->t('Levering heeft een ontvangstafwijking en is niet vrijgegeven voor vervolgverwerking.'));
+      $form_state->setRedirect('brebo_procurement.order_overview');
     } catch (\Throwable $e) { $this->messenger()->addError($e->getMessage()); }
   }
 }
