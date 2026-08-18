@@ -1128,6 +1128,29 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_qualification') {
+    $has_subject = !$node->get('field_brebo_qual_contact')->isEmpty()
+      || !$node->get('field_brebo_qual_user')->isEmpty();
+    if (!$has_subject) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een kwalificatiebewijs vereist een persoon of intern account.');
+    }
+    $issued = (string) ($node->get('field_brebo_qual_issued')->value ?? '');
+    $expires = (string) ($node->get('field_brebo_qual_expires')->value ?? '');
+    if ($issued !== '' && $expires !== '' && $expires < $issued) {
+      throw new \Drupal\Core\Entity\EntityStorageException('De vervaldatum van een kwalificatiebewijs mag niet vóór de afgiftedatum liggen.');
+    }
+    $status = (string) $node->get('field_brebo_qual_status')->value;
+    if ($status === 'Geldig' && ($node->get('field_brebo_qual_verified_by')->isEmpty()
+      || $node->get('field_brebo_qual_verified_at')->isEmpty())) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een geldig kwalificatiebewijs vereist een controleur en controlemoment.');
+    }
+    if (in_array($status, ['Afgewezen', 'Ingetrokken'], TRUE)
+      && trim((string) ($node->get('field_brebo_qual_note')->value ?? '')) === '') {
+      throw new \Drupal\Core\Entity\EntityStorageException('Afwijzing of intrekking vereist een controletoelichting.');
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_shift') {
     $start = new \DateTimeImmutable((string) $node->get('field_brebo_shift_start')->value);
     $end = new \DateTimeImmutable((string) $node->get('field_brebo_shift_end')->value);
@@ -1138,8 +1161,88 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
     $assigned = !$node->get('field_brebo_shift_contact')->isEmpty()
       || !$node->get('field_brebo_shift_user')->isEmpty()
       || !$node->get('field_brebo_shift_team')->isEmpty();
-    if ((string) $node->get('field_brebo_shift_status')->value === 'Gepubliceerd' && !$open && !$assigned) {
+    $shift_status = (string) $node->get('field_brebo_shift_status')->value;
+    if ($shift_status === 'Gepubliceerd' && !$open && !$assigned) {
       throw new \Drupal\Core\Entity\EntityStorageException('Een gepubliceerde dienst vereist bezetting of moet als open dienst zijn gemarkeerd.');
+    }
+
+    if ($node->hasField('field_brebo_shift_skills') && !$node->get('field_brebo_shift_skills')->isEmpty()) {
+      $requirements = [];
+      foreach ($node->get('field_brebo_shift_skills')->referencedEntities() as $skill) {
+        if ($skill instanceof NodeInterface) {
+          $requirements[(string) $skill->id()] = (string) $skill->label();
+        }
+      }
+
+      $resources = [];
+      if ($contact = $node->get('field_brebo_shift_contact')->entity) {
+        $resources[] = ['contact_id' => (int) $contact->id(), 'user_id' => NULL, 'label' => (string) $contact->label()];
+      }
+      if ($user = $node->get('field_brebo_shift_user')->entity) {
+        $resources[] = ['contact_id' => NULL, 'user_id' => (int) $user->id(), 'label' => (string) $user->label()];
+      }
+      if ($team = $node->get('field_brebo_shift_team')->entity) {
+        foreach ($team->get('field_brebo_team_members')->referencedEntities() as $member) {
+          $resources[] = ['contact_id' => (int) $member->id(), 'user_id' => NULL, 'label' => (string) $member->label()];
+        }
+      }
+
+      $messages = [];
+      $overall = 'Passend';
+      $storage = \Drupal::entityTypeManager()->getStorage('node');
+      foreach ($resources as $resource) {
+        $query = $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_qualification')
+          ->condition('field_brebo_qual_skill.target_id', array_keys($requirements), 'IN');
+        $subject = $query->orConditionGroup();
+        if ($resource['contact_id'] !== NULL) {
+          $subject->condition('field_brebo_qual_contact.target_id', $resource['contact_id']);
+        }
+        if ($resource['user_id'] !== NULL) {
+          $subject->condition('field_brebo_qual_user.target_id', $resource['user_id']);
+        }
+        $query->condition($subject);
+
+        $qualifications = [];
+        foreach ($storage->loadMultiple($query->execute()) as $qualification) {
+          if (!$qualification instanceof NodeInterface) {
+            continue;
+          }
+          $skill = $qualification->get('field_brebo_qual_skill')->entity;
+          $qualifications[] = [
+            'skill_id' => $skill instanceof NodeInterface ? (string) $skill->id() : '',
+            'label' => $skill instanceof NodeInterface ? (string) $skill->label() : '',
+            'status' => (string) ($qualification->get('field_brebo_qual_status')->value ?? ''),
+            'expires' => (string) ($qualification->get('field_brebo_qual_expires')->value ?? ''),
+          ];
+        }
+        $result = \Drupal::service('brebo_office_core.workforce_qualification_matcher')
+          ->match($requirements, $qualifications, new \DateTimeImmutable(substr((string) $node->get('field_brebo_shift_start')->value, 0, 10)));
+        if ($result['status'] === 'Blokkade') {
+          $overall = 'Blokkade';
+        }
+        elseif ($result['status'] === 'Waarschuwing' && $overall !== 'Blokkade') {
+          $overall = 'Waarschuwing';
+        }
+        if ($result['status'] !== 'Passend') {
+          $messages[] = $resource['label'] . ': ' . $result['message'];
+        }
+      }
+
+      if ($resources === []) {
+        $overall = 'Niet gecontroleerd';
+        $messages[] = 'Nog geen persoon of ploeg toegewezen.';
+      }
+      $node->set('field_brebo_shift_match', $overall);
+      $node->set('field_brebo_shift_match_note', implode("\n", $messages) ?: 'Alle vereiste kwalificaties zijn geldig.');
+      if ($shift_status === 'Gepubliceerd' && $overall === 'Blokkade') {
+        throw new \Drupal\Core\Entity\EntityStorageException('Dienst kan niet worden gepubliceerd: ' . implode(' ', $messages));
+      }
+    }
+    elseif ($node->hasField('field_brebo_shift_match')) {
+      $node->set('field_brebo_shift_match', 'Passend');
+      $node->set('field_brebo_shift_match_note', 'Geen vakbekwaamheidseisen ingesteld.');
     }
     return;
   }
