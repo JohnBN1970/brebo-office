@@ -1128,6 +1128,77 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_shift') {
+    $start = new \DateTimeImmutable((string) $node->get('field_brebo_shift_start')->value);
+    $end = new \DateTimeImmutable((string) $node->get('field_brebo_shift_end')->value);
+    if ($end <= $start) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Het einde van een dienst moet na de start liggen.');
+    }
+    $open = (bool) ($node->get('field_brebo_shift_open')->value ?? FALSE);
+    $assigned = !$node->get('field_brebo_shift_contact')->isEmpty()
+      || !$node->get('field_brebo_shift_user')->isEmpty()
+      || !$node->get('field_brebo_shift_team')->isEmpty();
+    if ((string) $node->get('field_brebo_shift_status')->value === 'Gepubliceerd' && !$open && !$assigned) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Een gepubliceerde dienst vereist bezetting of moet als open dienst zijn gemarkeerd.');
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_time_entry') {
+    $start = new \DateTimeImmutable((string) $node->get('field_brebo_time_start')->value);
+    $end = new \DateTimeImmutable((string) $node->get('field_brebo_time_end')->value);
+    $break = max(0, (int) ($node->get('field_brebo_time_break_min')->value ?? 0));
+    $netSeconds = $end->getTimestamp() - $start->getTimestamp() - ($break * 60);
+    if ($netSeconds <= 0) {
+      throw new \Drupal\Core\Entity\EntityStorageException('De netto gewerkte tijd moet groter zijn dan nul.');
+    }
+    $node->set('field_brebo_time_hours', number_format($netSeconds / 3600, 4, '.', ''));
+
+    $status = (string) $node->get('field_brebo_time_status')->value;
+    if ($status === 'Goedgekeurd' && ($node->get('field_brebo_time_approved_by')->isEmpty()
+      || $node->get('field_brebo_time_approved_at')->isEmpty())) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Goedgekeurde uren vereisen een beoordelaar en goedkeuringsmoment.');
+    }
+    if (in_array($status, ['Afgekeurd', 'Gecorrigeerd'], TRUE)
+      && trim((string) ($node->get('field_brebo_time_correction')->value ?? '')) === '') {
+      throw new \Drupal\Core\Entity\EntityStorageException('Afwijzing of correctie vereist een toelichting.');
+    }
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_clock_event') {
+    if ($node->get('field_brebo_clock_at')->isEmpty()) {
+      $node->set('field_brebo_clock_at', gmdate('Y-m-d\\TH:i:s', \Drupal::time()->getRequestTime()));
+    }
+    $building = $node->get('field_brebo_clock_building')->entity;
+    $shift = $node->get('field_brebo_clock_shift')->entity;
+    $result = \Drupal::service('brebo_office_core.workforce_geofence')->assess(
+      $building instanceof NodeInterface ? (float) ($building->get('field_brebo_latitude')->value ?? 0) : NULL,
+      $building instanceof NodeInterface ? (float) ($building->get('field_brebo_longitude')->value ?? 0) : NULL,
+      $node->get('field_brebo_clock_lat')->isEmpty() ? NULL : (float) $node->get('field_brebo_clock_lat')->value,
+      $node->get('field_brebo_clock_lon')->isEmpty() ? NULL : (float) $node->get('field_brebo_clock_lon')->value,
+      $shift instanceof NodeInterface ? (float) ($shift->get('field_brebo_shift_radius')->value ?? 150) : 150,
+      $node->get('field_brebo_clock_accuracy')->isEmpty() ? NULL : (float) $node->get('field_brebo_clock_accuracy')->value,
+    );
+    $node->set('field_brebo_clock_distance', $result['distance']);
+    $node->set('field_brebo_clock_geo_status', $result['status']);
+    return;
+  }
+
+  if ($node->bundle() === 'brebo_leave_request') {
+    $start = new \DateTimeImmutable((string) $node->get('field_brebo_leave_start')->value);
+    $end = new \DateTimeImmutable((string) $node->get('field_brebo_leave_end')->value);
+    if ($end < $start) {
+      throw new \Drupal\Core\Entity\EntityStorageException('De einddatum van verlof mag niet vóór de startdatum liggen.');
+    }
+    if ((string) $node->get('field_brebo_leave_status')->value === 'Goedgekeurd'
+      && ($node->get('field_brebo_leave_approver')->isEmpty()
+        || $node->get('field_brebo_leave_decided_at')->isEmpty())) {
+      throw new \Drupal\Core\Entity\EntityStorageException('Goedgekeurd verlof vereist een beoordelaar en beslismoment.');
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_staff_assignment') {
     $budget_line = $node->get('field_brebo_staff_finance_ref')->entity;
     if (!$budget_line instanceof NodeInterface || $budget_line->bundle() !== 'brebo_work_budget_line') {
