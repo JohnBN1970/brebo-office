@@ -16,6 +16,8 @@ final class ControlAutomationRunner {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ControlActionManager $actionManager,
     private readonly ControlNotificationEngine $notificationEngine,
+    private readonly ControlHistoryService $history,
+    private readonly ControlTrendActionService $trendActions,
   ) {}
 
   /** @return array<string, int> */
@@ -28,12 +30,20 @@ final class ControlAutomationRunner {
 
     $projects = 0;
     $actions = 0;
+    $snapshots = 0;
+    $trendActions = 0;
     foreach ($storage->loadMultiple($projectIds) as $project) {
       if (!$project instanceof NodeInterface) {
         continue;
       }
       $projects++;
       $actions += count($this->actionManager->synchronize($project));
+      if ($this->history->capture($project, $now)) {
+        $snapshots++;
+      }
+      if ($this->trendActions->synchronize($project, $now) !== NULL) {
+        $trendActions++;
+      }
     }
 
     $escalated = count($this->actionManager->escalateOverdue());
@@ -42,6 +52,8 @@ final class ControlAutomationRunner {
     return [
       'projects_scanned' => $projects,
       'actions_seen' => $actions,
+      'snapshots_captured' => $snapshots,
+      'trend_actions_active' => $trendActions,
       'actions_escalated' => $escalated,
       'notifications_queued' => $notifications,
     ];
