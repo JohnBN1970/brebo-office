@@ -48,3 +48,9 @@ services:
     class: Drupal\brebo_office_core\Service\WorkforceLaborCostService
     arguments:
       - '@entity_type.manager'
+
+  brebo_office_core.project_financial_control:
+    class: Drupal\brebo_office_core\Service\ProjectFinancialControl
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_office_core.workforce_labor_cost'
