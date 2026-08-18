@@ -127,6 +127,7 @@ final class ChangeOrderManager {
     $change = $this->requireStatus($changeId, ['priced']);
     $this->updateAndAudit($change, 'offered', [
       'status' => 'offered',
+      'offer_ref' => trim($offerReference),
       'offered_at' => time(),
     ], ['offer_reference' => trim($offerReference)], 'Change order formally offered to client.', $userId);
   }
