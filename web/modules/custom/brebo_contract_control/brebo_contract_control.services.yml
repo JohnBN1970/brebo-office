@@ -77,3 +77,8 @@ services:
     arguments:
       - '@database'
       - '@brebo_contract_control.policy_enforcement'
+
+  brebo_contract_control.audit_readiness:
+    class: Drupal\brebo_contract_control\Service\AuditReadinessEngine
+    arguments:
+      - '@database'
