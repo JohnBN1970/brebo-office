@@ -73,6 +73,34 @@ function brebo_glass_schema(): array {
     ],
   ];
 
+  $schema['brebo_glass_product'] = [
+    'description' => 'Verified glass products used for demand-driven recommendations.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'product_code' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
+      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'glass_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'composition' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'wind_resistance_kpa' => ['type' => 'numeric', 'precision' => 8, 'scale' => 3, 'not null' => TRUE],
+      'max_width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'max_height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'weight_kg_m2' => ['type' => 'numeric', 'precision' => 8, 'scale' => 2, 'not null' => TRUE],
+      'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['product_code' => ['product_code']],
+    'indexes' => [
+      'active_verified' => ['active', 'verified'],
+      'glass_type' => ['glass_type'],
+    ],
+  ];
+
   return $schema;
 }
 
@@ -155,5 +183,17 @@ function brebo_glass_update_11003(): void {
     if (!$schema->fieldExists('brebo_glass_position', $name)) {
       $schema->addField('brebo_glass_position', $name, $specification);
     }
+  }
+}
+
+
+/**
+ * Creates the verified glass product catalog for demand-driven selection.
+ */
+function brebo_glass_update_11004(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_glass_product')) {
+    $definitions = brebo_glass_schema();
+    $schema->createTable('brebo_glass_product', $definitions['brebo_glass_product']);
   }
 }
