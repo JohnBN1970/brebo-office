@@ -84,6 +84,71 @@ final class FinancialControlScanner {
       }
     }
 
+    $obligationQuery = $this->database->select('brebo_finance_contract_obligation', 'o');
+    $obligationQuery->fields('o', [
+      'id',
+      'obligation_number',
+      'obligation_type',
+      'responsible_side',
+      'status',
+      'title',
+      'clause_ref',
+      'consequence',
+      'control_measure',
+      'due_date',
+      'financial_exposure_ex_vat',
+      'owner_uid',
+    ]);
+    $obligationQuery->condition('project_nid', $projectNid);
+    $obligationQuery->condition('status', ['open', 'pending_verification', 'waiver_review'], 'IN');
+    $upcomingLimit = date('Y-m-d', $now + (14 * 86400));
+    foreach ($obligationQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $obligation) {
+      if ($obligation['due_date'] < $today) {
+        $criticalTypes = ['claim_deadline', 'notice_period', 'bank_guarantee', 'insurance', 'penalty'];
+        $severity = in_array($obligation['obligation_type'], $criticalTypes, TRUE) ? 'critical' : 'high';
+        $this->record($projectNid, 'FIN-CONTRACT-OBLIGATION-OVERDUE', $severity, 'contract_obligation', (int) $obligation['id'],
+          'Contractuele verplichting is over de vervaldatum',
+          sprintf('Verplichting %s uit %s is niet vóór %s aantoonbaar afgerond.',
+            $obligation['obligation_number'],
+            $obligation['clause_ref'],
+            $obligation['due_date'],
+          ),
+          (string) $obligation['consequence'],
+          (string) $obligation['control_measure'],
+          $now,
+          [
+            'obligation_type' => $obligation['obligation_type'],
+            'responsible_side' => $obligation['responsible_side'],
+            'due_date' => $obligation['due_date'],
+            'amount_ex_vat' => $obligation['financial_exposure_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CONTRACT-OBLIGATION-OVERDUE', 'contract_obligation', (int) $obligation['id']);
+        $counts[$severity]++;
+      }
+      elseif ($obligation['due_date'] <= $upcomingLimit) {
+        $this->record($projectNid, 'FIN-CONTRACT-OBLIGATION-UPCOMING', 'medium', 'contract_obligation', (int) $obligation['id'],
+          'Contractuele verplichting vervalt binnen veertien dagen',
+          sprintf('Verplichting %s uit %s heeft vervaldatum %s.',
+            $obligation['obligation_number'],
+            $obligation['clause_ref'],
+            $obligation['due_date'],
+          ),
+          (string) $obligation['consequence'],
+          (string) $obligation['control_measure'],
+          $now,
+          [
+            'obligation_type' => $obligation['obligation_type'],
+            'responsible_side' => $obligation['responsible_side'],
+            'due_date' => $obligation['due_date'],
+            'amount_ex_vat' => $obligation['financial_exposure_ex_vat'],
+          ],
+        );
+        $seen[] = $this->key('FIN-CONTRACT-OBLIGATION-UPCOMING', 'contract_obligation', (int) $obligation['id']);
+        $counts['medium']++;
+      }
+    }
+
     $scoreRows = $this->database->select('brebo_finance_supplier_score_snapshot', 's')
       ->fields('s', [
         'id',
