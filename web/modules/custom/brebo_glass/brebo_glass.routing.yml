@@ -23,6 +23,15 @@ brebo_glass.position_approve:
     _permission: 'approve brebo glass positions'
     position_id: '\d+'
 
+brebo_glass.position_to_calculation:
+  path: '/brebo/glas/{position_id}/calculatie'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassCalculationExportForm'
+    _title: 'Glaspositie naar calculatie'
+  requirements:
+    _permission: 'export brebo glass to calculation'
+    position_id: '\d+'
+
 brebo_glass.product_overview:
   path: '/brebo/glas/producten'
   defaults:
