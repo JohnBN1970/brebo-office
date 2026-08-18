@@ -624,6 +624,68 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_cash_event'] = [
+    'description' => 'Traceable expected or confirmed project cash movement for regular or G-account forecasting.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_system' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_id' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'direction' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'account_bucket' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'amount_inc_vat' => $money,
+      'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'confidence' => ['type' => 'numeric', 'precision' => 7, 'scale' => 6, 'not null' => FALSE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'recorded_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'settled_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_event' => ['source_system', 'source_type', 'source_id', 'account_bucket'],
+    ],
+    'indexes' => [
+      'project_due_status' => ['project_nid', 'due_date', 'status'],
+      'bucket_due' => ['account_bucket', 'due_date'],
+      'source_hash' => ['source_hash'],
+    ],
+  ];
+
+  $schema['brebo_finance_cash_forecast_snapshot'] = [
+    'description' => 'Immutable thirteen-week cash forecast with separately controlled regular and G-account balances.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'snapshot_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'scenario' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'opening_regular_balance' => $money,
+      'opening_g_account_balance' => $money,
+      'lowest_regular_balance' => $money,
+      'lowest_g_account_balance' => $money,
+      'first_regular_shortfall_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'first_g_account_shortfall_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_date_scenario' => ['project_nid', 'snapshot_date', 'scenario'],
+    ],
+    'indexes' => [
+      'project_created' => ['project_nid', 'created'],
+      'content_hash' => ['content_hash'],
+    ],
+  ];
+
   $schema['brebo_finance_controller_run'] = [
     'description' => 'Scheduled Digital Controller evidence run awaiting or containing AI review.',
     'fields' => [
