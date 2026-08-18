@@ -5,11 +5,15 @@ declare(strict_types=1);
 namespace Drupal\brebo_procurement\Service;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\Core\Session\AccountInterface;
 
 /** Converts selected offers to orders and records controlled receipts. */
 final class ProcurementOrderManager {
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly ModuleHandlerInterface $moduleHandler,
+  ) {}
 
   public function createFromSelectedOffer(int $requestId, AccountInterface $account): int {
     $request = $this->database->select('brebo_procurement_request', 'r')->fields('r')->condition('id', $requestId)->execute()->fetchAssoc();
@@ -26,6 +30,7 @@ final class ProcurementOrderManager {
       'created' => $now, 'created_by' => (int) $account->id(),
     ])->execute();
     $this->database->update('brebo_procurement_request')->fields(['status'=>'ordered','changed'=>$now])->condition('id',$requestId)->execute();
+    $this->notifySources($requestId, 'ordered', ['order_id'=>$orderId,'expected_delivery_date'=>$offer['delivery_date'] ?: $request['requested_delivery_date']]);
     return $orderId;
   }
 
@@ -44,6 +49,22 @@ final class ProcurementOrderManager {
       'checksum_ok'=>!empty($inspection['checksum_ok'])?1:0,'accepted'=>$accepted?1:0,
       'note'=>trim((string)($inspection['note']??''))?:NULL,
     ])->execute();
-    $this->database->update('brebo_procurement_order')->fields(['status'=>$accepted?'received':'receipt_exception','received_at'=>$now])->condition('id',$orderId)->execute();
+    $status = $accepted ? 'received' : 'receipt_exception';
+    $this->database->update('brebo_procurement_order')->fields(['status'=>$status,'received_at'=>$now])->condition('id',$orderId)->execute();
+    $this->notifySources((int)$order['request_id'], $status, ['order_id'=>$orderId,'inspection'=>$inspection]);
+  }
+
+  /** @param array<string,mixed> $context */
+  private function notifySources(int $requestId, string $status, array $context = []): void {
+    $lines = $this->database->select('brebo_procurement_request_line','l')->fields('l',['source_domain','source_reference'])->condition('request_id',$requestId)->execute();
+    foreach ($lines as $line) {
+      $this->moduleHandler->invokeAll('brebo_procurement_source_status_changed', [[
+        'source_domain'=>(string)$line->source_domain,
+        'source_reference'=>(string)$line->source_reference,
+        'request_id'=>$requestId,
+        'status'=>$status,
+        'context'=>$context,
+      ]]);
+    }
   }
 }
