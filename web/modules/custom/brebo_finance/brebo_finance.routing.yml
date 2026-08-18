@@ -1,3 +1,25 @@
+brebo_finance.command_center_page:
+  path: '/brebo-office/finance'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::page'
+    _title: 'Financieel Command Center'
+  requirements:
+    _permission: 'access brebo finance'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_finance.command_center_api:
+  path: '/brebo-office/api/finance/command-center'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::api'
+    _title: 'BREBO Financieel Command Center API'
+  requirements:
+    _permission: 'access brebo finance'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
 brebo_finance.project_cockpit:
   path: '/brebo-office/api/finance/projects/{projectNid}/cockpit'
   defaults:
