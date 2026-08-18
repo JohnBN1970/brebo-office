@@ -676,6 +676,9 @@ function brebo_finance_schema(): array {
       'resolved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'resolved_by' => $user,
       'resolution_note' => ['type' => 'text', 'not null' => FALSE],
+      'resolution_evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'resolution_submitted_by' => $user,
+      'resolution_verified_by' => $user,
       'payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
       'created' => $timestamp,
       'created_by' => $user,
@@ -690,6 +693,8 @@ function brebo_finance_schema(): array {
       'project_status_severity' => ['project_nid', 'status', 'severity'],
       'owner_status' => ['owner_uid', 'status'],
       'due_date' => ['due_date'],
+      'resolution_submitted_by' => ['resolution_submitted_by'],
+      'resolution_verified_by' => ['resolution_verified_by'],
     ],
   ];
 
