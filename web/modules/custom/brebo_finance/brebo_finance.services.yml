@@ -52,6 +52,12 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.failure_cost_manager:
+    class: Drupal\brebo_finance\Service\FailureCostManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
+
   brebo_finance.change_order_manager:
     class: Drupal\brebo_finance\Service\ChangeOrderManager
     arguments:
