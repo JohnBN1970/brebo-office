@@ -22,6 +22,16 @@ function brebo_glass_schema(): array {
       'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
       'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
       'performance_declaration_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'width_top_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_middle_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_bottom_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_left_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_middle_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_right_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_deduction_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_deduction_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'width_spread_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'height_spread_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
       'width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'quantity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
@@ -75,5 +85,36 @@ function brebo_glass_update_11001(): void {
 
   if (!$schema->indexExists('brebo_glass_position', 'technical_check')) {
     $schema->addIndex('brebo_glass_position', 'technical_check', ['technical_check_state']);
+  }
+}
+
+
+/**
+ * Adds source measurements and deductions for mandatory three-point measurement.
+ */
+function brebo_glass_update_11002(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'width_top_mm',
+    'width_middle_mm',
+    'width_bottom_mm',
+    'height_left_mm',
+    'height_middle_mm',
+    'height_right_mm',
+    'width_deduction_mm',
+    'height_deduction_mm',
+    'width_spread_mm',
+    'height_spread_mm',
+  ];
+
+  foreach ($fields as $name) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, [
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+        'default' => 0,
+      ]);
+    }
   }
 }
