@@ -86,7 +86,7 @@ final class WorkforceScheduleController extends ControllerBase {
       if (!$period instanceof NodeInterface) {
         continue;
       }
-      [$resource] = $this->resource($period, 'availability');
+      [$resource] = $this->resource($period, 'avail');
       $availability[] = [
         'resource' => $resource,
         'start' => (string) $period->get('field_brebo_avail_start')->value,
