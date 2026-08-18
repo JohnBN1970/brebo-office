@@ -636,3 +636,11 @@ brebo_office_core.inzet_shift_proposal:
     parameters:
       node:
         type: entity:node
+
+brebo_office_core.inzet_resources:
+  path: '/inzet/materieel'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceResourceController::overview'
+    _title: 'BREBO Inzet — Materieel en voertuigen'
+  requirements:
+    _permission: 'access content'
