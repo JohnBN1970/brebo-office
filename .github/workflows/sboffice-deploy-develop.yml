@@ -175,7 +175,13 @@ jobs:
           "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           "${drush[@]}" updb -y --no-cache-clear
           "${drush[@]}" php:eval '\Drupal::state()->set("system.maintenance_mode", FALSE); print "MAINTENANCE_MODE_OFF_BEFORE_CACHE_REBUILD=1\n";'
-          "${drush[@]}" cr -vvv
+          if "${drush[@]}" cr -vvv; then
+            echo "CACHE_REBUILD_MODE=drush"
+          else
+            cache_rebuild_rc="$?"
+            echo "::warning::Drush cache rebuild exited with $cache_rebuild_rc; applying Drupal router/render fallback."
+            "${drush[@]}" php:eval '\Drupal::service("router.builder")->rebuild(); \Drupal::service("cache.render")->deleteAll(); print "CACHE_REBUILD_MODE=router_render_fallback\n";'
+          fi
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_glass")) { throw new \RuntimeException("brebo_glass is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_glass_position","brebo_glass_product"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing glass table: ".$t); } } foreach (["brebo_glass.position_repository","brebo_glass.product_repository","brebo_glass.approval_policy"] as $service) { \Drupal::service($service); } $r=\Drupal::service("router.route_provider"); foreach (["brebo_glass.position_overview","brebo_glass.position_add","brebo_glass.position_approve","brebo_glass.product_overview","brebo_glass.product_add","brebo_glass.product_verify"] as $n) { $r->getRouteByName($n); } print "GLASS_DOMAIN_OK=1\n";'
 
