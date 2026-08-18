@@ -16,3 +16,6 @@ services:
     parent: logger.channel_base
     arguments:
       - 'brebo_office_core'
+
+  brebo_office_core.project_schedule_calculator:
+    class: Drupal\brebo_office_core\Service\ProjectScheduleCalculator
