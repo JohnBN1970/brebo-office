@@ -1,0 +1,218 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Install and schema hooks for BREBO Finance.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_finance_schema(): array {
+  $money = [
+    'type' => 'numeric',
+    'precision' => 18,
+    'scale' => 4,
+    'not null' => TRUE,
+    'default' => 0,
+  ];
+  $timestamp = [
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ];
+  $user = [
+    'type' => 'int',
+    'unsigned' => TRUE,
+    'not null' => FALSE,
+  ];
+
+  $schema['brebo_finance_budget'] = [
+    'description' => 'Versioned financial budget per BREBO project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'budget_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'current'],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'source_calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_version' => ['project_nid', 'version'],
+    ],
+    'indexes' => [
+      'project_status' => ['project_nid', 'status'],
+      'source_calculation' => ['source_calculation_id', 'source_calculation_version'],
+    ],
+  ];
+
+  $schema['brebo_finance_budget_line'] = [
+    'description' => 'Budget line with VAT treatment and optional building-object allocation.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'budget_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'line_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'parent_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'cost_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'work_package' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'unit_cost_ex_vat' => $money,
+      'amount_ex_vat' => $money,
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'NL_21'],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE, 'default' => 21],
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'vat_reverse_charge' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'non_deductible_vat_amount' => $money,
+      'source_line_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'budget_line_key' => ['budget_id', 'line_key'],
+    ],
+    'indexes' => [
+      'budget_sort' => ['budget_id', 'sort_order'],
+      'cost_code' => ['cost_code'],
+    ],
+  ];
+
+  $schema['brebo_finance_commitment'] = [
+    'description' => 'Purchase commitment or subcontract order against a project budget.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'commitment_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'description' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'payment_term_days' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'order_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'delivery_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_commitment_number' => ['project_nid', 'commitment_number'],
+    ],
+    'indexes' => [
+      'project_status' => ['project_nid', 'status'],
+      'supplier' => ['supplier_name'],
+    ],
+  ];
+
+  $schema['brebo_finance_commitment_line'] = [
+    'description' => 'Detailed purchase commitment line linked to budget and VAT treatment.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'commitment_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'budget_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'line_number' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'unit_price_ex_vat' => $money,
+      'amount_ex_vat' => $money,
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'NL_21'],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE, 'default' => 21],
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'vat_reverse_charge' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'delivered_amount_ex_vat' => $money,
+      'invoiced_amount_ex_vat' => $money,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'commitment_line_number' => ['commitment_id', 'line_number'],
+    ],
+    'indexes' => [
+      'budget_line' => ['budget_line_id'],
+    ],
+  ];
+
+  $schema['brebo_finance_object_allocation'] = [
+    'description' => 'Auditable allocation of budget or commitment values to central building-model objects.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'target_entity_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'node'],
+      'target_entity_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'allocation_method' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'direct'],
+      'allocation_percentage' => ['type' => 'numeric', 'precision' => 9, 'scale' => 6, 'not null' => FALSE],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'note' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_target' => ['source_type', 'source_id', 'target_entity_type', 'target_entity_id'],
+    ],
+    'indexes' => [
+      'project_target' => ['project_nid', 'target_entity_type', 'target_entity_id'],
+      'source' => ['source_type', 'source_id'],
+    ],
+  ];
+
+  $schema['brebo_finance_audit'] = [
+    'description' => 'Append-only audit trail for financial and procurement changes.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'entity_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'entity_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'action' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'before_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'after_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'reason' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'project_created' => ['project_nid', 'created'],
+      'entity' => ['entity_type', 'entity_id'],
+    ],
+  ];
+
+  return $schema;
+}
