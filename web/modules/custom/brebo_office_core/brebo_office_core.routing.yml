@@ -470,165 +470,18 @@ brebo_office_core.contact_dashboard:
       node:
         type: entity:node
 
-brebo_office_core.contacts:
-  path: '/relaties/contactpersonen'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'Contactpersonen'
-    bundle: 'brebo_contact'
-  requirements:
-    _permission: 'access content'
-
-
-brebo_office_core.settings:
-  path: '/instellingen'
-  defaults:
-    _form: '\Drupal\brebo_office_core\Form\OfficeSettingsForm'
-    _title: 'Instellingen'
-  requirements:
-    _permission: 'administer site configuration'
-
-brebo_office_core.communication_channels:
-  path: '/communicatie/kanalen'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'Communicatiekanalen en groepen'
-    bundle: 'brebo_comm_channel'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.voice_intake:
-  path: '/communicatie/opnamebestand-inladen'
-  defaults:
-    _form: '\Drupal\brebo_office_core\Form\VoiceCommunicationIntakeForm'
-    _title: 'Opnamebestand inladen'
-  requirements:
-    _permission: 'create brebo_communication content'
-
-brebo_office_core.live_voice:
-  path: '/communicatie/live-opname'
-  defaults:
-    _form: '\Drupal\brebo_office_core\Form\VoiceCommunicationIntakeForm'
-    _title: 'Live opname starten'
-  requirements:
-    _permission: 'create brebo_communication content'
-
-
-
-brebo_office_core.communication_processing:
-  path: '/communicatie/{node}/verwerken'
-  defaults:
-    _form: '\Drupal\brebo_office_core\Form\CommunicationProcessingForm'
-    _title: 'Communicatie verwerken en vaststellen'
-  requirements:
-    _entity_access: 'node.update'
-  options:
-    parameters:
-      node:
-        type: entity:node
-
-brebo_office_core.offer_preview:
-  path: '/offertes/{node}/voorbeeld'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfferPreviewController::view'
-    _title: 'Offertevoorbeeld'
-  requirements:
-    _permission: 'access content'
-  options:
-    parameters:
-      node:
-        type: entity:node
-
-brebo_office_core.integration_api_status:
-  path: '/instellingen/integration-api/status'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\IntegrationApiStatusController::status'
-    _title: 'BREBO Integration API-status'
-  requirements:
-    _permission: 'administer site configuration'
-
-brebo_office_core.integration_api_test:
-  path: '/instellingen/integration-api/test'
-  defaults:
-    _form: '\Drupal\brebo_office_core\Form\IntegrationApiTestForm'
-    _title: 'Fictieve AI-communicatietest'
-  requirements:
-    _permission: 'administer site configuration'
-
-brebo_office_core.inzet_shifts:
-  path: '/inzet/diensten'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'BREBO Inzet — Diensten'
-    bundle: 'brebo_shift'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_time_entries:
-  path: '/inzet/uren'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'BREBO Inzet — Uren'
-    bundle: 'brebo_time_entry'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_clock_events:
-  path: '/inzet/klokregistraties'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'BREBO Inzet — Klokregistraties'
-    bundle: 'brebo_clock_event'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_leave:
-  path: '/inzet/verlof'
-  defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
-    _title: 'BREBO Inzet — Verlof'
-    bundle: 'brebo_leave_request'
-  requirements:
-    _permission: 'access content'
-
 brebo_office_core.inzet_schedule:
   path: '/inzet'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceScheduleController::overview'
+    _controller: '\Drupal\brebo_office_core\Controller\WorkforceScheduleController::overview'
     _title: 'BREBO Inzet — Weekrooster'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_skills:
-  path: '/inzet/vakbekwaamheden'
-  defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
-    _title: 'BREBO Inzet — Vakbekwaamheden'
-    bundle: 'brebo_work_skill'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_qualifications:
-  path: '/inzet/kwalificaties'
-  defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
-    _title: 'BREBO Inzet — Kwalificatiebewijzen'
-    bundle: 'brebo_qualification'
-  requirements:
-    _permission: 'access content'
-
-brebo_office_core.inzet_capacity:
-  path: '/inzet/capaciteit'
-  defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceCapacityController::overview'
-    _title: 'BREBO Inzet — Capaciteitsprognose'
   requirements:
     _permission: 'access content'
 
 brebo_office_core.inzet_shift_proposal:
   path: '/inzet/diensten/{node}/personeelsvoorstel'
   defaults:
-    _form: '\\Drupal\\brebo_office_core\\Form\\WorkforceAssignmentProposalForm'
+    _form: '\Drupal\brebo_office_core\Form\WorkforceAssignmentProposalForm'
     _title: 'BREBO Inzet — Personeelsvoorstel'
   requirements:
     _entity_access: 'node.update'
@@ -637,10 +490,30 @@ brebo_office_core.inzet_shift_proposal:
       node:
         type: entity:node
 
+brebo_office_core.inzet_shift_clock:
+  path: '/inzet/diensten/{node}/klokken'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\WorkforceClockForm'
+    _title: 'BREBO Inzet — Klokken'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_office_core.inzet_capacity:
+  path: '/inzet/capaciteit'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\WorkforceCapacityController::overview'
+    _title: 'BREBO Inzet — Capaciteitsprognose'
+  requirements:
+    _permission: 'access content'
+
 brebo_office_core.inzet_resources:
   path: '/inzet/materieel'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceResourceController::overview'
+    _controller: '\Drupal\brebo_office_core\Controller\WorkforceResourceController::overview'
     _title: 'BREBO Inzet — Materieel en voertuigen'
   requirements:
     _permission: 'access content'
@@ -648,7 +521,7 @@ brebo_office_core.inzet_resources:
 brebo_office_core.inzet_day_starts:
   path: '/inzet/dagstarts'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'BREBO Inzet — Digitale dagstarts'
     bundle: 'brebo_day_start'
   requirements:
@@ -657,7 +530,7 @@ brebo_office_core.inzet_day_starts:
 brebo_office_core.inzet_day_acknowledgements:
   path: '/inzet/dagstarts/bevestigingen'
   defaults:
-    _controller: '\\Drupal\\brebo_office_core\\Controller\\OfficeController::objectList'
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
     _title: 'BREBO Inzet — Dagstartbevestigingen'
     bundle: 'brebo_day_ack'
   requirements:
@@ -666,7 +539,7 @@ brebo_office_core.inzet_day_acknowledgements:
 brebo_office_core.inzet_shift_day_start:
   path: '/inzet/diensten/{node}/dagstart/maken'
   defaults:
-    _form: '\\Drupal\\brebo_office_core\\Form\\WorkforceDayStartForm'
+    _form: '\Drupal\brebo_office_core\Form\WorkforceDayStartForm'
     _title: 'BREBO Inzet — Digitale dagstart maken'
   requirements:
     _entity_access: 'node.update'
