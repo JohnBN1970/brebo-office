@@ -19,3 +19,10 @@ services:
     arguments:
       - '@database'
       - '@brebo_control.escalation_matrix'
+
+  brebo_control.automation_runner:
+    class: Drupal\brebo_control\Service\ControlAutomationRunner
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_control.action_manager'
+      - '@brebo_control.notification_engine'
