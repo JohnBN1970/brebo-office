@@ -30,3 +30,12 @@ brebo_contract_control.management_actions:
     action_key: 'all'
   requirements:
     _permission: 'view brebo management control center'
+
+brebo_contract_control.management_action_source:
+  path: '/brebo/control-center/action/{action_id}/source'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::source'
+    _title: 'Control Source dossier'
+  requirements:
+    _permission: 'view brebo management control center'
+    action_id: '\d+'
