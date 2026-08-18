@@ -1,0 +1,10 @@
+brebo_procurement.offer_workbench:
+  path: '/admin/brebo/procurement/{request_id}/offers'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementOfferWorkbenchForm'
+    _title: 'Leveranciersoffertes vergelijken'
+  requirements:
+    _permission: 'manage brebo procurement offers'
+    request_id: '\d+'
+  options:
+    _admin_route: true
