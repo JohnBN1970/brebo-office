@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
@@ -285,7 +286,7 @@ final class ProjectPlanningController extends ControllerBase {
             '#type' => 'container',
             '#attributes' => ['class' => ['brebo-gantt__label']],
             'link' => Link::fromTextAndUrl($source['label'], $source['url'])->toRenderable(),
-            'meta' => ['#markup' => '<small>' . $source['code'] . ' · ' . $source['phase'] . '</small>'],
+            'meta' => ['#markup' => '<small>' . Html::escape($source['code'] . ' · ' . $source['phase']) . '</small>'],
           ],
           'track' => [
             '#type' => 'container',
