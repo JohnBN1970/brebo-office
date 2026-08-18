@@ -45,6 +45,11 @@ services:
     arguments:
       - '@database'
 
+  brebo_contract_control.management_trends:
+    class: Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService
+    arguments:
+      - '@database'
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
