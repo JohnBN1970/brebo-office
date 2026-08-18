@@ -2,7 +2,9 @@ services:
   brebo_glass.specification_calculator:
     class: Drupal\brebo_glass\Service\GlassSpecificationCalculator
 
+  brebo_glass.technical_rule_evaluator:
+    class: Drupal\brebo_glass\Service\GlassTechnicalRuleEvaluator
+
   brebo_glass.position_repository:
     class: Drupal\brebo_glass\Service\GlassPositionRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time']
-
