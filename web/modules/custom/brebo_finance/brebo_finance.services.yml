@@ -117,6 +117,10 @@ services:
     class: Drupal\brebo_finance\Service\FinancialCommandCenter
     arguments: ['@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver']
 
+  brebo_finance.financial_project_ledger:
+    class: Drupal\brebo_finance\Service\FinancialProjectLedger
+    arguments: ['@database']
+
   brebo_finance.control_finding_manager:
     class: Drupal\brebo_finance\Service\ControlFindingManager
     arguments: ['@database']
