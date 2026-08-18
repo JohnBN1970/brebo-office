@@ -193,6 +193,66 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_budget_mutation'] = [
+    'description' => 'Controlled change request against an immutable working-budget baseline.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'budget_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'mutation_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'mutation_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'cause' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'description' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'consequence' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'control_measure' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'requested' => $timestamp,
+      'requested_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'approval_note' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_mutation_number' => ['project_nid', 'mutation_number'],
+    ],
+    'indexes' => [
+      'budget_status' => ['budget_id', 'status'],
+      'project_cause' => ['project_nid', 'cause'],
+    ],
+  ];
+
+  $schema['brebo_finance_budget_mutation_line'] = [
+    'description' => 'Signed budget-line adjustment belonging to a controlled mutation.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'mutation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'budget_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'adjustment_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'NL_0'],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'vat_amount' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'adjustment_inc_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'mutation' => ['mutation_id'],
+      'budget_line' => ['budget_line_id'],
+    ],
+  ];
+
   $schema['brebo_finance_budget_approval'] = [
     'description' => 'Discipline-based review decisions for a working budget baseline.',
     'fields' => [
