@@ -44,6 +44,19 @@ brebo_finance.project_ledger:
   options:
     no_cache: TRUE
 
+brebo_finance.euro_trace:
+  path: '/brebo-office/api/finance/trace/{entity_type}/{entity_id}'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialEuroTraceController::view'
+    _title: 'Financiële eurotrace'
+  requirements:
+    _permission: 'access brebo finance'
+    entity_type: 'commitment|purchase_invoice|payment_release'
+    entity_id: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
 brebo_finance.project_cockpit:
   path: '/brebo-office/api/finance/projects/{projectNid}/cockpit'
   defaults:
