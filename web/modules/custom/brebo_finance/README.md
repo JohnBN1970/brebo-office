@@ -142,3 +142,12 @@ Verified performance, matched purchase invoices, approved labour actuals and clo
 A rejected or unverified result is never allowed to train the reference price. Benchmarks compare only the same cost code, work type, specification, unit and region. They use the upper observed median for even sample sizes, preventing an optimistic low midpoint, and publish minimum, benchmark, maximum, observation count, project count and confidence class A-E.
 
 No inflation, market correction or regional factor is silently invented. A candidate calculation or purchase price may be compared with a sealed benchmark, but the result always requires human technical and commercial review. The benchmark supports the calculator and purchaser; it never selects a supplier or rewrites an approved budget.
+
+
+### Deterministic financial scenario engine
+
+Project teams can model optimistic, expected, stress and custom scenarios without altering the approved working budget or official forecast. Every scenario separates the remaining-cost multiplier, labour-productivity impact, purchase-price impact, delay cost, credit loss, revenue change, additional risk reserve, receipt delay and affected receipts.
+
+Assumptions require source evidence and a second-person approval before activation. The result is an immutable snapshot tied to the exact forecast content hash and assumption hash. Cost, result and margin remain excluding VAT; delayed cash receipts remain including VAT and are never mistaken for project cost.
+
+The Digital Controller raises a critical finding when an approved scenario produces a negative result and a high finding when material receipts move by more than thirty days. AI may explain sensitivities and prioritize measures, but cannot activate assumptions, mutate the baseline or choose a response.
