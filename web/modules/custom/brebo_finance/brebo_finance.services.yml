@@ -18,6 +18,13 @@ services:
     class: Drupal\brebo_finance\Service\FinancialPhaseGatePresenter
     arguments: ['@brebo_finance.financial_phase_gate_manager']
 
+  brebo_finance.financial_gate_exposure_resolver:
+    class: Drupal\brebo_finance\Service\FinancialGateExposureResolver
+    arguments: ['@database']
+
+  brebo_finance.financial_approval_matrix:
+    class: Drupal\brebo_finance\Service\FinancialApprovalMatrix
+
   brebo_finance.project_phase_transition_manager:
     class: Drupal\brebo_finance\Service\ProjectPhaseTransitionManager
     arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_phase_gate_manager']
