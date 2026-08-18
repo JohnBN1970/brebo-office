@@ -35,7 +35,7 @@ services:
 
   brebo_finance.financial_decision_escalation_engine:
     class: Drupal\brebo_finance\Service\FinancialDecisionEscalationEngine
-    arguments: ['@database', '@brebo_finance.financial_decision_inbox']
+    arguments: ['@database', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_notification_outbox']
 
   brebo_finance.financial_notification_outbox:
     class: Drupal\brebo_finance\Service\FinancialNotificationOutbox
