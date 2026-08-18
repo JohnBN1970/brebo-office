@@ -583,6 +583,44 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_control_finding'] = [
+    'description' => 'Actionable financial control finding with cause, consequence and ownership.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'control_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'cause' => ['type' => 'text', 'not null' => TRUE],
+      'consequence' => ['type' => 'text', 'not null' => TRUE],
+      'control_measure' => ['type' => 'text', 'not null' => TRUE],
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'open'],
+      'detected' => $timestamp,
+      'last_seen' => $timestamp,
+      'resolved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'resolved_by' => $user,
+      'resolution_note' => ['type' => 'text', 'not null' => FALSE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_control_source' => ['project_nid', 'control_code', 'source_type', 'source_id'],
+    ],
+    'indexes' => [
+      'project_status_severity' => ['project_nid', 'status', 'severity'],
+      'owner_status' => ['owner_uid', 'status'],
+      'due_date' => ['due_date'],
+    ],
+  ];
+
   $schema['brebo_finance_audit'] = [
     'description' => 'Append-only audit trail for financial and procurement changes.',
     'fields' => [
