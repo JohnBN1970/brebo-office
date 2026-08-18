@@ -14,6 +14,15 @@ brebo_glass.position_add:
   requirements:
     _permission: 'administer brebo glass'
 
+brebo_glass.position_approve:
+  path: '/brebo/glas/{position_id}/vrijgeven'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassPositionApproveForm'
+    _title: 'Glaspositie technisch vrijgeven'
+  requirements:
+    _permission: 'approve brebo glass positions'
+    position_id: '\d+'
+
 brebo_glass.product_overview:
   path: '/brebo/glas/producten'
   defaults:
