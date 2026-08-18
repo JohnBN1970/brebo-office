@@ -68,3 +68,12 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationDraftInitializer
     arguments:
       - '@database'
+
+  brebo_calculation.recipe_formula_evaluator:
+    class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
+
+  brebo_calculation.recipe_manager:
+    class: Drupal\brebo_calculation\Service\RecipeManager
+    arguments:
+      - '@database'
+      - '@brebo_calculation.recipe_formula_evaluator'
