@@ -71,6 +71,34 @@ final class ProjectScheduleCalculatorTest extends TestCase {
     self::assertTrue($result['activities'][1]['critical_changed']);
   }
 
+  public function testUnknownPredecessorBlocksCalculation(): void {
+    $result = $this->calculator->calculate([
+      1 => $this->activity(1, 'A', '2026-08-17', '2026-08-18', 2, [99]),
+    ]);
+
+    self::assertNotEmpty($result['errors']);
+    self::assertStringContainsString('niet in dit project', $result['errors'][0]);
+  }
+
+  public function testSelfReferenceBlocksCalculation(): void {
+    $result = $this->calculator->calculate([
+      1 => $this->activity(1, 'A', '2026-08-17', '2026-08-18', 2, [1]),
+    ]);
+
+    self::assertNotEmpty($result['errors']);
+    self::assertStringContainsString('eigen voorganger', $result['errors'][0]);
+  }
+
+  public function testInvalidRelationAndDateBlockCalculation(): void {
+    $result = $this->calculator->calculate([
+      1 => $this->activity(1, 'A', '17-08-2026', '2026-08-18', 2, [], 'XX'),
+    ]);
+
+    self::assertCount(2, $result['errors']);
+    self::assertStringContainsString('startdatum', implode(' ', $result['errors']));
+    self::assertStringContainsString('onbekende relatie', implode(' ', $result['errors']));
+  }
+
   public function testCycleBlocksCalculation(): void {
     $result = $this->calculator->calculate([
       1 => $this->activity(1, 'A', '2026-08-17', '2026-08-18', 2, [2]),
