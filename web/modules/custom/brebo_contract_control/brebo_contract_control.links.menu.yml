@@ -4,3 +4,10 @@ brebo_contract_control.audit_center:
   route_name: brebo_contract_control.audit_center
   parent: system.admin_reports
   weight: 30
+
+brebo_contract_control.management_control_center:
+  title: 'Control Center'
+  description: 'Directiebeeld van risico, betalingen, contracten, leveranciers en escalaties.'
+  route_name: brebo_contract_control.management_control_center
+  parent: system.admin_reports
+  weight: 29
