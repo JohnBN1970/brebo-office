@@ -39,6 +39,7 @@ final class FinancialCockpitBuilder {
       'forecast' => $forecast,
       'forecast_age_days' => $ageDays,
       'forecast_is_stale' => $ageDays === NULL || $ageDays > 30,
+      'financial_scenarios' => $this->latestScenarioSnapshots($projectNid),
       'cost_intelligence' => [
         'verified_observation_count' => (int) $this->database->select('brebo_finance_cost_observation', 'o')
           ->condition('project_nid', $projectNid)
@@ -262,6 +263,33 @@ final class FinancialCockpitBuilder {
   }
 
 
+
+  /**
+   * @return list<array<string, mixed>>
+   */
+  private function latestScenarioSnapshots(int $projectNid): array {
+    $rows = $this->database->select('brebo_finance_scenario_snapshot', 'ss')
+      ->fields('ss', [
+        'id', 'scenario_id', 'forecast_snapshot_id', 'snapshot_date',
+        'adjusted_revenue_ex_vat', 'adjusted_end_cost_ex_vat',
+        'adjusted_risk_reserve_ex_vat', 'adjusted_result_ex_vat',
+        'adjusted_margin_pct', 'receipt_delay_days',
+        'delayed_receipts_inc_vat', 'content_hash',
+      ])
+      ->condition('project_nid', $projectNid)
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $latest = [];
+    foreach ($rows as $row) {
+      $scenarioId = (int) $row['scenario_id'];
+      if (!isset($latest[$scenarioId])) {
+        $latest[$scenarioId] = $row;
+      }
+    }
+    return array_values($latest);
+  }
 
   /**
    * @return list<string>
