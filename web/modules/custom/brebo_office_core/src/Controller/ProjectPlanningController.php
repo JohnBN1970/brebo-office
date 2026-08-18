@@ -210,6 +210,11 @@ final class ProjectPlanningController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_office_core.project_planning_recalculate', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'personnel' => [
+          '#type' => 'link', '#title' => $this->t('Personeelsplanning'),
+          '#url' => Url::fromRoute('brebo_office_core.project_personnel_planning', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'add' => [
           '#type' => 'link', '#title' => $this->t('Planningsstap toevoegen'),
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_route_item'], [
