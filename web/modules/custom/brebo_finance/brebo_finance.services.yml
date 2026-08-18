@@ -9,3 +9,11 @@ services:
 
   brebo_finance.payment_control:
     class: Drupal\brebo_finance\Service\PaymentControlService
+
+  brebo_finance.workflow:
+    class: Drupal\brebo_finance\Service\FinanceWorkflowService
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@brebo_finance.invoice_control'
+      - '@brebo_finance.payment_control'
