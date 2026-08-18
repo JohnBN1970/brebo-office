@@ -12,3 +12,8 @@ edit brebo calculation workbench:
   title: 'Edit BREBO calculation workbench'
   description: 'Edit unlocked calculation rows through the AJAX spreadsheet workbench.'
   restrict access: true
+
+manage brebo calculation norms:
+  title: 'BREBO calculatienormen beheren'
+  description: 'Normen voor arbeid, materiaalverbruik en objectgestuurde calculaties beheren.'
+  restrict access: true
