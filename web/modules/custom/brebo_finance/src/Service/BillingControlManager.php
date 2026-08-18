@@ -120,6 +120,19 @@ final class BillingControlManager {
     if (!in_array($source['status'], $statuses, TRUE)) {
       throw new InvalidArgumentException('Unsupported Moneybird invoice status.');
     }
+    $gross = $this->decimal->add((string) $source['amount_ex_vat'], (string) $source['vat_amount']);
+    if ($this->decimal->compare($gross, (string) $source['amount_inc_vat']) !== 0) {
+      throw new InvalidArgumentException('Invoice amount excluding VAT plus VAT must equal the amount including VAT.');
+    }
+    $regularAmount = (string) ($source['regular_account_amount'] ?? $source['amount_inc_vat']);
+    $gAccountAmount = (string) ($source['g_account_amount'] ?? '0');
+    if ($this->decimal->compare($this->decimal->add($regularAmount, $gAccountAmount), (string) $source['amount_inc_vat']) !== 0) {
+      throw new InvalidArgumentException('Regular-account and G-account amounts must equal the invoice total.');
+    }
+    $paidAmount = (string) ($source['paid_amount_inc_vat'] ?? '0');
+    if ($this->decimal->compare($paidAmount, '0') < 0 || $this->decimal->compare($paidAmount, (string) $source['amount_inc_vat']) > 0) {
+      throw new InvalidArgumentException('Paid amount must be between zero and the invoice total.');
+    }
     $existing = $this->database->select('brebo_finance_sales_invoice', 'i')
       ->fields('i', ['id', 'source_hash', 'recorded_at'])
       ->condition('moneybird_id', (string) $source['moneybird_id'])
@@ -142,9 +155,9 @@ final class BillingControlManager {
       'amount_ex_vat' => (string) $source['amount_ex_vat'],
       'vat_amount' => (string) $source['vat_amount'],
       'amount_inc_vat' => (string) $source['amount_inc_vat'],
-      'paid_amount_inc_vat' => (string) ($source['paid_amount_inc_vat'] ?? '0'),
-      'regular_account_amount' => (string) ($source['regular_account_amount'] ?? $source['amount_inc_vat']),
-      'g_account_amount' => (string) ($source['g_account_amount'] ?? '0'),
+      'paid_amount_inc_vat' => $paidAmount,
+      'regular_account_amount' => $regularAmount,
+      'g_account_amount' => $gAccountAmount,
       'dispute_reason' => $source['dispute_reason'] ?? NULL,
       'source_hash' => (string) $source['source_hash'],
       'recorded_at' => (int) $source['recorded_at'],
