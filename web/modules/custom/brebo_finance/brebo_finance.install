@@ -163,6 +163,110 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_performance_receipt'] = [
+    'description' => 'Verified delivery or performed-work evidence against a commitment line.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'commitment_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'receipt_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'performance_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'amount_ex_vat' => $money,
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'evidence_file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'building_evidence_complete' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'quality_accepted' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'note' => ['type' => 'text', 'not null' => FALSE],
+      'verified' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'verified_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'receipt_number' => ['receipt_number'],
+    ],
+    'indexes' => [
+      'commitment_status' => ['commitment_line_id', 'status'],
+      'project_date' => ['project_nid', 'performance_date'],
+    ],
+  ];
+
+  $schema['brebo_finance_purchase_invoice'] = [
+    'description' => 'Operational mirror of a supplier invoice; Moneybird remains the accounting source.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'commitment_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'invoice_number' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'invoice_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'received'],
+      'match_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'unmatched'],
+      'amount_ex_vat' => $money,
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'g_account_amount' => $money,
+      'regular_account_amount' => $money,
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'supplier_invoice' => ['supplier_ref', 'invoice_number'],
+      'moneybird_id' => ['moneybird_id'],
+    ],
+    'indexes' => [
+      'project_status' => ['project_nid', 'status'],
+      'commitment_match' => ['commitment_id', 'match_status'],
+    ],
+  ];
+
+  $schema['brebo_finance_purchase_invoice_line'] = [
+    'description' => 'Supplier invoice line matched to order and verified performance.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'commitment_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'line_number' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'unit_price_ex_vat' => $money,
+      'amount_ex_vat' => $money,
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE],
+      'vat_amount' => $money,
+      'amount_inc_vat' => $money,
+      'match_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'unmatched'],
+      'variance_code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'variance_amount_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'review_note' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'invoice_line_number' => ['invoice_id', 'line_number'],
+    ],
+    'indexes' => [
+      'commitment_match' => ['commitment_line_id', 'match_status'],
+      'variance_code' => ['variance_code'],
+    ],
+  ];
+
   $schema['brebo_finance_object_allocation'] = [
     'description' => 'Auditable allocation of budget or commitment values to central building-model objects.',
     'fields' => [
