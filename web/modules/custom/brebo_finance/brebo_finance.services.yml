@@ -53,6 +53,12 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.financial_scenario_engine:
+    class: Drupal\brebo_finance\Service\FinancialScenarioEngine
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
+
   brebo_finance.building_cost_intelligence_manager:
     class: Drupal\brebo_finance\Service\BuildingCostIntelligenceManager
     arguments:
