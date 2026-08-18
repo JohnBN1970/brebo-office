@@ -13,7 +13,10 @@ final class FinancialControlScanner {
 
   private const string SOURCE = 'automatic_financial_control';
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly LabourProductivityManager $labourProductivityManager,
+  ) {}
 
   /**
    * Scans one project and returns counts by severity.
@@ -36,6 +39,48 @@ final class FinancialControlScanner {
       );
       $seen[] = $this->key('FIN-BASELINE-MISSING', 'project', $projectNid);
       $counts['critical']++;
+    }
+
+    if ($this->hasLockedBudget($projectNid)) {
+      $labour = $this->labourProductivityManager->analyzeProject($projectNid);
+      foreach ($labour['lines'] as $line) {
+        if ($line['status'] === 'forecast_overrun') {
+          $this->record($projectNid, 'FIN-LABOUR-FORECAST-OVERRUN', 'high', 'budget_line', (int) $line['budget_line_id'],
+            'Verwachte einduren overschrijden het urenbudget',
+            'Werkelijke productiviteit of resterende personeelsplanning wijkt af van de goedgekeurde werkbegroting.',
+            'De verwachte arbeidskosten en projectmarge verslechteren wanneer niet wordt bijgestuurd.',
+            'Controleer voortgang en bronuren, bepaal de operationele oorzaak en stuur planning, ploegbezetting of uitvoeringsmethode aantoonbaar bij.',
+            $now,
+            [
+              'budget_hours' => $line['budget_hours'],
+              'planned_hours' => $line['planned_hours'],
+              'actual_approved_hours' => $line['actual_approved_hours'],
+              'forecast_end_hours' => $line['forecast_end_hours'],
+              'forecast_impact_ex_vat' => $line['forecast_variance_ex_vat'],
+              'work_package' => $line['work_package'],
+            ],
+          );
+          $seen[] = $this->key('FIN-LABOUR-FORECAST-OVERRUN', 'budget_line', (int) $line['budget_line_id']);
+          $counts['high']++;
+        }
+        elseif ($line['status'] === 'planning_overrun') {
+          $this->record($projectNid, 'FIN-LABOUR-PLANNING-OVERRUN', 'medium', 'budget_line', (int) $line['budget_line_id'],
+            'Geplande personeelsuren overschrijden het urenbudget',
+            'De bevestigde of voorlopige personeelsinzet is hoger dan de vrijgegeven uren op de werkbegrotingsregel.',
+            'Zonder correctie ontstaat waarschijnlijk een arbeidskostenoverschrijding.',
+            'Herplan de inzet of leg vóór uitvoering een onderbouwde en goedgekeurde budgetmutatie vast.',
+            $now,
+            [
+              'budget_hours' => $line['budget_hours'],
+              'planned_hours' => $line['planned_hours'],
+              'forecast_impact_ex_vat' => $line['forecast_variance_ex_vat'],
+              'work_package' => $line['work_package'],
+            ],
+          );
+          $seen[] = $this->key('FIN-LABOUR-PLANNING-OVERRUN', 'budget_line', (int) $line['budget_line_id']);
+          $counts['medium']++;
+        }
+      }
     }
 
     $invoiceQuery = $this->database->select('brebo_finance_purchase_invoice', 'i');
