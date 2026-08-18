@@ -8,6 +8,30 @@ declare(strict_types=1);
  */
 
 /**
+ * Implements hook_page_attachments().
+ */
+function brebo_finance_page_attachments(array &$attachments): void {
+  $request = \Drupal::request();
+  $path = $request->getPathInfo();
+  $account = \Drupal::currentUser();
+
+  // Make pending financial decisions visible throughout BREBO Office without
+  // leaking the finance UI into Drupal administration or public pages.
+  if ($account->isAnonymous()
+    || !$account->hasPermission('approve brebo finance')
+    || !str_starts_with($path, '/brebo-office')
+    || str_starts_with($path, '/brebo-office/api/')) {
+    return;
+  }
+
+  $attachments['#attached']['library'][] = 'brebo_finance/notification_bell';
+  $attachments['#attached']['drupalSettings']['breboFinanceNotifications'] = [
+    'inboxUrl' => '/brebo-office/finance/decision-inbox',
+    'notificationsUrl' => '/brebo-office/api/finance/notifications',
+  ];
+}
+
+/**
  * Implements hook_cron().
  */
 function brebo_finance_cron(): void {
