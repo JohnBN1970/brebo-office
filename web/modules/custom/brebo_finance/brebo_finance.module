@@ -51,4 +51,9 @@ function brebo_finance_cron(): void {
       'scheduled_date' => $today,
     ]);
   }
+
+  // Evaluate pending human financial decisions on every cron run. The engine
+  // only updates reminder/escalation state and audit records; it never makes a
+  // financial decision automatically.
+  \Drupal::service('brebo_finance.financial_decision_escalation_engine')->evaluate();
 }
