@@ -107,8 +107,42 @@ final class FinancialCockpitBuilder {
         ),
       ],
       'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
+      'cash_forecast' => [
+        'committed' => $this->latestCashForecast($projectNid, 'committed'),
+        'expected' => $this->latestCashForecast($projectNid, 'expected'),
+      ],
       'controller_briefing' => $this->briefingBuilder->build($projectNid),
     ];
+  }
+
+
+  /**
+   * @return array<string, mixed>|null
+   */
+  private function latestCashForecast(int $projectNid, string $scenario): ?array {
+    $record = $this->database->select('brebo_finance_cash_forecast_snapshot', 's')
+      ->fields('s', [
+        'id',
+        'snapshot_date',
+        'scenario',
+        'opening_regular_balance',
+        'opening_g_account_balance',
+        'lowest_regular_balance',
+        'lowest_g_account_balance',
+        'first_regular_shortfall_date',
+        'first_g_account_shortfall_date',
+        'content_hash',
+        'created',
+        'created_by',
+      ])
+      ->condition('project_nid', $projectNid)
+      ->condition('scenario', $scenario)
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    return $record !== FALSE ? $record : NULL;
   }
 
   /**
