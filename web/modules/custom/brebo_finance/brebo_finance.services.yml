@@ -50,6 +50,10 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.control_finding_manager:
+    class: Drupal\brebo_finance\Service\ControlFindingManager
+    arguments: ['@database']
+
   brebo_finance.ai_assessment_manager:
     class: Drupal\brebo_finance\Service\AiFinancialAssessmentManager
     arguments: ['@database']
