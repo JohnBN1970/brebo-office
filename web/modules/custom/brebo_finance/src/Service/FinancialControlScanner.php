@@ -16,6 +16,7 @@ final class FinancialControlScanner {
   public function __construct(
     private readonly Connection $database,
     private readonly LabourProductivityManager $labourProductivityManager,
+    private readonly VatCalculator $decimal,
   ) {}
 
   /**
@@ -81,6 +82,88 @@ final class FinancialControlScanner {
           $counts['medium']++;
         }
       }
+    }
+
+    $scoreRows = $this->database->select('brebo_finance_supplier_score_snapshot', 's')
+      ->fields('s', [
+        'id',
+        'supplier_ref',
+        'supplier_name',
+        'snapshot_date',
+        'weighted_score',
+        'confidence_class',
+        'delivery_score',
+        'quality_score',
+        'invoice_score',
+        'price_score',
+        'failure_cost_score',
+        'policy_payload',
+      ])
+      ->condition('project_nid', $projectNid)
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $scoredSuppliers = [];
+    foreach ($scoreRows as $score) {
+      $supplierRef = (string) $score['supplier_ref'];
+      if (isset($scoredSuppliers[$supplierRef])) {
+        continue;
+      }
+      $scoredSuppliers[$supplierRef] = TRUE;
+      if ($score['weighted_score'] === NULL) {
+        continue;
+      }
+      $policy = json_decode((string) $score['policy_payload'], TRUE);
+      if (!is_array($policy)
+        || !isset($policy['intervention_score'], $policy['critical_score'])
+      ) {
+        continue;
+      }
+      $intervention = (string) $policy['intervention_score'];
+      if ($this->decimal->compare((string) $score['weighted_score'], $intervention) >= 0) {
+        continue;
+      }
+
+      $severity = $this->decimal->compare(
+        (string) $score['weighted_score'],
+        (string) $policy['critical_score'],
+      ) <= 0 ? 'critical' : 'high';
+      $weakestMetric = NULL;
+      $weakestScore = NULL;
+      foreach (['delivery', 'quality', 'invoice', 'price', 'failure_cost'] as $metric) {
+        $value = $score[$metric . '_score'];
+        if ($value !== NULL
+          && ($weakestScore === NULL || $this->decimal->compare((string) $value, $weakestScore) < 0)
+        ) {
+          $weakestMetric = $metric;
+          $weakestScore = (string) $value;
+        }
+      }
+
+      $this->record($projectNid, 'FIN-SUPPLIER-SCORE-BELOW-POLICY', $severity, 'supplier_score_snapshot', (int) $score['id'],
+        'Leveranciersprestatie ligt onder de vastgestelde beleidsgrens',
+        sprintf('De gewogen score is %s; het zwakste gemeten onderdeel is %s met score %s.',
+          $score['weighted_score'],
+          $weakestMetric ?? 'onbekend',
+          $weakestScore ?? 'onbekend',
+        ),
+        'Nieuwe opdrachten kunnen dezelfde leverings-, kwaliteits-, factuur- of faalkostenrisico’s herhalen.',
+        'Beoordeel de onderliggende evidence en leg vóór nieuwe inkoop een verbeterplan, risicomaatregel of gemotiveerde leverancierskeuze vast.',
+        $now,
+        [
+          'supplier_ref' => $supplierRef,
+          'supplier_name' => $score['supplier_name'],
+          'weighted_score' => $score['weighted_score'],
+          'confidence_class' => $score['confidence_class'],
+          'policy_intervention_score' => $intervention,
+          'weakest_metric' => $weakestMetric,
+          'weakest_score' => $weakestScore,
+          'snapshot_date' => $score['snapshot_date'],
+        ],
+      );
+      $seen[] = $this->key('FIN-SUPPLIER-SCORE-BELOW-POLICY', 'supplier_score_snapshot', (int) $score['id']);
+      $counts[$severity]++;
     }
 
     $failureQuery = $this->database->select('brebo_finance_failure_cost', 'f');
