@@ -1,0 +1,3 @@
+services:
+  brebo_finance.three_way_match:
+    class: Drupal\brebo_finance\Service\ThreeWayMatchService
