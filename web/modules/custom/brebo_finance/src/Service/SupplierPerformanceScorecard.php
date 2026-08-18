@@ -171,6 +171,22 @@ final class SupplierPerformanceScorecard {
       throw new InvalidArgumentException('Scoring policy requires weights and confidence sample thresholds.');
     }
 
+    foreach (['intervention_score', 'critical_score'] as $threshold) {
+      $value = (string) ($policy[$threshold] ?? '');
+      if ($value === ''
+        || $this->decimal->compare($value, '0') < 0
+        || $this->decimal->compare($value, '100') > 0
+      ) {
+        throw new InvalidArgumentException("Policy threshold $threshold must be between zero and one hundred.");
+      }
+    }
+    if ($this->decimal->compare(
+      (string) $policy['critical_score'],
+      (string) $policy['intervention_score'],
+    ) > 0) {
+      throw new InvalidArgumentException('Critical supplier threshold cannot exceed intervention threshold.');
+    }
+
     $weights = [];
     $total = '0.0000';
     foreach (self::METRICS as $metric) {
