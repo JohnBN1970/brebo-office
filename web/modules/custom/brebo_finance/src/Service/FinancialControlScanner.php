@@ -180,6 +180,7 @@ final class FinancialControlScanner {
         'created' => $now,
       ])
       ->fields([
+        'origin' => self::SOURCE,
         'severity' => $severity,
         'title' => $title,
         'cause' => $cause,
@@ -206,6 +207,7 @@ final class FinancialControlScanner {
     $query->fields('f', ['id', 'control_code', 'source_type', 'source_id']);
     $query->condition('project_nid', $projectNid);
     $query->condition('status', 'open');
+    $query->condition('origin', self::SOURCE);
     foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $finding) {
       $key = $this->key($finding['control_code'], $finding['source_type'], (int) $finding['source_id']);
       if (!in_array($key, $seen, TRUE)) {
