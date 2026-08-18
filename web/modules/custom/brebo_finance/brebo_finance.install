@@ -40,6 +40,7 @@ function brebo_finance_schema(): array {
       'source_calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'source_calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
       'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'source_content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
       'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
       'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'approved_by' => $user,
