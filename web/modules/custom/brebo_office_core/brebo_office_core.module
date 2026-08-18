@@ -1128,6 +1128,53 @@ function brebo_office_core_node_form_validate(array &$form, FormStateInterface $
  * Implements hook_node_presave().
  */
 function brebo_office_core_node_presave(NodeInterface $node): void {
+  if ($node->bundle() === 'brebo_staff_assignment') {
+    $budget_line = $node->get('field_brebo_staff_finance_ref')->entity;
+    if (!$budget_line instanceof NodeInterface || $budget_line->bundle() !== 'brebo_work_budget_line') {
+      throw new \Drupal\Core\Entity\EntityStorageException(
+        'Personeelsinzet vereist een geldige werkbegrotingsregel.'
+      );
+    }
+
+    $work_budget = $budget_line->get('field_brebo_work_budget_ref')->entity;
+    $budget_status = $work_budget instanceof NodeInterface
+      ? (string) ($work_budget->get('field_brebo_budget_status')->value ?? '')
+      : '';
+    if (!in_array($budget_status, ['Bevroren', 'In uitvoering'], TRUE)) {
+      throw new \Drupal\Core\Entity\EntityStorageException(
+        'Personeelsinzet mag alleen worden gepland vanuit een bevroren of in uitvoering zijnde werkbegroting.'
+      );
+    }
+
+    $released_hours = max(0.0, (float) ($budget_line->get('field_brebo_budget_hours')->value ?? 0));
+    $planned_hours = max(0.0, (float) ($node->get('field_brebo_staff_plan_hours')->value ?? 0));
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    $query = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_staff_assignment')
+      ->condition('field_brebo_staff_finance_ref.target_id', $budget_line->id())
+      ->condition('field_brebo_staff_status', 'Vervallen', '<>');
+    if (!$node->isNew()) {
+      $query->condition('nid', $node->id(), '<>');
+    }
+
+    $already_planned = 0.0;
+    foreach ($storage->loadMultiple($query->execute()) as $existing) {
+      if ($existing instanceof NodeInterface) {
+        $already_planned += max(0.0, (float) ($existing->get('field_brebo_staff_plan_hours')->value ?? 0));
+      }
+    }
+    if (($already_planned + $planned_hours) > ($released_hours + 0.0001)) {
+      throw new \Drupal\Core\Entity\EntityStorageException(sprintf(
+        'Personeelsinzet overschrijdt het vrijgegeven urenbudget: %.2f uur begroot, %.2f uur reeds gepland en %.2f uur nieuw.',
+        $released_hours,
+        $already_planned,
+        $planned_hours
+      ));
+    }
+    return;
+  }
+
   if ($node->bundle() === 'brebo_scope_requirement') {
     $target = $node->get('field_brebo_requirement_target')->entity;
     $type = (string) $node->get('field_brebo_requirement_type')->value;
