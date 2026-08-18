@@ -150,6 +150,8 @@ final class ControllerBriefingBuilder {
       'variance_ex_vat',
       'forecast_impact_ex_vat',
       'lowest_balance',
+      'recoverable_amount_ex_vat',
+      'recovered_amount_ex_vat',
     ] as $key) {
       if (isset($payload[$key]) && is_scalar($payload[$key])) {
         $amounts[$key] = (string) $payload[$key];
