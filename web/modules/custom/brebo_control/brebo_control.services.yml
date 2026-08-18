@@ -1,0 +1,6 @@
+services:
+  brebo_control.action_manager:
+    class: Drupal\brebo_control\Service\ControlActionManager
+    arguments:
+      - '@database'
+      - '@brebo_office_core.project_controller_actions'
