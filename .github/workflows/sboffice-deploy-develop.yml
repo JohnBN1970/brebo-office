@@ -142,7 +142,7 @@ jobs:
           if [[ -n "$services_before" ]]; then [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]; fi
 
           cd "$target"
-          drush=(php -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          drush=(php -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d log_errors=1 -d error_log=/dev/stderr vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           diagnose() {
             rc="$1"; line="$2"; command="$3"
@@ -151,7 +151,11 @@ jobs:
             echo "FAILED_EXIT=$rc"
             echo "FAILED_LINE=$line"
             echo "FAILED_COMMAND=$command"
-            php -r 'echo "PHP_MEMORY_LIMIT=" . ini_get("memory_limit") . PHP_EOL;' 2>&1 || true
+            php --ini 2>&1 || true
+            php -r 'foreach (["memory_limit","display_errors","display_startup_errors","log_errors","error_log"] as $key) { echo "PHP_" . strtoupper($key) . "=" . ini_get($key) . PHP_EOL; }' 2>&1 || true
+            for logfile in "$HOME/domains/brebobv.nl/logs/error.log" "$HOME/domains/brebobv.nl/logs/php_error.log" "$target/error_log" "$target/web/error_log"; do
+              if [[ -f "$logfile" ]]; then echo "--- $logfile"; tail -n 100 "$logfile" 2>&1 || true; fi
+            done
             "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version 2>&1 || true
             "${drush[@]}" watchdog:show --count=40 --extended 2>&1 || "${drush[@]}" ws --count=40 --extended 2>&1 || true
             "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version 2>&1 || true
@@ -165,6 +169,7 @@ jobs:
           "${drush[@]}" -vvv pm:enable brebo_calculation -y
           "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           "${drush[@]}" updb -y --no-cache-clear
+          "${drush[@]}" php:eval '\\Drupal::state()->set("system.maintenance_mode", FALSE); print "MAINTENANCE_MODE_OFF_BEFORE_CACHE_REBUILD=1\\n";'
           "${drush[@]}" cr -vvv
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_glass")) { throw new \RuntimeException("brebo_glass is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_glass_position","brebo_glass_product"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing glass table: ".$t); } } foreach (["brebo_glass.position_repository","brebo_glass.product_repository","brebo_glass.approval_policy"] as $service) { \Drupal::service($service); } $r=\Drupal::service("router.route_provider"); foreach (["brebo_glass.position_overview","brebo_glass.position_add","brebo_glass.position_approve","brebo_glass.product_overview","brebo_glass.product_add","brebo_glass.product_verify"] as $n) { $r->getRouteByName($n); } print "GLASS_DOMAIN_OK=1\n";'
