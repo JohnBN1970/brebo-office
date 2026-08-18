@@ -83,6 +83,60 @@ final class FinancialControlScanner {
       }
     }
 
+    $failureQuery = $this->database->select('brebo_finance_failure_cost', 'f');
+    $failureQuery->fields('f', [
+      'id',
+      'failure_number',
+      'status',
+      'category',
+      'title',
+      'total_cost_ex_vat',
+      'recoverable_amount_ex_vat',
+      'recovered_amount_ex_vat',
+      'net_failure_cost_ex_vat',
+      'owner_uid',
+      'due_date',
+      'created',
+    ]);
+    $failureQuery->condition('project_nid', $projectNid);
+    $failureQuery->condition('status', 'closed', '<>');
+    foreach ($failureQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $failure) {
+      if ($failure['status'] === 'observed' && (int) $failure['created'] < $now - (2 * 86400)) {
+        $this->record($projectNid, 'FIN-FAILURE-NOT-VALIDATED', 'medium', 'failure_cost', (int) $failure['id'],
+          'Faalkosten zijn nog niet onafhankelijk gevalideerd',
+          'Oorzaak, kosten of verantwoordelijkheid zijn langer dan twee dagen niet volgens het vierogenprincipe bevestigd.',
+          'De projectprognose en structurele verbeterinformatie kunnen onjuist of onvolledig blijven.',
+          'Laat een andere bevoegde medewerker oorzaak, bewijs, kostensamenstelling en verhaalbaarheid valideren.',
+          $now,
+          [
+            'failure_number' => $failure['failure_number'],
+            'amount_ex_vat' => $failure['total_cost_ex_vat'],
+            'category' => $failure['category'],
+          ],
+        );
+        $seen[] = $this->key('FIN-FAILURE-NOT-VALIDATED', 'failure_cost', (int) $failure['id']);
+        $counts['medium']++;
+      }
+      if (!empty($failure['due_date']) && $failure['due_date'] < $today) {
+        $this->record($projectNid, 'FIN-FAILURE-ACTION-OVERDUE', 'high', 'failure_cost', (int) $failure['id'],
+          'Faalkostenactie of kostenverhaal is over de deadline',
+          'De toegewezen herstel-, verhaal- of preventieactie is niet tijdig aantoonbaar afgerond.',
+          'Netto faalkosten blijven staan en dezelfde procesfout kan opnieuw optreden.',
+          'Laat de eigenaar herstel, kostenverhaal en preventieve maatregel afronden en sluit uitsluitend met controlebewijs.',
+          $now,
+          [
+            'failure_number' => $failure['failure_number'],
+            'amount_ex_vat' => $failure['net_failure_cost_ex_vat'],
+            'recoverable_amount_ex_vat' => $failure['recoverable_amount_ex_vat'],
+            'recovered_amount_ex_vat' => $failure['recovered_amount_ex_vat'],
+            'due_date' => $failure['due_date'],
+          ],
+        );
+        $seen[] = $this->key('FIN-FAILURE-ACTION-OVERDUE', 'failure_cost', (int) $failure['id']);
+        $counts['high']++;
+      }
+    }
+
     $changeQuery = $this->database->select('brebo_finance_change_order', 'c');
     $changeQuery->fields('c', [
       'id',
