@@ -70,3 +70,7 @@ The BREBO Digital Controller orchestrates deterministic controls before AI analy
 Each scheduled run also produces a concise decision briefing from the sealed deterministic findings. Critical and high findings are never hidden. Medium findings are limited to the most urgent watch items; low findings remain available in the complete evidence package.
 
 Every briefing item follows the fixed chain: deviation, cause, financial consequence, control measure, owner and deadline. Amounts are shown only when they exist in verified source evidence. Missing ownership or deadlines are reported explicitly; the system never invents them.
+
+### Control-action lifecycle
+
+A financial finding stays active until its cause is demonstrably controlled. An authorized user assigns an owner and deadline. Only that owner may submit a resolution, including a note and explicit evidence. A different authorized user must accept or reject the resolution under the four-eyes principle. Every transition stores before and after hashes in the append-only financial audit trail. A new deterministic scan preserves pending verification and reopens a verified finding if the underlying exception returns.
