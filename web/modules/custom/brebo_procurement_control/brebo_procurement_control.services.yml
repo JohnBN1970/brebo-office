@@ -25,3 +25,8 @@ services:
     class: Drupal\brebo_procurement_control\Service\ProcurementDecisionIntelligenceService
     arguments:
       - '@database'
+
+  brebo_procurement_control.context_intelligence:
+    class: Drupal\brebo_procurement_control\Service\ProcurementContextIntelligenceService
+    arguments:
+      - '@database'
