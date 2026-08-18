@@ -1,4 +1,10 @@
 services:
+  brebo_glass.wind_load_calculator:
+    class: Drupal\brebo_glass\Service\GlassWindLoadCalculator
+
+  brebo_glass.candidate_selector:
+    class: Drupal\brebo_glass\Service\GlassCandidateSelector
+
   brebo_glass.three_point_measurement_calculator:
     class: Drupal\brebo_glass\Service\GlassThreePointMeasurementCalculator
 
