@@ -66,3 +66,8 @@ services:
     class: Drupal\brebo_contract_control\Service\OrganizationalLearningRegistry
     arguments:
       - '@database'
+
+  brebo_contract_control.policy_enforcement:
+    class: Drupal\brebo_contract_control\Service\PolicyStandardEnforcementService
+    arguments:
+      - '@database'
