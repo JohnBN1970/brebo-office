@@ -175,6 +175,27 @@ brebo_office_core.work_packages:
   requirements:
     _permission: 'access content'
 
+brebo_office_core.personnel_planning:
+  path: '/personeelsplanning'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\PersonnelPlanningController::overview'
+    _title_callback: '\Drupal\brebo_office_core\Controller\PersonnelPlanningController::title'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.project_personnel_planning:
+  path: '/projecten/{node}/personeelsplanning'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\PersonnelPlanningController::overview'
+    _title_callback: '\Drupal\brebo_office_core\Controller\PersonnelPlanningController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+
 brebo_office_core.work_package_dashboard:
   path: '/werkpakketten/{node}'
   defaults:
