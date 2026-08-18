@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Service\FinancialApprovalMatrix;
+use Drupal\brebo_finance\Service\FinancialGateExposureResolver;
 use Drupal\brebo_finance\Service\FinancialPhaseGateManager;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -15,18 +17,18 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 /** Human-controlled write API for financial phase-gate exceptions. */
 final class FinancialPhaseGateExceptionController extends ControllerBase {
 
-  private const APPROVAL_PERMISSIONS = [
-    'procurement_release' => 'approve brebo procurement gate exception',
-    'execution_start' => 'approve brebo execution gate exception',
-    'billing_release' => 'approve brebo billing gate exception',
-    'payment_release' => 'approve brebo payment gate exception',
-    'project_closeout' => 'approve brebo closeout gate exception',
-  ];
-
-  public function __construct(private readonly FinancialPhaseGateManager $manager) {}
+  public function __construct(
+    private readonly FinancialPhaseGateManager $manager,
+    private readonly FinancialGateExposureResolver $exposureResolver,
+    private readonly FinancialApprovalMatrix $approvalMatrix,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_finance.financial_phase_gate_manager'));
+    return new static(
+      $container->get('brebo_finance.financial_phase_gate_manager'),
+      $container->get('brebo_finance.financial_gate_exposure_resolver'),
+      $container->get('brebo_finance.financial_approval_matrix'),
+    );
   }
 
   public function requestException(int $project_nid, string $gate, Request $request): JsonResponse {
@@ -46,15 +48,38 @@ final class FinancialPhaseGateExceptionController extends ControllerBase {
 
   public function decide(int $exception_id, Request $request): JsonResponse {
     $exception = $this->manager->exceptionMetadata($exception_id);
-    $permission = self::APPROVAL_PERMISSIONS[$exception['gate']] ?? NULL;
-    if ($permission === NULL || !$this->currentUser()->hasPermission($permission)) {
-      throw new AccessDeniedHttpException('You are not authorized to decide this financial phase-gate exception.');
+    $exposure = $this->exposureResolver->resolve($exception['project_nid'], $exception['finding_ids']);
+
+    // Fail closed: incomplete financial exposure always requires executive authority.
+    if ($exposure['unresolved'] !== []) {
+      if (!$this->currentUser()->hasPermission('approve brebo finance executive')) {
+        throw new AccessDeniedHttpException('Financial exposure is incomplete; executive approval is required.');
+      }
+      $authorization = [
+        'authorized' => TRUE,
+        'level' => 'executive_unresolved_exposure',
+        'required_permissions' => ['approve brebo finance executive'],
+        'exposure_amount' => $exposure['exposure_amount'],
+      ];
+    }
+    else {
+      $authorization = $this->approvalMatrix->authorize($this->currentUser(), $exception['gate'], $exposure['exposure_amount']);
+      if (!$authorization['authorized']) {
+        throw new AccessDeniedHttpException(sprintf('Insufficient procuration for %s at exposure EUR %s.', $exception['gate'], $exposure['exposure_amount']));
+      }
     }
 
     $data = $this->payload($request);
     $decision = (string) ($data['decision'] ?? '');
     $this->manager->decideException($exception_id, $decision, (string) ($data['note'] ?? ''), (int) $this->currentUser()->id());
-    return new JsonResponse(['status' => $decision, 'exception_id' => $exception_id, 'gate' => $exception['gate'], 'decided_by' => (int) $this->currentUser()->id()]);
+    return new JsonResponse([
+      'status' => $decision,
+      'exception_id' => $exception_id,
+      'gate' => $exception['gate'],
+      'decided_by' => (int) $this->currentUser()->id(),
+      'exposure' => $exposure,
+      'authorization' => $authorization,
+    ]);
   }
 
   private function payload(Request $request): array {
