@@ -1,0 +1,78 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Database schema for BREBO Finance.
+ */
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_finance_schema(): array {
+  $schema['brebo_purchase_order'] = [
+    'description' => 'Projectgebonden inkooporders en verplichtingen.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'order_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'work_budget_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'supplier_quote_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'order_date' => ['type' => 'int', 'not null' => TRUE],
+      'net_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'vat_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'gross_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'g_account_pct' => ['type' => 'numeric', 'precision' => 5, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['order_number' => ['order_number']],
+    'indexes' => ['project' => ['project_nid'], 'quote' => ['supplier_quote_nid']],
+  ];
+
+  $schema['brebo_supplier_invoice'] = [
+    'description' => 'Ontvangen leveranciersfacturen met 3-way match status.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'invoice_number' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'purchase_order_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'invoice_date' => ['type' => 'int', 'not null' => TRUE],
+      'due_date' => ['type' => 'int', 'not null' => FALSE],
+      'net_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'vat_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'gross_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'g_account_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'match_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'unmatched'],
+      'approval_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+      'payment_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['project' => ['project_nid'], 'order' => ['purchase_order_id'], 'match' => ['match_status']],
+  ];
+
+  $schema['brebo_supplier_payment'] = [
+    'description' => 'Betalingen op leveranciersfacturen, uitgesplitst naar regulier en G-rekening.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'payment_date' => ['type' => 'int', 'not null' => TRUE],
+      'regular_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'g_account_amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'payment_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'booked'],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['invoice' => ['invoice_id']],
+  ];
+
+  return $schema;
+}
