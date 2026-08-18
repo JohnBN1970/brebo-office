@@ -43,6 +43,13 @@ services:
     class: Drupal\brebo_glass\Service\GlassDelayCostForecaster
     arguments: ['@brebo_glass.financial_impact_evaluator']
 
+  brebo_glass.risk_escalation_service:
+    class: Drupal\brebo_glass\Service\GlassRiskEscalationService
+    arguments:
+      - '@brebo_glass.operational_risk_evaluator'
+      - '@brebo_glass.delay_cost_forecaster'
+      - '@brebo_office_core.risk_escalation_manager'
+
   brebo_glass.project_risk_aggregator:
     class: Drupal\brebo_glass\Service\GlassProjectRiskAggregator
     arguments:
