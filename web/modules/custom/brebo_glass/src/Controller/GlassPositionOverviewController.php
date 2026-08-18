@@ -9,6 +9,7 @@ use Drupal\brebo_glass\Service\GlassApprovalPolicy;
 use Drupal\brebo_glass\Service\GlassOperationalRiskEvaluator;
 use Drupal\brebo_glass\Service\GlassPositionRepository;
 use Drupal\brebo_glass\Service\GlassProjectRiskAggregator;
+use Drupal\brebo_glass\Service\GlassRiskEscalationService;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Link;
@@ -22,8 +23,27 @@ final class GlassPositionOverviewController extends ControllerBase {
   private const CHECK_LABELS=['pending'=>'Nog niet gecontroleerd','passed'=>'Voorcontrole akkoord','expert_review'=>'Deskundige beoordeling','blocked'=>'Geblokkeerd'];
   private const STATUS_LABELS=['concept'=>'Concept','measured'=>'Ingemeten','approved'=>'Technisch vrijgegeven','ordered'=>'Besteld','delivered'=>'Geleverd','installed'=>'Gemonteerd'];
 
-  public function __construct(private readonly GlassPositionRepository $repository,private readonly EntityTypeManagerInterface $entityTypeManager,private readonly RequestStack $requestStack,private readonly GlassApprovalPolicy $approvalPolicy,private readonly GlassOperationalRiskEvaluator $riskEvaluator,private readonly GlassProjectRiskAggregator $projectRiskAggregator) {}
-  public static function create(ContainerInterface $container): static { return new static($container->get('brebo_glass.position_repository'),$container->get('entity_type.manager'),$container->get('request_stack'),$container->get('brebo_glass.approval_policy'),$container->get('brebo_glass.operational_risk_evaluator'),$container->get('brebo_glass.project_risk_aggregator')); }
+  public function __construct(
+    private readonly GlassPositionRepository $repository,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly RequestStack $requestStack,
+    private readonly GlassApprovalPolicy $approvalPolicy,
+    private readonly GlassOperationalRiskEvaluator $riskEvaluator,
+    private readonly GlassProjectRiskAggregator $projectRiskAggregator,
+    private readonly GlassRiskEscalationService $riskEscalationService,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('brebo_glass.position_repository'),
+      $container->get('entity_type.manager'),
+      $container->get('request_stack'),
+      $container->get('brebo_glass.approval_policy'),
+      $container->get('brebo_glass.operational_risk_evaluator'),
+      $container->get('brebo_glass.project_risk_aggregator'),
+      $container->get('brebo_glass.risk_escalation_service'),
+    );
+  }
 
   public function overview(): array {
     $request=$this->requestStack->getCurrentRequest();$search=trim((string)$request->query->get('q',''));$status=(string)$request->query->get('status','');if($status!==''&&!isset(self::STATUS_LABELS[$status]))$status='';
@@ -31,18 +51,22 @@ final class GlassPositionOverviewController extends ControllerBase {
     $storage=$this->entityTypeManager->getStorage('node');$nodeIds=[];foreach($positions as$p){$nodeIds[]=(int)$p['building_nid'];if(!empty($p['project_nid']))$nodeIds[]=(int)$p['project_nid'];}$nodes=$storage->loadMultiple(array_unique($nodeIds));
     $user=$this->currentUser();$canApprove=$user->hasPermission('approve brebo glass positions');$canExport=$user->hasPermission('export brebo glass to calculation');$canProcure=$user->hasPermission('create brebo procurement requests');$canComplete=$user->hasPermission('complete brebo glass positions');
 
-    $prioritized=[];$critical=0;$attention=0;foreach($positions as$p){$risk=$this->riskEvaluator->evaluate($p);$p['_risk']=$risk;$prioritized[]=$p;if($risk['level']==='kritiek')$critical++;elseif($risk['level']==='aandacht')$attention++;}
+    $prioritized=[];$critical=0;$attention=0;
+    foreach($positions as$p){
+      $risk=$this->riskEvaluator->evaluate($p);
+      if(in_array($risk['level'],['kritiek','aandacht'],TRUE)){
+        try{$this->riskEscalationService->evaluateAndEscalate($p);}catch(\Throwable){}
+      }
+      $p['_risk']=$risk;$prioritized[]=$p;if($risk['level']==='kritiek')$critical++;elseif($risk['level']==='aandacht')$attention++;
+    }
     usort($prioritized,static fn(array$a,array$b):int=>[$b['_risk']['score'],(int)($b['changed']??0)]<=>[$a['_risk']['score'],(int)($a['changed']??0)]);
 
     $projectRows=[];foreach($this->projectRiskAggregator->aggregate($positions) as$project){$projectId=(int)$project['project_nid'];$projectRows[]=[
       'project'=>isset($nodes[$projectId])?Link::createFromRoute($nodes[$projectId]->label(),'entity.node.canonical',['node'=>$projectId]):$this->t('Project #@id',['@id'=>$projectId]),
-      'level'=>strtoupper((string)$project['level']),
-      'summary'=>$project['summary'],
+      'level'=>strtoupper((string)$project['level']),'summary'=>$project['summary'],
       'financial'=>$project['priced_risk_positions']>0?'€ '.number_format((float)$project['financial_value_at_risk'],2,',','.'):$this->t('Nog niet geprijsd'),
       'labour_value'=>$project['labour_value_at_risk']>0?'€ '.number_format((float)$project['labour_value_at_risk'],2,',','.'):'-',
-      'unpriced'=>(int)$project['unpriced_risk_positions'],
-      'delay'=>$project['max_delay_days']>0?$this->formatPlural($project['max_delay_days'],'1 dag','@count dagen'):'-',
-      'reason'=>$project['top_reason']?:'-',
+      'unpriced'=>(int)$project['unpriced_risk_positions'],'delay'=>$project['max_delay_days']>0?$this->formatPlural($project['max_delay_days'],'1 dag','@count dagen'):'-','reason'=>$project['top_reason']?:'-',
     ];}
 
     $rows=[];foreach($prioritized as$p){$id=(int)$p['id'];$buildingId=(int)$p['building_nid'];$projectId=(int)($p['project_nid']??0);$state=(string)$p['technical_status'];$policy=$this->approvalPolicy->evaluate($p);$risk=$p['_risk'];
