@@ -16,6 +16,11 @@ export brebo glass to calculation:
   description: 'Technisch vrijgegeven glasposities als objectregels naar een open BREBO-calculatie doorzetten.'
   restrict access: true
 
+complete brebo glass positions:
+  title: 'BREBO glasposities gereedmelden'
+  description: 'Gemonteerde glasposities gereedmelden en werkelijke waarden aan de centrale normanalyse terugmelden.'
+  restrict access: true
+
 verify brebo glass products:
   title: 'BREBO glasproducten technisch verifiëren'
   description: 'Conceptproducten na inhoudelijke controle activeren voor automatische glaskeuze.'
