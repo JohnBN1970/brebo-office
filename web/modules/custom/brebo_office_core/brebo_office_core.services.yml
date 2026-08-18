@@ -40,3 +40,6 @@ services:
 
   brebo_office_core.workforce_day_start_control:
     class: Drupal\brebo_office_core\Service\WorkforceDayStartControl
+
+  brebo_office_core.workforce_time_entry_control:
+    class: Drupal\brebo_office_core\Service\WorkforceTimeEntryControl
