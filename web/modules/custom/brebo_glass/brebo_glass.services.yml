@@ -19,6 +19,7 @@ services:
 
   brebo_glass.calculation_line_factory:
     class: Drupal\brebo_glass\Service\GlassCalculationLineFactory
+    arguments: ['@brebo_calculation.norm_library']
 
   brebo_glass.calculation_exporter:
     class: Drupal\brebo_glass\Service\GlassCalculationExporter
