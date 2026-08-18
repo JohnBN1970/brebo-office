@@ -8,3 +8,4 @@ dependencies:
   - brebo_office_core:brebo_office_core
   - brebo_building_data:brebo_building_data
   - brebo_calculation:brebo_calculation
+  - brebo_procurement:brebo_procurement
