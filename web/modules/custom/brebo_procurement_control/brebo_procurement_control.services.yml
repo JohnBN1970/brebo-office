@@ -30,3 +30,8 @@ services:
     class: Drupal\brebo_procurement_control\Service\ProcurementContextIntelligenceService
     arguments:
       - '@database'
+
+  brebo_procurement_control.control_mode_gate:
+    class: Drupal\brebo_procurement_control\Service\ProcurementControlModeGate
+    arguments:
+      - '@brebo_procurement_control.context_intelligence'
