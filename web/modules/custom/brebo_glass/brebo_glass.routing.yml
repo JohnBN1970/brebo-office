@@ -13,3 +13,20 @@ brebo_glass.position_add:
     _title: 'Glasopname'
   requirements:
     _permission: 'administer brebo glass'
+
+brebo_glass.product_add:
+  path: '/brebo/glas/producten/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProductForm'
+    _title: 'Glasproduct toevoegen'
+  requirements:
+    _permission: 'administer brebo glass'
+
+brebo_glass.product_verify:
+  path: '/brebo/glas/producten/{product_id}/verifieren'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProductVerifyForm'
+    _title: 'Glasproduct verifiëren'
+  requirements:
+    _permission: 'verify brebo glass products'
+    product_id: '\d+'
