@@ -1372,3 +1372,126 @@ function brebo_office_core_post_update_inzet_resources(array &$sandbox = NULL): 
 
   return 'Materieel, voertuigen, tijdgebonden reserveringen, werkbegrotingskoppeling en rolrechten toegevoegd.';
 }
+
+
+/**
+ * Adds versioned digital day starts and recipient acknowledgements.
+ */
+function brebo_office_core_post_update_inzet_day_start(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  $ref = static function (string $label, string $bundle, string $description, int $weight, bool $required = FALSE, int $cardinality = 1): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => $required,
+      'storage' => ['target_type' => 'node'], 'cardinality' => $cardinality,
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [$bundle => $bundle]]],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $user_ref = static function (string $label, string $description, int $weight): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $date = static function (string $label, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'datetime', 'required' => $required,
+      'storage' => ['datetime_type' => 'datetime'], 'description' => $description,
+      'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => $weight,
+    ];
+  };
+  $text = static function (string $label, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'text_long', 'required' => $required, 'storage' => [],
+      'description' => $description, 'widget' => 'text_textarea',
+      'formatter' => 'text_default', 'weight' => $weight,
+    ];
+  };
+
+  _brebo_office_core_create_node_bundle('brebo_day_start', 'Digitale dagstart',
+    'Versieerbare en formeel vrijgegeven werkinstructie voor één BREBO Inzet-dienst.', [
+      'field_brebo_day_shift' => $ref('Dienst', 'brebo_shift', 'De dienst waarop deze dagstart uitsluitend betrekking heeft.', 1, TRUE),
+      'field_brebo_day_project' => $ref('Project', 'brebo_project', 'Projectcontext die exact met de dienst moet overeenkomen.', 2, TRUE),
+      'field_brebo_day_building' => $ref('Gebouw', 'brebo_building', 'Objectlocatie die exact met de dienst moet overeenkomen.', 3, TRUE),
+      'field_brebo_day_version' => [
+        'label' => 'Dagstartversie', 'type' => 'integer', 'required' => TRUE, 'storage' => [],
+        'description' => 'Oplopend versienummer; nieuwe inhoud vereist een nieuwe revisie en ontvangstbevestiging.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 4,
+        'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_day_status' => [
+        'label' => 'Dagstartstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, gereed, vrijgegeven, vervangen of ingetrokken.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_day_generated_by' => $user_ref('Opgesteld door', 'Planner of uitvoerder die de inhoud heeft samengesteld.', 6),
+      'field_brebo_day_generated_at' => $date('Opgesteld op', 'Servervastgelegd samenstellingsmoment.', 7),
+      'field_brebo_day_work' => $text('Werkzaamheden', 'Concrete werkzaamheden, werkvolgorde en beoogd resultaat.', 8, TRUE),
+      'field_brebo_day_access' => $text('Toegang en logistiek', 'Toegang, sleutels, parkeren, bewonersafspraken, opslag en aanvoerroute.', 9, TRUE),
+      'field_brebo_day_risks' => $text('Risico’s en maatregelen', 'Taakspecifieke veiligheids-, kwaliteits- en omgevingsrisico’s met beheersmaatregelen.', 10, TRUE),
+      'field_brebo_day_controls' => $text('Controlepunten', 'Hold points, fotobewijs, maatvoering, producteisen en vrijgavemomenten.', 11, TRUE),
+      'field_brebo_day_contacts' => $text('Contact- en escalatiegegevens', 'Uitvoerder, projectleider, bewonerscontact en nood-/escalatieroute.', 12, TRUE),
+      'field_brebo_day_bookings' => $ref('Materieelreserveringen', 'brebo_resource_booking', 'Vrijgegeven voertuigen en middelen voor deze dienst.', 13, FALSE, -1),
+      'field_brebo_day_ready' => [
+        'label' => 'Gereedheidscontrole', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Gereed, waarschuwing of blokkade na broncontrole.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+        'default_value' => [['value' => 'Niet gecontroleerd']],
+      ],
+      'field_brebo_day_ready_note' => $text('Gereedheidstoelichting', 'Automatische uitleg over ontbrekende of geblokkeerde broninformatie.', 15),
+      'field_brebo_day_released_by' => $user_ref('Vrijgegeven door', 'Bevoegde planner of uitvoerder die de dagstart formeel vrijgeeft.', 16),
+      'field_brebo_day_released_at' => $date('Vrijgegeven op', 'Servervastgelegd moment van formele vrijgave.', 17),
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_day_ack', 'Dagstartbevestiging',
+    'Aantoonbare ontvangst en begrip van één specifieke digitale dagstartversie.', [
+      'field_brebo_ack_day' => $ref('Digitale dagstart', 'brebo_day_start', 'Vrijgegeven dagstart waarop de bevestiging betrekking heeft.', 1, TRUE),
+      'field_brebo_ack_contact' => $ref('Persoon', 'brebo_contact', 'Eigen of ingehuurde medewerker die de briefing ontvangt.', 2),
+      'field_brebo_ack_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account van de ontvanger.', 3),
+      'field_brebo_ack_version' => [
+        'label' => 'Ontvangen versie', 'type' => 'integer', 'required' => TRUE, 'storage' => [],
+        'description' => 'Exact dagstartversienummer dat aan de ontvanger is getoond.',
+        'widget' => 'number', 'formatter' => 'number_integer', 'weight' => 4,
+      ],
+      'field_brebo_ack_at' => $date('Bevestigd op', 'Servervastgelegd ontvangst- en bevestigingsmoment.', 5, TRUE),
+      'field_brebo_ack_understood' => [
+        'label' => 'Instructie begrepen', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Ontvanger bevestigt dat de instructie is gelezen en begrepen.',
+        'widget' => 'boolean_checkbox', 'formatter' => 'boolean', 'weight' => 6,
+        'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_ack_question' => $text('Vraag of onduidelijkheid', 'Openstaande vraag die vóór uitvoering moet worden beantwoord.', 7),
+      'field_brebo_ack_status' => [
+        'label' => 'Bevestigingsstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Ontvangen, begrepen of vraag open.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 8,
+        'default_value' => [['value' => 'Ontvangen']],
+      ],
+    ]);
+
+  $permissions = [];
+  foreach (['brebo_day_start', 'brebo_day_ack'] as $bundle) {
+    $permissions = array_merge($permissions, [
+      "create $bundle content", "edit own $bundle content",
+      "edit any $bundle content", "view $bundle revisions",
+    ]);
+  }
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Digitale dagstart, gereedheidscontrole, versiebeheer, ontvangstbevestiging en rolrechten toegevoegd.';
+}
