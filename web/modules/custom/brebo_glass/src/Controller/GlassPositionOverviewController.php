@@ -105,6 +105,7 @@ final class GlassPositionOverviewController extends ControllerBase {
           ? number_format((float) $position['estimated_weight_kg'], 2, ',', '.') . ' kg'
           : $this->t('Te bepalen'),
         'verified' => (int) $position['measurement_verified'] === 1 ? $this->t('Ja') : $this->t('Nee'),
+        'wind_advice' => $position['recommended_glass_ref'] . ' (' . number_format((float) $position['wind_utilization'] * 100, 1, ',', '.') . '%)',
         'technical_check' => $this->t(self::CHECK_LABELS[$position['technical_check_state']] ?? $position['technical_check_state']),
         'status' => $this->t(self::STATUS_LABELS[$position['technical_status']] ?? $position['technical_status']),
       ];
@@ -145,6 +146,7 @@ final class GlassPositionOverviewController extends ControllerBase {
         $this->sortHeader($this->t('Oppervlak'), 'area', $sort, $direction, $search, $status),
         $this->sortHeader($this->t('Gewicht'), 'weight', $sort, $direction, $search, $status),
         $this->t('Maat gecontroleerd'),
+        $this->t('Windadvies / benutting'),
         $this->t('Technische voorcontrole'),
         $this->sortHeader($this->t('Status'), 'status', $sort, $direction, $search, $status),
       ],
