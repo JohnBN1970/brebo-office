@@ -1,0 +1,117 @@
+.brebo-gantt {
+  --label-width: minmax(15rem, 24rem);
+  overflow-x: auto;
+  margin-block: 1.25rem 2rem;
+  border: 1px solid var(--brebo-border, #d8dee6);
+  border-radius: .75rem;
+  background: #fff;
+}
+
+.brebo-gantt__axis,
+.brebo-gantt__row {
+  display: grid;
+  grid-template-columns: var(--label-width) minmax(42rem, 1fr);
+  min-width: 62rem;
+}
+
+.brebo-gantt__axis {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  background: #f5f7fa;
+  border-bottom: 1px solid #d8dee6;
+  font-size: .8125rem;
+  font-weight: 700;
+}
+
+.brebo-gantt__axis-label,
+.brebo-gantt__axis-range,
+.brebo-gantt__label,
+.brebo-gantt__track {
+  padding: .7rem .85rem;
+}
+
+.brebo-gantt__axis-range {
+  display: flex;
+  justify-content: space-between;
+}
+
+.brebo-gantt__row + .brebo-gantt__row {
+  border-top: 1px solid #edf0f4;
+}
+
+.brebo-gantt__label {
+  display: grid;
+  gap: .15rem;
+  border-right: 1px solid #edf0f4;
+}
+
+.brebo-gantt__label small {
+  color: #5c6773;
+}
+
+.brebo-gantt__track {
+  position: relative;
+  min-height: 3.1rem;
+  background-image: linear-gradient(to right, rgba(57, 72, 90, .08) 1px, transparent 1px);
+  background-size: 10% 100%;
+}
+
+.brebo-gantt__baseline,
+.brebo-gantt__bar {
+  position: absolute;
+  left: calc(var(--gantt-start) * 1%);
+  width: max(calc(var(--gantt-span) * 1%), .35rem);
+  border-radius: 999px;
+}
+
+.brebo-gantt__baseline {
+  top: .65rem;
+  height: .35rem;
+  background: #a8b2bf;
+}
+
+.brebo-gantt__bar {
+  top: 1.35rem;
+  height: 1.15rem;
+  overflow: hidden;
+  background: #0b6b57;
+  color: #fff;
+  font-size: .72rem;
+  line-height: 1.15rem;
+  white-space: nowrap;
+}
+
+.brebo-gantt__bar::before {
+  content: '';
+  display: block;
+  width: calc(var(--gantt-progress) * 1%);
+  height: 100%;
+  background: rgba(255, 255, 255, .28);
+}
+
+.brebo-gantt__row.is-critical .brebo-gantt__bar {
+  background: #b42318;
+}
+
+.brebo-gantt__row.is-late .brebo-gantt__track {
+  background-color: #fff5f4;
+}
+
+.brebo-gantt__milestone {
+  position: absolute;
+  top: 1.2rem;
+  left: calc(var(--gantt-start) * 1%);
+  width: 1rem;
+  height: 1rem;
+  transform: rotate(45deg);
+  background: #7a3ea1;
+  border: 2px solid #fff;
+  box-shadow: 0 0 0 1px #7a3ea1;
+}
+
+@media (max-width: 48rem) {
+  .brebo-gantt {
+    --label-width: minmax(12rem, 16rem);
+  }
+}
