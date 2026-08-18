@@ -1,0 +1,18 @@
+access brebo finance:
+  title: 'BREBO Finance bekijken'
+  description: 'Financiële projectinformatie en gebouwallocaties bekijken.'
+
+manage brebo finance:
+  title: 'BREBO Finance beheren'
+  description: 'Budgetten, prognoses en financiële mutaties beheren.'
+  restrict access: true
+
+manage brebo procurement:
+  title: 'BREBO Inkoop beheren'
+  description: 'Inkoopverplichtingen en gebouwallocaties beheren.'
+  restrict access: true
+
+approve brebo finance:
+  title: 'BREBO financiële wijzigingen goedkeuren'
+  description: 'Budgetversies, verplichtingen en afwijkingen goedkeuren.'
+  restrict access: true
