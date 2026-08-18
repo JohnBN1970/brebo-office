@@ -9,6 +9,22 @@ namespace Drupal\brebo_glass\Service;
  */
 final class GlassWindLoadCalculator {
 
+  public function designPressure(
+    float $peakVelocityPressureKpa,
+    float $externalPressureCoefficient,
+    float $internalPressureCoefficient,
+    float $partialFactor,
+  ): float {
+    if ($peakVelocityPressureKpa <= 0 || $partialFactor <= 0) {
+      throw new \InvalidArgumentException('Winddruk en veiligheidsfactor moeten groter zijn dan nul.');
+    }
+    $netCoefficient = abs($externalPressureCoefficient - $internalPressureCoefficient);
+    if ($netCoefficient <= 0) {
+      throw new \InvalidArgumentException('Het netto drukverschil moet groter zijn dan nul.');
+    }
+    return round($peakVelocityPressureKpa * $netCoefficient * $partialFactor, 3);
+  }
+
   /**
    * @return array{design_pressure_kpa: float, utilization: float, state: string, issues: string[]}
    */
@@ -34,7 +50,7 @@ final class GlassWindLoadCalculator {
       throw new \InvalidArgumentException('Het netto drukverschil moet groter zijn dan nul.');
     }
 
-    $designPressure = $peakVelocityPressureKpa * $netCoefficient * $partialFactor;
+    $designPressure = $this->designPressure($peakVelocityPressureKpa, $externalPressureCoefficient, $internalPressureCoefficient, $partialFactor);
     $utilization = $designPressure / $glassResistanceKpa;
     $issues = [];
 
