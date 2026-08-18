@@ -28,6 +28,9 @@ services:
       - '@brebo_glass.calculation_line_factory'
       - '@brebo_calculation.object_line_writer'
 
+  brebo_glass.procurement_builder:
+    class: Drupal\brebo_glass\Service\GlassProcurementBuilder
+
   brebo_glass.position_repository:
     class: Drupal\brebo_glass\Service\GlassPositionRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@brebo_glass.approval_policy']
