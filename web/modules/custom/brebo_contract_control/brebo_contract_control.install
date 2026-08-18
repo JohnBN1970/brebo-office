@@ -42,6 +42,7 @@ function brebo_contract_control_schema(): array {
       'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE], 'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'], 'due_at' => ['type' => 'int', 'not null' => TRUE], 'context_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
       'resolution' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'resolved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created_at' => ['type' => 'int', 'not null' => TRUE], 'resolved_at' => ['type' => 'int', 'not null' => FALSE],
+      'verified_at' => ['type' => 'int', 'not null' => FALSE], 'verification_result' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
     ],
     'primary key' => ['id'], 'indexes' => ['key_status' => ['action_key', 'status'], 'owner_status' => ['owner_uid', 'status'], 'due_status' => ['due_at', 'status']],
   ];
@@ -49,5 +50,10 @@ function brebo_contract_control_schema(): array {
 }
 
 function brebo_contract_control_update_10001(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_controller_case')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_controller_case', $d['brebo_controller_case']); } }
-/** Add management action tracking to existing installations. */
 function brebo_contract_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_management_action')) { $d = brebo_contract_control_schema(); $schema->createTable('brebo_management_action', $d['brebo_management_action']); } }
+/** Add closed-loop verification metadata to management actions. */
+function brebo_contract_control_update_10003(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->fieldExists('brebo_management_action', 'verified_at')) { $schema->addField('brebo_management_action', 'verified_at', ['type' => 'int', 'not null' => FALSE]); }
+  if (!$schema->fieldExists('brebo_management_action', 'verification_result')) { $schema->addField('brebo_management_action', 'verification_result', ['type' => 'text', 'size' => 'normal', 'not null' => FALSE]); }
+}
