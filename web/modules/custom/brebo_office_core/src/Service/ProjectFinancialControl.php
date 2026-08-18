@@ -130,8 +130,6 @@ final class ProjectFinancialControl {
     $paidG = (float) $transactions['paid_g'];
     $openPayables = max(0.0, $approvedInvoices - $paid);
 
-    // Once real purchase orders exist they replace selected quotes as the
-    // stronger commitment source; quotes remain the fallback before ordering.
     $effectiveCommitment = $ordered > 0 ? $ordered : $commitmentCost;
     $nonLaborForecast = max($nonLaborBudget, $effectiveCommitment, $approvedInvoices);
     $forecastCost = $nonLaborForecast + $forecastLaborCost;
@@ -154,11 +152,16 @@ final class ProjectFinancialControl {
       $signals[] = $transactions['overdue_invoices'] . ' goedgekeurde leveranciersfactuur/facturen zijn vervallen en nog niet volledig betaald.';
     }
 
+    $revenue = $this->projectRevenue((int) $project->id(), $budgetCost, $forecastCost);
+    foreach ($revenue['signals'] as $signal) {
+      $signals[] = $signal;
+    }
+
     $status = 'Akkoord';
-    if ($variance > 0.01 || (int) $transactions['blocked_invoices'] > 0) {
+    if ($variance > 0.01 || (int) $transactions['blocked_invoices'] > 0 || (float) $revenue['expected_result'] < -0.01) {
       $status = 'Overschrijding verwacht';
     }
-    elseif ($budgetCost > 0 && $forecastCost >= $budgetCost * 0.95) {
+    elseif ((float) $revenue['margin_delta_pct'] < -1.0 || ($budgetCost > 0 && $forecastCost >= $budgetCost * 0.95)) {
       $status = 'Aandacht';
     }
     if (!$budgetIds || $lineCount === 0) {
@@ -188,6 +191,17 @@ final class ProjectFinancialControl {
       'forecast_labor_cost' => round($forecastLaborCost, 2),
       'forecast_cost' => round($forecastCost, 2),
       'variance' => round($variance, 2),
+      'contract_value' => $revenue['contract_value'],
+      'approved_variations' => $revenue['approved_variations'],
+      'pending_variations' => $revenue['pending_variations'],
+      'contract_revenue' => $revenue['contract_revenue'],
+      'forecast_revenue' => $revenue['forecast_revenue'],
+      'start_result' => $revenue['start_result'],
+      'start_margin_pct' => $revenue['start_margin_pct'],
+      'expected_result' => $revenue['expected_result'],
+      'expected_margin_pct' => $revenue['expected_margin_pct'],
+      'margin_delta_pct' => $revenue['margin_delta_pct'],
+      'result_delta' => $revenue['result_delta'],
       'budget_hours' => round($budgetHours, 2),
       'actual_hours' => round($actualHours, 2),
       'forecast_hours' => round($forecastHours, 2),
@@ -195,9 +209,99 @@ final class ProjectFinancialControl {
       'rows' => $rows,
       'commitment_rows' => $commitmentRows,
       'transaction_rows' => $transactions['rows'],
+      'revenue_rows' => $revenue['rows'],
       'actual_scope' => $transactions['available']
-        ? 'Werkelijke arbeid uit goedgekeurde uren plus inkooporders, leveranciersfacturen en geboekte betalingen uit BREBO Finance.'
-        : 'Werkelijke arbeid uit goedgekeurde uren. BREBO Finance is nog niet geïnstalleerd; transactiedata is daarom niet beschikbaar.',
+        ? 'Werkelijke arbeid, inkooporders, leveranciersfacturen, betalingen en projectopbrengsten uit BREBO Finance.'
+        : 'Werkelijke arbeid uit goedgekeurde uren. BREBO Finance is nog niet geïnstalleerd; transacties en opbrengsten zijn daarom niet beschikbaar.',
+    ];
+  }
+
+  /**
+   * @return array<string, mixed>
+   */
+  private function projectRevenue(int $projectId, float $budgetCost, float $forecastCost): array {
+    if (!$this->database->schema()->tableExists('brebo_project_revenue')) {
+      return [
+        'contract_value' => 0.0, 'approved_variations' => 0.0, 'pending_variations' => 0.0,
+        'contract_revenue' => 0.0, 'forecast_revenue' => 0.0, 'start_result' => 0.0,
+        'start_margin_pct' => 0.0, 'expected_result' => -round($forecastCost, 2),
+        'expected_margin_pct' => 0.0, 'margin_delta_pct' => 0.0, 'result_delta' => 0.0,
+        'signals' => ['Geen opbrengstenregister beschikbaar; marge kan nog niet betrouwbaar worden berekend.'],
+        'rows' => [],
+      ];
+    }
+
+    $rows = $this->database->select('brebo_project_revenue', 'r')
+      ->fields('r')->condition('project_nid', $projectId)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $contract = 0.0;
+    $approvedVariations = 0.0;
+    $pendingVariations = 0.0;
+    $expectedVariations = 0.0;
+    $signals = [];
+
+    foreach ($rows as &$row) {
+      $amount = (float) $row['amount'];
+      $type = (string) $row['revenue_type'];
+      $rowStatus = (string) $row['status'];
+      $probability = max(0.0, min(100.0, (float) $row['probability_pct']));
+      $weighted = round(abs($amount) * ($probability / 100), 2);
+      $row['weighted_amount'] = $weighted;
+
+      if ($type === 'contract' && in_array($rowStatus, ['approved', 'contracted'], TRUE)) {
+        $contract += abs($amount);
+        continue;
+      }
+      if (!in_array($type, ['more_work', 'less_work'], TRUE)) {
+        continue;
+      }
+      $signed = $type === 'less_work' ? -abs($amount) : abs($amount);
+      if (in_array($rowStatus, ['approved', 'contracted'], TRUE)) {
+        $approvedVariations += $signed;
+        $expectedVariations += $signed;
+      }
+      elseif (in_array($rowStatus, ['submitted', 'pending'], TRUE)) {
+        $pendingVariations += $signed;
+        $expectedVariations += $type === 'less_work' ? -$weighted : $weighted;
+      }
+    }
+    unset($row);
+
+    $contractRevenue = $contract + $approvedVariations;
+    $forecastRevenue = $contract + $expectedVariations;
+    $startResult = $contract > 0 ? $contract - $budgetCost : 0.0;
+    $startMargin = $contract > 0 ? ($startResult / $contract) * 100 : 0.0;
+    $expectedResult = $forecastRevenue - max(0.0, $forecastCost);
+    $expectedMargin = $forecastRevenue > 0 ? ($expectedResult / $forecastRevenue) * 100 : 0.0;
+    $marginDelta = $expectedMargin - $startMargin;
+    $resultDelta = $expectedResult - $startResult;
+
+    if ($contract <= 0) {
+      $signals[] = 'Geen goedgekeurde aanneemsom/contractwaarde geregistreerd; projectmarge kan niet betrouwbaar worden beoordeeld.';
+    }
+    if ($expectedResult < -0.01) {
+      $signals[] = 'Negatief verwacht projectresultaat: € ' . number_format(abs($expectedResult), 2, ',', '.') . ' verlies.';
+    }
+    if ($marginDelta < -1.0 && $contract > 0) {
+      $signals[] = 'Marge lekt weg: verwachte marge ligt ' . number_format(abs($marginDelta), 2, ',', '.') . ' procentpunt onder de startmarge.';
+    }
+    if (abs($pendingVariations) > 0.01) {
+      $signals[] = 'Openstaand meer-/minderwerk beïnvloedt de omzetprognose en is nog niet definitief gecontracteerd.';
+    }
+
+    return [
+      'contract_value' => round($contract, 2),
+      'approved_variations' => round($approvedVariations, 2),
+      'pending_variations' => round($pendingVariations, 2),
+      'contract_revenue' => round($contractRevenue, 2),
+      'forecast_revenue' => round($forecastRevenue, 2),
+      'start_result' => round($startResult, 2),
+      'start_margin_pct' => round($startMargin, 2),
+      'expected_result' => round($expectedResult, 2),
+      'expected_margin_pct' => round($expectedMargin, 2),
+      'margin_delta_pct' => round($marginDelta, 2),
+      'result_delta' => round($resultDelta, 2),
+      'signals' => $signals,
+      'rows' => $rows,
     ];
   }
 
@@ -214,11 +318,11 @@ final class ProjectFinancialControl {
       ];
     }
 
-    $ordered = (float) $this->database->select('brebo_purchase_order', 'o')
-      ->condition('project_nid', $projectId)
-      ->condition('status', 'cancelled', '<>')
-      ->addExpression('COALESCE(SUM(gross_amount), 0)', 'total')
-      ->execute()->fetchField();
+    $orderedQuery = $this->database->select('brebo_purchase_order', 'o');
+    $orderedQuery->condition('project_nid', $projectId);
+    $orderedQuery->condition('status', 'cancelled', '<>');
+    $orderedQuery->addExpression('COALESCE(SUM(gross_amount), 0)', 'total');
+    $ordered = (float) $orderedQuery->execute()->fetchField();
 
     $invoiceQuery = $this->database->select('brebo_supplier_invoice', 'i');
     $invoiceQuery->fields('i');
