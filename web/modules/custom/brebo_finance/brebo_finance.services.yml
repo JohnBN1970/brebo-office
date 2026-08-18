@@ -7,3 +7,7 @@ services:
     arguments:
       - '@database'
       - '@entity_type.manager'
+
+  brebo_finance.working_budget_approval_manager:
+    class: Drupal\brebo_finance\Service\WorkingBudgetApprovalManager
+    arguments: ['@database']
