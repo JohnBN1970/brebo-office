@@ -32,6 +32,8 @@ final class FinancialProjectPageController extends ControllerBase {
         'data-gates-url' => '/brebo-office/api/finance/projects/' . $project_nid . '/phase-gates',
         'data-decisions-url' => '/brebo-office/api/finance/decision-inbox?project_nid=' . $project_nid,
         'data-ledger-url' => '/brebo-office/api/finance/projects/' . $project_nid . '/ledger',
+        'data-performance-url' => '/brebo-office/api/finance/performance-receipts',
+        'data-can-verify-performance' => $this->currentUser()->hasPermission('approve brebo finance') ? '1' : '0',
       ],
       'header' => ['#markup' => '<header class="bfpd-header"><div><span class="bfpd-kicker">BREBO OFFICE · FINANCE · PROJECT</span><h1>' . htmlspecialchars((string) $project->label(), ENT_QUOTES, 'UTF-8') . '</h1><p>Project #' . $project_nid . ' · financiële positie, risico en vrijgave.</p></div><a href="/brebo-office/finance">← Command Center</a></header>'],
       'content' => ['#markup' => '<div data-bfpd-content><div class="bfpd-loading">Projectfinanciën laden…</div></div>'],
