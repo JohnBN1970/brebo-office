@@ -54,11 +54,14 @@ final class DigitalController {
   public function createScheduledRun(int $projectNid, int $systemUserId = 0): int {
     $package = $this->prepareReview($projectNid);
     $now = time();
-    return (int) $this->database->insert('brebo_finance_controller_run')
-      ->fields([
+    $date = date('Y-m-d', $now);
+    $this->database->merge('brebo_finance_controller_run')
+      ->keys([
         'project_nid' => $projectNid,
-        'run_date' => date('Y-m-d', $now),
+        'run_date' => $date,
         'run_type' => 'scheduled',
+      ])
+      ->fields([
         'status' => 'evidence_ready',
         'control_counts' => json_encode($package['controls'], JSON_THROW_ON_ERROR),
         'evidence_payload' => json_encode(
@@ -74,6 +77,14 @@ final class DigitalController {
         'changed_by' => $systemUserId,
       ])
       ->execute();
+
+    return (int) $this->database->select('brebo_finance_controller_run', 'r')
+      ->fields('r', ['id'])
+      ->condition('project_nid', $projectNid)
+      ->condition('run_date', $date)
+      ->condition('run_type', 'scheduled')
+      ->execute()
+      ->fetchField();
   }
 
   /**
