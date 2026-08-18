@@ -55,7 +55,7 @@ final class ProjectPortfolioController extends ControllerBase {
       $action_count = $this->relatedCount('brebo_action', $project_id);
       $risk_count = $this->relatedCount('brebo_risk', $project_id);
       $signal_count = $this->relatedCount('brebo_signal', $project_id);
-      $attention = $action_count + $risk_count + $signal_count;
+      $dossier_count = $action_count + $risk_count + $signal_count;
 
       $rows[] = [
         ['data' => Link::fromTextAndUrl(
@@ -68,8 +68,8 @@ final class ProjectPortfolioController extends ControllerBase {
         $this->value($project, 'field_brebo_project_kind'),
         $status,
         $scope_count,
-        $attention,
-        $this->dateFormatter()->format($project->getChangedTime(), 'short'),
+        $dossier_count,
+        \Drupal::service('date.formatter')->format($project->getChangedTime(), 'short'),
         ['data' => [
           '#type' => 'operations',
           '#links' => [
@@ -131,7 +131,7 @@ final class ProjectPortfolioController extends ControllerBase {
           $this->t('Soort'),
           $this->t('Status'),
           $this->t('Scopes'),
-          $this->t('Aandacht'),
+          $this->t('Acties/risico’s/signalen'),
           $this->t('Gewijzigd'),
           $this->t('Acties'),
         ],
