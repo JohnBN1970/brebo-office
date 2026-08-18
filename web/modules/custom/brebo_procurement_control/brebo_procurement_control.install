@@ -24,18 +24,13 @@ function brebo_procurement_control_schema(): array {
       'created' => ['type' => 'int', 'not null' => TRUE],
     ],
     'primary key' => ['id'],
-    'indexes' => [
-      'project_ref' => ['project_nid', 'procurement_ref'],
-      'decision_status' => ['decision_status'],
-      'selected_supplier' => ['selected_supplier'],
-    ],
+    'indexes' => ['project_ref' => ['project_nid', 'procurement_ref'], 'decision_status' => ['decision_status'], 'selected_supplier' => ['selected_supplier']],
   ];
 
   $schema['brebo_procurement_outcome'] = [
     'description' => 'Nacalculatie van inkoopbeslissingen voor mens-versus-model leren.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'actual_purchase_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
       'actual_failure_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
       'actual_delay_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
@@ -43,25 +38,46 @@ function brebo_procurement_control_schema(): array {
       'actual_other_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
       'actual_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
       'model_error' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
-      'outcome' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'assessment' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
-      'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'recorded_at' => ['type' => 'int', 'not null' => TRUE],
+      'outcome' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'assessment' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'recorded_at' => ['type' => 'int', 'not null' => TRUE],
     ],
-    'primary key' => ['id'],
-    'unique keys' => ['decision_id' => ['decision_id']],
-    'indexes' => ['outcome' => ['outcome']],
+    'primary key' => ['id'], 'unique keys' => ['decision_id' => ['decision_id']], 'indexes' => ['outcome' => ['outcome']],
   ];
 
+  $schema['brebo_procurement_model_review'] = [
+    'description' => 'Geversioneerde, vier-ogen modelparameterreviews.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'from_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'to_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'changes_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'reason' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 40, 'not null' => TRUE],
+      'proposed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'proposed_at' => ['type' => 'int', 'not null' => TRUE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'not null' => FALSE],
+      'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'], 'indexes' => ['status' => ['status'], 'version' => ['to_version']],
+  ];
   return $schema;
 }
 
-/** Add procurement outcome learning to existing installations. */
 function brebo_procurement_control_update_10001(): void {
   $schema = \Drupal::database()->schema();
-  if ($schema->tableExists('brebo_procurement_outcome')) {
-    return;
+  if (!$schema->tableExists('brebo_procurement_outcome')) {
+    $definitions = brebo_procurement_control_schema();
+    $schema->createTable('brebo_procurement_outcome', $definitions['brebo_procurement_outcome']);
   }
-  $definitions = brebo_procurement_control_schema();
-  $schema->createTable('brebo_procurement_outcome', $definitions['brebo_procurement_outcome']);
+}
+
+/** Add governed model reviews to existing installations. */
+function brebo_procurement_control_update_10002(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_procurement_model_review')) {
+    $definitions = brebo_procurement_control_schema();
+    $schema->createTable('brebo_procurement_model_review', $definitions['brebo_procurement_model_review']);
+  }
 }
