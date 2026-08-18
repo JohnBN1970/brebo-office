@@ -1,0 +1,4 @@
+services:
+  brebo_finance.vat_calculator:
+    class: Drupal\brebo_finance\Service\VatCalculator
+
