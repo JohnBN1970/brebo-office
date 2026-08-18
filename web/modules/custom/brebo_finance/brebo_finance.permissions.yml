@@ -17,6 +17,16 @@ approve brebo finance:
   description: 'Budgetversies, verplichtingen en afwijkingen goedkeuren.'
   restrict access: true
 
+approve brebo finance elevated:
+  title: 'BREBO verhoogde financiële procuratie'
+  description: 'Financiële fasepoortbesluiten binnen het verhoogde procuratieniveau goedkeuren.'
+  restrict access: true
+
+approve brebo finance executive:
+  title: 'BREBO directie financiële procuratie'
+  description: 'Financiële fasepoortbesluiten op directieniveau en besluiten met onvolledige exposure goedkeuren.'
+  restrict access: true
+
 review brebo finance ai:
   title: 'BREBO financiële AI-beoordelingen reviewen'
   description: 'AI-analyses accepteren, afwijzen of omzetten naar een controlebevinding.'
