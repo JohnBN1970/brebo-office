@@ -29,3 +29,9 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.vat_calculator'
+
+  brebo_finance.payment_release_manager:
+    class: Drupal\brebo_finance\Service\PaymentReleaseManager
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
