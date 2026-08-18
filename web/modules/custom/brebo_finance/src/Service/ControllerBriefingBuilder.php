@@ -86,6 +86,7 @@ final class ControllerBriefingBuilder {
         'control_code',
         'origin',
         'severity',
+        'status',
         'source_type',
         'source_id',
         'title',
@@ -99,7 +100,7 @@ final class ControllerBriefingBuilder {
         'last_seen',
       ])
       ->condition('project_nid', $projectNid)
-      ->condition('status', 'open')
+      ->condition('status', ['open', 'pending_verification'], 'IN')
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
   }
@@ -117,6 +118,7 @@ final class ControllerBriefingBuilder {
     return [
       'finding_id' => (int) $finding['id'],
       'severity' => (string) $finding['severity'],
+      'status' => (string) $finding['status'],
       'title' => (string) $finding['title'],
       'cause' => (string) $finding['cause'],
       'financial_consequence' => (string) $finding['consequence'],
