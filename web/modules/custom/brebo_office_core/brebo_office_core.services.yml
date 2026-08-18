@@ -54,6 +54,7 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@brebo_office_core.workforce_labor_cost'
+      - '@database'
 
   brebo_office_core.project_financial_route_subscriber:
     class: Drupal\brebo_office_core\Routing\ProjectFinancialRouteSubscriber
