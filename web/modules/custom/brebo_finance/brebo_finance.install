@@ -1149,6 +1149,73 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_scenario'] = [
+    'description' => 'Explicit project stress assumptions requiring four-eyes activation.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'scenario_name' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'scenario_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'remaining_cost_multiplier' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE],
+      'labour_productivity_impact_ex_vat' => $money,
+      'purchase_price_impact_ex_vat' => $money,
+      'delay_cost_impact_ex_vat' => $money,
+      'credit_loss_impact_ex_vat' => $money,
+      'revenue_change_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'additional_risk_reserve_ex_vat' => $money,
+      'receipt_delay_days' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'delayed_receipts_inc_vat' => $money,
+      'assumption_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'assumption_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_scenario_name' => ['project_nid', 'scenario_name'],
+      'assumption_hash' => ['assumption_hash'],
+    ],
+    'indexes' => [
+      'project_status_type' => ['project_nid', 'status', 'scenario_type'],
+    ],
+  ];
+
+  $schema['brebo_finance_scenario_snapshot'] = [
+    'description' => 'Immutable deterministic result of approved assumptions against one forecast.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'scenario_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'forecast_snapshot_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'snapshot_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'adjusted_revenue_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'adjusted_end_cost_ex_vat' => $money,
+      'adjusted_risk_reserve_ex_vat' => $money,
+      'adjusted_result_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'adjusted_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => FALSE],
+      'receipt_delay_days' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'delayed_receipts_inc_vat' => $money,
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'scenario_forecast' => ['scenario_id', 'forecast_snapshot_id'],
+      'content_hash' => ['content_hash'],
+    ],
+    'indexes' => [
+      'project_date' => ['project_nid', 'snapshot_date'],
+      'adjusted_result' => ['adjusted_result_ex_vat'],
+    ],
+  ];
+
   $schema['brebo_finance_audit'] = [
     'description' => 'Append-only audit trail for financial and procurement changes.',
     'fields' => [
