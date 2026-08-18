@@ -2,3 +2,8 @@ services:
   brebo_finance.vat_calculator:
     class: Drupal\brebo_finance\Service\VatCalculator
 
+  brebo_finance.working_budget_importer:
+    class: Drupal\brebo_finance\Service\WorkingBudgetImporter
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
