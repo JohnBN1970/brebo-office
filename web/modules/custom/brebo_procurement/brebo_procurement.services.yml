@@ -9,4 +9,4 @@ services:
 
   brebo_procurement.order_manager:
     class: Drupal\brebo_procurement\Service\ProcurementOrderManager
-    arguments: ['@database']
+    arguments: ['@database', '@module_handler']
