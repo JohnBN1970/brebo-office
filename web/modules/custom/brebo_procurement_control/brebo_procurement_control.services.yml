@@ -1,0 +1,6 @@
+services:
+  brebo_procurement_control.decision_gate:
+    class: Drupal\brebo_procurement_control\Service\ProcurementDecisionGate
+    arguments:
+      - '@database'
+      - '@brebo_control.supplier_bid_evaluation'
