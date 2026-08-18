@@ -6,3 +6,8 @@ administer brebo glass:
 view brebo glass:
   title: 'BREBO glas bekijken'
 
+
+verify brebo glass products:
+  title: 'BREBO glasproducten technisch verifiëren'
+  description: 'Conceptproducten na inhoudelijke controle activeren voor automatische glaskeuze.'
+  restrict access: true
