@@ -192,6 +192,11 @@ final class PersonnelPlanningController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
+        'schedule' => [
+          '#type' => 'link', '#title' => $this->t('Weekrooster openen'),
+          '#url' => Url::fromRoute('brebo_office_core.inzet_schedule'),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
         'assignment' => [
           '#type' => 'link',
           '#title' => $this->t('Personeelsinzet toevoegen'),
