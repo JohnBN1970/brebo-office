@@ -54,6 +54,10 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
     arguments: ['@database']
 
+  brebo_calculation.norm_feedback:
+    class: Drupal\brebo_calculation\Service\CalculationNormFeedbackService
+    arguments: ['@database']
+
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
