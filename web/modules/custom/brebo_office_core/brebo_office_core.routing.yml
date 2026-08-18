@@ -616,3 +616,11 @@ brebo_office_core.inzet_qualifications:
     bundle: 'brebo_qualification'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.inzet_capacity:
+  path: '/inzet/capaciteit'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceCapacityController::overview'
+    _title: 'BREBO Inzet — Capaciteitsprognose'
+  requirements:
+    _permission: 'access content'
