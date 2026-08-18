@@ -92,3 +92,11 @@ The cockpit compares budget, planned, submitted and approved actual hours. Only 
 Traceable incoming and outgoing cash events feed two immutable thirteen-week scenarios: committed events only, and committed plus explicitly expected events. Expected events require a recorded confidence but are shown at their full amount rather than being silently probability-weighted. Every event retains its source identity, timestamp and evidence hash.
 
 Regular cash and G-account cash remain separate balances throughout the forecast. Each weekly bucket shows incoming, outgoing and closing balances including VAT. The Digital Controller raises a critical finding for a committed regular-account shortfall, a high finding for a committed G-account shortfall and a high finding for overdue confirmed receipts. It never assumes that restricted G-account cash is freely available for regular payments.
+
+### Additional and omitted work
+
+A project scope deviation is controlled from observation, cause, consequence and evidence through pricing, offer, client decision, execution, invoicing and verified payment. Every change is linked to the approved project contract and, where available, a working-budget line and central building-model object.
+
+Client approval automatically creates the signed approved contract-revenue mutation: additional work increases revenue and omitted work reduces it. The cost side remains a separate four-eyes budget mutation so commercial approval never silently rewrites the immutable cost baseline. Execution without client approval is blocked unless one person requests and another person explicitly accepts the documented risk.
+
+The Digital Controller flags changes that are not offered promptly, client decisions outstanding longer than seven days, execution at risk, approved work without controlled cost mutation and executed work not invoiced within three days.
