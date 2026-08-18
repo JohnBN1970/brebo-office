@@ -35,9 +35,15 @@ services:
     class: Drupal\brebo_glass\Service\GlassOperationalRiskEvaluator
     arguments: ['@database']
 
+  brebo_glass.financial_impact_evaluator:
+    class: Drupal\brebo_glass\Service\GlassFinancialImpactEvaluator
+    arguments: ['@database', '@entity_type.manager']
+
   brebo_glass.project_risk_aggregator:
     class: Drupal\brebo_glass\Service\GlassProjectRiskAggregator
-    arguments: ['@brebo_glass.operational_risk_evaluator']
+    arguments:
+      - '@brebo_glass.operational_risk_evaluator'
+      - '@brebo_glass.financial_impact_evaluator'
 
   brebo_glass.position_repository:
     class: Drupal\brebo_glass\Service\GlassPositionRepository
