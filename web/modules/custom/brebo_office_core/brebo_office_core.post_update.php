@@ -1181,3 +1181,43 @@ function brebo_office_core_post_update_inzet_competencies(array &$sandbox = NULL
 
   return 'Vakbekwaamheden, kwalificatiebewijzen, diensteisen en rolrechten toegevoegd aan BREBO Inzet.';
 }
+
+
+/**
+ * Adds audit fields for human-approved workforce proposals.
+ */
+function brebo_office_core_post_update_inzet_proposal_audit(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle('brebo_shift', 'Dienst',
+    'BREBO Inzet-dienst gekoppeld aan project, gebouw, activiteit en vrijgegeven werkbegrotingsuren.', [
+      'field_brebo_shift_proposal_score' => [
+        'label' => 'Toegepaste voorstelsscore', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 8, 'scale' => 2],
+        'description' => 'Uitlegbare score van het door een planner toegepaste personeelsvoorstel.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 20,
+      ],
+      'field_brebo_shift_proposal_note' => [
+        'label' => 'Voorstelmotivatie', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Motivatie die op het moment van menselijke goedkeuring is vastgelegd.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 21,
+      ],
+      'field_brebo_shift_assigned_by' => [
+        'label' => 'Voorstel toegepast door', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+        'description' => 'BREBO-gebruiker die het personeelsvoorstel bewust heeft toegepast.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 22,
+      ],
+      'field_brebo_shift_assigned_at' => [
+        'label' => 'Voorstel toegepast op', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Servervastgelegd moment van menselijke goedkeuring.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 23,
+      ],
+    ]);
+
+  return 'Auditvelden voor menselijke goedkeuring van personeelsvoorstellen toegevoegd.';
+}
