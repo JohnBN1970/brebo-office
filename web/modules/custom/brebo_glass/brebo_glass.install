@@ -16,8 +16,12 @@ function brebo_glass_schema(): array {
       'position_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
       'location' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
       'frame_material' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => FALSE],
+      'application_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'standard'],
       'glass_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
       'composition' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'performance_declaration_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'quantity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
@@ -27,6 +31,7 @@ function brebo_glass_schema(): array {
       'measurement_source' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'manual'],
       'measurement_verified' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
       'technical_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'concept'],
+      'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
       'technical_notes' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
       'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
@@ -42,9 +47,33 @@ function brebo_glass_schema(): array {
       'project' => ['project_nid'],
       'glass_type' => ['glass_type'],
       'status' => ['technical_status'],
+      'technical_check' => ['technical_check_state'],
     ],
   ];
 
   return $schema;
 }
 
+/**
+ * Adds technical pre-check fields to early glass-module installations.
+ */
+function brebo_glass_update_11001(): void {
+  $schema = \Drupal::database()->schema();
+  $fields = [
+    'application_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'standard'],
+    'safety_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+    'fire_class' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+    'performance_declaration_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'technical_check_state' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+  ];
+
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists('brebo_glass_position', $name)) {
+      $schema->addField('brebo_glass_position', $name, $specification);
+    }
+  }
+
+  if (!$schema->indexExists('brebo_glass_position', 'technical_check')) {
+    $schema->addIndex('brebo_glass_position', 'technical_check', ['technical_check_state']);
+  }
+}
