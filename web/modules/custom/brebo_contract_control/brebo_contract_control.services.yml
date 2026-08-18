@@ -40,6 +40,11 @@ services:
       - '@database'
       - '@brebo_contract_control.management_control_center'
 
+  brebo_contract_control.management_action_source:
+    class: Drupal\brebo_contract_control\Service\ManagementActionSourceResolver
+    arguments:
+      - '@database'
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
