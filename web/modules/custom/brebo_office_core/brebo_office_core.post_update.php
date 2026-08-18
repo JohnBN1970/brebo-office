@@ -855,3 +855,196 @@ function brebo_office_core_post_update_personnel_planning(array &$sandbox = NULL
 
   return 'Personeelsinzet, beschikbaarheid en ploegen met project-, object-, capaciteit- en kwalificatiekoppelingen toegevoegd.';
 }
+
+
+/**
+ * Adds BREBO Inzet shift, time, clock and leave records.
+ */
+function brebo_office_core_post_update_brebo_inzet(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  $ref = static function (string $label, string $bundle, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => $required,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => [$bundle => $bundle]]],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $user_ref = static function (string $label, string $description, int $weight): array {
+    return [
+      'label' => $label, 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'description' => $description, 'widget' => 'entity_reference_autocomplete',
+      'formatter' => 'entity_reference_label', 'weight' => $weight,
+    ];
+  };
+  $date = static function (string $label, string $description, int $weight, bool $required = FALSE, string $type = 'date'): array {
+    return [
+      'label' => $label, 'type' => 'datetime', 'required' => $required,
+      'storage' => ['datetime_type' => $type], 'description' => $description,
+      'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => $weight,
+    ];
+  };
+  $decimal = static function (string $label, string $description, int $weight, bool $required = FALSE): array {
+    return [
+      'label' => $label, 'type' => 'decimal', 'required' => $required,
+      'storage' => ['precision' => 12, 'scale' => 4], 'description' => $description,
+      'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => $weight,
+    ];
+  };
+
+  _brebo_office_core_create_node_bundle('brebo_shift', 'Dienst',
+    'BREBO Inzet-dienst gekoppeld aan project, gebouw, activiteit en vrijgegeven werkbegrotingsuren.', [
+      'field_brebo_shift_assignment' => $ref('Personeelsinzet', 'brebo_staff_assignment', 'Goedgekeurde inzetbasis voor deze dienst.', 1, TRUE),
+      'field_brebo_shift_project' => $ref('Project', 'brebo_project', 'Projectcontext van de dienst.', 2, TRUE),
+      'field_brebo_shift_building' => $ref('Gebouw', 'brebo_building', 'PDOK-gepositioneerde werklocatie.', 3, TRUE),
+      'field_brebo_shift_activity' => $ref('Planningsactiviteit', 'brebo_plan_activity', 'Uitvoeringsactiviteit waarop wordt gewerkt.', 4, TRUE),
+      'field_brebo_shift_budget' => $ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Verplichte bron van vrijgegeven arbeidsuren.', 5, TRUE),
+      'field_brebo_shift_contact' => $ref('Persoon', 'brebo_contact', 'Ingeroosterde eigen of ingehuurde persoon.', 6),
+      'field_brebo_shift_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account.', 7),
+      'field_brebo_shift_team' => $ref('Ploeg', 'brebo_staff_team', 'Ingeroosterde ploeg.', 8),
+      'field_brebo_shift_start' => $date('Start dienst', 'Geplande lokale startdatum en -tijd.', 9, TRUE, 'datetime'),
+      'field_brebo_shift_end' => $date('Einde dienst', 'Geplande lokale einddatum en -tijd.', 10, TRUE, 'datetime'),
+      'field_brebo_shift_break_min' => [
+        'label' => 'Onbetaalde pauze minuten', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Geplande onbetaalde pauzeduur.', 'widget' => 'number',
+        'formatter' => 'number_integer', 'weight' => 11, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_shift_people' => [
+        'label' => 'Benodigde bezetting', 'type' => 'integer', 'required' => TRUE, 'storage' => [],
+        'description' => 'Benodigd aantal personen voor deze dienst.', 'widget' => 'number',
+        'formatter' => 'number_integer', 'weight' => 12, 'default_value' => [['value' => 1]],
+      ],
+      'field_brebo_shift_open' => [
+        'label' => 'Open dienst', 'type' => 'boolean', 'required' => FALSE, 'storage' => [],
+        'description' => 'Dienst waarvoor nog bezetting gezocht wordt.', 'widget' => 'boolean_checkbox',
+        'formatter' => 'boolean', 'weight' => 13, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_shift_status' => [
+        'label' => 'Dienststatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, gepubliceerd, gestart, afgerond of vervallen.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 14,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_shift_radius' => $decimal('Toegestane radius meter', 'Geofence rond de PDOK-gebouwlocatie.', 15),
+      'field_brebo_shift_notes' => [
+        'label' => 'Werkinstructie', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Operationele instructie, toegang en veiligheidsaandachtspunten.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 16,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_time_entry', 'Urenregistratie',
+    'Gewerkte uren uit BREBO Inzet die na goedkeuring naar werkbegroting en nacalculatie gaan.', [
+      'field_brebo_time_shift' => $ref('Dienst', 'brebo_shift', 'Dienst waarop de uren betrekking hebben.', 1, TRUE),
+      'field_brebo_time_assignment' => $ref('Personeelsinzet', 'brebo_staff_assignment', 'Onderliggende personeelsinzet.', 2, TRUE),
+      'field_brebo_time_budget' => $ref('Werkbegrotingsregel', 'brebo_work_budget_line', 'Werkbegrotingsregel waarop uren worden verantwoord.', 3, TRUE),
+      'field_brebo_time_contact' => $ref('Persoon', 'brebo_contact', 'Persoon die de uren heeft gewerkt.', 4),
+      'field_brebo_time_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account.', 5),
+      'field_brebo_time_start' => $date('Werkelijke start', 'Vastgestelde startdatum en -tijd.', 6, TRUE, 'datetime'),
+      'field_brebo_time_end' => $date('Werkelijk einde', 'Vastgestelde einddatum en -tijd.', 7, TRUE, 'datetime'),
+      'field_brebo_time_break_min' => [
+        'label' => 'Onbetaalde pauze minuten', 'type' => 'integer', 'required' => FALSE, 'storage' => [],
+        'description' => 'Werkelijke onbetaalde pauzeduur.', 'widget' => 'number',
+        'formatter' => 'number_integer', 'weight' => 8, 'default_value' => [['value' => 0]],
+      ],
+      'field_brebo_time_hours' => $decimal('Netto gewerkte uren', 'Automatisch berekende uren na onbetaalde pauze.', 9, TRUE),
+      'field_brebo_time_status' => [
+        'label' => 'Urenstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, ingediend, goedgekeurd, afgekeurd of gecorrigeerd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_time_approved_by' => $user_ref('Goedgekeurd door', 'Projectleider of uitvoerder die de uren vrijgeeft.', 11),
+      'field_brebo_time_approved_at' => $date('Goedkeuringsmoment', 'Datum en tijd van formele goedkeuring.', 12, FALSE, 'datetime'),
+      'field_brebo_time_correction' => [
+        'label' => 'Correctietoelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Verplichte reden bij correctie of afwijzing.', 'widget' => 'text_textarea',
+        'formatter' => 'text_default', 'weight' => 13,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_clock_event', 'Klokregistratie',
+    'Onwijzigbaar klokmoment met eenmalige locatiecontrole tegen de PDOK-gebouwlocatie.', [
+      'field_brebo_clock_shift' => $ref('Dienst', 'brebo_shift', 'Dienst waarop wordt geklokt.', 1, TRUE),
+      'field_brebo_clock_contact' => $ref('Persoon', 'brebo_contact', 'Persoon die klokt.', 2),
+      'field_brebo_clock_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account.', 3),
+      'field_brebo_clock_building' => $ref('Gebouw', 'brebo_building', 'Gebouw waarvan PDOK-coördinaten worden gebruikt.', 4, TRUE),
+      'field_brebo_clock_type' => [
+        'label' => 'Kloktype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'In, pauze start, pauze einde of uit.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 5,
+      ],
+      'field_brebo_clock_at' => $date('Klokmoment', 'Servervastgelegde datum en tijd.', 6, TRUE, 'datetime'),
+      'field_brebo_clock_lat' => $decimal('Latitude', 'Eenmalig ontvangen locatie bij het klokmoment.', 7),
+      'field_brebo_clock_lon' => $decimal('Longitude', 'Eenmalig ontvangen locatie bij het klokmoment.', 8),
+      'field_brebo_clock_accuracy' => $decimal('Locatienauwkeurigheid meter', 'Door het apparaat gemelde nauwkeurigheid.', 9),
+      'field_brebo_clock_distance' => $decimal('Afstand tot gebouw meter', 'Berekende afstand tot PDOK-gebouwcoördinaten.', 10),
+      'field_brebo_clock_geo_status' => [
+        'label' => 'Locatiecontrole', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Binnen zone, buiten zone, geen locatie of handmatig goedgekeurd.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+      ],
+      'field_brebo_clock_device' => [
+        'label' => 'Apparaatreferentie', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 128], 'description' => 'Niet-herleidbare hash voor fraudedetectie; geen hardware-ID.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+      ],
+      'field_brebo_clock_note' => [
+        'label' => 'Afwijkingstoelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Reden en beoordeling van een locatie- of klokafwijking.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 13,
+      ],
+    ]);
+
+  _brebo_office_core_create_node_bundle('brebo_leave_request', 'Verlofaanvraag',
+    'Aanvraag die na goedkeuring automatisch de beschikbaarheid voor BREBO Inzet beperkt.', [
+      'field_brebo_leave_contact' => $ref('Persoon', 'brebo_contact', 'Persoon die verlof aanvraagt.', 1),
+      'field_brebo_leave_user' => $user_ref('Intern account', 'Optioneel intern BREBO-account.', 2),
+      'field_brebo_leave_start' => $date('Start verlof', 'Eerste verlofdag.', 3, TRUE),
+      'field_brebo_leave_end' => $date('Einde verlof', 'Laatste verlofdag.', 4, TRUE),
+      'field_brebo_leave_hours' => $decimal('Verlofuren', 'Netto aangevraagde verlofuren.', 5, TRUE),
+      'field_brebo_leave_type' => [
+        'label' => 'Verloftype', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64], 'description' => 'Vakantie, bijzonder verlof, opleiding of niet beschikbaar; geen medische details.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 6,
+      ],
+      'field_brebo_leave_status' => [
+        'label' => 'Aanvraagstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 32], 'description' => 'Concept, ingediend, goedgekeurd, afgewezen of ingetrokken.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 7,
+        'default_value' => [['value' => 'Concept']],
+      ],
+      'field_brebo_leave_approver' => $user_ref('Beoordeeld door', 'Leidinggevende die de aanvraag beoordeelt.', 8),
+      'field_brebo_leave_decided_at' => $date('Beslismoment', 'Datum en tijd van het besluit.', 9, FALSE, 'datetime'),
+      'field_brebo_leave_avail_ref' => $ref('Beschikbaarheid', 'brebo_availability', 'Automatisch aangemaakt beschikbaarheidstijdvak.', 10),
+      'field_brebo_leave_reason' => [
+        'label' => 'Operationele toelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Geen medische of andere bijzondere persoonsgegevens vastleggen.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 11,
+      ],
+    ]);
+
+  $permissions = [];
+  foreach (['brebo_shift', 'brebo_time_entry', 'brebo_clock_event', 'brebo_leave_request'] as $bundle) {
+    $permissions = array_merge($permissions, [
+      "create $bundle content", "edit own $bundle content",
+      "edit any $bundle content", "view $bundle revisions",
+    ]);
+  }
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder', 'brebo_kwaliteitsmanager'] as $role_id) {
+    if ($role = \Drupal\user\Entity\Role::load($role_id)) {
+      foreach ($permissions as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'BREBO Inzet met diensten, uren, klokmomenten, verlof, PDOK-locatiecontrole en rolrechten toegevoegd.';
+}
