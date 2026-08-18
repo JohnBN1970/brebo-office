@@ -32,6 +32,15 @@ brebo_glass.position_to_calculation:
     _permission: 'export brebo glass to calculation'
     position_id: '\d+'
 
+brebo_glass.position_complete:
+  path: '/brebo/glas/{position_id}/gereedmelden'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassCompletionForm'
+    _title: 'Glaspositie gereedmelden'
+  requirements:
+    _permission: 'complete brebo glass positions'
+    position_id: '\d+'
+
 brebo_glass.product_overview:
   path: '/brebo/glas/producten'
   defaults:
