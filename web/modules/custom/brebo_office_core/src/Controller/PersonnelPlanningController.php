@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\brebo_office_core\Service\PersonnelBudgetControl;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Link;
@@ -19,10 +20,14 @@ final class PersonnelPlanningController extends ControllerBase {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly PersonnelBudgetControl $budgetControl,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('entity_type.manager'));
+    return new static(
+      $container->get('entity_type.manager'),
+      $container->get('brebo_office_core.personnel_budget_control'),
+    );
   }
 
   public function title(?NodeInterface $node = NULL): string {
@@ -51,6 +56,8 @@ final class PersonnelPlanningController extends ControllerBase {
     $actual_hours = 0.0;
     $conflicts = 0;
     $confirmed = 0;
+    $assignment_input = [];
+    $budget_line_ids = [];
     foreach ($storage->loadMultiple($query->execute()) as $assignment) {
       if (!$assignment instanceof NodeInterface) {
         continue;
@@ -70,6 +77,17 @@ final class PersonnelPlanningController extends ControllerBase {
       $activity = $assignment->get('field_brebo_staff_activity')->entity;
       $project = $assignment->get('field_brebo_staff_project')->entity;
       $organization = $assignment->get('field_brebo_staff_org')->entity;
+      $budget_line = $assignment->get('field_brebo_staff_finance_ref')->entity;
+      $budget_line_id = $budget_line instanceof NodeInterface ? (int) $budget_line->id() : NULL;
+      if ($budget_line_id !== NULL) {
+        $budget_line_ids[$budget_line_id] = $budget_line_id;
+      }
+      $assignment_input[(int) $assignment->id()] = [
+        'budget_line_id' => $budget_line_id,
+        'planned_hours' => $planned,
+        'actual_hours' => $actual,
+        'label' => (string) $assignment->label(),
+      ];
       $rows[] = [
         ['data' => Link::fromTextAndUrl($assignment->label(), $assignment->toUrl())->toRenderable()],
         $person ? $person->label() : $this->t('Niet toegewezen'),
@@ -83,6 +101,43 @@ final class PersonnelPlanningController extends ControllerBase {
         number_format($actual, 2, ',', '.'),
         $status,
         $conflict,
+      ];
+    }
+
+    $budget_input = [];
+    foreach ($storage->loadMultiple($budget_line_ids) as $budget_line) {
+      if (!$budget_line instanceof NodeInterface || $budget_line->bundle() !== 'brebo_work_budget_line') {
+        continue;
+      }
+      $budget_input[(int) $budget_line->id()] = [
+        'label' => (string) $budget_line->label(),
+        'budget_hours' => (float) ($budget_line->get('field_brebo_budget_hours')->value ?? 0),
+        'budget_actual_hours' => (float) ($budget_line->get('field_brebo_actual_hours')->value ?? 0),
+      ];
+    }
+    $budget_result = $this->budgetControl->analyze($budget_input, $assignment_input);
+    $budget_rows = [];
+    foreach ($budget_result['lines'] as $line) {
+      $budget_rows[] = [
+        $line['label'] ?? '—',
+        number_format((float) $line['budget_hours'], 2, ',', '.'),
+        number_format((float) $line['allocated_hours'], 2, ',', '.'),
+        number_format((float) $line['assignment_actual_hours'], 2, ',', '.'),
+        number_format((float) $line['remaining_to_allocate'], 2, ',', '.'),
+        number_format((float) $line['allocation_percent'], 1, ',', '.') . '%',
+        $line['control_status'],
+        $line['control_message'],
+      ];
+    }
+    foreach ($budget_result['unlinked'] as $unlinked) {
+      $budget_rows[] = [
+        $unlinked['label'] ?? $this->t('Ongekoppelde inzet'),
+        '—',
+        number_format((float) ($unlinked['planned_hours'] ?? 0), 2, ',', '.'),
+        number_format((float) ($unlinked['actual_hours'] ?? 0), 2, ',', '.'),
+        '—', '—',
+        $unlinked['control_status'],
+        $unlinked['control_message'],
       ];
     }
 
@@ -173,6 +228,18 @@ final class PersonnelPlanningController extends ControllerBase {
         ],
         '#rows' => $rows,
         '#empty' => $this->t('Nog geen personeelsinzet gepland.'),
+        '#sticky' => TRUE,
+      ],
+      'budget_heading' => ['#markup' => '<h2>' . $this->t('Controle vanuit werkbegroting') . '</h2>'],
+      'budget_control' => [
+        '#type' => 'table',
+        '#header' => [
+          $this->t('Werkbegrotingsregel'), $this->t('Begroot'), $this->t('Toegewezen'),
+          $this->t('Werkelijk'), $this->t('Nog te verdelen'), $this->t('Dekking'),
+          $this->t('Controle'), $this->t('Toelichting'),
+        ],
+        '#rows' => $budget_rows,
+        '#empty' => $this->t('Nog geen personeelsinzet aan een werkbegrotingsregel gekoppeld.'),
         '#sticky' => TRUE,
       ],
       'availability_heading' => ['#markup' => '<h2>' . $this->t('Beschikbaarheid') . '</h2>'],
