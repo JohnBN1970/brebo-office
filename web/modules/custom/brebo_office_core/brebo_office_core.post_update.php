@@ -1336,10 +1336,21 @@ function brebo_office_core_post_update_inzet_resources(array &$sandbox = NULL): 
       ],
       'field_brebo_booking_approved_by' => $user_ref('Vrijgegeven door', 'Planner die de reservering formeel heeft vrijgegeven.', 10),
       'field_brebo_booking_approved_at' => $date('Vrijgavemoment', 'Servervastgelegd moment van formele vrijgave.', 11, FALSE, 'datetime'),
+      'field_brebo_booking_control' => [
+        'label' => 'Vrijgavecontrole', 'type' => 'string', 'required' => FALSE,
+        'storage' => ['max_length' => 32], 'description' => 'Vrijgegeven, waarschuwing of blokkade na automatische materieelcontrole.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 12,
+        'default_value' => [['value' => 'Niet gecontroleerd']],
+      ],
+      'field_brebo_booking_control_note' => [
+        'label' => 'Controletoelichting', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
+        'description' => 'Automatische uitleg over keuring, onderhoud, overlap en bestuurdersbevoegdheid.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 13,
+      ],
       'field_brebo_booking_note' => [
         'label' => 'Uitgifte- en retournotitie', 'type' => 'text_long', 'required' => FALSE, 'storage' => [],
         'description' => 'Sleutels, brandstof, schade, accessoires en overdrachtsafspraken.',
-        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 14,
       ],
     ]);
 
