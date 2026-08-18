@@ -80,3 +80,9 @@ A financial finding stays active until its cause is demonstrably controlled. An 
 The read-only project cockpit combines the latest immutable forecast, procurement pipeline, workflow exceptions, G-account position and Digital Controller briefing. Result and cost values remain explicitly excluding VAT; payment and cash values remain including VAT. The endpoint never silently substitutes live calculations for the approved snapshot and marks a missing or older-than-thirty-days forecast as stale.
 
 Access requires both the BREBO Finance view permission and view access to the underlying project. Responses are private and non-cacheable.
+
+### Labour productivity and personnel-planning bridge
+
+Labour lines in an approved working budget must contain explicit budget hours and an hourly cost; labour money without an executable hours baseline cannot be locked. Personnel planning and time-registration systems synchronize through an auditable bridge rather than becoming a second financial source of truth. Every source record retains its external identity, version, timestamp, source hash, project, budget line, activity and building-object reference.
+
+The cockpit compares budget, planned, submitted and approved actual hours. Only approved actual hours affect the financial actual. Forecast end hours use the strongest available evidence from planning, submitted hours, approved hours and progress-based productivity. Planning and forecast overruns automatically become Digital Controller findings with quantified labour-cost impact. The same bridge can accept BREBO personnel-planning records and later Shiftbase records without changing the financial baseline.
