@@ -35,7 +35,11 @@ final class RecipeInstanceEditForm extends FormBase {
       $form['parameters'] = ['#type' => 'table', '#caption' => $this->t('Receptparameters'), '#header' => [$this->t('Parameter'), $this->t('Invoer'), $this->t('Berekend')]];
       foreach ($parameters as $parameter) {
         $key = (string) $parameter['parameter_key'];
-        $form['parameters'][$key] = ['key' => ['#markup' => htmlspecialchars($key)], 'value' => ['#markup' => htmlspecialchars((string) ($parameter['value'] ?? ''))], 'calculated' => ['#markup' => htmlspecialchars((string) ($parameter['calculated_value'] ?? ''))]];
+        $form['parameters'][$key] = [
+          'key' => ['#markup' => htmlspecialchars($key)],
+          'value' => ['#type' => 'number', '#default_value' => (string) ($parameter['value'] ?? ''), '#step' => '0.0001', '#attributes' => ['aria-label' => $this->t('Waarde voor @parameter', ['@parameter' => $key])]],
+          'calculated' => ['#markup' => '<strong>' . htmlspecialchars((string) ($parameter['calculated_value'] ?? '')) . '</strong>'],
+        ];
       }
     }
 
@@ -63,16 +67,24 @@ final class RecipeInstanceEditForm extends FormBase {
     $form['custom_line']['quantity'] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#step' => '0.0001', '#min' => 0];
     $form['custom_line']['unit'] = ['#type' => 'textfield', '#title' => $this->t('Eenheid'), '#maxlength' => 32];
     $form['custom_line']['unit_cost'] = ['#type' => 'number', '#title' => $this->t('Eenheidsprijs'), '#step' => '0.0001', '#min' => 0];
-    foreach (['article_id', 'supplier_article_id', 'price_id', 'catalog_import_id', 'article_code', 'supplier_name', 'supplier_article_no', 'price_date', 'category'] as $hidden) {
-      $form['custom_line'][$hidden] = ['#type' => 'hidden', '#default_value' => $hidden === 'category' ? 'Materiaal' : ''];
-    }
+    foreach (['article_id', 'supplier_article_id', 'price_id', 'catalog_import_id', 'article_code', 'supplier_name', 'supplier_article_no', 'price_date', 'category'] as $hidden) { $form['custom_line'][$hidden] = ['#type' => 'hidden', '#default_value' => $hidden === 'category' ? 'Materiaal' : '']; }
     $form['custom_line']['add'] = ['#type' => 'submit', '#value' => $this->t('+ Regel toevoegen'), '#submit' => ['::addCustomLine'], '#limit_validation_errors' => [['custom_line'], ['recipe_instance']]];
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['save'] = ['#type' => 'submit', '#value' => $this->t('Hoeveelheid opslaan en herberekenen'), '#button_type' => 'primary'];
+    $form['actions']['save'] = ['#type' => 'submit', '#value' => $this->t('Recept opslaan en herberekenen'), '#button_type' => 'primary'];
     return $form;
   }
 
-  public function submitForm(array &$form, FormStateInterface $form_state): void { $this->recipeManager->updateQuantity((int) $form_state->getValue('recipe_instance'), (float) $form_state->getValue('quantity'), $this->currentUser()); $this->messenger()->addStatus($this->t('Recepthoeveelheid aangepast en onderliggende regels herberekend.')); $form_state->setRebuild(TRUE); }
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $instanceId = (int) $form_state->getValue('recipe_instance');
+    $this->recipeManager->updateQuantity($instanceId, (float) $form_state->getValue('quantity'), $this->currentUser());
+    $parameterRows = (array) $form_state->getValue('parameters');
+    $parameterValues = [];
+    foreach ($parameterRows as $key => $row) { if (is_array($row) && array_key_exists('value', $row)) $parameterValues[(string) $key] = (string) $row['value']; }
+    if ($parameterValues) $this->recipeManager->updateParameters($instanceId, $parameterValues, $this->currentUser());
+    $this->messenger()->addStatus($this->t('Receptparameters en hoeveelheid opgeslagen; onderliggende regels zijn herberekend.'));
+    $form_state->setRebuild(TRUE);
+  }
+
   public function selectMaterial(array &$form, FormStateInterface $form_state): void { $trigger = $form_state->getTriggeringElement(); $lineId = (int) ($trigger['#recipe_line_id'] ?? 0); $values = (array) $form_state->getValue(['lines', 'line_' . $lineId, 'description']); $this->materialSelector->select($lineId, ['article_id' => $values['article_id'] ?? NULL, 'supplier_article_id' => $values['supplier_article_id'] ?? NULL, 'price_id' => $values['price_id'] ?? NULL, 'catalog_import_id' => $values['catalog_import_id'] ?? NULL], $this->currentUser()); $this->messenger()->addStatus($this->t('Artikel en prijs aan receptregel gekoppeld.')); $form_state->setRebuild(TRUE); }
 
   public function addCustomLine(array &$form, FormStateInterface $form_state): void {
@@ -80,9 +92,7 @@ final class RecipeInstanceEditForm extends FormBase {
     $values = (array) $form_state->getValue('custom_line');
     $lineType = (string) ($values['line_type'] ?? 'material');
     $lineId = $this->recipeManager->addCustomLine($instanceId, ['description' => (string) ($values['description'] ?? ''), 'line_type' => $lineType, 'quantity' => (float) ($values['quantity'] ?? 0), 'unit' => trim((string) ($values['unit'] ?? '')) ?: NULL, 'unit_cost' => isset($values['unit_cost']) && $values['unit_cost'] !== '' ? (float) $values['unit_cost'] : NULL], $this->currentUser());
-    if (in_array(strtolower($lineType), ['material', 'materiaal'], TRUE) && !empty($values['article_id']) && !empty($values['supplier_article_id']) && !empty($values['price_id']) && !empty($values['catalog_import_id'])) {
-      $this->materialSelector->select($lineId, ['article_id' => $values['article_id'], 'supplier_article_id' => $values['supplier_article_id'], 'price_id' => $values['price_id'], 'catalog_import_id' => $values['catalog_import_id']], $this->currentUser());
-    }
+    if (in_array(strtolower($lineType), ['material', 'materiaal'], TRUE) && !empty($values['article_id']) && !empty($values['supplier_article_id']) && !empty($values['price_id']) && !empty($values['catalog_import_id'])) { $this->materialSelector->select($lineId, ['article_id' => $values['article_id'], 'supplier_article_id' => $values['supplier_article_id'], 'price_id' => $values['price_id'], 'catalog_import_id' => $values['catalog_import_id']], $this->currentUser()); }
     $this->messenger()->addStatus($this->t('Regel aan recept toegevoegd.'));
     $form_state->setRebuild(TRUE);
   }
