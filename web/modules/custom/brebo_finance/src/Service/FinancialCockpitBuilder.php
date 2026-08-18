@@ -107,6 +107,40 @@ final class FinancialCockpitBuilder {
         ),
       ],
       'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
+      'change_orders' => [
+        'open_count' => $this->countExceptStatus(
+          'brebo_finance_change_order',
+          $projectNid,
+          ['client_rejected', 'paid'],
+        ),
+        'awaiting_client_decision' => $this->countByStatus(
+          'brebo_finance_change_order',
+          $projectNid,
+          ['offered'],
+        ),
+        'execution_at_risk' => $this->countByStatus(
+          'brebo_finance_change_order',
+          $projectNid,
+          ['risk_review', 'risk_accepted'],
+        ),
+        'executed_not_invoiced' => $this->countByStatus(
+          'brebo_finance_change_order',
+          $projectNid,
+          ['executed'],
+        ),
+        'open_sales_ex_vat' => $this->sumByStatus(
+          'brebo_finance_change_order',
+          'sales_amount_ex_vat',
+          $projectNid,
+          ['priced', 'offered', 'client_approved', 'risk_review', 'risk_accepted', 'executed', 'invoiced'],
+        ),
+        'open_margin_impact_ex_vat' => $this->sumByStatus(
+          'brebo_finance_change_order',
+          'margin_amount_ex_vat',
+          $projectNid,
+          ['priced', 'offered', 'client_approved', 'risk_review', 'risk_accepted', 'executed', 'invoiced'],
+        ),
+      ],
       'cash_forecast' => [
         'committed' => $this->latestCashForecast($projectNid, 'committed'),
         'expected' => $this->latestCashForecast($projectNid, 'expected'),
