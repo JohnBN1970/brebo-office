@@ -130,11 +130,17 @@ final class WorkforceScheduleController extends ControllerBase {
             '#type' => 'container',
             '#attributes' => ['class' => ['brebo-inzet-shift']],
             'shift' => Link::fromTextAndUrl($text, $shift['url'])->toRenderable(),
-            'separator' => ['#markup' => ' · '],
+            'separator_proposal' => ['#markup' => ' · '],
             'proposal' => [
               '#type' => 'link',
               '#title' => $this->t('Personeelsvoorstel'),
               '#url' => Url::fromRoute('brebo_office_core.inzet_shift_proposal', ['node' => $shift['id']]),
+            ],
+            'separator_day_start' => ['#markup' => ' · '],
+            'day_start' => [
+              '#type' => 'link',
+              '#title' => $this->t('Dagstart'),
+              '#url' => Url::fromRoute('brebo_office_core.inzet_shift_day_start', ['node' => $shift['id']]),
             ],
           ];
         }
