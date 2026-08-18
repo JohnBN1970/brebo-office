@@ -7,9 +7,6 @@ declare(strict_types=1);
  * Database schema for BREBO Finance.
  */
 
-/**
- * Implements hook_schema().
- */
 function brebo_finance_schema(): array {
   $schema['brebo_purchase_order'] = [
     'description' => 'Projectgebonden inkooporders en verplichtingen.',
@@ -74,5 +71,36 @@ function brebo_finance_schema(): array {
     'indexes' => ['invoice' => ['invoice_id']],
   ];
 
+  $schema['brebo_project_revenue'] = [
+    'description' => 'Contractwaarde, meer-/minderwerk en omzetprognose per project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'reference' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'revenue_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'amount' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+      'probability_pct' => ['type' => 'numeric', 'precision' => 5, 'scale' => 2, 'not null' => TRUE, 'default' => 100],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['project' => ['project_nid'], 'type_status' => ['revenue_type', 'status']],
+  ];
+
   return $schema;
+}
+
+/**
+ * Add the project revenue ledger to existing installations.
+ */
+function brebo_finance_update_10001(): void {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  if ($schema->tableExists('brebo_project_revenue')) {
+    return;
+  }
+  $definitions = brebo_finance_schema();
+  $schema->createTable('brebo_project_revenue', $definitions['brebo_project_revenue']);
 }
