@@ -1,0 +1,43 @@
+<?php
+
+declare(strict_types=1);
+
+/** Implements hook_schema(). */
+function brebo_contract_control_schema(): array {
+  $schema['brebo_contract_obligation'] = [
+    'description' => 'Contractuele verplichtingen en bewijs na opdrachtverstrekking.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'award_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'due_at' => ['type' => 'int', 'not null' => FALSE],
+      'amount' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => FALSE],
+      'required' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'evidence_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'completed_at' => ['type' => 'int', 'not null' => FALSE],
+      'created_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['award_status' => ['award_id', 'status'], 'due_at' => ['due_at'], 'type' => ['type']],
+  ];
+  $schema['brebo_contract_deviation'] = [
+    'description' => 'Afwijkingen op contractuele verplichtingen.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'award_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'obligation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'severity' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'description' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'financial_impact' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'created_at' => ['type' => 'int', 'not null' => TRUE],
+      'resolved_at' => ['type' => 'int', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['award_status' => ['award_id', 'status'], 'severity' => ['severity']],
+  ];
+  return $schema;
+}
