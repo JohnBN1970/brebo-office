@@ -6,7 +6,6 @@ namespace Drupal\brebo_office_core\Form;
 
 use Drupal\brebo_office_core\Service\WorkforcePlanningOptimizer;
 use Drupal\brebo_office_core\Service\WorkforceQualificationMatcher;
-use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -269,7 +268,23 @@ final class WorkforceAssignmentProposalForm extends FormBase {
       $result[$id]['overlap'] = TRUE;
       $result[$id]['hours'] = (float) ($result[$id]['hours'] ?? 0)
         + max(0.0, ($otherEnd->getTimestamp() - $otherStart->getTimestamp()) / 3600);
-      $result[$id]['continuity'] = $other->get('field_brebo_shift_project')->target_id === $current->get('field_brebo_shift_project')->target_id;
+    }
+
+    $projectId = $current->get('field_brebo_shift_project')->target_id;
+    if ($projectId !== NULL) {
+      $continuityIds = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_shift')
+        ->condition('nid', $current->id(), '<>')
+        ->condition('field_brebo_shift_status', 'Vervallen', '<>')
+        ->condition('field_brebo_shift_project.target_id', $projectId)
+        ->exists('field_brebo_shift_contact')
+        ->execute();
+      foreach ($storage->loadMultiple($continuityIds) as $other) {
+        if ($other instanceof NodeInterface && ($contact = $other->get('field_brebo_shift_contact')->entity)) {
+          $result[(int) $contact->id()]['continuity'] = TRUE;
+        }
+      }
     }
     return $result;
   }
