@@ -28,3 +28,6 @@ services:
 
   brebo_office_core.workforce_schedule_control:
     class: Drupal\brebo_office_core\Service\WorkforceScheduleControl
+
+  brebo_office_core.workforce_qualification_matcher:
+    class: Drupal\brebo_office_core\Service\WorkforceQualificationMatcher
