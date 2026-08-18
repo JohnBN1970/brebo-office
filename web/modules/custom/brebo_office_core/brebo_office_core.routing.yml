@@ -554,3 +554,39 @@ brebo_office_core.integration_api_test:
     _title: 'Fictieve AI-communicatietest'
   requirements:
     _permission: 'administer site configuration'
+
+brebo_office_core.inzet_shifts:
+  path: '/inzet/diensten'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'BREBO Inzet — Diensten'
+    bundle: 'brebo_shift'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_time_entries:
+  path: '/inzet/uren'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'BREBO Inzet — Uren'
+    bundle: 'brebo_time_entry'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_clock_events:
+  path: '/inzet/klokregistraties'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'BREBO Inzet — Klokregistraties'
+    bundle: 'brebo_clock_event'
+  requirements:
+    _permission: 'access content'
+
+brebo_office_core.inzet_leave:
+  path: '/inzet/verlof'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::objectList'
+    _title: 'BREBO Inzet — Verlof'
+    bundle: 'brebo_leave_request'
+  requirements:
+    _permission: 'access content'
