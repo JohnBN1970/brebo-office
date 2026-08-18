@@ -35,3 +35,9 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.vat_calculator'
+
+  brebo_finance.project_financial_position:
+    class: Drupal\brebo_finance\Service\ProjectFinancialPosition
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
