@@ -50,6 +50,12 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.financial_cockpit_builder:
+    class: Drupal\brebo_finance\Service\FinancialCockpitBuilder
+    arguments:
+      - '@database'
+      - '@brebo_finance.controller_briefing_builder'
+
   brebo_finance.control_finding_manager:
     class: Drupal\brebo_finance\Service\ControlFindingManager
     arguments: ['@database']
