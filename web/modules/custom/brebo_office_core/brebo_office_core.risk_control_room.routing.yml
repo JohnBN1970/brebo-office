@@ -1,0 +1,7 @@
+brebo_office_core.risk_control_room:
+  path: '/regie/control-room'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\RiskControlRoomController::overview'
+    _title: 'BREBO Control Room'
+  requirements:
+    _permission: 'access content'
