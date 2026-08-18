@@ -1,0 +1,8 @@
+access brebo audit center:
+  title: 'Access BREBO Audit Center'
+  description: 'View audit readiness, evidence gaps and audit package history.'
+
+generate brebo audit packages:
+  title: 'Generate BREBO audit packages'
+  description: 'Generate frozen audit packages for a scope.'
+  restrict access: true
