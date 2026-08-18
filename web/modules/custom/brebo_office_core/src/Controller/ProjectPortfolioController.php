@@ -77,6 +77,10 @@ final class ProjectPortfolioController extends ControllerBase {
               'title' => $this->t('Open project'),
               'url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $project_id]),
             ],
+            'planning' => [
+              'title' => $this->t('Planning'),
+              'url' => Url::fromRoute('brebo_office_core.project_planning', ['node' => $project_id]),
+            ],
             'edit' => [
               'title' => $this->t('Bewerken'),
               'url' => Url::fromRoute('entity.node.edit_form', ['node' => $project_id]),
