@@ -1,0 +1,34 @@
+<?php
+
+declare(strict_types=1);
+
+/** Implements hook_schema(). */
+function brebo_procurement_control_schema(): array {
+  $schema['brebo_procurement_decision'] = [
+    'description' => 'Audit trail voor economische leverancierskeuzes en afwijkingen.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'procurement_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'selected_supplier' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'recommended_supplier' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'selected_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'recommended_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'economic_delta' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'decision_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'deviation_reason' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'deviation_impact' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'not null' => FALSE],
+      'decided_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'project_ref' => ['project_nid', 'procurement_ref'],
+      'decision_status' => ['decision_status'],
+      'selected_supplier' => ['selected_supplier'],
+    ],
+  ];
+  return $schema;
+}
