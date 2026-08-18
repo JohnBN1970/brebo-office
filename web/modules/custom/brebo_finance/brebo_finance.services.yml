@@ -17,3 +17,8 @@ services:
       - '@entity_type.manager'
       - '@brebo_finance.invoice_control'
       - '@brebo_finance.payment_control'
+
+  brebo_finance.project_revenue:
+    class: Drupal\brebo_finance\Service\ProjectRevenueService
+    arguments:
+      - '@database'
