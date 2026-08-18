@@ -61,6 +61,11 @@ services:
     arguments:
       - '@brebo_office_core.project_financial_control'
 
+  brebo_office_core.project_controller_actions:
+    class: Drupal\brebo_office_core\Service\ProjectControllerActionService
+    arguments:
+      - '@brebo_office_core.project_early_warning'
+
   brebo_office_core.project_financial_route_subscriber:
     class: Drupal\brebo_office_core\Routing\ProjectFinancialRouteSubscriber
     tags:
