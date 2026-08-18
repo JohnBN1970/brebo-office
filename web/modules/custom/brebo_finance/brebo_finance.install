@@ -35,7 +35,7 @@ function brebo_finance_schema(): array {
       'id' => ['type' => 'serial', 'not null' => TRUE],
       'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-      'budget_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'current'],
+      'budget_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'working'],
       'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
       'source_calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'source_calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
@@ -189,6 +189,72 @@ function brebo_finance_schema(): array {
     'indexes' => [
       'project_target' => ['project_nid', 'target_entity_type', 'target_entity_id'],
       'source' => ['source_type', 'source_id'],
+    ],
+  ];
+
+  $schema['brebo_finance_g_account_instruction'] = [
+    'description' => 'Contractual G-account payment split for incoming or outgoing project payments.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'direction' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'counterparty_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'counterparty_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'g_account_iban_masked' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'split_method' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'percentage'],
+      'agreed_percentage' => ['type' => 'numeric', 'precision' => 9, 'scale' => 6, 'not null' => FALSE],
+      'agreed_amount' => $money,
+      'basis_amount' => $money,
+      'regular_account_amount' => $money,
+      'g_account_amount' => $money,
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'effective_from' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'effective_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+      'agreement_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'reason' => ['type' => 'text', 'not null' => FALSE],
+      'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by' => $user,
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_direction' => ['source_type', 'source_id', 'direction'],
+    ],
+    'indexes' => [
+      'project_direction_status' => ['project_nid', 'direction', 'status'],
+      'counterparty' => ['counterparty_name'],
+    ],
+  ];
+
+  $schema['brebo_finance_g_account_payment'] = [
+    'description' => 'Actual G-account payment matched to an approved split instruction.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'instruction_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'payment_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'payment_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'amount' => $money,
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'bank_transaction_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'registered'],
+      'evidence_file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'note' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'payment_ref' => ['payment_ref'],
+    ],
+    'indexes' => [
+      'instruction_date' => ['instruction_id', 'payment_date'],
+      'project_status' => ['project_nid', 'status'],
     ],
   ];
 
