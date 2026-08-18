@@ -20,6 +20,10 @@ services:
     class: Drupal\brebo_office_core\Service\RiskEscalationActionBridge
     arguments: ['@database', '@entity_type.manager']
 
+  brebo_office_core.risk_management_analytics:
+    class: Drupal\brebo_office_core\Service\RiskManagementAnalytics
+    arguments: ['@database']
+
   brebo_office_core.risk_control_room_route_subscriber:
     class: Drupal\brebo_office_core\Routing\RiskControlRoomRouteSubscriber
     tags:
