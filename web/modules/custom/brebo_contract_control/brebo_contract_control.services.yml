@@ -82,3 +82,9 @@ services:
     class: Drupal\brebo_contract_control\Service\AuditReadinessEngine
     arguments:
       - '@database'
+
+  brebo_contract_control.audit_package_generator:
+    class: Drupal\brebo_contract_control\Service\AuditPackageGenerator
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.audit_readiness'
