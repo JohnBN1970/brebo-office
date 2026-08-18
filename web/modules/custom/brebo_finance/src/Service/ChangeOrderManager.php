@@ -23,6 +23,7 @@ final class ChangeOrderManager {
    */
   public function observe(
     int $projectNid,
+    int $contractId,
     string $changeNumber,
     string $changeType,
     string $title,
@@ -35,6 +36,16 @@ final class ChangeOrderManager {
     array $evidence,
     int $userId,
   ): int {
+    $contractValid = (int) $this->database->select('brebo_finance_project_contract', 'c')
+      ->condition('id', $contractId)
+      ->condition('project_nid', $projectNid)
+      ->condition('status', 'approved')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+    if ($contractValid !== 1) {
+      throw new UnexpectedValueException('Change order requires the approved contract of the same project.');
+    }
     if (!in_array($changeType, ['additional', 'omission'], TRUE)) {
       throw new InvalidArgumentException('Change type must be additional or omission.');
     }
@@ -55,6 +66,7 @@ final class ChangeOrderManager {
     $id = (int) $this->database->insert('brebo_finance_change_order')
       ->fields([
         'project_nid' => $projectNid,
+        'contract_id' => $contractId,
         'change_number' => trim($changeNumber),
         'change_type' => $changeType,
         'status' => 'observed',
@@ -146,12 +158,22 @@ final class ChangeOrderManager {
       throw new InvalidArgumentException('Client identity and traceable decision reference are required.');
     }
     $change = $this->requireStatus($changeId, ['offered']);
-    $this->updateAndAudit($change, 'client_' . $decision, [
-      'status' => 'client_' . $decision,
-      'client_decision_at' => time(),
-      'client_decision_by' => trim($clientDecisionBy),
-      'client_approval_ref' => trim($approvalReference),
-    ], [], 'Recorded traceable client decision.', $userId);
+    $transaction = $this->database->startTransaction();
+    try {
+      $this->updateAndAudit($change, 'client_' . $decision, [
+        'status' => 'client_' . $decision,
+        'client_decision_at' => time(),
+        'client_decision_by' => trim($clientDecisionBy),
+        'client_approval_ref' => trim($approvalReference),
+      ], [], 'Recorded traceable client decision.', $userId);
+      if ($decision === 'approved') {
+        $this->createApprovedRevenueMutation($change, trim($approvalReference), $userId);
+      }
+    }
+    catch (\Throwable $exception) {
+      $transaction->rollBack();
+      throw $exception;
+    }
   }
 
   public function requestExecutionAtRisk(int $changeId, string $reason, int $requesterUid): void {
@@ -214,6 +236,44 @@ final class ChangeOrderManager {
       'payment_ref' => trim($paymentReference),
       'paid_at' => time(),
     ], [], 'Change order payment verified against external source.', $userId);
+  }
+
+  /**
+   * Creates the one approved contract-revenue mutation for client approval.
+   *
+   * @param array<string, mixed> $change
+   */
+  private function createApprovedRevenueMutation(array $change, string $approvalReference, int $userId): void {
+    $amountExVat = (string) $change['sales_amount_ex_vat'];
+    $vatAmount = (string) $change['vat_amount'];
+    $amountIncVat = (string) $change['sales_amount_inc_vat'];
+    if ($change['change_type'] === 'omission') {
+      $amountExVat = $this->decimal->subtract('0', $amountExVat);
+      $vatAmount = $this->decimal->subtract('0', $vatAmount);
+      $amountIncVat = $this->decimal->subtract('0', $amountIncVat);
+    }
+    $now = time();
+    $this->database->insert('brebo_finance_revenue_mutation')
+      ->fields([
+        'project_nid' => $change['project_nid'],
+        'contract_id' => $change['contract_id'],
+        'mutation_number' => $change['change_number'],
+        'mutation_type' => $change['change_type'],
+        'description' => $change['title'],
+        'cause' => 'approved_change_order',
+        'status' => 'approved',
+        'amount_ex_vat' => $amountExVat,
+        'vat_amount' => $vatAmount,
+        'amount_inc_vat' => $amountIncVat,
+        'client_approval_ref' => $approvalReference,
+        'approved' => $now,
+        'approved_by' => $userId,
+        'created' => $now,
+        'created_by' => $userId,
+        'changed' => $now,
+        'changed_by' => $userId,
+      ])
+      ->execute();
   }
 
   /**
