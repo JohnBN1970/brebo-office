@@ -56,6 +56,11 @@ services:
       - '@database'
       - '@brebo_control.supplier_performance'
 
+  brebo_control.supplier_bid_evaluation:
+    class: Drupal\brebo_control\Service\SupplierBidEvaluationService
+    arguments:
+      - '@brebo_control.supplier_scorecard'
+
   brebo_control.automation_runner:
     class: Drupal\brebo_control\Service\ControlAutomationRunner
     arguments:
