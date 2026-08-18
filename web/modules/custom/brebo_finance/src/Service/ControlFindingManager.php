@@ -28,16 +28,16 @@ final class ControlFindingManager {
     if ($ownerUid <= 0 || $actorUid <= 0) {
       throw new InvalidArgumentException('Finding assignment requires valid human users.');
     }
-    if (!$this->validDate($dueDate)) {
-      throw new InvalidArgumentException('Finding deadline must be a valid YYYY-MM-DD date.');
+    if (!$this->validDate($dueDate) || $dueDate < date('Y-m-d')) {
+      throw new InvalidArgumentException('Finding deadline must be today or later in YYYY-MM-DD format.');
     }
     if (trim($reason) === '') {
       throw new InvalidArgumentException('Finding assignment requires a reason.');
     }
 
     $finding = $this->load($findingId);
-    if (!in_array($finding['status'], ['open', 'pending_verification'], TRUE)) {
-      throw new UnexpectedValueException('Only an active finding can be assigned.');
+    if ($finding['status'] !== 'open') {
+      throw new UnexpectedValueException('Only an open finding can be assigned.');
     }
 
     $beforeHash = $this->hash($finding);
