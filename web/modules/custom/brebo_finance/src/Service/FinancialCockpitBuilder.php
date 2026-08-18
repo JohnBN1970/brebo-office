@@ -14,6 +14,7 @@ final class FinancialCockpitBuilder {
   public function __construct(
     private readonly Connection $database,
     private readonly ControllerBriefingBuilder $briefingBuilder,
+    private readonly LabourProductivityManager $labourProductivityManager,
   ) {}
 
   /**
@@ -105,6 +106,7 @@ final class FinancialCockpitBuilder {
           ['executed'],
         ),
       ],
+      'labour_productivity' => $this->labourProductivityManager->analyzeProject($projectNid),
       'controller_briefing' => $this->briefingBuilder->build($projectNid),
     ];
   }
