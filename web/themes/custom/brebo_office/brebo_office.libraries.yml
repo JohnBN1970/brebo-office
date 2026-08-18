@@ -56,3 +56,11 @@ project-gantt:
   css:
     component:
       css/project-gantt.css: {}
+
+workforce-clock-location:
+  version: 1.0.0
+  js:
+    js/workforce-clock-location.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
