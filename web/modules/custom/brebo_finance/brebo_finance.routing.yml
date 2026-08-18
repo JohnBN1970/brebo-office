@@ -20,6 +20,18 @@ brebo_finance.command_center_api:
   options:
     no_cache: TRUE
 
+brebo_finance.project_finance_page:
+  path: '/brebo-office/finance/projects/{project_nid}'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialProjectPageController::page'
+    _title: 'Projectfinanciën'
+  requirements:
+    _permission: 'access brebo finance'
+    project_nid: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
 brebo_finance.project_cockpit:
   path: '/brebo-office/api/finance/projects/{projectNid}/cockpit'
   defaults:
