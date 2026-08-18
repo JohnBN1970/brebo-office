@@ -583,7 +583,7 @@ function brebo_office_core_post_update_project_execution_planning(array &$sandbo
       ],
       'field_brebo_plan_predecessors' => [
         'label' => 'Voorgangers', 'type' => 'entity_reference', 'required' => FALSE,
-        'storage' => ['target_type' => 'node', 'cardinality' => -1],
+        'storage' => ['target_type' => 'node'], 'cardinality' => -1,
         'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_plan_activity' => 'brebo_plan_activity']]],
         'description' => 'Activiteiten die volgens de afhankelijkheidsrelatie eerst of gelijktijdig moeten starten of eindigen.',
         'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 15,
