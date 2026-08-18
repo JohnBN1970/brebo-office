@@ -1,0 +1,36 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Runtime hooks for BREBO Finance.
+ */
+
+/**
+ * Implements hook_cron().
+ */
+function brebo_finance_cron(): void {
+  $database = \Drupal::database();
+  $today = date('Y-m-d');
+
+  $query = $database->select('brebo_finance_project_contract', 'c');
+  $query->leftJoin(
+    'brebo_finance_controller_run',
+    'r',
+    'r.project_nid = c.project_nid AND r.run_date = :run_date AND r.run_type = :run_type',
+    [':run_date' => $today, ':run_type' => 'scheduled'],
+  );
+  $query->addField('c', 'project_nid');
+  $query->isNull('r.id');
+  $query->condition('c.status', 'approved');
+  $projectIds = $query->distinct()->execute()->fetchCol();
+
+  $queue = \Drupal::queue('brebo_finance_digital_controller');
+  foreach ($projectIds as $projectNid) {
+    $queue->createItem([
+      'project_nid' => (int) $projectNid,
+      'scheduled_date' => $today,
+    ]);
+  }
+}
