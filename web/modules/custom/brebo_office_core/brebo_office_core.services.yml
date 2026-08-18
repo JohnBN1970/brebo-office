@@ -22,3 +22,6 @@ services:
 
   brebo_office_core.personnel_budget_control:
     class: Drupal\brebo_office_core\Service\PersonnelBudgetControl
+
+  brebo_office_core.workforce_geofence:
+    class: Drupal\brebo_office_core\Service\WorkforceGeoFence
