@@ -5,9 +5,17 @@ brebo_office_core.funnel_menu:
   menu_name: main
   weight: -8
 
+brebo_office_core.finance_menu:
+  title: 'Finance'
+  description: 'Financieel Command Center'
+  route_name: brebo_finance.command_center_page
+  menu_name: main
+  weight: -7
+
 brebo_office_core.finance_decisions_menu:
   title: 'Financiële beslissingen'
   description: 'Open financiële fasepoortbesluiten en escalaties'
-  route_name: brebo_finance.decision_inbox_page
+  route_name: brebo_finance.financial_decision_page
   menu_name: main
-  weight: -7
+  parent: brebo_office_core.finance_menu
+  weight: 1
