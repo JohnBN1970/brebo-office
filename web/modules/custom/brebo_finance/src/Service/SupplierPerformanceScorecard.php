@@ -42,6 +42,10 @@ final class SupplierPerformanceScorecard {
     }
     $weights = $this->validatePolicy($policy);
     $date = $snapshotDate ?? date('Y-m-d');
+    $parsedDate = \DateTimeImmutable::createFromFormat('!Y-m-d', $date);
+    if ($parsedDate === FALSE || $parsedDate->format('Y-m-d') !== $date) {
+      throw new InvalidArgumentException('Supplier score date must use YYYY-MM-DD.');
+    }
 
     $exists = (int) $this->database->select('brebo_finance_supplier_score_snapshot', 's')
       ->condition('project_nid', $projectNid)
@@ -129,7 +133,8 @@ final class SupplierPerformanceScorecard {
       json_encode($canonical, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
     );
 
-    return (int) $this->database->insert('brebo_finance_supplier_score_snapshot')
+    $now = time();
+    $snapshotId = (int) $this->database->insert('brebo_finance_supplier_score_snapshot')
       ->fields([
         'project_nid' => $projectNid,
         'supplier_ref' => trim($supplierRef),
@@ -152,10 +157,31 @@ final class SupplierPerformanceScorecard {
         'policy_payload' => $policyJson,
         'evidence_payload' => $evidenceJson,
         'content_hash' => $contentHash,
-        'created' => time(),
+        'created' => $now,
         'created_by' => $userId,
       ])
       ->execute();
+
+    $this->database->insert('brebo_finance_audit')
+      ->fields([
+        'project_nid' => $projectNid,
+        'entity_type' => 'supplier_score_snapshot',
+        'entity_id' => $snapshotId,
+        'action' => 'snapshot_created',
+        'after_hash' => $contentHash,
+        'payload' => json_encode([
+          'supplier_ref' => trim($supplierRef),
+          'policy_version' => trim($policyVersion),
+          'weighted_score' => $weightedScore,
+          'confidence_class' => $confidence,
+        ], JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
+        'reason' => 'Immutable supplier score from sealed financial performance evidence.',
+        'created' => $now,
+        'created_by' => $userId,
+      ])
+      ->execute();
+
+    return $snapshotId;
   }
 
   /**
