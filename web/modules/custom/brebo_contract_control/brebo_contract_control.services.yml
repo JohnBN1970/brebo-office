@@ -3,3 +3,9 @@ services:
     class: Drupal\brebo_contract_control\Service\ContractMonitoringService
     arguments:
       - '@database'
+
+  brebo_contract_control.payment_gate:
+    class: Drupal\brebo_contract_control\Service\ContractPaymentGate
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.monitoring'
