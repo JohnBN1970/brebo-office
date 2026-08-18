@@ -81,11 +81,26 @@ final class GlassPositionOverviewController extends ControllerBase {
       }
     }
     $nodes = $storage->loadMultiple(array_unique($nodeIds));
+    $canApprove = $this->currentUser()->hasPermission('approve brebo glass positions');
 
     $rows = [];
     foreach ($positions as $position) {
       $buildingId = (int) $position['building_nid'];
       $projectId = (int) ($position['project_nid'] ?? 0);
+      $canRelease = $canApprove
+        && (string) $position['technical_status'] === 'measured'
+        && (string) $position['technical_check_state'] === 'passed'
+        && (int) $position['measurement_verified'] === 1
+        && (int) $position['wind_verified'] === 1
+        && (float) $position['wind_utilization'] <= 1.0
+        && trim((string) $position['recommended_glass_ref']) !== '';
+      $approvalAction = $canRelease
+        ? Link::createFromRoute(
+          $this->t('Vrijgeven'),
+          'brebo_glass.position_approve',
+          ['position_id' => (int) $position['id']],
+        )
+        : '-';
       $rows[] = [
         'building' => isset($nodes[$buildingId])
           ? Link::createFromRoute($nodes[$buildingId]->label(), 'entity.node.canonical', ['node' => $buildingId])
@@ -108,6 +123,7 @@ final class GlassPositionOverviewController extends ControllerBase {
         'wind_advice' => $position['recommended_glass_ref'] . ' (' . number_format((float) $position['wind_utilization'] * 100, 1, ',', '.') . '%)',
         'technical_check' => $this->t(self::CHECK_LABELS[$position['technical_check_state']] ?? $position['technical_check_state']),
         'status' => $this->t(self::STATUS_LABELS[$position['technical_status']] ?? $position['technical_status']),
+        'approval' => $approvalAction,
       ];
     }
 
@@ -149,6 +165,7 @@ final class GlassPositionOverviewController extends ControllerBase {
         $this->t('Windadvies / benutting'),
         $this->t('Technische voorcontrole'),
         $this->sortHeader($this->t('Status'), 'status', $sort, $direction, $search, $status),
+        $this->t('Vrijgave'),
       ],
       '#rows' => $rows,
       '#empty' => $this->t('Geen glasposities gevonden.'),
