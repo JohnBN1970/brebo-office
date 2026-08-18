@@ -1078,6 +1078,77 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_cost_observation'] = [
+    'description' => 'Immutable verified unit-cost observation linked to project and building object.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_object_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'building_object_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'cost_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'work_type' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'specification_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'region' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'unit_cost_ex_vat' => $money,
+      'amount_ex_vat' => $money,
+      'failure_cost_adjustment_ex_vat' => $money,
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_id' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'observation_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'quality_accepted' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE],
+      'evidence_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'evidence_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'source_observation' => ['source_type', 'source_id', 'source_hash'],
+    ],
+    'indexes' => [
+      'cost_spec_region_date' => ['cost_code', 'specification_hash', 'region', 'observation_date'],
+      'project_cost_code' => ['project_nid', 'cost_code'],
+      'building_object' => ['building_object_type', 'building_object_id'],
+      'supplier' => ['supplier_ref'],
+    ],
+  ];
+
+  $schema['brebo_finance_cost_benchmark_snapshot'] = [
+    'description' => 'Immutable exact-specification unit-cost benchmark from verified observations.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'cost_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'work_type' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'specification_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'region' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'snapshot_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'sample_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'minimum_unit_cost_ex_vat' => $money,
+      'benchmark_unit_cost_ex_vat' => $money,
+      'maximum_unit_cost_ex_vat' => $money,
+      'confidence_class' => ['type' => 'varchar', 'length' => 1, 'not null' => TRUE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'created' => $timestamp,
+      'created_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'spec_region_date' => ['cost_code', 'work_type', 'specification_hash', 'unit', 'region', 'snapshot_date'],
+      'content_hash' => ['content_hash'],
+    ],
+    'indexes' => [
+      'cost_region_created' => ['cost_code', 'region', 'created'],
+      'confidence' => ['confidence_class'],
+    ],
+  ];
+
   $schema['brebo_finance_audit'] = [
     'description' => 'Append-only audit trail for financial and procurement changes.',
     'fields' => [
