@@ -14,3 +14,8 @@ services:
     class: Drupal\brebo_contract_control\Service\PaymentBatchControlService
     arguments:
       - '@database'
+
+  brebo_contract_control.payment_anomaly_intelligence:
+    class: Drupal\brebo_contract_control\Service\PaymentAnomalyIntelligenceService
+    arguments:
+      - '@database'
