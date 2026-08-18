@@ -47,6 +47,17 @@ final class ProjectFinancialController extends ControllerBase {
       ];
     }
 
+    $commitments = [];
+    foreach ($result['commitment_rows'] as $row) {
+      $commitments[] = [
+        $row['supplier'],
+        $row['quote_number'] ?: '—',
+        $row['rfq'],
+        $money((float) $row['amount']),
+        $row['status'] ?: 'Geselecteerd',
+      ];
+    }
+
     return [
       'status' => [
         '#type' => 'container',
@@ -56,13 +67,21 @@ final class ProjectFinancialController extends ControllerBase {
       'summary' => [
         '#type' => 'table',
         '#header' => [
-          $this->t('Werkbegrotingen'), $this->t('Regels'), $this->t('Budget kostprijs'),
-          $this->t('Werkelijk arbeid'), $this->t('Prognose kostprijs'), $this->t('Afwijking'),
+          $this->t('Budget kostprijs'), $this->t('Werkelijk arbeid'), $this->t('Inkoop verplicht'),
+          $this->t('Prognose kostprijs'), $this->t('Afwijking'),
         ],
         '#rows' => [[
-          $result['work_budgets'], $result['lines'], $money((float) $result['budget_cost']),
-          $money((float) $result['actual_labor_cost']), $money((float) $result['forecast_cost']),
+          $money((float) $result['budget_cost']), $money((float) $result['actual_labor_cost']),
+          $money((float) $result['commitment_cost']), $money((float) $result['forecast_cost']),
           $money((float) $result['variance']),
+        ]],
+      ],
+      'coverage' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Werkbegrotingen'), $this->t('Regels'), $this->t('Niet-arbeidsbudget'), $this->t('Inkoopdekking')],
+        '#rows' => [[
+          $result['work_budgets'], $result['lines'], $money((float) $result['non_labor_budget']),
+          number_format((float) $result['commitment_coverage_pct'], 1, ',', '.') . '%',
         ]],
       ],
       'hours' => [
@@ -82,6 +101,13 @@ final class ProjectFinancialController extends ControllerBase {
       'signals' => [
         '#theme' => 'item_list',
         '#items' => $result['signals'] ?: [$this->t('Geen financiële afwijkingen uit de beschikbare projectdata.')],
+      ],
+      'commitments_heading' => ['#markup' => '<h2>' . $this->t('Inkoopverplichtingen') . '</h2>'],
+      'commitments' => [
+        '#type' => 'table',
+        '#header' => [$this->t('Leverancier'), $this->t('Offertenummer'), $this->t('Prijsaanvraag'), $this->t('Verplicht'), $this->t('Status')],
+        '#rows' => $commitments,
+        '#empty' => $this->t('Nog geen geselecteerde leveranciersoffertes als inkoopverplichting.'),
       ],
       'labor_heading' => ['#markup' => '<h2>' . $this->t('Arbeidsprognose per werkbegrotingsregel') . '</h2>'],
       'labor' => [
