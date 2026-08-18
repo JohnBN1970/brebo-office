@@ -41,3 +41,7 @@ services:
     arguments:
       - '@database'
       - '@brebo_finance.vat_calculator'
+
+  brebo_finance.control_scanner:
+    class: Drupal\brebo_finance\Service\FinancialControlScanner
+    arguments: ['@database']
