@@ -1173,8 +1173,10 @@ function brebo_office_core_node_presave(NodeInterface $node): void {
     $building = $node->get('field_brebo_clock_building')->entity;
     $shift = $node->get('field_brebo_clock_shift')->entity;
     $result = \Drupal::service('brebo_office_core.workforce_geofence')->assess(
-      $building instanceof NodeInterface ? (float) ($building->get('field_brebo_latitude')->value ?? 0) : NULL,
-      $building instanceof NodeInterface ? (float) ($building->get('field_brebo_longitude')->value ?? 0) : NULL,
+      $building instanceof NodeInterface && !$building->get('field_brebo_latitude')->isEmpty()
+        ? (float) $building->get('field_brebo_latitude')->value : NULL,
+      $building instanceof NodeInterface && !$building->get('field_brebo_longitude')->isEmpty()
+        ? (float) $building->get('field_brebo_longitude')->value : NULL,
       $node->get('field_brebo_clock_lat')->isEmpty() ? NULL : (float) $node->get('field_brebo_clock_lat')->value,
       $node->get('field_brebo_clock_lon')->isEmpty() ? NULL : (float) $node->get('field_brebo_clock_lon')->value,
       $shift instanceof NodeInterface ? (float) ($shift->get('field_brebo_shift_radius')->value ?? 150) : 150,
