@@ -74,3 +74,9 @@ Every briefing item follows the fixed chain: deviation, cause, financial consequ
 ### Control-action lifecycle
 
 A financial finding stays active until its cause is demonstrably controlled. An authorized user assigns an owner and deadline. Only that owner may submit a resolution, including a note and explicit evidence. A different authorized user must accept or reject the resolution under the four-eyes principle. Every transition stores before and after hashes in the append-only financial audit trail. A new deterministic scan preserves pending verification and reopens a verified finding if the underlying exception returns.
+
+### Project financial cockpit
+
+The read-only project cockpit combines the latest immutable forecast, procurement pipeline, workflow exceptions, G-account position and Digital Controller briefing. Result and cost values remain explicitly excluding VAT; payment and cash values remain including VAT. The endpoint never silently substitutes live calculations for the approved snapshot and marks a missing or older-than-thirty-days forecast as stale.
+
+Access requires both the BREBO Finance view permission and view access to the underlying project. Responses are private and non-cacheable.
