@@ -14,3 +14,9 @@ services:
     class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeLearningService
     arguments:
       - '@database'
+
+  brebo_procurement_control.model_governance:
+    class: Drupal\brebo_procurement_control\Service\ProcurementModelGovernanceService
+    arguments:
+      - '@database'
+      - '@brebo_procurement_control.learning'
