@@ -1,6 +1,10 @@
 services:
+  brebo_control.escalation_matrix:
+    class: Drupal\brebo_control\Service\ControlEscalationMatrix
+
   brebo_control.action_manager:
     class: Drupal\brebo_control\Service\ControlActionManager
     arguments:
       - '@database'
       - '@brebo_office_core.project_controller_actions'
+      - '@brebo_control.escalation_matrix'
