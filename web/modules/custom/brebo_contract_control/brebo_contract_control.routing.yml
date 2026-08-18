@@ -1,0 +1,15 @@
+brebo_contract_control.audit_center:
+  path: '/brebo/audit'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\AuditCenterController::overview'
+    _title: 'Audit Center'
+  requirements:
+    _permission: 'access brebo audit center'
+
+brebo_contract_control.audit_generate:
+  path: '/brebo/audit/generate/{scope}'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\AuditCenterController::generate'
+  requirements:
+    _permission: 'generate brebo audit packages'
+  methods: [POST]
