@@ -194,7 +194,15 @@ final class CommitmentManager {
     $query->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)', 'committed_total');
     $committed = (string) $query->execute()->fetchField();
 
-    return $this->vatCalculator->subtract($budgetAmount, $committed);
+    $mutationQuery = $this->database->select('brebo_finance_budget_mutation_line', 'ml');
+    $mutationQuery->join('brebo_finance_budget_mutation', 'm', 'm.id = ml.mutation_id');
+    $mutationQuery->condition('ml.budget_line_id', $budgetLineId);
+    $mutationQuery->condition('m.status', 'approved');
+    $mutationQuery->addExpression('COALESCE(SUM(ml.adjustment_ex_vat), 0)', 'approved_adjustment');
+    $approvedAdjustment = (string) $mutationQuery->execute()->fetchField();
+
+    $adjustedBudget = $this->vatCalculator->add($budgetAmount, $approvedAdjustment);
+    return $this->vatCalculator->subtract($adjustedBudget, $committed);
   }
 
   private function nextLineNumber(int $commitmentId): int {
