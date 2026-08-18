@@ -52,6 +52,12 @@ services:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@database']
 
+  brebo_finance.supplier_performance_scorecard:
+    class: Drupal\brebo_finance\Service\SupplierPerformanceScorecard
+    arguments:
+      - '@database'
+      - '@brebo_finance.vat_calculator'
+
   brebo_finance.failure_cost_manager:
     class: Drupal\brebo_finance\Service\FailureCostManager
     arguments:
