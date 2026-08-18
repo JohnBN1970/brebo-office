@@ -33,6 +33,29 @@ brebo_finance.financial_decision_inbox:
   options:
     no_cache: TRUE
 
+brebo_finance.notifications:
+  path: '/brebo-office/api/finance/notifications'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialNotificationController::inbox'
+    _title: 'BREBO financiële meldingen'
+  requirements:
+    _permission: 'approve brebo finance'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_finance.notification_read:
+  path: '/brebo-office/api/finance/notifications/{notification_id}/read'
+  defaults:
+    _controller: '\Drupal\brebo_finance\Controller\FinancialNotificationController::markRead'
+    _title: 'BREBO financiële melding gelezen'
+  requirements:
+    _permission: 'approve brebo finance'
+    notification_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
 brebo_finance.phase_gate_exception_request:
   path: '/brebo-office/api/finance/projects/{project_nid}/phase-gates/{gate}/exceptions'
   defaults:
