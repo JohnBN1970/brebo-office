@@ -63,12 +63,33 @@ function brebo_control_schema(): array {
     ],
   ];
 
+  $schema['brebo_control_snapshot'] = [
+    'description' => 'Historische projectcontrol-snapshots voor trendanalyse.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'captured_at' => ['type' => 'int', 'not null' => TRUE],
+      'risk_score' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'forecast_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'forecast_revenue' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'expected_result' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'expected_margin_pct' => ['type' => 'numeric', 'precision' => 7, 'scale' => 3, 'not null' => TRUE, 'default' => 0],
+      'margin_delta_pct' => ['type' => 'numeric', 'precision' => 7, 'scale' => 3, 'not null' => TRUE, 'default' => 0],
+      'actual_hours' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'forecast_hours' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'blocked_invoices' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'open_actions' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'project_captured' => ['project_nid', 'captured_at'],
+      'risk_captured' => ['risk_score', 'captured_at'],
+    ],
+  ];
+
   return $schema;
 }
 
-/**
- * Add the notification ledger to existing BREBO Control installations.
- */
 function brebo_control_update_10001(): void {
   $schema = \Drupal::database()->schema();
   if ($schema->tableExists('brebo_control_notification')) {
@@ -76,4 +97,16 @@ function brebo_control_update_10001(): void {
   }
   $definitions = brebo_control_schema();
   $schema->createTable('brebo_control_notification', $definitions['brebo_control_notification']);
+}
+
+/**
+ * Add project control history snapshots to existing installations.
+ */
+function brebo_control_update_10002(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_control_snapshot')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_control_snapshot', $definitions['brebo_control_snapshot']);
 }
