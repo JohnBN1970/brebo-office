@@ -31,10 +31,11 @@ final class GlassCalculationExporter {
 
     $created = [];
     foreach ($this->lineFactory->build($position) as $line) {
-      $costs = match ((string) $line['key']) {
-        'glass' => ['material' => 0.0],
-        'installation' => ['labour' => 0.0],
-        'handling' => ['equipment' => 0.0],
+      $costs = match ((string) $line['cost_category']) {
+        'Materiaal' => ['material' => 0.0],
+        'Arbeid' => ['labour' => 0.0],
+        'Materieel' => ['equipment' => 0.0],
+        'OA' => ['subcontracting' => 0.0],
         default => ['other' => 0.0],
       };
       $created[] = $this->writer->write(
