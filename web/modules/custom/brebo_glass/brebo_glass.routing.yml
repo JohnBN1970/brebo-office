@@ -82,3 +82,20 @@ brebo_glass.product_verify:
   requirements:
     _permission: 'verify brebo glass products'
     product_id: '\d+'
+
+brebo_glass.control_room:
+  path: '/regie/control-room'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\RiskControlRoomController::overview'
+    _title: 'BREBO Control Room'
+  requirements:
+    _permission: 'access content'
+
+brebo_glass.control_room_handle:
+  path: '/regie/control-room/{escalation_id}'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\RiskEscalationResolveForm'
+    _title: 'Escalatie afhandelen'
+  requirements:
+    _permission: 'access content'
+    escalation_id: '\d+'
