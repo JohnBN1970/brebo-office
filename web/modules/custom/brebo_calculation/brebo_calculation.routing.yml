@@ -58,6 +58,21 @@ brebo_calculation.recipe_place:
       node:
         type: entity:node
 
+brebo_calculation.recipe_instance_edit:
+  path: '/admin/brebo/calculations/{node}/workbench/recipes/{recipe_instance}'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\RecipeInstanceEditForm'
+    _title: 'Recept bewerken'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    node: '\d+'
+    recipe_instance: '\d+'
+  options:
+    _admin_route: true
+    parameters:
+      node:
+        type: entity:node
+
 brebo_calculation.subcalculations:
   path: '/admin/brebo/calculations/{node}/workbench/subcalculations'
   defaults:
