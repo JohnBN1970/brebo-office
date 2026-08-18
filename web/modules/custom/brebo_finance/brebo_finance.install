@@ -583,6 +583,35 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_controller_run'] = [
+    'description' => 'Scheduled Digital Controller evidence run awaiting or containing AI review.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'run_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
+      'run_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'scheduled'],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'evidence_ready'],
+      'control_counts' => ['type' => 'text', 'not null' => TRUE],
+      'evidence_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'evidence_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'ai_assessment_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'started' => $timestamp,
+      'completed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => $timestamp,
+      'created_by' => $user,
+      'changed' => $timestamp,
+      'changed_by' => $user,
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'project_run_date_type' => ['project_nid', 'run_date', 'run_type'],
+    ],
+    'indexes' => [
+      'status_created' => ['status', 'created'],
+      'evidence_hash' => ['evidence_hash'],
+    ],
+  ];
+
   $schema['brebo_finance_ai_assessment'] = [
     'description' => 'Evidence-backed AI financial assessment requiring human review.',
     'fields' => [
