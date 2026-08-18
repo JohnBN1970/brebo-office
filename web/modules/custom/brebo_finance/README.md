@@ -15,6 +15,8 @@ BREBO Finance is the operational financial cockpit of BREBO Office.
 - Changes are recorded as auditable mutations; historical values are never silently overwritten.
 - A commitment precedes invoice approval.
 - Invoice approval will use three-way matching: order, verified performance and invoice.
+- VAT reverse charge and G-account payment are separate controls and are never conflated.
+- G-account splits are supported for both incoming client payments and outgoing subcontractor payments.
 
 ## Calculation to working budget
 
@@ -37,6 +39,8 @@ The commercial calculation therefore remains traceable while the working budget 
 - `brebo_finance_commitment`: purchase order or subcontract commitment.
 - `brebo_finance_commitment_line`: detailed ordered, delivered and invoiced values.
 - `brebo_finance_object_allocation`: allocation to project, cluster, dwelling, facade, room or product position.
+- `brebo_finance_g_account_instruction`: approved incoming or outgoing contractual payment split.
+- `brebo_finance_g_account_payment`: actual blocked-account payment and evidence matching.
 - `brebo_finance_audit`: append-only change history.
 
 ## Object allocation
@@ -52,3 +56,7 @@ A contractual purchase order remains one document. Its lines may be distributed 
 5. Commitment workflow and approval rules.
 6. Performance receipt and three-way invoice matching.
 7. Moneybird synchronization through the BREBO integration API.
+
+## G-account control
+
+The G-account percentage is not assumed or derived from VAT. It must be agreed and approved per contract, commitment or invoice basis. BREBO Office records the basis, percentage or fixed amount, regular-account share, G-account share, masked IBAN reference, actual bank transaction and supporting evidence. Variances remain blocked for review.
