@@ -590,3 +590,11 @@ brebo_office_core.inzet_leave:
     bundle: 'brebo_leave_request'
   requirements:
     _permission: 'access content'
+
+brebo_office_core.inzet_schedule:
+  path: '/inzet'
+  defaults:
+    _controller: '\\Drupal\\brebo_office_core\\Controller\\WorkforceScheduleController::overview'
+    _title: 'BREBO Inzet — Weekrooster'
+  requirements:
+    _permission: 'access content'
