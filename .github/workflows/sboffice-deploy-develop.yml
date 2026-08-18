@@ -168,6 +168,13 @@ jobs:
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
           "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_glass")) { throw new \RuntimeException("brebo_glass is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_glass_position","brebo_glass_product"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing glass table: ".$t); } } foreach (["brebo_glass.position_repository","brebo_glass.product_repository","brebo_glass.approval_policy"] as $service) { \Drupal::service($service); } $r=\Drupal::service("router.route_provider"); foreach (["brebo_glass.position_overview","brebo_glass.position_add","brebo_glass.position_approve","brebo_glass.product_overview","brebo_glass.product_add","brebo_glass.product_verify"] as $n) { $r->getRouteByName($n); } print "GLASS_DOMAIN_OK=1\n";'
 
+          "${drush[@]}" php:eval '\Drupal::state()->set("system.maintenance_mode", FALSE);'
+          "${drush[@]}" cr
+          "${drush[@]}" php:eval 'if ((bool) \Drupal::state()->get("system.maintenance_mode", FALSE)) { throw new \RuntimeException("Maintenance mode is still enabled"); } print "MAINTENANCE_MODE_OFF=1\n";'
+          login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
+          [[ "$login_status" == "200" ]]
+          echo "PUBLIC_LOGIN_OK=1"
+
           timeout 180 "${drush[@]}" cex -y
           test -f scripts/canonicalize-building-relations.php
           test -d config/sync
@@ -176,6 +183,8 @@ jobs:
           echo "CONFIG_EXPORT_OK=1"
           echo "CALCULATION_DOMAIN_OK=1"
           echo "GLASS_DOMAIN_OK=1"
+          echo "MAINTENANCE_MODE_OFF=1"
+          echo "PUBLIC_LOGIN_OK=1"
           echo "CALCULATION_MODULE_HASH_OK=$deployed_hash"
           echo "TARGET=$target"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
