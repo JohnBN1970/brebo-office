@@ -192,6 +192,28 @@ function brebo_finance_schema(): array {
     ],
   ];
 
+  $schema['brebo_finance_budget_approval'] = [
+    'description' => 'Discipline-based review decisions for a working budget baseline.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'budget_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'discipline' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'decision' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'checklist_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'note' => ['type' => 'text', 'not null' => FALSE],
+      'decided' => $timestamp,
+      'decided_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'budget_discipline' => ['budget_id', 'discipline'],
+    ],
+    'indexes' => [
+      'budget_decision' => ['budget_id', 'decision'],
+      'decided_by' => ['decided_by'],
+    ],
+  ];
+
   $schema['brebo_finance_g_account_instruction'] = [
     'description' => 'Contractual G-account payment split for incoming or outgoing project payments.',
     'fields' => [
