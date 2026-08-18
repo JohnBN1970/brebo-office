@@ -4,3 +4,10 @@ brebo_office_core.funnel_menu:
   route_name: brebo_office_core.funnel
   menu_name: main
   weight: -8
+
+brebo_office_core.finance_decisions_menu:
+  title: 'Financiële beslissingen'
+  description: 'Open financiële fasepoortbesluiten en escalaties'
+  route_name: brebo_finance.decision_inbox_page
+  menu_name: main
+  weight: -7
