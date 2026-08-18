@@ -21,3 +21,12 @@ brebo_contract_control.management_control_center:
     _title: 'Management Control Center'
   requirements:
     _permission: 'view brebo management control center'
+
+brebo_contract_control.management_actions:
+  path: '/brebo/control-center/actions/{action_key}'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::actions'
+    _title: 'Managementacties'
+    action_key: 'all'
+  requirements:
+    _permission: 'view brebo management control center'
