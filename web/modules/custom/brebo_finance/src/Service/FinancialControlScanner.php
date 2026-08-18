@@ -149,6 +149,45 @@ final class FinancialControlScanner {
       }
     }
 
+    $scenarioRows = $this->database->select('brebo_finance_scenario_snapshot', 'ss')
+      ->fields('ss', ['id', 'scenario_id', 'snapshot_date', 'adjusted_result_ex_vat', 'adjusted_margin_pct', 'receipt_delay_days', 'delayed_receipts_inc_vat'])
+      ->condition('project_nid', $projectNid)
+      ->orderBy('snapshot_date', 'DESC')
+      ->orderBy('id', 'DESC')
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $seenScenarios = [];
+    foreach ($scenarioRows as $scenario) {
+      $scenarioId = (int) $scenario['scenario_id'];
+      if (isset($seenScenarios[$scenarioId])) {
+        continue;
+      }
+      $seenScenarios[$scenarioId] = TRUE;
+      if ($this->decimal->compare((string) $scenario['adjusted_result_ex_vat'], '0') < 0) {
+        $this->record($projectNid, 'FIN-SCENARIO-NEGATIVE-RESULT', 'critical', 'financial_scenario', $scenarioId,
+          'Goedgekeurd stressscenario leidt tot projectverlies',
+          'De expliciet goedgekeurde scenario-aannames brengen het verwachte projectresultaat onder nul.',
+          'Zonder aantoonbare beheersing kan de projectmarge volledig verdwijnen en een verlies ontstaan.',
+          'Laat projectleider, calculator/inkoper en werkvoorbereider de afzonderlijke scenario-impact beoordelen en leg concrete beheersmaatregelen met eigenaar en deadline vast.',
+          $now,
+          ['amount_ex_vat' => $scenario['adjusted_result_ex_vat'], 'adjusted_margin_pct' => $scenario['adjusted_margin_pct'], 'snapshot_date' => $scenario['snapshot_date']],
+        );
+        $seen[] = $this->key('FIN-SCENARIO-NEGATIVE-RESULT', 'financial_scenario', $scenarioId);
+        $counts['critical']++;
+      }
+      if ((int) $scenario['receipt_delay_days'] > 30 && $this->decimal->compare((string) $scenario['delayed_receipts_inc_vat'], '0') > 0) {
+        $this->record($projectNid, 'FIN-SCENARIO-CASH-DELAY', 'high', 'financial_scenario', $scenarioId,
+          'Stressscenario verschuift materiële kasontvangsten',
+          sprintf('Het scenario verschuift gecontroleerde ontvangsten met %d dagen.', (int) $scenario['receipt_delay_days']),
+          'De operationele financieringsbehoefte neemt toe; G-rekeningmiddelen blijven daarbij afzonderlijk beperkt inzetbaar.',
+          'Herbereken de dertienweekse cashprognose met de expliciete vertraging en bepaal financierings- en incassomaatregelen.',
+          $now,
+          ['amount_inc_vat' => $scenario['delayed_receipts_inc_vat'], 'receipt_delay_days' => $scenario['receipt_delay_days'], 'snapshot_date' => $scenario['snapshot_date']],
+        );
+        $seen[] = $this->key('FIN-SCENARIO-CASH-DELAY', 'financial_scenario', $scenarioId);
+        $counts['high']++;
+      }
+    }
+
     $instalments = $this->database->select('brebo_finance_billing_instalment', 'i')
       ->fields('i', ['id', 'instalment_number', 'description', 'status', 'planned_invoice_date', 'amount_ex_vat', 'amount_inc_vat', 'billable_at'])
       ->condition('project_nid', $projectNid)
