@@ -649,6 +649,7 @@ function brebo_finance_schema(): array {
       'sales_amount_inc_vat' => $money,
       'evidence_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
       'evidence_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'offer_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
       'offered_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'client_decision_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'client_decision_by' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
