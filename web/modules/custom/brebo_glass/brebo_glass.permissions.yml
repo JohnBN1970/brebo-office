@@ -1,11 +1,15 @@
 administer brebo glass:
   title: 'BREBO glas beheren'
-  description: 'Glasposities aanmaken, wijzigen en technisch vrijgeven.'
+  description: 'Glasposities aanmaken en beheren.'
   restrict access: true
 
 view brebo glass:
   title: 'BREBO glas bekijken'
 
+approve brebo glass positions:
+  title: 'BREBO glasposities technisch vrijgeven'
+  description: 'Glasposities na controle formeel vrijgeven met een auditregistratie.'
+  restrict access: true
 
 verify brebo glass products:
   title: 'BREBO glasproducten technisch verifiëren'
