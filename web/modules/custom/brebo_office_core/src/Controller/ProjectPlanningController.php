@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
@@ -38,6 +39,8 @@ final class ProjectPlanningController extends ControllerBase {
     $activity_groups = [];
     $activity_counts = ['total' => 0, 'done' => 0, 'late' => 0, 'blocked' => 0, 'critical' => 0];
     $today = date('Y-m-d');
+    $gantt_source = [];
+    $gantt_dates = [];
     foreach ($storage->loadMultiple($activity_ids) as $activity) {
       if (!$activity instanceof NodeInterface) {
         continue;
@@ -75,6 +78,27 @@ final class ProjectPlanningController extends ControllerBase {
       }
       $signal = $blocked ? (string) $this->t('Geblokkeerd')
         : ($late ? (string) $this->t('Te laat') : ($done ? (string) $this->t('Gereed') : ($critical ? (string) $this->t('Kritiek') : (string) $this->t('Op schema'))));
+      $baseline_start = $this->value($activity, 'field_brebo_plan_baseline_start');
+      $is_milestone = (bool) ($activity->get('field_brebo_plan_milestone')->value ?? FALSE);
+      foreach ([$start, $end, $baseline_start, $baseline_end] as $date_value) {
+        if ($date_value !== '—') {
+          $gantt_dates[] = new \DateTimeImmutable($date_value);
+        }
+      }
+      $gantt_source[] = [
+        'label' => (string) $activity->label(),
+        'code' => $this->value($activity, 'field_brebo_plan_code'),
+        'phase' => $this->value($activity, 'field_brebo_plan_phase'),
+        'start' => $start,
+        'end' => $end,
+        'baseline_start' => $baseline_start,
+        'baseline_end' => $baseline_end,
+        'progress' => max(0.0, min(100.0, $progress)),
+        'critical' => $critical,
+        'late' => $late,
+        'milestone' => $is_milestone,
+        'url' => $activity->toUrl(),
+      ];
       $phase = $this->value($activity, 'field_brebo_plan_phase');
       $activity_groups[$phase][] = [
         $this->value($activity, 'field_brebo_plan_code'),
@@ -165,6 +189,11 @@ final class ProjectPlanningController extends ControllerBase {
           ]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
+        'recalculate' => [
+          '#type' => 'link', '#title' => $this->t('Planning doorrekenen'),
+          '#url' => Url::fromRoute('brebo_office_core.project_planning_recalculate', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'add' => [
           '#type' => 'link', '#title' => $this->t('Planningsstap toevoegen'),
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_route_item'], [
@@ -198,6 +227,97 @@ final class ProjectPlanningController extends ControllerBase {
       '#header' => [$this->t('Voortgang'), $this->t('Activiteiten'), $this->t('Gereed'), $this->t('Te laat'), $this->t('Geblokkeerd'), $this->t('Kritiek')],
       '#rows' => [[$activity_percent . '%', $activity_counts['total'], $activity_counts['done'], $activity_counts['late'], $activity_counts['blocked'], $activity_counts['critical']]],
     ];
+    if ($gantt_dates) {
+      usort($gantt_dates, static fn (\DateTimeImmutable $a, \DateTimeImmutable $b): int => $a <=> $b);
+      $range_start = $gantt_dates[0];
+      $range_end = $gantt_dates[count($gantt_dates) - 1];
+      $range_days = max(1, (int) $range_start->diff($range_end)->format('%a') + 1);
+      $gantt_rows = [];
+      foreach ($gantt_source as $source) {
+        if ($source['start'] === '—' || $source['end'] === '—') {
+          continue;
+        }
+        $start_date = new \DateTimeImmutable($source['start']);
+        $end_date = new \DateTimeImmutable($source['end']);
+        $offset = max(0, (int) $range_start->diff($start_date)->format('%r%a'));
+        $duration = max(1, (int) $start_date->diff($end_date)->format('%a') + 1);
+        $start_percent = ($offset / $range_days) * 100;
+        $span_percent = ($duration / $range_days) * 100;
+        $classes = ['brebo-gantt__row'];
+        $classes[] = $source['critical'] ? 'is-critical' : 'is-normal';
+        if ($source['late']) {
+          $classes[] = 'is-late';
+        }
+
+        $baseline = NULL;
+        if ($source['baseline_start'] !== '—' && $source['baseline_end'] !== '—') {
+          $baseline_start_date = new \DateTimeImmutable($source['baseline_start']);
+          $baseline_end_date = new \DateTimeImmutable($source['baseline_end']);
+          $baseline_offset = max(0, (int) $range_start->diff($baseline_start_date)->format('%r%a'));
+          $baseline_duration = max(1, (int) $baseline_start_date->diff($baseline_end_date)->format('%a') + 1);
+          $baseline = [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#attributes' => [
+              'class' => ['brebo-gantt__baseline'],
+              'style' => sprintf('--gantt-start: %.4f; --gantt-span: %.4f;', ($baseline_offset / $range_days) * 100, ($baseline_duration / $range_days) * 100),
+              'title' => (string) $this->t('Baseline @start t/m @end', ['@start' => $source['baseline_start'], '@end' => $source['baseline_end']]),
+            ],
+          ];
+        }
+        $bar = $source['milestone']
+          ? [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#attributes' => [
+              'class' => ['brebo-gantt__milestone'],
+              'style' => sprintf('--gantt-start: %.4f;', $start_percent),
+              'title' => (string) $this->t('Mijlpaal op @date', ['@date' => $source['start']]),
+            ],
+          ]
+          : [
+            '#type' => 'html_tag',
+            '#tag' => 'span',
+            '#attributes' => [
+              'class' => ['brebo-gantt__bar'],
+              'style' => sprintf('--gantt-start: %.4f; --gantt-span: %.4f; --gantt-progress: %.2f;', $start_percent, $span_percent, $source['progress']),
+              'title' => (string) $this->t('@start t/m @end — @progress%', ['@start' => $source['start'], '@end' => $source['end'], '@progress' => number_format($source['progress'], 0, ',', '.')]),
+            ],
+          ];
+        $gantt_rows[] = [
+          '#type' => 'container',
+          '#attributes' => ['class' => $classes],
+          'label' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-gantt__label']],
+            'link' => Link::fromTextAndUrl($source['label'], $source['url'])->toRenderable(),
+            'meta' => ['#markup' => '<small>' . Html::escape($source['code'] . ' · ' . $source['phase']) . '</small>'],
+          ],
+          'track' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-gantt__track']],
+            'baseline' => $baseline ?? ['#markup' => ''],
+            'bar' => $bar,
+          ],
+        ];
+      }
+      $build['gantt_heading'] = ['#markup' => '<h2>' . $this->t('Gantt-planning') . '</h2>'];
+      $build['gantt_legend'] = [
+        '#markup' => '<p>' . $this->t('Grijs = baseline · groen = actueel · rood = kritisch · ruit = mijlpaal') . '</p>',
+      ];
+      $build['gantt'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-gantt']],
+        'axis' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-gantt__axis']],
+          'label' => ['#markup' => '<div class="brebo-gantt__axis-label">' . $this->t('Activiteit') . '</div>'],
+          'range' => ['#markup' => '<div class="brebo-gantt__axis-range"><span>' . $range_start->format('d-m-Y') . '</span><span>' . $range_end->format('d-m-Y') . '</span></div>'],
+        ],
+        'rows' => $gantt_rows,
+      ];
+    }
+
     foreach ($activity_groups as $phase => $activity_rows) {
       $build['activities_' . count($build)] = [
         '#type' => 'details',
@@ -241,6 +361,7 @@ final class ProjectPlanningController extends ControllerBase {
     if (!$groups) {
       $build['empty'] = ['#markup' => '<p>' . $this->t('Nog geen projectroute of mijlpalen gepland.') . '</p>'];
     }
+    $build['#attached']['library'][] = 'brebo_office/project-gantt';
     $build['#cache'] = [
       'contexts' => ['user.permissions'],
       'tags' => array_merge($node->getCacheTags(), ['node_list:brebo_route_item', 'node_list:brebo_plan_activity']),
