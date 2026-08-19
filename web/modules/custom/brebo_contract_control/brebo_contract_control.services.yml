@@ -67,6 +67,15 @@ services:
     arguments:
       - '@database'
 
+  brebo_contract_control.management_decision_review_subscriber:
+    class: Drupal\brebo_contract_control\EventSubscriber\ManagementDecisionReviewSubscriber
+    arguments:
+      - '@brebo_contract_control.management_decision_records'
+      - '@messenger'
+      - '@current_route_match'
+    tags:
+      - { name: event_subscriber }
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
