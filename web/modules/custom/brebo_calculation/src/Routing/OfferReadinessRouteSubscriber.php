@@ -61,7 +61,7 @@ final class OfferReadinessRouteSubscriber extends RouteSubscriberBase {
       ['_controller' => '\\Drupal\\brebo_calculation\\Controller\\CalculationBlockOrderController::save'],
       [
         '_permission' => 'edit brebo calculation workbench',
-        '_csrf_token' => 'TRUE',
+        '_csrf_request_header_token' => 'TRUE',
       ],
       [
         '_admin_route' => TRUE,
