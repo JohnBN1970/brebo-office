@@ -30,6 +30,8 @@ final class GlassCalculationExporter {
       ['material'=>(float)$prices['material']['unit_cost']],
       $sourceDomain,$sourceReference,$checksum,$account,$prices['material'],
     );
+    $this->priceResolver->snapshotMaterial($material,$prices['material'],$account);
+
     $labour=$this->writer->write(
       $calculationId,$version,$paragraphKey,
       $context['description'].' · montage',
