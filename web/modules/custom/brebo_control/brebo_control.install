@@ -1,0 +1,147 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_control_schema(): array {
+  $schema['brebo_control_action'] = [
+    'description' => 'Persistente controlleracties uit BREBO Early Warning.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'driver_code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'instruction' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'done_when' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'owner_role' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'owner_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'urgency' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'risk_points' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'source_value' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
+      'due_at' => ['type' => 'int', 'not null' => FALSE],
+      'escalation_level' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'resolution' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'completed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'completed_at' => ['type' => 'int', 'not null' => FALSE],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['project_driver' => ['project_nid', 'driver_code']],
+    'indexes' => [
+      'project_status' => ['project_nid', 'status'],
+      'owner_status' => ['owner_uid', 'status'],
+      'due_status' => ['due_at', 'status'],
+    ],
+  ];
+
+  $schema['brebo_control_notification'] = [
+    'description' => 'Gededupliceerde notificaties voor controlleracties.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'action_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'event_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'recipient_key' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'dedup_key' => ['type' => 'varchar', 'length' => 190, 'not null' => TRUE],
+      'subject' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'message' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+      'sent_at' => ['type' => 'int', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['dedup_key' => ['dedup_key']],
+    'indexes' => [
+      'status_created' => ['status', 'created'],
+      'action_event' => ['action_id', 'event_type'],
+      'recipient_status' => ['recipient_key', 'status'],
+    ],
+  ];
+
+  $schema['brebo_control_snapshot'] = [
+    'description' => 'Historische projectcontrol-snapshots voor trendanalyse.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'captured_at' => ['type' => 'int', 'not null' => TRUE],
+      'risk_score' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'forecast_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'forecast_revenue' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'expected_result' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'expected_margin_pct' => ['type' => 'numeric', 'precision' => 7, 'scale' => 3, 'not null' => TRUE, 'default' => 0],
+      'margin_delta_pct' => ['type' => 'numeric', 'precision' => 7, 'scale' => 3, 'not null' => TRUE, 'default' => 0],
+      'actual_hours' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'forecast_hours' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'blocked_invoices' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'open_actions' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'project_captured' => ['project_nid', 'captured_at'],
+      'risk_captured' => ['risk_score', 'captured_at'],
+    ],
+  ];
+
+  $schema['brebo_supplier_performance_event'] = [
+    'description' => 'Bewijsbare positieve en negatieve leveranciersprestatie-events.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'category' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE],
+      'event_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'impact' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'severity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'financial_impact' => ['type' => 'numeric', 'precision' => 14, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'hours_impact' => ['type' => 'numeric', 'precision' => 12, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'description' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE],
+      'evidence' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'occurred_at' => ['type' => 'int', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'supplier_category' => ['supplier_name', 'category'],
+      'project_supplier' => ['project_nid', 'supplier_name'],
+      'occurred_at' => ['occurred_at'],
+    ],
+  ];
+
+  return $schema;
+}
+
+function brebo_control_update_10001(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_control_notification')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_control_notification', $definitions['brebo_control_notification']);
+}
+
+function brebo_control_update_10002(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_control_snapshot')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_control_snapshot', $definitions['brebo_control_snapshot']);
+}
+
+/**
+ * Add supplier performance events to existing installations.
+ */
+function brebo_control_update_10003(): void {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_supplier_performance_event')) {
+    return;
+  }
+  $definitions = brebo_control_schema();
+  $schema->createTable('brebo_supplier_performance_event', $definitions['brebo_supplier_performance_event']);
+}

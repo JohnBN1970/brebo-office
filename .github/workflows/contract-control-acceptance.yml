@@ -1,0 +1,97 @@
+name: Contract Control Acceptance
+
+on:
+  push:
+    paths:
+      - 'web/modules/custom/brebo_contract_control/**'
+      - '.github/workflows/contract-control-acceptance.yml'
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_contract_control/**'
+      - '.github/workflows/contract-control-acceptance.yml'
+  workflow_dispatch:
+
+jobs:
+  acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: PHP syntax check
+        shell: bash
+        run: |
+          set -euo pipefail
+          find web/modules/custom/brebo_contract_control -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: YAML parse check
+        shell: bash
+        run: |
+          set -euo pipefail
+          php -r '
+            require "vendor/autoload.php";
+            foreach (glob("web/modules/custom/brebo_contract_control/*.yml") as $file) {
+              Symfony\Component\Yaml\Yaml::parseFile($file);
+              echo "OK $file\n";
+            }
+          '
+
+      - name: Required routes and permissions
+        shell: bash
+        run: |
+          set -euo pipefail
+          ROUTES=web/modules/custom/brebo_contract_control/brebo_contract_control.routing.yml
+          PERMS=web/modules/custom/brebo_contract_control/brebo_contract_control.permissions.yml
+          grep -q 'brebo_contract_control.management_control_center:' "$ROUTES"
+          grep -q 'brebo_contract_control.management_recommendation_accept:' "$ROUTES"
+          grep -q 'brebo_contract_control.management_recommendation_reject:' "$ROUTES"
+          grep -q 'management_decision_review' "$ROUTES"
+          grep -q 'view brebo management control center:' "$PERMS"
+          grep -q 'accept brebo management recommendation:' "$PERMS"
+
+      - name: Required services and classes
+        shell: bash
+        run: |
+          set -euo pipefail
+          SERVICES=web/modules/custom/brebo_contract_control/brebo_contract_control.services.yml
+          grep -q 'brebo_contract_control.management_trends:' "$SERVICES"
+          grep -q 'brebo_contract_control.management_forecast:' "$SERVICES"
+          grep -q 'brebo_contract_control.management_scenarios:' "$SERVICES"
+          grep -q 'brebo_contract_control.management_decision_recommendation:' "$SERVICES"
+          grep -q 'brebo_contract_control.management_decision_records:' "$SERVICES"
+          test -f web/modules/custom/brebo_contract_control/src/Controller/ManagementControlCenterController.php
+          test -f web/modules/custom/brebo_contract_control/src/Form/ManagementRecommendationAcceptForm.php
+          test -f web/modules/custom/brebo_contract_control/src/Form/ManagementRecommendationRejectForm.php
+          test -f web/modules/custom/brebo_contract_control/src/Form/ManagementDecisionOutcomeReviewForm.php
+
+      - name: Decision record contract checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE=web/modules/custom/brebo_contract_control/src/Service/ManagementDecisionRecordService.php
+          grep -q 'brebo_management_decision_record' "$FILE"
+          grep -q 'decision_hash' "$FILE"
+          grep -q 'review_30_at' "$FILE"
+          grep -q 'review_90_at' "$FILE"
+          grep -q 'dueReviews' "$FILE"
+          grep -q 'recordOutcome' "$FILE"
+
+      - name: Control Center chain smoke contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          CTRL=web/modules/custom/brebo_contract_control/src/Controller/ManagementControlCenterController.php
+          grep -q 'management_trends' "$CTRL"
+          grep -q 'management_forecast' "$CTRL"
+          grep -q 'management_scenarios' "$CTRL"
+          grep -q 'management_decision_recommendation' "$CTRL"
+          echo 'Contract Control acceptance gate passed.'

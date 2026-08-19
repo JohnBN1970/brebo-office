@@ -1,0 +1,7 @@
+name: BREBO Procurement Control
+type: module
+description: 'Inkoopbeslissingspoort, economische offertekeuze en gemotiveerde afwijkingen.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_control:brebo_control

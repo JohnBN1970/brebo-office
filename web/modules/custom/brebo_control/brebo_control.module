@@ -1,0 +1,39 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * BREBO Control runtime hooks.
+ */
+
+/**
+ * Implements hook_cron().
+ */
+function brebo_control_cron(): void {
+  $lock = \Drupal::lock();
+  if (!$lock->acquire('brebo_control_automation', 300.0)) {
+    return;
+  }
+
+  try {
+    /** @var \Drupal\brebo_control\Service\ControlAutomationRunner $runner */
+    $runner = \Drupal::service('brebo_control.automation_runner');
+    $result = $runner->run(time());
+    \Drupal::logger('brebo_control')->info(
+      'Control scan: @projects projecten, @actions acties, @escalated escalaties, @notifications notificaties.',
+      [
+        '@projects' => $result['projects_scanned'],
+        '@actions' => $result['actions_seen'],
+        '@escalated' => $result['actions_escalated'],
+        '@notifications' => $result['notifications_queued'],
+      ]
+    );
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_control')->error('Automatische control-scan mislukt: @message', ['@message' => $e->getMessage()]);
+  }
+  finally {
+    $lock->release('brebo_control_automation');
+  }
+}

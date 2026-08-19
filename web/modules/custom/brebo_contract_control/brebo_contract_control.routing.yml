@@ -1,0 +1,67 @@
+brebo_contract_control.audit_center:
+  path: '/brebo/audit'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\AuditCenterController::overview'
+    _title: 'Audit Center'
+  requirements:
+    _permission: 'access brebo audit center'
+
+brebo_contract_control.audit_generate:
+  path: '/brebo/audit/generate/{scope}'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\AuditCenterController::generate'
+  requirements:
+    _permission: 'generate brebo audit packages'
+  methods: [POST]
+
+brebo_contract_control.management_control_center:
+  path: '/brebo/control-center'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::overview'
+    _title: 'Management Control Center'
+  requirements:
+    _permission: 'view brebo management control center'
+
+brebo_contract_control.management_actions:
+  path: '/brebo/control-center/actions/{action_key}'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::actions'
+    _title: 'Managementacties'
+    action_key: 'all'
+  requirements:
+    _permission: 'view brebo management control center'
+
+brebo_contract_control.management_action_source:
+  path: '/brebo/control-center/action/{action_id}/source'
+  defaults:
+    _controller: '\Drupal\brebo_contract_control\Controller\ManagementControlCenterController::source'
+    _title: 'Control Source dossier'
+  requirements:
+    _permission: 'view brebo management control center'
+    action_id: '\d+'
+
+brebo_contract_control.management_recommendation_accept:
+  path: '/brebo/control-center/recommendation/accept'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementRecommendationAcceptForm'
+    _title: 'BREBO-advies accepteren'
+  requirements:
+    _permission: 'accept brebo management recommendation'
+
+brebo_contract_control.management_recommendation_reject:
+  path: '/brebo/control-center/recommendation/reject'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementRecommendationRejectForm'
+    _title: 'BREBO-advies afwijzen'
+  requirements:
+    _permission: 'accept brebo management recommendation'
+
+brebo_contract_control.management_decision_outcome_review:
+  path: '/brebo/control-center/decision/{record_id}/review/{review_days}'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementDecisionOutcomeReviewForm'
+    _title: 'Managementbesluit evalueren'
+  requirements:
+    _permission: 'accept brebo management recommendation'
+    record_id: '\d+'
+    review_days: '30|90'

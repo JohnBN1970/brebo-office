@@ -1,0 +1,142 @@
+services:
+  brebo_contract_control.monitoring:
+    class: Drupal\brebo_contract_control\Service\ContractMonitoringService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.payment_gate:
+    class: Drupal\brebo_contract_control\Service\ContractPaymentGate
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.monitoring'
+
+  brebo_contract_control.payment_batch_control:
+    class: Drupal\brebo_contract_control\Service\PaymentBatchControlService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.payment_anomaly_intelligence:
+    class: Drupal\brebo_contract_control\Service\PaymentAnomalyIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.controller_cases:
+    class: Drupal\brebo_contract_control\Service\ControllerCaseManagementService
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.payment_anomaly_intelligence'
+
+  brebo_contract_control.management_control_center:
+    class: Drupal\brebo_contract_control\Service\ManagementControlCenterService
+    arguments:
+      - '@database'
+      - '@brebo_control.portfolio_early_warning'
+      - '@brebo_control.supplier_scorecards'
+      - '@brebo_procurement_control.decision_intelligence'
+
+  brebo_contract_control.management_actions:
+    class: Drupal\brebo_contract_control\Service\ManagementActionEngine
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.management_control_center'
+
+  brebo_contract_control.management_action_source:
+    class: Drupal\brebo_contract_control\Service\ManagementActionSourceResolver
+    arguments:
+      - '@database'
+
+  brebo_contract_control.management_trends:
+    class: Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.management_forecast:
+    class: Drupal\brebo_contract_control\Service\ManagementForecastIntelligenceService
+
+  brebo_contract_control.management_attention_brief:
+    class: Drupal\brebo_contract_control\Service\ManagementAttentionBriefService
+
+  brebo_contract_control.management_scenarios:
+    class: Drupal\brebo_contract_control\Service\ManagementScenarioIntelligenceService
+
+  brebo_contract_control.management_decision_recommendation:
+    class: Drupal\brebo_contract_control\Service\ManagementDecisionRecommendationEngine
+
+  brebo_contract_control.management_decision_records:
+    class: Drupal\brebo_contract_control\Service\ManagementDecisionRecordService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.management_decision_review_subscriber:
+    class: Drupal\brebo_contract_control\EventSubscriber\ManagementDecisionReviewSubscriber
+    arguments:
+      - '@brebo_contract_control.management_decision_records'
+      - '@messenger'
+      - '@current_route_match'
+    tags:
+      - { name: event_subscriber }
+
+  brebo_contract_control.closed_loop:
+    class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.management_control_center'
+
+  brebo_contract_control.control_effectiveness:
+    class: Drupal\brebo_contract_control\Service\ControlEffectivenessIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.root_cause_intelligence:
+    class: Drupal\brebo_contract_control\Service\RootCauseIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.continuous_improvement:
+    class: Drupal\brebo_contract_control\Service\ContinuousImprovementEngine
+    arguments:
+      - '@brebo_contract_control.root_cause_intelligence'
+      - '@brebo_contract_control.control_effectiveness'
+
+  brebo_contract_control.organizational_learning:
+    class: Drupal\brebo_contract_control\Service\OrganizationalLearningRegistry
+    arguments:
+      - '@database'
+
+  brebo_contract_control.policy_enforcement:
+    class: Drupal\brebo_contract_control\Service\PolicyStandardEnforcementService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.compliance_evidence:
+    class: Drupal\brebo_contract_control\Service\ComplianceEvidenceEngine
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.policy_enforcement'
+
+  brebo_contract_control.audit_readiness:
+    class: Drupal\brebo_contract_control\Service\AuditReadinessEngine
+    arguments:
+      - '@database'
+
+  brebo_contract_control.audit_package_generator:
+    class: Drupal\brebo_contract_control\Service\AuditPackageGenerator
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.audit_readiness'
+
+  brebo_contract_control.audit_package_verification:
+    class: Drupal\brebo_contract_control\Service\AuditPackageVerificationService
+    arguments:
+      - '@database'
+
+  brebo_contract_control.audit_package_export:
+    class: Drupal\brebo_contract_control\Service\AuditPackageExportService
+    arguments:
+      - '@database'
+      - '@brebo_contract_control.audit_package_verification'
+
+  brebo_contract_control.audit_document_renderer:
+    class: Drupal\brebo_contract_control\Service\AuditDocumentRenderer
+    arguments:
+      - '@brebo_contract_control.audit_package_export'

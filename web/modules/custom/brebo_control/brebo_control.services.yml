@@ -1,0 +1,71 @@
+services:
+  brebo_control.escalation_matrix:
+    class: Drupal\brebo_control\Service\ControlEscalationMatrix
+
+  brebo_control.action_manager:
+    class: Drupal\brebo_control\Service\ControlActionManager
+    arguments:
+      - '@database'
+      - '@brebo_office_core.project_controller_actions'
+      - '@brebo_control.escalation_matrix'
+
+  brebo_control.inbox:
+    class: Drupal\brebo_control\Service\ControlInboxService
+    arguments:
+      - '@database'
+
+  brebo_control.notification_engine:
+    class: Drupal\brebo_control\Service\ControlNotificationEngine
+    arguments:
+      - '@database'
+      - '@brebo_control.escalation_matrix'
+
+  brebo_control.history:
+    class: Drupal\brebo_control\Service\ControlHistoryService
+    arguments:
+      - '@database'
+      - '@brebo_office_core.project_early_warning'
+
+  brebo_control.trend_actions:
+    class: Drupal\brebo_control\Service\ControlTrendActionService
+    arguments:
+      - '@database'
+      - '@brebo_control.history'
+
+  brebo_control.portfolio:
+    class: Drupal\brebo_control\Service\PortfolioControlService
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_office_core.project_early_warning'
+      - '@brebo_control.history'
+
+  brebo_control.portfolio_early_warning:
+    class: Drupal\brebo_control\Service\PortfolioEarlyWarningService
+    arguments:
+      - '@brebo_control.portfolio'
+      - '@database'
+
+  brebo_control.supplier_performance:
+    class: Drupal\brebo_control\Service\SupplierPerformanceService
+    arguments:
+      - '@database'
+
+  brebo_control.supplier_scorecard:
+    class: Drupal\brebo_control\Service\SupplierScorecardService
+    arguments:
+      - '@database'
+      - '@brebo_control.supplier_performance'
+
+  brebo_control.supplier_bid_evaluation:
+    class: Drupal\brebo_control\Service\SupplierBidEvaluationService
+    arguments:
+      - '@brebo_control.supplier_scorecard'
+
+  brebo_control.automation_runner:
+    class: Drupal\brebo_control\Service\ControlAutomationRunner
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_control.action_manager'
+      - '@brebo_control.notification_engine'
+      - '@brebo_control.history'
+      - '@brebo_control.trend_actions'

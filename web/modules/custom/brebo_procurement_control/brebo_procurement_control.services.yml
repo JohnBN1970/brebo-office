@@ -1,0 +1,43 @@
+services:
+  brebo_procurement_control.decision_gate:
+    class: Drupal\brebo_procurement_control\Service\ProcurementDecisionGate
+    arguments:
+      - '@database'
+      - '@brebo_control.supplier_bid_evaluation'
+
+  brebo_procurement_control.outcomes:
+    class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeService
+    arguments:
+      - '@database'
+
+  brebo_procurement_control.learning:
+    class: Drupal\brebo_procurement_control\Service\ProcurementOutcomeLearningService
+    arguments:
+      - '@database'
+
+  brebo_procurement_control.model_governance:
+    class: Drupal\brebo_procurement_control\Service\ProcurementModelGovernanceService
+    arguments:
+      - '@database'
+      - '@brebo_procurement_control.learning'
+
+  brebo_procurement_control.decision_intelligence:
+    class: Drupal\brebo_procurement_control\Service\ProcurementDecisionIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_procurement_control.context_intelligence:
+    class: Drupal\brebo_procurement_control\Service\ProcurementContextIntelligenceService
+    arguments:
+      - '@database'
+
+  brebo_procurement_control.control_mode_gate:
+    class: Drupal\brebo_procurement_control\Service\ProcurementControlModeGate
+    arguments:
+      - '@brebo_procurement_control.context_intelligence'
+
+  brebo_procurement_control.award_gate:
+    class: Drupal\brebo_procurement_control\Service\ProcurementAwardGate
+    arguments:
+      - '@database'
+      - '@brebo_procurement_control.control_mode_gate'

@@ -1,0 +1,7 @@
+name: BREBO Contract Control
+type: module
+description: 'Contractbewaking na opdracht: termijnen, documenten, garanties, KAM en afwijkingen.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_procurement_control:brebo_procurement_control

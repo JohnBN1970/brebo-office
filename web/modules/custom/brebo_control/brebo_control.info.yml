@@ -1,0 +1,7 @@
+name: BREBO Control
+type: module
+description: 'Persistente controlleracties, escalaties en bewijs van afronding voor BREBO Office.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_office_core:brebo_office_core
