@@ -31,7 +31,8 @@ final class FinancialProjectLedger {
   }
 
   private function invoicePerformanceBlockers(array $lines): array {
-    $out=[];foreach($lines as $line){$id=(int)($line['id']??0);if($id<=0)continue;$analysis=$this->invoiceBlockers->resolve($id);if(($analysis['blocked']??false)||($analysis['verified_shortfall_ex_vat']??0)>0)$out[]=$analysis;}return$out;
+    $out=[];foreach($lines as $line){$id=(int)($line['id']??0);if($id<=0)continue;$analysis=$this->invoiceBlockers->resolve($id);if(($analysis['blocked']??false)||($analysis['verified_shortfall_ex_vat']??0)>0)$out[]=$analysis;}
+    usort($out,static function(array $a,array $b):int{$scoreA=(int)($a['priority']['score']??0);$scoreB=(int)($b['priority']['score']??0);if($scoreA!==$scoreB)return $scoreB<=>$scoreA;return (float)($b['verified_shortfall_ex_vat']??0)<=>(float)($a['verified_shortfall_ex_vat']??0);});return$out;
   }
 
   private function performanceReceipts(int $projectNid): array {
