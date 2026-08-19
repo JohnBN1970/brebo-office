@@ -6,6 +6,7 @@ namespace Drupal\brebo_glass\Service;
 
 use Drupal\brebo_calculation\Service\CalculationNormLibrary;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Session\AccountInterface;
 
 /** Resolves glass material and labour rates only from governed BREBO sources. */
 final class GlassPriceResolver {
@@ -20,6 +21,32 @@ final class GlassPriceResolver {
       'material' => $this->material($calculationContext),
       'labour' => $this->labour($calculationContext),
     ];
+  }
+
+  /** Persist the selected article price as an immutable calculation snapshot. */
+  public function snapshotMaterial(int $calculationLineId,array $price,AccountInterface $account): void {
+    if (empty($price['priced']) || empty($price['article_id']) || !$this->database->schema()->tableExists('brebo_calculation_article_snapshot')) {
+      return;
+    }
+    if ($this->database->select('brebo_calculation_article_snapshot','s')->condition('calculation_line_id',$calculationLineId)->countQuery()->execute()->fetchField()) {
+      throw new \RuntimeException('Voor deze calculatieregel bestaat al een artikelprijssnapshot.');
+    }
+    $this->database->insert('brebo_calculation_article_snapshot')->fields([
+      'calculation_line_id'=>$calculationLineId,
+      'article_id'=>(int)$price['article_id'],
+      'supplier_article_id'=>(int)$price['supplier_article_id'],
+      'price_id'=>(int)$price['price_id'],
+      'article_code'=>(string)$price['article_code'],
+      'supplier_name'=>(string)$price['supplier_name'],
+      'supplier_article_no'=>(string)$price['supplier_article_no'],
+      'description'=>(string)$price['description'],
+      'unit'=>(string)$price['unit'],
+      'unit_price'=>(float)$price['unit_cost'],
+      'price_date'=>(string)$price['source_date'],
+      'catalog_import_id'=>(int)$price['catalog_import_id'],
+      'selected_by'=>(int)$account->id(),
+      'selected_at'=>time(),
+    ])->execute();
   }
 
   /** @param array<string,mixed> $context @return array<string,mixed> */
@@ -77,6 +104,15 @@ final class GlassPriceResolver {
       'confidence' => 'A',
       'label' => trim((string) $row['supplier_name'] . ' · ' . (string) $row['supplier_article_no']),
       'reason' => 'Exacte productcode en geldige netto catalogusprijs.',
+      'article_id'=>(int)$row['id'],
+      'article_code'=>(string)$row['code'],
+      'supplier_article_id'=>(int)$row['supplier_article_id'],
+      'supplier_article_no'=>(string)$row['supplier_article_no'],
+      'supplier_name'=>(string)$row['supplier_name'],
+      'price_id'=>(int)$row['price_id'],
+      'catalog_import_id'=>(int)$row['catalog_import_id'],
+      'description'=>(string)$row['description'],
+      'unit'=>$unit,
     ];
   }
 
