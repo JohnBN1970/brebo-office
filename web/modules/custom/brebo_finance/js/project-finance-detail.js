@@ -1,5 +1,5 @@
 (function(Drupal,once){'use strict';
-const money=v=>new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(v||0)),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#039;'}[c])),refValue=x=>typeof x==='object'&&x?x.ref:x,fid=r=>(String(refValue(r)).match(/^file:(\d+)$/)||[])[1]||null;
+const money=v=>new Intl.NumberFormat('nl-NL',{style:'currency',currency:'EUR'}).format(Number(v||0)),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])),refValue=x=>typeof x==='object'&&x?x.ref:x,fid=r=>(String(refValue(r)).match(/^file:(\d+)$/)||[])[1]||null;
 const flatten=(nodes,depth=0,out=[])=>{(nodes||[]).forEach(n=>{out.push({id:n.id,label:n.label,code:n.object_code,type:n.object_type,depth});flatten(n.children||[],depth+1,out);});return out;};
 const objectIndex=buildings=>{const out=new Map();(buildings||[]).forEach(b=>flatten(b.objects||[]).forEach(o=>out.set(Number(o.id),{...o,building_nid:Number(b.building_nid)})));return out;};
 const locationLabel=(r,index)=>{const o=index.get(Number(r.object_id));if(o)return `${o.code} · ${o.label}`;if(r.object_code||r.object_label)return `${r.object_code||'Object'} · ${r.object_label||''}`.trim();return r.building_nid?`Gebouw #${r.building_nid}`:'Locatie niet beschikbaar';};
