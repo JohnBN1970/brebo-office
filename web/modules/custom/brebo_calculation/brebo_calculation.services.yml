@@ -43,6 +43,13 @@ services:
       - '@database'
       - '@entity_type.manager'
 
+  brebo_calculation.object_line_writer:
+    class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@brebo_calculation.row_manager'
+
   brebo_calculation.block_order_manager:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
     arguments:
