@@ -10,15 +10,27 @@ brebo_finance.command_center_api:
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
+brebo_finance.my_work_page:
+  path: '/brebo-office/my-work'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsPageController::page', _title: 'Mijn Werkbak' }
+  requirements: { _user_is_logged_in: 'TRUE' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.my_work_api:
+  path: '/brebo-office/api/my-work'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsController::view', _title: 'Mijn Werkbak API' }
+  requirements: { _user_is_logged_in: 'TRUE' }
+  methods: [GET]
+  options: { no_cache: TRUE }
 brebo_finance.my_finance_actions_page:
   path: '/brebo-office/finance/my-actions'
-  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsPageController::page', _title: 'Mijn financiële acties' }
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsPageController::page', _title: 'Mijn Werkbak' }
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
 brebo_finance.my_finance_actions:
   path: '/brebo-office/api/finance/my-actions'
-  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsController::view', _title: 'Mijn financiële acties' }
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsController::view', _title: 'Mijn Werkbak API' }
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
