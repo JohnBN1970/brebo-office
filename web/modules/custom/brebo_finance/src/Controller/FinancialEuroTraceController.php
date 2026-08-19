@@ -17,7 +17,7 @@ use UnexpectedValueException;
 final class FinancialEuroTraceController extends ControllerBase {
   public function __construct(
     private readonly FinancialEuroTrace $trace,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $financeEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -31,7 +31,7 @@ final class FinancialEuroTraceController extends ControllerBase {
     catch (UnexpectedValueException) {
       throw new NotFoundHttpException('Financial trace source does not exist.');
     }
-    $project = $this->entityTypeManager->getStorage('node')->load((int) $data['project_nid']);
+    $project = $this->financeEntityTypeManager->getStorage('node')->load((int) $data['project_nid']);
     if ($project === NULL || $project->bundle() !== 'brebo_project') throw new NotFoundHttpException();
     if (!$project->access('view', $this->currentUser())) throw new AccessDeniedHttpException();
     $response = new JsonResponse($data);
