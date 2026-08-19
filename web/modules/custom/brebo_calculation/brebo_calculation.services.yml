@@ -85,3 +85,9 @@ services:
 
   brebo_calculation.recipe_price_health_inspector:
     class: Drupal\brebo_calculation\Service\RecipePriceHealthInspector
+
+  brebo_calculation.readiness_inspector:
+    class: Drupal\brebo_calculation\Service\CalculationReadinessInspector
+    arguments:
+      - '@database'
+      - '@brebo_calculation.recipe_price_health_inspector'
