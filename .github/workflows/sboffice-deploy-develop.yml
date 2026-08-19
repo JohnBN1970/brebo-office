@@ -171,16 +171,24 @@ jobs:
           "${drush[@]}" updb -y --no-cache-clear
           echo "DATABASE_UPDATES_OK=1"
 
-          finance_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectPageController.php"
-          [[ -f "$finance_controller" ]] || { echo "::error::FinancialProjectPageController missing on production."; exit 1; }
-          echo "FINANCE_CONTROLLER_SHA256=$(sha256sum "$finance_controller" | awk '{print $1}')"
-          grep -n 'financeEntityTypeManager' "$finance_controller" || { echo "::error::Production finance controller does not contain financeEntityTypeManager."; exit 1; }
-          if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$finance_controller"; then
-            echo "::error::Stale entityTypeManager property still exists in production finance controller."
-            exit 1
-          fi
-          "$remote_php" -l "$finance_controller"
-          echo "FINANCE_CONTROLLER_DEPLOY_PROOF_OK=1"
+          page_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectPageController.php"
+          ledger_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectLedgerController.php"
+          euro_trace_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialEuroTraceController.php"
+
+          for controller in "$page_controller" "$ledger_controller" "$euro_trace_controller"; do
+            [[ -f "$controller" ]] || { echo "::error::Finance controller missing on production: $controller"; exit 1; }
+            echo "FINANCE_CONTROLLER_SHA256[$controller]=$(sha256sum "$controller" | awk '{print $1}')"
+            if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$controller"; then
+              echo "::error::Stale readonly entityTypeManager property still exists in production controller: $controller"
+              exit 1
+            fi
+            "$remote_php" -l "$controller"
+          done
+
+          grep -n 'financeEntityTypeManager' "$page_controller" || { echo "::error::FinancialProjectPageController does not contain financeEntityTypeManager."; exit 1; }
+          grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
+          grep -n 'traceEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain traceEntityTypeManager."; exit 1; }
+          echo "FINANCE_CONTROLLERS_DEPLOY_PROOF_OK=1"
 
           "${drush[@]}" cr -vvv
           echo "CACHE_REBUILD_OK=1"
