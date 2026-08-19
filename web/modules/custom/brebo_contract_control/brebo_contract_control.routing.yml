@@ -39,3 +39,11 @@ brebo_contract_control.management_action_source:
   requirements:
     _permission: 'view brebo management control center'
     action_id: '\d+'
+
+brebo_contract_control.management_recommendation_accept:
+  path: '/brebo/control-center/recommendation/accept'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementRecommendationAcceptForm'
+    _title: 'BREBO-advies accepteren'
+  requirements:
+    _permission: 'accept brebo management recommendation'
