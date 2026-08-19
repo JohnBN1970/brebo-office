@@ -38,6 +38,35 @@ final class ManagementActionEngine {
     return ['created_action_ids' => $created, 'created_count' => count($created), 'management_status' => $dashboard['management_status'] ?? 'onder_controle'];
   }
 
+  /** @param array<string, mixed> $recommendation */
+  public function createFromRecommendation(array $recommendation, int $ownerUid, ?int $now = NULL): array {
+    $now ??= time();
+    $scenario = (array) ($recommendation['recommended_scenario'] ?? []);
+    $scenarioKey = trim((string) ($scenario['key'] ?? ''));
+    if ($scenarioKey === '' || $scenarioKey === 'do_nothing') {
+      throw new \InvalidArgumentException('Er is geen uitvoerbare aanbevolen interventie geselecteerd.');
+    }
+    $actionKey = 'recommendation_' . $scenarioKey;
+    if ($this->hasOpenAction($actionKey)) {
+      $existing = $this->openActions($actionKey);
+      return ['created' => FALSE, 'status' => 'already_open', 'action_id' => (int) ($existing[0]['id'] ?? 0)];
+    }
+    $severity = ((float) ($scenario['decision_score'] ?? 0)) >= 70 ? 'high' : 'medium';
+    $due = $severity === 'high' ? 2 * 86400 : 5 * 86400;
+    $id = (int) $this->database->insert('brebo_management_action')->fields([
+      'action_key' => $actionKey,
+      'source_type' => 'decision_recommendation',
+      'severity' => $severity,
+      'title' => 'Uitvoeren BREBO-advies: ' . (string) ($scenario['title'] ?? $scenarioKey),
+      'owner_uid' => $ownerUid,
+      'status' => 'open',
+      'due_at' => $now + $due,
+      'context_json' => json_encode(['recommendation' => $recommendation, 'accepted_at' => $now], JSON_THROW_ON_ERROR),
+      'created_at' => $now,
+    ])->execute();
+    return ['created' => TRUE, 'status' => 'open', 'action_id' => $id, 'due_at' => $now + $due];
+  }
+
   public function resolve(int $actionId, int $resolvedBy, string $resolution, ?int $now = NULL): void {
     if (trim($resolution) === '') { throw new \InvalidArgumentException('Een managementactie kan niet zonder inhoudelijke oplossing worden gesloten.'); }
     $this->database->update('brebo_management_action')->fields(['status' => 'resolved', 'resolved_by' => $resolvedBy, 'resolution' => $resolution, 'resolved_at' => $now ?? time()])->condition('id', $actionId)->condition('status', 'open')->execute();
