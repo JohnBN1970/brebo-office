@@ -15,11 +15,14 @@ final class ControlHistoryService {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly ProjectEarlyWarningService $earlyWarning,
+    private readonly ?ProjectEarlyWarningService $earlyWarning,
   ) {}
 
   public function capture(NodeInterface $project, int $now): bool {
     if (!$this->database->schema()->tableExists('brebo_control_snapshot')) {
+      return FALSE;
+    }
+    if ($this->earlyWarning === NULL) {
       return FALSE;
     }
     $last = $this->database->select('brebo_control_snapshot', 's')

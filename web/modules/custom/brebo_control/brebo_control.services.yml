@@ -24,7 +24,7 @@ services:
     class: Drupal\brebo_control\Service\ControlHistoryService
     arguments:
       - '@database'
-      - '@brebo_office_core.project_early_warning'
+      - '@?brebo_office_core.project_early_warning'
 
   brebo_control.trend_actions:
     class: Drupal\brebo_control\Service\ControlTrendActionService
@@ -36,7 +36,7 @@ services:
     class: Drupal\brebo_control\Service\PortfolioControlService
     arguments:
       - '@entity_type.manager'
-      - '@brebo_office_core.project_early_warning'
+      - '@?brebo_office_core.project_early_warning'
       - '@brebo_control.history'
 
   brebo_control.portfolio_early_warning:
