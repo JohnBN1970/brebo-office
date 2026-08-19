@@ -121,18 +121,18 @@ jobs:
           set -eEuo pipefail
           export NO_COLOR=1 TERM=dumb
 
-          app="$HOME/domains/brebobv.nl/public_html/sboffice_app"
-          public="$HOME/domains/brebobv.nl/public_html/sboffice"
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
-          settings="$app/web/sites/default/settings.php"
-          services="$app/web/sites/default/services.yml"
+          settings="$webroot/sites/default/settings.php"
+          services="$webroot/sites/default/services.yml"
 
           [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Production application directory missing or invalid: $app"; exit 1; }
-          [[ -f "$settings" ]] || { echo "::error::Production settings.php missing in $app"; exit 1; }
-          [[ -L "$public" ]] || { echo "::error::Public BREBO Office path must be a symlink: $public"; exit 1; }
-          [[ "$(readlink -f "$public")" == "$(readlink -f "$app")" ]] || { echo "::error::Public BREBO Office symlink does not point to sboffice_app."; exit 1; }
-          [[ ! -d "$app/web/web" ]]
+          [[ -d "$webroot" && ! -L "$webroot" ]] || { echo "::error::Drupal webroot missing or invalid: $webroot"; exit 1; }
+          [[ -f "$settings" ]] || { echo "::error::Production settings.php missing in $webroot"; exit 1; }
+          [[ -f "$webroot/index.php" ]] || { echo "::error::Drupal index.php missing in $webroot"; exit 1; }
+          [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
           services_before=""
@@ -218,8 +218,8 @@ jobs:
           tar -czf "$config_archive" config/sync
           echo "CONFIG_EXPORT_OK=1"
           echo "DEPLOY_OK=1"
-          echo "TARGET=$app"
-          echo "PUBLIC_LINK=$public"
+          echo "APP_ROOT=$app"
+          echo "DRUPAL_WEBROOT=$webroot"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
 
