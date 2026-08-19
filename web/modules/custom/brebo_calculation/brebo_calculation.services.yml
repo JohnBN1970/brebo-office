@@ -100,6 +100,15 @@ services:
     tags:
       - { name: access_check, applies_to: _brebo_offer_ready }
 
+  brebo_calculation.offer_confirmed_access:
+    class: Drupal\brebo_calculation\Access\OfferConfirmedAccessCheck
+    arguments:
+      - '@database'
+      - '@brebo_calculation.readiness_inspector'
+      - '@request_stack'
+    tags:
+      - { name: access_check, applies_to: _brebo_offer_confirmed }
+
   brebo_calculation.offer_readiness_route_subscriber:
     class: Drupal\brebo_calculation\Routing\OfferReadinessRouteSubscriber
     tags:
