@@ -91,3 +91,16 @@ services:
     arguments:
       - '@database'
       - '@brebo_calculation.recipe_price_health_inspector'
+
+  brebo_calculation.offer_readiness_access:
+    class: Drupal\brebo_calculation\Access\OfferReadinessAccessCheck
+    arguments:
+      - '@database'
+      - '@brebo_calculation.readiness_inspector'
+    tags:
+      - { name: access_check, applies_to: _brebo_offer_ready }
+
+  brebo_calculation.offer_readiness_route_subscriber:
+    class: Drupal\brebo_calculation\Routing\OfferReadinessRouteSubscriber
+    tags:
+      - { name: event_subscriber }
