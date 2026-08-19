@@ -107,3 +107,17 @@ function brebo_calculation_post_update_add_object_source_traceability(&$sandbox 
   if(!$schema->indexExists($table,'object_source'))$schema->addIndex($table,'object_source',['source_domain','source_reference']);
   return $added ? 'BREBO Calculation object traceability added: '.implode(', ',$added).'.' : 'BREBO Calculation object traceability already exists.';
 }
+
+/** Add queryable price provenance for object-derived calculation rows. */
+function brebo_calculation_post_update_add_object_price_provenance(&$sandbox = NULL): string {
+  $schema = \Drupal::database()->schema(); $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) return 'BREBO Calculation row domain is not installed; no price provenance added.';
+  $fields = [
+    'price_source_reference' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+    'price_source_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
+    'price_confidence' => ['type' => 'varchar_ascii', 'length' => 8, 'not null' => FALSE],
+  ];
+  $added=[];foreach($fields as$name=>$definition){if(!$schema->fieldExists($table,$name)){$schema->addField($table,$name,$definition);$added[]=$name;}}
+  if(!$schema->indexExists($table,'price_source_date'))$schema->addIndex($table,'price_source_date',['price_source_date']);
+  return $added ? 'BREBO Calculation price provenance added: '.implode(', ',$added).'.' : 'BREBO Calculation price provenance already exists.';
+}
