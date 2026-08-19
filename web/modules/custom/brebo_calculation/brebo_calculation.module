@@ -181,7 +181,7 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
   }
 
   $record = \Drupal::database()->select('brebo_calculation_version', 'v')
-    ->fields('v', ['commercial_method', 'general_cost_pct', 'risk_pct', 'profit_pct', 'single_margin_pct', 'commercial_adjustment'])
+    ->fields('v', ['commercial_method', 'general_cost_pct', 'risk_pct', 'profit_pct', 'single_margin_pct', 'commercial_adjustment', 'locked_at', 'status'])
     ->condition('calculation_id', $calculationId)
     ->condition('version', $version)
     ->execute()
@@ -265,4 +265,177 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
     . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ 0,00</strong></span>'
     . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ 0,00</strong></span>'
     . '</div>';
+
+  $editable = $record['locked_at'] === NULL
+    && (string) $record['status'] === 'draft'
+    && \Drupal::currentUser()->hasPermission('edit brebo calculation workbench');
+  if (!$editable) {
+    return;
+  }
+
+  brebo_calculation_reorder_workbench_render_array($form['workbench']['grid']);
+  $form['workbench']['grid']['#attributes']['class'][] = 'brebo-calc-workbench__grid--reorderable';
+  $form['workbench']['block_order_help'] = [
+    '#markup' => '<p class="brebo-calc-block-order-help">Sleep losse regels en complete recepten binnen dezelfde paragraaf om de calculatievolgorde te wijzigen. Receptregels bewegen automatisch mee.</p>',
+    '#weight' => -7,
+  ];
+  $form['block_order_payload'] = [
+    '#type' => 'hidden',
+    '#default_value' => '',
+    '#attributes' => ['data-brebo-block-order-payload' => '1'],
+  ];
+  $form['workbench']['block_order_save'] = [
+    '#type' => 'submit',
+    '#value' => 'Volgorde opslaan',
+    '#name' => 'save_block_order',
+    '#submit' => ['brebo_calculation_save_block_order'],
+    '#limit_validation_errors' => [['block_order_payload']],
+    '#ajax' => [
+      'callback' => 'brebo_calculation_block_order_ajax',
+      'wrapper' => 'brebo-calculation-workbench',
+      'progress' => ['type' => 'throbber', 'message' => 'Volgorde opslaan…'],
+    ],
+    '#attributes' => [
+      'class' => ['brebo-calc-block-order-save'],
+      'data-brebo-save-block-order' => '1',
+    ],
+  ];
+}
+
+/**
+ * Reorders top-level row/recipe render groups by their persisted shared order.
+ */
+function brebo_calculation_reorder_workbench_render_array(array &$grid): void {
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $rowIds = [];
+  $recipeIds = [];
+  foreach ($grid as $rowKey => $row) {
+    if (!is_string($rowKey) || str_starts_with($rowKey, '#') || !is_array($row)) {
+      continue;
+    }
+    $type = (string) ($row['#attributes']['data-block-type'] ?? '');
+    if ($type === 'row') {
+      $rowIds[] = (int) ($row['#attributes']['data-line-id'] ?? 0);
+    }
+    elseif ($type === 'recipe') {
+      $recipeIds[] = (int) ($row['#attributes']['data-recipe-instance-id'] ?? 0);
+    }
+  }
+
+  $order = [];
+  foreach ($storage->loadMultiple(array_values(array_filter($rowIds))) as $line) {
+    if ($line instanceof NodeInterface && $line->hasField('field_brebo_line_sequence')) {
+      $order['row:' . $line->id()] = (int) $line->get('field_brebo_line_sequence')->value;
+    }
+  }
+  if ($recipeIds) {
+    $query = \Drupal::database()->select('brebo_calculation_recipe_instance', 'i');
+    $query->fields('i', ['id', 'sort_order'])->condition('id', $recipeIds, 'IN');
+    foreach ($query->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC) as $id => $record) {
+      $order['recipe:' . (int) $id] = (int) $record['sort_order'];
+    }
+  }
+
+  $meta = [];
+  $bodyKeys = [];
+  foreach ($grid as $key => $value) {
+    if (is_string($key) && str_starts_with($key, '#')) {
+      $meta[$key] = $value;
+    }
+    elseif (is_string($key)) {
+      $bodyKeys[] = $key;
+    }
+  }
+
+  $rebuilt = $meta;
+  $count = count($bodyKeys);
+  for ($index = 0; $index < $count;) {
+    $key = $bodyKeys[$index];
+    $row = $grid[$key];
+    $classes = (array) ($row['#attributes']['class'] ?? []);
+    if (!in_array('brebo-calc-workbench__structure', $classes, TRUE)) {
+      $rebuilt[$key] = $row;
+      $index++;
+      continue;
+    }
+
+    $rebuilt[$key] = $row;
+    $index++;
+    $groups = [];
+    while ($index < $count) {
+      $childKey = $bodyKeys[$index];
+      $child = $grid[$childKey];
+      $childClasses = (array) ($child['#attributes']['class'] ?? []);
+      if (in_array('brebo-calc-workbench__structure', $childClasses, TRUE)) {
+        break;
+      }
+
+      $type = (string) ($child['#attributes']['data-block-type'] ?? '');
+      if ($type === 'row') {
+        $id = (int) ($child['#attributes']['data-line-id'] ?? 0);
+        $groups[] = ['key' => 'row:' . $id, 'rows' => [$childKey]];
+        $index++;
+        continue;
+      }
+      if ($type === 'recipe') {
+        $id = (int) ($child['#attributes']['data-recipe-instance-id'] ?? 0);
+        $rows = [$childKey];
+        $index++;
+        while ($index < $count) {
+          $recipeLineKey = $bodyKeys[$index];
+          $recipeLine = $grid[$recipeLineKey];
+          if ((string) ($recipeLine['#attributes']['data-block-type'] ?? '') !== 'recipe-line'
+            || (int) ($recipeLine['#attributes']['data-recipe-instance-id'] ?? 0) !== $id) {
+            break;
+          }
+          $rows[] = $recipeLineKey;
+          $index++;
+        }
+        $groups[] = ['key' => 'recipe:' . $id, 'rows' => $rows];
+        continue;
+      }
+
+      $groups[] = ['key' => 'other:' . $childKey, 'rows' => [$childKey]];
+      $index++;
+    }
+
+    uasort($groups, static function (array $a, array $b) use ($order): int {
+      $aOrder = $order[$a['key']] ?? PHP_INT_MAX;
+      $bOrder = $order[$b['key']] ?? PHP_INT_MAX;
+      return $aOrder <=> $bOrder;
+    });
+    foreach ($groups as $group) {
+      foreach ($group['rows'] as $groupRowKey) {
+        $rebuilt[$groupRowKey] = $grid[$groupRowKey];
+      }
+    }
+  }
+
+  $grid = $rebuilt;
+}
+
+/** Persists the drag/drop order through the guarded domain manager. */
+function brebo_calculation_save_block_order(array &$form, FormStateInterface $form_state): void {
+  $calculationId = (int) $form_state->getValue('calculation_id');
+  $version = (string) $form_state->getValue('version');
+  $payload = json_decode((string) $form_state->getValue('block_order_payload'), TRUE);
+  if ($calculationId <= 0 || $version === '' || !is_array($payload)) {
+    throw new \InvalidArgumentException('Ongeldige calculatievolgorde ontvangen.');
+  }
+
+  $manager = \Drupal::service('brebo_calculation.block_order_manager');
+  foreach ($payload as $paragraphKey => $blocks) {
+    if (!is_string($paragraphKey) || $paragraphKey === '' || !is_array($blocks)) {
+      throw new \InvalidArgumentException('Ongeldige paragraaf in calculatievolgorde.');
+    }
+    $manager->apply($calculationId, $version, $paragraphKey, array_values($blocks), \Drupal::currentUser());
+  }
+
+  $form_state->set('ajax_message', 'Volgorde opgeslagen.');
+  $form_state->setRebuild(TRUE);
+}
+
+/** AJAX callback after block order persistence. */
+function brebo_calculation_block_order_ajax(array &$form, FormStateInterface $form_state): array {
+  return $form['workbench'];
 }
