@@ -15,7 +15,7 @@ final class ControlActionManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly ProjectControllerActionService $controllerActions,
+    private readonly ?ProjectControllerActionService $controllerActions,
     private readonly ControlEscalationMatrix $escalationMatrix,
   ) {}
 
@@ -25,6 +25,10 @@ final class ControlActionManager {
    * @return array<int, array<string, mixed>>
    */
   public function synchronize(NodeInterface $project): array {
+    if ($this->controllerActions === NULL) {
+      return $this->loadProjectActions((int) $project->id());
+    }
+
     $analysis = $this->controllerActions->analyze($project);
     $activeCodes = [];
     $now = time();
