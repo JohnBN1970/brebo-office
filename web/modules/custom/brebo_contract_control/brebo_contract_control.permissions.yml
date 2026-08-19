@@ -11,3 +11,8 @@ view brebo management control center:
   title: 'View BREBO Management Control Center'
   description: 'View financial, contract, supplier and management control risks and escalations.'
   restrict access: true
+
+accept brebo management recommendation:
+  title: 'Accept BREBO management recommendation'
+  description: 'Accept a current BREBO decision recommendation and create an owned management action.'
+  restrict access: true
