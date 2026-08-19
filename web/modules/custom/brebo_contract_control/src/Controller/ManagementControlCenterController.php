@@ -9,6 +9,7 @@ use Drupal\brebo_contract_control\Service\ManagementActionSourceResolver;
 use Drupal\brebo_contract_control\Service\ManagementAttentionBriefService;
 use Drupal\brebo_contract_control\Service\ManagementControlCenterService;
 use Drupal\brebo_contract_control\Service\ManagementForecastIntelligenceService;
+use Drupal\brebo_contract_control\Service\ManagementScenarioIntelligenceService;
 use Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
@@ -25,6 +26,7 @@ final class ManagementControlCenterController extends ControllerBase {
     private readonly ManagementTrendIntelligenceService $trends,
     private readonly ManagementForecastIntelligenceService $forecast,
     private readonly ManagementAttentionBriefService $attentionBrief,
+    private readonly ManagementScenarioIntelligenceService $scenarios,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -35,6 +37,7 @@ final class ManagementControlCenterController extends ControllerBase {
       $container->get('brebo_contract_control.management_trends'),
       $container->get('brebo_contract_control.management_forecast'),
       $container->get('brebo_contract_control.management_attention_brief'),
+      $container->get('brebo_contract_control.management_scenarios'),
     );
   }
 
@@ -44,6 +47,7 @@ final class ManagementControlCenterController extends ControllerBase {
     $trend = $this->trends->compare($headline);
     $forecast = $this->forecast->forecast($headline, $trend, 21);
     $brief = $this->attentionBrief->build($headline, $forecast);
+    $scenarioData = $this->scenarios->scenarios($headline, $forecast);
     $this->trends->record($headline);
     $metrics = (array) ($trend['metrics'] ?? []);
     $forecastMetrics = (array) ($forecast['metrics'] ?? []);
@@ -80,6 +84,19 @@ final class ManagementControlCenterController extends ControllerBase {
       $briefLink = Link::fromTextAndUrl('Open prioriteitsacties', Url::fromRoute('brebo_contract_control.management_actions', ['action_key' => (string) $brief['priority_action_key']]))->toString();
     }
 
+    $scenarioRows = [];
+    foreach ((array) ($scenarioData['scenarios'] ?? []) as $scenario) {
+      $projected = (array) ($scenario['projected'] ?? []);
+      $scenarioRows[] = [
+        (string) ($scenario['title'] ?? ''),
+        (string) ($scenario['impact_score'] ?? 0),
+        'EUR ' . number_format((float) ($projected['blocked_payment_value'] ?? 0), 0, ',', '.'),
+        number_format((float) ($projected['overdue_contract_obligations'] ?? 0), 0, ',', '.'),
+        number_format((float) ($projected['critical_controller_cases'] ?? 0), 0, ',', '.'),
+        implode(' ', array_map('strval', (array) ($scenario['assumptions'] ?? []))),
+      ];
+    }
+
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-management-control-center']],
@@ -98,6 +115,13 @@ final class ManagementControlCenterController extends ControllerBase {
       ],
       'trend_notice' => ['#markup' => !($trend['available'] ?? FALSE) ? '<div class="brebo-control-muted">Trendvergelijking en forecast starten zodra een snapshot van de vorige maand beschikbaar is.</div>' : ''],
       'cards' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-kpi-grid']], 'items' => $cardItems],
+      'scenario_section' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-control-section']],
+        'title' => ['#markup' => '<h2>What-if scenario’s</h2><p>Vergelijk niets doen met mogelijke interventies. Confidence: ' . htmlspecialchars((string) ($scenarioData['confidence'] ?? 'n.v.t.')) . '.</p>'],
+        'table' => ['#type' => 'table', '#header' => ['Scenario', 'Impactscore', '21d blokkade', '21d verlopen', '21d kritieke dossiers', 'Aannames'], '#rows' => $scenarioRows, '#empty' => (string) ($scenarioData['message'] ?? 'Nog geen scenarioanalyse beschikbaar.')],
+        'governance' => ['#markup' => '<div class="brebo-control-muted">' . htmlspecialchars((string) ($scenarioData['governance'] ?? '')) . '</div>'],
+      ],
       'overdue_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Escalaties en verlopen acties</h2>'], 'table' => ['#type' => 'table', '#header' => ['Actie', 'Ernst', 'Eigenaar', 'Deadline', 'Escalatie'], '#rows' => $rows, '#empty' => 'Geen verlopen managementacties.']],
       'supplier_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Leveranciersrisico</h2>'], 'table' => ['#type' => 'table', '#header' => ['Leverancier', 'TCO-score'], '#rows' => $supplierRows, '#empty' => 'Geen leveranciers onder de risicodrempel.']],
       '#cache' => ['max-age' => 0],
