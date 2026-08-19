@@ -10,6 +10,12 @@ brebo_finance.command_center_api:
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
+brebo_finance.my_finance_actions_page:
+  path: '/brebo-office/finance/my-actions'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsPageController::page', _title: 'Mijn financiële acties' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
 brebo_finance.my_finance_actions:
   path: '/brebo-office/api/finance/my-actions'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\MyFinanceActionsController::view', _title: 'Mijn financiële acties' }
