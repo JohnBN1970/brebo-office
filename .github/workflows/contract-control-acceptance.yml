@@ -54,7 +54,7 @@ jobs:
           grep -q 'brebo_contract_control.management_control_center:' "$ROUTES"
           grep -q 'brebo_contract_control.management_recommendation_accept:' "$ROUTES"
           grep -q 'brebo_contract_control.management_recommendation_reject:' "$ROUTES"
-          grep -q 'management_decision_review' "$ROUTES"
+          grep -q 'brebo_contract_control.management_decision_outcome_review:' "$ROUTES"
           grep -q 'view brebo management control center:' "$PERMS"
           grep -q 'accept brebo management recommendation:' "$PERMS"
 
