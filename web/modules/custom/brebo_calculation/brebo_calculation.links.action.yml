@@ -1,0 +1,6 @@
+brebo_calculation.edit_calculation:
+  route_name: entity.node.edit_form
+  title: 'Bewerken'
+  appears_on:
+    - brebo_office_core.calculation_dashboard
+    - brebo_calculation.workbench
