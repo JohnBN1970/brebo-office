@@ -48,7 +48,7 @@ final class GlassPositionOverviewController extends ControllerBase {
 
   public function __construct(
     private readonly GlassPositionRepository $repository,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $glassEntityTypeManager,
     private readonly RequestStack $requestStack,
     private readonly GlassApprovalPolicy $approvalPolicy,
   ) {}
@@ -74,7 +74,7 @@ final class GlassPositionOverviewController extends ControllerBase {
 
     $positions = $this->repository->findAll($search, $status, $sort, $direction);
     $counts = $this->repository->countByStatus();
-    $storage = $this->entityTypeManager->getStorage('node');
+    $storage = $this->glassEntityTypeManager->getStorage('node');
 
     $nodeIds = [];
     foreach ($positions as $position) {
