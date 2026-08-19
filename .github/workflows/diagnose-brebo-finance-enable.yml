@@ -1,4 +1,4 @@
-name: Diagnose BREBO Finance Enable
+name: Diagnose BREBO Drupal Cache Rebuild
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   diagnose:
-    name: Diagnose brebo_finance installation on production
+    name: Diagnose Drupal cache rebuild on production
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -34,7 +34,7 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Run verbose brebo_finance enable diagnostic
+      - name: Run verbose Drupal cache rebuild diagnostic
         shell: bash
         run: |
           set -euo pipefail
@@ -47,24 +47,37 @@ jobs:
           remote_php="/opt/alt/php83/usr/bin/php"
           cd "$app"
 
-          echo "=== BREBO Finance diagnostic ==="
+          echo "=== BREBO Drupal cache rebuild diagnostic ==="
           echo "APP_ROOT=$app"
           "$remote_php" -v
 
-          drush=("$remote_php" -d display_errors=1 -d error_reporting=E_ALL -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          drush=("$remote_php" -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -d log_errors=1 -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          echo "=== Current module status ==="
-          "${drush[@]}" pm:list --type=module --status=enabled,disabled --filter=brebo_finance -vvv 2>&1 || true
+          echo "=== Drupal status before cache rebuild ==="
+          "${drush[@]}" status -vvv 2>&1 || true
 
-          echo "=== Attempting brebo_finance enable with full verbosity ==="
+          echo "=== Running cache rebuild with full verbosity ==="
           set +e
-          "${drush[@]}" pm:enable brebo_finance -y -vvv 2>&1
+          "${drush[@]}" cr -vvv 2>&1
           status=$?
           set -e
 
-          echo "BREBO_FINANCE_ENABLE_EXIT_CODE=$status"
+          echo "DRUPAL_CACHE_REBUILD_EXIT_CODE=$status"
+
           echo "=== Recent Drupal log entries ==="
-          "${drush[@]}" watchdog:show --count=50 --extended 2>&1 || true
+          "${drush[@]}" watchdog:show --count=100 --extended 2>&1 || true
+
+          echo "=== Recent PHP / web error logs when available ==="
+          for log in \
+            "$HOME/domains/brebobv.nl/logs/error.log" \
+            "$HOME/domains/brebobv.nl/logs/php_error.log" \
+            "$app/error_log" \
+            "$app/web/error_log"; do
+            if [[ -f "$log" ]]; then
+              echo "--- $log ---"
+              tail -n 100 "$log" 2>&1 || true
+            fi
+          done
 
           exit "$status"
           REMOTE
