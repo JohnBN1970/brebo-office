@@ -47,6 +47,9 @@ services:
   brebo_finance.performance_receipt_manager:
     class: Drupal\brebo_finance\Service\PerformanceReceiptManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer', '@brebo_finance.performance_evidence_review_manager', '@brebo_finance.performance_evidence_requirement_resolver', '@brebo_finance.performance_location_manager']
+  brebo_finance.invoice_performance_blocker_resolver:
+    class: Drupal\brebo_finance\Service\InvoicePerformanceBlockerResolver
+    arguments: ['@database']
   brebo_finance.budget_mutation_manager:
     class: Drupal\brebo_finance\Service\BudgetMutationManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
