@@ -42,7 +42,7 @@ jobs:
         run: |
           set -euo pipefail
           python - <<'PY'
-          import pathlib, sys, yaml
+          import pathlib, yaml
           roots = [pathlib.Path('web/modules/custom/brebo_finance'), pathlib.Path('web/modules/custom/brebo_building_data')]
           for root in roots:
               for path in root.rglob('*.yml'):
@@ -73,7 +73,9 @@ jobs:
           set -euo pipefail
           grep -q "building_nid" web/modules/custom/brebo_finance/src/Controller/PerformanceReceiptController.php
           grep -q "object_id" web/modules/custom/brebo_finance/src/Controller/PerformanceReceiptController.php
-          grep -q 'performanceLocation' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q 'PerformanceLocationManager' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q '\$this->locations->attach' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q '\$this->locations->forReceipt' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
           grep -q 'building_nid' web/modules/custom/brebo_finance/js/project-finance-detail.js
           grep -q 'object_id' web/modules/custom/brebo_finance/js/project-finance-detail.js
 
