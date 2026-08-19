@@ -10,7 +10,7 @@ BREBO Office gebruikt één centrale, controleerbare productiedeployketen. Modul
 
 featurebranch → pull request → CI/acceptance groen → merge naar `develop` → centrale GitHub Actions productiedeploy → Hostinger → Drupal database-updates → cache rebuild → live smoketest.
 
-De centrale workflow is `.github/workflows/deploy-sboffice-production.yml`.
+De enige centrale productieworkflow is `.github/workflows/sboffice-deploy-develop.yml` met workflownaam **Deploy BREBO Office Production**.
 
 Een wijziging geldt pas als afgerond wanneer alle relevante stappen groen zijn:
 
@@ -36,7 +36,7 @@ Bekende serverpaden:
 - applicatie: `~/domains/brebobv.nl/public_html/sboffice_app`
 - publieke BREBO Office-koppeling: `~/domains/brebobv.nl/public_html/sboffice`
 
-De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` is de referentie voor SSH-configuratie, Hostinger-connectiviteit en deze paden.
+De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` blijft uitsluitend een reparatie-/diagnosehulpmiddel voor de webroot en is geen alternatieve normale deployroute.
 
 ## Regels voor alle BREBO Office-ontwikkeling
 
@@ -46,14 +46,13 @@ De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` is de refe
 - Module-specifieke acceptance gates mogen bestaan en voeden de centrale releasebeslissing.
 - Productiedeploys moeten reproduceerbaar en via GitHub Actions gelogd zijn.
 - `drush updb -y` en `drush cr` behoren tot de centrale releaseprocedure.
-- Na deploy worden kritieke live routes gecontroleerd; minimaal de BREBO Office-home en relevante gewijzigde modulepagina's.
+- Na deploy worden kritieke live routes gecontroleerd; minimaal BREBO Office login/home en relevante gewijzigde modulepagina's.
 - Een mislukte database-update, cache rebuild of smoketest maakt de deployment rood.
 - Secrets worden uitsluitend via GitHub Secrets gebruikt en nooit in repositorybestanden opgeslagen.
+- De centrale workflow bewaart runtime `settings.php` en `services.yml`, gebruikt een deployment archive en exporteert na een geslaagde release de actieve Drupal-configuratie als artifact.
 
 ## Architectuurprincipe
 
 Git is de bron voor applicatiecode; `develop` is de integratiebasis voor productie-uitrol. Hostinger is een deployment target en geen alternatieve bron van waarheid voor applicatiecode.
 
 Dit principe geldt BREBO-breed voor alle huidige en toekomstige BREBO Office-modules.
-
-Bootstrapnotitie: deze wijziging is uitsluitend bedoeld om de centrale productie-deployworkflow voor het eerst via de normale PR → `develop` keten te activeren.
