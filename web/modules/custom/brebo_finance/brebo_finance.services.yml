@@ -61,7 +61,7 @@ services:
     arguments: ['@database']
   brebo_finance.personal_work_queue:
     class: Drupal\brebo_finance\Service\PersonalWorkQueue
-    arguments: ['@brebo_finance.invoice_blocker_action_manager']
+    arguments: ['@brebo_finance.invoice_blocker_action_manager', '@brebo_calculation.work_assignment_manager']
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
