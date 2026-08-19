@@ -47,21 +47,27 @@ jobs:
           grep -q 'DEPLOY_PORT:.*secrets.DEPLOY_PORT' "$f"
           grep -q 'DEPLOY_USER:.*secrets.DEPLOY_USER' "$f"
           grep -q 'DEPLOY_SSH_KEY:.*secrets.DEPLOY_SSH_KEY' "$f"
-          grep -q 'sboffice_app' "$f"
           grep -q 'public_html/sboffice"' "$f"
-          grep -q 'Public BREBO Office path must be a symlink' "$f"
+          grep -q 'webroot="$app/web"' "$f"
+          grep -q 'settings="$webroot/sites/default/settings.php"' "$f"
+          grep -q 'Drupal webroot missing or invalid' "$f"
           grep -q 'updb -y --no-cache-clear' "$f"
           grep -q 'CACHE_REBUILD_OK=1' "$f"
-          grep -q 'FINANCE_BUILDING_RUNTIME_OK=1' "$f"
+          grep -q 'BREBO_RUNTIME_OK=1' "$f"
           grep -q 'PUBLIC_LOGIN_OK=1' "$f"
           grep -q 'FINANCE_HTTP_SMOKE_OK' "$f"
+          grep -q 'CONTROL_CENTER_HTTP_SMOKE_OK' "$f"
           grep -q 'DEPLOY_OK=1' "$f"
-          if grep -q 'DEPLOY_HOST: 77\.' "$f"; then
-            echo '::error::DEPLOY_HOST must not be hardcoded.'
+          if grep -q 'sboffice_app' "$f"; then
+            echo '::error::Legacy sboffice_app path must not be used.'
             exit 1
           fi
-          if grep -q "target=\"public_html/sboffice\"" "$f"; then
-            echo '::error::Public path must not be the application deployment target.'
+          if grep -q 'must be a symlink' "$f"; then
+            echo '::error::Current production layout must not require a symlink.'
+            exit 1
+          fi
+          if grep -q 'DEPLOY_HOST: 77\.' "$f"; then
+            echo '::error::DEPLOY_HOST must not be hardcoded.'
             exit 1
           fi
           echo 'BREBO_DEPLOY_PRINCIPLE=PASS'
