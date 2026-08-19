@@ -1,0 +1,70 @@
+name: Diagnose BREBO Finance Enable
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Diagnose brebo_finance installation on production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Run verbose brebo_finance enable diagnostic
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -uo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+
+          echo "=== BREBO Finance diagnostic ==="
+          echo "APP_ROOT=$app"
+          "$remote_php" -v
+
+          drush=("$remote_php" -d display_errors=1 -d error_reporting=E_ALL -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== Current module status ==="
+          "${drush[@]}" pm:list --type=module --status=enabled,disabled --filter=brebo_finance -vvv 2>&1 || true
+
+          echo "=== Attempting brebo_finance enable with full verbosity ==="
+          set +e
+          "${drush[@]}" pm:enable brebo_finance -y -vvv 2>&1
+          status=$?
+          set -e
+
+          echo "BREBO_FINANCE_ENABLE_EXIT_CODE=$status"
+          echo "=== Recent Drupal log entries ==="
+          "${drush[@]}" watchdog:show --count=50 --extended 2>&1 || true
+
+          exit "$status"
+          REMOTE
