@@ -1,6 +1,15 @@
 (function (Drupal, once) {
   'use strict';
 
+  function escapeHtml(value) {
+    return String(value || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
   function label(status) {
     if (status === 'ready') return 'Gereed voor offerte';
     if (status === 'review') return 'Controle nodig';
@@ -17,14 +26,16 @@
     var existing = workbench.querySelector('.brebo-calc-readiness');
     if (existing) existing.remove();
 
+    var status = ['ready', 'review', 'blocked'].indexOf(data.status) !== -1 ? data.status : 'review';
     var section = document.createElement('section');
-    section.className = 'brebo-calc-readiness is-' + data.status;
-    section.setAttribute('data-readiness-status', data.status);
+    section.className = 'brebo-calc-readiness is-' + status;
+    section.setAttribute('data-readiness-status', status);
 
     var checks = Array.isArray(data.checks) ? data.checks : [];
     var visibleChecks = checks.slice(0, 8);
     var list = visibleChecks.map(function (check) {
-      return '<li class="is-' + check.level + '"><span>' + (check.level === 'error' ? '✕' : '⚠') + '</span><span>' + Drupal.checkPlain(check.label || 'Controlepunt') + '</span></li>';
+      var level = check.level === 'error' ? 'error' : 'warning';
+      return '<li class="is-' + level + '"><span>' + (level === 'error' ? '✕' : '⚠') + '</span><span>' + escapeHtml(check.label || 'Controlepunt') + '</span></li>';
     }).join('');
 
     var extra = checks.length > visibleChecks.length
@@ -34,8 +45,8 @@
     section.innerHTML =
       '<div class="brebo-calc-readiness__summary">' +
         '<div class="brebo-calc-readiness__status">' +
-          '<span class="brebo-calc-readiness__icon">' + icon(data.status) + '</span>' +
-          '<div><small>Calculatiecontrole</small><strong>' + label(data.status) + '</strong></div>' +
+          '<span class="brebo-calc-readiness__icon">' + icon(status) + '</span>' +
+          '<div><small>Calculatiecontrole</small><strong>' + label(status) + '</strong></div>' +
         '</div>' +
         '<div class="brebo-calc-readiness__counts">' +
           '<span><strong>' + Number(data.blocking || 0) + '</strong> blokkades</span>' +
