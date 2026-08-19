@@ -15,12 +15,25 @@ final class PortfolioControlService {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly ProjectEarlyWarningService $earlyWarning,
+    private readonly ?ProjectEarlyWarningService $earlyWarning,
     private readonly ControlHistoryService $history,
   ) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
+    if ($this->earlyWarning === NULL) {
+      return [
+        'project_count' => 0,
+        'critical_or_high' => 0,
+        'deteriorating' => 0,
+        'portfolio_expected_result' => 0.0,
+        'total_exposure_score' => 0.0,
+        'top_risk_projects' => [],
+        'projects_covering_80_pct_risk' => [],
+        'projects' => [],
+      ];
+    }
+
     $storage = $this->entityTypeManager->getStorage('node');
     $ids = $storage->getQuery()->accessCheck(FALSE)
       ->condition('type', 'brebo_project')
