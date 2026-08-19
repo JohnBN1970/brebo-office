@@ -53,6 +53,9 @@ services:
   brebo_contract_control.management_forecast:
     class: Drupal\brebo_contract_control\Service\ManagementForecastIntelligenceService
 
+  brebo_contract_control.management_attention_brief:
+    class: Drupal\brebo_contract_control\Service\ManagementAttentionBriefService
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
