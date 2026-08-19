@@ -1,0 +1,6 @@
+.brebo-calc-block--draggable { cursor: grab; }
+.brebo-calc-block--draggable:active { cursor: grabbing; }
+.brebo-calc-block--draggable.is-dragging { opacity: .45; }
+.brebo-calc-block--draggable.is-drag-target { outline: 2px dashed currentColor; outline-offset: -2px; }
+.brebo-calc-block-order-help { margin: .5rem 0 1rem; font-size: .9rem; opacity: .78; }
+.brebo-calc-block-order-save { display: none; }
