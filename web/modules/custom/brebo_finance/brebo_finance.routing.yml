@@ -22,6 +22,12 @@ brebo_finance.project_ledger:
   requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
   methods: [GET]
   options: { no_cache: TRUE }
+brebo_finance.performance_evidence_requirements:
+  path: '/brebo-office/api/finance/performance-evidence-requirements'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceRequirementController::view', _title: 'Vereist prestatiebewijs' }
+  requirements: { _permission: 'manage brebo procurement' }
+  methods: [GET]
+  options: { no_cache: TRUE }
 brebo_finance.performance_evidence_upload:
   path: '/brebo-office/api/finance/performance-evidence'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceUploadController::upload', _title: 'Prestatiebewijs uploaden' }
