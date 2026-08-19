@@ -43,6 +43,12 @@ services:
       - '@database'
       - '@entity_type.manager'
 
+  brebo_calculation.block_order_manager:
+    class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
