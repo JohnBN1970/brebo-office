@@ -34,6 +34,18 @@ brebo_finance.performance_evidence_view:
   requirements: { _permission: 'access brebo finance', fid: '\d+' }
   methods: [GET]
   options: { no_cache: TRUE }
+brebo_finance.performance_evidence_review_summary:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/evidence-reviews'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceReviewController::summary', _title: 'Bewijsbeoordelingen' }
+  requirements: { _permission: 'access brebo finance', receipt_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_review:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/evidence-reviews'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceReviewController::review', _title: 'Bewijs beoordelen' }
+  requirements: { _permission: 'approve brebo finance', receipt_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
 brebo_finance.performance_receipt_submit:
   path: '/brebo-office/api/finance/performance-receipts'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceReceiptController::submit', _title: 'Prestatie registreren' }
