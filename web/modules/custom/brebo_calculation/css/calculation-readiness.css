@@ -1,0 +1,57 @@
+.brebo-calc-readiness {
+  margin: 14px 0 18px;
+  padding: 16px 18px;
+  border: 1px solid #d7dde5;
+  border-left-width: 5px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.brebo-calc-readiness.is-ready { border-left-color: #168a45; }
+.brebo-calc-readiness.is-review { border-left-color: #c98200; }
+.brebo-calc-readiness.is-blocked { border-left-color: #c53030; }
+
+.brebo-calc-readiness__summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brebo-calc-readiness__status {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brebo-calc-readiness__status small,
+.brebo-calc-readiness__status strong {
+  display: block;
+}
+
+.brebo-calc-readiness__status strong { font-size: 1.1rem; }
+.brebo-calc-readiness__icon { font-size: 1.5rem; font-weight: 700; }
+
+.brebo-calc-readiness__counts {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.brebo-calc-readiness__counts span {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: #f3f5f7;
+  font-size: .9rem;
+}
+
+.brebo-calc-readiness__details { margin-top: 12px; }
+.brebo-calc-readiness__details ul { margin: 10px 0 0; padding-left: 0; list-style: none; }
+.brebo-calc-readiness__details li { display: flex; gap: 8px; padding: 4px 0; }
+.brebo-calc-readiness__details li.is-error { font-weight: 700; }
+.brebo-calc-readiness__clean { margin: 10px 0 0; }
+.brebo-calc-readiness__more { opacity: .72; }
+
+@media (max-width: 720px) {
+  .brebo-calc-readiness__summary { align-items: flex-start; flex-direction: column; }
+}
