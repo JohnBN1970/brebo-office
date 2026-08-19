@@ -28,6 +28,12 @@ brebo_finance.invoice_blocker_actions:
   requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
   methods: [GET]
   options: { no_cache: TRUE }
+brebo_finance.invoice_blocker_action_owners:
+  path: '/brebo-office/api/finance/invoice-blocker-action-owners'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\InvoiceBlockerActionController::owners', _title: 'Factuurblokkade verantwoordelijken' }
+  requirements: { _permission: 'approve brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
 brebo_finance.invoice_blocker_action_save:
   path: '/brebo-office/api/finance/projects/{project_nid}/invoice-lines/{invoice_line_id}/blocker-action'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\InvoiceBlockerActionController::save', _title: 'Factuurblokkade actie opslaan' }
