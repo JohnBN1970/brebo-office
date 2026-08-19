@@ -1,0 +1,76 @@
+<?php
+
+declare(strict_types=1);
+
+/** Implements hook_schema(). */
+function brebo_procurement_control_schema(): array {
+  $schema['brebo_procurement_decision'] = [
+    'description' => 'Audit trail voor economische leverancierskeuzes en afwijkingen.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'procurement_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE], 'selected_supplier' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'recommended_supplier' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'selected_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'recommended_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE], 'economic_delta' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'decision_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'deviation_reason' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'deviation_impact' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'not null' => FALSE], 'decided_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'], 'indexes' => ['project_ref' => ['project_nid', 'procurement_ref'], 'decision_status' => ['decision_status'], 'selected_supplier' => ['selected_supplier']],
+  ];
+  $schema['brebo_procurement_outcome'] = [
+    'description' => 'Nacalculatie van inkoopbeslissingen voor mens-versus-model leren.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'actual_purchase_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE], 'actual_failure_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_delay_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0], 'actual_warranty_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0],
+      'actual_other_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0], 'actual_economic_cost' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE],
+      'model_error' => ['type' => 'numeric', 'precision' => 16, 'scale' => 2, 'not null' => TRUE, 'default' => 0], 'outcome' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'assessment' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE], 'recorded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'recorded_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'], 'unique keys' => ['decision_id' => ['decision_id']], 'indexes' => ['outcome' => ['outcome']],
+  ];
+  $schema['brebo_procurement_model_review'] = [
+    'description' => 'Geversioneerde, vier-ogen modelparameterreviews.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'from_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'to_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'changes_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'reason' => ['type' => 'text', 'size' => 'normal', 'not null' => TRUE], 'evidence_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 40, 'not null' => TRUE], 'proposed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'proposed_at' => ['type' => 'int', 'not null' => TRUE],
+      'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'approved_at' => ['type' => 'int', 'not null' => FALSE], 'approval_note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'], 'indexes' => ['status' => ['status'], 'version' => ['to_version']],
+  ];
+  $schema['brebo_procurement_decision_context'] = [
+    'description' => 'Contextsnapshot op het moment van een inkoopbeslissing.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'context_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE], 'captured_at' => ['type' => 'int', 'not null' => TRUE],
+    ],
+    'primary key' => ['id'], 'unique keys' => ['decision_id' => ['decision_id']],
+  ];
+  $schema['brebo_procurement_award'] = [
+    'description' => 'Definitieve opdrachtverstrekking na alle inkoopcontroles.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'decision_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'procurement_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'requested_mode' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'required_mode' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'reviewed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'awarded_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'awarded_at' => ['type' => 'int', 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'awarded'],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['decision_id' => ['decision_id']],
+    'indexes' => ['project_ref' => ['project_nid', 'procurement_ref'], 'supplier' => ['supplier_name']],
+  ];
+  return $schema;
+}
+
+function brebo_procurement_control_update_10001(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_outcome')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_outcome', $d['brebo_procurement_outcome']); } }
+function brebo_procurement_control_update_10002(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_model_review')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_model_review', $d['brebo_procurement_model_review']); } }
+function brebo_procurement_control_update_10003(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_decision_context')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_decision_context', $d['brebo_procurement_decision_context']); } }
+/** Add final procurement award audit trail. */
+function brebo_procurement_control_update_10004(): void { $schema = \Drupal::database()->schema(); if (!$schema->tableExists('brebo_procurement_award')) { $d = brebo_procurement_control_schema(); $schema->createTable('brebo_procurement_award', $d['brebo_procurement_award']); } }

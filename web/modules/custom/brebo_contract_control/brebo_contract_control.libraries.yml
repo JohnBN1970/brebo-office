@@ -1,0 +1,5 @@
+management_control_center:
+  version: 1.x
+  css:
+    theme:
+      css/management-control-center.css: {}
