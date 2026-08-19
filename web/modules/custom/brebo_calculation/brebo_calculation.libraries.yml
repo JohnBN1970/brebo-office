@@ -1,15 +1,17 @@
 workbench:
-  version: 1.3
+  version: 1.4
   css:
     theme:
       css/calculation-workbench.css: {}
       css/calculation-onboarding.css: {}
       css/calculation-readiness.css: {}
+      css/calculation-block-order.css: {}
   js:
     js/calculation-workbench.js: {}
     js/calculation-create.js: {}
     js/recipe-instance-links.js: {}
     js/calculation-readiness.js: {}
+    js/calculation-block-order.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
