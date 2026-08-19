@@ -1,0 +1,89 @@
+name: Finance and building acceptance
+
+on:
+  pull_request:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_finance/**'
+      - 'web/modules/custom/brebo_building_data/**'
+      - '.github/workflows/finance-building-acceptance.yml'
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_finance/**'
+      - 'web/modules/custom/brebo_building_data/**'
+      - '.github/workflows/finance-building-acceptance.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Lint Finance PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          find web/modules/custom/brebo_finance -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Lint building data PHP
+        shell: bash
+        run: |
+          set -euo pipefail
+          find web/modules/custom/brebo_building_data -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Validate YAML syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import pathlib, yaml
+          roots = [pathlib.Path('web/modules/custom/brebo_finance'), pathlib.Path('web/modules/custom/brebo_building_data')]
+          for root in roots:
+              for path in root.rglob('*.yml'):
+                  with path.open('r', encoding='utf-8') as fh:
+                      yaml.safe_load(fh)
+                  print(f'YAML OK: {path}')
+          PY
+
+      - name: Verify Finance to building dependency
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'brebo_building_data:brebo_building_data' web/modules/custom/brebo_finance/brebo_finance.info.yml
+          grep -q 'brebo_finance.performance_location_manager' web/modules/custom/brebo_finance/brebo_finance.services.yml
+          grep -q 'brebo_building_data.project_building_repository' web/modules/custom/brebo_building_data/brebo_building_data.services.yml
+          grep -q 'brebo_building_data.object_repository' web/modules/custom/brebo_building_data/brebo_building_data.services.yml
+
+      - name: Verify project building and object API routes
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q '/brebo-office/api/projects/{project_nid}/buildings' web/modules/custom/brebo_building_data/brebo_building_data.routing.yml
+          grep -q '/brebo-office/api/buildings/{building_nid}/objects' web/modules/custom/brebo_building_data/brebo_building_data.routing.yml
+
+      - name: Verify performance location enforcement
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q "building_nid" web/modules/custom/brebo_finance/src/Controller/PerformanceReceiptController.php
+          grep -q "object_id" web/modules/custom/brebo_finance/src/Controller/PerformanceReceiptController.php
+          grep -q 'PerformanceLocationManager' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q '\$this->locations->attach' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q '\$this->locations->forReceipt' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q 'building_nid' web/modules/custom/brebo_finance/js/project-finance-detail.js
+          grep -q 'object_id' web/modules/custom/brebo_finance/js/project-finance-detail.js
+
+      - name: Verify evidence and phase-gate controls
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'PerformanceEvidenceRequirementResolver' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q 'PerformanceEvidenceReviewManager' web/modules/custom/brebo_finance/src/Service/PerformanceReceiptManager.php
+          grep -q 'FIN-EUROTRACE' web/modules/custom/brebo_finance/src/Service/FinancialPhaseGateManager.php
+          echo 'FINANCE_BUILDING_ACCEPTANCE=PASS'

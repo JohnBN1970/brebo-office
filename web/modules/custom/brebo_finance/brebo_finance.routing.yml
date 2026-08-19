@@ -1,0 +1,120 @@
+brebo_finance.command_center_page:
+  path: '/brebo-office/finance'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::page', _title: 'Financieel Command Center' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.command_center_api:
+  path: '/brebo-office/api/finance/command-center'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::api', _title: 'BREBO Financieel Command Center API' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.project_finance_page:
+  path: '/brebo-office/finance/projects/{project_nid}'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialProjectPageController::page', _title: 'Projectfinanciën' }
+  requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.project_ledger:
+  path: '/brebo-office/api/finance/projects/{project_nid}/ledger'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialProjectLedgerController::view', _title: 'Project financieel grootboek' }
+  requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_requirements:
+  path: '/brebo-office/api/finance/performance-evidence-requirements'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceRequirementController::view', _title: 'Vereist prestatiebewijs' }
+  requirements: { _permission: 'manage brebo procurement' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_upload:
+  path: '/brebo-office/api/finance/performance-evidence'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceUploadController::upload', _title: 'Prestatiebewijs uploaden' }
+  requirements: { _permission: 'manage brebo procurement' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_view:
+  path: '/brebo-office/finance/performance-evidence/{fid}'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceViewController::view', _title: 'Prestatiebewijs' }
+  requirements: { _permission: 'access brebo finance', fid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_review_summary:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/evidence-reviews'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceReviewController::summary', _title: 'Bewijsbeoordelingen' }
+  requirements: { _permission: 'access brebo finance', receipt_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.performance_evidence_review:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/evidence-reviews'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceEvidenceReviewController::review', _title: 'Bewijs beoordelen' }
+  requirements: { _permission: 'approve brebo finance', receipt_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.performance_receipt_submit:
+  path: '/brebo-office/api/finance/performance-receipts'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceReceiptController::submit', _title: 'Prestatie registreren' }
+  requirements: { _permission: 'manage brebo procurement' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.performance_receipt_verify:
+  path: '/brebo-office/api/finance/performance-receipts/{receipt_id}/verification'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PerformanceReceiptController::verify', _title: 'Prestatie verifiëren' }
+  requirements: { _permission: 'approve brebo finance', receipt_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.euro_trace:
+  path: '/brebo-office/api/finance/trace/{entity_type}/{entity_id}'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialEuroTraceController::view', _title: 'Financiële eurotrace' }
+  requirements: { _permission: 'access brebo finance', entity_type: 'commitment|purchase_invoice|payment_release', entity_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.project_cockpit:
+  path: '/brebo-office/api/finance/projects/{projectNid}/cockpit'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCockpitController::view', _title: 'BREBO financiële projectcockpit' }
+  requirements: { _permission: 'access brebo finance', projectNid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.phase_gates:
+  path: '/brebo-office/api/finance/projects/{project_nid}/phase-gates'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateController::overview', _title: 'BREBO financiële fasepoorten' }
+  requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.financial_decision_page:
+  path: '/brebo-office/finance/decision-inbox'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialDecisionPageController::page', _title: 'Financiële beslisinbox' }
+  requirements: { _permission: 'approve brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.financial_decision_inbox:
+  path: '/brebo-office/api/finance/decision-inbox'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialDecisionInboxController::view', _title: 'BREBO financiële beslisinbox' }
+  requirements: { _permission: 'approve brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.notifications:
+  path: '/brebo-office/api/finance/notifications'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialNotificationController::inbox', _title: 'BREBO financiële meldingen' }
+  requirements: { _permission: 'approve brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+brebo_finance.notification_read:
+  path: '/brebo-office/api/finance/notifications/{notification_id}/read'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialNotificationController::markRead', _title: 'BREBO financiële melding gelezen' }
+  requirements: { _permission: 'approve brebo finance', notification_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.phase_gate_exception_request:
+  path: '/brebo-office/api/finance/projects/{project_nid}/phase-gates/{gate}/exceptions'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::requestException', _title: 'Fasepoortuitzondering aanvragen' }
+  requirements: { _permission: 'request brebo finance gate exception', project_nid: '\d+', gate: 'procurement_release|execution_start|billing_release|payment_release|project_closeout' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+brebo_finance.phase_gate_exception_decide:
+  path: '/brebo-office/api/finance/phase-gate-exceptions/{exception_id}/decision'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialPhaseGateExceptionController::decide', _title: 'Fasepoortuitzondering beoordelen' }
+  requirements: { _permission: 'approve brebo finance', exception_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }

@@ -1,0 +1,45 @@
+decision_inbox:
+  version: 1.x
+  css:
+    component:
+      css/decision-inbox.css: {}
+  js:
+    js/decision-inbox.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+
+notification_bell:
+  version: 1.x
+  css:
+    component:
+      css/notification-bell.css: {}
+  js:
+    js/notification-bell.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+    - core/drupalSettings
+
+command_center:
+  version: 1.x
+  css:
+    component:
+      css/command-center.css: {}
+  js:
+    js/command-center.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
+project_finance_detail:
+  version: 1.x
+  css:
+    component:
+      css/project-finance-detail.css: {}
+  js:
+    js/project-finance-detail.js: {}
+  dependencies:
+    - core/drupal
+    - core/once

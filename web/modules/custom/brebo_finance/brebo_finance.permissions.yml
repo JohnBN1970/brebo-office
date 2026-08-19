@@ -1,0 +1,68 @@
+access brebo finance:
+  title: 'BREBO Finance bekijken'
+  description: 'Financiële projectinformatie en gebouwallocaties bekijken.'
+
+manage brebo finance:
+  title: 'BREBO Finance beheren'
+  description: 'Budgetten, prognoses en financiële mutaties beheren.'
+  restrict access: true
+
+manage brebo procurement:
+  title: 'BREBO Inkoop beheren'
+  description: 'Inkoopverplichtingen en gebouwallocaties beheren.'
+  restrict access: true
+
+approve brebo finance:
+  title: 'BREBO financiële wijzigingen goedkeuren'
+  description: 'Budgetversies, verplichtingen en afwijkingen goedkeuren.'
+  restrict access: true
+
+approve brebo finance elevated:
+  title: 'BREBO verhoogde financiële procuratie'
+  description: 'Financiële fasepoortbesluiten binnen het verhoogde procuratieniveau goedkeuren.'
+  restrict access: true
+
+approve brebo finance executive:
+  title: 'BREBO directie financiële procuratie'
+  description: 'Financiële fasepoortbesluiten op directieniveau en besluiten met onvolledige exposure goedkeuren.'
+  restrict access: true
+
+review brebo finance ai:
+  title: 'BREBO financiële AI-beoordelingen reviewen'
+  description: 'AI-analyses accepteren, afwijzen of omzetten naar een controlebevinding.'
+  restrict access: true
+
+manage brebo finance controls:
+  title: 'BREBO financiële controleacties beheren'
+  description: 'Controlebevindingen toewijzen, oplossingen indienen en volgens het vierogenprincipe verifiëren.'
+  restrict access: true
+
+request brebo finance gate exception:
+  title: 'BREBO fasepoortuitzondering aanvragen'
+  description: 'Een tijdelijke, onderbouwde uitzondering op een financiële fasepoort aanvragen.'
+  restrict access: true
+
+approve brebo procurement gate exception:
+  title: 'BREBO inkooppoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële inkoopvrijgave beoordelen.'
+  restrict access: true
+
+approve brebo execution gate exception:
+  title: 'BREBO uitvoeringspoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële start-uitvoeringpoort beoordelen.'
+  restrict access: true
+
+approve brebo billing gate exception:
+  title: 'BREBO facturatiepoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële facturatievrijgave beoordelen.'
+  restrict access: true
+
+approve brebo payment gate exception:
+  title: 'BREBO betaalpoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële betaalvrijgave beoordelen.'
+  restrict access: true
+
+approve brebo closeout gate exception:
+  title: 'BREBO afsluitpoortuitzondering goedkeuren'
+  description: 'Uitzonderingen op de financiële projectafsluiting beoordelen.'
+  restrict access: true
