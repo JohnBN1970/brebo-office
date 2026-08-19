@@ -64,3 +64,34 @@ function brebo_calculation_post_update_create_recipe_domain(&$sandbox = NULL): s
     ? 'BREBO Calculation recipe domain created: ' . implode(', ', $created) . '.'
     : 'BREBO Calculation recipe domain already exists.';
 }
+
+/**
+ * Ensure the complete calculation domain schema exists on older installations.
+ *
+ * The module was already enabled on production before all domain tables were
+ * added to hook_schema(). Drupal does not create newly added hook_schema()
+ * tables for an already-installed module, so the workbench can otherwise fail
+ * before it can even show its migration/empty state.
+ */
+function brebo_calculation_post_update_ensure_complete_domain_schema(&$sandbox = NULL): string {
+  if (!function_exists('brebo_calculation_schema')) {
+    \Drupal::moduleHandler()->loadInclude('brebo_calculation', 'install');
+  }
+  if (!function_exists('brebo_calculation_schema')) {
+    throw new \RuntimeException('BREBO Calculation schema definition could not be loaded.');
+  }
+
+  $schema = \Drupal::database()->schema();
+  $created = [];
+  foreach (brebo_calculation_schema() as $table => $definition) {
+    if ($schema->tableExists($table)) {
+      continue;
+    }
+    $schema->createTable($table, $definition);
+    $created[] = $table;
+  }
+
+  return $created
+    ? 'BREBO Calculation complete domain schema repaired: ' . implode(', ', $created) . '.'
+    : 'BREBO Calculation complete domain schema already exists.';
+}
