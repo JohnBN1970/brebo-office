@@ -84,15 +84,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          check() {
+          check_home() {
             local url="$1"
             local status
-            status=$(curl -sS -L -o /tmp/brebo-smoke-body -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url")
+            status=$(curl -sS -L -o /tmp/brebo-smoke-home -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url")
             echo "$url -> HTTP $status"
-            [[ "$status" -ge 200 && "$status" -lt 500 ]]
+            [[ "$status" -ge 200 && "$status" -lt 400 ]]
           }
-          check 'https://sboffice.brebobv.nl/'
-          check 'https://sboffice.brebobv.nl/brebo/control-center'
+          check_route_exists() {
+            local url="$1"
+            local status
+            status=$(curl -sS -L -o /tmp/brebo-smoke-route -w '%{http_code}' --max-time 30 -H 'Cache-Control: no-cache' "$url")
+            echo "$url -> HTTP $status"
+            [[ "$status" -ne 404 && "$status" -lt 500 ]]
+          }
+          check_home 'https://sboffice.brebobv.nl/'
+          check_route_exists 'https://sboffice.brebobv.nl/brebo/control-center'
 
       - name: Deployment summary
         if: always()
