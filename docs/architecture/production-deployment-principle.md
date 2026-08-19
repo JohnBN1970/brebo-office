@@ -22,7 +22,7 @@ Een wijziging geldt pas als afgerond wanneer alle relevante stappen groen zijn:
 
 Bij een fout stopt de deployment. Automatische rollback wordt als volgende veiligheidslaag toegevoegd.
 
-## Bestaande Hostinger-infrastructuur
+## Huidige Hostinger-infrastructuur
 
 Gebruik de bestaande GitHub repository secrets:
 
@@ -31,12 +31,13 @@ Gebruik de bestaande GitHub repository secrets:
 - `DEPLOY_USER`
 - `DEPLOY_SSH_KEY`
 
-Bekende serverpaden:
+De actuele productie-layout is bewust zonder symlink:
 
-- applicatie: `~/domains/brebobv.nl/public_html/sboffice_app`
-- publieke BREBO Office-koppeling: `~/domains/brebobv.nl/public_html/sboffice`
+- Composer/applicatieroot: `~/domains/brebobv.nl/public_html/sboffice`
+- Drupal webroot: `~/domains/brebobv.nl/public_html/sboffice/web`
+- het publieke BREBO Office verkeer wordt door Hostinger naar deze `sboffice/web` webroot geleid.
 
-De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` blijft uitsluitend een reparatie-/diagnosehulpmiddel voor de webroot en is geen alternatieve normale deployroute.
+Het oude `sboffice_app`-pad en de oude symlink-architectuur zijn vervallen en mogen niet opnieuw als deployvoorwaarde worden geïntroduceerd.
 
 ## Regels voor alle BREBO Office-ontwikkeling
 
@@ -50,6 +51,7 @@ De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` blijft uit
 - Een mislukte database-update, cache rebuild of smoketest maakt de deployment rood.
 - Secrets worden uitsluitend via GitHub Secrets gebruikt en nooit in repositorybestanden opgeslagen.
 - De centrale workflow bewaart runtime `settings.php` en `services.yml`, gebruikt een deployment archive en exporteert na een geslaagde release de actieve Drupal-configuratie als artifact.
+- De centrale workflow controleert de echte `sboffice/web` webroot en niet een symlinkconstructie.
 
 ## Architectuurprincipe
 
