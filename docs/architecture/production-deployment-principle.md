@@ -10,6 +10,8 @@ BREBO Office gebruikt één centrale, controleerbare productiedeployketen. Modul
 
 featurebranch → pull request → CI/acceptance groen → merge naar `develop` → centrale GitHub Actions productiedeploy → Hostinger → Drupal database-updates → cache rebuild → live smoketest.
 
+De centrale workflow is `.github/workflows/deploy-sboffice-production.yml`.
+
 Een wijziging geldt pas als afgerond wanneer alle relevante stappen groen zijn:
 
 1. CI en acceptance checks;
