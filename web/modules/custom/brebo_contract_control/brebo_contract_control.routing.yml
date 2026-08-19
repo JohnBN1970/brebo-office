@@ -47,3 +47,11 @@ brebo_contract_control.management_recommendation_accept:
     _title: 'BREBO-advies accepteren'
   requirements:
     _permission: 'accept brebo management recommendation'
+
+brebo_contract_control.management_recommendation_reject:
+  path: '/brebo/control-center/recommendation/reject'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementRecommendationRejectForm'
+    _title: 'BREBO-advies afwijzen'
+  requirements:
+    _permission: 'accept brebo management recommendation'
