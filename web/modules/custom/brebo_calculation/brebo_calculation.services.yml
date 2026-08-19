@@ -82,3 +82,6 @@ services:
     class: Drupal\brebo_calculation\Service\RecipeMaterialSelector
     arguments:
       - '@database'
+
+  brebo_calculation.recipe_price_health_inspector:
+    class: Drupal\brebo_calculation\Service\RecipePriceHealthInspector
