@@ -59,6 +59,9 @@ services:
   brebo_contract_control.management_scenarios:
     class: Drupal\brebo_contract_control\Service\ManagementScenarioIntelligenceService
 
+  brebo_contract_control.management_decision_recommendation:
+    class: Drupal\brebo_contract_control\Service\ManagementDecisionRecommendationEngine
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
