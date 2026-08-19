@@ -1,0 +1,12 @@
+services:
+  brebo_procurement.request_manager:
+    class: Drupal\brebo_procurement\Service\ProcurementRequestManager
+    arguments: ['@database']
+
+  brebo_procurement.offer_manager:
+    class: Drupal\brebo_procurement\Service\ProcurementOfferManager
+    arguments: ['@database']
+
+  brebo_procurement.order_manager:
+    class: Drupal\brebo_procurement\Service\ProcurementOrderManager
+    arguments: ['@database', '@module_handler']

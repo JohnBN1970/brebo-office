@@ -17,6 +17,45 @@ services:
   brebo_glass.approval_policy:
     class: Drupal\brebo_glass\Service\GlassApprovalPolicy
 
+  brebo_glass.calculation_line_factory:
+    class: Drupal\brebo_glass\Service\GlassCalculationLineFactory
+    arguments: ['@brebo_calculation.norm_library']
+
+  brebo_glass.calculation_exporter:
+    class: Drupal\brebo_glass\Service\GlassCalculationExporter
+    arguments:
+      - '@brebo_glass.position_repository'
+      - '@brebo_glass.calculation_line_factory'
+      - '@brebo_calculation.object_line_writer'
+
+  brebo_glass.procurement_builder:
+    class: Drupal\brebo_glass\Service\GlassProcurementBuilder
+
+  brebo_glass.operational_risk_evaluator:
+    class: Drupal\brebo_glass\Service\GlassOperationalRiskEvaluator
+    arguments: ['@database']
+
+  brebo_glass.financial_impact_evaluator:
+    class: Drupal\brebo_glass\Service\GlassFinancialImpactEvaluator
+    arguments: ['@database', '@entity_type.manager']
+
+  brebo_glass.delay_cost_forecaster:
+    class: Drupal\brebo_glass\Service\GlassDelayCostForecaster
+    arguments: ['@brebo_glass.financial_impact_evaluator']
+
+  brebo_glass.risk_escalation_service:
+    class: Drupal\brebo_glass\Service\GlassRiskEscalationService
+    arguments:
+      - '@brebo_glass.operational_risk_evaluator'
+      - '@brebo_glass.delay_cost_forecaster'
+      - '@brebo_office_core.risk_escalation_manager'
+
+  brebo_glass.project_risk_aggregator:
+    class: Drupal\brebo_glass\Service\GlassProjectRiskAggregator
+    arguments:
+      - '@brebo_glass.operational_risk_evaluator'
+      - '@brebo_glass.financial_impact_evaluator'
+
   brebo_glass.position_repository:
     class: Drupal\brebo_glass\Service\GlassPositionRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@brebo_glass.approval_policy']

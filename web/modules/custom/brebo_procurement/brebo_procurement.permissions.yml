@@ -1,0 +1,18 @@
+view brebo procurement:
+  title: 'BREBO inkoop bekijken'
+
+create brebo procurement requests:
+  title: 'BREBO leveranciersaanvragen maken'
+  restrict access: true
+
+manage brebo procurement offers:
+  title: 'BREBO leveranciersoffertes beoordelen'
+  restrict access: true
+
+place brebo procurement orders:
+  title: 'BREBO bestellingen plaatsen'
+  restrict access: true
+
+receive brebo procurement orders:
+  title: 'BREBO leveringen ontvangen en controleren'
+  restrict access: true

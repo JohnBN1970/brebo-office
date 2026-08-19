@@ -23,6 +23,41 @@ brebo_glass.position_approve:
     _permission: 'approve brebo glass positions'
     position_id: '\d+'
 
+brebo_glass.position_to_calculation:
+  path: '/brebo/glas/{position_id}/calculatie'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassCalculationExportForm'
+    _title: 'Glaspositie naar calculatie'
+  requirements:
+    _permission: 'export brebo glass to calculation'
+    position_id: '\d+'
+
+brebo_glass.position_to_procurement:
+  path: '/brebo/glas/{position_id}/inkoopaanvraag'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProcurementRequestForm'
+    _title: 'Glas leveranciersaanvraag'
+  requirements:
+    _permission: 'create brebo procurement requests'
+    position_id: '\d+'
+
+brebo_glass.procurement_batch:
+  path: '/brebo/glas/inkoop/bundelen'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassProcurementBatchForm'
+    _title: 'Glasposities bundelen voor inkoop'
+  requirements:
+    _permission: 'create brebo procurement requests'
+
+brebo_glass.position_complete:
+  path: '/brebo/glas/{position_id}/gereedmelden'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassCompletionForm'
+    _title: 'Glaspositie gereedmelden'
+  requirements:
+    _permission: 'complete brebo glass positions'
+    position_id: '\d+'
+
 brebo_glass.product_overview:
   path: '/brebo/glas/producten'
   defaults:
@@ -47,3 +82,20 @@ brebo_glass.product_verify:
   requirements:
     _permission: 'verify brebo glass products'
     product_id: '\d+'
+
+brebo_glass.control_room:
+  path: '/regie/control-room'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\RiskControlRoomController::overview'
+    _title: 'BREBO Control Room'
+  requirements:
+    _permission: 'access content'
+
+brebo_glass.control_room_handle:
+  path: '/regie/control-room/{escalation_id}'
+  defaults:
+    _form: '\Drupal\brebo_office_core\Form\RiskEscalationResolveForm'
+    _title: 'Escalatie afhandelen'
+  requirements:
+    _permission: 'access content'
+    escalation_id: '\d+'

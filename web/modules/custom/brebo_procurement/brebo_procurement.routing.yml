@@ -1,0 +1,42 @@
+brebo_procurement.order_overview:
+  path: '/admin/brebo/procurement/orders'
+  defaults:
+    _controller: '\Drupal\brebo_procurement\Controller\ProcurementOrderOverviewController::overview'
+    _title: 'Inkoop en leveringsbewaking'
+  requirements:
+    _permission: 'view brebo procurement'
+  options:
+    _admin_route: true
+
+brebo_procurement.offer_workbench:
+  path: '/admin/brebo/procurement/{request_id}/offers'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementOfferWorkbenchForm'
+    _title: 'Leveranciersoffertes vergelijken'
+  requirements:
+    _permission: 'manage brebo procurement offers'
+    request_id: '\d+'
+  options:
+    _admin_route: true
+
+brebo_procurement.order_create:
+  path: '/admin/brebo/procurement/{request_id}/order'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementOrderCreateForm'
+    _title: 'Bestelling plaatsen'
+  requirements:
+    _permission: 'place brebo procurement orders'
+    request_id: '\d+'
+  options:
+    _admin_route: true
+
+brebo_procurement.order_receive:
+  path: '/admin/brebo/procurement/orders/{order_id}/receive'
+  defaults:
+    _form: '\Drupal\brebo_procurement\Form\ProcurementReceiptForm'
+    _title: 'Levering ontvangen'
+  requirements:
+    _permission: 'receive brebo procurement orders'
+    order_id: '\d+'
+  options:
+    _admin_route: true

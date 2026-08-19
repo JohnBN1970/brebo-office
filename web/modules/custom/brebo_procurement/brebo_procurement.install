@@ -1,0 +1,67 @@
+<?php
+
+declare(strict_types=1);
+
+/** Implements hook_schema(). */
+function brebo_procurement_schema(): array {
+  return [
+    'brebo_procurement_request' => [
+      'description' => 'Supplier requests created from BREBO domain demand.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'request_number' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
+        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'supplier_email' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+        'requested_delivery_date' => ['type' => 'varchar_ascii', 'length' => 10, 'not null' => FALSE],
+        'delivery_location' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'note' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['request_number' => ['request_number']],
+      'indexes' => ['project_status' => ['project_nid', 'status']],
+    ],
+    'brebo_procurement_request_line' => [
+      'description' => 'Traceable domain lines requested from suppliers.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'request_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'source_domain' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
+        'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+        'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'specification_json' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+        'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+        'calculation_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      ],
+      'primary key' => ['id'],
+      'indexes' => ['request' => ['request_id'], 'source' => ['source_domain', 'source_reference']],
+    ],
+    'brebo_procurement_order' => [
+      'description' => 'Approved supplier orders derived from requests and accepted price sources.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'order_number' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
+        'request_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'supplier_name' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'supplier_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+        'ordered_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'expected_delivery_date' => ['type' => 'varchar_ascii', 'length' => 10, 'not null' => FALSE],
+        'received_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['order_number' => ['order_number']],
+      'indexes' => ['request_status' => ['request_id', 'status']],
+    ],
+  ];
+}

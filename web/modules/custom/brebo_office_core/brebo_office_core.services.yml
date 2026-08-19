@@ -12,6 +12,31 @@ services:
   brebo_office_core.integration_api_request_signer:
     class: Drupal\brebo_office_core\Service\IntegrationApiRequestSigner
 
+  brebo_office_core.risk_escalation_manager:
+    class: Drupal\brebo_office_core\Service\RiskEscalationManager
+    arguments: ['@database']
+
+  brebo_office_core.risk_escalation_action_bridge:
+    class: Drupal\brebo_office_core\Service\RiskEscalationActionBridge
+    arguments: ['@database', '@entity_type.manager']
+
+  brebo_office_core.risk_management_analytics:
+    class: Drupal\brebo_office_core\Service\RiskManagementAnalytics
+    arguments: ['@database']
+
+  brebo_office_core.risk_improvement_advisor:
+    class: Drupal\brebo_office_core\Service\RiskImprovementAdvisor
+    arguments: ['@database']
+
+  brebo_office_core.risk_improvement_manager:
+    class: Drupal\brebo_office_core\Service\RiskImprovementManager
+    arguments: ['@database']
+
+  brebo_office_core.risk_control_room_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\RiskControlRoomRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
   logger.channel.brebo_office_core:
     parent: logger.channel_base
     arguments:
