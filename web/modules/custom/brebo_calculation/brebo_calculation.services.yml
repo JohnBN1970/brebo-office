@@ -49,6 +49,18 @@ services:
       - '@database'
       - '@entity_type.manager'
 
+  brebo_calculation.norm_library:
+    class: Drupal\brebo_calculation\Service\CalculationNormLibrary
+    arguments: ['@database']
+
+  brebo_calculation.norm_feedback:
+    class: Drupal\brebo_calculation\Service\CalculationNormFeedbackService
+    arguments: ['@database']
+
+  brebo_calculation.norm_version_manager:
+    class: Drupal\brebo_calculation\Service\CalculationNormVersionManager
+    arguments: ['@database']
+
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
