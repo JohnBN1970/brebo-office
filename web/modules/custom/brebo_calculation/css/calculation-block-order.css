@@ -1,0 +1,42 @@
+.brebo-calc-sortable-block {
+  transition: opacity .12s ease, transform .12s ease;
+}
+
+.brebo-calc-sortable-block.is-dragging {
+  opacity: .45;
+}
+
+.brebo-calc-drag-handle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  margin-right: 6px;
+  cursor: grab;
+  user-select: none;
+  font-weight: 700;
+  letter-spacing: -2px;
+  opacity: .58;
+}
+
+.brebo-calc-drag-handle:hover,
+.brebo-calc-drag-handle:focus {
+  opacity: 1;
+}
+
+.brebo-calc-sortable-block.is-dragging .brebo-calc-drag-handle {
+  cursor: grabbing;
+}
+
+.brebo-calc-workbench.is-order-saving .brebo-calc-drag-handle {
+  pointer-events: none;
+  opacity: .3;
+}
+
+.brebo-calc-block-order-message:empty {
+  display: none;
+}
+
+.brebo-calc-block-order-message {
+  margin: 10px 0;
+}
