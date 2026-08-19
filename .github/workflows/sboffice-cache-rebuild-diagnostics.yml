@@ -1,63 +1,86 @@
-name: sboffice cache rebuild diagnostics
+name: Diagnose BREBO Drupal Cache Rebuild
 
 on:
   workflow_run:
     workflows:
-      - 'Deploy BREBO Office develop to sboffice'
+      - 'Deploy BREBO Office Production'
     types:
       - completed
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: sboffice-deploy
+  group: brebo-office-cache-rebuild-diagnostics
   cancel-in-progress: false
 
 jobs:
   diagnose:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' || github.event.workflow_run.conclusion == 'failure' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      DEPLOY_HOST: 77.37.34.160
-      DEPLOY_PORT: '65002'
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
     steps:
       - name: Configure SSH
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Inspect runtime and calculation form
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      - name: Diagnose Drupal cache rebuild
         shell: bash
         run: |
           set -euo pipefail
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set +e
-          cd public_html/sboffice
-          drush=(php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          export NO_COLOR=1 TERM=dumb
 
-          echo '=== Runtime ==='
-          php -v
-          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
+          remote_php="/opt/alt/php83/usr/bin/php"
 
-          echo '=== brebo_calculation state ==='
-          sha256sum web/modules/custom/brebo_calculation/brebo_calculation.module
-          "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version
-          "${drush[@]}" php:eval 'print "HOOK_FUNCTION_EXISTS=".(int)function_exists("brebo_calculation_form_node_form_alter")."\n"; $f=\Drupal\field\Entity\FieldConfig::loadByName("node","brebo_calculation","field_brebo_package_ref"); print "WORK_PACKAGE_REQUIRED=".(int)($f?->isRequired() ?? true)."\n";'
+          echo '=== BREBO Drupal cache rebuild diagnostic ==='
+          echo "APP_ROOT=$app"
+          "$remote_php" -v
 
-          echo '=== Fresh calculation form probe ==='
-          "${drush[@]}" php:eval '$node=\Drupal::entityTypeManager()->getStorage("node")->create(["type"=>"brebo_calculation"]); $form=\Drupal::service("entity.form_builder")->getForm($node,"default"); foreach (["brebo_calculation_onboarding","field_brebo_calc_code","field_brebo_package_ref","field_brebo_calc_version","field_brebo_calc_status","field_brebo_price_date"] as $k) { $exists=array_key_exists($k,$form); $access=$exists ? ($form[$k]["#access"] ?? "unset") : "missing"; print $k." EXISTS=".(int)$exists." ACCESS=".(is_bool($access)?(int)$access:$access)."\n"; } if (isset($form["field_brebo_price_date"]["widget"][0]["value"])) { $e=$form["field_brebo_price_date"]["widget"][0]["value"]; print "PRICE_DATE_DEFAULT=".($e["#default_value"] ?? "")."\n"; }'
+          cd "$app" || exit 1
+          drush=("$remote_php" -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          echo '=== Latest Drupal log ==='
-          "${drush[@]}" watchdog:show --count=30 --extended || "${drush[@]}" ws --count=30 --extended || true
+          echo '=== Drupal status before cache rebuild ==='
+          "${drush[@]}" status -vvv || true
+
+          echo '=== Running cache rebuild with full verbosity ==='
+          "${drush[@]}" cr -vvv
+          cr_status=$?
+          echo "DRUPAL_CACHE_REBUILD_EXIT_CODE=$cr_status"
+
+          echo '=== Recent Drupal log entries ==='
+          "${drush[@]}" watchdog:show --count=50 --extended || "${drush[@]}" ws --count=50 --extended || true
+
+          echo '=== Recent PHP / web error logs when available ==='
+          for log in \
+            "$webroot/error_log" \
+            "$app/error_log" \
+            "$HOME/domains/brebobv.nl/logs/error.log" \
+            "$HOME/domains/brebobv.nl/logs/sboffice.brebobv.nl.error.log"
+          do
+            if [[ -f "$log" ]]; then
+              echo "--- $log ---"
+              tail -n 120 "$log" || true
+            fi
+          done
+
+          exit "$cr_status"
           REMOTE
