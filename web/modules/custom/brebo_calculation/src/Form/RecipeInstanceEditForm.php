@@ -44,18 +44,39 @@ final class RecipeInstanceEditForm extends FormBase {
     }
 
     $lines = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')->condition('recipe_instance_id', (int) $instance['id'])->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $form['lines'] = ['#type' => 'table', '#caption' => $this->t('Receptregels'), '#header' => [$this->t('Omschrijving / artikel'), $this->t('Type'), $this->t('Aantal'), $this->t('Eenheid'), $this->t('Prijs'), $this->t('Totaal'), $this->t('Actie')]];
+    $form['lines'] = ['#type' => 'table', '#caption' => $this->t('Receptregels'), '#header' => [$this->t('Omschrijving / artikel'), $this->t('Type'), $this->t('Berekend'), $this->t('Handmatig'), $this->t('Afval %'), $this->t('Eenheid'), $this->t('Prijs'), $this->t('Totaal'), $this->t('Actie')]];
     foreach ($lines as $line) {
       $lineId = (int) $line['id'];
-      $quantity = ($line['manual_quantity'] !== NULL && $line['manual_quantity'] !== '') ? (float) $line['manual_quantity'] : (float) $line['calculated_quantity'];
-      $quantity *= 1 + ((float) $line['waste_pct'] / 100);
+      $calculated = (float) $line['calculated_quantity'];
+      $manual = ($line['manual_quantity'] !== NULL && $line['manual_quantity'] !== '') ? (float) $line['manual_quantity'] : NULL;
+      $activeQuantity = $manual ?? $calculated;
+      $wastePct = (float) $line['waste_pct'];
+      $effectiveQuantity = $activeQuantity * (1 + ($wastePct / 100));
       $unitCost = (float) ($line['unit_cost'] ?? 0);
       $isMaterial = in_array(strtolower((string) $line['line_type']), ['material', 'materiaal'], TRUE);
       $selected = $isMaterial ? $this->materialSelector->selectedArticle($lineId) : NULL;
-      $row = ['#attributes' => ['class' => $isMaterial ? ['brebo-calc-ingredient-row'] : []], 'description' => ['#markup' => htmlspecialchars((string) $line['description'])], 'type' => ['#markup' => htmlspecialchars((string) $line['line_type'])], 'quantity' => ['#markup' => number_format($quantity, 4, ',', '.')], 'unit' => ['#markup' => htmlspecialchars((string) ($line['unit'] ?? ''))], 'price' => ['#markup' => '€ ' . number_format($unitCost, 2, ',', '.')], 'total' => ['#markup' => '<strong>€ ' . number_format($quantity * $unitCost, 2, ',', '.') . '</strong>'], 'action' => ['#markup' => '']];
+      $classes = [];
+      if ($isMaterial) $classes[] = 'brebo-calc-ingredient-row';
+      if ($manual !== NULL) $classes[] = 'has-manual-override';
+      $row = [
+        '#attributes' => ['class' => $classes, 'data-recipe-line-id' => (string) $lineId, 'data-quantity-source' => $manual !== NULL ? 'manual' : 'calculated'],
+        'description' => ['#markup' => htmlspecialchars((string) $line['description']) . ((int) $line['is_custom'] === 1 ? ' <small>(eigen regel)</small>' : '') . ($manual !== NULL ? '<br><small><strong>Handmatige afwijking actief</strong></small>' : '')],
+        'type' => ['#markup' => htmlspecialchars((string) $line['line_type'])],
+        'calculated' => ['#markup' => '<strong>' . number_format($calculated, 4, ',', '.') . '</strong>'],
+        'manual' => ['#type' => 'number', '#default_value' => $manual, '#step' => '0.0001', '#min' => 0, '#placeholder' => $this->t('berekend')],
+        'waste' => ['#type' => 'number', '#default_value' => $wastePct, '#step' => '0.01', '#min' => 0, '#max' => 1000],
+        'unit' => ['#markup' => htmlspecialchars((string) ($line['unit'] ?? ''))],
+        'price' => ['#markup' => '€ ' . number_format($unitCost, 2, ',', '.')],
+        'total' => ['#markup' => '<strong>€ ' . number_format($effectiveQuantity * $unitCost, 2, ',', '.') . '</strong><br><small>' . number_format($effectiveQuantity, 4, ',', '.') . ' incl. afval</small>'],
+        'action' => ['#type' => 'container'],
+      ];
       if ($isMaterial) {
-        $row['description'] = ['#type' => 'container', 'text' => ['#markup' => '<div><strong>' . htmlspecialchars((string) $line['description']) . '</strong>' . ($selected ? '<br><small>Prijsdatum: ' . htmlspecialchars((string) $selected['price_date']) . '</small>' : '<br><small>Nog geen artikel uit de centrale artikelstam gekozen.</small>') . '</div>'], 'picker' => ['#type' => 'button', '#value' => $selected ? $this->t('Ander artikel kiezen') : $this->t('Artikel kiezen'), '#attributes' => ['data-brebo-article-picker' => '1', 'class' => ['button', 'button--small']]], 'article_id' => ['#type' => 'hidden', '#default_value' => $selected['article_id'] ?? ''], 'supplier_article_id' => ['#type' => 'hidden', '#default_value' => $selected['supplier_article_id'] ?? ''], 'price_id' => ['#type' => 'hidden', '#default_value' => $selected['price_id'] ?? ''], 'catalog_import_id' => ['#type' => 'hidden', '#default_value' => $selected['catalog_import_id'] ?? ''], 'article_code' => ['#type' => 'hidden'], 'supplier_name' => ['#type' => 'hidden'], 'supplier_article_no' => ['#type' => 'hidden'], 'price_date' => ['#type' => 'hidden', '#default_value' => $selected['price_date'] ?? ''], 'category' => ['#type' => 'hidden', '#default_value' => 'Materiaal'], 'description' => ['#type' => 'hidden', '#default_value' => (string) $line['description']], 'unit' => ['#type' => 'hidden', '#default_value' => (string) ($line['unit'] ?? '')], 'unit_price' => ['#type' => 'hidden', '#default_value' => $unitCost]];
-        $row['action'] = ['#type' => 'submit', '#value' => $this->t('Artikel opslaan'), '#submit' => ['::selectMaterial'], '#recipe_line_id' => $lineId, '#attributes' => ['data-brebo-article-save' => '1', 'class' => ['visually-hidden']], '#limit_validation_errors' => [['lines', 'line_' . $lineId], ['recipe_instance']]];
+        $row['description'] = ['#type' => 'container', 'text' => ['#markup' => '<div><strong>' . htmlspecialchars((string) $line['description']) . '</strong>' . ($selected ? '<br><small>Prijsdatum: ' . htmlspecialchars((string) $selected['price_date']) . '</small>' : '<br><small>Nog geen artikel uit de centrale artikelstam gekozen.</small>') . ($manual !== NULL ? '<br><small><strong>Handmatige afwijking actief</strong></small>' : '') . '</div>'], 'picker' => ['#type' => 'button', '#value' => $selected ? $this->t('Ander artikel kiezen') : $this->t('Artikel kiezen'), '#attributes' => ['data-brebo-article-picker' => '1', 'class' => ['button', 'button--small']]], 'article_id' => ['#type' => 'hidden', '#default_value' => $selected['article_id'] ?? ''], 'supplier_article_id' => ['#type' => 'hidden', '#default_value' => $selected['supplier_article_id'] ?? ''], 'price_id' => ['#type' => 'hidden', '#default_value' => $selected['price_id'] ?? ''], 'catalog_import_id' => ['#type' => 'hidden', '#default_value' => $selected['catalog_import_id'] ?? ''], 'article_code' => ['#type' => 'hidden'], 'supplier_name' => ['#type' => 'hidden'], 'supplier_article_no' => ['#type' => 'hidden'], 'price_date' => ['#type' => 'hidden', '#default_value' => $selected['price_date'] ?? ''], 'category' => ['#type' => 'hidden', '#default_value' => 'Materiaal'], 'description' => ['#type' => 'hidden', '#default_value' => (string) $line['description']], 'unit' => ['#type' => 'hidden', '#default_value' => (string) ($line['unit'] ?? '')], 'unit_price' => ['#type' => 'hidden', '#default_value' => $unitCost]];
+        $row['action']['article_save'] = ['#type' => 'submit', '#value' => $this->t('Artikel opslaan'), '#submit' => ['::selectMaterial'], '#recipe_line_id' => $lineId, '#attributes' => ['data-brebo-article-save' => '1', 'class' => ['visually-hidden']], '#limit_validation_errors' => [['lines', 'line_' . $lineId], ['recipe_instance']]];
+      }
+      $row['action']['save_override'] = ['#type' => 'submit', '#value' => $this->t('Regel opslaan'), '#submit' => ['::saveLineOverride'], '#recipe_line_id' => $lineId, '#limit_validation_errors' => [['lines', 'line_' . $lineId], ['recipe_instance']]];
+      if ($manual !== NULL) {
+        $row['action']['reset_override'] = ['#type' => 'submit', '#value' => $this->t('Gebruik berekend'), '#submit' => ['::resetLineOverride'], '#recipe_line_id' => $lineId, '#limit_validation_errors' => [['recipe_instance']]];
       }
       $form['lines']['line_' . $lineId] = $row;
     }
@@ -82,6 +103,26 @@ final class RecipeInstanceEditForm extends FormBase {
     foreach ($parameterRows as $key => $row) { if (is_array($row) && array_key_exists('value', $row)) $parameterValues[(string) $key] = (string) $row['value']; }
     if ($parameterValues) $this->recipeManager->updateParameters($instanceId, $parameterValues, $this->currentUser());
     $this->messenger()->addStatus($this->t('Receptparameters en hoeveelheid opgeslagen; onderliggende regels zijn herberekend.'));
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function saveLineOverride(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    $lineId = (int) ($trigger['#recipe_line_id'] ?? 0);
+    $values = (array) $form_state->getValue(['lines', 'line_' . $lineId]);
+    $manual = $values['manual'] ?? NULL;
+    $manualQuantity = ($manual === '' || $manual === NULL) ? NULL : (float) $manual;
+    $wastePct = (float) ($values['waste'] ?? 0);
+    $this->recipeManager->updateLineOverride($lineId, $manualQuantity, $wastePct, $this->currentUser());
+    $this->messenger()->addStatus($manualQuantity === NULL ? $this->t('Afvalpercentage opgeslagen; parametrische hoeveelheid blijft actief.') : $this->t('Handmatige regelhoeveelheid en afvalpercentage opgeslagen.'));
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function resetLineOverride(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    $lineId = (int) ($trigger['#recipe_line_id'] ?? 0);
+    $this->recipeManager->resetLineQuantityOverride($lineId, $this->currentUser());
+    $this->messenger()->addStatus($this->t('Handmatige hoeveelheid verwijderd; de parametrisch berekende hoeveelheid is weer actief.'));
     $form_state->setRebuild(TRUE);
   }
 
