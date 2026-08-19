@@ -1,0 +1,11 @@
+brebo_building_data.object_tree:
+  path: '/brebo-office/api/buildings/{building_nid}/objects'
+  defaults:
+    _controller: '\Drupal\brebo_building_data\Controller\BuildingObjectTreeController::tree'
+    _title: 'Gebouwobjecten'
+  requirements:
+    _permission: 'access content'
+    building_nid: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
