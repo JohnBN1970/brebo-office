@@ -55,3 +55,5 @@ De bestaande workflow `.github/workflows/sboffice-webroot-repair.yml` is de refe
 Git is de bron voor applicatiecode; `develop` is de integratiebasis voor productie-uitrol. Hostinger is een deployment target en geen alternatieve bron van waarheid voor applicatiecode.
 
 Dit principe geldt BREBO-breed voor alle huidige en toekomstige BREBO Office-modules.
+
+Bootstrapnotitie: deze wijziging is uitsluitend bedoeld om de centrale productie-deployworkflow voor het eerst via de normale PR → `develop` keten te activeren.
