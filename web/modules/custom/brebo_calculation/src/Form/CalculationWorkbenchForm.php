@@ -111,10 +111,15 @@ final class CalculationWorkbenchForm extends FormBase {
         $instanceId = (int) $instance['id'];
         $instanceLines = $recipeLinesByInstance[$instanceId] ?? [];
         $recipeTotal = $this->recipeInstanceTotal($instanceLines);
+        $overrideCount = 0;
+        foreach ($instanceLines as $instanceLine) {
+          if ($instanceLine['manual_quantity'] !== NULL && $instanceLine['manual_quantity'] !== '') { $overrideCount++; }
+        }
+        $overrideBadge = $overrideCount > 0 ? ' <span class="brebo-calc-override-badge" title="Handmatig overschreven receptregels">⚠ ' . $overrideCount . ' afwijking' . ($overrideCount === 1 ? '' : 'en') . '</span>' : '';
         $form['workbench']['grid']['recipe_' . $instanceId] = [
-          '#attributes' => ['class' => ['brebo-calc-workbench__recipe'], 'data-structure-key' => (string) $key, 'data-recipe-instance-id' => (string) $instanceId, 'data-block-type' => 'recipe'],
+          '#attributes' => ['class' => array_values(array_filter(['brebo-calc-workbench__recipe', $overrideCount > 0 ? 'has-manual-overrides' : NULL])), 'data-structure-key' => (string) $key, 'data-recipe-instance-id' => (string) $instanceId, 'data-block-type' => 'recipe', 'data-manual-overrides' => (string) $overrideCount],
           'code' => ['#markup' => '<span class="brebo-calc-recipe-badge">RECEPT</span>'],
-          'description' => ['#markup' => '<button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="Receptregels in-/uitklappen">▾</button><strong>' . htmlspecialchars((string) $instance['name']) . '</strong>'],
+          'description' => ['#markup' => '<button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="Receptregels in-/uitklappen">▾</button><strong>' . htmlspecialchars((string) $instance['name']) . '</strong>' . $overrideBadge],
           'unit' => ['#markup' => htmlspecialchars((string) ($instance['unit'] ?? ''))],
           'quantity' => $editable ? ['#type' => 'number', '#default_value' => (float) $instance['quantity'], '#step' => '0.0001', '#min' => 0, '#attributes' => ['class' => ['brebo-calc-recipe-quantity']]] : ['#markup' => number_format((float) $instance['quantity'], 4, ',', '.')],
           'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''],
@@ -123,15 +128,25 @@ final class CalculationWorkbenchForm extends FormBase {
         ];
 
         foreach ($instanceLines as $recipeLine) {
+          $hasManualOverride = $recipeLine['manual_quantity'] !== NULL && $recipeLine['manual_quantity'] !== '';
           $effectiveQuantity = $this->recipeLineQuantity($recipeLine);
           $unitCost = (float) ($recipeLine['unit_cost'] ?? 0);
           $lineTotal = $effectiveQuantity * $unitCost;
           $costs = $this->recipeCostColumns((string) ($recipeLine['line_type'] ?? 'material'), $unitCost);
+          $lineClasses = ['brebo-calc-workbench__line', 'brebo-calc-workbench__recipe-line'];
+          if ($hasManualOverride) { $lineClasses[] = 'has-manual-override'; }
+          $quantityMarkup = number_format($effectiveQuantity, 4, ',', '.');
+          if ($hasManualOverride) {
+            $quantityMarkup .= '<br><small title="Parametrisch berekend: ' . htmlspecialchars(number_format((float) ($recipeLine['calculated_quantity'] ?? 0), 4, ',', '.')) . '">⚠ handmatig</small>';
+          }
+          $operationParts = [];
+          if ((int) ($recipeLine['is_custom'] ?? 0) === 1) { $operationParts[] = '<small>eigen regel</small>'; }
+          if ($hasManualOverride) { $operationParts[] = '<small><strong>afwijking</strong></small>'; }
           $form['workbench']['grid']['recipe_line_' . (int) $recipeLine['id']] = [
-            '#attributes' => ['class' => ['brebo-calc-workbench__line', 'brebo-calc-workbench__recipe-line'], 'data-structure-key' => (string) $key, 'data-recipe-instance-id' => (string) $instanceId, 'data-block-type' => 'recipe-line'],
-            'code' => ['#markup' => ''], 'description' => ['#markup' => '&nbsp;&nbsp;&nbsp;↳ ' . htmlspecialchars((string) $recipeLine['description'])], 'unit' => ['#markup' => htmlspecialchars((string) ($recipeLine['unit'] ?? ''))], 'quantity' => ['#markup' => number_format($effectiveQuantity, 4, ',', '.')],
+            '#attributes' => ['class' => $lineClasses, 'data-structure-key' => (string) $key, 'data-recipe-instance-id' => (string) $instanceId, 'data-block-type' => 'recipe-line', 'data-manual-override' => $hasManualOverride ? '1' : '0'],
+            'code' => ['#markup' => ''], 'description' => ['#markup' => '&nbsp;&nbsp;&nbsp;↳ ' . htmlspecialchars((string) $recipeLine['description'])], 'unit' => ['#markup' => htmlspecialchars((string) ($recipeLine['unit'] ?? ''))], 'quantity' => ['#markup' => $quantityMarkup],
             'labour' => ['#markup' => $this->formatMoneyCell($costs['labour'])], 'material' => ['#markup' => $this->formatMoneyCell($costs['material'])], 'equipment' => ['#markup' => $this->formatMoneyCell($costs['equipment'])], 'subcontracting' => ['#markup' => $this->formatMoneyCell($costs['subcontracting'])], 'other' => ['#markup' => $this->formatMoneyCell($costs['other'])],
-            'unit_total' => ['#markup' => '€ ' . number_format($unitCost, 2, ',', '.')], 'total' => ['#markup' => '<strong>€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'], 'operations' => ['#markup' => (int) ($recipeLine['is_custom'] ?? 0) === 1 ? '<small>eigen regel</small>' : ''],
+            'unit_total' => ['#markup' => '€ ' . number_format($unitCost, 2, ',', '.')], 'total' => ['#markup' => '<strong>€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'], 'operations' => ['#markup' => implode(' · ', $operationParts)],
           ];
         }
       }
