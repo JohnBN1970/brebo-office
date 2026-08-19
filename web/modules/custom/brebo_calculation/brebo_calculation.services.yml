@@ -119,3 +119,8 @@ services:
     class: Drupal\brebo_calculation\Routing\OfferReadinessRouteSubscriber
     tags:
       - { name: event_subscriber }
+
+  brebo_calculation.workspace_route_subscriber:
+    class: Drupal\brebo_calculation\Routing\CalculationWorkspaceRouteSubscriber
+    tags:
+      - { name: event_subscriber }
