@@ -16,7 +16,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class FinancialProjectLedgerController extends ControllerBase {
   public function __construct(
     private readonly FinancialProjectLedger $ledger,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $projectEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -24,7 +24,7 @@ final class FinancialProjectLedgerController extends ControllerBase {
   }
 
   public function view(int $project_nid): JsonResponse {
-    $project = $this->entityTypeManager->getStorage('node')->load($project_nid);
+    $project = $this->projectEntityTypeManager->getStorage('node')->load($project_nid);
     if ($project === NULL || $project->bundle() !== 'brebo_project') throw new NotFoundHttpException();
     if (!$project->access('view', $this->currentUser())) throw new AccessDeniedHttpException();
     $response = new JsonResponse($this->ledger->build($project_nid));
