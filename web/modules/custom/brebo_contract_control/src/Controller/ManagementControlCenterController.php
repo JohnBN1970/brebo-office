@@ -6,7 +6,9 @@ namespace Drupal\brebo_contract_control\Controller;
 
 use Drupal\brebo_contract_control\Service\ManagementActionEngine;
 use Drupal\brebo_contract_control\Service\ManagementActionSourceResolver;
+use Drupal\brebo_contract_control\Service\ManagementAttentionBriefService;
 use Drupal\brebo_contract_control\Service\ManagementControlCenterService;
+use Drupal\brebo_contract_control\Service\ManagementForecastIntelligenceService;
 use Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
@@ -21,6 +23,8 @@ final class ManagementControlCenterController extends ControllerBase {
     private readonly ManagementActionEngine $actions,
     private readonly ManagementActionSourceResolver $sources,
     private readonly ManagementTrendIntelligenceService $trends,
+    private readonly ManagementForecastIntelligenceService $forecast,
+    private readonly ManagementAttentionBriefService $attentionBrief,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -29,6 +33,8 @@ final class ManagementControlCenterController extends ControllerBase {
       $container->get('brebo_contract_control.management_actions'),
       $container->get('brebo_contract_control.management_action_source'),
       $container->get('brebo_contract_control.management_trends'),
+      $container->get('brebo_contract_control.management_forecast'),
+      $container->get('brebo_contract_control.management_attention_brief'),
     );
   }
 
@@ -36,18 +42,21 @@ final class ManagementControlCenterController extends ControllerBase {
     $dashboard = $this->controlCenter->dashboard();
     $headline = (array) ($dashboard['headline'] ?? []);
     $trend = $this->trends->compare($headline);
+    $forecast = $this->forecast->forecast($headline, $trend, 21);
+    $brief = $this->attentionBrief->build($headline, $forecast);
     $this->trends->record($headline);
     $metrics = (array) ($trend['metrics'] ?? []);
+    $forecastMetrics = (array) ($forecast['metrics'] ?? []);
     $overdue = $this->actions->escalateOverdue();
     $managementStatus = (string) ($dashboard['management_status'] ?? 'onder_controle');
 
     $cards = [
-      $this->card('Geblokkeerde betalingen', 'EUR ' . number_format((float) ($headline['blocked_payment_value'] ?? 0), 0, ',', '.'), (float) ($headline['blocked_payment_value'] ?? 0) >= 100000 ? 'critical' : ((float) ($headline['blocked_payment_value'] ?? 0) > 0 ? 'attention' : 'ok'), 'blocked_payments', $this->trendText('blocked_payment_value', $metrics, TRUE)),
-      $this->card('Controller-blootstelling', 'EUR ' . number_format((float) ($headline['controller_case_exposure'] ?? 0), 0, ',', '.'), (float) ($headline['controller_case_exposure'] ?? 0) > 0 ? 'attention' : 'ok', 'critical_cases', $this->trendText('controller_case_exposure', $metrics, TRUE)),
-      $this->card('Kritieke dossiers', (string) ($headline['critical_controller_cases'] ?? 0), (int) ($headline['critical_controller_cases'] ?? 0) > 0 ? 'critical' : 'ok', 'critical_cases', $this->trendText('critical_controller_cases', $metrics)),
-      $this->card('Verlopen verplichtingen', (string) ($headline['overdue_contract_obligations'] ?? 0), (int) ($headline['overdue_contract_obligations'] ?? 0) > 0 ? 'attention' : 'ok', 'overdue_obligations', $this->trendText('overdue_contract_obligations', $metrics)),
-      $this->card('Portefeuillerisico', (string) ($headline['portfolio_risk_score'] ?? 0) . ' / 100', (int) ($headline['portfolio_risk_score'] ?? 0) >= 75 ? 'critical' : ((int) ($headline['portfolio_risk_score'] ?? 0) >= 50 ? 'attention' : 'ok'), 'portfolio_risk', $this->trendText('portfolio_risk_score', $metrics)),
-      $this->card('Risicoleveranciers', (string) ($headline['suppliers_below_c_rating'] ?? 0), (int) ($headline['suppliers_below_c_rating'] ?? 0) > 0 ? 'attention' : 'ok', 'supplier_risk', $this->trendText('suppliers_below_c_rating', $metrics)),
+      $this->card('Geblokkeerde betalingen', 'EUR ' . number_format((float) ($headline['blocked_payment_value'] ?? 0), 0, ',', '.'), (float) ($headline['blocked_payment_value'] ?? 0) >= 100000 ? 'critical' : ((float) ($headline['blocked_payment_value'] ?? 0) > 0 ? 'attention' : 'ok'), 'blocked_payments', $this->trendText('blocked_payment_value', $metrics, TRUE), $this->forecastText('blocked_payment_value', $forecastMetrics, TRUE)),
+      $this->card('Controller-blootstelling', 'EUR ' . number_format((float) ($headline['controller_case_exposure'] ?? 0), 0, ',', '.'), (float) ($headline['controller_case_exposure'] ?? 0) > 0 ? 'attention' : 'ok', 'critical_cases', $this->trendText('controller_case_exposure', $metrics, TRUE), $this->forecastText('controller_case_exposure', $forecastMetrics, TRUE)),
+      $this->card('Kritieke dossiers', (string) ($headline['critical_controller_cases'] ?? 0), (int) ($headline['critical_controller_cases'] ?? 0) > 0 ? 'critical' : 'ok', 'critical_cases', $this->trendText('critical_controller_cases', $metrics), $this->forecastText('critical_controller_cases', $forecastMetrics)),
+      $this->card('Verlopen verplichtingen', (string) ($headline['overdue_contract_obligations'] ?? 0), (int) ($headline['overdue_contract_obligations'] ?? 0) > 0 ? 'attention' : 'ok', 'overdue_obligations', $this->trendText('overdue_contract_obligations', $metrics), $this->forecastText('overdue_contract_obligations', $forecastMetrics)),
+      $this->card('Portefeuillerisico', (string) ($headline['portfolio_risk_score'] ?? 0) . ' / 100', (int) ($headline['portfolio_risk_score'] ?? 0) >= 75 ? 'critical' : ((int) ($headline['portfolio_risk_score'] ?? 0) >= 50 ? 'attention' : 'ok'), 'portfolio_risk', $this->trendText('portfolio_risk_score', $metrics), $this->forecastText('portfolio_risk_score', $forecastMetrics)),
+      $this->card('Risicoleveranciers', (string) ($headline['suppliers_below_c_rating'] ?? 0), (int) ($headline['suppliers_below_c_rating'] ?? 0) > 0 ? 'attention' : 'ok', 'supplier_risk', $this->trendText('suppliers_below_c_rating', $metrics), $this->forecastText('suppliers_below_c_rating', $forecastMetrics)),
     ];
 
     $rows = [];
@@ -60,13 +69,39 @@ final class ManagementControlCenterController extends ControllerBase {
     foreach ($cards as $index => $card) {
       $cardItems['card_' . $index] = [
         '#type' => 'link',
-        '#title' => ['#markup' => '<span class="brebo-control-kpi__label">' . htmlspecialchars($card['label']) . '</span><span class="brebo-control-kpi__value">' . htmlspecialchars($card['value']) . '</span><span class="brebo-control-kpi__trend brebo-control-kpi__trend--' . htmlspecialchars($card['trend_class']) . '">' . htmlspecialchars($card['trend']) . '</span><span class="brebo-control-kpi__hint">Bekijk acties &rarr;</span>'],
+        '#title' => ['#markup' => '<span class="brebo-control-kpi__label">' . htmlspecialchars($card['label']) . '</span><span class="brebo-control-kpi__value">' . htmlspecialchars($card['value']) . '</span><span class="brebo-control-kpi__trend brebo-control-kpi__trend--' . htmlspecialchars($card['trend_class']) . '">' . htmlspecialchars($card['trend']) . '</span><span class="brebo-control-kpi__forecast">21d: ' . htmlspecialchars($card['forecast']) . '</span><span class="brebo-control-kpi__hint">Bekijk acties &rarr;</span>'],
         '#url' => Url::fromRoute('brebo_contract_control.management_actions', ['action_key' => $card['action_key']]),
         '#attributes' => ['class' => ['brebo-control-kpi', 'brebo-control-kpi--' . $card['level']]],
       ];
     }
 
-    return ['#type' => 'container', '#attributes' => ['class' => ['brebo-management-control-center']], '#attached' => ['library' => ['brebo_contract_control/management_control_center']], 'hero' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-hero']], 'title' => ['#markup' => '<h1>Management Control Center</h1><div class="brebo-control-muted">Directiebeeld van financieel, contractueel en operationeel controlrisico.</div>'], 'status' => ['#markup' => '<div class="brebo-control-status brebo-control-status--' . $this->statusClass($managementStatus) . '">Status: ' . htmlspecialchars(str_replace('_', ' ', strtoupper($managementStatus))) . '</div>']], 'trend_notice' => ['#markup' => !($trend['available'] ?? FALSE) ? '<div class="brebo-control-muted">Trendvergelijking start zodra een snapshot van de vorige maand beschikbaar is.</div>' : ''], 'cards' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-kpi-grid']], 'items' => $cardItems], 'overdue_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Escalaties en verlopen acties</h2>'], 'table' => ['#type' => 'table', '#header' => ['Actie', 'Ernst', 'Eigenaar', 'Deadline', 'Escalatie'], '#rows' => $rows, '#empty' => 'Geen verlopen managementacties.']], 'supplier_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Leveranciersrisico</h2>'], 'table' => ['#type' => 'table', '#header' => ['Leverancier', 'TCO-score'], '#rows' => $supplierRows, '#empty' => 'Geen leveranciers onder de risicodrempel.']], '#cache' => ['max-age' => 0]];
+    $briefLink = '';
+    if (!empty($brief['priority_action_key'])) {
+      $briefLink = Link::fromTextAndUrl('Open prioriteitsacties', Url::fromRoute('brebo_contract_control.management_actions', ['action_key' => (string) $brief['priority_action_key']]))->toString();
+    }
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-management-control-center']],
+      '#attached' => ['library' => ['brebo_contract_control/management_control_center']],
+      'hero' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-control-hero']],
+        'title' => ['#markup' => '<h1>Management Control Center</h1><div class="brebo-control-muted">Directiebeeld van financieel, contractueel en operationeel controlrisico.</div>'],
+        'status' => ['#markup' => '<div class="brebo-control-status brebo-control-status--' . $this->statusClass($managementStatus) . '">Status: ' . htmlspecialchars(str_replace('_', ' ', strtoupper($managementStatus))) . '</div>'],
+      ],
+      'attention' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-control-section', 'brebo-control-attention', 'brebo-control-attention--' . htmlspecialchars((string) ($brief['level'] ?? 'info'))]],
+        'title' => ['#markup' => '<h2>Wat vraagt vandaag aandacht?</h2><h3>' . htmlspecialchars((string) ($brief['title'] ?? '')) . '</h3>'],
+        'message' => ['#markup' => '<p>' . htmlspecialchars((string) ($brief['message'] ?? '')) . '</p><div class="brebo-control-muted">Forecast confidence: ' . htmlspecialchars((string) ($brief['confidence'] ?? $forecast['confidence'] ?? 'n.v.t.')) . '. ' . htmlspecialchars((string) ($forecast['warning'] ?? '')) . '</div>' . ($briefLink !== '' ? '<p>' . $briefLink . '</p>' : '')],
+      ],
+      'trend_notice' => ['#markup' => !($trend['available'] ?? FALSE) ? '<div class="brebo-control-muted">Trendvergelijking en forecast starten zodra een snapshot van de vorige maand beschikbaar is.</div>' : ''],
+      'cards' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-kpi-grid']], 'items' => $cardItems],
+      'overdue_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Escalaties en verlopen acties</h2>'], 'table' => ['#type' => 'table', '#header' => ['Actie', 'Ernst', 'Eigenaar', 'Deadline', 'Escalatie'], '#rows' => $rows, '#empty' => 'Geen verlopen managementacties.']],
+      'supplier_section' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-control-section']], 'title' => ['#markup' => '<h2>Leveranciersrisico</h2>'], 'table' => ['#type' => 'table', '#header' => ['Leverancier', 'TCO-score'], '#rows' => $supplierRows, '#empty' => 'Geen leveranciers onder de risicodrempel.']],
+      '#cache' => ['max-age' => 0],
+    ];
   }
 
   public function actions(string $action_key = 'all'): array {
@@ -87,8 +122,10 @@ final class ManagementControlCenterController extends ControllerBase {
     return ['#type' => 'container', '#attached' => ['library' => ['brebo_contract_control/management_control_center']], 'back' => Link::fromTextAndUrl('← Terug naar managementacties', Url::fromRoute('brebo_contract_control.management_actions', ['action_key' => (string) ($action['action_key'] ?? 'all')]))->toRenderable(), 'title' => ['#markup' => '<h1>Control Source dossier</h1><p><strong>' . htmlspecialchars((string) ($action['title'] ?? '')) . '</strong><br>Bron: ' . htmlspecialchars((string) ($resolved['source_type'] ?? '')) . '</p>'], 'table' => ['#type' => 'table', '#header' => $headers, '#rows' => $rows, '#empty' => 'Geen onderliggende bronrecords gevonden.'], '#cache' => ['max-age' => 0]];
   }
 
-  /** @return array{label:string,value:string,level:string,action_key:string,trend:string,trend_class:string} */
-  private function card(string $label, string $value, string $level, string $actionKey, array $trend): array { return ['label' => $label, 'value' => $value, 'level' => $level, 'action_key' => $actionKey, 'trend' => $trend['text'], 'trend_class' => $trend['class']]; }
+  /** @return array{label:string,value:string,level:string,action_key:string,trend:string,trend_class:string,forecast:string} */
+  private function card(string $label, string $value, string $level, string $actionKey, array $trend, string $forecast): array {
+    return ['label' => $label, 'value' => $value, 'level' => $level, 'action_key' => $actionKey, 'trend' => $trend['text'], 'trend_class' => $trend['class'], 'forecast' => $forecast];
+  }
 
   /** @param array<string, mixed> $metrics
    *  @return array{text:string,class:string}
@@ -102,6 +139,13 @@ final class ManagementControlCenterController extends ControllerBase {
     $value = $currency ? 'EUR ' . number_format(abs($delta), 0, ',', '.') : number_format(abs($delta), 0, ',', '.');
     $label = $direction === 'better' ? 'verbetert' : ($direction === 'worse' ? 'verslechtert' : 'stabiel');
     return ['text' => $arrow . ' ' . $value . ' t.o.v. vorige maand · ' . $label, 'class' => $direction];
+  }
+
+  /** @param array<string, mixed> $metrics */
+  private function forecastText(string $key, array $metrics, bool $currency = FALSE): string {
+    if (!isset($metrics[$key])) { return 'nog niet beschikbaar'; }
+    $value = (float) ((array) $metrics[$key])['forecast'];
+    return $currency ? 'EUR ' . number_format($value, 0, ',', '.') : number_format($value, 0, ',', '.');
   }
 
   private function statusClass(string $status): string { return match ($status) { 'directie_ingrijpen' => 'critical', 'management_actie' => 'action', 'aandacht' => 'attention', default => 'ok' }; }
