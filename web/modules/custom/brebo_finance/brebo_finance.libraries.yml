@@ -33,6 +33,17 @@ command_center:
     - core/drupal
     - core/once
 
+my_finance_actions:
+  version: 1.x
+  css:
+    component:
+      css/my-finance-actions.css: {}
+  js:
+    js/my-finance-actions.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
 project_finance_detail:
   version: 1.x
   css:
