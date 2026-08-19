@@ -69,6 +69,11 @@ services:
     arguments:
       - '@database'
 
+  brebo_calculation.work_assignment_manager:
+    class: Drupal\brebo_calculation\Service\CalculationWorkAssignmentManager
+    arguments:
+      - '@database'
+
   brebo_calculation.recipe_formula_evaluator:
     class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
 
