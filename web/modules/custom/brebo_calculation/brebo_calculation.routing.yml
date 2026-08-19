@@ -44,6 +44,20 @@ brebo_calculation.workbench:
       node:
         type: entity:node
 
+brebo_calculation.assignment:
+  path: '/admin/brebo/calculations/{node}/workbench/assignment'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\CalculationAssignmentForm'
+    _title: 'Calculatie-opvolging'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    node: '\d+'
+  options:
+    _admin_route: true
+    parameters:
+      node:
+        type: entity:node
+
 brebo_calculation.readiness:
   path: '/admin/brebo/calculations/{node}/readiness'
   defaults:
@@ -79,7 +93,6 @@ brebo_calculation.recipe_instance_edit:
   requirements:
     _permission: 'edit brebo calculation workbench'
     node: '\d+'
-    recipe_instance: '\d+'
   options:
     _admin_route: true
     parameters:
@@ -108,7 +121,6 @@ brebo_calculation.subcalculation_detail:
   requirements:
     _permission: 'edit brebo calculation workbench'
     node: '\d+'
-    subcalculation: '\d+'
   options:
     _admin_route: true
     parameters:
