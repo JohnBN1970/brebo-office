@@ -40,7 +40,7 @@ services:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceRequirementResolver
   brebo_finance.performance_evidence_review_manager:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceReviewManager
-    arguments: ['@database']
+    arguments: ['@database', '@brebo_finance.performance_location_manager']
   brebo_finance.performance_location_manager:
     class: Drupal\brebo_finance\Service\PerformanceLocationManager
     arguments: ['@database', '@brebo_building_data.project_building_repository', '@brebo_building_data.object_repository']
@@ -53,6 +53,9 @@ services:
   brebo_finance.three_way_match_manager:
     class: Drupal\brebo_finance\Service\ThreeWayMatchManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.invoice_performance_blocker_resolver:
+    class: Drupal\brebo_finance\Service\InvoicePerformanceBlockerResolver
+    arguments: ['@database']
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
@@ -100,7 +103,7 @@ services:
     arguments: ['@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver']
   brebo_finance.financial_project_ledger:
     class: Drupal\brebo_finance\Service\FinancialProjectLedger
-    arguments: ['@database']
+    arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
   brebo_finance.financial_euro_trace:
     class: Drupal\brebo_finance\Service\FinancialEuroTrace
     arguments: ['@database']

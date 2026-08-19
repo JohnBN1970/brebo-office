@@ -40,6 +40,7 @@ project_finance_detail:
       css/project-finance-detail.css: {}
   js:
     js/project-finance-detail.js: {}
+    js/project-finance-priority.js: {}
   dependencies:
     - core/drupal
     - core/once

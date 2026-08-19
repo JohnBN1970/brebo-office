@@ -11,7 +11,7 @@ use UnexpectedValueException;
 
 /** Reviews each evidence item before a performance receipt can be verified. */
 final class PerformanceEvidenceReviewManager {
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly Connection $database, private readonly PerformanceLocationManager $locations) {}
 
   public function review(int $receiptId, string $evidenceRef, string $decision, string $note, int $userId): void {
     if($userId<=0||!in_array($decision,['accepted','rejected'],true)||trim($note)==='')throw new InvalidArgumentException('Evidence review requires decision, note and human reviewer.');
@@ -23,7 +23,8 @@ final class PerformanceEvidenceReviewManager {
   public function summary(int $receiptId):array{
     $receipt=$this->receipt($receiptId);$items=$this->evidenceItems($receipt);$this->ensureStorage();$rows=$this->database->select('brebo_finance_performance_evidence_review','r')->fields('r')->condition('receipt_id',$receiptId)->execute()->fetchAll(\PDO::FETCH_ASSOC);$by=[];foreach($rows as $r)$by[(string)$r['evidence_ref']]=$r;
     $out=[];$accepted=0;$rejected=0;foreach($items as $item){$key=$this->key($item);$review=$by[$key]??null;$decision=$review['decision']??'pending';if($decision==='accepted')$accepted++;if($decision==='rejected')$rejected++;$out[]=['evidence_ref'=>$key,'type'=>is_array($item)?($item['type']??null):null,'label'=>is_array($item)?($item['label']??null):null,'ref'=>is_array($item)?($item['ref']??null):$item,'decision'=>$decision,'note'=>$review['note']??null,'reviewed_by'=>isset($review['reviewed_by'])?(int)$review['reviewed_by']:null,'reviewed'=>isset($review['reviewed'])?(int)$review['reviewed']:null];}
-    return['receipt_id'=>$receiptId,'total'=>count($items),'accepted'=>$accepted,'rejected'=>$rejected,'pending'=>count($items)-$accepted-$rejected,'all_accepted'=>count($items)>0&&$accepted===count($items),'items'=>$out];
+    $location=$this->locations->forReceipt($receiptId);
+    return['receipt_id'=>$receiptId,'performance'=>['description'=>(string)($receipt['description']??''),'amount_ex_vat'=>(string)($receipt['amount_ex_vat']??'0'),'status'=>(string)$receipt['status']],'location'=>$location,'total'=>count($items),'accepted'=>$accepted,'rejected'=>$rejected,'pending'=>count($items)-$accepted-$rejected,'all_accepted'=>count($items)>0&&$accepted===count($items),'items'=>$out];
   }
 
   private function evidenceItems(array $receipt):array{$x=json_decode((string)$receipt['evidence'],true,512,JSON_THROW_ON_ERROR);return is_array($x)?array_values($x):[];}
