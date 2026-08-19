@@ -47,6 +47,7 @@ final class GlassCalculationContextBuilder {
       'building_nid' => (int) ($position['building_nid'] ?? 0),
       'project_nid' => (int) ($position['project_nid'] ?? 0),
       'position_code' => (string) ($position['position_code'] ?? ''),
+      'recommended_glass_ref' => (string) ($position['recommended_glass_ref'] ?? ''),
       'description' => trim('Glas ' . (string) ($position['position_code'] ?? '') . ' ' . (string) ($position['composition'] ?? '')),
       'quantity' => $quantity,
       'area_each_m2' => $areaEach,
