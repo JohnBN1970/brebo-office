@@ -187,7 +187,7 @@ jobs:
 
           grep -n 'financeEntityTypeManager' "$page_controller" || { echo "::error::FinancialProjectPageController does not contain financeEntityTypeManager."; exit 1; }
           grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
-          grep -n 'traceEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain traceEntityTypeManager."; exit 1; }
+          grep -n 'financeEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain financeEntityTypeManager."; exit 1; }
           echo "FINANCE_CONTROLLERS_DEPLOY_PROOF_OK=1"
 
           "${drush[@]}" cr -vvv
