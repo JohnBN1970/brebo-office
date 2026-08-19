@@ -93,3 +93,17 @@ function brebo_calculation_post_update_create_norm_observation_feedback(&$sandbo
   ]);
   return 'BREBO Calculation norm observation feedback table created.';
 }
+
+/** Add traceability from calculation rows back to immutable object sources. */
+function brebo_calculation_post_update_add_object_source_traceability(&$sandbox = NULL): string {
+  $schema = \Drupal::database()->schema(); $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) return 'BREBO Calculation row domain is not installed; no source traceability added.';
+  $fields = [
+    'source_domain' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+    'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'source_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+  ];
+  $added=[];foreach($fields as$name=>$definition){if(!$schema->fieldExists($table,$name)){$schema->addField($table,$name,$definition);$added[]=$name;}}
+  if(!$schema->indexExists($table,'object_source'))$schema->addIndex($table,'object_source',['source_domain','source_reference']);
+  return $added ? 'BREBO Calculation object traceability added: '.implode(', ',$added).'.' : 'BREBO Calculation object traceability already exists.';
+}
