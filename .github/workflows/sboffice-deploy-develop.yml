@@ -171,6 +171,17 @@ jobs:
           "${drush[@]}" updb -y --no-cache-clear
           echo "DATABASE_UPDATES_OK=1"
 
+          finance_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectPageController.php"
+          [[ -f "$finance_controller" ]] || { echo "::error::FinancialProjectPageController missing on production."; exit 1; }
+          echo "FINANCE_CONTROLLER_SHA256=$(sha256sum "$finance_controller" | awk '{print $1}')"
+          grep -n 'financeEntityTypeManager' "$finance_controller" || { echo "::error::Production finance controller does not contain financeEntityTypeManager."; exit 1; }
+          if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$finance_controller"; then
+            echo "::error::Stale entityTypeManager property still exists in production finance controller."
+            exit 1
+          fi
+          "$remote_php" -l "$finance_controller"
+          echo "FINANCE_CONTROLLER_DEPLOY_PROOF_OK=1"
+
           "${drush[@]}" cr -vvv
           echo "CACHE_REBUILD_OK=1"
 
