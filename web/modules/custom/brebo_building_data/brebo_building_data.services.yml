@@ -6,3 +6,7 @@ services:
   brebo_building_data.object_repository:
     class: Drupal\brebo_building_data\Service\BuildingObjectRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time']
+
+  brebo_building_data.project_building_repository:
+    class: Drupal\brebo_building_data\Service\ProjectBuildingRepository
+    arguments: ['@database', '@entity_type.manager', '@datetime.time']
