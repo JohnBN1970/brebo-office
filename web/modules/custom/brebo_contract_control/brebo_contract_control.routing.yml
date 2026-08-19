@@ -55,3 +55,13 @@ brebo_contract_control.management_recommendation_reject:
     _title: 'BREBO-advies afwijzen'
   requirements:
     _permission: 'accept brebo management recommendation'
+
+brebo_contract_control.management_decision_outcome_review:
+  path: '/brebo/control-center/decision/{record_id}/review/{review_days}'
+  defaults:
+    _form: '\Drupal\brebo_contract_control\Form\ManagementDecisionOutcomeReviewForm'
+    _title: 'Managementbesluit evalueren'
+  requirements:
+    _permission: 'accept brebo management recommendation'
+    record_id: '\d+'
+    review_days: '30|90'
