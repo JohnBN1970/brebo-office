@@ -31,7 +31,7 @@ services:
     arguments:
       - '@database'
       - '@brebo_control.portfolio_early_warning'
-      - '@brebo_control.supplier_scorecards'
+      - '@brebo_control.supplier_scorecard'
       - '@brebo_procurement_control.decision_intelligence'
 
   brebo_contract_control.management_actions:
