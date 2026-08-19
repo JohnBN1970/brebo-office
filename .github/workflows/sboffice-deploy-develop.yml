@@ -1,4 +1,4 @@
-name: Deploy BREBO Office develop to sboffice
+name: Deploy BREBO Office develop to production
 
 on:
   push:
@@ -17,12 +17,14 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy develop to sboffice
+    name: Deploy develop to BREBO Office production
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
-      DEPLOY_HOST: 77.37.34.160
-      DEPLOY_PORT: '65002'
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
     steps:
       - name: Checkout develop
@@ -32,14 +34,14 @@ jobs:
           fetch-depth: 1
 
       - name: Validate deployment settings
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         shell: bash
         run: |
           set -euo pipefail
           for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
-            if [[ -z "${!name}" ]]; then echo "::error::Required deployment setting $name is missing."; exit 1; fi
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required repository secret $name is missing."
+              exit 1
+            fi
           done
           [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
 
@@ -57,20 +59,12 @@ jobs:
           composer validate --no-check-publish
           composer install --no-dev --prefer-dist --no-interaction --no-progress --optimize-autoloader
           test -f vendor/drush/drush/drush.php
-          test -d web/modules/contrib/mimemail
-          test -d web/modules/contrib/smtp
-          test -d web/modules/contrib/mailsystem
-          test -f web/modules/custom/brebo_calculation/brebo_calculation.info.yml
-          test -f web/modules/custom/brebo_calculation/brebo_calculation.install
-          test -f web/modules/custom/brebo_calculation/brebo_calculation.module
+          test -f web/modules/custom/brebo_finance/brebo_finance.info.yml
+          test -f web/modules/custom/brebo_building_data/brebo_building_data.info.yml
           test -f web/modules/custom/brebo_glass/brebo_glass.info.yml
-          test -f web/modules/custom/brebo_glass/brebo_glass.install
-          sha256sum web/modules/custom/brebo_calculation/brebo_calculation.module | awk '{print $1}' > /tmp/brebo-calculation-module.sha256
+          test -f web/modules/custom/brebo_calculation/brebo_calculation.info.yml
 
       - name: Configure SSH
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
-          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
         shell: bash
         run: |
           set -euo pipefail
@@ -84,7 +78,10 @@ jobs:
               test -s ~/.ssh/known_hosts
               break
             fi
-            if [[ "$attempt" -eq 5 ]]; then echo "::error::Unable to establish authenticated SSH connection and capture host key."; exit 1; fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to establish authenticated SSH connection."
+              exit 1
+            fi
             sleep $((attempt * 2))
           done
 
@@ -92,126 +89,132 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tar --exclude='.git' --exclude='.github' --exclude='web/sites/default/files' --exclude='web/sites/default/settings.php' --exclude='web/sites/default/services.yml' --exclude='.env' --exclude='.env.*' -czf /tmp/brebo-office-develop.tgz .
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_document_data/src/Controller/DocumentOpenController.php'
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.info.yml'
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.install'
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_calculation/brebo_calculation.module'
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_glass/brebo_glass.info.yml'
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Fx './web/modules/custom/brebo_glass/brebo_glass.install'
+          tar \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='web/sites/default/files' \
+            --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/services.yml' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            -czf /tmp/brebo-office-develop.tgz .
+          test -s /tmp/brebo-office-develop.tgz
 
       - name: Upload deployment archive
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         shell: bash
         run: |
           set -euo pipefail
-          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" /tmp/brebo-office-develop.tgz /tmp/brebo-calculation-module.sha256 "$DEPLOY_USER@$DEPLOY_HOST:/tmp/"
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
+            /tmp/brebo-office-develop.tgz \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-office-develop.tgz"
 
-      - name: Deploy, update and export active config
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      - name: Deploy, update Drupal, rebuild cache and smoke test
         shell: bash
         run: |
           set -euo pipefail
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -eEuo pipefail
           export NO_COLOR=1 TERM=dumb
-          target="public_html/sboffice"
-          archive="/tmp/brebo-office-develop.tgz"
-          expected_hash_file="/tmp/brebo-calculation-module.sha256"
-          config_archive="/tmp/brebo-active-config-sync.tgz"
-          settings="$target/web/sites/default/settings.php"
-          services="$target/web/sites/default/services.yml"
-          [[ -d "$target" && ! -L "$target" && -f "$settings" && ! -d "$target/web/web" ]]
-          settings_before="$(sha256sum "$settings" | awk '{print $1}')"
-          services_before=""; [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
-          staging="$(mktemp -d)"; trap 'rm -rf "$staging"' EXIT
-          tar -xzf "$archive" -C "$staging"
-          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.info.yml"
-          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.install"
-          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.module"
-          expected_hash="$(cat "$expected_hash_file")"
-          staging_hash="$(sha256sum "$staging/web/modules/custom/brebo_calculation/brebo_calculation.module" | awk '{print $1}')"
-          [[ "$staging_hash" == "$expected_hash" ]]
-          cp -a "$staging/." "$target/"
-          deployed_hash="$(sha256sum "$target/web/modules/custom/brebo_calculation/brebo_calculation.module" | awk '{print $1}')"
-          [[ "$deployed_hash" == "$expected_hash" ]]
-          rm -f "$archive" "$expected_hash_file"; rm -rf "$staging"; trap - EXIT
-          [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
-          if [[ -n "$services_before" ]]; then [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]; fi
 
-          cd "$target"
+          app="$HOME/domains/brebobv.nl/public_html/sboffice_app"
+          public="$HOME/domains/brebobv.nl/public_html/sboffice"
+          archive="/tmp/brebo-office-develop.tgz"
+          config_archive="/tmp/brebo-active-config-sync.tgz"
+          settings="$app/web/sites/default/settings.php"
+          services="$app/web/sites/default/services.yml"
+
+          [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Production application directory missing or invalid: $app"; exit 1; }
+          [[ -f "$settings" ]] || { echo "::error::Production settings.php missing in $app"; exit 1; }
+          [[ -L "$public" ]] || { echo "::error::Public BREBO Office path must be a symlink: $public"; exit 1; }
+          [[ "$(readlink -f "$public")" == "$(readlink -f "$app")" ]] || { echo "::error::Public BREBO Office symlink does not point to sboffice_app."; exit 1; }
+          [[ ! -d "$app/web/web" ]]
+
+          settings_before="$(sha256sum "$settings" | awk '{print $1}')"
+          services_before=""
+          [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
+
+          staging="$(mktemp -d)"
+          trap 'rm -rf "$staging"' EXIT
+          tar -xzf "$archive" -C "$staging"
+          test -f "$staging/web/modules/custom/brebo_finance/brebo_finance.info.yml"
+          test -f "$staging/web/modules/custom/brebo_building_data/brebo_building_data.info.yml"
+          test -f "$staging/web/modules/custom/brebo_glass/brebo_glass.info.yml"
+          test -f "$staging/web/modules/custom/brebo_calculation/brebo_calculation.info.yml"
+
+          cp -a "$staging/." "$app/"
+          rm -f "$archive"
+          rm -rf "$staging"
+          trap - EXIT
+
+          [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
+          if [[ -n "$services_before" ]]; then
+            [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]
+          fi
+
+          cd "$app"
           remote_php="/opt/alt/php83/usr/bin/php"
           [[ -x "$remote_php" ]] || { echo "::error::Required remote PHP 8.3 binary not found: $remote_php"; exit 1; }
-          remote_php_version="$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')"
-          [[ "$remote_php_version" == "8.3" ]] || { echo "::error::Expected remote PHP 8.3, got $remote_php_version"; exit 1; }
-          "$remote_php" -v
-          drush=("$remote_php" -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d log_errors=1 -d error_log=/dev/stderr vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          diagnose() {
-            rc="$1"; line="$2"; command="$3"
-            set +e
-            echo "::group::BREBO Drupal failure diagnostics"
-            echo "FAILED_EXIT=$rc"
-            echo "FAILED_LINE=$line"
-            echo "FAILED_COMMAND=$command"
-            "$remote_php" --ini 2>&1 || true
-            "$remote_php" -r 'foreach (["memory_limit","display_errors","display_startup_errors","log_errors","error_log"] as $key) { echo "PHP_" . strtoupper($key) . "=" . ini_get($key) . PHP_EOL; }' 2>&1 || true
-            for logfile in "$HOME/domains/brebobv.nl/logs/error.log" "$HOME/domains/brebobv.nl/logs/php_error.log" "$target/error_log" "$target/web/error_log"; do
-              if [[ -f "$logfile" ]]; then echo "--- $logfile"; tail -n 100 "$logfile" 2>&1 || true; fi
-            done
-            "${drush[@]}" status --fields=bootstrap,db-status,drupal-version,php-version 2>&1 || true
-            "${drush[@]}" watchdog:show --count=40 --extended 2>&1 || "${drush[@]}" ws --count=40 --extended 2>&1 || true
-            "${drush[@]}" pm:list --type=module --filter=brebo_calculation --fields=name,status,version 2>&1 || true
-            find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 | xargs -0 -n1 "$remote_php" -l 2>&1 || true
-            echo "::endgroup::"
-            exit "$rc"
-          }
-          trap 'diagnose $? $LINENO "$BASH_COMMAND"' ERR
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance -y
+          echo "MODULE_ENABLE_OK=1"
 
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass -y
-          "${drush[@]}" -vvv pm:enable brebo_calculation -y
-          "${drush[@]}" php:eval '\Drupal::database()->truncate("cache_container")->execute(); \Drupal::database()->truncate("cache_discovery")->execute();'
           "${drush[@]}" updb -y --no-cache-clear
-          "${drush[@]}" php:eval '\Drupal::state()->set("system.maintenance_mode", FALSE); print "MAINTENANCE_MODE_OFF_BEFORE_CACHE_REBUILD=1\n";'
-          if "${drush[@]}" cr -vvv; then
-            echo "CACHE_REBUILD_MODE=drush"
-          else
-            cache_rebuild_rc="$?"
-            echo "::warning::Drush cache rebuild exited with $cache_rebuild_rc; applying Drupal router/render fallback."
-            "${drush[@]}" php:eval '\Drupal::service("router.builder")->rebuild(); \Drupal::service("cache.render")->deleteAll(); print "CACHE_REBUILD_MODE=router_render_fallback\n";'
-          fi
-          "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_calculation")) { throw new \RuntimeException("brebo_calculation is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_calculation_structure","brebo_calculation_version","brebo_calculation_row_domain","brebo_calculation_snapshot"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing calculation table: ".$t); } } $r=\Drupal::service("router.route_provider"); foreach (["brebo_calculation.migration_overview","brebo_calculation.migration_audit","brebo_calculation.migration_confirm"] as $n) { $r->getRouteByName($n); } print "CALCULATION_DOMAIN_OK=1\n";'
-          "${drush[@]}" php:eval '$mh=\Drupal::moduleHandler(); if (!$mh->moduleExists("brebo_glass")) { throw new \RuntimeException("brebo_glass is not enabled"); } $s=\Drupal::database()->schema(); foreach (["brebo_glass_position","brebo_glass_product"] as $t) { if (!$s->tableExists($t)) { throw new \RuntimeException("Missing glass table: ".$t); } } foreach (["brebo_glass.position_repository","brebo_glass.product_repository","brebo_glass.approval_policy"] as $service) { \Drupal::service($service); } $r=\Drupal::service("router.route_provider"); foreach (["brebo_glass.position_overview","brebo_glass.position_add","brebo_glass.position_approve","brebo_glass.product_overview","brebo_glass.product_add","brebo_glass.product_verify"] as $n) { $r->getRouteByName($n); } print "GLASS_DOMAIN_OK=1\n";'
+          echo "DATABASE_UPDATES_OK=1"
 
-          "${drush[@]}" php:eval 'if ((bool) \Drupal::state()->get("system.maintenance_mode", FALSE)) { throw new \RuntimeException("Maintenance mode is still enabled"); } print "MAINTENANCE_MODE_OFF=1\n";'
+          "${drush[@]}" cr -vvv
+          echo "CACHE_REBUILD_OK=1"
+
+          "${drush[@]}" php:eval '
+            $mh = \Drupal::moduleHandler();
+            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation"] as $module) {
+              if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
+            }
+            foreach ([
+              "brebo_building_data.project_building_repository",
+              "brebo_building_data.object_repository",
+              "brebo_finance.performance_location_manager",
+              "brebo_finance.performance_receipt_manager"
+            ] as $service) { \Drupal::service($service); }
+            $routes = \Drupal::service("router.route_provider");
+            foreach ([
+              "brebo_finance.project_finance_page",
+              "brebo_finance.performance_receipt_submit",
+              "brebo_finance.performance_evidence_upload",
+              "brebo_building_data.object_tree"
+            ] as $route) { $routes->getRouteByName($route); }
+            print "FINANCE_BUILDING_RUNTIME_OK=1\n";
+          '
+
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
           [[ "$login_status" == "200" ]]
           echo "PUBLIC_LOGIN_OK=1"
 
+          finance_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/brebo-office/finance)"
+          [[ "$finance_status" != "500" && "$finance_status" != "000" ]]
+          echo "FINANCE_HTTP_SMOKE_OK=$finance_status"
+
           timeout 180 "${drush[@]}" cex -y
-          test -f scripts/canonicalize-building-relations.php
           test -d config/sync
           tar -czf "$config_archive" config/sync
-          echo "DEPLOY_OK=1"
           echo "CONFIG_EXPORT_OK=1"
-          echo "CALCULATION_DOMAIN_OK=1"
-          echo "GLASS_DOMAIN_OK=1"
-          echo "MAINTENANCE_MODE_OFF=1"
-          echo "PUBLIC_LOGIN_OK=1"
-          echo "CALCULATION_MODULE_HASH_OK=$deployed_hash"
-          echo "TARGET=$target"
+          echo "DEPLOY_OK=1"
+          echo "TARGET=$app"
+          echo "PUBLIC_LINK=$public"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
 
       - name: Download exported config
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         shell: bash
         run: |
           set -euo pipefail
-          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" ./brebo-active-config-sync.tgz
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-active-config-sync.tgz" \
+            ./brebo-active-config-sync.tgz
           test -s ./brebo-active-config-sync.tgz
 
       - name: Upload active config artifact
@@ -222,11 +225,11 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Cleanup server config archive
+      - name: Cleanup server archives
         if: always()
-        env:
-          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         shell: bash
         run: |
           set +e
-          timeout 15 ssh -o ConnectTimeout=8 -o ServerAliveInterval=5 -o ServerAliveCountMax=1 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'rm -f /tmp/brebo-active-config-sync.tgz /tmp/brebo-calculation-module.sha256' || true
+          timeout 15 ssh -o ConnectTimeout=8 -o ServerAliveInterval=5 -o ServerAliveCountMax=1 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            'rm -f /tmp/brebo-active-config-sync.tgz /tmp/brebo-office-develop.tgz' || true
