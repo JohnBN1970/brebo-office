@@ -24,6 +24,10 @@ services:
     class: Drupal\brebo_office_core\Service\RiskManagementAnalytics
     arguments: ['@database']
 
+  brebo_office_core.risk_improvement_advisor:
+    class: Drupal\brebo_office_core\Service\RiskImprovementAdvisor
+    arguments: ['@database']
+
   brebo_office_core.risk_control_room_route_subscriber:
     class: Drupal\brebo_office_core\Routing\RiskControlRoomRouteSubscriber
     tags:
