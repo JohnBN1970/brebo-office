@@ -11,3 +11,7 @@ services:
   brebo_inzet.project_clock_zone_control:
     class: Drupal\brebo_inzet\Service\ProjectClockZoneControl
     arguments: ['@brebo_inzet.workforce_geofence']
+
+  brebo_inzet.project_clock_zone_manager:
+    class: Drupal\brebo_inzet\Service\ProjectClockZoneManager
+    arguments: ['@entity_type.manager']
