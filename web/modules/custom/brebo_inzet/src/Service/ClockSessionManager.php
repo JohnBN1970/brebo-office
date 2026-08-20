@@ -21,10 +21,17 @@ final class ClockSessionManager {
   ) {}
 
   public function findOpen(NodeInterface $project, int $userId): ?NodeInterface {
+    $open = $this->findOpenForUser($userId);
+    if (!$open instanceof NodeInterface) {
+      return NULL;
+    }
+    return (int) ($open->get('field_brebo_project_ref')->target_id ?? 0) === (int) $project->id() ? $open : NULL;
+  }
+
+  public function findOpenForUser(int $userId): ?NodeInterface {
     $ids = $this->entityTypeManager->getStorage('node')->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'brebo_clock_registration')
-      ->condition('field_brebo_project_ref', (int) $project->id())
       ->condition('field_brebo_clock_user', $userId)
       ->condition('field_brebo_clock_status', 'Open')
       ->sort('created', 'DESC')
@@ -39,8 +46,12 @@ final class ClockSessionManager {
 
   /** @return array<string, mixed> */
   public function clockIn(NodeInterface $project, int $userId, ?float $latitude, ?float $longitude, ?float $accuracy): array {
-    if ($this->findOpen($project, $userId) !== NULL) {
-      throw new \InvalidArgumentException('Er staat al een open klokregistratie voor dit project.');
+    $existing = $this->findOpenForUser($userId);
+    if ($existing instanceof NodeInterface) {
+      $existingProjectId = (int) ($existing->get('field_brebo_project_ref')->target_id ?? 0);
+      $existingProject = $existingProjectId > 0 ? $this->entityTypeManager->getStorage('node')->load($existingProjectId) : NULL;
+      $label = $existingProject instanceof NodeInterface ? $existingProject->label() : ('project ' . $existingProjectId);
+      throw new \InvalidArgumentException(sprintf('Je bent al ingeklokt op %s. Klok daar eerst uit voordat je op een ander project inklokt.', $label));
     }
 
     $geo = $this->zoneControl->assess($this->zoneManager->loadForProject($project), $latitude, $longitude, $accuracy);
@@ -72,6 +83,11 @@ final class ClockSessionManager {
   public function clockOut(NodeInterface $project, int $userId, ?float $latitude, ?float $longitude, ?float $accuracy, ?string $reason = NULL): array {
     $registration = $this->findOpen($project, $userId);
     if ($registration === NULL) {
+      $otherOpen = $this->findOpenForUser($userId);
+      if ($otherOpen instanceof NodeInterface) {
+        $otherProjectId = (int) ($otherOpen->get('field_brebo_project_ref')->target_id ?? 0);
+        throw new \InvalidArgumentException(sprintf('Je actieve klokregistratie hoort bij project %d. Open dat project om uit te klokken.', $otherProjectId));
+      }
       throw new \InvalidArgumentException('Er is geen open klokregistratie om uit te klokken.');
     }
 
