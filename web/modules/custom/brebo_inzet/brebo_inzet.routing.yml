@@ -59,3 +59,15 @@ brebo_inzet.mobile_clock:
     parameters:
       node:
         type: entity:node
+
+brebo_inzet.live_workforce:
+  path: '/projecten/{node}/inzet/nu-aan-het-werk'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\LiveWorkforceController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\LiveWorkforceController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
