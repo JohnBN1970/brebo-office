@@ -98,6 +98,11 @@ services:
       - '@database'
       - '@brebo_calculation.recipe_price_health_inspector'
 
+  brebo_calculation.work_assignment_manager:
+    class: Drupal\brebo_calculation\Service\CalculationWorkAssignmentManager
+    arguments:
+      - '@database'
+
   brebo_calculation.offer_readiness_access:
     class: Drupal\brebo_calculation\Access\OfferReadinessAccessCheck
     arguments:
