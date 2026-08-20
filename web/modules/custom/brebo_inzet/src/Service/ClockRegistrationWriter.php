@@ -57,10 +57,10 @@ final class ClockRegistrationWriter {
       'type' => 'brebo_clock_registration',
       'title' => sprintf('Klokregistratie %s - %s', $project->label(), $clockIn?->format('Y-m-d H:i') ?? 'onbekend'),
       'field_brebo_project_ref' => ['target_id' => (int) $project->id()],
-      'field_brebo_user_ref' => ['target_id' => $userId],
+      'field_brebo_clock_user' => ['target_id' => $userId],
       'field_brebo_clock_zone_ref' => $clockZone ? ['target_id' => (int) $clockZone->id()] : NULL,
-      'field_brebo_clock_in' => $clockIn?->format(DATE_ATOM),
-      'field_brebo_clock_out' => $clockOut?->format(DATE_ATOM),
+      'field_brebo_clock_in' => $clockIn?->format('Y-m-d\\TH:i:s'),
+      'field_brebo_clock_out' => $clockOut?->format('Y-m-d\\TH:i:s'),
       'field_brebo_clock_latitude' => $latitude,
       'field_brebo_clock_longitude' => $longitude,
       'field_brebo_clock_accuracy' => $accuracy,
@@ -69,7 +69,7 @@ final class ClockRegistrationWriter {
       'field_brebo_clock_severity' => $severity,
       'field_brebo_clock_reason' => $normalizedReason,
       'field_brebo_next_project_ref' => $nextProject ? ['target_id' => (int) $nextProject->id()] : NULL,
-      'field_brebo_clock_assessment' => json_encode($verdict, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+      'field_brebo_clock_message' => json_encode($verdict, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
       'status' => 1,
     ]);
     $registration->save();
