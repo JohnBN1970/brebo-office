@@ -11,6 +11,9 @@ clock-zone-map:
 
 mobile-clock:
   version: 1.0.0
+  css:
+    component:
+      css/mobile-clock.css: {}
   js:
     js/mobile-clock.js: {}
   dependencies:
