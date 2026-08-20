@@ -8,3 +8,11 @@ clock-zone-map:
   dependencies:
     - core/drupal
     - core/once
+
+mobile-clock:
+  version: 1.0.0
+  js:
+    js/mobile-clock.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
