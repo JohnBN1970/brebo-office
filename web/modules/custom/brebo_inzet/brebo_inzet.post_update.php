@@ -105,3 +105,127 @@ function brebo_inzet_post_update_clock_zones(array &$sandbox = NULL): string {
 
   return 'Projectgebonden kloklocaties met instelbaar middelpunt, radius en status aangemaakt.';
 }
+
+/**
+ * Creates durable clock registrations for BREBO Inzet.
+ */
+function brebo_inzet_post_update_clock_registrations(array &$sandbox = NULL): string {
+  \Drupal::moduleHandler()->loadInclude('brebo_office_core', 'install');
+  if (!function_exists('_brebo_office_core_create_node_bundle')) {
+    throw new \RuntimeException('BREBO Office install helper is unavailable.');
+  }
+
+  _brebo_office_core_create_node_bundle(
+    'brebo_clock_registration',
+    'Klokregistratie',
+    'Duurzame registratie van werkelijke kloktijd, project, locatiecontrole en afwijkingsbesluit.',
+    [
+      'field_brebo_project_ref' => [
+        'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Project waarop deze klokregistratie betrekking heeft.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 1,
+      ],
+      'field_brebo_clock_user' => [
+        'label' => 'Medewerker', 'type' => 'entity_reference', 'required' => TRUE,
+        'storage' => ['target_type' => 'user'],
+        'field_settings' => ['handler' => 'default:user'],
+        'description' => 'Gebruiker die de klokactie uitvoert.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 2,
+      ],
+      'field_brebo_clock_zone_ref' => [
+        'label' => 'Kloklocatie', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_clock_zone' => 'brebo_clock_zone']]],
+        'description' => 'Werkzone die bij de GPS-controle is herkend.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 3,
+      ],
+      'field_brebo_clock_in' => [
+        'label' => 'Ingeklokt', 'type' => 'datetime', 'required' => TRUE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Werkelijk geregistreerde inkloktijd.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 4,
+      ],
+      'field_brebo_clock_out' => [
+        'label' => 'Uitgeklokt', 'type' => 'datetime', 'required' => FALSE,
+        'storage' => ['datetime_type' => 'datetime'],
+        'description' => 'Werkelijk geregistreerde uitkloktijd.',
+        'widget' => 'datetime_default', 'formatter' => 'datetime_default', 'weight' => 5,
+      ],
+      'field_brebo_clock_latitude' => [
+        'label' => 'GPS breedtegraad', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 11, 'scale' => 8],
+        'description' => 'GPS-positie bij de laatste klokactie.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 6,
+      ],
+      'field_brebo_clock_longitude' => [
+        'label' => 'GPS lengtegraad', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 11, 'scale' => 8],
+        'description' => 'GPS-positie bij de laatste klokactie.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 7,
+      ],
+      'field_brebo_clock_accuracy' => [
+        'label' => 'GPS nauwkeurigheid', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 8, 'scale' => 2],
+        'description' => 'Door het apparaat gemelde GPS-nauwkeurigheid in meters.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 8,
+      ],
+      'field_brebo_clock_distance' => [
+        'label' => 'Afstand tot klokzone', 'type' => 'decimal', 'required' => FALSE,
+        'storage' => ['precision' => 10, 'scale' => 2],
+        'description' => 'Berekende afstand tot het herkende middelpunt in meters.',
+        'widget' => 'number', 'formatter' => 'number_decimal', 'weight' => 9,
+      ],
+      'field_brebo_clock_status' => [
+        'label' => 'Klokstatus', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 64],
+        'description' => 'Samengevoegd oordeel uit tijd, locatie en eventuele projectwissel.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 10,
+        'default_value' => [['value' => 'Open']],
+      ],
+      'field_brebo_clock_severity' => [
+        'label' => 'Ernst', 'type' => 'string', 'required' => TRUE,
+        'storage' => ['max_length' => 16],
+        'description' => 'Groen, oranje of rood.',
+        'widget' => 'string_textfield', 'formatter' => 'string', 'weight' => 11,
+        'default_value' => [['value' => 'groen']],
+      ],
+      'field_brebo_clock_reason' => [
+        'label' => 'Reden afwijking', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Verplichte toelichting wanneer de beslismotor een reden vereist.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 12,
+      ],
+      'field_brebo_next_project_ref' => [
+        'label' => 'Vervolgproject', 'type' => 'entity_reference', 'required' => FALSE,
+        'storage' => ['target_type' => 'node'],
+        'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+        'description' => 'Project waarop aansluitend is ingeklokt wanneer een projectwissel is herkend.',
+        'widget' => 'entity_reference_autocomplete', 'formatter' => 'entity_reference_label', 'weight' => 13,
+      ],
+      'field_brebo_clock_message' => [
+        'label' => 'Controle-uitkomst', 'type' => 'text_long', 'required' => FALSE,
+        'storage' => [],
+        'description' => 'Menselijk leesbare toelichting van de automatische beoordeling.',
+        'widget' => 'text_textarea', 'formatter' => 'text_default', 'weight' => 14,
+      ],
+    ],
+  );
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_clock_registration content',
+        'edit own brebo_clock_registration content',
+        'edit any brebo_clock_registration content',
+        'view brebo_clock_registration revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+
+  return 'Duurzame klokregistraties met tijd-, GPS-, projectwissel- en afwijkingsgegevens aangemaakt.';
+}
