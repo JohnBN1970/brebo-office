@@ -40,3 +40,11 @@ services:
   brebo_glass.calculation_exporter:
     class: Drupal\brebo_glass\Service\GlassCalculationExporter
     arguments: ['@brebo_glass.calculation_context_builder', '@brebo_glass.price_resolver', '@brebo_glass.calculation_link_guard', '@brebo_calculation.object_line_writer']
+
+  brebo_glass.availability:
+    class: Drupal\brebo_glass\Service\GlassAvailabilityService
+    arguments: ['@database', '@brebo_glass.position_repository']
+
+  brebo_glass.procurement_adapter:
+    class: Drupal\brebo_glass\Service\GlassProcurementAdapter
+    arguments: ['@brebo_glass.availability', '@brebo_procurement_control.fulfilment_decision']
