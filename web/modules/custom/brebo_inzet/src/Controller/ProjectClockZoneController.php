@@ -46,7 +46,7 @@ final class ProjectClockZoneController extends ControllerBase {
             '#links' => [
               'edit' => [
                 'title' => $this->t('Bewerken'),
-                'url' => Url::fromRoute('entity.node.edit_form', ['node' => $zone['id']]),
+                'url' => Url::fromRoute('brebo_inzet.project_clock_zone_edit', ['node' => $node->id(), 'zone' => $zone['id']]),
               ],
               'delete' => [
                 'title' => $this->t('Verwijderen'),
