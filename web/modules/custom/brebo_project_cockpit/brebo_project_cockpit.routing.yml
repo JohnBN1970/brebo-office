@@ -1,8 +1,8 @@
 brebo_project_cockpit.overview:
   path: '/projecten/{node}/cockpit'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\ProjectCockpitController::overview'
-    _title_callback: '\Drupal\brebo_office_core\Controller\ProjectCockpitController::title'
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectCockpitController::overview'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectCockpitController::title'
   requirements:
     _entity_access: 'node.view'
   options:
