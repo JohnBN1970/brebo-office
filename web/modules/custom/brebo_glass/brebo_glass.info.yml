@@ -9,3 +9,4 @@ dependencies:
   - brebo_building_data:brebo_building_data
   - brebo_calculation:brebo_calculation
   - brebo_article:brebo_article
+  - brebo_procurement_control:brebo_procurement_control
