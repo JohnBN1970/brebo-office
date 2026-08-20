@@ -18,3 +18,6 @@ services:
 
   brebo_inzet.clock_time_control:
     class: Drupal\brebo_inzet\Service\ClockTimeControl
+
+  brebo_inzet.clock_transition_control:
+    class: Drupal\brebo_inzet\Service\ClockTransitionControl
