@@ -1,0 +1,23 @@
+brebo_inzet.project_clock_zones:
+  path: '/projecten/{node}/inzet/kloklocaties'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\ProjectClockZoneController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\ProjectClockZoneController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_inzet.project_clock_zone_add:
+  path: '/projecten/{node}/inzet/kloklocaties/toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\ProjectClockZoneForm'
+    _title: 'Kloklocatie toevoegen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
