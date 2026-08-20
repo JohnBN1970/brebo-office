@@ -1,0 +1,42 @@
+services:
+  brebo_inzet.personnel_budget_control:
+    class: Drupal\brebo_inzet\Service\PersonnelBudgetControl
+
+  brebo_inzet.workforce_schedule_control:
+    class: Drupal\brebo_inzet\Service\WorkforceScheduleControl
+
+  brebo_inzet.workforce_geofence:
+    class: Drupal\brebo_inzet\Service\WorkforceGeoFence
+
+  brebo_inzet.project_clock_zone_control:
+    class: Drupal\brebo_inzet\Service\ProjectClockZoneControl
+    arguments: ['@brebo_inzet.workforce_geofence']
+
+  brebo_inzet.project_clock_zone_manager:
+    class: Drupal\brebo_inzet\Service\ProjectClockZoneManager
+    arguments: ['@entity_type.manager']
+
+  brebo_inzet.clock_time_control:
+    class: Drupal\brebo_inzet\Service\ClockTimeControl
+
+  brebo_inzet.clock_transition_control:
+    class: Drupal\brebo_inzet\Service\ClockTransitionControl
+
+  brebo_inzet.clock_action_control:
+    class: Drupal\brebo_inzet\Service\ClockActionControl
+    arguments: ['@brebo_inzet.clock_time_control', '@brebo_inzet.clock_transition_control']
+
+  brebo_inzet.clock_registration_writer:
+    class: Drupal\brebo_inzet\Service\ClockRegistrationWriter
+    arguments: ['@entity_type.manager']
+
+  brebo_inzet.pause_policy:
+    class: Drupal\brebo_inzet\Service\PausePolicy
+
+  brebo_inzet.clock_transition_reconciler:
+    class: Drupal\brebo_inzet\Service\ClockTransitionReconciler
+    arguments: ['@entity_type.manager', '@brebo_inzet.clock_transition_control']
+
+  brebo_inzet.clock_session_manager:
+    class: Drupal\brebo_inzet\Service\ClockSessionManager
+    arguments: ['@entity_type.manager', '@brebo_inzet.project_clock_zone_manager', '@brebo_inzet.project_clock_zone_control', '@brebo_inzet.clock_action_control', '@brebo_inzet.clock_transition_reconciler']
