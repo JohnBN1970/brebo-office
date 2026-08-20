@@ -1,0 +1,8 @@
+name: BREBO Inzet
+type: module
+description: 'Projectgebonden personeelsplanning, capaciteit, diensten en urencontrole vanuit de vrijgegeven werkbegroting.'
+package: BREBO Office
+core_version_requirement: ^11
+dependencies:
+  - drupal:node
+  - brebo_office_core:brebo_office_core
