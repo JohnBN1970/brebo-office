@@ -4,3 +4,6 @@ services:
 
   brebo_inzet.workforce_schedule_control:
     class: Drupal\brebo_inzet\Service\WorkforceScheduleControl
+
+  brebo_inzet.workforce_geofence:
+    class: Drupal\brebo_inzet\Service\WorkforceGeoFence
