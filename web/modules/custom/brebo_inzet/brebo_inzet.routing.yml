@@ -35,3 +35,15 @@ brebo_inzet.project_clock_zone_edit:
         type: entity:node
       zone:
         type: entity:node
+
+brebo_inzet.project_clock_deviations:
+  path: '/projecten/{node}/inzet/afwijkingen'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\ClockDeviationController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\ClockDeviationController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
