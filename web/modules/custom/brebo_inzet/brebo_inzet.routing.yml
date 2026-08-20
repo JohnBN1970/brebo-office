@@ -21,3 +21,17 @@ brebo_inzet.project_clock_zone_add:
     parameters:
       node:
         type: entity:node
+
+brebo_inzet.project_clock_zone_edit:
+  path: '/projecten/{node}/inzet/kloklocaties/{zone}/bewerken'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\ProjectClockZoneForm'
+    _title: 'Kloklocatie bewerken'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+      zone:
+        type: entity:node
