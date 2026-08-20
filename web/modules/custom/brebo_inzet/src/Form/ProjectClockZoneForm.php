@@ -35,6 +35,7 @@ final class ProjectClockZoneForm extends FormBase {
       throw new NotFoundHttpException();
     }
     $this->project = $node;
+    $form['#attached']['library'][] = 'brebo_inzet/clock-zone-map';
 
     $form['name'] = [
       '#type' => 'textfield',
@@ -43,6 +44,19 @@ final class ProjectClockZoneForm extends FormBase {
       '#maxlength' => 255,
       '#placeholder' => $this->t('Bijvoorbeeld Achterterrein, Blok B of Depot'),
     ];
+    $form['map'] = [
+      '#type' => 'container',
+      '#attributes' => [
+        'class' => ['brebo-clock-zone-map'],
+        'data-brebo-clock-zone-map' => 'true',
+      ],
+      'canvas' => [
+        '#markup' => '<div class="brebo-clock-zone-map__canvas"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
+      ],
+      'help' => [
+        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de pin om het middelpunt te verplaatsen. Verander hieronder de klokafstand; de cirkel groeit of krimpt direct mee. Huidige radius: <span class="brebo-clock-zone-map__readout">150 m</span>.') . '</p>',
+      ],
+    ];
     $form['latitude'] = [
       '#type' => 'number',
       '#title' => $this->t('Breedtegraad'),
@@ -50,7 +64,8 @@ final class ProjectClockZoneForm extends FormBase {
       '#step' => '0.00000001',
       '#min' => -90,
       '#max' => 90,
-      '#description' => $this->t('Voorlopig numeriek; in de volgende stap wordt dit door de versleepbare kaartpin ingevuld.'),
+      '#default_value' => '52.37021600',
+      '#description' => $this->t('Wordt automatisch bijgewerkt wanneer de kaartpin wordt versleept.'),
     ];
     $form['longitude'] = [
       '#type' => 'number',
@@ -59,6 +74,8 @@ final class ProjectClockZoneForm extends FormBase {
       '#step' => '0.00000001',
       '#min' => -180,
       '#max' => 180,
+      '#default_value' => '4.89516800',
+      '#description' => $this->t('Wordt automatisch bijgewerkt wanneer de kaartpin wordt versleept.'),
     ];
     $form['radius'] = [
       '#type' => 'number',
