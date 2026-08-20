@@ -1,0 +1,3 @@
+services:
+  brebo_inzet.personnel_budget_control:
+    class: Drupal\brebo_inzet\Service\PersonnelBudgetControl
