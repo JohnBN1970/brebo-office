@@ -1,0 +1,32 @@
+.brebo-project-cockpit__hero {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.brebo-project-cockpit__status {
+  border: 1px solid currentColor;
+  border-radius: .5rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  background: rgba(127, 127, 127, .06);
+}
+
+.brebo-project-cockpit__status strong {
+  letter-spacing: .04em;
+}
+
+.brebo-project-cockpit__status--groen { color: #1f6f43; }
+.brebo-project-cockpit__status--oranje { color: #9a5c00; }
+.brebo-project-cockpit__status--rood { color: #a12622; }
+.brebo-project-cockpit__status--grijs { color: #62666a; }
+
+@media (max-width: 760px) {
+  .brebo-project-cockpit__hero {
+    grid-template-columns: 1fr;
+  }
+}
