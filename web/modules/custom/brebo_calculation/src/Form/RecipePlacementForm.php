@@ -76,6 +76,8 @@ final class RecipePlacementForm extends FormBase {
     }
 
     $selectedVersion = (int) ($form_state->getValue(['recipe', 'version_id']) ?: array_key_first($recipes));
+    $requestedParagraph = trim((string) \Drupal::request()->query->get('paragraph', ''));
+    $selectedParagraph = (string) ($form_state->getValue(['recipe', 'paragraph_key']) ?: (isset($paragraphs[$requestedParagraph]) ? $requestedParagraph : array_key_first($paragraphs)));
 
     $form['recipe'] = [
       '#type' => 'container',
@@ -96,6 +98,7 @@ final class RecipePlacementForm extends FormBase {
       '#type' => 'select',
       '#title' => 'Eindparagraaf',
       '#options' => $paragraphs,
+      '#default_value' => $selectedParagraph,
       '#required' => TRUE,
     ];
     $form['recipe']['quantity'] = [
