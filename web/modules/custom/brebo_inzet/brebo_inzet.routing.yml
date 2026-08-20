@@ -47,3 +47,15 @@ brebo_inzet.project_clock_deviations:
     parameters:
       node:
         type: entity:node
+
+brebo_inzet.mobile_clock:
+  path: '/projecten/{node}/inzet/klokken'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\MobileClockForm'
+    _title: 'Klokken'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
