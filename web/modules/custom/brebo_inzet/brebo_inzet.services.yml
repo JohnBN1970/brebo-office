@@ -21,3 +21,7 @@ services:
 
   brebo_inzet.clock_transition_control:
     class: Drupal\brebo_inzet\Service\ClockTransitionControl
+
+  brebo_inzet.clock_action_control:
+    class: Drupal\brebo_inzet\Service\ClockActionControl
+    arguments: ['@brebo_inzet.clock_time_control', '@brebo_inzet.clock_transition_control']
