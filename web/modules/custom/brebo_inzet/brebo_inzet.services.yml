@@ -1,3 +1,6 @@
 services:
   brebo_inzet.personnel_budget_control:
     class: Drupal\brebo_inzet\Service\PersonnelBudgetControl
+
+  brebo_inzet.workforce_schedule_control:
+    class: Drupal\brebo_inzet\Service\WorkforceScheduleControl
