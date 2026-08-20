@@ -43,36 +43,37 @@ final class MobileClockForm extends FormBase {
     $pauseMode = $node->hasField('field_brebo_pause_mode')
       ? $this->pausePolicy->normalize((string) $node->get('field_brebo_pause_mode')->value)
       : PausePolicy::OFF;
+    $openForUser = $this->clockSessionManager->findOpenForUser($userId);
     $open = $this->clockSessionManager->findOpen($node, $userId);
-    $activeElsewhere = NULL;
-    if (!$open) {
-      $active = $this->clockSessionManager->findOpenForUser($userId);
-      if ($active instanceof NodeInterface) {
-        $activeProjectId = (int) ($active->get('field_brebo_project_ref')->target_id ?? 0);
-        if ($activeProjectId > 0 && $activeProjectId !== (int) $node->id()) {
-          $activeElsewhere = $this->entityTypeManager()->getStorage('node')->load($activeProjectId);
-        }
-      }
-    }
 
     $form['#attached']['library'][] = 'brebo_inzet/mobile-clock';
     $form['#attributes']['data-brebo-mobile-clock'] = 'true';
     $form['#attributes']['class'][] = 'brebo-mobile-clock';
     $form['project'] = ['#markup' => '<div class="brebo-mobile-clock__project"><strong>' . $this->t('Project') . ':</strong> ' . $node->label() . '</div>'];
 
-    if ($activeElsewhere instanceof NodeInterface) {
+    if ($openForUser instanceof NodeInterface) {
+      $activeProjectId = (int) ($openForUser->get('field_brebo_project_ref')->target_id ?? 0);
+      $activeProject = $activeProjectId > 0 ? $this->entityTypeManager()->getStorage('node')->load($activeProjectId) : NULL;
+      $activeLabel = $activeProject instanceof NodeInterface ? $activeProject->label() : $this->t('Onbekend project');
+      $clockInValue = (string) $openForUser->get('field_brebo_clock_in')->value;
+      $clockIn = $clockInValue !== '' ? new \DateTimeImmutable($clockInValue) : NULL;
+      $duration = $clockIn ? $this->formatDuration($clockIn, new \DateTimeImmutable('now')) : $this->t('onbekend');
+      $since = $clockIn ? $clockIn->format('H:i') : '-';
       $form['session_status'] = [
-        '#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Ingeklokt op @project', ['@project' => $activeElsewhere->label()]) . '</div>',
+        '#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Ingeklokt op @project sinds @time (@duration)', ['@project' => $activeLabel, '@time' => $since, '@duration' => $duration]) . '</div>',
       ];
-      $form['active_project_link'] = [
-        '#type' => 'link',
-        '#title' => $this->t('NAAR ACTIEF PROJECT'),
-        '#url' => Url::fromRoute('brebo_inzet.mobile_clock', ['node' => (int) $activeElsewhere->id()]),
-        '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button']],
-      ];
+
+      if (!$open && $activeProject instanceof NodeInterface) {
+        $form['active_project'] = [
+          '#type' => 'link',
+          '#title' => $this->t('NAAR ACTIEF PROJECT'),
+          '#url' => Url::fromRoute('brebo_inzet.mobile_clock', ['node' => (int) $activeProject->id()]),
+          '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button']],
+        ];
+      }
     }
     else {
-      $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . ($open ? $this->t('Ingeklokt') : $this->t('Uitgeklokt')) . '</div>'];
+      $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Uitgeklokt') . '</div>'];
     }
 
     $form['location_status'] = ['#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status>' . $this->t('Locatie voorbereiden…') . '</div>'];
@@ -88,19 +89,17 @@ final class MobileClockForm extends FormBase {
     ];
 
     $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
-    if (!$activeElsewhere instanceof NodeInterface) {
-      if (!$open) {
-        $form['actions']['clock_in'] = [
-          '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
-          '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
-        ];
-      }
-      else {
-        $form['actions']['clock_out'] = [
-          '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
-          '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
-        ];
-      }
+    if ($openForUser === NULL) {
+      $form['actions']['clock_in'] = [
+        '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
+      ];
+    }
+    elseif ($open) {
+      $form['actions']['clock_out'] = [
+        '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
+      ];
     }
 
     if ($open && $this->pausePolicy->showsPauseControls($pauseMode)) {
@@ -156,6 +155,13 @@ final class MobileClockForm extends FormBase {
 
   private function nullableFloat(mixed $value): ?float {
     return $value === NULL || $value === '' ? NULL : (float) $value;
+  }
+
+  private function formatDuration(\DateTimeImmutable $from, \DateTimeImmutable $to): string {
+    $seconds = max(0, $to->getTimestamp() - $from->getTimestamp());
+    $hours = intdiv($seconds, 3600);
+    $minutes = intdiv($seconds % 3600, 60);
+    return sprintf('%d:%02d uur', $hours, $minutes);
   }
 
 }
