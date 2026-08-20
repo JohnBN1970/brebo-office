@@ -44,161 +44,26 @@ brebo_calculation.workbench:
       node:
         type: entity:node
 
+brebo_calculation.assignment:
+  path: '/admin/brebo/calculations/{node}/workbench/assignment'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\CalculationAssignmentForm'
+    _title: 'Calculatie toewijzen'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    node: '\d+'
+  options:
+    _admin_route: true
+    parameters:
+      node:
+        type: entity:node
+
 brebo_calculation.readiness:
   path: '/admin/brebo/calculations/{node}/readiness'
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationReadinessController::status'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.recipe_place:
-  path: '/admin/brebo/calculations/{node}/workbench/recipes/place'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\RecipePlacementForm'
-    _title: 'Recept plaatsen'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.recipe_instance_edit:
-  path: '/admin/brebo/calculations/{node}/workbench/recipes/{recipe_instance}'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\RecipeInstanceEditForm'
-    _title: 'Recept bewerken'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    recipe_instance: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.subcalculations:
-  path: '/admin/brebo/calculations/{node}/workbench/subcalculations'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\SubcalculationOverviewForm'
-    _title: 'Deelcalculaties'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.subcalculation_detail:
-  path: '/admin/brebo/calculations/{node}/workbench/subcalculations/{subcalculation}'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\SubcalculationDetailForm'
-    _title: 'Deelcalculatie samenstellen'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    subcalculation: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.subcalculation_applications:
-  path: '/admin/brebo/calculations/{node}/workbench/subcalculations/{subcalculation}/applications'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\SubcalculationApplicationForm'
-    _title: 'Deelcalculatie toepassingen'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    subcalculation: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.subcalculation_application_objects:
-  path: '/admin/brebo/calculations/{node}/workbench/subcalculations/{subcalculation}/applications/{application}/objects'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\SubcalculationApplicationObjectsForm'
-    _title: 'Concrete objecten en afwijkingen'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    subcalculation: '\d+'
-    application: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.object_exception_lines:
-  path: '/admin/brebo/calculations/{node}/workbench/subcalculations/{subcalculation}/applications/{application}/objects/{object}/exceptions'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\ObjectExceptionLinesForm'
-    _title: 'Afwijkingsregels object'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    subcalculation: '\d+'
-    application: '\d+'
-    object: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.price_sources:
-  path: '/admin/brebo/calculations/{node}/workbench/line/{line}/price-sources'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\CalculationPriceSourceForm'
-    _title: 'Prijsbronnen calculatieregel'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-    line: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.structure:
-  path: '/admin/brebo/calculations/{node}/structure'
-  defaults:
-    _form: '\Drupal\brebo_calculation\Form\CalculationStructureForm'
-    _title: 'Calculatiestructuur'
-  requirements:
-    _permission: 'edit brebo calculation workbench'
-    node: '\d+'
-  options:
-    _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
-brebo_calculation.parameters:
-  path: '/admin/brebo/calculations/{node}/parameters'
-  defaults:
-    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkbenchController::parameters'
-    _title: 'Calculatieparameters'
-  requirements:
-    _permission: 'view brebo calculation migration audit'
     node: '\d+'
   options:
     _admin_route: true
