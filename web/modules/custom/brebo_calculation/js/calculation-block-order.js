@@ -38,6 +38,23 @@
           window.setTimeout(() => { liveRegion.textContent = message; }, 0);
         };
 
+        const recipeNavigationLink = form.querySelector('.brebo-calc-workbench__navigation a[href*="/recipes/place"]');
+        if (recipeNavigationLink) {
+          paragraphRows().forEach((paragraphRow) => {
+            const actionsCell = paragraphRow.lastElementChild;
+            const paragraphKey = paragraphRow.dataset.structureKey || '';
+            if (!actionsCell || !paragraphKey || actionsCell.querySelector('.brebo-calc-add-recipe')) return;
+            const recipeLink = document.createElement('a');
+            const url = new URL(recipeNavigationLink.href, window.location.origin);
+            url.searchParams.set('paragraph', paragraphKey);
+            recipeLink.href = url.toString();
+            recipeLink.className = 'button button--small brebo-calc-add-recipe';
+            recipeLink.textContent = '+ Recept';
+            recipeLink.setAttribute('aria-label', `Recept toevoegen aan ${paragraphLabel(paragraphKey)}`);
+            actionsCell.append(' ', recipeLink);
+          });
+        }
+
         const orderPayload = () => ({
           __workspace__: primaryRows().map((row) => ({
             type: row.dataset.blockType,
