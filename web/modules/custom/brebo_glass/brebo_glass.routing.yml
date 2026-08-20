@@ -23,6 +23,26 @@ brebo_glass.position_approve:
     _permission: 'approve brebo glass positions'
     position_id: '\d+'
 
+brebo_glass.stock_delivered:
+  path: '/brebo/glas/{position_id}/geleverd'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassStockEventForm'
+    _title: 'Glas geleverd'
+    event_type: 'delivered'
+  requirements:
+    _permission: 'register brebo glass events'
+    position_id: '\d+'
+
+brebo_glass.stock_damaged:
+  path: '/brebo/glas/{position_id}/breuk'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassStockEventForm'
+    _title: 'Glasbreuk melden'
+    event_type: 'damaged'
+  requirements:
+    _permission: 'register brebo glass events'
+    position_id: '\d+'
+
 brebo_glass.product_overview:
   path: '/brebo/glas/producten'
   defaults:

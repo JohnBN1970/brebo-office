@@ -41,3 +41,6 @@ services:
     arguments:
       - '@database'
       - '@brebo_procurement_control.control_mode_gate'
+
+  brebo_procurement_control.fulfilment_decision:
+    class: Drupal\brebo_procurement_control\Service\ProcurementFulfilmentDecisionService

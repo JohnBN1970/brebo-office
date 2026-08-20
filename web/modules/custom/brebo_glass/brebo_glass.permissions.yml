@@ -6,6 +6,10 @@ administer brebo glass:
 view brebo glass:
   title: 'BREBO glas bekijken'
 
+register brebo glass events:
+  title: 'BREBO glas levering en breuk registreren'
+  description: 'Werkelijk ontvangen glas en glasbreuk met minimale invoer registreren.'
+
 approve brebo glass positions:
   title: 'BREBO glasposities technisch vrijgeven'
   description: 'Glasposities na controle formeel vrijgeven met een auditregistratie.'
