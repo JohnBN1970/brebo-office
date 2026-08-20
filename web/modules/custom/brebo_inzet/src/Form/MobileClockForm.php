@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
+use Drupal\brebo_inzet\Service\ClockSessionManager;
 use Drupal\brebo_inzet\Service\PausePolicy;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -18,10 +19,14 @@ final class MobileClockForm extends FormBase {
 
   public function __construct(
     private readonly PausePolicy $pausePolicy,
+    private readonly ClockSessionManager $clockSessionManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_inzet.pause_policy'));
+    return new static(
+      $container->get('brebo_inzet.pause_policy'),
+      $container->get('brebo_inzet.clock_session_manager'),
+    );
   }
 
   public function getFormId(): string {
@@ -36,88 +41,92 @@ final class MobileClockForm extends FormBase {
     $pauseMode = $node->hasField('field_brebo_pause_mode')
       ? $this->pausePolicy->normalize((string) $node->get('field_brebo_pause_mode')->value)
       : PausePolicy::OFF;
+    $open = $this->clockSessionManager->findOpen($node, (int) $this->currentUser()->id());
 
     $form['#attached']['library'][] = 'brebo_inzet/mobile-clock';
     $form['#attributes']['data-brebo-mobile-clock'] = 'true';
     $form['#attributes']['class'][] = 'brebo-mobile-clock';
-
-    $form['project'] = [
-      '#markup' => '<div class="brebo-mobile-clock__project"><strong>' . $this->t('Project') . ':</strong> ' . $node->label() . '</div>',
-    ];
-
-    $form['location_status'] = [
-      '#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status>' . $this->t('Locatie voorbereiden…') . '</div>',
-    ];
+    $form['project'] = ['#markup' => '<div class="brebo-mobile-clock__project"><strong>' . $this->t('Project') . ':</strong> ' . $node->label() . '</div>'];
+    $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . ($open ? $this->t('Ingeklokt') : $this->t('Uitgeklokt')) . '</div>'];
+    $form['location_status'] = ['#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status>' . $this->t('Locatie voorbereiden…') . '</div>'];
 
     foreach (['clock_latitude', 'clock_longitude', 'clock_accuracy'] as $name) {
       $form[$name] = ['#type' => 'hidden', '#default_value' => ''];
     }
-
-    $form['actions'] = [
-      '#type' => 'actions',
-      '#attributes' => ['class' => ['brebo-mobile-clock__actions']],
-    ];
-    $form['actions']['clock_in'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('INKLOKKEN'),
-      '#name' => 'clock_action',
-      '#submit' => ['::submitClockAction'],
-      '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']],
-      '#brebo_action' => 'clock_in',
-    ];
-    $form['actions']['clock_out'] = [
-      '#type' => 'submit',
-      '#value' => $this->t('UITKLOKKEN'),
-      '#name' => 'clock_action',
-      '#submit' => ['::submitClockAction'],
-      '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']],
-      '#brebo_action' => 'clock_out',
+    $form['reason'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Reden / toelichting'),
+      '#description' => $this->t('Alleen nodig wanneer BREBO Inzet een afwijking constateert.'),
+      '#rows' => 2,
     ];
 
-    if ($this->pausePolicy->showsPauseControls($pauseMode)) {
-      $form['actions']['pause_start'] = [
-        '#type' => 'submit',
-        '#value' => $this->t('PAUZE START'),
-        '#name' => 'clock_action',
-        '#submit' => ['::submitClockAction'],
-        '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--pause']],
-        '#brebo_action' => 'pause_start',
+    $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
+    if (!$open) {
+      $form['actions']['clock_in'] = [
+        '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
       ];
-      $form['actions']['pause_end'] = [
-        '#type' => 'submit',
-        '#value' => $this->t('PAUZE EINDE'),
-        '#name' => 'clock_action',
-        '#submit' => ['::submitClockAction'],
-        '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--pause']],
-        '#brebo_action' => 'pause_end',
+    }
+    else {
+      $form['actions']['clock_out'] = [
+        '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
       ];
     }
 
+    if ($open && $this->pausePolicy->showsPauseControls($pauseMode)) {
+      $form['actions']['pause_start'] = ['#type' => 'submit', '#value' => $this->t('PAUZE START'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#brebo_action' => 'pause_start'];
+      $form['actions']['pause_end'] = ['#type' => 'submit', '#value' => $this->t('PAUZE EINDE'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#brebo_action' => 'pause_end'];
+    }
     if ($this->pausePolicy->requiresPauseRegistration($pauseMode)) {
-      $form['pause_notice'] = [
-        '#markup' => '<p class="brebo-mobile-clock__notice">' . $this->t('Pauzeregistratie is voor dit project verplicht.') . '</p>',
-      ];
+      $form['pause_notice'] = ['#markup' => '<p class="brebo-mobile-clock__notice">' . $this->t('Pauzeregistratie is voor dit project verplicht.') . '</p>'];
     }
 
     $form_state->set('project_id', (int) $node->id());
-    $form_state->set('pause_mode', $pauseMode);
     return $form;
   }
 
   public function submitClockAction(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $action = (string) ($trigger['#brebo_action'] ?? '');
-    if (!in_array($action, ['clock_in', 'clock_out', 'pause_start', 'pause_end'], TRUE)) {
-      throw new \InvalidArgumentException('Onbekende klokactie.');
+    $project = $this->entityTypeManager()->getStorage('node')->load((int) $form_state->get('project_id'));
+    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+      throw new NotFoundHttpException();
     }
 
-    $form_state->set('clock_action', $action);
-    $form_state->set('clock_latitude', $form_state->getValue('clock_latitude'));
-    $form_state->set('clock_longitude', $form_state->getValue('clock_longitude'));
-    $form_state->set('clock_accuracy', $form_state->getValue('clock_accuracy'));
+    $lat = $this->nullableFloat($form_state->getValue('clock_latitude'));
+    $lng = $this->nullableFloat($form_state->getValue('clock_longitude'));
+    $accuracy = $this->nullableFloat($form_state->getValue('clock_accuracy'));
+    $userId = (int) $this->currentUser()->id();
 
-    $this->messenger()->addStatus($this->t('Klokactie @action ontvangen. De opslagkoppeling wordt in de volgende stap aan de beslismotor gehangen.', ['@action' => $action]));
+    try {
+      if ($action === 'clock_in') {
+        $result = $this->clockSessionManager->clockIn($project, $userId, $lat, $lng, $accuracy);
+        $location = (string) ($result['location']['status'] ?? 'Onbekend');
+        $this->messenger()->addStatus($this->t('Ingeklokt. Locatiecontrole: @location.', ['@location' => $location]));
+      }
+      elseif ($action === 'clock_out') {
+        $result = $this->clockSessionManager->clockOut($project, $userId, $lat, $lng, $accuracy, (string) $form_state->getValue('reason'));
+        if (!empty($result['requires_reason'])) {
+          $this->messenger()->addWarning($this->t('Deze uitklokactie wijkt af: @message Vul een reden in en druk opnieuw op UITKLOKKEN.', ['@message' => (string) ($result['verdict']['message'] ?? '')]));
+        }
+        else {
+          $this->messenger()->addStatus($this->t('Uitgeklokt: @status.', ['@status' => (string) ($result['verdict']['status'] ?? 'geregistreerd')]));
+        }
+      }
+      else {
+        $this->messenger()->addWarning($this->t('Pauzeregistratie is zichtbaar volgens het projectbeleid, maar wordt in de volgende slice als eigen gebeurtenis opgeslagen.'));
+      }
+    }
+    catch (\InvalidArgumentException $exception) {
+      $this->messenger()->addError($exception->getMessage());
+    }
+
     $form_state->setRebuild();
+  }
+
+  private function nullableFloat(mixed $value): ?float {
+    return $value === NULL || $value === '' ? NULL : (float) $value;
   }
 
 }
