@@ -8,6 +8,7 @@ use Drupal\brebo_inzet\Service\ClockSessionManager;
 use Drupal\brebo_inzet\Service\PausePolicy;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -38,16 +39,42 @@ final class MobileClockForm extends FormBase {
       throw new NotFoundHttpException();
     }
 
+    $userId = (int) $this->currentUser()->id();
     $pauseMode = $node->hasField('field_brebo_pause_mode')
       ? $this->pausePolicy->normalize((string) $node->get('field_brebo_pause_mode')->value)
       : PausePolicy::OFF;
-    $open = $this->clockSessionManager->findOpen($node, (int) $this->currentUser()->id());
+    $open = $this->clockSessionManager->findOpen($node, $userId);
+    $activeElsewhere = NULL;
+    if (!$open) {
+      $active = $this->clockSessionManager->findOpenForUser($userId);
+      if ($active instanceof NodeInterface) {
+        $activeProjectId = (int) ($active->get('field_brebo_project_ref')->target_id ?? 0);
+        if ($activeProjectId > 0 && $activeProjectId !== (int) $node->id()) {
+          $activeElsewhere = $this->entityTypeManager()->getStorage('node')->load($activeProjectId);
+        }
+      }
+    }
 
     $form['#attached']['library'][] = 'brebo_inzet/mobile-clock';
     $form['#attributes']['data-brebo-mobile-clock'] = 'true';
     $form['#attributes']['class'][] = 'brebo-mobile-clock';
     $form['project'] = ['#markup' => '<div class="brebo-mobile-clock__project"><strong>' . $this->t('Project') . ':</strong> ' . $node->label() . '</div>'];
-    $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . ($open ? $this->t('Ingeklokt') : $this->t('Uitgeklokt')) . '</div>'];
+
+    if ($activeElsewhere instanceof NodeInterface) {
+      $form['session_status'] = [
+        '#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Ingeklokt op @project', ['@project' => $activeElsewhere->label()]) . '</div>',
+      ];
+      $form['active_project_link'] = [
+        '#type' => 'link',
+        '#title' => $this->t('NAAR ACTIEF PROJECT'),
+        '#url' => Url::fromRoute('brebo_inzet.mobile_clock', ['node' => (int) $activeElsewhere->id()]),
+        '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button']],
+      ];
+    }
+    else {
+      $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . ($open ? $this->t('Ingeklokt') : $this->t('Uitgeklokt')) . '</div>'];
+    }
+
     $form['location_status'] = ['#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status>' . $this->t('Locatie voorbereiden…') . '</div>'];
 
     foreach (['clock_latitude', 'clock_longitude', 'clock_accuracy'] as $name) {
@@ -61,17 +88,19 @@ final class MobileClockForm extends FormBase {
     ];
 
     $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
-    if (!$open) {
-      $form['actions']['clock_in'] = [
-        '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
-        '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
-      ];
-    }
-    else {
-      $form['actions']['clock_out'] = [
-        '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
-        '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
-      ];
+    if (!$activeElsewhere instanceof NodeInterface) {
+      if (!$open) {
+        $form['actions']['clock_in'] = [
+          '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+          '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
+        ];
+      }
+      else {
+        $form['actions']['clock_out'] = [
+          '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+          '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
+        ];
+      }
     }
 
     if ($open && $this->pausePolicy->showsPauseControls($pauseMode)) {
