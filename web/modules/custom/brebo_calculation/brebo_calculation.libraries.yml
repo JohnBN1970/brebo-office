@@ -1,5 +1,5 @@
 workbench:
-  version: 1.4
+  version: 1.5
   css:
     theme:
       css/calculation-workbench.css: {}
@@ -12,6 +12,7 @@ workbench:
     js/recipe-instance-links.js: {}
     js/calculation-readiness.js: {}
     js/calculation-block-order.js: {}
+    js/calculation-assignment-link.js: {}
   dependencies:
     - core/drupal
     - core/drupalSettings
