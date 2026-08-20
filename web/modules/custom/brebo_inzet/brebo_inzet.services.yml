@@ -29,3 +29,6 @@ services:
   brebo_inzet.clock_registration_writer:
     class: Drupal\brebo_inzet\Service\ClockRegistrationWriter
     arguments: ['@entity_type.manager']
+
+  brebo_inzet.pause_policy:
+    class: Drupal\brebo_inzet\Service\PausePolicy
