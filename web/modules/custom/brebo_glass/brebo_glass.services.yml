@@ -33,6 +33,10 @@ services:
     class: Drupal\brebo_glass\Service\GlassPriceResolver
     arguments: ['@database', '@brebo_calculation.norm_library']
 
+  brebo_glass.calculation_link_guard:
+    class: Drupal\brebo_glass\Service\GlassCalculationLinkGuard
+    arguments: ['@database', '@brebo_glass.position_repository']
+
   brebo_glass.calculation_exporter:
     class: Drupal\brebo_glass\Service\GlassCalculationExporter
-    arguments: ['@brebo_glass.calculation_context_builder', '@brebo_glass.price_resolver', '@brebo_calculation.object_line_writer']
+    arguments: ['@brebo_glass.calculation_context_builder', '@brebo_glass.price_resolver', '@brebo_glass.calculation_link_guard', '@brebo_calculation.object_line_writer']
