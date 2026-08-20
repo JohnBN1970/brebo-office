@@ -32,3 +32,7 @@ services:
 
   brebo_inzet.pause_policy:
     class: Drupal\brebo_inzet\Service\PausePolicy
+
+  brebo_inzet.clock_session_manager:
+    class: Drupal\brebo_inzet\Service\ClockSessionManager
+    arguments: ['@entity_type.manager', '@brebo_inzet.project_clock_zone_manager', '@brebo_inzet.project_clock_zone_control', '@brebo_inzet.clock_action_control']
