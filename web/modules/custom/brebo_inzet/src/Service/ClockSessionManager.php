@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 
@@ -18,6 +17,7 @@ final class ClockSessionManager {
     private readonly ProjectClockZoneManager $zoneManager,
     private readonly ProjectClockZoneControl $zoneControl,
     private readonly ClockActionControl $actionControl,
+    private readonly ClockTransitionReconciler $transitionReconciler,
   ) {}
 
   public function findOpen(NodeInterface $project, int $userId): ?NodeInterface {
@@ -63,7 +63,9 @@ final class ClockSessionManager {
     ]);
     $registration->save();
 
-    return ['registration' => $registration, 'location' => $geo];
+    $reconciled = $this->transitionReconciler->reconcileAfterClockIn($registration, (string) ($geo['status'] ?? 'Geen locatie'));
+
+    return ['registration' => $registration, 'location' => $geo, 'reconciled_registration' => $reconciled];
   }
 
   /** @return array<string, mixed> */
