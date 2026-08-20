@@ -12,11 +12,13 @@ final class GlassCalculationExporter {
   public function __construct(
     private readonly GlassCalculationContextBuilder $contextBuilder,
     private readonly GlassPriceResolver $priceResolver,
+    private readonly GlassCalculationLinkGuard $linkGuard,
     private readonly CalculationObjectLineWriter $writer,
   ) {}
 
   /** @return array{material_line_id:int,labour_line_id:int,material_priced:bool,labour_priced:bool} */
   public function export(int $positionId,int $calculationId,string $version,string $paragraphKey,AccountInterface $account): array {
+    $this->linkGuard->assertNotExported($positionId,$calculationId,$version);
     $context=$this->contextBuilder->build($positionId);
     $prices=$this->priceResolver->resolve($context);
     $sourceDomain='brebo_glass_position';
