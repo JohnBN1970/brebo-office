@@ -15,3 +15,6 @@ services:
   brebo_inzet.project_clock_zone_manager:
     class: Drupal\brebo_inzet\Service\ProjectClockZoneManager
     arguments: ['@entity_type.manager']
+
+  brebo_inzet.clock_time_control:
+    class: Drupal\brebo_inzet\Service\ClockTimeControl
