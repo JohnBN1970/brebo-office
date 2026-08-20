@@ -59,25 +59,42 @@
         function syncInputs() {
           latInput.value = lat.toFixed(8);
           lonInput.value = lon.toFixed(8);
+          marker.style.left = '50%';
+          marker.style.top = '50%';
           render();
         }
 
-        let dragging = false;
-        marker.addEventListener('pointerdown', (event) => { dragging = true; marker.setPointerCapture(event.pointerId); });
-        marker.addEventListener('pointerup', (event) => { dragging = false; marker.releasePointerCapture(event.pointerId); });
+        let drag = null;
+        marker.addEventListener('pointerdown', (event) => {
+          drag = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startLat: lat, startLon: lon};
+          marker.setPointerCapture(event.pointerId);
+        });
         marker.addEventListener('pointermove', (event) => {
-          if (!dragging) return;
+          if (!drag || drag.pointerId !== event.pointerId) return;
           const rect = canvas.getBoundingClientRect();
-          const dx = event.clientX - (rect.left + rect.width / 2);
-          const dy = event.clientY - (rect.top + rect.height / 2);
+          const dx = event.clientX - drag.startX;
+          const dy = event.clientY - drag.startY;
+          marker.style.left = `calc(50% + ${dx}px)`;
+          marker.style.top = `calc(50% + ${dy}px)`;
+        });
+        marker.addEventListener('pointerup', (event) => {
+          if (!drag || drag.pointerId !== event.pointerId) return;
+          const rect = canvas.getBoundingClientRect();
           const metresPerPixel = (halfHeightMetres * 2) / rect.height;
-          const center = mercator(lat, lon);
+          const dx = event.clientX - drag.startX;
+          const dy = event.clientY - drag.startY;
+          const center = mercator(drag.startLat, drag.startLon);
           const moved = inverseMercator(center.x + dx * metresPerPixel, center.y - dy * metresPerPixel);
           lat = moved.lat;
           lon = moved.lon;
+          marker.releasePointerCapture(event.pointerId);
+          drag = null;
+          syncInputs();
+        });
+        marker.addEventListener('pointercancel', () => {
+          drag = null;
           marker.style.left = '50%';
           marker.style.top = '50%';
-          syncInputs();
         });
 
         radiusInput.addEventListener('input', render);
