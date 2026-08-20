@@ -2,3 +2,7 @@ services:
   brebo_project_cockpit.project_status_aggregator:
     class: Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator
     arguments: ['@entity_type.manager', '@entity_field.manager']
+
+  brebo_project_cockpit.project_progress_builder:
+    class: Drupal\brebo_project_cockpit\Service\ProjectProgressBuilder
+    arguments: ['@entity_type.manager', '@entity_field.manager']
