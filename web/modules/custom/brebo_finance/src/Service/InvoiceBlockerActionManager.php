@@ -21,6 +21,22 @@ final class InvoiceBlockerActionManager {
   }
 
   public function forProject(int $projectNid): array {$this->ensureStorage();$q=$this->database->select('brebo_finance_invoice_blocker_action','a')->fields('a')->condition('project_nid',$projectNid)->orderBy('status','ASC')->orderBy('due_date','ASC')->orderBy('changed','DESC');return array_map(static fn(object $r):array=>(array)$r,$q->execute()->fetchAll());}
+
+  public function forOwner(int $uid): array {
+    $this->ensureStorage();
+    $today=(new \DateTimeImmutable('today'))->getTimestamp();$tomorrow=(new \DateTimeImmutable('tomorrow'))->getTimestamp();
+    $q=$this->database->select('brebo_finance_invoice_blocker_action','a')->fields('a')->condition('owner_uid',$uid)->condition('status',['open','in_progress','waiting'],'IN')->orderBy('due_date','ASC')->orderBy('changed','DESC');
+    $items=array_map(static fn(object $r):array=>(array)$r,$q->execute()->fetchAll());
+    foreach($items as &$item){$due=$item['due_date']===NULL?NULL:(int)$item['due_date'];$item['urgency']=$due===NULL?'no_deadline':($due<$today?'overdue':($due<$tomorrow?'today':'upcoming'));$item['days_overdue']=$due!==NULL&&$due<$today?(int)floor(($today-$due)/86400):0;}unset($item);
+    return $items;
+  }
+
+  public function ownerSummary(int $uid): array {
+    $items=$this->forOwner($uid);$summary=['total'=>count($items),'overdue'=>0,'today'=>0,'upcoming'=>0,'no_deadline'=>0,'in_progress'=>0];
+    foreach($items as $item){$summary[$item['urgency']]++;if($item['status']==='in_progress')$summary['in_progress']++;}
+    return ['summary'=>$summary,'items'=>$items];
+  }
+
   public function get(int $id): array {$this->ensureStorage();$r=$this->database->select('brebo_finance_invoice_blocker_action','a')->fields('a')->condition('id',$id)->execute()->fetchAssoc();return $r===false?[]:$r;}
 
   private function ensureStorage(): void {
