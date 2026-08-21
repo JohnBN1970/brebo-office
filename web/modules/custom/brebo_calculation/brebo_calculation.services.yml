@@ -104,6 +104,11 @@ services:
     arguments:
       - '@database'
 
+  brebo_calculation.work_budget_control:
+    class: Drupal\brebo_calculation\Service\WorkBudgetControlService
+    arguments:
+      - '@database'
+
   brebo_calculation.recipe_formula_evaluator:
     class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
 
