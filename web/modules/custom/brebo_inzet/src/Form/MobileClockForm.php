@@ -86,13 +86,26 @@ final class MobileClockForm extends FormBase {
     foreach (['clock_latitude', 'clock_longitude', 'clock_accuracy'] as $name) {
       $form[$name] = ['#type' => 'hidden', '#default_value' => ''];
     }
-    $form['reason'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Reden / toelichting'),
-      '#description' => $this->t('Alleen nodig wanneer BREBO Inzet een afwijking constateert.'),
-      '#rows' => 2,
-      '#attributes' => ['class' => ['brebo-mobile-clock__reason']],
-    ];
+
+    $requiresReason = (bool) $form_state->get('requires_reason');
+    if ($requiresReason && $open) {
+      $deviationStatus = trim((string) $form_state->get('deviation_status'));
+      $deviationMessage = trim((string) $form_state->get('deviation_message'));
+      $heading = $deviationStatus !== '' ? $deviationStatus : (string) $this->t('Afwijking vastgesteld');
+      $detail = $deviationMessage !== '' ? $deviationMessage : (string) $this->t('Deze vertrekactie wijkt af van de ingestelde controle.');
+
+      $form['reason_notice'] = [
+        '#markup' => '<div class="brebo-mobile-clock__notice"><strong>' . htmlspecialchars($heading, ENT_QUOTES, 'UTF-8') . '</strong><br>' . htmlspecialchars($detail, ENT_QUOTES, 'UTF-8') . '<br><strong>' . $this->t('Wat is de reden?') . '</strong></div>',
+      ];
+      $form['reason'] = [
+        '#type' => 'textarea',
+        '#title' => $this->t('Reden afwijking'),
+        '#description' => $this->t('Licht toe waarom je deze afwijkende vertrekactie wilt registreren.'),
+        '#rows' => 2,
+        '#required' => TRUE,
+        '#attributes' => ['class' => ['brebo-mobile-clock__reason']],
+      ];
+    }
 
     $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
     if ($openForUser === NULL) {
@@ -144,9 +157,15 @@ final class MobileClockForm extends FormBase {
       elseif ($action === 'clock_out') {
         $result = $this->clockSessionManager->clockOut($project, $userId, $lat, $lng, $accuracy, (string) $form_state->getValue('reason'));
         if (!empty($result['requires_reason'])) {
-          $this->messenger()->addWarning($this->t('Deze vertrekactie wijkt af: @message Vul een reden in en druk opnieuw op VERTREK.', ['@message' => (string) ($result['verdict']['message'] ?? '')]));
+          $form_state->set('requires_reason', TRUE);
+          $form_state->set('deviation_status', (string) ($result['verdict']['status'] ?? 'Afwijking vastgesteld'));
+          $form_state->set('deviation_message', (string) ($result['verdict']['message'] ?? 'Deze vertrekactie wijkt af van de ingestelde controle.'));
+          $this->messenger()->addWarning($this->t('Deze vertrekactie wijkt af. Bekijk de toelichting hieronder, vul een reden in en druk opnieuw op VERTREK.'));
         }
         else {
+          $form_state->set('requires_reason', FALSE);
+          $form_state->set('deviation_status', NULL);
+          $form_state->set('deviation_message', NULL);
           $this->messenger()->addStatus($this->t('Vertrek geregistreerd: @status.', ['@status' => (string) ($result['verdict']['status'] ?? 'geregistreerd')]));
         }
       }
