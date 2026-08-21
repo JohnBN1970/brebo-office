@@ -1,0 +1,29 @@
+.brebo-procurement-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 16px 0 24px;
+}
+
+.brebo-procurement-kpi {
+  border: 1px solid var(--brebo-border, #d8dde3);
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: var(--brebo-surface, #fff);
+}
+
+.brebo-procurement-kpi strong,
+.brebo-procurement-kpi span {
+  display: block;
+}
+
+.brebo-procurement-kpi strong {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.brebo-procurement-kpi span {
+  margin-top: 4px;
+  font-size: .82rem;
+  opacity: .72;
+}
