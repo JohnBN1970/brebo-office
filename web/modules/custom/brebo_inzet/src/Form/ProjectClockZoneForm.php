@@ -150,19 +150,44 @@ final class ProjectClockZoneForm extends FormBase {
 
   /** @return array{0: string, 1: string} */
   private function projectCoordinates(NodeInterface $project): array {
+    $storage = $this->clockZoneEntityTypeManager->getStorage('node');
+
+    // Prefer the canonical project-building relation table.
     foreach ($this->projectBuildingRepository->buildingsForProject((int) $project->id()) as $relation) {
       $buildingId = (int) ($relation['building_nid'] ?? 0);
-      $building = $buildingId > 0 ? $this->clockZoneEntityTypeManager->getStorage('node')->load($buildingId) : NULL;
-      if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
-        continue;
-      }
-      $latitude = $building->hasField('field_brebo_latitude') ? trim((string) $building->get('field_brebo_latitude')->value) : '';
-      $longitude = $building->hasField('field_brebo_longitude') ? trim((string) $building->get('field_brebo_longitude')->value) : '';
-      if (is_numeric($latitude) && is_numeric($longitude)) {
-        return [$latitude, $longitude];
+      $building = $buildingId > 0 ? $storage->load($buildingId) : NULL;
+      $coordinates = $this->buildingCoordinates($building);
+      if ($coordinates !== NULL) {
+        return $coordinates;
       }
     }
+
+    // Compatibility fallback for projects that still only carry the existing
+    // entity-reference field. Never guess when multiple buildings are linked.
+    if ($project->hasField('field_brebo_building_refs') && !$project->get('field_brebo_building_refs')->isEmpty()) {
+      $buildings = array_values(array_filter(
+        $project->get('field_brebo_building_refs')->referencedEntities(),
+        static fn ($building): bool => $building instanceof NodeInterface && $building->bundle() === 'brebo_building',
+      ));
+      if (count($buildings) === 1) {
+        $coordinates = $this->buildingCoordinates($buildings[0]);
+        if ($coordinates !== NULL) {
+          return $coordinates;
+        }
+      }
+    }
+
     return ['52.37021600', '4.89516800'];
+  }
+
+  /** @return array{0: string, 1: string}|null */
+  private function buildingCoordinates(mixed $building): ?array {
+    if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
+      return NULL;
+    }
+    $latitude = $building->hasField('field_brebo_latitude') ? trim((string) $building->get('field_brebo_latitude')->value) : '';
+    $longitude = $building->hasField('field_brebo_longitude') ? trim((string) $building->get('field_brebo_longitude')->value) : '';
+    return is_numeric($latitude) && is_numeric($longitude) ? [$latitude, $longitude] : NULL;
   }
 
   private function pdokMapUrl(float $latitude, float $longitude): string {
