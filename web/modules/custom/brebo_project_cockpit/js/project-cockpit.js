@@ -14,6 +14,15 @@
     return legacyDocumentMatch ? legacyDocumentMatch[1] : null;
   }
 
+  function activateTab(link) {
+    document.querySelectorAll('.brebo-context-tabs a.is-active').forEach((activeLink) => {
+      activeLink.classList.remove('is-active');
+      activeLink.removeAttribute('aria-current');
+    });
+    link.classList.add('is-active');
+    link.setAttribute('aria-current', 'page');
+  }
+
   function wireProjectTabs() {
     const projectId = projectIdFromPath();
     if (!projectId) {
@@ -22,23 +31,26 @@
 
     document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
       const label = link.textContent.trim();
-      if (label !== 'Documenten') {
+      if (label === 'Documenten') {
+        link.href = `/projecten/${projectId}/documenten`;
+        const active = window.location.pathname === `/projecten/${projectId}/documenten` ||
+          window.location.pathname.startsWith(`/projecten/${projectId}/documenten/`) ||
+          window.location.pathname === `/node/${projectId}/documents` ||
+          window.location.pathname.startsWith(`/node/${projectId}/documents/`);
+        if (active) {
+          activateTab(link);
+        }
         return;
       }
 
-      link.href = `/projecten/${projectId}/documenten`;
-      const active = window.location.pathname === `/projecten/${projectId}/documenten` ||
-        window.location.pathname.startsWith(`/projecten/${projectId}/documenten/`) ||
-        window.location.pathname === `/node/${projectId}/documents` ||
-        window.location.pathname.startsWith(`/node/${projectId}/documents/`);
-
-      if (active) {
-        document.querySelectorAll('.brebo-context-tabs a.is-active').forEach((activeLink) => {
-          activeLink.classList.remove('is-active');
-          activeLink.removeAttribute('aria-current');
-        });
-        link.classList.add('is-active');
-        link.setAttribute('aria-current', 'page');
+      if (label === 'Calculatie' || label === 'Begroting') {
+        link.textContent = 'Begroting';
+        link.href = `/projecten/${projectId}/begroting`;
+        const active = window.location.pathname === `/projecten/${projectId}/begroting` ||
+          window.location.pathname.startsWith(`/projecten/${projectId}/begroting/`);
+        if (active) {
+          activateTab(link);
+        }
       }
     });
   }
