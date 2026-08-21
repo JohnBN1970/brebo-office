@@ -187,10 +187,5 @@
   }
 
   Drupal.behaviors.breboClockZoneMap = {attach};
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => attach(document), {once:true});
-  }
-  else {
-    attach(document);
-  }
+  window.setTimeout(() => attach(document), 0);
 })(Drupal);
