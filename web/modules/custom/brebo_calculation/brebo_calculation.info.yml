@@ -5,3 +5,4 @@ package: BREBO
 description: 'Zelfstandig calculatiedomein voor calculatiestructuur, parameters, rekenlogica, versies en spreadsheetwerkplek.'
 dependencies:
   - drupal:node
+  - brebo_office_core:brebo_office_core
