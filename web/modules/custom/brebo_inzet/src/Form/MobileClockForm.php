@@ -6,6 +6,7 @@ namespace Drupal\brebo_inzet\Form;
 
 use Drupal\brebo_inzet\Service\ClockSessionManager;
 use Drupal\brebo_inzet\Service\PausePolicy;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -21,12 +22,14 @@ final class MobileClockForm extends FormBase {
   public function __construct(
     private readonly PausePolicy $pausePolicy,
     private readonly ClockSessionManager $clockSessionManager,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_inzet.pause_policy'),
       $container->get('brebo_inzet.clock_session_manager'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -53,7 +56,7 @@ final class MobileClockForm extends FormBase {
 
     if ($openForUser instanceof NodeInterface) {
       $activeProjectId = (int) ($openForUser->get('field_brebo_project_ref')->target_id ?? 0);
-      $activeProject = $activeProjectId > 0 ? $this->entityTypeManager()->getStorage('node')->load($activeProjectId) : NULL;
+      $activeProject = $activeProjectId > 0 ? $this->entityTypeManager->getStorage('node')->load($activeProjectId) : NULL;
       $activeLabel = $activeProject instanceof NodeInterface ? $activeProject->label() : $this->t('Onbekend project');
       $clockInValue = (string) $openForUser->get('field_brebo_clock_in')->value;
       $clockIn = $clockInValue !== '' ? new \DateTimeImmutable($clockInValue) : NULL;
@@ -125,7 +128,7 @@ final class MobileClockForm extends FormBase {
   public function submitClockAction(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $action = (string) ($trigger['#brebo_action'] ?? '');
-    $project = $this->entityTypeManager()->getStorage('node')->load((int) $form_state->get('project_id'));
+    $project = $this->entityTypeManager->getStorage('node')->load((int) $form_state->get('project_id'));
     if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
       throw new NotFoundHttpException();
     }
