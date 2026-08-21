@@ -70,6 +70,76 @@ final class CalculationRowManager {
     }
   }
 
+  /**
+   * Update one workbench row from quick-entry values.
+   *
+   * @param array<string, float|int> $unitCosts
+   *   Direct unit costs keyed by labour, material, equipment,
+   *   subcontracting and other.
+   */
+  public function updateQuickEntry(
+    int $calculationId,
+    string $version,
+    int $lineId,
+    string $description,
+    string $unit,
+    float $quantity,
+    array $unitCosts,
+    AccountInterface $account,
+  ): void {
+    $this->assertEditable($calculationId, $version, $account);
+    $this->domainRow($calculationId, $version, $lineId);
+
+    $description = trim($description);
+    $unit = trim($unit);
+    if ($description === '') {
+      throw new \InvalidArgumentException('Omschrijving is verplicht.');
+    }
+    if ($unit === '') {
+      throw new \InvalidArgumentException('Eenheid is verplicht.');
+    }
+    if ($quantity < 0) {
+      throw new \InvalidArgumentException('Aantal mag niet negatief zijn.');
+    }
+
+    $costs = [
+      'labour_unit_cost' => $this->nonNegativeCost($unitCosts, 'labour'),
+      'material_unit_cost' => $this->nonNegativeCost($unitCosts, 'material'),
+      'equipment_unit_cost' => $this->nonNegativeCost($unitCosts, 'equipment'),
+      'subcontracting_unit_cost' => $this->nonNegativeCost($unitCosts, 'subcontracting'),
+      'other_unit_cost' => $this->nonNegativeCost($unitCosts, 'other'),
+    ];
+
+    $storage = $this->entityTypeManager->getStorage('node');
+    $line = $storage->load($lineId);
+    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+      throw new \InvalidArgumentException('Calculation row not found.');
+    }
+
+    $transaction = $this->database->startTransaction();
+    try {
+      $line->setTitle($description);
+      $this->setIfPresent($line, 'field_brebo_line_description', $description);
+      $this->setIfPresent($line, 'field_brebo_contract_quantity', number_format($quantity, 4, '.', ''));
+      $this->setIfPresent($line, 'field_brebo_unit', $unit);
+      $this->setIfPresent($line, 'field_brebo_unit_price', number_format(array_sum($costs), 4, '.', ''));
+      $line->setNewRevision(TRUE);
+      $line->setRevisionLogMessage('Calculatieregel via quick-entry in de calculatiewerkbank bijgewerkt.');
+      $line->save();
+
+      $this->database->update('brebo_calculation_row_domain')
+        ->fields($costs)
+        ->condition('calc_line_id', $lineId)
+        ->condition('calculation_id', $calculationId)
+        ->condition('version', $version)
+        ->execute();
+    }
+    catch (\Throwable $e) {
+      $transaction->rollBack();
+      throw $e;
+    }
+  }
+
   public function duplicate(int $calculationId, string $version, int $lineId, AccountInterface $account): int {
     $this->assertEditable($calculationId, $version, $account);
     $domain = $this->domainRow($calculationId, $version, $lineId);
@@ -242,6 +312,21 @@ final class CalculationRowManager {
       }
     }
     return NULL;
+  }
+
+  /** @param array<string, float|int> $unitCosts */
+  private function nonNegativeCost(array $unitCosts, string $key): float {
+    $value = (float) ($unitCosts[$key] ?? 0.0);
+    if ($value < 0) {
+      throw new \InvalidArgumentException('Eenheidskosten mogen niet negatief zijn.');
+    }
+    return $value;
+  }
+
+  private function setIfPresent(NodeInterface $line, string $field, mixed $value): void {
+    if ($line->hasField($field)) {
+      $line->set($field, $value);
+    }
   }
 
 }
