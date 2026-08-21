@@ -9,24 +9,39 @@
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.dashboard') }}" title="Overzicht"{{ route == 'brebo_office_core.dashboard' ? ' aria-current="page"' : '' }}>
       <span class="brebo-office-nav__icon" aria-hidden="true">⌂</span><span class="brebo-office-nav__label">Overzicht</span>
     </a>
-    <a class="brebo-office-nav__item{{ route starts with 'brebo_office_core.building' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.buildings') }}" title="Gebouwen">
-      <span class="brebo-office-nav__icon" aria-hidden="true">▦</span><span class="brebo-office-nav__label">Gebouwen</span>
-    </a>
-    <a class="brebo-office-nav__item{{ route starts with 'brebo_project_cockpit.' or route starts with 'brebo_office_core.project' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.projects') }}" title="Projecten">
-      <span class="brebo-office-nav__icon" aria-hidden="true">▣</span><span class="brebo-office-nav__label">Projecten</span>
-    </a>
+
+    {% set buildings_active = route starts with 'brebo_office_core.building' or route == 'brebo_office_core.dwellings' or route == 'brebo_office_core.positions' %}
+    <div class="brebo-office-nav__group{{ buildings_active ? ' is-active' : '' }}" data-brebo-nav-group="buildings">
+      <button class="brebo-office-nav__item brebo-office-nav__group-toggle" type="button" aria-expanded="{{ buildings_active ? 'true' : 'false' }}" data-brebo-nav-group-toggle title="Gebouwen">
+        <span class="brebo-office-nav__icon" aria-hidden="true">▦</span><span class="brebo-office-nav__label">Gebouwen</span><span class="brebo-office-nav__chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_office_core.building' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_office_core.dwellings' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_office_core.positions' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span></a>
+      </div>
+    </div>
+
+    {% set projects_active = route starts with 'brebo_project_cockpit.' or route starts with 'brebo_office_core.project' or route starts with 'brebo_calculation.' or route == 'brebo_office_core.calculations' or route == 'brebo_office_core.regie_actions' %}
+    <div class="brebo-office-nav__group{{ projects_active ? ' is-active' : '' }}" data-brebo-nav-group="projects">
+      <button class="brebo-office-nav__item brebo-office-nav__group-toggle" type="button" aria-expanded="{{ projects_active ? 'true' : 'false' }}" data-brebo-nav-group-toggle title="Projecten">
+        <span class="brebo-office-nav__icon" aria-hidden="true">▣</span><span class="brebo-office-nav__label">Projecten</span><span class="brebo-office-nav__chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_project_cockpit.' or route starts with 'brebo_office_core.project' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span></a>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_calculation.' or route == 'brebo_office_core.calculations' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.calculations') }}"><span>Calculaties</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_office_core.regie_actions' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.regie_actions') }}"><span>Taken</span></a>
+      </div>
+    </div>
+
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.crm' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.crm') }}" title="Relaties">
       <span class="brebo-office-nav__icon" aria-hidden="true">◎</span><span class="brebo-office-nav__label">Relaties</span>
     </a>
+
     <a class="brebo-office-nav__item{{ route starts with 'brebo_mail_intake.' ? ' is-active' : '' }}" href="{{ path('brebo_mail_intake.mailbox_root') }}" title="Mail">
       <span class="brebo-office-nav__icon" aria-hidden="true">✉</span><span class="brebo-office-nav__label">Mail</span>
     </a>
-    <a class="brebo-office-nav__item{{ route == 'brebo_office_core.regie_actions' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.regie_actions') }}" title="Taken">
-      <span class="brebo-office-nav__icon" aria-hidden="true">✓</span><span class="brebo-office-nav__label">Taken</span>
-    </a>
-    <a class="brebo-office-nav__item{{ route starts with 'brebo_calculation.' or route == 'brebo_office_core.calculations' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.calculations') }}" title="Calculaties">
-      <span class="brebo-office-nav__icon" aria-hidden="true">∑</span><span class="brebo-office-nav__label">Calculaties</span>
-    </a>
+
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.quality_dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.quality_dashboard') }}" title="Kwaliteit">
       <span class="brebo-office-nav__icon" aria-hidden="true">◆</span><span class="brebo-office-nav__label">Kwaliteit</span>
     </a>
