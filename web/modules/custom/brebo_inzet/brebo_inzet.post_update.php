@@ -153,6 +153,10 @@ function brebo_inzet_post_update_project_clock_policy(array &$sandbox = NULL): s
  * Repairs clocking schema for installations where earlier Inzet updates were skipped.
  */
 function brebo_inzet_post_update_repair_clock_runtime_schema(array &$sandbox = NULL): string {
+  if (!\Drupal::moduleHandler()->moduleExists('options')) {
+    \Drupal::service('module_installer')->install(['options']);
+  }
+
   brebo_inzet_post_update_clock_zones($sandbox);
   brebo_inzet_post_update_clock_registrations($sandbox);
   brebo_inzet_post_update_project_clock_policy($sandbox);
