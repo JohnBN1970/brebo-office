@@ -104,7 +104,15 @@ function brebo_calculation_post_update_add_object_source_traceability(&$sandbox 
     'source_checksum' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
   ];
   $added=[];foreach($fields as$name=>$definition){if(!$schema->fieldExists($table,$name)){$schema->addField($table,$name,$definition);$added[]=$name;}}
-  if(!$schema->indexExists($table,'object_source'))$schema->addIndex($table,'object_source',['source_domain','source_reference']);
+  if (!$schema->indexExists($table, 'object_source')) {
+    $schema->addIndex($table, 'object_source', ['source_domain', 'source_reference'], [
+      'fields' => [
+        'source_domain' => $fields['source_domain'],
+        'source_reference' => $fields['source_reference'],
+      ],
+      'indexes' => ['object_source' => ['source_domain', 'source_reference']],
+    ]);
+  }
   return $added ? 'BREBO Calculation object traceability added: '.implode(', ',$added).'.' : 'BREBO Calculation object traceability already exists.';
 }
 
@@ -118,6 +126,11 @@ function brebo_calculation_post_update_add_object_price_provenance(&$sandbox = N
     'price_confidence' => ['type' => 'varchar_ascii', 'length' => 8, 'not null' => FALSE],
   ];
   $added=[];foreach($fields as$name=>$definition){if(!$schema->fieldExists($table,$name)){$schema->addField($table,$name,$definition);$added[]=$name;}}
-  if(!$schema->indexExists($table,'price_source_date'))$schema->addIndex($table,'price_source_date',['price_source_date']);
+  if (!$schema->indexExists($table, 'price_source_date')) {
+    $schema->addIndex($table, 'price_source_date', ['price_source_date'], [
+      'fields' => ['price_source_date' => $fields['price_source_date']],
+      'indexes' => ['price_source_date' => ['price_source_date']],
+    ]);
+  }
   return $added ? 'BREBO Calculation price provenance added: '.implode(', ',$added).'.' : 'BREBO Calculation price provenance already exists.';
 }

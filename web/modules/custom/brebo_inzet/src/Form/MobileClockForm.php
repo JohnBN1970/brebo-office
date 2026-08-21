@@ -114,6 +114,14 @@ final class MobileClockForm extends FormBase {
     return $form;
   }
 
+  /**
+   * Default submit handler required by FormInterface.
+   *
+   * All clock buttons deliberately use submitClockAction() as their explicit
+   * submit handler, so the default handler is intentionally a no-op.
+   */
+  public function submitForm(array &$form, FormStateInterface $form_state): void {}
+
   public function submitClockAction(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $action = (string) ($trigger['#brebo_action'] ?? '');
