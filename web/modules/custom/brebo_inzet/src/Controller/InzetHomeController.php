@@ -51,7 +51,7 @@ final class InzetHomeController extends ControllerBase {
           ],
           'link' => Link::fromTextAndUrl(
             $this->t('NAAR ACTIEF PROJECT / VERTREK'),
-            Url::fromRoute('brebo_inzet.mobile_clock', ['node' => $project->id()]),
+            Url::fromRoute('brebo_inzet.app_clock', ['node' => $project->id()]),
           )->toRenderable(),
         ];
         $active['link']['#attributes']['class'] = ['brebo-inzet-app__active-link'];
@@ -77,7 +77,7 @@ final class InzetHomeController extends ControllerBase {
         '#attributes' => ['class' => ['brebo-inzet-app__project']],
         'link' => Link::fromTextAndUrl(
           $project->label(),
-          Url::fromRoute('brebo_inzet.mobile_clock', ['node' => $project->id()]),
+          Url::fromRoute('brebo_inzet.app_clock', ['node' => $project->id()]),
         )->toRenderable(),
       ];
     }
