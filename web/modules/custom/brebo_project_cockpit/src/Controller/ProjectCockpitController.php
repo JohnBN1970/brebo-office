@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\brebo_finance\Service\FinancialCockpitBuilder;
+use Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder;
 use Drupal\brebo_project_cockpit\Service\ProjectProgressBuilder;
 use Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator;
 use Drupal\Core\Controller\ControllerBase;
@@ -21,6 +22,7 @@ final class ProjectCockpitController extends ControllerBase {
     private readonly FinancialCockpitBuilder $financialCockpitBuilder,
     private readonly ProjectStatusAggregator $projectStatusAggregator,
     private readonly ProjectProgressBuilder $projectProgressBuilder,
+    private readonly ProjectMilestoneBuilder $projectMilestoneBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -28,6 +30,7 @@ final class ProjectCockpitController extends ControllerBase {
       $container->get('brebo_finance.financial_cockpit_builder'),
       $container->get('brebo_project_cockpit.project_status_aggregator'),
       $container->get('brebo_project_cockpit.project_progress_builder'),
+      $container->get('brebo_project_cockpit.project_milestone_builder'),
     );
   }
 
@@ -42,13 +45,18 @@ final class ProjectCockpitController extends ControllerBase {
     $finance = $this->financialCockpitBuilder->build($projectId);
     $operational = $this->projectStatusAggregator->build($projectId);
     $progress = $this->projectProgressBuilder->build($projectId);
+    $milestones = $this->projectMilestoneBuilder->build($projectId);
+
     $forecast = is_array($finance['forecast'] ?? NULL) ? $finance['forecast'] : [];
     $procurement = is_array($finance['procurement_pipeline'] ?? NULL) ? $finance['procurement_pipeline'] : [];
     $billing = is_array($finance['billing_position'] ?? NULL) ? $finance['billing_position'] : [];
     $cashCommitted = is_array($finance['cash_forecast']['committed'] ?? NULL) ? $finance['cash_forecast']['committed'] : [];
+    $domains = is_array($operational['domains'] ?? NULL) ? $operational['domains'] : [];
+    $nextMilestone = is_array($milestones['next_milestone'] ?? NULL) ? $milestones['next_milestone'] : [];
+
     $financeStatus = $this->financeStatus($finance, $forecast, $cashCommitted);
     $cashStatus = $this->cashStatus($cashCommitted);
-    $planningStatus = (string) ($progress['status'] ?? ($operational['domains']['planning']['status'] ?? 'grijs'));
+    $planningStatus = (string) ($progress['status'] ?? ($domains['planning']['status'] ?? 'grijs'));
     $projectStatus = $this->worstStatus([(string) ($operational['status'] ?? 'grijs'), $planningStatus, $financeStatus, $cashStatus]);
 
     $attention = [];
@@ -64,11 +72,21 @@ final class ProjectCockpitController extends ControllerBase {
     if (is_numeric($progress['progress_vs_time_pct'] ?? NULL) && (float) $progress['progress_vs_time_pct'] < -3.0) {
       $attention[] = $this->t('Planning: fysieke voortgang loopt @pct procentpunt achter op het verstreken projecttijdpad.', ['@pct' => number_format(abs((float) $progress['progress_vs_time_pct']), 1, ',', '.')]);
     }
-    if (!empty($finance['forecast_is_stale'])) $attention[] = $this->t('Financieel: de prognose ontbreekt of is ouder dan 30 dagen.');
-    if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) $attention[] = $this->t('Financieel: de actuele prognose toont een negatief projectresultaat.');
-    if (!empty($cashCommitted['first_regular_shortfall_date'])) $attention[] = $this->t('Cashflow: verwacht tekort vanaf @date.', ['@date' => $cashCommitted['first_regular_shortfall_date']]);
-    if ((int) ($billing['overdue_count'] ?? 0) > 0) $attention[] = $this->t('Debiteuren: @count verkoopfactuur/facturen zijn vervallen.', ['@count' => (int) $billing['overdue_count']]);
-    if ($attention === []) $attention[] = $this->t('Geen directe stuurafwijkingen uit de aangesloten bronnen.');
+    if (!empty($finance['forecast_is_stale'])) {
+      $attention[] = $this->t('Financieel: de prognose ontbreekt of is ouder dan 30 dagen.');
+    }
+    if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) {
+      $attention[] = $this->t('Financieel: de actuele prognose toont een negatief projectresultaat.');
+    }
+    if (!empty($cashCommitted['first_regular_shortfall_date'])) {
+      $attention[] = $this->t('Cashflow: verwacht tekort vanaf @date.', ['@date' => $cashCommitted['first_regular_shortfall_date']]);
+    }
+    if ((int) ($billing['overdue_count'] ?? 0) > 0) {
+      $attention[] = $this->t('Debiteuren: @count verkoopfactuur/facturen zijn vervallen.', ['@count' => (int) $billing['overdue_count']]);
+    }
+    if ($attention === []) {
+      $attention[] = $this->t('Geen directe stuurafwijkingen uit de aangesloten bronnen.');
+    }
 
     $committed = $this->number($procurement['committed_ex_vat'] ?? NULL);
     $purchaseInvoiced = $this->number($procurement['invoiced_ex_vat'] ?? NULL);
@@ -85,7 +103,7 @@ final class ProjectCockpitController extends ControllerBase {
       'procurement' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
     ];
     $cards = [];
-    foreach (($operational['domains'] ?? []) as $key => $domain) {
+    foreach (($domains ?? []) as $key => $domain) {
       [$route, $parameters] = $domainRoutes[$key] ?? ['brebo_project_cockpit.overview', ['node' => $projectId]];
       $status = $key === 'planning' ? $planningStatus : (string) $domain['status'];
       $subtitle = $key === 'planning' && is_numeric($progress['actual_progress_pct'] ?? NULL)
@@ -96,18 +114,70 @@ final class ProjectCockpitController extends ControllerBase {
     $cards[] = $this->card('Financiën', NULL, 'Resultaat, verplichtingen, facturen en prognose', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $financeStatus);
     $cards[] = $this->card('Cashflow', NULL, 'Betaald, ontvangen en 13-weeks liquiditeitsbeeld', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $cashStatus);
 
-    return [
-      '#attached' => ['library' => ['brebo_project_cockpit/cockpit']],
-      'hero' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
-        'project' => ['#markup' => $this->statusMarkup('Project', $projectStatus)],
-        'planning' => ['#markup' => $this->statusMarkup('Planning', $planningStatus)],
-        'finance' => ['#markup' => $this->statusMarkup('Geld', $financeStatus)],
-        'cash' => ['#markup' => $this->statusMarkup('Cash', $cashStatus)],
-        'inzet' => ['#markup' => $this->statusMarkup('Inzet', (string) ($operational['domains']['inzet']['status'] ?? 'grijs'))],
-        'quality' => ['#markup' => $this->statusMarkup('Kwaliteit', (string) ($operational['domains']['quality']['status'] ?? 'grijs'))],
-        'risks' => ['#markup' => $this->statusMarkup('Risico', (string) ($operational['domains']['risks']['status'] ?? 'grijs'))],
-      ],
+    $client = $this->entityOrValue($node, 'field_brebo_client_org_ref');
+    if ($client === '—') {
+      $client = $this->fieldValue($node, 'field_brebo_client');
+    }
+    $buildings = [];
+    if ($node->hasField('field_brebo_building_refs')) {
+      foreach ($node->get('field_brebo_building_refs')->referencedEntities() as $building) {
+        $buildings[] = (string) $building->label();
+      }
+    }
+    $projectLeader = '—';
+    foreach (['field_brebo_project_manager', 'field_brebo_project_leader', 'field_brebo_projectleider'] as $field) {
+      $candidate = $this->entityOrValue($node, $field);
+      if ($candidate !== '—') {
+        $projectLeader = $candidate;
+        break;
+      }
+    }
+    $phase = (string) ($milestones['current_phase'] ?? '');
+    if ($phase === '') {
+      $phase = $this->fieldValue($node, 'field_brebo_status');
+    }
+    $nextLabel = $nextMilestone !== [] ? (string) ($nextMilestone['label'] ?? '—') : '—';
+    if ($nextMilestone !== [] && !empty($nextMilestone['due'])) {
+      $nextLabel .= ' · ' . (string) $nextMilestone['due'];
+    }
+
+    $hero = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
+      'project' => $this->richCard('Project', $projectStatus, $this->fieldValue($node, 'field_brebo_project_code'), [
+        'Opdrachtgever: ' . $client,
+        'Locatie: ' . ($buildings !== [] ? implode(' · ', $buildings) : '—'),
+        'Projectleider: ' . $projectLeader,
+        'Fase: ' . $phase,
+        'Volgende mijlpaal: ' . $nextLabel,
+      ]),
+      'planning' => $this->richCard('Planning', $planningStatus, $this->percent($progress['actual_progress_pct'] ?? NULL) . ' gereed', [
+        $this->percent($progress['time_elapsed_pct'] ?? NULL) . ' tijd verstreken',
+        $this->signedPercentPoint($progress['progress_vs_time_pct'] ?? NULL) . ' t.o.v. tijdpad',
+        (int) ($progress['late_count'] ?? 0) . ' te laat · ' . (int) ($progress['blocked_count'] ?? 0) . ' geblokkeerd',
+        'Volgende mijlpaal: ' . ($nextMilestone !== [] ? (string) ($nextMilestone['label'] ?? '—') : '—'),
+      ]),
+      'finance' => $this->richCard('Geld', $financeStatus, $this->money($forecast['forecast_result_ex_vat'] ?? NULL) . ' resultaat', [
+        'Werkbegroting: ' . $this->money($forecast['current_budget_ex_vat'] ?? NULL),
+        'Verplicht: ' . $this->money($procurement['committed_ex_vat'] ?? NULL),
+        'Prognose eindkosten: ' . $this->money($forecast['forecast_end_cost_ex_vat'] ?? NULL),
+        'Marge: ' . $this->percent($forecast['forecast_margin_pct'] ?? NULL),
+      ]),
+      'cash' => $this->richCard('Cash', $cashStatus, $this->money($billing['paid_inc_vat'] ?? NULL) . ' ontvangen', [
+        'Betaald inkoop: ' . $this->money($procurement['paid_inc_vat'] ?? NULL),
+        'Gefactureerd verkoop: ' . $this->money($billing['invoiced_inc_vat'] ?? NULL),
+        'Vervallen: ' . (int) ($billing['overdue_count'] ?? 0) . ' factuur/facturen',
+        'Eerste cashtekort: ' . (!empty($cashCommitted['first_regular_shortfall_date']) ? (string) $cashCommitted['first_regular_shortfall_date'] : 'geen voorzien'),
+      ]),
+      'inzet' => $this->domainRichCard('Inzet', $domains['inzet'] ?? [], 'personen/signalen'),
+      'quality' => $this->domainRichCard('Kwaliteit', $domains['quality'] ?? [], 'controles/afwijkingen'),
+      'risks' => $this->domainRichCard('Risico', $domains['risks'] ?? [], "actieve risico's"),
+    ];
+
+    $canvas = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-cockpit__canvas']],
+      'hero' => $hero,
       'attention' => ['#type' => 'details', '#title' => $this->t('Wat vraagt vandaag aandacht?'), '#open' => TRUE, 'items' => ['#theme' => 'item_list', '#items' => $attention]],
       'progress' => [
         '#type' => 'table',
@@ -148,20 +218,50 @@ final class ProjectCockpitController extends ControllerBase {
           [$this->t('Ontvangen'), $this->money($billing['paid_inc_vat'] ?? NULL), $this->t('incl. btw; cash')],
         ],
       ],
-      'quick_actions' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-list-actions']],
+      'steering' => [
+        '#type' => 'table', '#caption' => $this->t('Stuurgebieden'), '#header' => [$this->t('Status'), $this->t('Onderdeel'), $this->t('Aantal'), $this->t('Betekenis'), $this->t('Openen')],
+        '#rows' => array_map(fn(array $card): array => [$this->statusLabel($card['status']), ['data' => ['#markup' => '<strong>' . $card['title'] . '</strong>']], $card['value'] === NULL ? '—' : (string) $card['value'], $card['subtitle'], ['data' => $card['link']]], $cards),
+      ],
+    ];
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-cockpit__layout']],
+      '#attached' => ['library' => ['brebo_project_cockpit/cockpit']],
+      'menu' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-list-actions'], 'aria-label' => $this->t('Projectnavigatie')],
         'planning' => $this->linkButton('Planning', 'brebo_office_core.project_planning', ['node' => $projectId]),
         'clock' => $this->linkButton('Klokken', 'brebo_inzet.mobile_clock', ['node' => $projectId]),
         'workforce' => $this->linkButton('Nu aan het werk', 'brebo_inzet.live_workforce', ['node' => $projectId]),
         'finance' => $this->linkButton('Financiën', 'brebo_finance.project_finance_page', ['project_nid' => $projectId]),
         'edit' => $this->linkButton('Project bewerken', 'entity.node.edit_form', ['node' => $projectId]),
       ],
-      'steering' => [
-        '#type' => 'table', '#caption' => $this->t('Stuurgebieden'), '#header' => [$this->t('Status'), $this->t('Onderdeel'), $this->t('Aantal'), $this->t('Betekenis'), $this->t('Openen')],
-        '#rows' => array_map(fn(array $card): array => [$this->statusLabel($card['status']), ['data' => ['#markup' => '<strong>' . $card['title'] . '</strong>']], $card['value'] === NULL ? '—' : (string) $card['value'], $card['subtitle'], ['data' => $card['link']]], $cards),
-      ],
+      'canvas' => $canvas,
       '#cache' => ['contexts' => ['user.permissions'], 'tags' => ['node:' . $projectId, 'node_list'], 'max-age' => 0],
     ];
+  }
+
+  private function richCard(string $label, string $status, string $headline, array $lines): array {
+    $details = ['#type' => 'container', '#attributes' => ['class' => ['brebo-project-cockpit__card-details']]];
+    foreach ($lines as $index => $line) {
+      $details['line_' . $index] = ['#type' => 'html_tag', '#tag' => 'div', '#value' => (string) $line, '#attributes' => ['class' => ['brebo-project-cockpit__card-line']]];
+    }
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-cockpit__status', 'brebo-project-cockpit__status--' . $status, 'brebo-project-cockpit__status--rich']],
+      'label' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $label, '#attributes' => ['class' => ['brebo-project-cockpit__card-label']]],
+      'status' => ['#type' => 'html_tag', '#tag' => 'strong', '#value' => mb_strtoupper($status), '#attributes' => ['class' => ['brebo-project-cockpit__card-status']]],
+      'headline' => ['#type' => 'html_tag', '#tag' => 'div', '#value' => $headline, '#attributes' => ['class' => ['brebo-project-cockpit__card-headline']]],
+      'details' => $details,
+    ];
+  }
+
+  private function domainRichCard(string $label, mixed $domain, string $unit): array {
+    $domain = is_array($domain) ? $domain : [];
+    $total = (int) ($domain['total'] ?? 0);
+    $message = trim((string) ($domain['message'] ?? ''));
+    return $this->richCard($label, (string) ($domain['status'] ?? 'grijs'), $total . ' ' . $unit, [$message !== '' ? $message : 'Nog geen aangesloten stuurinformatie.']);
   }
 
   private function financeStatus(array $finance, array $forecast, array $cash): string {
@@ -174,7 +274,6 @@ final class ProjectCockpitController extends ControllerBase {
 
   private function cashStatus(array $cash): string { return $cash === [] ? 'grijs' : ((!empty($cash['first_regular_shortfall_date']) || !empty($cash['first_g_account_shortfall_date'])) ? 'rood' : 'groen'); }
   private function worstStatus(array $statuses): string { $rank=['grijs'=>0,'groen'=>1,'oranje'=>2,'rood'=>3]; $worst='grijs'; foreach($statuses as $s) if(($rank[$s]??0)>($rank[$worst]??0)) $worst=$s; return $worst; }
-  private function statusMarkup(string $label,string $status): string { return '<div class="brebo-project-cockpit__status brebo-project-cockpit__status--'.$status.'"><span>'.$label.'</span><strong>'.mb_strtoupper($status).'</strong></div>'; }
   private function statusLabel(string $status): string { return match($status){'rood'=>'🔴 Rood','oranje'=>'🟠 Oranje','groen'=>'🟢 Groen',default=>'⚪ Grijs'}; }
   private function card(string $title,?int $value,string $subtitle,string $route,array $parameters,string $status): array { return ['title'=>$title,'value'=>$value,'subtitle'=>$subtitle,'status'=>$status,'link'=>Link::fromTextAndUrl($this->t('Openen'),Url::fromRoute($route,$parameters))->toRenderable()]; }
   private function linkButton(string $label,string $route,array $parameters=[]): array { return ['#type'=>'link','#title'=>$this->t($label),'#url'=>Url::fromRoute($route,$parameters),'#attributes'=>['class'=>['button']]]; }
@@ -185,5 +284,7 @@ final class ProjectCockpitController extends ControllerBase {
   private function dateRange(mixed $start,mixed $end): string { return is_string($start)&&$start!==''&&is_string($end)&&$end!==''?$start.' → '.$end:'—'; }
   private function number(mixed $value): ?float { return is_numeric($value)?(float)$value:NULL; }
   private function decimalNegative(mixed $value): bool { $n=$this->number($value); return $n!==NULL && $n<0; }
+  private function fieldValue(NodeInterface $node, string $field): string { if(!$node->hasField($field)||$node->get($field)->isEmpty()) return '—'; $value=trim((string)($node->get($field)->value??'')); return $value!==''?$value:'—'; }
+  private function entityOrValue(NodeInterface $node, string $field): string { if(!$node->hasField($field)||$node->get($field)->isEmpty()) return '—'; $entity=$node->get($field)->entity; return $entity?(string)$entity->label():$this->fieldValue($node,$field); }
   private function assertProject(NodeInterface $node): void { if($node->bundle()!=='brebo_project') throw new NotFoundHttpException('BREBO project does not exist.'); }
 }
