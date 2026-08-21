@@ -49,4 +49,47 @@ final class ClassificationRepository {
       ->orderBy('code')
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
+
+  /** @return string[] */
+  public function versions(string $systemKey): array {
+    $query = $this->database->select('brebo_classification_term', 't');
+    $query->addField('t', 'source_version');
+    $query->condition('system_key', $systemKey)
+      ->condition('active', 1)
+      ->distinct()
+      ->orderBy('source_version', 'DESC');
+    return array_values(array_map('strval', $query->execute()->fetchCol()));
+  }
+
+  public function findByCode(string $systemKey, string $sourceVersion, string $code): ?array {
+    $row = $this->database->select('brebo_classification_term', 't')
+      ->fields('t')
+      ->condition('system_key', $systemKey)
+      ->condition('source_version', $sourceVersion)
+      ->condition('code', trim($code))
+      ->condition('active', 1)
+      ->execute()->fetchAssoc();
+    return $row ?: NULL;
+  }
+
+  public function search(string $systemKey, string $sourceVersion, string $search = '', int $limit = 50): array {
+    $query = $this->database->select('brebo_classification_term', 't')
+      ->fields('t')
+      ->condition('system_key', $systemKey)
+      ->condition('source_version', $sourceVersion)
+      ->condition('active', 1);
+
+    $search = trim($search);
+    if ($search !== '') {
+      $group = $query->orConditionGroup()
+        ->condition('code', '%' . $this->database->escapeLike($search) . '%', 'LIKE')
+        ->condition('label', '%' . $this->database->escapeLike($search) . '%', 'LIKE');
+      $query->condition($group);
+    }
+
+    return $query
+      ->orderBy('code')
+      ->range(0, max(1, min(250, $limit)))
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
 }
