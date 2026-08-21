@@ -2,6 +2,8 @@
   'use strict';
 
   const earthRadius = 6378137;
+  const worldSize = 2 * Math.PI * earthRadius;
+  const tileSize = 256;
 
   function mercator(lat, lon) {
     const x = earthRadius * lon * Math.PI / 180;
@@ -31,12 +33,64 @@
 
         let lat = Number.parseFloat(latInput.value) || 52.370216;
         let lon = Number.parseFloat(lonInput.value) || 4.895168;
-        const halfHeightMetres = 350;
+        let zoom = 17;
+        let labelsVisible = true;
+
+        const labels = document.createElement('div');
+        labels.className = 'brebo-clock-zone-map__labels';
+        canvas.appendChild(labels);
+
+        const controls = document.createElement('div');
+        controls.className = 'brebo-clock-zone-map__controls';
+        controls.innerHTML = '<button type="button" data-map-zoom-in aria-label="Inzoomen">+</button><button type="button" data-map-zoom-out aria-label="Uitzoomen">−</button><button type="button" data-map-labels aria-pressed="true">Straatnamen</button>';
+        canvas.appendChild(controls);
+
+        function resolution() {
+          return worldSize / (tileSize * Math.pow(2, zoom));
+        }
+
+        function renderLabels(width, height, center) {
+          labels.replaceChildren();
+          labels.hidden = !labelsVisible;
+          if (!labelsVisible) return;
+
+          const n = Math.pow(2, zoom);
+          const centerPxX = ((center.x + worldSize / 2) / worldSize) * n * tileSize;
+          const centerPxY = ((worldSize / 2 - center.y) / worldSize) * n * tileSize;
+          const left = centerPxX - width / 2;
+          const top = centerPxY - height / 2;
+          const firstX = Math.floor(left / tileSize);
+          const lastX = Math.floor((left + width) / tileSize);
+          const firstY = Math.floor(top / tileSize);
+          const lastY = Math.floor((top + height) / tileSize);
+
+          for (let tileY = firstY; tileY <= lastY; tileY++) {
+            if (tileY < 0 || tileY >= n) continue;
+            for (let tileX = firstX; tileX <= lastX; tileX++) {
+              const wrappedX = ((tileX % n) + n) % n;
+              const params = new URLSearchParams({
+                service: 'WMTS', request: 'GetTile', version: '1.0.0',
+                layer: 'labels', style: 'default', format: 'image/png',
+                tilematrixset: 'EPSG:3857', tilematrix: `EPSG:3857:${zoom}`,
+                tilerow: String(tileY), tilecol: String(wrappedX)
+              });
+              const tile = document.createElement('img');
+              tile.className = 'brebo-clock-zone-map__label-tile';
+              tile.alt = '';
+              tile.src = `https://service.pdok.nl/kadaster/brt-achtergrondkaart/wmts/v2_0?${params.toString()}`;
+              tile.style.left = `${tileX * tileSize - left}px`;
+              tile.style.top = `${tileY * tileSize - top}px`;
+              labels.appendChild(tile);
+            }
+          }
+        }
 
         function render() {
           const width = Math.max(canvas.clientWidth, 700);
           const height = Math.max(canvas.clientHeight, 420);
-          const halfWidthMetres = halfHeightMetres * (width / height);
+          const metresPerPixel = resolution();
+          const halfHeightMetres = metresPerPixel * height / 2;
+          const halfWidthMetres = metresPerPixel * width / 2;
           const center = mercator(lat, lon);
           const bbox = [center.x - halfWidthMetres, center.y - halfHeightMetres, center.x + halfWidthMetres, center.y + halfHeightMetres].join(',');
           let image = canvas.querySelector('.brebo-clock-zone-map__image');
@@ -48,9 +102,10 @@
           }
           const params = new URLSearchParams({service:'WMS',version:'1.3.0',request:'GetMap',layers:'Actueel_orthoHR',styles:'',crs:'EPSG:3857',bbox,width:String(Math.round(width)),height:String(Math.round(height)),format:'image/jpeg',transparent:'false'});
           image.src = `https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?${params}`;
+          renderLabels(width, height, center);
+
           const radius = Math.min(5000, Math.max(10, Number.parseFloat(radiusInput.value) || 150));
-          const pxPerMetre = height / (halfHeightMetres * 2);
-          const diameter = Math.max(18, radius * 2 * pxPerMetre);
+          const diameter = Math.max(18, radius * 2 / metresPerPixel);
           circle.style.width = `${diameter}px`;
           circle.style.height = `${diameter}px`;
           if (readout) readout.textContent = `${Math.round(radius)} m`;
@@ -64,37 +119,74 @@
           render();
         }
 
-        let drag = null;
+        function moveByPixels(dx, dy) {
+          const center = mercator(lat, lon);
+          const moved = inverseMercator(center.x + dx * resolution(), center.y - dy * resolution());
+          lat = moved.lat;
+          lon = moved.lon;
+          syncInputs();
+        }
+
+        let markerDrag = null;
         marker.addEventListener('pointerdown', (event) => {
-          drag = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, startLat: lat, startLon: lon};
+          event.stopPropagation();
+          markerDrag = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY};
           marker.setPointerCapture(event.pointerId);
         });
         marker.addEventListener('pointermove', (event) => {
-          if (!drag || drag.pointerId !== event.pointerId) return;
-          const rect = canvas.getBoundingClientRect();
-          const dx = event.clientX - drag.startX;
-          const dy = event.clientY - drag.startY;
+          if (!markerDrag || markerDrag.pointerId !== event.pointerId) return;
+          const dx = event.clientX - markerDrag.startX;
+          const dy = event.clientY - markerDrag.startY;
           marker.style.left = `calc(50% + ${dx}px)`;
           marker.style.top = `calc(50% + ${dy}px)`;
         });
         marker.addEventListener('pointerup', (event) => {
-          if (!drag || drag.pointerId !== event.pointerId) return;
-          const rect = canvas.getBoundingClientRect();
-          const metresPerPixel = (halfHeightMetres * 2) / rect.height;
-          const dx = event.clientX - drag.startX;
-          const dy = event.clientY - drag.startY;
-          const center = mercator(drag.startLat, drag.startLon);
-          const moved = inverseMercator(center.x + dx * metresPerPixel, center.y - dy * metresPerPixel);
-          lat = moved.lat;
-          lon = moved.lon;
+          if (!markerDrag || markerDrag.pointerId !== event.pointerId) return;
+          const dx = event.clientX - markerDrag.startX;
+          const dy = event.clientY - markerDrag.startY;
           marker.releasePointerCapture(event.pointerId);
-          drag = null;
-          syncInputs();
+          markerDrag = null;
+          moveByPixels(dx, dy);
         });
-        marker.addEventListener('pointercancel', () => {
-          drag = null;
-          marker.style.left = '50%';
-          marker.style.top = '50%';
+
+        let mapDrag = null;
+        canvas.addEventListener('pointerdown', (event) => {
+          if (event.target.closest('.brebo-clock-zone-map__controls') || event.target === marker) return;
+          mapDrag = {pointerId: event.pointerId, startX: event.clientX, startY: event.clientY};
+          canvas.setPointerCapture(event.pointerId);
+          canvas.classList.add('is-dragging');
+        });
+        canvas.addEventListener('pointerup', (event) => {
+          if (!mapDrag || mapDrag.pointerId !== event.pointerId) return;
+          const dx = mapDrag.startX - event.clientX;
+          const dy = mapDrag.startY - event.clientY;
+          canvas.releasePointerCapture(event.pointerId);
+          canvas.classList.remove('is-dragging');
+          mapDrag = null;
+          moveByPixels(dx, dy);
+        });
+        canvas.addEventListener('pointercancel', () => {
+          mapDrag = null;
+          canvas.classList.remove('is-dragging');
+        });
+
+        canvas.addEventListener('dblclick', (event) => {
+          if (event.target.closest('.brebo-clock-zone-map__controls')) return;
+          const rect = canvas.getBoundingClientRect();
+          moveByPixels(event.clientX - (rect.left + rect.width / 2), event.clientY - (rect.top + rect.height / 2));
+        });
+        canvas.addEventListener('wheel', (event) => {
+          event.preventDefault();
+          zoom = Math.min(20, Math.max(14, zoom + (event.deltaY < 0 ? 1 : -1)));
+          render();
+        }, {passive: false});
+
+        controls.querySelector('[data-map-zoom-in]').addEventListener('click', () => { zoom = Math.min(20, zoom + 1); render(); });
+        controls.querySelector('[data-map-zoom-out]').addEventListener('click', () => { zoom = Math.max(14, zoom - 1); render(); });
+        controls.querySelector('[data-map-labels]').addEventListener('click', (event) => {
+          labelsVisible = !labelsVisible;
+          event.currentTarget.setAttribute('aria-pressed', labelsVisible ? 'true' : 'false');
+          render();
         });
 
         radiusInput.addEventListener('input', render);
