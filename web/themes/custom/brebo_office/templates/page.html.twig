@@ -9,6 +9,8 @@
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
+        {# Office pages may render a reusable cockpit with data-brebo-cockpit and
+           a sticky .brebo-context-tabs work navigation inside page.content. #}
         <main class="brebo-main{{ page.sidebar ? '' : ' brebo-main--full' }}">
           {% if page.sidebar %}
             <aside class="brebo-sidebar">{{ page.sidebar }}</aside>
