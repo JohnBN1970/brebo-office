@@ -5,15 +5,27 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Shows the execution budget and its commercial source for a project.
  */
 final class ProjectBudgetController extends ControllerBase {
+
+  public function __construct(
+    private readonly DateFormatterInterface $dateFormatter,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('date.formatter'),
+    );
+  }
 
   public function title(NodeInterface $node): string {
     $this->assertProject($node);
@@ -56,7 +68,7 @@ final class ProjectBudgetController extends ControllerBase {
           $package instanceof NodeInterface ? $package->label() : '—',
           $this->value($budget, 'field_brebo_budget_status'),
           $source instanceof NodeInterface ? $source->label() : '—',
-          $this->dateFormatter()->format($budget->getChangedTime(), 'short'),
+          $this->dateFormatter->format($budget->getChangedTime(), 'short'),
         ];
       }
 
