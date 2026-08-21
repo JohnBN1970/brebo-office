@@ -20,8 +20,10 @@ final class InzetAppController extends ControllerBase {
 
   public function __construct(
     private readonly ClockSessionManager $clockSessionManager,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-  ) {}
+    EntityTypeManagerInterface $entityTypeManager,
+  ) {
+    $this->entityTypeManager = $entityTypeManager;
+  }
 
   public static function create(ContainerInterface $container): static {
     return new static(
