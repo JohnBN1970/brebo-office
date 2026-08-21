@@ -1,0 +1,159 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\node\NodeInterface;
+
+/**
+ * @file
+ * Project Cockpit integration hooks.
+ */
+
+/**
+ * Implements hook_page_attachments().
+ */
+function brebo_project_cockpit_page_attachments(array &$attachments): void {
+  if (\Drupal::routeMatch()->getRouteName() !== 'brebo_project_cockpit.overview') {
+    return;
+  }
+
+  $project = \Drupal::routeMatch()->getParameter('node');
+  if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+    return;
+  }
+
+  $projectId = (int) $project->id();
+  $finance = \Drupal::service('brebo_finance.financial_cockpit_builder')->build($projectId);
+  $operational = \Drupal::service('brebo_project_cockpit.project_status_aggregator')->build($projectId);
+  $progress = \Drupal::service('brebo_project_cockpit.project_progress_builder')->build($projectId);
+  $milestones = \Drupal::service('brebo_project_cockpit.project_milestone_builder')->build($projectId);
+
+  $forecast = is_array($finance['forecast'] ?? NULL) ? $finance['forecast'] : [];
+  $procurement = is_array($finance['procurement_pipeline'] ?? NULL) ? $finance['procurement_pipeline'] : [];
+  $billing = is_array($finance['billing_position'] ?? NULL) ? $finance['billing_position'] : [];
+  $cash = is_array($finance['cash_forecast']['committed'] ?? NULL) ? $finance['cash_forecast']['committed'] : [];
+  $domains = is_array($operational['domains'] ?? NULL) ? $operational['domains'] : [];
+  $next = is_array($milestones['next_milestone'] ?? NULL) ? $milestones['next_milestone'] : [];
+
+  $client = _brebo_project_cockpit_entity_or_value($project, 'field_brebo_client_org_ref');
+  if ($client === '—') {
+    $client = _brebo_project_cockpit_value($project, 'field_brebo_client');
+  }
+
+  $buildings = [];
+  if ($project->hasField('field_brebo_building_refs')) {
+    foreach ($project->get('field_brebo_building_refs')->referencedEntities() as $building) {
+      $buildings[] = (string) $building->label();
+    }
+  }
+
+  $projectLeader = '—';
+  foreach (['field_brebo_project_manager', 'field_brebo_project_leader', 'field_brebo_projectleider'] as $field) {
+    $candidate = _brebo_project_cockpit_entity_or_value($project, $field);
+    if ($candidate !== '—') {
+      $projectLeader = $candidate;
+      break;
+    }
+  }
+
+  $actual = _brebo_project_cockpit_percent($progress['actual_progress_pct'] ?? NULL);
+  $elapsed = _brebo_project_cockpit_percent($progress['time_elapsed_pct'] ?? NULL);
+  $delta = _brebo_project_cockpit_signed_pp($progress['progress_vs_time_pct'] ?? NULL);
+
+  $attachments['#attached']['drupalSettings']['breboProjectCockpit']['richCards'] = [
+    'Project' => [
+      'headline' => _brebo_project_cockpit_value($project, 'field_brebo_project_code'),
+      'lines' => [
+        'Opdrachtgever: ' . $client,
+        'Locatie: ' . ($buildings !== [] ? implode(' · ', $buildings) : '—'),
+        'Projectleider: ' . $projectLeader,
+        'Fase: ' . ((string) ($milestones['current_phase'] ?? '') !== '' ? (string) $milestones['current_phase'] : _brebo_project_cockpit_value($project, 'field_brebo_status')),
+        'Volgende mijlpaal: ' . ($next !== [] ? ((string) ($next['label'] ?? '—') . (!empty($next['due']) ? ' · ' . (string) $next['due'] : '')) : '—'),
+      ],
+    ],
+    'Planning' => [
+      'headline' => $actual . ' gereed',
+      'lines' => [
+        $elapsed . ' tijd verstreken',
+        $delta . ' t.o.v. tijdpad',
+        (int) ($progress['late_count'] ?? 0) . ' te laat · ' . (int) ($progress['blocked_count'] ?? 0) . ' geblokkeerd',
+        'Volgende mijlpaal: ' . ($next !== [] ? (string) ($next['label'] ?? '—') : '—'),
+      ],
+    ],
+    'Geld' => [
+      'headline' => _brebo_project_cockpit_money($forecast['forecast_result_ex_vat'] ?? NULL) . ' resultaat',
+      'lines' => [
+        'Werkbegroting: ' . _brebo_project_cockpit_money($forecast['current_budget_ex_vat'] ?? NULL),
+        'Verplicht: ' . _brebo_project_cockpit_money($procurement['committed_ex_vat'] ?? NULL),
+        'Prognose eindkosten: ' . _brebo_project_cockpit_money($forecast['forecast_end_cost_ex_vat'] ?? NULL),
+        'Marge: ' . _brebo_project_cockpit_percent($forecast['forecast_margin_pct'] ?? NULL),
+      ],
+    ],
+    'Cash' => [
+      'headline' => _brebo_project_cockpit_money($billing['paid_inc_vat'] ?? NULL) . ' ontvangen',
+      'lines' => [
+        'Betaald inkoop: ' . _brebo_project_cockpit_money($procurement['paid_inc_vat'] ?? NULL),
+        'Gefactureerd verkoop: ' . _brebo_project_cockpit_money($billing['invoiced_inc_vat'] ?? NULL),
+        'Openstaand/vervallen: ' . (int) ($billing['overdue_count'] ?? 0) . ' factuur/facturen',
+        'Eerste cashtekort: ' . ((string) ($cash['first_regular_shortfall_date'] ?? '') !== '' ? (string) $cash['first_regular_shortfall_date'] : 'geen voorzien'),
+      ],
+    ],
+    'Inzet' => _brebo_project_cockpit_domain_card($domains['inzet'] ?? [], 'personen/signalen'),
+    'Kwaliteit' => _brebo_project_cockpit_domain_card($domains['quality'] ?? [], 'controles/afwijkingen'),
+    'Risico' => _brebo_project_cockpit_domain_card($domains['risks'] ?? [], 'actieve risico\'s'),
+  ];
+}
+
+/** @return array{headline:string,lines:string[]} */
+function _brebo_project_cockpit_domain_card(mixed $domain, string $unit): array {
+  $domain = is_array($domain) ? $domain : [];
+  $total = (int) ($domain['total'] ?? 0);
+  $message = trim((string) ($domain['message'] ?? ''));
+  return [
+    'headline' => $total . ' ' . $unit,
+    'lines' => [
+      $message !== '' ? $message : 'Nog geen aangesloten stuurinformatie.',
+    ],
+  ];
+}
+
+function _brebo_project_cockpit_value(NodeInterface $node, string $field): string {
+  if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
+    return '—';
+  }
+  $value = trim((string) ($node->get($field)->value ?? ''));
+  return $value !== '' ? $value : '—';
+}
+
+function _brebo_project_cockpit_entity_or_value(NodeInterface $node, string $field): string {
+  if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
+    return '—';
+  }
+  $entity = $node->get($field)->entity;
+  if ($entity) {
+    return (string) $entity->label();
+  }
+  return _brebo_project_cockpit_value($node, $field);
+}
+
+function _brebo_project_cockpit_money(mixed $value): string {
+  if (!is_numeric($value)) {
+    return '—';
+  }
+  return '€ ' . number_format((float) $value, 0, ',', '.');
+}
+
+function _brebo_project_cockpit_percent(mixed $value): string {
+  if (!is_numeric($value)) {
+    return '—';
+  }
+  return number_format((float) $value, 1, ',', '.') . '%';
+}
+
+function _brebo_project_cockpit_signed_pp(mixed $value): string {
+  if (!is_numeric($value)) {
+    return '—';
+  }
+  $number = (float) $value;
+  return ($number > 0 ? '+' : '') . number_format($number, 1, ',', '.') . ' pp';
+}
