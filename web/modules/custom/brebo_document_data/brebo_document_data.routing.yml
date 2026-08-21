@@ -23,6 +23,18 @@ brebo_document_data.node_dossier:
       node:
         type: entity:node
 
+brebo_document_data.project_dossier:
+  path: '/projecten/{node}/documenten'
+  defaults:
+    _controller: '\Drupal\brebo_document_data\Controller\NodeDocumentDossierController::nodeView'
+    _title: 'Documenten'
+  requirements:
+    _custom_access: '\Drupal\brebo_document_data\Controller\NodeDocumentDossierController::access'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_document_data.document_open:
   path: '/brebo/document/{document_id}/open'
   defaults:

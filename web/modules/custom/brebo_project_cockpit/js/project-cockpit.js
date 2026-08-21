@@ -5,6 +5,44 @@
     document.querySelectorAll('.brebo-list-actions').forEach((menu) => menu.remove());
   }
 
+  function projectIdFromPath() {
+    const projectMatch = window.location.pathname.match(/^\/projecten\/(\d+)(?:\/|$)/);
+    if (projectMatch) {
+      return projectMatch[1];
+    }
+    const legacyDocumentMatch = window.location.pathname.match(/^\/node\/(\d+)\/documents(?:\/|$)/);
+    return legacyDocumentMatch ? legacyDocumentMatch[1] : null;
+  }
+
+  function wireProjectTabs() {
+    const projectId = projectIdFromPath();
+    if (!projectId) {
+      return;
+    }
+
+    document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
+      const label = link.textContent.trim();
+      if (label !== 'Documenten') {
+        return;
+      }
+
+      link.href = `/projecten/${projectId}/documenten`;
+      const active = window.location.pathname === `/projecten/${projectId}/documenten` ||
+        window.location.pathname.startsWith(`/projecten/${projectId}/documenten/`) ||
+        window.location.pathname === `/node/${projectId}/documents` ||
+        window.location.pathname.startsWith(`/node/${projectId}/documents/`);
+
+      if (active) {
+        document.querySelectorAll('.brebo-context-tabs a.is-active').forEach((activeLink) => {
+          activeLink.classList.remove('is-active');
+          activeLink.removeAttribute('aria-current');
+        });
+        link.classList.add('is-active');
+        link.setAttribute('aria-current', 'page');
+      }
+    });
+  }
+
   function enrichRichCards() {
     const data = drupalSettings.breboProjectCockpit && drupalSettings.breboProjectCockpit.richCards;
     if (!data) {
@@ -60,6 +98,7 @@
 
   function initializeCockpit() {
     removeLegacyProjectMenu();
+    wireProjectTabs();
     if (!enrichRichCards()) {
       window.setTimeout(enrichRichCards, 50);
     }
