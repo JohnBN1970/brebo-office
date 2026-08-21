@@ -15,6 +15,7 @@
           {% endif %}
           <section class="brebo-content">
             {% if brebo_project_context_cockpit %}
+              <h1 class="brebo-project-context__title">{{ brebo_project_context_cockpit.summary.title['#markup']|striptags }}</h1>
               {{ brebo_project_context_cockpit }}
             {% endif %}
             {% if brebo_project_context_tabs %}
