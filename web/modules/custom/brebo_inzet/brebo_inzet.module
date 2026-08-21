@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * BREBO Inzet integration hooks.
+ */
+
+/**
+ * Implements hook_page_attachments().
+ */
+function brebo_inzet_page_attachments(array &$attachments): void {
+  $routeName = \Drupal::routeMatch()->getRouteName();
+  if (!in_array($routeName, ['brebo_inzet.app', 'brebo_inzet.mobile_clock'], TRUE)) {
+    return;
+  }
+
+  $attachments['#attached']['library'][] = 'brebo_inzet/pwa-shell';
+  $attachments['#attached']['html_head_link'][] = [
+    [
+      'rel' => 'manifest',
+      'href' => '/brebo-inzet.webmanifest',
+    ],
+    TRUE,
+  ];
+  $attachments['#attached']['html_head_link'][] = [
+    [
+      'rel' => 'icon',
+      'href' => '/modules/custom/brebo_inzet/images/brebo-inzet-icon.svg',
+      'type' => 'image/svg+xml',
+    ],
+    TRUE,
+  ];
+
+  $meta = [
+    'brebo_inzet_theme_color' => ['name' => 'theme-color', 'content' => '#0f766e'],
+    'brebo_inzet_mobile_capable' => ['name' => 'apple-mobile-web-app-capable', 'content' => 'yes'],
+    'brebo_inzet_mobile_status' => ['name' => 'apple-mobile-web-app-status-bar-style', 'content' => 'default'],
+    'brebo_inzet_mobile_title' => ['name' => 'apple-mobile-web-app-title', 'content' => 'BREBO Inzet'],
+  ];
+  foreach ($meta as $key => $attributes) {
+    $attachments['#attached']['html_head'][] = [
+      ['#tag' => 'meta', '#attributes' => $attributes],
+      $key,
+    ];
+  }
+}

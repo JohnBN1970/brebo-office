@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="BREBO Inzet">
+  <rect width="512" height="512" rx="112" fill="#0f172a"/>
+  <rect x="72" y="72" width="368" height="368" rx="92" fill="#0f766e"/>
+  <path d="M166 142h104c76 0 118 28 118 85 0 35-19 60-53 72 44 11 67 40 67 83 0 66-49 98-136 98H166V142zm96 136c42 0 62-13 62-41 0-27-20-39-62-39h-31v80h31zm8 146c47 0 69-15 69-46 0-31-22-45-69-45h-39v91h39z" fill="#fff"/>
+</svg>
