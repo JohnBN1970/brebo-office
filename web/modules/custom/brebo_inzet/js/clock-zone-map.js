@@ -27,10 +27,18 @@
     const lonInput = form.querySelector('[name="longitude"], #edit-longitude');
     const radiusInput = form.querySelector('[name="radius"], #edit-radius');
     const canvas = map.querySelector('.brebo-clock-zone-map__canvas');
-    const marker = map.querySelector('.brebo-clock-zone-map__marker');
     const circle = map.querySelector('.brebo-clock-zone-map__circle');
     const readout = map.querySelector('.brebo-clock-zone-map__readout');
-    if (!latInput || !lonInput || !radiusInput || !canvas || !marker || !circle) return;
+    if (!latInput || !lonInput || !radiusInput || !canvas || !circle) return;
+
+    let marker = map.querySelector('.brebo-clock-zone-map__marker');
+    if (!marker) {
+      marker = document.createElement('button');
+      marker.type = 'button';
+      marker.className = 'brebo-clock-zone-map__marker';
+      marker.setAttribute('aria-label', 'Versleep middelpunt kloklocatie');
+      canvas.appendChild(marker);
+    }
 
     map.dataset.breboClockZoneInitialised = 'true';
     let lat = Number.parseFloat(latInput.value) || 52.370216;
