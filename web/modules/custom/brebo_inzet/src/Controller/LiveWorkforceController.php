@@ -14,7 +14,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class LiveWorkforceController extends ControllerBase {
 
   public function title(NodeInterface $node): string {
-    return $this->t('Nu aan het werk - @project', ['@project' => $node->label()]);
+    return (string) $this->t('Nu aan het werk - @project', ['@project' => $node->label()]);
   }
 
   public function overview(NodeInterface $node): array {
