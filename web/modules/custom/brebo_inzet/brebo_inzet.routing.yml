@@ -48,6 +48,18 @@ brebo_inzet.project_clock_deviations:
       node:
         type: entity:node
 
+brebo_inzet.project_clock_settings:
+  path: '/projecten/{node}/inzet/instellingen'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\ProjectClockSettingsForm'
+    _title: 'Inzet-klok instellingen'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.mobile_clock:
   path: '/projecten/{node}/inzet/klokken'
   defaults:
