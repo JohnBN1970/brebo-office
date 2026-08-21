@@ -3,11 +3,103 @@
 declare(strict_types=1);
 
 use Drupal\node\NodeInterface;
+use Drupal\Core\Url;
 
 /**
  * @file
  * Project Cockpit integration hooks.
  */
+
+/**
+ * Implements hook_preprocess_page().
+ *
+ * Adds the project context navigation to project subpages. The overview keeps
+ * its tabs directly below the cockpit cards; all other project pages receive
+ * the same navigation from the page shell.
+ */
+function brebo_project_cockpit_preprocess_page(array &$variables): void {
+  $route_match = \Drupal::routeMatch();
+  $route_name = $route_match->getRouteName();
+  if ($route_name === 'brebo_project_cockpit.overview') {
+    return;
+  }
+
+  $project = _brebo_project_cockpit_route_project();
+  if (!$project instanceof NodeInterface) {
+    return;
+  }
+
+  $variables['brebo_project_context_tabs'] = _brebo_project_cockpit_tabs((int) $project->id(), $route_name);
+}
+
+/**
+ * Resolve a BREBO project from the route without changing existing routes.
+ */
+function _brebo_project_cockpit_route_project(): ?NodeInterface {
+  $route_match = \Drupal::routeMatch();
+  foreach (['node', 'project', 'project_nid'] as $parameter_name) {
+    $parameter = $route_match->getParameter($parameter_name);
+    if ($parameter instanceof NodeInterface && $parameter->bundle() === 'brebo_project') {
+      return $parameter;
+    }
+    if (is_numeric($parameter)) {
+      $node = \Drupal::entityTypeManager()->getStorage('node')->load((int) $parameter);
+      if ($node instanceof NodeInterface && $node->bundle() === 'brebo_project') {
+        return $node;
+      }
+    }
+  }
+  return NULL;
+}
+
+/**
+ * Build the persistent project tabs with the current route highlighted.
+ */
+function _brebo_project_cockpit_tabs(int $project_id, string $active_route): array {
+  $definitions = [
+    ['Overzicht', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Planning', 'brebo_office_core.project_planning', ['node' => $project_id]],
+    ['Documenten', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Calculatie', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Inkoop', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Contracten', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Facturen', 'brebo_finance.project_finance_page', ['project_nid' => $project_id]],
+    ['Inzet', 'brebo_inzet.live_workforce', ['node' => $project_id]],
+    ['Kwaliteit', 'brebo_office_core.deviations', []],
+    ['Oplevering', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+  ];
+
+  $items = [];
+  foreach ($definitions as [$label, $route, $parameters]) {
+    $active = $route === $active_route;
+    $attributes = ['class' => $active ? ['is-active'] : []];
+    if ($active) {
+      $attributes['aria-current'] = 'page';
+    }
+    $items[] = [
+      '#type' => 'link',
+      '#title' => $label,
+      '#url' => Url::fromRoute($route, $parameters),
+      '#attributes' => $attributes,
+    ];
+  }
+
+  return [
+    '#type' => 'container',
+    '#attributes' => [
+      'class' => ['brebo-context-tabs', 'brebo-context-tabs--persistent'],
+      'aria-label' => 'Projectonderdelen',
+    ],
+    'items' => [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-context-tabs__items']],
+    ] + $items,
+    '#cache' => [
+      'contexts' => ['route'],
+      'tags' => ['node:' . $project_id],
+    ],
+  ];
+}
 
 /**
  * Implements hook_page_attachments().
@@ -111,49 +203,32 @@ function _brebo_project_cockpit_domain_card(mixed $domain, string $unit): array 
   $message = trim((string) ($domain['message'] ?? ''));
   return [
     'headline' => $total . ' ' . $unit,
-    'lines' => [
-      $message !== '' ? $message : 'Nog geen aangesloten stuurinformatie.',
-    ],
+    'lines' => [$message !== '' ? $message : 'Nog geen aangesloten stuurinformatie.'],
   ];
 }
 
 function _brebo_project_cockpit_value(NodeInterface $node, string $field): string {
-  if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
-    return '—';
-  }
+  if (!$node->hasField($field) || $node->get($field)->isEmpty()) return '—';
   $value = trim((string) ($node->get($field)->value ?? ''));
   return $value !== '' ? $value : '—';
 }
 
 function _brebo_project_cockpit_entity_or_value(NodeInterface $node, string $field): string {
-  if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
-    return '—';
-  }
+  if (!$node->hasField($field) || $node->get($field)->isEmpty()) return '—';
   $entity = $node->get($field)->entity;
-  if ($entity) {
-    return (string) $entity->label();
-  }
-  return _brebo_project_cockpit_value($node, $field);
+  return $entity ? (string) $entity->label() : _brebo_project_cockpit_value($node, $field);
 }
 
 function _brebo_project_cockpit_money(mixed $value): string {
-  if (!is_numeric($value)) {
-    return '—';
-  }
-  return '€ ' . number_format((float) $value, 0, ',', '.');
+  return !is_numeric($value) ? '—' : '€ ' . number_format((float) $value, 0, ',', '.');
 }
 
 function _brebo_project_cockpit_percent(mixed $value): string {
-  if (!is_numeric($value)) {
-    return '—';
-  }
-  return number_format((float) $value, 1, ',', '.') . '%';
+  return !is_numeric($value) ? '—' : number_format((float) $value, 1, ',', '.') . '%';
 }
 
 function _brebo_project_cockpit_signed_pp(mixed $value): string {
-  if (!is_numeric($value)) {
-    return '—';
-  }
+  if (!is_numeric($value)) return '—';
   $number = (float) $value;
   return ($number > 0 ? '+' : '') . number_format($number, 1, ',', '.') . ' pp';
 }
