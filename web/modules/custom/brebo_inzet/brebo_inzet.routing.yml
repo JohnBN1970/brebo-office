@@ -6,6 +6,18 @@ brebo_inzet.app:
   requirements:
     _user_is_logged_in: 'TRUE'
 
+brebo_inzet.app_clock:
+  path: '/inzet/project/{node}'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\MobileClockForm'
+    _title: 'BREBO Inzet'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_clock_zones:
   path: '/projecten/{node}/inzet/kloklocaties'
   defaults:
