@@ -1,0 +1,24 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * @file
+ * Theme preprocess adjustments for the BREBO Office shell.
+ */
+
+/**
+ * Implements hook_preprocess_page().
+ *
+ * The canonical project dashboard route is altered to use the Project Cockpit
+ * controller. That controller already renders the cockpit and project tabs in
+ * page.content. The generic persistent project shell is intended for project
+ * subpages only, so suppress it here on the canonical dashboard route.
+ */
+function brebo_office_preprocess_page(array &$variables): void {
+  if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.project_dashboard') {
+    return;
+  }
+
+  unset($variables['brebo_project_context_cockpit'], $variables['brebo_project_context_tabs']);
+}
