@@ -86,13 +86,13 @@ final class ProjectClockZoneForm extends FormBase {
         '#markup' => '<div class="brebo-clock-zone-map__canvas"><img class="brebo-clock-zone-map__image" src="' . htmlspecialchars($mapUrl, ENT_QUOTES, 'UTF-8') . '" alt="PDOK luchtfoto rond de kloklocatie"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
       ],
       'help' => [
-        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de kaart of de pin en zoom in tot het juiste pand zichtbaar is. Straatnamen en huisnummering kunnen boven de luchtfoto worden getoond. Huidige klokzone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
+        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de middelste pin om de kloklocatie te verplaatsen. Pak de ronde handgreep op de rand van de cirkel en sleep naar binnen of buiten om de klokzone direct groter of kleiner te maken. Huidige klokzone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
       ],
     ];
     $form['radius'] = [
       '#type' => 'number', '#title' => $this->t('Klokzone'), '#field_suffix' => ' m',
       '#required' => TRUE, '#default_value' => $defaultRadius, '#min' => 10, '#max' => 5000, '#step' => 5,
-      '#description' => $this->t('Afstand rondom het gekozen middelpunt waarbinnen normaal aanwezig of vertrek mag worden geregistreerd.'),
+      '#description' => $this->t('Wordt direct bijgewerkt wanneer de cirkelrand op de kaart wordt versleept. Gebruik dit veld alleen voor fijne numerieke afstelling.'),
     ];
     $form['active'] = [
       '#type' => 'checkbox', '#title' => $this->t('Kloklocatie actief'),

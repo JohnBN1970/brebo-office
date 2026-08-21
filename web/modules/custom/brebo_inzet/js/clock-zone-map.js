@@ -41,6 +41,13 @@
     }
     marker.title = 'Middelpunt klokzone';
 
+    const radiusHandle = document.createElement('button');
+    radiusHandle.type = 'button';
+    radiusHandle.className = 'brebo-clock-zone-map__radius-handle';
+    radiusHandle.setAttribute('aria-label', 'Versleep om de klokzone groter of kleiner te maken');
+    radiusHandle.title = 'Versleep om de klokzone groter of kleiner te maken';
+    canvas.appendChild(radiusHandle);
+
     map.dataset.breboClockZoneInitialised = 'true';
     let lat = Number.parseFloat(latInput.value) || 52.370216;
     let lon = Number.parseFloat(lonInput.value) || 4.895168;
@@ -104,6 +111,22 @@
       }
     }
 
+    function currentRadius() {
+      return Math.min(5000, Math.max(10, Number.parseFloat(radiusInput.value) || 150));
+    }
+
+    function updateRadiusPresentation(metresPerPixel) {
+      const radius = currentRadius();
+      const radiusPixels = Math.max(9, radius / metresPerPixel);
+      const diameter = radiusPixels * 2;
+      circle.style.width = `${diameter}px`;
+      circle.style.height = `${diameter}px`;
+      radiusHandle.style.left = `calc(50% + ${radiusPixels}px)`;
+      radiusHandle.style.top = '50%';
+      radiusBadge.innerHTML = `Klokzone <strong>${Math.round(radius)} m</strong>`;
+      if (readout) readout.textContent = `${Math.round(radius)} m`;
+    }
+
     function render() {
       const width = Math.max(canvas.clientWidth, 600);
       const height = Math.max(canvas.clientHeight, 600);
@@ -127,12 +150,7 @@
       houseNumbers.hidden = !houseNumbersVisible || zoom < 17;
 
       renderLabels(width, height, center);
-      const radius = Math.min(5000, Math.max(10, Number.parseFloat(radiusInput.value) || 150));
-      const diameter = Math.max(18, radius * 2 / metresPerPixel);
-      circle.style.width = `${diameter}px`;
-      circle.style.height = `${diameter}px`;
-      radiusBadge.textContent = `Klokzone ${Math.round(radius)} m`;
-      if (readout) readout.textContent = `${Math.round(radius)} m`;
+      updateRadiusPresentation(metresPerPixel);
     }
 
     function syncInputs() {
@@ -171,9 +189,43 @@
       moveByPixels(dx,dy);
     });
 
+    let radiusDrag = null;
+    radiusHandle.addEventListener('pointerdown', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      radiusDrag = {pointerId:event.pointerId};
+      radiusHandle.setPointerCapture(event.pointerId);
+      radiusHandle.classList.add('is-dragging');
+    });
+    radiusHandle.addEventListener('pointermove', (event) => {
+      if (!radiusDrag || radiusDrag.pointerId !== event.pointerId) return;
+      const rect = canvas.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      const pixels = Math.hypot(event.clientX - centerX, event.clientY - centerY);
+      const metres = Math.min(5000, Math.max(10, pixels * resolution()));
+      radiusInput.value = String(Math.round(metres));
+      updateRadiusPresentation(resolution());
+      radiusInput.dispatchEvent(new Event('input', {bubbles:true}));
+    });
+    radiusHandle.addEventListener('pointerup', (event) => {
+      if (!radiusDrag || radiusDrag.pointerId !== event.pointerId) return;
+      const snapped = Math.min(5000, Math.max(10, Math.round(currentRadius() / 5) * 5));
+      radiusInput.value = String(snapped);
+      radiusHandle.releasePointerCapture(event.pointerId);
+      radiusHandle.classList.remove('is-dragging');
+      radiusDrag = null;
+      render();
+      radiusInput.dispatchEvent(new Event('change', {bubbles:true}));
+    });
+    radiusHandle.addEventListener('pointercancel', () => {
+      radiusDrag = null;
+      radiusHandle.classList.remove('is-dragging');
+    });
+
     let mapDrag = null;
     canvas.addEventListener('pointerdown', (event) => {
-      if (event.target.closest('.brebo-clock-zone-map__controls') || event.target === marker) return;
+      if (event.target.closest('.brebo-clock-zone-map__controls') || event.target === marker || event.target === radiusHandle) return;
       mapDrag = {pointerId:event.pointerId,startX:event.clientX,startY:event.clientY};
       canvas.setPointerCapture(event.pointerId);
       canvas.classList.add('is-dragging');
@@ -189,7 +241,7 @@
     });
     canvas.addEventListener('pointercancel', () => { mapDrag=null; canvas.classList.remove('is-dragging'); });
     canvas.addEventListener('dblclick', (event) => {
-      if (event.target.closest('.brebo-clock-zone-map__controls')) return;
+      if (event.target.closest('.brebo-clock-zone-map__controls') || event.target === radiusHandle) return;
       const rect = canvas.getBoundingClientRect();
       moveByPixels(event.clientX-(rect.left+rect.width/2),event.clientY-(rect.top+rect.height/2));
     });
