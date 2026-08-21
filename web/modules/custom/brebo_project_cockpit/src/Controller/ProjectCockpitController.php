@@ -80,9 +80,9 @@ final class ProjectCockpitController extends ControllerBase {
       'planning' => ['brebo_office_core.project_planning', ['node' => $projectId]],
       'inzet' => ['brebo_inzet.live_workforce', ['node' => $projectId]],
       'quality' => ['brebo_office_core.deviations', []],
-      'risks' => ['brebo_office_core.risks', []],
-      'actions' => ['brebo_office_core.actions', []],
-      'procurement' => ['brebo_office_core.rfqs', []],
+      'risks' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
+      'actions' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
+      'procurement' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
     ];
     $cards = [];
     foreach (($operational['domains'] ?? []) as $key => $domain) {
