@@ -66,6 +66,8 @@ jobs:
           test -f web/modules/custom/brebo_control/brebo_control.info.yml
           test -f web/modules/custom/brebo_procurement_control/brebo_procurement_control.info.yml
           test -f web/modules/custom/brebo_contract_control/brebo_contract_control.info.yml
+          test -f web/modules/custom/brebo_inzet/brebo_inzet.info.yml
+          test -f web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml
 
       - name: Configure SSH
         shell: bash
@@ -148,6 +150,8 @@ jobs:
           test -f "$staging/web/modules/custom/brebo_control/brebo_control.info.yml"
           test -f "$staging/web/modules/custom/brebo_procurement_control/brebo_procurement_control.info.yml"
           test -f "$staging/web/modules/custom/brebo_contract_control/brebo_contract_control.info.yml"
+          test -f "$staging/web/modules/custom/brebo_inzet/brebo_inzet.info.yml"
+          test -f "$staging/web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml"
 
           cp -a "$staging/." "$app/"
           rm -f "$archive"
@@ -165,7 +169,7 @@ jobs:
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control -y
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit -y
           echo "MODULE_ENABLE_OK=1"
 
           "${drush[@]}" updb -y --no-cache-clear
@@ -174,28 +178,29 @@ jobs:
           page_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectPageController.php"
           ledger_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectLedgerController.php"
           euro_trace_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialEuroTraceController.php"
+          cockpit_controller="$webroot/modules/custom/brebo_project_cockpit/src/Controller/ProjectCockpitController.php"
+          cockpit_route_subscriber="$webroot/modules/custom/brebo_project_cockpit/src/Routing/ProjectCockpitRouteSubscriber.php"
 
-          for controller in "$page_controller" "$ledger_controller" "$euro_trace_controller"; do
-            [[ -f "$controller" ]] || { echo "::error::Finance controller missing on production: $controller"; exit 1; }
-            echo "FINANCE_CONTROLLER_SHA256[$controller]=$(sha256sum "$controller" | awk '{print $1}')"
-            if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$controller"; then
-              echo "::error::Stale readonly entityTypeManager property still exists in production controller: $controller"
-              exit 1
-            fi
+          for controller in "$page_controller" "$ledger_controller" "$euro_trace_controller" "$cockpit_controller" "$cockpit_route_subscriber"; do
+            [[ -f "$controller" ]] || { echo "::error::Required controller/runtime file missing on production: $controller"; exit 1; }
             "$remote_php" -l "$controller"
           done
 
+          if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$page_controller" "$ledger_controller" "$euro_trace_controller"; then
+            echo "::error::Stale readonly entityTypeManager property still exists in production finance controller."
+            exit 1
+          fi
           grep -n 'financeEntityTypeManager' "$page_controller" || { echo "::error::FinancialProjectPageController does not contain financeEntityTypeManager."; exit 1; }
           grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
           grep -n 'financeEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain financeEntityTypeManager."; exit 1; }
-          echo "FINANCE_CONTROLLERS_DEPLOY_PROOF_OK=1"
+          echo "CONTROLLERS_DEPLOY_PROOF_OK=1"
 
           "${drush[@]}" cr -vvv
           echo "CACHE_REBUILD_OK=1"
 
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
-            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control"] as $module) {
+            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
             foreach ([
@@ -204,7 +209,10 @@ jobs:
               "brebo_finance.performance_location_manager",
               "brebo_finance.performance_receipt_manager",
               "brebo_contract_control.management_control_center",
-              "brebo_contract_control.management_decision_records"
+              "brebo_contract_control.management_decision_records",
+              "brebo_project_cockpit.project_status_aggregator",
+              "brebo_project_cockpit.project_progress_builder",
+              "brebo_project_cockpit.project_milestone_builder"
             ] as $service) { \Drupal::service($service); }
             $routes = \Drupal::service("router.route_provider");
             foreach ([
@@ -215,9 +223,16 @@ jobs:
               "brebo_contract_control.management_control_center",
               "brebo_contract_control.management_recommendation_accept",
               "brebo_contract_control.management_recommendation_reject",
-              "brebo_contract_control.management_decision_outcome_review"
+              "brebo_contract_control.management_decision_outcome_review",
+              "brebo_project_cockpit.overview",
+              "brebo_office_core.project_dashboard"
             ] as $route) { $routes->getRouteByName($route); }
-            print "BREBO_RUNTIME_OK=1\n";
+            $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
+            $controller = (string) $projectRoute->getDefault("_controller");
+            if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
+              throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
+            }
+            print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
