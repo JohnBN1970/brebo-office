@@ -21,3 +21,15 @@ brebo_project_cockpit.budget:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.procurement:
+  path: '/projecten/{node}/inkoop'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectProcurementController::overview'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectProcurementController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node

@@ -1,9 +1,10 @@
 cockpit:
-  version: 1.3.0
+  version: 1.4.0
   css:
     component:
       css/project-cockpit.css: {}
       css/project-cockpit-rich.css: {}
+      css/project-procurement.css: {}
   js:
     js/project-cockpit.js: {}
   dependencies:

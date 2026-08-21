@@ -51,6 +51,16 @@
         if (active) {
           activateTab(link);
         }
+        return;
+      }
+
+      if (label === 'Inkoop') {
+        link.href = `/projecten/${projectId}/inkoop`;
+        const active = window.location.pathname === `/projecten/${projectId}/inkoop` ||
+          window.location.pathname.startsWith(`/projecten/${projectId}/inkoop/`);
+        if (active) {
+          activateTab(link);
+        }
       }
     });
   }
