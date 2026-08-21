@@ -1,0 +1,20 @@
+{
+  "id": "/inzet",
+  "name": "BREBO Inzet",
+  "short_name": "Inzet",
+  "description": "BREBO aanwezigheid, vertrek en inzetregistratie op de bouw.",
+  "start_url": "/inzet",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/modules/custom/brebo_inzet/images/brebo-inzet-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
