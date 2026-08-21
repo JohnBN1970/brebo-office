@@ -1,0 +1,9 @@
+name: 'BREBO Project Cockpit'
+type: module
+description: 'Central project steering cockpit across planning, inzet, finance and project controls.'
+package: BREBO
+core_version_requirement: ^11
+dependencies:
+  - brebo_office_core:brebo_office_core
+  - brebo_inzet:brebo_inzet
+  - brebo_finance:brebo_finance

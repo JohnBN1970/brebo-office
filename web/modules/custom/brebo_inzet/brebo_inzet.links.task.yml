@@ -1,0 +1,29 @@
+brebo_inzet.project_tab:
+  route_name: brebo_inzet.live_workforce
+  title: 'Inzet'
+  base_route: brebo_office_core.project_dashboard
+  weight: 30
+
+brebo_inzet.project_live_tab:
+  route_name: brebo_inzet.live_workforce
+  title: 'Nu aan het werk'
+  parent_id: brebo_inzet.project_tab
+  weight: 0
+
+brebo_inzet.project_clock_tab:
+  route_name: brebo_inzet.mobile_clock
+  title: 'Klokken'
+  parent_id: brebo_inzet.project_tab
+  weight: 10
+
+brebo_inzet.project_zones_tab:
+  route_name: brebo_inzet.project_clock_zones
+  title: 'Kloklocaties'
+  parent_id: brebo_inzet.project_tab
+  weight: 20
+
+brebo_inzet.project_deviations_tab:
+  route_name: brebo_inzet.project_clock_deviations
+  title: 'Afwijkingen'
+  parent_id: brebo_inzet.project_tab
+  weight: 30

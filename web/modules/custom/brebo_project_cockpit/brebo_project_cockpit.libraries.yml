@@ -1,0 +1,5 @@
+cockpit:
+  version: 1.0.0
+  css:
+    component:
+      css/project-cockpit.css: {}
