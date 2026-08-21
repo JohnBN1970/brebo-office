@@ -1,7 +1,7 @@
 brebo_inzet.app:
   path: '/inzet'
   defaults:
-    _controller: '\Drupal\brebo_inzet\Controller\InzetAppController::start'
+    _controller: '\Drupal\brebo_inzet\Controller\InzetHomeController::start'
     _title: 'BREBO Inzet'
   requirements:
     _user_is_logged_in: 'TRUE'
