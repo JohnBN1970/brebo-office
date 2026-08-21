@@ -16,8 +16,8 @@ final class ProjectCockpitRouteSubscriber extends RouteSubscriberBase {
       return;
     }
 
-    $route->setDefault('_controller', '\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview');
-    $route->setDefault('_title_callback', '\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::title');
+    $route->setDefault('_controller', '\Drupal\brebo_project_cockpit\Controller\ProjectCockpitController::overview');
+    $route->setDefault('_title_callback', '\Drupal\brebo_project_cockpit\Controller\ProjectCockpitController::title');
   }
 
 }
