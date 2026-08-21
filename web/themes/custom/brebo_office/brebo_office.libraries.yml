@@ -10,6 +10,7 @@ global:
       css/design-system.css: {}
       css/dashboard.css: {}
       css/office-sidebar.css: {}
+      css/office-cockpit.css: {}
       css/mail.css: {}
       css/mail-actions.css: {}
       css/mail-list-controls.css: {}
@@ -17,6 +18,7 @@ global:
       css/mail-layout-v2.css: {}
   js:
     js/office-sidebar.js: {}
+    js/office-cockpit.js: {}
     js/mail-workspace.js: {}
     js/mail-tabs-runtime.js: {}
     js/mail-mime-cleanup.js: {}
