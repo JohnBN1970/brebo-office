@@ -82,7 +82,8 @@ function brebo_calculation_post_update_create_norm_observation_feedback(&$sandbo
     'description' => 'Actual observations used to evaluate BREBO norms without duplicating source administration.',
     'fields' => [
       'id' => ['type' => 'serial', 'not null' => TRUE], 'domain' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'norm_key' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE], 'planned_value' => ['type' => 'numeric', 'precision' => 18, 'scale' => 6, 'not null' => TRUE],
+      'norm_key' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE], 'label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'planned_value' => ['type' => 'numeric', 'precision' => 18, 'scale' => 6, 'not null' => TRUE],
       'actual_value' => ['type' => 'numeric', 'precision' => 18, 'scale' => 6, 'not null' => TRUE], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
       'delta_value' => ['type' => 'numeric', 'precision' => 18, 'scale' => 6, 'not null' => TRUE], 'delta_pct' => ['type' => 'numeric', 'precision' => 12, 'scale' => 4, 'not null' => FALSE],
       'source_domain' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE], 'source_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
@@ -120,4 +121,18 @@ function brebo_calculation_post_update_add_object_price_provenance(&$sandbox = N
   $added=[];foreach($fields as$name=>$definition){if(!$schema->fieldExists($table,$name)){$schema->addField($table,$name,$definition);$added[]=$name;}}
   if(!$schema->indexExists($table,'price_source_date'))$schema->addIndex($table,'price_source_date',['price_source_date']);
   return $added ? 'BREBO Calculation price provenance added: '.implode(', ',$added).'.' : 'BREBO Calculation price provenance already exists.';
+}
+
+/** Install calculation-derived work budget storage additively. */
+function brebo_calculation_post_update_create_work_budget_domain(&$sandbox = NULL): string {
+  $schema = \Drupal::database()->schema();
+  $definitions = [
+    'brebo_work_budget' => \Drupal\brebo_calculation\Schema\WorkBudgetSchema::budget(),
+    'brebo_work_budget_line' => \Drupal\brebo_calculation\Schema\WorkBudgetSchema::line(),
+  ];
+  $created = [];
+  foreach ($definitions as $table => $definition) {
+    if (!$schema->tableExists($table)) { $schema->createTable($table, $definition); $created[] = $table; }
+  }
+  return $created ? 'BREBO work budget storage created: '.implode(', ', $created).'.' : 'BREBO work budget storage already exists.';
 }
