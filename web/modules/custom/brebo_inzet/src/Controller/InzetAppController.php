@@ -11,7 +11,6 @@ use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
  * Entry point for the installable BREBO Inzet web app.
@@ -33,16 +32,29 @@ final class InzetAppController extends ControllerBase {
   }
 
   /**
-   * Opens an active clock session or lets the user choose a project.
+   * Shows the app home and any active clock session.
    */
-  public function start(): RedirectResponse|array {
+  public function start(): array {
     $userId = (int) $this->currentUser()->id();
     $open = $this->clockSessionManager->findOpenForUser($userId);
+    $active = NULL;
+
     if ($open instanceof NodeInterface) {
       $projectId = (int) ($open->get('field_brebo_project_ref')->target_id ?? 0);
       $project = $projectId > 0 ? $this->entityTypeManager->getStorage('node')->load($projectId) : NULL;
       if ($project instanceof NodeInterface && $project->bundle() === 'brebo_project' && $project->access('view')) {
-        return new RedirectResponse(Url::fromRoute('brebo_inzet.mobile_clock', ['node' => $project->id()])->toString());
+        $active = [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-inzet-app__active']],
+          'status' => [
+            '#markup' => '<span class="brebo-inzet-app__active-label">' . $this->t('Je bent aanwezig op') . '</span><strong>' . htmlspecialchars((string) $project->label(), ENT_QUOTES, 'UTF-8') . '</strong>',
+          ],
+          'link' => Link::fromTextAndUrl(
+            $this->t('NAAR ACTIEF PROJECT / VERTREK'),
+            Url::fromRoute('brebo_inzet.mobile_clock', ['node' => $project->id()]),
+          )->toRenderable(),
+        ];
+        $active['link']['#attributes']['class'] = ['brebo-inzet-app__active-link'];
       }
     }
 
@@ -79,6 +91,7 @@ final class InzetAppController extends ControllerBase {
         'brand' => [
           '#markup' => '<div class="brebo-inzet-app__brand"><span class="brebo-inzet-app__mark">B</span><div><strong>BREBO Inzet</strong><span>Aanwezigheid op de bouw</span></div></div>',
         ],
+        'active' => $active ?? [],
         'heading' => [
           '#markup' => '<h2>' . $this->t('Kies je project') . '</h2><p>' . $this->t('Je gaat daarna direct naar AANWEZIG / VERTREK.') . '</p>',
         ],
