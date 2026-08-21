@@ -86,13 +86,21 @@ final class MobileClockForm extends FormBase {
     foreach (['clock_latitude', 'clock_longitude', 'clock_accuracy'] as $name) {
       $form[$name] = ['#type' => 'hidden', '#default_value' => ''];
     }
-    $form['reason'] = [
-      '#type' => 'textarea',
-      '#title' => $this->t('Reden / toelichting'),
-      '#description' => $this->t('Alleen nodig wanneer BREBO Inzet een afwijking constateert.'),
-      '#rows' => 2,
-      '#attributes' => ['class' => ['brebo-mobile-clock__reason']],
-    ];
+
+    $requiresReason = (bool) $form_state->get('requires_reason');
+    if ($requiresReason && $open) {
+      $form['reason_notice'] = [
+        '#markup' => '<div class="brebo-mobile-clock__notice"><strong>' . $this->t('Afwijking vastgesteld') . '</strong><br>' . $this->t('Geef een reden op om het vertrek alsnog te registreren.') . '</div>',
+      ];
+      $form['reason'] = [
+        '#type' => 'textarea',
+        '#title' => $this->t('Reden afwijking'),
+        '#description' => $this->t('Verplicht omdat deze vertrekactie afwijkt van de ingestelde tijd- of locatiecontrole.'),
+        '#rows' => 2,
+        '#required' => TRUE,
+        '#attributes' => ['class' => ['brebo-mobile-clock__reason']],
+      ];
+    }
 
     $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
     if ($openForUser === NULL) {
@@ -144,9 +152,11 @@ final class MobileClockForm extends FormBase {
       elseif ($action === 'clock_out') {
         $result = $this->clockSessionManager->clockOut($project, $userId, $lat, $lng, $accuracy, (string) $form_state->getValue('reason'));
         if (!empty($result['requires_reason'])) {
+          $form_state->set('requires_reason', TRUE);
           $this->messenger()->addWarning($this->t('Deze vertrekactie wijkt af: @message Vul een reden in en druk opnieuw op VERTREK.', ['@message' => (string) ($result['verdict']['message'] ?? '')]));
         }
         else {
+          $form_state->set('requires_reason', FALSE);
           $this->messenger()->addStatus($this->t('Vertrek geregistreerd: @status.', ['@status' => (string) ($result['verdict']['status'] ?? 'geregistreerd')]));
         }
       }
