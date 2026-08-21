@@ -1,0 +1,40 @@
+{% set route = app.request.attributes.get('_route')|default('') %}
+<nav class="brebo-office-nav" aria-label="BREBO Office navigatie" data-brebo-office-nav>
+  <button class="brebo-office-nav__toggle" type="button" aria-expanded="true" aria-label="Menu inklappen" title="Menu inklappen" data-brebo-office-nav-toggle>
+    <span class="brebo-office-nav__toggle-icon" aria-hidden="true">‹</span>
+    <span class="brebo-office-nav__label">Menu inklappen</span>
+  </button>
+
+  <div class="brebo-office-nav__items">
+    <a class="brebo-office-nav__item{{ route == 'brebo_office_core.dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.dashboard') }}" title="Overzicht"{{ route == 'brebo_office_core.dashboard' ? ' aria-current="page"' : '' }}>
+      <span class="brebo-office-nav__icon" aria-hidden="true">⌂</span><span class="brebo-office-nav__label">Overzicht</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route starts with 'brebo_office_core.building' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.buildings') }}" title="Gebouwen">
+      <span class="brebo-office-nav__icon" aria-hidden="true">▦</span><span class="brebo-office-nav__label">Gebouwen</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route starts with 'brebo_project_cockpit.' or route starts with 'brebo_office_core.project' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.projects') }}" title="Projecten">
+      <span class="brebo-office-nav__icon" aria-hidden="true">▣</span><span class="brebo-office-nav__label">Projecten</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route == 'brebo_office_core.crm' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.crm') }}" title="Relaties">
+      <span class="brebo-office-nav__icon" aria-hidden="true">◎</span><span class="brebo-office-nav__label">Relaties</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route starts with 'brebo_mail_intake.' ? ' is-active' : '' }}" href="{{ path('brebo_mail_intake.mailbox_root') }}" title="Mail">
+      <span class="brebo-office-nav__icon" aria-hidden="true">✉</span><span class="brebo-office-nav__label">Mail</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route == 'brebo_office_core.regie_actions' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.regie_actions') }}" title="Taken">
+      <span class="brebo-office-nav__icon" aria-hidden="true">✓</span><span class="brebo-office-nav__label">Taken</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route starts with 'brebo_calculation.' or route == 'brebo_office_core.calculations' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.calculations') }}" title="Calculaties">
+      <span class="brebo-office-nav__icon" aria-hidden="true">∑</span><span class="brebo-office-nav__label">Calculaties</span>
+    </a>
+    <a class="brebo-office-nav__item{{ route == 'brebo_office_core.quality_dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.quality_dashboard') }}" title="Kwaliteit">
+      <span class="brebo-office-nav__icon" aria-hidden="true">◆</span><span class="brebo-office-nav__label">Kwaliteit</span>
+    </a>
+  </div>
+
+  <div class="brebo-office-nav__footer">
+    <a class="brebo-office-nav__item brebo-office-nav__settings{{ route == 'brebo_office_core.settings' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.settings') }}" title="Instellingen"{{ route == 'brebo_office_core.settings' ? ' aria-current="page"' : '' }}>
+      <span class="brebo-office-nav__icon brebo-office-nav__gear" aria-hidden="true">⚙</span><span class="brebo-office-nav__label">Instellingen</span>
+    </a>
+  </div>
+</nav>
