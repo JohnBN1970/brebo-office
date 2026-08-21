@@ -97,10 +97,10 @@ final class ClockSessionManager {
     $geo = $this->zoneControl->assess($this->zoneManager->loadForProject($project), $latitude, $longitude, $accuracy);
 
     $date = $clockIn->format('Y-m-d');
-    $startTime = $project->hasField('field_brebo_work_start') && $project->get('field_brebo_work_start')->value
-      ? (string) $project->get('field_brebo_work_start')->value : '07:00';
-    $endTime = $project->hasField('field_brebo_work_end') && $project->get('field_brebo_work_end')->value
-      ? (string) $project->get('field_brebo_work_end')->value : '16:00';
+    $startTime = $project->hasField('field_brebo_workday_start') && $project->get('field_brebo_workday_start')->value
+      ? (string) $project->get('field_brebo_workday_start')->value : '07:00';
+    $endTime = $project->hasField('field_brebo_workday_end') && $project->get('field_brebo_workday_end')->value
+      ? (string) $project->get('field_brebo_workday_end')->value : '16:00';
     $plannedStart = new \DateTimeImmutable($date . ' ' . $startTime);
     $plannedEnd = new \DateTimeImmutable($date . ' ' . $endTime);
 
