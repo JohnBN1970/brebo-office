@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
+use Drupal\brebo_building_data\Service\ProjectBuildingRepository;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -20,11 +21,15 @@ final class ProjectClockZoneForm extends FormBase {
   private ?NodeInterface $zone = NULL;
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $clockZoneEntityTypeManager,
+    protected EntityTypeManagerInterface $clockZoneEntityTypeManager,
+    protected ProjectBuildingRepository $projectBuildingRepository,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('entity_type.manager'));
+    return new static(
+      $container->get('entity_type.manager'),
+      $container->get('brebo_building_data.project_building_repository'),
+    );
   }
 
   public function getFormId(): string {
@@ -44,9 +49,11 @@ final class ProjectClockZoneForm extends FormBase {
     $this->project = $node;
     $form['#attached']['library'][] = 'brebo_inzet/clock-zone-map';
 
-    $defaultLatitude = $zone?->get('field_brebo_zone_latitude')->value ?? '52.37021600';
-    $defaultLongitude = $zone?->get('field_brebo_zone_longitude')->value ?? '4.89516800';
+    [$projectLatitude, $projectLongitude] = $this->projectCoordinates($node);
+    $defaultLatitude = $zone?->get('field_brebo_zone_latitude')->value ?? $projectLatitude;
+    $defaultLongitude = $zone?->get('field_brebo_zone_longitude')->value ?? $projectLongitude;
     $defaultRadius = $zone?->get('field_brebo_zone_radius')->value ?? 150;
+    $mapUrl = $this->pdokMapUrl((float) $defaultLatitude, (float) $defaultLongitude);
 
     $form['name'] = [
       '#type' => 'textfield',
@@ -60,10 +67,10 @@ final class ProjectClockZoneForm extends FormBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-clock-zone-map'], 'data-brebo-clock-zone-map' => 'true'],
       'canvas' => [
-        '#markup' => '<div class="brebo-clock-zone-map__canvas"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
+        '#markup' => '<div class="brebo-clock-zone-map__canvas"><img class="brebo-clock-zone-map__image" src="' . htmlspecialchars($mapUrl, ENT_QUOTES, 'UTF-8') . '" alt="PDOK luchtfoto rond de kloklocatie"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
       ],
       'help' => [
-        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de pin om het middelpunt te verplaatsen. Verander hieronder de klokafstand; de cirkel groeit of krimpt direct mee. Huidige radius: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
+        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('PDOK-luchtfoto. Versleep de pin om het middelpunt te verplaatsen. Verander hieronder de klokafstand; de cirkel groeit of krimpt direct mee. Huidige radius: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
       ],
     ];
     $form['latitude'] = [
@@ -139,6 +146,52 @@ final class ProjectClockZoneForm extends FormBase {
 
     $this->messenger()->addStatus($this->t('Kloklocatie @name opgeslagen.', ['@name' => $savedZone->label()]));
     $form_state->setRedirect('brebo_inzet.project_clock_zones', ['node' => $this->project->id()]);
+  }
+
+  /** @return array{0: string, 1: string} */
+  private function projectCoordinates(NodeInterface $project): array {
+    foreach ($this->projectBuildingRepository->buildingsForProject((int) $project->id()) as $relation) {
+      $buildingId = (int) ($relation['building_nid'] ?? 0);
+      $building = $buildingId > 0 ? $this->clockZoneEntityTypeManager->getStorage('node')->load($buildingId) : NULL;
+      if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
+        continue;
+      }
+      $latitude = $building->hasField('field_brebo_latitude') ? trim((string) $building->get('field_brebo_latitude')->value) : '';
+      $longitude = $building->hasField('field_brebo_longitude') ? trim((string) $building->get('field_brebo_longitude')->value) : '';
+      if (is_numeric($latitude) && is_numeric($longitude)) {
+        return [$latitude, $longitude];
+      }
+    }
+    return ['52.37021600', '4.89516800'];
+  }
+
+  private function pdokMapUrl(float $latitude, float $longitude): string {
+    $earthRadius = 6378137.0;
+    $latRadians = max(min(deg2rad($latitude), 1.4844222297453324), -1.4844222297453324);
+    $centerX = $earthRadius * deg2rad($longitude);
+    $centerY = $earthRadius * log(tan(M_PI / 4 + $latRadians / 2));
+    $halfHeightMetres = 350.0;
+    $halfWidthMetres = $halfHeightMetres * (1200 / 420);
+    $bbox = implode(',', [
+      $centerX - $halfWidthMetres,
+      $centerY - $halfHeightMetres,
+      $centerX + $halfWidthMetres,
+      $centerY + $halfHeightMetres,
+    ]);
+    $query = http_build_query([
+      'service' => 'WMS',
+      'version' => '1.3.0',
+      'request' => 'GetMap',
+      'layers' => 'Actueel_orthoHR',
+      'styles' => '',
+      'crs' => 'EPSG:3857',
+      'bbox' => $bbox,
+      'width' => '1200',
+      'height' => '420',
+      'format' => 'image/jpeg',
+      'transparent' => 'false',
+    ], '', '&', PHP_QUERY_RFC3986);
+    return 'https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?' . $query;
   }
 
 }
