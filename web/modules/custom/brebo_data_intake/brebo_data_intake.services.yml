@@ -1,0 +1,12 @@
+services:
+  brebo_data_intake.ingest_manager:
+    class: Drupal\brebo_data_intake\Service\DataIngestManager
+    arguments: ['@database', '@datetime.time']
+
+  brebo_data_intake.classification_repository:
+    class: Drupal\brebo_data_intake\Service\ClassificationRepository
+    arguments: ['@database', '@datetime.time']
+
+  brebo_data_intake.candidate_repository:
+    class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
+    arguments: ['@database', '@datetime.time']
