@@ -5,14 +5,25 @@
     <div class="brebo-highlighted"><div class="brebo-highlighted__inner">{{ page.highlighted }}</div></div>
   {% endif %}
 
-  <main class="brebo-main{{ page.sidebar ? '' : ' brebo-main--full' }}">
-    {% if page.sidebar %}
-      <aside class="brebo-sidebar">{{ page.sidebar }}</aside>
-    {% endif %}
-    <section class="brebo-content">
-      {{ page.content }}
-    </section>
-  </main>
+  {% if logged_in %}
+    <div class="brebo-app-layout">
+      {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
+      <div class="brebo-app-layout__content">
+        <main class="brebo-main{{ page.sidebar ? '' : ' brebo-main--full' }}">
+          {% if page.sidebar %}
+            <aside class="brebo-sidebar">{{ page.sidebar }}</aside>
+          {% endif %}
+          <section class="brebo-content">
+            {{ page.content }}
+          </section>
+        </main>
+      </div>
+    </div>
+  {% else %}
+    <main class="brebo-main brebo-main--full">
+      <section class="brebo-content">{{ page.content }}</section>
+    </main>
+  {% endif %}
 
   {% if page.footer %}
     <footer class="brebo-footer">{{ page.footer }}</footer>
