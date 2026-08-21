@@ -52,7 +52,9 @@ final class MobileClockForm extends FormBase {
     $form['#attached']['library'][] = 'brebo_inzet/mobile-clock';
     $form['#attributes']['data-brebo-mobile-clock'] = 'true';
     $form['#attributes']['class'][] = 'brebo-mobile-clock';
-    $form['project'] = ['#markup' => '<div class="brebo-mobile-clock__project"><strong>' . $this->t('Project') . ':</strong> ' . $node->label() . '</div>'];
+    $form['header'] = [
+      '#markup' => '<header class="brebo-mobile-clock__header"><span class="brebo-mobile-clock__eyebrow">' . $this->t('BREBO Inzet') . '</span><h2>' . htmlspecialchars((string) $node->label(), ENT_QUOTES, 'UTF-8') . '</h2></header>',
+    ];
 
     if ($openForUser instanceof NodeInterface) {
       $activeProjectId = (int) ($openForUser->get('field_brebo_project_ref')->target_id ?? 0);
@@ -63,7 +65,7 @@ final class MobileClockForm extends FormBase {
       $duration = $clockIn ? $this->formatDuration($clockIn, new \DateTimeImmutable('now')) : $this->t('onbekend');
       $since = $clockIn ? $clockIn->format('H:i') : '-';
       $form['session_status'] = [
-        '#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Ingeklokt op @project sinds @time (@duration)', ['@project' => $activeLabel, '@time' => $since, '@duration' => $duration]) . '</div>',
+        '#markup' => '<div class="brebo-mobile-clock__session brebo-mobile-clock__session--present"><span class="brebo-mobile-clock__status-dot"></span><div><strong>' . $this->t('Aanwezig') . '</strong><span>' . $this->t('@project · sinds @time · @duration', ['@project' => $activeLabel, '@time' => $since, '@duration' => $duration]) . '</span></div></div>',
       ];
 
       if (!$open && $activeProject instanceof NodeInterface) {
@@ -76,10 +78,10 @@ final class MobileClockForm extends FormBase {
       }
     }
     else {
-      $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session"><strong>' . $this->t('Status') . ':</strong> ' . $this->t('Uitgeklokt') . '</div>'];
+      $form['session_status'] = ['#markup' => '<div class="brebo-mobile-clock__session brebo-mobile-clock__session--away"><span class="brebo-mobile-clock__status-dot"></span><div><strong>' . $this->t('Niet aanwezig') . '</strong><span>' . $this->t('Meld je aanwezigheid wanneer je op de projectlocatie bent.') . '</span></div></div>'];
     }
 
-    $form['location_status'] = ['#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status>' . $this->t('Locatie voorbereiden…') . '</div>'];
+    $form['location_status'] = ['#markup' => '<div class="brebo-mobile-clock__location" data-brebo-clock-location-status><span class="brebo-mobile-clock__location-label">' . $this->t('Locatie') . '</span><span>' . $this->t('Locatie voorbereiden…') . '</span></div>'];
 
     foreach (['clock_latitude', 'clock_longitude', 'clock_accuracy'] as $name) {
       $form[$name] = ['#type' => 'hidden', '#default_value' => ''];
@@ -89,25 +91,26 @@ final class MobileClockForm extends FormBase {
       '#title' => $this->t('Reden / toelichting'),
       '#description' => $this->t('Alleen nodig wanneer BREBO Inzet een afwijking constateert.'),
       '#rows' => 2,
+      '#attributes' => ['class' => ['brebo-mobile-clock__reason']],
     ];
 
     $form['actions'] = ['#type' => 'actions', '#attributes' => ['class' => ['brebo-mobile-clock__actions']]];
     if ($openForUser === NULL) {
       $form['actions']['clock_in'] = [
-        '#type' => 'submit', '#value' => $this->t('INKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#type' => 'submit', '#value' => $this->t('AANWEZIG'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
         '#attributes' => ['class' => ['button', 'button--primary', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--in']], '#brebo_action' => 'clock_in',
       ];
     }
     elseif ($open) {
       $form['actions']['clock_out'] = [
-        '#type' => 'submit', '#value' => $this->t('UITKLOKKEN'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
+        '#type' => 'submit', '#value' => $this->t('VERTREK'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'],
         '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button', 'brebo-mobile-clock__button--out']], '#brebo_action' => 'clock_out',
       ];
     }
 
     if ($open && $this->pausePolicy->showsPauseControls($pauseMode)) {
-      $form['actions']['pause_start'] = ['#type' => 'submit', '#value' => $this->t('PAUZE START'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#brebo_action' => 'pause_start'];
-      $form['actions']['pause_end'] = ['#type' => 'submit', '#value' => $this->t('PAUZE EINDE'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#brebo_action' => 'pause_end'];
+      $form['actions']['pause_start'] = ['#type' => 'submit', '#value' => $this->t('PAUZE START'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button--pause']], '#brebo_action' => 'pause_start'];
+      $form['actions']['pause_end'] = ['#type' => 'submit', '#value' => $this->t('PAUZE EINDE'), '#name' => 'clock_action', '#submit' => ['::submitClockAction'], '#attributes' => ['class' => ['button', 'brebo-mobile-clock__button--pause']], '#brebo_action' => 'pause_end'];
     }
     if ($this->pausePolicy->requiresPauseRegistration($pauseMode)) {
       $form['pause_notice'] = ['#markup' => '<p class="brebo-mobile-clock__notice">' . $this->t('Pauzeregistratie is voor dit project verplicht.') . '</p>'];
@@ -117,12 +120,6 @@ final class MobileClockForm extends FormBase {
     return $form;
   }
 
-  /**
-   * Default submit handler required by FormInterface.
-   *
-   * All clock buttons deliberately use submitClockAction() as their explicit
-   * submit handler, so the default handler is intentionally a no-op.
-   */
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
 
   public function submitClockAction(array &$form, FormStateInterface $form_state): void {
@@ -142,15 +139,15 @@ final class MobileClockForm extends FormBase {
       if ($action === 'clock_in') {
         $result = $this->clockSessionManager->clockIn($project, $userId, $lat, $lng, $accuracy);
         $location = (string) ($result['location']['status'] ?? 'Onbekend');
-        $this->messenger()->addStatus($this->t('Ingeklokt. Locatiecontrole: @location.', ['@location' => $location]));
+        $this->messenger()->addStatus($this->t('Aanwezig gemeld. Locatiecontrole: @location.', ['@location' => $location]));
       }
       elseif ($action === 'clock_out') {
         $result = $this->clockSessionManager->clockOut($project, $userId, $lat, $lng, $accuracy, (string) $form_state->getValue('reason'));
         if (!empty($result['requires_reason'])) {
-          $this->messenger()->addWarning($this->t('Deze uitklokactie wijkt af: @message Vul een reden in en druk opnieuw op UITKLOKKEN.', ['@message' => (string) ($result['verdict']['message'] ?? '')]));
+          $this->messenger()->addWarning($this->t('Deze vertrekactie wijkt af: @message Vul een reden in en druk opnieuw op VERTREK.', ['@message' => (string) ($result['verdict']['message'] ?? '')]));
         }
         else {
-          $this->messenger()->addStatus($this->t('Uitgeklokt: @status.', ['@status' => (string) ($result['verdict']['status'] ?? 'geregistreerd')]));
+          $this->messenger()->addStatus($this->t('Vertrek geregistreerd: @status.', ['@status' => (string) ($result['verdict']['status'] ?? 'geregistreerd')]));
         }
       }
       else {
