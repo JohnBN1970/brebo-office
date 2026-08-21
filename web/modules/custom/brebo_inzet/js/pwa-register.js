@@ -1,6 +1,18 @@
 (function () {
   'use strict';
 
+  const markPwaShell = () => {
+    document.documentElement.classList.add('brebo-inzet-pwa');
+    if (document.body) {
+      document.body.classList.add('brebo-inzet-pwa');
+    }
+  };
+
+  markPwaShell();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', markPwaShell, {once: true});
+  }
+
   if (!('serviceWorker' in navigator)) {
     return;
   }
