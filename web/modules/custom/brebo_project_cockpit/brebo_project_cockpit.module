@@ -13,9 +13,9 @@ use Drupal\Core\Url;
 /**
  * Implements hook_preprocess_page().
  *
- * Adds the project context navigation to project subpages. The overview keeps
- * its tabs directly below the cockpit cards; all other project pages receive
- * the same navigation from the page shell.
+ * Keeps the project cockpit and project tabs together on every project page.
+ * The overview already renders this shell from its controller; subpages receive
+ * the same project context before their own page content.
  */
 function brebo_project_cockpit_preprocess_page(array &$variables): void {
   $route_match = \Drupal::routeMatch();
@@ -29,7 +29,9 @@ function brebo_project_cockpit_preprocess_page(array &$variables): void {
     return;
   }
 
-  $variables['brebo_project_context_tabs'] = _brebo_project_cockpit_tabs((int) $project->id(), $route_name);
+  $project_id = (int) $project->id();
+  $variables['brebo_project_context_cockpit'] = _brebo_project_cockpit_context_shell($project);
+  $variables['brebo_project_context_tabs'] = _brebo_project_cockpit_tabs($project_id, $route_name);
 }
 
 /**
@@ -50,6 +52,80 @@ function _brebo_project_cockpit_route_project(): ?NodeInterface {
     }
   }
   return NULL;
+}
+
+/**
+ * Build the persistent project cockpit for project subpages.
+ */
+function _brebo_project_cockpit_context_shell(NodeInterface $project): array {
+  $project_id = (int) $project->id();
+  $finance = \Drupal::service('brebo_finance.financial_cockpit_builder')->build($project_id);
+  $operational = \Drupal::service('brebo_project_cockpit.project_status_aggregator')->build($project_id);
+  $progress = \Drupal::service('brebo_project_cockpit.project_progress_builder')->build($project_id);
+
+  $forecast = is_array($finance['forecast'] ?? NULL) ? $finance['forecast'] : [];
+  $billing = is_array($finance['billing_position'] ?? NULL) ? $finance['billing_position'] : [];
+  $cash = is_array($finance['cash_forecast']['committed'] ?? NULL) ? $finance['cash_forecast']['committed'] : [];
+  $domains = is_array($operational['domains'] ?? NULL) ? $operational['domains'] : [];
+
+  $planning_status = (string) ($progress['status'] ?? ($domains['planning']['status'] ?? 'grijs'));
+  $finance_status = _brebo_project_cockpit_finance_status($finance, $forecast);
+  $cash_status = $cash === [] ? 'grijs' : ((!empty($cash['first_regular_shortfall_date']) || !empty($cash['first_g_account_shortfall_date'])) ? 'rood' : 'groen');
+  $project_status = _brebo_project_cockpit_worst_status([
+    (string) ($operational['status'] ?? 'grijs'),
+    $planning_status,
+    $finance_status,
+    $cash_status,
+  ]);
+
+  $hero = [
+    '#type' => 'container',
+    '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
+    'project' => ['#markup' => _brebo_project_cockpit_status_markup('Project', $project_status)],
+    'planning' => ['#markup' => _brebo_project_cockpit_status_markup('Planning', $planning_status)],
+    'finance' => ['#markup' => _brebo_project_cockpit_status_markup('Geld', $finance_status)],
+    'cash' => ['#markup' => _brebo_project_cockpit_status_markup('Cash', $cash_status)],
+    'inzet' => ['#markup' => _brebo_project_cockpit_status_markup('Inzet', (string) ($domains['inzet']['status'] ?? 'grijs'))],
+    'quality' => ['#markup' => _brebo_project_cockpit_status_markup('Kwaliteit', (string) ($domains['quality']['status'] ?? 'grijs'))],
+    'risks' => ['#markup' => _brebo_project_cockpit_status_markup('Risico', (string) ($domains['risks']['status'] ?? 'grijs'))],
+  ];
+
+  return [
+    '#type' => 'container',
+    '#attributes' => [
+      'class' => ['brebo-office-cockpit', 'brebo-office-cockpit--persistent-project'],
+      'data-brebo-cockpit' => 'project',
+    ],
+    '#attached' => ['library' => ['brebo_project_cockpit/cockpit']],
+    'toggle' => [
+      '#type' => 'html_tag',
+      '#tag' => 'button',
+      '#value' => '⌃',
+      '#attributes' => [
+        'type' => 'button',
+        'class' => ['brebo-office-cockpit__toggle'],
+        'data-brebo-cockpit-toggle' => '',
+        'aria-expanded' => 'true',
+        'aria-label' => 'Projectcockpit inklappen',
+      ],
+    ],
+    'summary' => [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-office-cockpit__summary']],
+      'title' => ['#markup' => '<strong>' . htmlspecialchars((string) $project->label(), ENT_QUOTES, 'UTF-8') . '</strong>'],
+      'status' => ['#markup' => _brebo_project_cockpit_status_label($project_status)],
+    ],
+    'body' => [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-office-cockpit__body']],
+      'hero' => $hero,
+    ],
+    '#cache' => [
+      'contexts' => ['route', 'user.permissions'],
+      'tags' => ['node:' . $project_id, 'node_list'],
+      'max-age' => 0,
+    ],
+  ];
 }
 
 /**
@@ -105,12 +181,8 @@ function _brebo_project_cockpit_tabs(int $project_id, string $active_route): arr
  * Implements hook_page_attachments().
  */
 function brebo_project_cockpit_page_attachments(array &$attachments): void {
-  if (\Drupal::routeMatch()->getRouteName() !== 'brebo_project_cockpit.overview') {
-    return;
-  }
-
-  $project = \Drupal::routeMatch()->getParameter('node');
-  if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+  $project = _brebo_project_cockpit_route_project();
+  if (!$project instanceof NodeInterface) {
     return;
   }
 
@@ -205,6 +277,42 @@ function _brebo_project_cockpit_domain_card(mixed $domain, string $unit): array 
     'headline' => $total . ' ' . $unit,
     'lines' => [$message !== '' ? $message : 'Nog geen aangesloten stuurinformatie.'],
   ];
+}
+
+function _brebo_project_cockpit_finance_status(array $finance, array $forecast): string {
+  if (is_numeric($forecast['forecast_result_ex_vat'] ?? NULL) && (float) $forecast['forecast_result_ex_vat'] < 0) {
+    return 'rood';
+  }
+  $billing = is_array($finance['billing_position'] ?? NULL) ? $finance['billing_position'] : [];
+  $workflow = is_array($finance['workflow'] ?? NULL) ? $finance['workflow'] : [];
+  if (!empty($finance['forecast_is_stale']) || (int) ($billing['overdue_count'] ?? 0) > 0 || array_sum(array_map('intval', $workflow)) > 0) {
+    return 'oranje';
+  }
+  return $forecast === [] ? 'grijs' : 'groen';
+}
+
+function _brebo_project_cockpit_worst_status(array $statuses): string {
+  $rank = ['grijs' => 0, 'groen' => 1, 'oranje' => 2, 'rood' => 3];
+  $worst = 'grijs';
+  foreach ($statuses as $status) {
+    if (($rank[$status] ?? 0) > ($rank[$worst] ?? 0)) {
+      $worst = $status;
+    }
+  }
+  return $worst;
+}
+
+function _brebo_project_cockpit_status_markup(string $label, string $status): string {
+  return '<div class="brebo-project-cockpit__status brebo-project-cockpit__status--' . $status . '"><span>' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span><strong>' . mb_strtoupper($status) . '</strong></div>';
+}
+
+function _brebo_project_cockpit_status_label(string $status): string {
+  return match ($status) {
+    'rood' => '🔴 Rood',
+    'oranje' => '🟠 Oranje',
+    'groen' => '🟢 Groen',
+    default => '⚪ Grijs',
+  };
 }
 
 function _brebo_project_cockpit_value(NodeInterface $node, string $field): string {

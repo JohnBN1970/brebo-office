@@ -1,35 +1,8 @@
 (function (Drupal, once, drupalSettings) {
   'use strict';
 
-  function buildLayout() {
-    const menu = document.querySelector('.brebo-list-actions');
-    const hero = document.querySelector('.brebo-project-cockpit__hero');
-    if (!menu || !hero || !hero.parentNode) {
-      return;
-    }
-    if (document.querySelector('.brebo-project-cockpit__layout')) {
-      return;
-    }
-
-    const parent = hero.parentNode;
-    const layout = document.createElement('div');
-    layout.className = 'brebo-project-cockpit__layout';
-    const canvas = document.createElement('div');
-    canvas.className = 'brebo-project-cockpit__canvas';
-
-    parent.insertBefore(layout, hero);
-    layout.appendChild(menu);
-    layout.appendChild(canvas);
-    menu.setAttribute('aria-label', Drupal.t('Project navigation'));
-
-    let current = hero;
-    while (current) {
-      const next = current.nextSibling;
-      if (current !== menu) {
-        canvas.appendChild(current);
-      }
-      current = next;
-    }
+  function removeLegacyProjectMenu() {
+    document.querySelectorAll('.brebo-list-actions').forEach((menu) => menu.remove());
   }
 
   function enrichRichCards() {
@@ -86,7 +59,7 @@
   }
 
   function initializeCockpit() {
-    buildLayout();
+    removeLegacyProjectMenu();
     if (!enrichRichCards()) {
       window.setTimeout(enrichRichCards, 50);
     }
