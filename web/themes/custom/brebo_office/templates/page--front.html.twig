@@ -6,48 +6,53 @@
   {% endif %}
 
   {% if logged_in %}
-    <main class="brebo-dashboard">
-      <section class="brebo-dashboard__intro">
-        <div>
-          <p class="brebo-eyebrow">DIGITAAL BEDRIJFSBUREAU</p>
-          <h1>Goedemorgen. Waar pakken we de regie?</h1>
-          <p>Projecten besturen vanuit één actueel kader voor proces, geld, kwaliteit en bewijs.</p>
-        </div>
-        <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
-      </section>
+    <div class="brebo-app-layout">
+      {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
+      <div class="brebo-app-layout__content">
+        <main class="brebo-dashboard">
+          <section class="brebo-dashboard__intro">
+            <div>
+              <p class="brebo-eyebrow">DIGITAAL BEDRIJFSBUREAU</p>
+              <h1>Goedemorgen. Waar pakken we de regie?</h1>
+              <p>Projecten besturen vanuit één actueel kader voor proces, geld, kwaliteit en bewijs.</p>
+            </div>
+            <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
+          </section>
 
-      <section class="brebo-kpis" aria-label="Objectoverzicht">
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span><strong>{{ brebo_counts.buildings|default(0) }}</strong><small>Permanent gebouw- en onderhoudsdossier</small></a>
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Tijdelijke opdrachten en scopes</small></a>
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ brebo_counts.dwellings|default(0) }}</strong><small>Zelfstandige objecten</small></a>
-        <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met controle en bewijs</small></a>
-      </section>
+          <section class="brebo-kpis" aria-label="Objectoverzicht">
+            <a class="brebo-kpi" href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span><strong>{{ brebo_counts.buildings|default(0) }}</strong><small>Permanent gebouw- en onderhoudsdossier</small></a>
+            <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Tijdelijke opdrachten en scopes</small></a>
+            <a class="brebo-kpi" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ brebo_counts.dwellings|default(0) }}</strong><small>Zelfstandige objecten</small></a>
+            <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met controle en bewijs</small></a>
+          </section>
 
-      <section class="brebo-dashboard__grid">
-        <article class="brebo-card brebo-workflow">
-          <div class="brebo-section-heading">
-            <div><p class="brebo-eyebrow">BESTURINGSKETEN</p><h2>Van opdracht naar aantoonbaar resultaat</h2></div>
-            <span class="brebo-status brebo-status--ready">Operationeel</span>
-          </div>
-          <ol class="brebo-flow">
-            <li><span>1</span><div><strong>Projectkader</strong><small>Soort, rol, geld en inkoop</small></div></li>
-            <li><span>2</span><div><strong>Projectroute</strong><small>Automatische stappen en producten</small></div></li>
-            <li><span>3</span><div><strong>Regie-acties</strong><small>Eigenaar, termijn en blokkering</small></div></li>
-            <li><span>4</span><div><strong>Bewijs</strong><small>Controle, besluit en vrijgave</small></div></li>
-          </ol>
-        </article>
+          <section class="brebo-dashboard__grid">
+            <article class="brebo-card brebo-workflow">
+              <div class="brebo-section-heading">
+                <div><p class="brebo-eyebrow">BESTURINGSKETEN</p><h2>Van opdracht naar aantoonbaar resultaat</h2></div>
+                <span class="brebo-status brebo-status--ready">Operationeel</span>
+              </div>
+              <ol class="brebo-flow">
+                <li><span>1</span><div><strong>Projectkader</strong><small>Soort, rol, geld en inkoop</small></div></li>
+                <li><span>2</span><div><strong>Projectroute</strong><small>Automatische stappen en producten</small></div></li>
+                <li><span>3</span><div><strong>Regie-acties</strong><small>Eigenaar, termijn en blokkering</small></div></li>
+                <li><span>4</span><div><strong>Bewijs</strong><small>Controle, besluit en vrijgave</small></div></li>
+              </ol>
+            </article>
 
-        <aside class="brebo-card brebo-next-actions">
-          <div class="brebo-section-heading"><div><p class="brebo-eyebrow">SYSTEEMSTATUS</p><h2>Digitale regie</h2></div></div>
-          <ul class="brebo-checklist">
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Projectbesturing</strong><small>Vier onafhankelijke assen</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Automatische routes</strong><small>Passend bij de projectsoort</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Centrale actielijst</strong><small>Termijnen, blokkeringen en eigenaarschap</small></div></li>
-            <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Audit en bewijs</strong><small>N.V.T., afwijkingen en besluitvorming</small></div></li>
-          </ul>
-        </aside>
-      </section>
-    </main>
+            <aside class="brebo-card brebo-next-actions">
+              <div class="brebo-section-heading"><div><p class="brebo-eyebrow">SYSTEEMSTATUS</p><h2>Digitale regie</h2></div></div>
+              <ul class="brebo-checklist">
+                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Projectbesturing</strong><small>Vier onafhankelijke assen</small></div></li>
+                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Automatische routes</strong><small>Passend bij de projectsoort</small></div></li>
+                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Centrale actielijst</strong><small>Termijnen, blokkeringen en eigenaarschap</small></div></li>
+                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Audit en bewijs</strong><small>N.V.T., afwijkingen en besluitvorming</small></div></li>
+              </ul>
+            </aside>
+          </section>
+        </main>
+      </div>
+    </div>
   {% else %}
     <main class="brebo-main brebo-main--full">
       <section class="brebo-content">
