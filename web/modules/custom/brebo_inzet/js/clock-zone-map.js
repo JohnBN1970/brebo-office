@@ -39,20 +39,36 @@
       marker.setAttribute('aria-label', 'Versleep middelpunt kloklocatie');
       canvas.appendChild(marker);
     }
+    marker.title = 'Middelpunt klokzone';
 
     map.dataset.breboClockZoneInitialised = 'true';
     let lat = Number.parseFloat(latInput.value) || 52.370216;
     let lon = Number.parseFloat(lonInput.value) || 4.895168;
-    let zoom = 17;
+    let zoom = 18;
     let labelsVisible = true;
+    let houseNumbersVisible = true;
 
     const labels = document.createElement('div');
     labels.className = 'brebo-clock-zone-map__labels';
     canvas.appendChild(labels);
 
+    const houseNumbers = document.createElement('img');
+    houseNumbers.className = 'brebo-clock-zone-map__house-numbers';
+    houseNumbers.alt = '';
+    canvas.appendChild(houseNumbers);
+
+    const radiusBadge = document.createElement('div');
+    radiusBadge.className = 'brebo-clock-zone-map__radius-badge';
+    canvas.appendChild(radiusBadge);
+
     const controls = document.createElement('div');
     controls.className = 'brebo-clock-zone-map__controls';
-    controls.innerHTML = '<button type="button" data-map-zoom-in aria-label="Inzoomen">+</button><button type="button" data-map-zoom-out aria-label="Uitzoomen">−</button><button type="button" data-map-labels aria-pressed="true">Straatnamen</button>';
+    controls.innerHTML = '<button type="button" data-map-zoom-in aria-label="Inzoomen">+</button><button type="button" data-map-zoom-out aria-label="Uitzoomen">−</button><button type="button" data-map-labels aria-pressed="true">Straatnamen</button><button type="button" data-map-house-numbers aria-pressed="true">Huisnummers</button>';
+    const buildingLat = Number.parseFloat(map.dataset.buildingLatitude || '');
+    const buildingLon = Number.parseFloat(map.dataset.buildingLongitude || '');
+    if (Number.isFinite(buildingLat) && Number.isFinite(buildingLon)) {
+      controls.insertAdjacentHTML('beforeend', '<button type="button" data-map-reset-building>Terug naar gebouw</button>');
+    }
     canvas.appendChild(controls);
 
     function resolution() {
@@ -89,8 +105,8 @@
     }
 
     function render() {
-      const width = Math.max(canvas.clientWidth, 700);
-      const height = Math.max(canvas.clientHeight, 420);
+      const width = Math.max(canvas.clientWidth, 600);
+      const height = Math.max(canvas.clientHeight, 600);
       const metresPerPixel = resolution();
       const halfHeightMetres = metresPerPixel * height / 2;
       const halfWidthMetres = metresPerPixel * width / 2;
@@ -105,11 +121,17 @@
       }
       const params = new URLSearchParams({service:'WMS',version:'1.3.0',request:'GetMap',layers:'Actueel_orthoHR',styles:'',crs:'EPSG:3857',bbox,width:String(Math.round(width)),height:String(Math.round(height)),format:'image/jpeg',transparent:'false'});
       image.src = `https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0?${params.toString()}`;
+
+      const houseParams = new URLSearchParams({service:'WMS',version:'1.3.0',request:'GetMap',layers:'Kadastralekaart',styles:'Default',crs:'EPSG:3857',bbox,width:String(Math.round(width)),height:String(Math.round(height)),format:'image/png',transparent:'true'});
+      houseNumbers.src = `https://service.pdok.nl/kadaster/kadastralekaart/wms/v5_0?${houseParams.toString()}`;
+      houseNumbers.hidden = !houseNumbersVisible || zoom < 17;
+
       renderLabels(width, height, center);
       const radius = Math.min(5000, Math.max(10, Number.parseFloat(radiusInput.value) || 150));
       const diameter = Math.max(18, radius * 2 / metresPerPixel);
       circle.style.width = `${diameter}px`;
       circle.style.height = `${diameter}px`;
+      radiusBadge.textContent = `Klokzone ${Math.round(radius)} m`;
       if (readout) readout.textContent = `${Math.round(radius)} m`;
     }
 
@@ -183,6 +205,20 @@
       event.currentTarget.setAttribute('aria-pressed',labelsVisible?'true':'false');
       render();
     });
+    controls.querySelector('[data-map-house-numbers]').addEventListener('click', (event) => {
+      houseNumbersVisible=!houseNumbersVisible;
+      event.currentTarget.setAttribute('aria-pressed',houseNumbersVisible?'true':'false');
+      render();
+    });
+    const resetBuilding = controls.querySelector('[data-map-reset-building]');
+    if (resetBuilding) {
+      resetBuilding.addEventListener('click', () => {
+        lat = buildingLat;
+        lon = buildingLon;
+        zoom = 18;
+        syncInputs();
+      });
+    }
     radiusInput.addEventListener('input',render);
     latInput.addEventListener('change',() => { const value=Number.parseFloat(latInput.value); if(Number.isFinite(value)) lat=value; render(); });
     lonInput.addEventListener('change',() => { const value=Number.parseFloat(lonInput.value); if(Number.isFinite(value)) lon=value; render(); });
