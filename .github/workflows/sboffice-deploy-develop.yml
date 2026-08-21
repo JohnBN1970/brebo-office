@@ -232,6 +232,7 @@ jobs:
             if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
               throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
             }
+            print "BREBO_RUNTIME_OK=1\n";
             print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
           '
 
