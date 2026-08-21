@@ -32,7 +32,7 @@ final class ClockDeviationController extends ControllerBase {
 
     $rows = [];
     foreach ($storage->loadMultiple($ids) as $registration) {
-      $user = $registration->get('field_brebo_user_ref')->entity;
+      $user = $registration->get('field_brebo_clock_user')->entity;
       $zone = $registration->get('field_brebo_clock_zone_ref')->entity;
       $rows[] = [
         $registration->get('field_brebo_clock_in')->value ?: '-',
