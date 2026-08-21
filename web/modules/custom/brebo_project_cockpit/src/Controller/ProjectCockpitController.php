@@ -55,15 +55,9 @@ final class ProjectCockpitController extends ControllerBase {
     foreach (($operational['attention'] ?? []) as $item) {
       $attention[] = $this->t('@area: @message', ['@area' => (string) $item['label'], '@message' => (string) $item['message']]);
     }
-    if ((int) ($progress['blocked_count'] ?? 0) > 0) {
-      $attention[] = $this->t('Planning: @count activiteit(en) zijn geblokkeerd.', ['@count' => (int) $progress['blocked_count']]);
-    }
-    if ((int) ($progress['late_count'] ?? 0) > 0) {
-      $attention[] = $this->t('Planning: @count activiteit(en) zijn voorbij de geplande einddatum.', ['@count' => (int) $progress['late_count']]);
-    }
-    if (is_numeric($progress['progress_vs_time_pct'] ?? NULL) && (float) $progress['progress_vs_time_pct'] < -3.0) {
-      $attention[] = $this->t('Planning: fysieke voortgang loopt @pct procentpunt achter op het verstreken projecttijdpad.', ['@pct' => number_format(abs((float) $progress['progress_vs_time_pct']), 1, ',', '.')]);
-    }
+    if ((int) ($progress['blocked_count'] ?? 0) > 0) $attention[] = $this->t('Planning: @count activiteit(en) zijn geblokkeerd.', ['@count' => (int) $progress['blocked_count']]);
+    if ((int) ($progress['late_count'] ?? 0) > 0) $attention[] = $this->t('Planning: @count activiteit(en) zijn voorbij de geplande einddatum.', ['@count' => (int) $progress['late_count']]);
+    if (is_numeric($progress['progress_vs_time_pct'] ?? NULL) && (float) $progress['progress_vs_time_pct'] < -3.0) $attention[] = $this->t('Planning: fysieke voortgang loopt @pct procentpunt achter op het verstreken projecttijdpad.', ['@pct' => number_format(abs((float) $progress['progress_vs_time_pct']), 1, ',', '.')]);
     if (!empty($finance['forecast_is_stale'])) $attention[] = $this->t('Financieel: de prognose ontbreekt of is ouder dan 30 dagen.');
     if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) $attention[] = $this->t('Financieel: de actuele prognose toont een negatief projectresultaat.');
     if (!empty($cashCommitted['first_regular_shortfall_date'])) $attention[] = $this->t('Cashflow: verwacht tekort vanaf @date.', ['@date' => $cashCommitted['first_regular_shortfall_date']]);
@@ -96,23 +90,30 @@ final class ProjectCockpitController extends ControllerBase {
     $cards[] = $this->card('Financiën', NULL, 'Resultaat, verplichtingen, facturen en prognose', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $financeStatus);
     $cards[] = $this->card('Cashflow', NULL, 'Betaald, ontvangen en 13-weeks liquiditeitsbeeld', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $cashStatus);
 
+    $hero = [
+      '#type' => 'container', '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
+      'project' => ['#markup' => $this->statusMarkup('Project', $projectStatus)],
+      'planning' => ['#markup' => $this->statusMarkup('Planning', $planningStatus)],
+      'finance' => ['#markup' => $this->statusMarkup('Geld', $financeStatus)],
+      'cash' => ['#markup' => $this->statusMarkup('Cash', $cashStatus)],
+      'inzet' => ['#markup' => $this->statusMarkup('Inzet', (string) ($operational['domains']['inzet']['status'] ?? 'grijs'))],
+      'quality' => ['#markup' => $this->statusMarkup('Kwaliteit', (string) ($operational['domains']['quality']['status'] ?? 'grijs'))],
+      'risks' => ['#markup' => $this->statusMarkup('Risico', (string) ($operational['domains']['risks']['status'] ?? 'grijs'))],
+    ];
+
     return [
       '#attached' => ['library' => ['brebo_project_cockpit/cockpit']],
-      'hero' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
-        'project' => ['#markup' => $this->statusMarkup('Project', $projectStatus)],
-        'planning' => ['#markup' => $this->statusMarkup('Planning', $planningStatus)],
-        'finance' => ['#markup' => $this->statusMarkup('Geld', $financeStatus)],
-        'cash' => ['#markup' => $this->statusMarkup('Cash', $cashStatus)],
-        'inzet' => ['#markup' => $this->statusMarkup('Inzet', (string) ($operational['domains']['inzet']['status'] ?? 'grijs'))],
-        'quality' => ['#markup' => $this->statusMarkup('Kwaliteit', (string) ($operational['domains']['quality']['status'] ?? 'grijs'))],
-        'risks' => ['#markup' => $this->statusMarkup('Risico', (string) ($operational['domains']['risks']['status'] ?? 'grijs'))],
+      'cockpit' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-office-cockpit'], 'data-brebo-cockpit' => 'project'],
+        'toggle' => ['#type' => 'html_tag', '#tag' => 'button', '#value' => '⌃', '#attributes' => ['type' => 'button', 'class' => ['brebo-office-cockpit__toggle'], 'data-brebo-cockpit-toggle' => '', 'aria-expanded' => 'true', 'aria-label' => $this->t('Projectcockpit inklappen')]],
+        'summary' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-office-cockpit__summary']], 'title' => ['#markup' => '<strong>' . $node->label() . '</strong>'], 'status' => ['#markup' => $this->statusLabel($projectStatus)]],
+        'body' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-office-cockpit__body']], 'hero' => $hero],
       ],
+      'tabs' => $this->projectTabs($projectId),
       'attention' => ['#type' => 'details', '#title' => $this->t('Wat vraagt vandaag aandacht?'), '#open' => TRUE, 'items' => ['#theme' => 'item_list', '#items' => $attention]],
       'progress' => [
-        '#type' => 'table',
-        '#caption' => $this->t('Projectvoortgang versus tijd en geld'),
-        '#header' => [$this->t('Indicator'), $this->t('Waarde'), $this->t('Betekenis')],
+        '#type' => 'table', '#caption' => $this->t('Projectvoortgang versus tijd en geld'), '#header' => [$this->t('Indicator'), $this->t('Waarde'), $this->t('Betekenis')],
         '#rows' => [
           [$this->t('Uitgevoerde voortgang'), $this->percent($progress['actual_progress_pct'] ?? NULL), $this->t('Duurgewogen voortgang van uitvoeringsactiviteiten')],
           [$this->t('Projecttijd verstreken'), $this->percent($progress['time_elapsed_pct'] ?? NULL), $this->t('Vroegste geplande start tot laatste baseline-einddatum')],
@@ -121,57 +122,41 @@ final class ProjectCockpitController extends ControllerBase {
           [$this->t('Kosten gerealiseerd'), $this->money($procurement['verified_performance_ex_vat'] ?? NULL), $this->t('excl. btw; geverifieerde prestatie')],
           [$this->t('Kosten gefactureerd'), $this->money($procurement['invoiced_ex_vat'] ?? NULL), $this->t('excl. btw; ontvangen inkoopfacturen')],
           [$this->t('Prognose eindmarge'), $this->percent($forecast['forecast_margin_pct'] ?? NULL), $this->t('op actuele omzet')],
-        ],
-        '#description' => (string) ($progress['basis'] ?? ''),
+        ], '#description' => (string) ($progress['basis'] ?? ''),
       ],
-      'money' => [
-        '#type' => 'table', '#caption' => $this->t('Geldstraat project'), '#header' => [$this->t('Positie'), $this->t('Bedrag'), $this->t('Basis')],
-        '#rows' => [
-          [$this->t('Werkbegroting'), $this->money($forecast['current_budget_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Reeds verplicht'), $this->money($procurement['committed_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Facturen ontvangen'), $this->money($receivedInvoices), $this->t('excl. btw; ontvangen/ingeboekt')],
-          [$this->t('Verplicht, nog niet gefactureerd'), $this->money($committedNotInvoiced), $this->t('excl. btw')],
-          [$this->t('Reeds betaald'), $this->money($purchasePaid), $this->t('incl. btw; cash')],
-          [$this->t('Nog te verwachten kosten'), $this->money($forecast['forecast_remaining_cost_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Prognose eindkosten'), $this->money($forecast['forecast_end_cost_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Prognose resultaat'), $this->money($forecast['forecast_result_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Prognose marge'), $this->percent($forecast['forecast_margin_pct'] ?? NULL), $this->t('op actuele omzet')],
-        ],
-      ],
-      'revenue' => [
-        '#type' => 'table', '#caption' => $this->t('Opbrengsten en ontvangst'), '#header' => [$this->t('Positie'), $this->t('Bedrag'), $this->t('Basis')],
-        '#rows' => [
-          [$this->t('Actuele omzet'), $this->money($forecast['current_revenue_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Termijnen gepland'), $this->money($billing['planned_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Gereed om te factureren'), $this->money($billing['billable_not_invoiced_ex_vat'] ?? NULL), $this->t('excl. btw')],
-          [$this->t('Gefactureerd'), $this->money($billing['invoiced_inc_vat'] ?? NULL), $this->t('incl. btw')],
-          [$this->t('Ontvangen'), $this->money($billing['paid_inc_vat'] ?? NULL), $this->t('incl. btw; cash')],
-        ],
-      ],
-      'quick_actions' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-list-actions']],
-        'planning' => $this->linkButton('Planning', 'brebo_office_core.project_planning', ['node' => $projectId]),
-        'clock' => $this->linkButton('Klokken', 'brebo_inzet.mobile_clock', ['node' => $projectId]),
-        'workforce' => $this->linkButton('Nu aan het werk', 'brebo_inzet.live_workforce', ['node' => $projectId]),
-        'finance' => $this->linkButton('Financiën', 'brebo_finance.project_finance_page', ['project_nid' => $projectId]),
-        'edit' => $this->linkButton('Project bewerken', 'entity.node.edit_form', ['node' => $projectId]),
-      ],
-      'steering' => [
-        '#type' => 'table', '#caption' => $this->t('Stuurgebieden'), '#header' => [$this->t('Status'), $this->t('Onderdeel'), $this->t('Aantal'), $this->t('Betekenis'), $this->t('Openen')],
-        '#rows' => array_map(fn(array $card): array => [$this->statusLabel($card['status']), ['data' => ['#markup' => '<strong>' . $card['title'] . '</strong>']], $card['value'] === NULL ? '—' : (string) $card['value'], $card['subtitle'], ['data' => $card['link']]], $cards),
-      ],
+      'money' => ['#type' => 'table', '#caption' => $this->t('Geldstraat project'), '#header' => [$this->t('Positie'), $this->t('Bedrag'), $this->t('Basis')], '#rows' => [
+        [$this->t('Werkbegroting'), $this->money($forecast['current_budget_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Reeds verplicht'), $this->money($procurement['committed_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Facturen ontvangen'), $this->money($receivedInvoices), $this->t('excl. btw; ontvangen/ingeboekt')], [$this->t('Verplicht, nog niet gefactureerd'), $this->money($committedNotInvoiced), $this->t('excl. btw')], [$this->t('Reeds betaald'), $this->money($purchasePaid), $this->t('incl. btw; cash')], [$this->t('Nog te verwachten kosten'), $this->money($forecast['forecast_remaining_cost_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Prognose eindkosten'), $this->money($forecast['forecast_end_cost_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Prognose resultaat'), $this->money($forecast['forecast_result_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Prognose marge'), $this->percent($forecast['forecast_margin_pct'] ?? NULL), $this->t('op actuele omzet')],
+      ]],
+      'revenue' => ['#type' => 'table', '#caption' => $this->t('Opbrengsten en ontvangst'), '#header' => [$this->t('Positie'), $this->t('Bedrag'), $this->t('Basis')], '#rows' => [
+        [$this->t('Actuele omzet'), $this->money($forecast['current_revenue_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Termijnen gepland'), $this->money($billing['planned_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Gereed om te factureren'), $this->money($billing['billable_not_invoiced_ex_vat'] ?? NULL), $this->t('excl. btw')], [$this->t('Gefactureerd'), $this->money($billing['invoiced_inc_vat'] ?? NULL), $this->t('incl. btw')], [$this->t('Ontvangen'), $this->money($billing['paid_inc_vat'] ?? NULL), $this->t('incl. btw; cash')],
+      ]],
+      'quick_actions' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-list-actions']], 'planning' => $this->linkButton('Planning', 'brebo_office_core.project_planning', ['node' => $projectId]), 'clock' => $this->linkButton('Klokken', 'brebo_inzet.mobile_clock', ['node' => $projectId]), 'workforce' => $this->linkButton('Nu aan het werk', 'brebo_inzet.live_workforce', ['node' => $projectId]), 'finance' => $this->linkButton('Financiën', 'brebo_finance.project_finance_page', ['project_nid' => $projectId]), 'edit' => $this->linkButton('Project bewerken', 'entity.node.edit_form', ['node' => $projectId])],
+      'steering' => ['#type' => 'table', '#caption' => $this->t('Stuurgebieden'), '#header' => [$this->t('Status'), $this->t('Onderdeel'), $this->t('Aantal'), $this->t('Betekenis'), $this->t('Openen')], '#rows' => array_map(fn(array $card): array => [$this->statusLabel($card['status']), ['data' => ['#markup' => '<strong>' . $card['title'] . '</strong>']], $card['value'] === NULL ? '—' : (string) $card['value'], $card['subtitle'], ['data' => $card['link']]], $cards)],
       '#cache' => ['contexts' => ['user.permissions'], 'tags' => ['node:' . $projectId, 'node_list'], 'max-age' => 0],
     ];
   }
 
-  private function financeStatus(array $finance, array $forecast, array $cash): string {
-    if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) return 'rood';
-    $billing = is_array($finance['billing_position'] ?? NULL) ? $finance['billing_position'] : [];
-    $workflow = is_array($finance['workflow'] ?? NULL) ? $finance['workflow'] : [];
-    if (!empty($finance['forecast_is_stale']) || (int) ($billing['overdue_count'] ?? 0) > 0 || array_sum(array_map('intval', $workflow)) > 0) return 'oranje';
-    return $forecast === [] ? 'grijs' : 'groen';
+  private function projectTabs(int $projectId): array {
+    $tabs = [
+      ['Overzicht', 'brebo_project_cockpit.overview', ['node' => $projectId], TRUE],
+      ['Planning', 'brebo_office_core.project_planning', ['node' => $projectId], FALSE],
+      ['Documenten', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
+      ['Calculatie', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
+      ['Inkoop', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
+      ['Contracten', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
+      ['Facturen', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], FALSE],
+      ['Inzet', 'brebo_inzet.live_workforce', ['node' => $projectId], FALSE],
+      ['Kwaliteit', 'brebo_office_core.deviations', [], FALSE],
+      ['Oplevering', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
+    ];
+    $items = [];
+    foreach ($tabs as [$label, $route, $parameters, $active]) {
+      $items[] = ['#type' => 'link', '#title' => $this->t($label), '#url' => Url::fromRoute($route, $parameters), '#attributes' => ['class' => $active ? ['is-active'] : [], 'aria-current' => $active ? 'page' : NULL]];
+    }
+    return ['#type' => 'container', '#attributes' => ['class' => ['brebo-context-tabs'], 'aria-label' => $this->t('Projectonderdelen')], 'items' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-context-tabs__items']]] + $items];
   }
 
+  private function financeStatus(array $finance, array $forecast, array $cash): string { if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) return 'rood'; $billing=is_array($finance['billing_position']??NULL)?$finance['billing_position']:[]; $workflow=is_array($finance['workflow']??NULL)?$finance['workflow']:[]; if(!empty($finance['forecast_is_stale'])||(int)($billing['overdue_count']??0)>0||array_sum(array_map('intval',$workflow))>0)return'oranje'; return $forecast===[]?'grijs':'groen'; }
   private function cashStatus(array $cash): string { return $cash === [] ? 'grijs' : ((!empty($cash['first_regular_shortfall_date']) || !empty($cash['first_g_account_shortfall_date'])) ? 'rood' : 'groen'); }
   private function worstStatus(array $statuses): string { $rank=['grijs'=>0,'groen'=>1,'oranje'=>2,'rood'=>3]; $worst='grijs'; foreach($statuses as $s) if(($rank[$s]??0)>($rank[$worst]??0)) $worst=$s; return $worst; }
   private function statusMarkup(string $label,string $status): string { return '<div class="brebo-project-cockpit__status brebo-project-cockpit__status--'.$status.'"><span>'.$label.'</span><strong>'.mb_strtoupper($status).'</strong></div>'; }
