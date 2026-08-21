@@ -1,11 +1,3 @@
-brebo_inzet.app:
-  path: '/inzet'
-  defaults:
-    _controller: '\Drupal\brebo_inzet\Controller\InzetAppController::start'
-    _title: 'BREBO Inzet'
-  requirements:
-    _user_is_logged_in: 'TRUE'
-
 brebo_inzet.project_clock_zones:
   path: '/projecten/{node}/inzet/kloklocaties'
   defaults:
