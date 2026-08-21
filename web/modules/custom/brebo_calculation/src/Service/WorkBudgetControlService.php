@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Schema\WorkBudgetSchema;
 
 /** Controls approved budget changes and forecast snapshots. */
 final class WorkBudgetControlService {
   public function __construct(private readonly Connection $database) {}
 
   public function addChange(int $workBudgetId, ?int $lineId, string $changeType, float $amountDelta, string $reason, ?string $sourceReference, int $uid): int {
+    $this->ensureStorage();
     $status = $this->database->select('brebo_work_budget', 'b')->fields('b', ['status'])->condition('id', $workBudgetId)->execute()->fetchField();
     if ($status !== 'approved') {
       throw new \LogicException('Budgetwijzigingen kunnen alleen op een goedgekeurde werkbegroting worden vastgelegd.');
+    }
+    if (trim($reason) === '') {
+      throw new \InvalidArgumentException('Een budgetwijziging vereist een reden.');
     }
     return (int) $this->database->insert('brebo_work_budget_change')->fields([
       'work_budget_id' => $workBudgetId,
@@ -29,6 +34,7 @@ final class WorkBudgetControlService {
   }
 
   public function approveChange(int $changeId, int $uid): void {
+    $this->ensureStorage();
     $change = $this->database->select('brebo_work_budget_change', 'c')->fields('c')->condition('id', $changeId)->execute()->fetchAssoc();
     if (!$change) { throw new \InvalidArgumentException('Budgetwijziging bestaat niet.'); }
     if ($change['status'] === 'approved') { return; }
@@ -45,6 +51,7 @@ final class WorkBudgetControlService {
    * @return array{baseline:float,approved_changes:float,current_budget:float,committed:float,actual:float,forecast_final_cost:float,forecast_result:float}
    */
   public function totals(int $workBudgetId, float $committed = 0.0, float $actual = 0.0, ?float $forecastFinalCost = NULL): array {
+    $this->ensureStorage();
     $q = $this->database->select('brebo_work_budget_line', 'l');
     $q->addExpression('COALESCE(SUM(l.budget_amount), 0)', 'total');
     $q->condition('work_budget_id', $workBudgetId);
@@ -69,6 +76,7 @@ final class WorkBudgetControlService {
   }
 
   public function snapshotForecast(int $workBudgetId, float $committed, float $actual, ?float $forecastFinalCost, int $uid, ?string $date = NULL): int {
+    $this->ensureStorage();
     $totals = $this->totals($workBudgetId, $committed, $actual, $forecastFinalCost);
     return (int) $this->database->insert('brebo_work_budget_forecast')->fields([
       'work_budget_id' => $workBudgetId,
@@ -83,5 +91,15 @@ final class WorkBudgetControlService {
       'created' => time(),
       'created_by' => $uid,
     ])->execute();
+  }
+
+  private function ensureStorage(): void {
+    $schema = $this->database->schema();
+    if (!$schema->tableExists('brebo_work_budget_change')) {
+      $schema->createTable('brebo_work_budget_change', WorkBudgetSchema::change());
+    }
+    if (!$schema->tableExists('brebo_work_budget_forecast')) {
+      $schema->createTable('brebo_work_budget_forecast', WorkBudgetSchema::forecast());
+    }
   }
 }
