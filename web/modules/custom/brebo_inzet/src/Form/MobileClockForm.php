@@ -20,9 +20,9 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class MobileClockForm extends FormBase {
 
   public function __construct(
-    private PausePolicy $pausePolicy,
-    private ClockSessionManager $clockSessionManager,
-    private EntityTypeManagerInterface $entityTypeManager,
+    protected PausePolicy $pausePolicy,
+    protected ClockSessionManager $clockSessionManager,
+    protected EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
