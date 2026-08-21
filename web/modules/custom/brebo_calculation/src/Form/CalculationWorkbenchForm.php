@@ -73,6 +73,10 @@ final class CalculationWorkbenchForm extends FormBase {
     }
 
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
+    $lineEntities = $lineIds ? $this->calculationEntityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    $newLineId = (int) ($form_state->get('quick_entry_line_id') ?? 0);
+
     $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('calculation_id', (int) $node->id())->condition('calculation_version', $version['version'])->orderBy('paragraph_key')->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $recipeLinesByInstance = [];
     $allRecipeLines = [];
@@ -113,14 +117,39 @@ final class CalculationWorkbenchForm extends FormBase {
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
         $lineId = (int) $row['calc_line_id'];
-        $quantity = (float) ($row['quantity'] ?? 0);
+        $line = $lineEntities[$lineId] ?? NULL;
+        if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') { continue; }
+        $description = $line->hasField('field_brebo_line_description') ? (string) $line->get('field_brebo_line_description')->value : (string) $line->label();
+        $unit = $line->hasField('field_brebo_unit') ? (string) $line->get('field_brebo_unit')->value : '';
+        $quantity = $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0;
         $directUnit = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
         $lineTotal = $quantity * $directUnit;
+        $isNewLine = $lineId === $newLineId;
+        $rowAttributes = ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',(string) $row['rule_type'])], 'data-structure-key' => (string) $key, 'data-line-id' => (string) $lineId, 'data-block-type' => 'row'];
+        if ($isNewLine) { $rowAttributes['data-new-quick-entry'] = '1'; }
+        $fieldPath = ['workbench','grid','line_' . $lineId];
         $form['workbench']['grid']['line_' . $lineId] = [
-          '#attributes' => ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',(string) $row['rule_type'])], 'data-structure-key' => (string) $key, 'data-line-id' => (string) $lineId, 'data-block-type' => 'row'],
-          'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?? ''))], 'description' => ['#markup' => htmlspecialchars((string) ($row['description'] ?? 'Calculatieregel'))], 'unit' => ['#markup' => htmlspecialchars((string) ($row['unit'] ?? ''))],
-          'quantity' => $this->editableNumber($lineId, 'quantity', $quantity, $editable, '0.0001'), 'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable), 'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable), 'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable), 'subcontracting' => $this->editableNumber($lineId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable), 'other' => $this->editableNumber($lineId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
-          'unit_total' => ['#markup' => '€ ' . number_format($directUnit, 2, ',', '.')], 'total' => ['#markup' => '<strong>€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'], 'operations' => ['#type' => 'link', '#title' => 'Prijsbronnen', '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
+          '#attributes' => $rowAttributes,
+          'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?? ''))],
+          'description' => $this->editableText($lineId, 'description', $description, $editable, $isNewLine),
+          'unit' => $this->editableText($lineId, 'unit', $unit, $editable),
+          'quantity' => $this->editableNumber($lineId, 'quantity', $quantity, $editable, '0.0001'),
+          'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
+          'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
+          'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
+          'subcontracting' => $this->editableNumber($lineId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
+          'other' => $this->editableNumber($lineId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
+          'unit_total' => ['#markup' => '€ ' . number_format($directUnit, 2, ',', '.')],
+          'total' => ['#markup' => '<strong>€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'],
+          'operations' => [
+            '#type' => 'container',
+            'save' => $editable ? [
+              '#type' => 'submit', '#value' => 'Opslaan', '#submit' => ['::saveRow'], '#line_id' => $lineId,
+              '#limit_validation_errors' => [array_merge($fieldPath, ['description']), array_merge($fieldPath, ['unit']), array_merge($fieldPath, ['quantity']), array_merge($fieldPath, ['labour']), array_merge($fieldPath, ['material']), array_merge($fieldPath, ['equipment']), array_merge($fieldPath, ['subcontracting']), array_merge($fieldPath, ['other'])],
+              '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Regel opslaan…']],
+            ] : ['#markup' => ''],
+            'price_sources' => ['#type' => 'link', '#title' => 'Prijsbronnen', '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
+          ],
         ];
       }
 
@@ -183,7 +212,7 @@ final class CalculationWorkbenchForm extends FormBase {
       }
     }
 
-    $form['workbench']['total'] = ['#markup' => '<div class="brebo-calc-workbench__total"><span><small>Directe kostprijs</small><strong>€ ' . number_format($this->directTotal($rows) + $this->recipeInstancesTotal($recipeLinesByInstance), 2, ',', '.') . '</strong></span></div>'];
+    $form['workbench']['total'] = ['#markup' => '<div class="brebo-calc-workbench__total"><span><small>Directe kostprijs</small><strong>€ ' . number_format($this->directTotal($rows, $lineEntities) + $this->recipeInstancesTotal($recipeLinesByInstance), 2, ',', '.') . '</strong></span></div>'];
     return $form;
   }
 
@@ -192,8 +221,35 @@ final class CalculationWorkbenchForm extends FormBase {
   public function addRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement(); $paragraphKey = (string) ($trigger['#paragraph_key'] ?? '');
     if ($paragraphKey === '') { throw new \RuntimeException('Paragraaf ontbreekt bij het toevoegen van de calculatieregel.'); }
-    $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, $this->currentUser());
-    $form_state->set('ajax_message', 'Calculatieregel toegevoegd.'); $form_state->setRebuild(TRUE);
+    $lineId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, $this->currentUser());
+    $form_state->set('quick_entry_line_id', $lineId);
+    $form_state->set('ajax_message', 'Calculatieregel toegevoegd. Vul de regel direct in.'); $form_state->setRebuild(TRUE);
+  }
+
+  public function saveRow(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    $lineId = (int) ($trigger['#line_id'] ?? 0);
+    if ($lineId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
+    $values = (array) $form_state->getValue(['workbench','grid','line_' . $lineId], []);
+    $this->rowManager->updateQuickEntry(
+      (int) $form_state->getValue('calculation_id'),
+      (string) $form_state->getValue('version'),
+      $lineId,
+      (string) ($values['description'] ?? ''),
+      (string) ($values['unit'] ?? ''),
+      (float) ($values['quantity'] ?? 0),
+      [
+        'labour' => (float) ($values['labour'] ?? 0),
+        'material' => (float) ($values['material'] ?? 0),
+        'equipment' => (float) ($values['equipment'] ?? 0),
+        'subcontracting' => (float) ($values['subcontracting'] ?? 0),
+        'other' => (float) ($values['other'] ?? 0),
+      ],
+      $this->currentUser(),
+    );
+    if ((int) $form_state->get('quick_entry_line_id') === $lineId) { $form_state->set('quick_entry_line_id', 0); }
+    $form_state->set('ajax_message', 'Calculatieregel opgeslagen.');
+    $form_state->setRebuild(TRUE);
   }
 
   public function updateRecipeQuantity(array &$form, FormStateInterface $form_state): void {
@@ -209,9 +265,18 @@ final class CalculationWorkbenchForm extends FormBase {
 
   /** @return array<string,mixed>|null */
   private function latestVersion(int $calculationId): ?array { $row = $this->database->select('brebo_calculation_version', 'v')->fields('v')->condition('calculation_id', $calculationId)->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc(); return $row ?: NULL; }
-  private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
-  /** @param array<int,array<string,mixed>> $rows */
-  private function directTotal(array $rows): float { $total = 0.0; foreach ($rows as $row) { $total += (float) ($row['quantity'] ?? 0) * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
+
+  private function editableText(int $lineId, string $field, string $value, bool $editable, bool $autofocus = FALSE): array {
+    if (!$editable) { return ['#markup' => htmlspecialchars($value)]; }
+    $attributes = ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field];
+    if ($autofocus) { $attributes['autofocus'] = 'autofocus'; }
+    return ['#type' => 'textfield', '#default_value' => $value, '#size' => $field === 'unit' ? 8 : 28, '#attributes' => $attributes];
+  }
+
+  private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
+
+  /** @param array<int,array<string,mixed>> $rows @param array<int,NodeInterface> $lineEntities */
+  private function directTotal(array $rows, array $lineEntities): float { $total = 0.0; foreach ($rows as $row) { $lineId = (int) $row['calc_line_id']; $line = $lineEntities[$lineId] ?? NULL; $quantity = $line instanceof NodeInterface && $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0; $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
   /** @param array<int,array<string,mixed>> $lines */
   private function recipeInstanceTotal(array $lines): float { $total = 0.0; foreach ($lines as $line) { $total += $this->recipeLineQuantity($line) * (float) ($line['unit_cost'] ?? 0); } return $total; }
   /** @param array<int,array<int,array<string,mixed>>> $linesByInstance */
