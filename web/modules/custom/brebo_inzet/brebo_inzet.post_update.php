@@ -148,3 +148,14 @@ function brebo_inzet_post_update_project_clock_policy(array &$sandbox = NULL): s
 
   return 'Projectinstellingen voor standaard werktijden en optionele pauzeregistratie toegevoegd.';
 }
+
+/**
+ * Repairs clocking schema for installations where earlier Inzet updates were skipped.
+ */
+function brebo_inzet_post_update_repair_clock_runtime_schema(array &$sandbox = NULL): string {
+  brebo_inzet_post_update_clock_zones($sandbox);
+  brebo_inzet_post_update_clock_registrations($sandbox);
+  brebo_inzet_post_update_project_clock_policy($sandbox);
+
+  return 'Kloklocaties, klokregistraties en projectbeleid gecontroleerd en waar nodig hersteld.';
+}
