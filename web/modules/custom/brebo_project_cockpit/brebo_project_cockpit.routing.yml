@@ -9,3 +9,15 @@ brebo_project_cockpit.overview:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.budget:
+  path: '/projecten/{node}/begroting'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectBudgetController::overview'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectBudgetController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
