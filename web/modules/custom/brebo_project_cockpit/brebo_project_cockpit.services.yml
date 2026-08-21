@@ -10,3 +10,8 @@ services:
   brebo_project_cockpit.project_milestone_builder:
     class: Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder
     arguments: ['@entity_type.manager']
+
+  brebo_project_cockpit.route_subscriber:
+    class: Drupal\brebo_project_cockpit\Routing\ProjectCockpitRouteSubscriber
+    tags:
+      - { name: event_subscriber }
