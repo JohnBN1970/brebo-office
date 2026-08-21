@@ -12,7 +12,7 @@ declare(strict_types=1);
  */
 function brebo_inzet_page_attachments(array &$attachments): void {
   $routeName = \Drupal::routeMatch()->getRouteName();
-  if (!in_array($routeName, ['brebo_inzet.app', 'brebo_inzet.mobile_clock'], TRUE)) {
+  if (!in_array($routeName, ['brebo_inzet.app', 'brebo_inzet.app_clock', 'brebo_inzet.mobile_clock'], TRUE)) {
     return;
   }
 
