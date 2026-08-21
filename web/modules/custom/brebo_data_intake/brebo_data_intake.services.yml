@@ -10,3 +10,7 @@ services:
   brebo_data_intake.candidate_repository:
     class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
+
+  brebo_data_intake.nlbe_sfb_provider:
+    class: Drupal\brebo_data_intake\Service\NlbeSfbProvider
+    arguments: ['@brebo_data_intake.ingest_manager', '@brebo_data_intake.classification_repository']
