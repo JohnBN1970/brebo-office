@@ -16,6 +16,7 @@ final class WorkBudgetSchema {
         'source_calculation_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
         'source_content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
         'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+        'approved_content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
         'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
         'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
         'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
@@ -23,7 +24,7 @@ final class WorkBudgetSchema {
       ],
       'primary key' => ['id'],
       'unique keys' => ['source_calculation_version' => ['source_calculation_id', 'source_calculation_version']],
-      'indexes' => ['project_status' => ['project_nid', 'status']],
+      'indexes' => ['project_status' => ['project_nid', 'status'], 'approved_hash' => ['approved_content_hash']],
     ];
   }
 
