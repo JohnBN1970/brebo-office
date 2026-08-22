@@ -71,6 +71,16 @@
         if (active) {
           activateTab(link);
         }
+        return;
+      }
+
+      if (label === 'Facturen') {
+        link.href = `/projecten/${projectId}/facturen`;
+        const active = window.location.pathname === `/projecten/${projectId}/facturen` ||
+          window.location.pathname.startsWith(`/projecten/${projectId}/facturen/`);
+        if (active) {
+          activateTab(link);
+        }
       }
     });
   }
