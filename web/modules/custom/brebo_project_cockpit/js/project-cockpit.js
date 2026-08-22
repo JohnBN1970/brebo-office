@@ -61,6 +61,16 @@
         if (active) {
           activateTab(link);
         }
+        return;
+      }
+
+      if (label === 'Contracten') {
+        link.href = `/projecten/${projectId}/contracten`;
+        const active = window.location.pathname === `/projecten/${projectId}/contracten` ||
+          window.location.pathname.startsWith(`/projecten/${projectId}/contracten/`);
+        if (active) {
+          activateTab(link);
+        }
       }
     });
   }

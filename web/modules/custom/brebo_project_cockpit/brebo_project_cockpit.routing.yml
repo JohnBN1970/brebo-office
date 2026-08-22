@@ -33,3 +33,15 @@ brebo_project_cockpit.procurement:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.contracts:
+  path: '/projecten/{node}/contracten'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectContractsController::overview'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectContractsController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
