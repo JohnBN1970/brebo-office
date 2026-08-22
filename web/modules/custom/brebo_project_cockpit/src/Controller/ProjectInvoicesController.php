@@ -75,7 +75,7 @@ final class ProjectInvoicesController extends ControllerBase {
         $this->triggerLabel((string) ($row['trigger_type'] ?? '')),
         (string) ($row['status'] ?? '—'),
         $this->money($row['amount_ex_vat'] ?? NULL),
-        $this->vatLabel($row),
+        $this->instalmentVatLabel($row),
       ];
     }
 
@@ -125,7 +125,7 @@ final class ProjectInvoicesController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
-        'note' => ['#markup' => '<p><strong>' . $this->t('Volgende bouwstap:') . '</strong> ' . $this->t('Termijn toevoegen, termijnsjablonen, stelpostbewaking en Nieuwe verkoopfactuur worden op de bestaande billing-flow aangesloten; er komt geen tweede factuuradministratie.') . '</p>'],
+        'note' => ['#markup' => '<p><strong>' . $this->t('BTW-bewaking:') . '</strong> ' . $this->t('Termijnen kunnen onderliggend meerdere btw-regels bevatten. De cockpit toont bij gemengde termijnen de gebruikte tarieven samen; de termijnkop blijft alleen de financiële samenvatting.') . '</p>'],
       ],
       'instalments' => [
         '#type' => 'details',
@@ -206,7 +206,19 @@ final class ProjectInvoicesController extends ControllerBase {
     };
   }
 
-  private function vatLabel(array $row): string {
+  private function instalmentVatLabel(array $row): string {
+    if (($row['vat_code'] ?? '') === 'MIXED' && !empty($row['id']) && $this->database->schema()->tableExists('brebo_finance_billing_instalment_line')) {
+      $query = $this->database->select('brebo_finance_billing_instalment_line', 'l');
+      $query->addField('l', 'vat_rate');
+      $query->condition('instalment_id', (int) $row['id']);
+      $query->distinct();
+      $rates = array_map('floatval', $query->execute()->fetchCol());
+      sort($rates, SORT_NUMERIC);
+      if ($rates !== []) {
+        return implode(' + ', array_map(static fn(float $rate): string => number_format($rate, 1, ',', '.') . '%', $rates));
+      }
+      return (string) $this->t('Gemengd');
+    }
     if (!isset($row['vat_rate']) || !is_numeric($row['vat_rate'])) {
       return (string) ($row['vat_code'] ?? '—');
     }
