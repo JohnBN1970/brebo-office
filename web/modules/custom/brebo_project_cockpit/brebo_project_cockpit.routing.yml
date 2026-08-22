@@ -45,3 +45,15 @@ brebo_project_cockpit.contracts:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.invoices:
+  path: '/projecten/{node}/facturen'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectInvoicesController::overview'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectInvoicesController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
