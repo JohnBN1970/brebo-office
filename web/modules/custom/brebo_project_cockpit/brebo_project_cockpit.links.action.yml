@@ -1,0 +1,11 @@
+brebo_project_cockpit.instalment_schedule_action:
+  route_name: brebo_project_cockpit.instalment_schedule
+  title: 'Termijnschema maken'
+  appears_on:
+    - brebo_project_cockpit.invoices
+
+brebo_project_cockpit.instalment_templates_action:
+  route_name: brebo_project_cockpit.instalment_templates
+  title: 'Termijnsjablonen'
+  appears_on:
+    - brebo_project_cockpit.invoices
