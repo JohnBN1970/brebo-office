@@ -20,7 +20,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly ConfigFactoryInterface $templateConfigFactory,
     private readonly BillingControlManager $billingManager,
   ) {}
 
@@ -156,7 +156,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
    */
   private function availableTemplates(): array {
     $templates = InstalmentTemplateForm::standardTemplates();
-    $custom = $this->configFactory->get(self::TEMPLATE_CONFIG)->get('templates') ?? [];
+    $custom = $this->templateConfigFactory->get(self::TEMPLATE_CONFIG)->get('templates') ?? [];
     if (!is_array($custom)) {
       return $templates;
     }
