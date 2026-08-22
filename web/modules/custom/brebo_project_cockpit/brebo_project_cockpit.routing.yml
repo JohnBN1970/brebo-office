@@ -57,3 +57,29 @@ brebo_project_cockpit.invoices:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.instalment_schedule:
+  path: '/projecten/{node}/facturen/termijnschema'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectInstalmentScheduleForm'
+    _title: 'Termijnschema maken'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_project_cockpit.instalment_templates:
+  path: '/projecten/{node}/facturen/termijnsjablonen'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\InstalmentTemplateForm'
+    _title: 'Termijnsjablonen'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
