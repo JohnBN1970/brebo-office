@@ -83,3 +83,16 @@ brebo_project_cockpit.instalment_templates:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.provisional_sum_add:
+  path: '/projecten/{node}/facturen/stelpost-toevoegen'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectProvisionalSumForm'
+    _title: 'Stelpost toevoegen'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node

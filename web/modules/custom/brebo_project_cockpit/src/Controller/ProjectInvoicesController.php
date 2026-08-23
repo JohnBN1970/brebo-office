@@ -6,11 +6,12 @@ namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Shows project billing instalments, changes and client invoices. */
+/** Shows project billing instalments, changes, provisional sums and invoices. */
 final class ProjectInvoicesController extends ControllerBase {
 
   public function __construct(
@@ -33,6 +34,7 @@ final class ProjectInvoicesController extends ControllerBase {
     $contract = $this->loadOne('brebo_finance_project_contract', $projectId);
     $instalments = $this->loadMany('brebo_finance_billing_instalment', $projectId, 'planned_invoice_date');
     $changes = $this->loadMany('brebo_finance_change_order', $projectId, 'changed', 'DESC');
+    $provisionalSums = $this->loadMany('brebo_finance_provisional_sum', $projectId, 'changed', 'DESC');
     $invoices = $this->loadMany('brebo_finance_sales_invoice', $projectId, 'invoice_date', 'DESC');
 
     $contractValue = (float) ($contract['amount_ex_vat'] ?? 0);
@@ -43,7 +45,14 @@ final class ProjectInvoicesController extends ControllerBase {
         $approvedChanges += (($row['change_type'] ?? '') === 'omission') ? -$amount : $amount;
       }
     }
-    $currentOrderValue = $contractValue + $approvedChanges;
+
+    $approvedProvisionalSettlement = 0.0;
+    $forecastProvisionalSettlement = 0.0;
+    foreach ($provisionalSums as $row) {
+      $forecastProvisionalSettlement += (float) ($row['settlement_amount_ex_vat'] ?? 0);
+      $approvedProvisionalSettlement += (float) ($row['approved_settlement_ex_vat'] ?? 0);
+    }
+    $currentOrderValue = $contractValue + $approvedChanges + $approvedProvisionalSettlement;
 
     $invoiced = 0.0;
     $received = 0.0;
@@ -91,6 +100,22 @@ final class ProjectInvoicesController extends ControllerBase {
       ];
     }
 
+    $provisionalRows = [];
+    foreach ($provisionalSums as $row) {
+      $provisionalRows[] = [
+        (string) ($row['provisional_sum_number'] ?? '—'),
+        (string) ($row['title'] ?? '—'),
+        (string) ($row['status'] ?? '—'),
+        $this->money($row['contract_amount_ex_vat'] ?? NULL),
+        $this->money($row['forecast_amount_ex_vat'] ?? NULL),
+        $this->money($row['actual_amount_ex_vat'] ?? NULL),
+        $this->money($row['settlement_amount_ex_vat'] ?? NULL),
+        $this->money($row['approved_settlement_ex_vat'] ?? NULL),
+        $this->money($row['invoiced_settlement_ex_vat'] ?? NULL),
+        (string) ($row['client_approval_ref'] ?? '—'),
+      ];
+    }
+
     $invoiceRows = [];
     foreach ($invoices as $row) {
       $invoiceRows[] = [
@@ -110,13 +135,13 @@ final class ProjectInvoicesController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-invoices-principle']],
         'title' => ['#markup' => '<h2>' . $this->t('Opbrengsten en verkoopfacturen') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Deze projecttab toont uitsluitend de opbrengstenkant: termijnschema, meer-/minderwerk en verkoopfacturen. Inkoopfacturen blijven onder Inkoop. Moneybird blijft de boekhoudkundige bron voor de verkoopfactuurspiegel.') . '</p>'],
+        'text' => ['#markup' => '<p>' . $this->t('Deze projecttab toont uitsluitend de opbrengstenkant: termijnschema, meer-/minderwerk, stelposten en verkoopfacturen. Inkoopfacturen blijven onder Inkoop. Moneybird blijft de boekhoudkundige bron voor de verkoopfactuurspiegel.') . '</p>'],
       ],
       'kpis' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],
         'order' => ['#markup' => $this->kpi('Actuele opdrachtwaarde', $currentOrderValue, 'excl. btw')],
-        'planned' => ['#markup' => $this->kpi('Termijnen gepland', $planned, 'excl. btw')],
+        'provisional' => ['#markup' => $this->kpi('Stelpostprognose', $forecastProvisionalSettlement, 'verwachte verrekening')],
         'invoiced' => ['#markup' => $this->kpi('Gefactureerd', $invoiced, 'excl. btw')],
         'received' => ['#markup' => $this->kpi('Ontvangen', $received, 'incl. btw')],
         'open' => ['#markup' => $this->kpi('Openstaand', $open, 'incl. btw')],
@@ -125,7 +150,13 @@ final class ProjectInvoicesController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
-        'note' => ['#markup' => '<p><strong>' . $this->t('BTW-bewaking:') . '</strong> ' . $this->t('Termijnen kunnen onderliggend meerdere btw-regels bevatten. De cockpit toont bij gemengde termijnen de gebruikte tarieven samen; de termijnkop blijft alleen de financiële samenvatting.') . '</p>'],
+        'add_provisional' => [
+          '#type' => 'link',
+          '#title' => $this->t('Stelpost toevoegen'),
+          '#url' => Url::fromRoute('brebo_project_cockpit.provisional_sum_add', ['node' => $projectId]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
+        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een stelpost verhoogt de actuele opdrachtwaarde pas voor het goedgekeurde verrekeningsbedrag. Prognoses blijven zichtbaar als risico, maar worden niet stilletjes als omzet behandeld.') . '</p>'],
       ],
       'instalments' => [
         '#type' => 'details',
@@ -138,15 +169,26 @@ final class ProjectInvoicesController extends ControllerBase {
           '#empty' => $this->t('Voor dit project is nog geen termijnschema geregistreerd.'),
         ],
       ],
+      'provisional_sums' => [
+        '#type' => 'details',
+        '#title' => $this->t('Stelpostbewaking (@count)', ['@count' => count($provisionalRows)]),
+        '#open' => TRUE,
+        'table' => [
+          '#type' => 'table',
+          '#header' => [$this->t('Nr.'), $this->t('Stelpost'), $this->t('Status'), $this->t('Contract'), $this->t('Prognose'), $this->t('Werkelijk'), $this->t('Verschil'), $this->t('Goedgekeurd'), $this->t('Gefactureerd'), $this->t('Akkoordref.')],
+          '#rows' => $provisionalRows,
+          '#empty' => $this->t('Nog geen stelposten geregistreerd.'),
+        ],
+      ],
       'changes' => [
         '#type' => 'details',
-        '#title' => $this->t('Meer-/minderwerk & stelpostverrekening (@count)', ['@count' => count($changeRows)]),
+        '#title' => $this->t('Meer-/minderwerk (@count)', ['@count' => count($changeRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
           '#header' => [$this->t('Nr.'), $this->t('Omschrijving'), $this->t('Soort'), $this->t('Status'), $this->t('Verkoop excl. btw'), $this->t('Akkoordref.')],
           '#rows' => $changeRows,
-          '#empty' => $this->t('Nog geen meer-/minderwerk of stelpostverrekening geregistreerd.'),
+          '#empty' => $this->t('Nog geen meer-/minderwerk geregistreerd.'),
         ],
       ],
       'invoices' => [
