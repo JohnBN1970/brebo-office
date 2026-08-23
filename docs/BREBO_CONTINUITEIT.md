@@ -231,6 +231,50 @@ De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / P
 - HMAC v1-beveiliging blijft leidend.
 - Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route.
 
+## Mijlpaal 2026-08-23 — beveiligde Moneybird-verkoopfactuurketen
+
+Status: **gerealiseerd op `develop`; productieverkeer nog bewust geblokkeerd tot configuratie en end-to-end proef zijn afgerond.**
+
+De verkoopfactuur-heenweg is technisch gesloten:
+
+```text
+Factuurconcept
+  -> vrijgeven
+  -> immutable outbox
+  -> Drupal queue
+  -> HMAC-beveiligde Integration API
+  -> Moneybird
+  -> officiële verkoopfactuurspiegel terug in BREBO Office
+```
+
+Vastgelegd en gebouwd:
+
+- PR #389 completeert de outbox-dispatch van BREBO Office naar de Integration API en de terugschrijving naar de officiële verkoopfactuurspiegel;
+- PR #390 voegt de Moneybird security gate toe;
+- de Integration API gebruikt `MONEYBIRD_ACCESS_TOKEN` als toegangssleutel en `MONEYBIRD_ADMINISTRATION_ID` als expliciete doeladministratie;
+- Moneybird-credentials staan niet in Drupal of in broncode en moeten als deploymentconfiguratie/secrets beschikbaar zijn;
+- requests vanuit BREBO Office worden HMAC-SHA256 ondertekend over methode, endpoint, bodyhash, timestamp en unieke request-ID;
+- idempotency voorkomt automatische dubbele facturen;
+- een onzekere provider- of netwerkuitkomst wordt niet blind opnieuw verzonden maar gaat naar `reconciliation_required`;
+- succesvolle responses kunnen veilig worden hergebruikt zonder opnieuw een providerhandeling uit te voeren;
+- ontbrekende of placeholder Moneybird-configuratie faalt gesloten: er vindt dan geen financiële verzending plaats;
+- lokale afronding koppelt Moneybird-resultaat transactioneel aan de officiële BREBO-verkoopfactuurspiegel.
+
+Relevante mergecommits:
+
+- verkoopfactuur-outbox/disptach: `c5009ad6954331461065adda515647822918ed45`;
+- Moneybird security gate: `e5b03824a9513c24f94bb5007ef939e865e49e60`.
+
+Continuïteitswaarde: BREBO Office hoeft voor verkoopfacturen niet meer te werken met een éénrichtings-PDF-koppeling of dubbele handmatige invoer. BREBO Office blijft de operationele project- en controlelaag; Moneybird blijft de officiële financiële administratie; de centrale Integration API bewaakt transport, authenticatie, providervertaling en herstelgedrag.
+
+Nog open vóór echt productieverkeer:
+
+1. juiste Moneybird-administratie-ID vaststellen;
+2. Moneybird access token aanmaken met minimaal benodigde rechten;
+3. beide waarden veilig in Cloudflare configureren;
+4. gecontroleerde end-to-end proef uitvoeren;
+5. pas na groene proef echte productiefacturen toelaten.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
@@ -238,11 +282,3 @@ Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begi
 Voor de calculatiemodule geldt bij hervatten expliciet: **ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat. Hervat bij prijsbronbediening / document- en e-mailbronverwerking tenzij GitHub inmiddels een latere stand toont.**
 
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
-
-Bij iedere nieuwe of gewijzigde UI moet tevens worden getoetst aan `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md`.
-
-## Beheer
-
-Werk dit document bij bij een belangrijke mijlpaal, architectuurbesluit, merge, deploymentwijziging of wijziging van de eerstvolgende ontwikkelstap.
-
-Laatst bijgewerkt: 16 augustus 2026.
