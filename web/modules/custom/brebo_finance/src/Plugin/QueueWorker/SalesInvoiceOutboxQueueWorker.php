@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Plugin\QueueWorker;
 
+use Drupal\brebo_finance\Service\BillingControlManager;
 use Drupal\brebo_finance\Service\SalesInvoiceIntegrationClient;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Plugin\ContainerFactoryPluginInterface;
@@ -26,12 +27,20 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     $pluginDefinition,
     private readonly Connection $database,
     private readonly SalesInvoiceIntegrationClient $client,
+    private readonly BillingControlManager $billingControlManager,
   ) {
     parent::__construct($configuration, $pluginId, $pluginDefinition);
   }
 
   public static function create(ContainerInterface $container, array $configuration, $pluginId, $pluginDefinition): self {
-    return new self($configuration, $pluginId, $pluginDefinition, $container->get('database'), $container->get('brebo_finance.sales_invoice_integration_client'));
+    return new self(
+      $configuration,
+      $pluginId,
+      $pluginDefinition,
+      $container->get('database'),
+      $container->get('brebo_finance.sales_invoice_integration_client'),
+      $container->get('brebo_finance.billing_control_manager'),
+    );
   }
 
   public function processItem($data): void {
@@ -58,19 +67,69 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     try {
       $result = $this->client->dispatch((string) $row['idempotency_key'], $invoice);
       $providerInvoice = $result['sales_invoice'] ?? NULL;
-      if (!is_array($providerInvoice) || empty($providerInvoice['id'])) throw new \RuntimeException('Integration API response has no Moneybird sales invoice id.');
+      if (!is_array($providerInvoice) || empty($providerInvoice['id']) || empty($providerInvoice['invoice_id'])) {
+        throw new \RuntimeException('Integration API response has no complete Moneybird sales invoice identity.');
+      }
 
       $moneybirdId = (string) $providerInvoice['id'];
+      $invoiceNumber = (string) $providerInvoice['invoice_id'];
       $requestId = (string) ($result['request_id'] ?? '');
       $completed = time();
+      $mirrorLines = [];
+      foreach ((array) ($invoice['lines'] ?? []) as $line) {
+        if (!is_array($line)) continue;
+        $mirrorLines[] = [
+          'description' => (string) ($line['description'] ?? ''),
+          'amount_ex_vat' => (string) ($line['amount_ex_vat'] ?? '0'),
+          'vat_code' => (string) ($line['vat_code'] ?? 'NL_0'),
+          'vat_rate' => (string) ($line['vat_rate'] ?? '0'),
+          'source_ref' => sprintf('%s:%s', (string) ($line['source_type'] ?? 'draft'), (string) ($line['source_id'] ?? '0')),
+        ];
+      }
+      $sourceHash = hash('sha256', json_encode([
+        'moneybird' => $providerInvoice,
+        'payload_hash' => (string) $row['payload_hash'],
+      ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
+      $providerState = strtolower((string) ($providerInvoice['state'] ?? 'open'));
+      $mirrorStatus = match ($providerState) {
+        'paid' => 'paid',
+        'late', 'overdue' => 'overdue',
+        'cancelled', 'canceled' => 'cancelled',
+        default => 'sent',
+      };
+
       $transaction = $this->database->startTransaction();
       try {
+        $salesInvoiceId = $this->billingControlManager->synchronizeMoneybirdInvoice([
+          'project_nid' => (int) $row['project_nid'],
+          'moneybird_id' => $moneybirdId,
+          'invoice_number' => $invoiceNumber,
+          'invoice_date' => (string) ($providerInvoice['invoice_date'] ?? $invoice['invoice_date'] ?? ''),
+          'due_date' => (string) ($providerInvoice['due_date'] ?? $invoice['due_date'] ?? ''),
+          'status' => $mirrorStatus,
+          'amount_ex_vat' => (string) ($invoice['amount_ex_vat'] ?? '0'),
+          'vat_amount' => (string) ($invoice['vat_amount'] ?? '0'),
+          'amount_inc_vat' => (string) ($invoice['amount_inc_vat'] ?? '0'),
+          'paid_amount_inc_vat' => $mirrorStatus === 'paid' ? (string) ($invoice['amount_inc_vat'] ?? '0') : '0',
+          'regular_account_amount' => (string) ($invoice['amount_inc_vat'] ?? '0'),
+          'g_account_amount' => '0',
+          'source_hash' => $sourceHash,
+          'recorded_at' => $completed,
+          'lines' => $mirrorLines,
+        ], 0);
+
         $this->database->update('brebo_finance_sales_invoice_outbox')->fields([
-          'status' => 'completed', 'integration_request_id' => $requestId ?: NULL, 'moneybird_id' => $moneybirdId,
-          'completed' => $completed, 'changed' => $completed,
+          'status' => 'completed',
+          'integration_request_id' => $requestId ?: NULL,
+          'moneybird_id' => $moneybirdId,
+          'completed' => $completed,
+          'changed' => $completed,
         ])->condition('id', $outboxId)->execute();
         $this->database->update('brebo_finance_sales_invoice_draft')->fields([
-          'status' => 'sent', 'moneybird_id' => $moneybirdId, 'changed' => $completed,
+          'status' => 'sent',
+          'moneybird_id' => $moneybirdId,
+          'sales_invoice_id' => $salesInvoiceId,
+          'changed' => $completed,
         ])->condition('id', (int) $row['draft_id'])->execute();
       }
       catch (\Throwable $exception) {
@@ -80,7 +139,9 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     }
     catch (\Throwable $exception) {
       $this->database->update('brebo_finance_sales_invoice_outbox')->fields([
-        'status' => 'error', 'last_error' => mb_substr($exception->getMessage(), 0, 4000), 'changed' => time(),
+        'status' => 'error',
+        'last_error' => mb_substr($exception->getMessage(), 0, 4000),
+        'changed' => time(),
       ])->condition('id', $outboxId)->execute();
       throw $exception;
     }
