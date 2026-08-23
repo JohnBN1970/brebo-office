@@ -14,23 +14,9 @@ function brebo_finance_post_update_billing_vat_lines(array &$sandbox): string {
   $database = \Drupal::database();
   $schema = $database->schema();
 
-  $money = [
-    'type' => 'numeric',
-    'precision' => 18,
-    'scale' => 4,
-    'not null' => TRUE,
-    'default' => 0,
-  ];
-  $timestamp = [
-    'type' => 'int',
-    'unsigned' => TRUE,
-    'not null' => TRUE,
-  ];
-  $user = [
-    'type' => 'int',
-    'unsigned' => TRUE,
-    'not null' => FALSE,
-  ];
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
+  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE];
+  $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
 
   if (!$schema->tableExists('brebo_finance_billing_instalment_line')) {
     $schema->createTable('brebo_finance_billing_instalment_line', [
@@ -53,13 +39,8 @@ function brebo_finance_post_update_billing_vat_lines(array &$sandbox): string {
         'changed_by' => $user,
       ],
       'primary key' => ['id'],
-      'unique keys' => [
-        'instalment_line' => ['instalment_id', 'line_number'],
-      ],
-      'indexes' => [
-        'project_instalment' => ['project_nid', 'instalment_id'],
-        'vat_code' => ['vat_code'],
-      ],
+      'unique keys' => ['instalment_line' => ['instalment_id', 'line_number']],
+      'indexes' => ['project_instalment' => ['project_nid', 'instalment_id'], 'vat_code' => ['vat_code']],
     ]);
   }
 
@@ -84,153 +65,95 @@ function brebo_finance_post_update_billing_vat_lines(array &$sandbox): string {
         'changed_by' => $user,
       ],
       'primary key' => ['id'],
-      'unique keys' => [
-        'sales_invoice_line' => ['sales_invoice_id', 'line_number'],
-      ],
-      'indexes' => [
-        'project_invoice' => ['project_nid', 'sales_invoice_id'],
-        'vat_code' => ['vat_code'],
-      ],
+      'unique keys' => ['sales_invoice_line' => ['sales_invoice_id', 'line_number']],
+      'indexes' => ['project_invoice' => ['project_nid', 'sales_invoice_id'], 'vat_code' => ['vat_code']],
     ]);
   }
-
   return 'BREBO Finance billing and sales-invoice VAT line storage installed.';
 }
 
-/**
- * Adds controlled provisional-sum monitoring per project.
- */
+/** Adds controlled provisional-sum monitoring per project. */
 function brebo_finance_post_update_project_provisional_sums(array &$sandbox): string {
   $database = \Drupal::database();
   $schema = $database->schema();
-  if ($schema->tableExists('brebo_finance_provisional_sum')) {
-    return 'BREBO Finance provisional-sum storage already exists.';
-  }
-
-  $money = [
-    'type' => 'numeric',
-    'precision' => 18,
-    'scale' => 4,
-    'not null' => TRUE,
-    'default' => 0,
-  ];
-  $timestamp = [
-    'type' => 'int',
-    'unsigned' => TRUE,
-    'not null' => TRUE,
-  ];
-  $user = [
-    'type' => 'int',
-    'unsigned' => TRUE,
-    'not null' => FALSE,
-  ];
-
+  if ($schema->tableExists('brebo_finance_provisional_sum')) return 'BREBO Finance provisional-sum storage already exists.';
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
+  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE];
+  $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
   $schema->createTable('brebo_finance_provisional_sum', [
     'description' => 'Controlled project provisional sum from contract allowance through settlement and payment.',
     'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'contract_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'provisional_sum_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'description' => ['type' => 'text', 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'], 'contract_amount_ex_vat' => $money, 'forecast_amount_ex_vat' => $money, 'actual_amount_ex_vat' => $money,
+      'settlement_amount_ex_vat' => $money, 'approved_settlement_ex_vat' => $money, 'invoiced_settlement_ex_vat' => $money, 'paid_settlement_inc_vat' => $money,
+      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'NL_21'], 'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE, 'default' => 21],
+      'client_approval_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'sales_invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'notes' => ['type' => 'text', 'not null' => FALSE],
+      'created' => $timestamp, 'created_by' => $user, 'changed' => $timestamp, 'changed_by' => $user,
+    ],
+    'primary key' => ['id'], 'unique keys' => ['project_provisional_sum_number' => ['project_nid', 'provisional_sum_number']], 'indexes' => ['project_status' => ['project_nid', 'status'], 'contract' => ['contract_id'], 'sales_invoice' => ['sales_invoice_id']],
+  ]);
+  return 'BREBO Finance provisional-sum storage installed.';
+}
+
+/** Adds controlled sales-invoice drafts before Moneybird creation. */
+function brebo_finance_post_update_sales_invoice_drafts(array &$sandbox): string {
+  $database = \Drupal::database(); $schema = $database->schema();
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0]; $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]; $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
+  if (!$schema->tableExists('brebo_finance_sales_invoice_draft')) {
+    $schema->createTable('brebo_finance_sales_invoice_draft', [
+      'description' => 'Controlled project sales-invoice draft awaiting creation in Moneybird.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'draft_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'], 'invoice_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE], 'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE], 'description' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'amount_ex_vat' => $money, 'vat_amount' => $money, 'amount_inc_vat' => $money, 'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'sales_invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => $timestamp, 'created_by' => $user, 'changed' => $timestamp, 'changed_by' => $user],
+      'primary key' => ['id'], 'unique keys' => ['project_draft_number' => ['project_nid', 'draft_number']], 'indexes' => ['project_status' => ['project_nid', 'status']],
+    ]);
+  }
+  if (!$schema->tableExists('brebo_finance_sales_invoice_draft_line')) {
+    $schema->createTable('brebo_finance_sales_invoice_draft_line', [
+      'description' => 'VAT-bearing source lines selected for a sales-invoice draft.',
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'draft_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'line_number' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE], 'amount_ex_vat' => $money, 'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE], 'vat_amount' => $money, 'amount_inc_vat' => $money, 'created' => $timestamp, 'created_by' => $user],
+      'primary key' => ['id'], 'unique keys' => ['draft_line' => ['draft_id', 'line_number']], 'indexes' => ['project_draft' => ['project_nid', 'draft_id'], 'source' => ['source_type', 'source_id']],
+    ]);
+  }
+  return 'BREBO Finance sales-invoice draft storage installed.';
+}
+
+/**
+ * Adds an immutable/idempotent outbound release queue for sales-invoice drafts.
+ */
+function brebo_finance_post_update_sales_invoice_release_outbox(array &$sandbox): string {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_finance_sales_invoice_outbox')) {
+    return 'BREBO Finance sales-invoice release outbox already exists.';
+  }
+  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE];
+  $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
+  $schema->createTable('brebo_finance_sales_invoice_outbox', [
+    'description' => 'Immutable outbound command for creation/sending of a Moneybird sales invoice through the BREBO integration API.',
+    'fields' => [
       'id' => ['type' => 'serial', 'not null' => TRUE],
+      'draft_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
       'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'contract_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'provisional_sum_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'title' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'description' => ['type' => 'text', 'not null' => FALSE],
-      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'open'],
-      'contract_amount_ex_vat' => $money,
-      'forecast_amount_ex_vat' => $money,
-      'actual_amount_ex_vat' => $money,
-      'settlement_amount_ex_vat' => $money,
-      'approved_settlement_ex_vat' => $money,
-      'invoiced_settlement_ex_vat' => $money,
-      'paid_settlement_inc_vat' => $money,
-      'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'NL_21'],
-      'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE, 'default' => 21],
-      'client_approval_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'sales_invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'notes' => ['type' => 'text', 'not null' => FALSE],
+      'command_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE, 'default' => 'sales_invoice.create_and_send'],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'queued'],
+      'idempotency_key' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE],
+      'payload_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'attempt_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'last_attempt' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'last_error' => ['type' => 'text', 'not null' => FALSE],
+      'integration_request_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'released' => $timestamp,
+      'released_by' => $user,
+      'completed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'created' => $timestamp,
       'created_by' => $user,
       'changed' => $timestamp,
       'changed_by' => $user,
     ],
     'primary key' => ['id'],
-    'unique keys' => [
-      'project_provisional_sum_number' => ['project_nid', 'provisional_sum_number'],
-    ],
-    'indexes' => [
-      'project_status' => ['project_nid', 'status'],
-      'contract' => ['contract_id'],
-      'sales_invoice' => ['sales_invoice_id'],
-    ],
+    'unique keys' => ['draft_command' => ['draft_id', 'command_type'], 'idempotency_key' => ['idempotency_key']],
+    'indexes' => ['status_created' => ['status', 'created'], 'project_status' => ['project_nid', 'status'], 'payload_hash' => ['payload_hash']],
   ]);
-
-  return 'BREBO Finance provisional-sum storage installed.';
-}
-
-/**
- * Adds controlled sales-invoice drafts before Moneybird creation.
- */
-function brebo_finance_post_update_sales_invoice_drafts(array &$sandbox): string {
-  $database = \Drupal::database();
-  $schema = $database->schema();
-  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
-  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE];
-  $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
-
-  if (!$schema->tableExists('brebo_finance_sales_invoice_draft')) {
-    $schema->createTable('brebo_finance_sales_invoice_draft', [
-      'description' => 'Controlled project sales-invoice draft awaiting creation in Moneybird.',
-      'fields' => [
-        'id' => ['type' => 'serial', 'not null' => TRUE],
-        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'draft_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-        'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
-        'invoice_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
-        'due_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
-        'description' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-        'amount_ex_vat' => $money,
-        'vat_amount' => $money,
-        'amount_inc_vat' => $money,
-        'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-        'sales_invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-        'created' => $timestamp,
-        'created_by' => $user,
-        'changed' => $timestamp,
-        'changed_by' => $user,
-      ],
-      'primary key' => ['id'],
-      'unique keys' => ['project_draft_number' => ['project_nid', 'draft_number']],
-      'indexes' => ['project_status' => ['project_nid', 'status']],
-    ]);
-  }
-
-  if (!$schema->tableExists('brebo_finance_sales_invoice_draft_line')) {
-    $schema->createTable('brebo_finance_sales_invoice_draft_line', [
-      'description' => 'VAT-bearing source lines selected for a sales-invoice draft.',
-      'fields' => [
-        'id' => ['type' => 'serial', 'not null' => TRUE],
-        'draft_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'line_number' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-        'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'description' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
-        'amount_ex_vat' => $money,
-        'vat_code' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-        'vat_rate' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => TRUE],
-        'vat_amount' => $money,
-        'amount_inc_vat' => $money,
-        'created' => $timestamp,
-        'created_by' => $user,
-      ],
-      'primary key' => ['id'],
-      'unique keys' => ['draft_line' => ['draft_id', 'line_number']],
-      'indexes' => [
-        'project_draft' => ['project_nid', 'draft_id'],
-        'source' => ['source_type', 'source_id'],
-      ],
-    ]);
-  }
-
-  return 'BREBO Finance sales-invoice draft storage installed.';
+  return 'BREBO Finance sales-invoice release outbox installed.';
 }
