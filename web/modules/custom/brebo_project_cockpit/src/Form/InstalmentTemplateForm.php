@@ -16,7 +16,7 @@ final class InstalmentTemplateForm extends FormBase {
   private const CONFIG_NAME = 'brebo_project_cockpit.instalment_templates';
 
   public function __construct(
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly ConfigFactoryInterface $templateConfigFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,7 +32,7 @@ final class InstalmentTemplateForm extends FormBase {
       throw new \InvalidArgumentException('BREBO project required.');
     }
 
-    $custom = $this->configFactory->get(self::CONFIG_NAME)->get('templates') ?? [];
+    $custom = $this->templateConfigFactory->get(self::CONFIG_NAME)->get('templates') ?? [];
 
     $form['intro'] = [
       '#markup' => '<p>' . $this->t('BREBO-standaardsjablonen blijven vast beschikbaar. Eigen sjablonen worden hier opgeslagen en kunnen later op ieder project worden toegepast. Een wijziging aan een sjabloon wijzigt nooit bestaande projecttermijnen.') . '</p>',
@@ -130,7 +130,7 @@ final class InstalmentTemplateForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $editable = $this->configFactory->getEditable(self::CONFIG_NAME);
+    $editable = $this->templateConfigFactory->getEditable(self::CONFIG_NAME);
     $templates = $editable->get('templates') ?? [];
     if (!is_array($templates)) {
       $templates = [];
