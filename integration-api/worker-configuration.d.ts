@@ -20,9 +20,10 @@ interface __BaseEnv_Env {
 	BREBO_SHARED_SECRET: string;
 	REPLAY_GUARD: DurableObjectNamespace<import("./src/index").ReplayGuard>;
 	USAGE_GUARD: DurableObjectNamespace<import("./src/index").UsageGuard>;
+	SALES_INVOICE_DISPATCH_GUARD: DurableObjectNamespace<import("./src/index").SalesInvoiceDispatchGuard>;
 }
 declare namespace Cloudflare {
-	interface GlobalProps { mainModule: typeof import("./src/index"); durableNamespaces: "ReplayGuard" | "UsageGuard"; }
+	interface GlobalProps { mainModule: typeof import("./src/index"); durableNamespaces: "ReplayGuard" | "UsageGuard" | "SalesInvoiceDispatchGuard"; }
 	interface Env extends __BaseEnv_Env {}
 }
 interface Env extends __BaseEnv_Env {}

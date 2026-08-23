@@ -4,6 +4,7 @@ import { createAndSendSalesInvoice, MoneybirdResponseError, SalesInvoiceDispatch
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
 export { ReplayGuard } from "./replay-guard";
 export { UsageGuard } from "./usage-guard";
+export { SalesInvoiceDispatchGuard } from "./sales-invoice-dispatch-guard";
 
 const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SIGNATURE = /^v1=([a-f0-9]{64})$/;
@@ -53,21 +54,38 @@ async function dispatchSalesInvoice(request: Request, env: Env, path: string, re
     return errorResponse(400, "invalid_request", "Request does not match the contract.", requestId);
   }
 
-  const replayKey = await sha256Hex(`sales-invoice:${value.idempotency_key}`);
-  const replay = env.REPLAY_GUARD.getByName(replayKey.slice(0, 2));
+  if (!env.MONEYBIRD_ACCESS_TOKEN || !env.MONEYBIRD_ADMINISTRATION_ID || env.MONEYBIRD_ADMINISTRATION_ID === "REPLACE_IN_DEPLOYMENT") {
+    return errorResponse(503, "accounting_not_configured", "Accounting provider configuration is incomplete.", requestId);
+  }
+
+  const commandHash = await sha256Hex(`sales-invoice:${value.idempotency_key}`);
+  const guard = env.SALES_INVOICE_DISPATCH_GUARD.getByName(commandHash.slice(0, 2));
   const now = Math.floor(Date.now() / 1_000);
-  const accepted = await replay.useOnce(replayKey, now + numberSetting(env.OUTBOUND_IDEMPOTENCY_TTL_SECONDS, 2_592_000), now);
-  if (!accepted) return errorResponse(409, "duplicate_command", "Sales invoice command was already accepted.", requestId);
+  const started = await guard.begin(commandHash, now + numberSetting(env.OUTBOUND_IDEMPOTENCY_TTL_SECONDS, 2_592_000), now);
+  if (!started.accepted) {
+    if (started.record.state === "completed" && started.record.response_json) {
+      try {
+        return Response.json(JSON.parse(started.record.response_json), { status: 200, headers: { "X-BREBO-Idempotent-Replay": "true" } });
+      } catch {
+        return errorResponse(500, "dispatch_state_error", "Stored accounting result could not be read.", requestId);
+      }
+    }
+    return errorResponse(409, "reconciliation_required", "Sales invoice command is already in progress or requires reconciliation before retry.", requestId);
+  }
 
   try {
     const invoice = await createAndSendSalesInvoice(value as unknown as SalesInvoiceDispatch, env);
-    return Response.json({ status: "ok", request_id: requestId, provider: "moneybird", sales_invoice: invoice });
+    const responsePayload = { status: "ok", request_id: requestId, provider: "moneybird", sales_invoice: invoice };
+    await guard.complete(commandHash, JSON.stringify(responsePayload), Math.floor(Date.now() / 1_000));
+    return Response.json(responsePayload);
   } catch (error) {
+    await guard.requireReconciliation(commandHash, Math.floor(Date.now() / 1_000));
     if (error instanceof MoneybirdResponseError) {
-      console.error(JSON.stringify({ event: "moneybird_sales_invoice_failed", request_hash: await sha256Hex(requestId), provider_status: error.status }));
-      return errorResponse(502, "provider_error", "Accounting provider could not complete the sales invoice command.", requestId);
+      console.error(JSON.stringify({ event: "moneybird_sales_invoice_failed", request_hash: await sha256Hex(requestId), provider_status: error.status, reconciliation_required: true }));
+      return errorResponse(502, "reconciliation_required", "Accounting provider outcome requires reconciliation before retry.", requestId);
     }
-    throw error;
+    console.error(JSON.stringify({ event: "moneybird_sales_invoice_uncertain", request_hash: await sha256Hex(requestId), reconciliation_required: true }));
+    return errorResponse(502, "reconciliation_required", "Accounting provider outcome is uncertain and requires reconciliation before retry.", requestId);
   }
 }
 

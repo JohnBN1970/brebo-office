@@ -7,12 +7,14 @@
   "durable_objects": {
     "bindings": [
       { "name": "REPLAY_GUARD", "class_name": "ReplayGuard" },
-      { "name": "USAGE_GUARD", "class_name": "UsageGuard" }
+      { "name": "USAGE_GUARD", "class_name": "UsageGuard" },
+      { "name": "SALES_INVOICE_DISPATCH_GUARD", "class_name": "SalesInvoiceDispatchGuard" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["ReplayGuard"] },
-    { "tag": "v2", "new_sqlite_classes": ["UsageGuard"] }
+    { "tag": "v2", "new_sqlite_classes": ["UsageGuard"] },
+    { "tag": "v3", "new_sqlite_classes": ["SalesInvoiceDispatchGuard"] }
   ],
   "vars": {
     "API_VERSION": "1.1.0-draft",
