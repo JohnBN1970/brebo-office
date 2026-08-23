@@ -35,6 +35,8 @@ final class ProjectInvoicesController extends ControllerBase {
     $instalments = $this->loadMany('brebo_finance_billing_instalment', $projectId, 'planned_invoice_date');
     $changes = $this->loadMany('brebo_finance_change_order', $projectId, 'changed', 'DESC');
     $provisionalSums = $this->loadMany('brebo_finance_provisional_sum', $projectId, 'changed', 'DESC');
+    $drafts = $this->loadMany('brebo_finance_sales_invoice_draft', $projectId, 'changed', 'DESC');
+    $outbox = $this->loadMany('brebo_finance_sales_invoice_outbox', $projectId, 'created', 'DESC');
     $invoices = $this->loadMany('brebo_finance_sales_invoice', $projectId, 'invoice_date', 'DESC');
 
     $contractValue = (float) ($contract['amount_ex_vat'] ?? 0);
@@ -116,6 +118,43 @@ final class ProjectInvoicesController extends ControllerBase {
       ];
     }
 
+    $outboxByDraft = [];
+    foreach ($outbox as $row) {
+      $draftId = (int) ($row['draft_id'] ?? 0);
+      if ($draftId > 0 && !isset($outboxByDraft[$draftId])) {
+        $outboxByDraft[$draftId] = $row;
+      }
+    }
+
+    $draftRows = [];
+    foreach ($drafts as $row) {
+      $draftId = (int) ($row['id'] ?? 0);
+      $queue = $outboxByDraft[$draftId] ?? [];
+      $draftStatus = (string) ($row['status'] ?? 'draft');
+      $integrationStatus = $queue !== [] ? (string) ($queue['status'] ?? 'queued') : ($draftStatus === 'draft' ? (string) $this->t('Nog niet vrijgegeven') : '—');
+      $action = $draftStatus === 'draft'
+        ? [
+          'data' => [
+            '#type' => 'link',
+            '#title' => $this->t('Vrijgeven & verzenden'),
+            '#url' => Url::fromRoute('brebo_project_cockpit.sales_invoice_release', ['node' => $projectId, 'draft' => $draftId]),
+            '#attributes' => ['class' => ['button', 'button--small']],
+          ],
+        ]
+        : '—';
+      $draftRows[] = [
+        (string) ($row['draft_number'] ?? '—'),
+        (string) ($row['invoice_date'] ?? '—'),
+        (string) ($row['due_date'] ?? '—'),
+        $draftStatus,
+        $integrationStatus,
+        $this->money($row['amount_ex_vat'] ?? NULL),
+        $this->money($row['vat_amount'] ?? NULL),
+        $this->money($row['amount_inc_vat'] ?? NULL),
+        $action,
+      ];
+    }
+
     $invoiceRows = [];
     foreach ($invoices as $row) {
       $invoiceRows[] = [
@@ -135,7 +174,7 @@ final class ProjectInvoicesController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-invoices-principle']],
         'title' => ['#markup' => '<h2>' . $this->t('Opbrengsten en verkoopfacturen') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Deze projecttab toont uitsluitend de opbrengstenkant: termijnschema, meer-/minderwerk, stelposten en verkoopfacturen. Inkoopfacturen blijven onder Inkoop. Moneybird blijft de boekhoudkundige bron voor de verkoopfactuurspiegel.') . '</p>'],
+        'text' => ['#markup' => '<p>' . $this->t('Deze projecttab toont uitsluitend de opbrengstenkant: termijnschema, meer-/minderwerk, stelposten, factuurconcepten en verkoopfacturen. Moneybird blijft de boekhoudkundige bron voor de officiële verkoopfactuurspiegel.') . '</p>'],
       ],
       'kpis' => [
         '#type' => 'container',
@@ -162,7 +201,7 @@ final class ProjectInvoicesController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_project_cockpit.provisional_sum_add', ['node' => $projectId]),
           '#attributes' => ['class' => ['button']],
         ],
-        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een factuurconcept combineert alleen factureerbare bronnen en wordt pas een officiële verkoopfactuur na creatie en synchronisatie met Moneybird.') . '</p>'],
+        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een concept wordt pas financieel definitief nadat het is vrijgegeven, via de integration API in Moneybird is aangemaakt en daarna als officiële factuur is teruggesynchroniseerd.') . '</p>'],
       ],
       'instalments' => [
         '#type' => 'details',
@@ -197,15 +236,26 @@ final class ProjectInvoicesController extends ControllerBase {
           '#empty' => $this->t('Nog geen meer-/minderwerk geregistreerd.'),
         ],
       ],
+      'drafts' => [
+        '#type' => 'details',
+        '#title' => $this->t('Factuurconcepten (@count)', ['@count' => count($draftRows)]),
+        '#open' => TRUE,
+        'table' => [
+          '#type' => 'table',
+          '#header' => [$this->t('Concept'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Conceptstatus'), $this->t('Integratie'), $this->t('Excl. btw'), $this->t('BTW'), $this->t('Incl. btw'), $this->t('Actie')],
+          '#rows' => $draftRows,
+          '#empty' => $this->t('Voor dit project zijn nog geen verkoopfactuurconcepten aangemaakt.'),
+        ],
+      ],
       'invoices' => [
         '#type' => 'details',
-        '#title' => $this->t('Verkoopfacturen (@count)', ['@count' => count($invoiceRows)]),
+        '#title' => $this->t('Officiële verkoopfacturen (@count)', ['@count' => count($invoiceRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
           '#header' => [$this->t('Factuur'), $this->t('Datum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Excl. btw'), $this->t('BTW'), $this->t('Incl. btw'), $this->t('Ontvangen')],
           '#rows' => $invoiceRows,
-          '#empty' => $this->t('Voor dit project zijn nog geen verkoopfacturen geregistreerd.'),
+          '#empty' => $this->t('Voor dit project zijn nog geen officiële Moneybird-verkoopfacturen geregistreerd.'),
         ],
       ],
       '#cache' => [
