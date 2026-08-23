@@ -7,6 +7,7 @@ namespace Drupal\brebo_project_cockpit\Form;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -16,10 +17,13 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
 
   private ?array $draft = NULL;
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly QueueFactory $queueFactory,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('database'), $container->get('queue'));
   }
 
   public function getFormId(): string {
@@ -80,13 +84,14 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
     $idempotencyKey = 'sales-invoice:' . $draftId . ':' . $hash;
     $actor = (int) $this->currentUser()->id();
     $now = time();
+    $outboxId = 0;
     $transaction = $this->database->startTransaction();
     try {
       $existing = $this->database->select('brebo_finance_sales_invoice_outbox', 'o')->fields('o', ['id'])->condition('draft_id', $draftId)->condition('command_type', 'sales_invoice.create_and_send')->execute()->fetchField();
       if ($existing !== FALSE) {
         throw new \RuntimeException('This invoice draft already has a release command.');
       }
-      $this->database->insert('brebo_finance_sales_invoice_outbox')->fields([
+      $outboxId = (int) $this->database->insert('brebo_finance_sales_invoice_outbox')->fields([
         'draft_id' => $draftId,
         'project_nid' => $projectId,
         'command_type' => 'sales_invoice.create_and_send',
@@ -108,7 +113,10 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
       $transaction->rollBack();
       throw $exception;
     }
-    $this->messenger()->addStatus($this->t('Factuurconcept @number is vrijgegeven. Eén verzendopdracht staat klaar voor de BREBO integration API.', ['@number' => $draft['draft_number']]));
+
+    $this->queueFactory->get('brebo_finance_sales_invoice_outbox')->createItem(['outbox_id' => $outboxId]);
+
+    $this->messenger()->addStatus($this->t('Factuurconcept @number is vrijgegeven en staat in de verzendwachtrij.', ['@number' => $draft['draft_number']]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
   }
 
