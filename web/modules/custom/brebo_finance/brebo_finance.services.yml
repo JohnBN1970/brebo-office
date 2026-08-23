@@ -122,3 +122,6 @@ services:
   brebo_finance.digital_controller:
     class: Drupal\brebo_finance\Service\DigitalController
     arguments: ['@database', '@brebo_finance.control_scanner', '@brebo_finance.controller_briefing_builder', '@brebo_finance.ai_assessment_manager']
+  brebo_finance.sales_invoice_integration_client:
+    class: Drupal\brebo_finance\Service\SalesInvoiceIntegrationClient
+    arguments: ['@http_client']
