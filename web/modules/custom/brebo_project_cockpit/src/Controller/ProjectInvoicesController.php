@@ -150,13 +150,19 @@ final class ProjectInvoicesController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
+        'new_invoice' => [
+          '#type' => 'link',
+          '#title' => $this->t('Nieuwe verkoopfactuur'),
+          '#url' => Url::fromRoute('brebo_project_cockpit.sales_invoice_draft_add', ['node' => $projectId]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
         'add_provisional' => [
           '#type' => 'link',
           '#title' => $this->t('Stelpost toevoegen'),
           '#url' => Url::fromRoute('brebo_project_cockpit.provisional_sum_add', ['node' => $projectId]),
-          '#attributes' => ['class' => ['button', 'button--primary']],
+          '#attributes' => ['class' => ['button']],
         ],
-        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een stelpost verhoogt de actuele opdrachtwaarde pas voor het goedgekeurde verrekeningsbedrag. Prognoses blijven zichtbaar als risico, maar worden niet stilletjes als omzet behandeld.') . '</p>'],
+        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een factuurconcept combineert alleen factureerbare bronnen en wordt pas een officiële verkoopfactuur na creatie en synchronisatie met Moneybird.') . '</p>'],
       ],
       'instalments' => [
         '#type' => 'details',

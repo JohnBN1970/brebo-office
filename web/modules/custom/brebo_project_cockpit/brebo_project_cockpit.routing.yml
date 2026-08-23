@@ -96,3 +96,16 @@ brebo_project_cockpit.provisional_sum_add:
     parameters:
       node:
         type: entity:node
+
+brebo_project_cockpit.sales_invoice_draft_add:
+  path: '/projecten/{node}/facturen/nieuwe-verkoopfactuur'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectSalesInvoiceDraftForm'
+    _title: 'Nieuwe verkoopfactuur'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
