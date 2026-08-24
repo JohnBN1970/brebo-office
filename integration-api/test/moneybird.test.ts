@@ -18,8 +18,12 @@ describe("Moneybird sales invoice dispatch", () => {
     } as Env);
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(fetchMock.mock.calls[0][0]).toBe("https://moneybird.com/api/v2/999/sales_invoices.json");
-    expect(fetchMock.mock.calls[1][0]).toBe("https://moneybird.com/api/v2/999/sales_invoices/123/send_invoice.json");
+    const firstCall = fetchMock.mock.calls[0];
+    const secondCall = fetchMock.mock.calls[1];
+    expect(firstCall).toBeDefined();
+    expect(secondCall).toBeDefined();
+    expect(firstCall![0]).toBe("https://moneybird.com/api/v2/999/sales_invoices.json");
+    expect(secondCall![0]).toBe("https://moneybird.com/api/v2/999/sales_invoices/123/send_invoice.json");
     expect(result).toMatchObject({ id: "123", invoice_id: "2026-001", state: "open" });
   });
 
