@@ -38,6 +38,22 @@ function brebo_finance_cron(): void {
   $database = \Drupal::database();
   $today = date('Y-m-d');
 
+  // Pull the current Moneybird purchase-invoice mirror. Moneybird remains
+  // authoritative for accounting data; existing BREBO project/order matching
+  // is preserved by the importer. A provider outage must never break Drupal cron.
+  try {
+    $sync = \Drupal::service('brebo_finance.purchase_invoice_importer')->sync();
+    \Drupal::logger('brebo_finance')->info('Moneybird purchase invoice sync: @received received, @inserted inserted, @updated updated, @unchanged unchanged.', [
+      '@received' => $sync['received'],
+      '@inserted' => $sync['inserted'],
+      '@updated' => $sync['updated'],
+      '@unchanged' => $sync['unchanged'],
+    ]);
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_finance')->error('Moneybird purchase invoice sync failed: @message', ['@message' => $e->getMessage()]);
+  }
+
   $query = $database->select('brebo_finance_project_contract', 'c');
   $query->leftJoin(
     'brebo_finance_controller_run',
