@@ -7,7 +7,7 @@ brebo_finance.command_center_page:
 
 brebo_finance.purchase_invoice_list:
   path: '/brebo-office/finance/purchase-invoices'
-  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceController::list', _title: 'Inkoopfacturen' }
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceController::listing', _title: 'Inkoopfacturen' }
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
