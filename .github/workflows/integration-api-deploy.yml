@@ -46,8 +46,8 @@ jobs:
           BREBO_INTEGRATION_API_URL: https://brebo-integration-api.john-boon.workers.dev
           EXPECTED_MONEYBIRD_ADMINISTRATION_ID: '470422197045823237'
         run: |
-          node <<'NODE'
-          const { createHash, createHmac, randomUUID } = require('node:crypto');
+          node --input-type=module <<'NODE'
+          import { createHash, createHmac, randomUUID } from 'node:crypto';
 
           const baseUrl = process.env.BREBO_INTEGRATION_API_URL;
           const secret = process.env.BREBO_SHARED_SECRET;
