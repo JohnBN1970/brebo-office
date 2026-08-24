@@ -17,7 +17,7 @@ final class PurchaseInvoiceController extends ControllerBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $financeEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -176,7 +176,7 @@ final class PurchaseInvoiceController extends ControllerBase {
     if ($projectNid <= 0) {
       return 'Niet gekoppeld';
     }
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
+    $project = $this->financeEntityTypeManager->getStorage('node')->load($projectNid);
     return $project ? (string) $project->label() : 'Project #' . $projectNid;
   }
 
