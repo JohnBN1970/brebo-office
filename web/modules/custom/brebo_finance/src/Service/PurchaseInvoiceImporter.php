@@ -50,26 +50,21 @@ final class PurchaseInvoiceImporter {
       ];
 
       $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
-        ->fields('i', ['id', 'source_hash'])
+        ->fields('i', ['id', 'source_hash', 'moneybird_id'])
         ->condition('moneybird_id', $moneybirdId)
         ->execute()
         ->fetchAssoc();
 
       if (!$existing) {
-        // Older/local imports may already contain the same supplier invoice but
-        // not yet carry its Moneybird id. Adopt that record instead of trying
-        // to create a duplicate. This mirrors the table's supplier_invoice
-        // uniqueness rule and preserves BREBO-owned matching data.
-        $natural = $this->database->select('brebo_finance_purchase_invoice', 'i')
+        // The table itself defines supplier_ref + invoice_number as unique.
+        // Treat that natural key as authoritative too, regardless of whether a
+        // previous import already populated another/legacy Moneybird id.
+        $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
           ->fields('i', ['id', 'source_hash', 'moneybird_id'])
           ->condition('supplier_ref', $fields['supplier_ref'])
           ->condition('invoice_number', $fields['invoice_number'])
           ->execute()
           ->fetchAssoc();
-
-        if ($natural && trim((string) ($natural['moneybird_id'] ?? '')) === '') {
-          $existing = $natural;
-        }
       }
 
       if (!$existing) {
@@ -80,7 +75,7 @@ final class PurchaseInvoiceImporter {
       }
 
       if ((string) ($existing['source_hash'] ?? '') === $fields['source_hash']
-        && trim((string) ($existing['moneybird_id'] ?? $moneybirdId)) === $moneybirdId) {
+        && trim((string) ($existing['moneybird_id'] ?? '')) === $moneybirdId) {
         $result['unchanged']++;
         continue;
       }
