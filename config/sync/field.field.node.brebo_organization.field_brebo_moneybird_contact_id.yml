@@ -1,0 +1,19 @@
+uuid: 6d5f6b27-7c8d-45cf-a7c7-9dfb1237a5e4
+langcode: nl
+status: true
+dependencies:
+  config:
+    - field.storage.node.field_brebo_moneybird_contact_id
+    - node.type.brebo_organization
+id: node.brebo_organization.field_brebo_moneybird_contact_id
+field_name: field_brebo_moneybird_contact_id
+entity_type: node
+bundle: brebo_organization
+label: 'Moneybird contact-ID'
+description: 'Technische externe identiteit van deze organisatie in Moneybird. Niet gebruiken als KVK- of intern relatienummer.'
+required: false
+translatable: false
+default_value: {  }
+default_value_callback: ''
+settings: {  }
+field_type: string

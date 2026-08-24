@@ -4,6 +4,7 @@ status: true
 dependencies:
   config:
     - field.field.node.brebo_organization.field_brebo_description
+    - field.field.node.brebo_organization.field_brebo_moneybird_contact_id
     - field.field.node.brebo_organization.field_brebo_org_address
     - field.field.node.brebo_organization.field_brebo_org_email
     - field.field.node.brebo_organization.field_brebo_org_number
@@ -24,7 +25,16 @@ content:
     label: above
     settings: {  }
     third_party_settings: {  }
-    weight: 7
+    weight: 8
+    region: content
+  field_brebo_moneybird_contact_id:
+    type: string
+    label: above
+    settings:
+      link_to_entity: false
+      link_rel: canonical
+    third_party_settings: {  }
+    weight: 3
     region: content
   field_brebo_org_address:
     type: string
@@ -33,14 +43,14 @@ content:
       link_to_entity: false
       link_rel: canonical
     third_party_settings: {  }
-    weight: 5
+    weight: 6
     region: content
   field_brebo_org_email:
     type: email_mailto
     label: above
     settings: {  }
     third_party_settings: {  }
-    weight: 3
+    weight: 4
     region: content
   field_brebo_org_number:
     type: string
@@ -58,7 +68,7 @@ content:
       link_to_entity: false
       link_rel: canonical
     third_party_settings: {  }
-    weight: 4
+    weight: 5
     region: content
   field_brebo_org_status:
     type: string
@@ -67,7 +77,7 @@ content:
       link_to_entity: false
       link_rel: canonical
     third_party_settings: {  }
-    weight: 6
+    weight: 7
     region: content
   field_brebo_org_type:
     type: string
