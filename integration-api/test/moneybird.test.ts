@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createAndSendSalesInvoice } from "../src/moneybird";
+import { createAndSendSalesInvoice, listPurchaseInvoices } from "../src/moneybird";
 
 describe("Moneybird sales invoice dispatch", () => {
   afterEach(() => {
@@ -53,5 +53,53 @@ describe("Moneybird sales invoice dispatch", () => {
       MONEYBIRD_ADMINISTRATION_ID: "administration-123",
       MONEYBIRD_ACCESS_TOKEN: "token-that-must-not-leak",
     } as Env)).rejects.not.toThrow(/token-that-must-not-leak/);
+  });
+});
+
+describe("Moneybird purchase invoice read", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("reads and normalizes purchase invoices without mutating Moneybird", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(Response.json([{
+      id: "456",
+      contact_id: "77",
+      contact: { company_name: "Leverancier BV" },
+      reference: "INK-2026-44",
+      date: "2026-08-24",
+      due_date: "2026-09-23",
+      state: "open",
+      currency: "EUR",
+      total_price_excl_tax: "100.00",
+      total_price_incl_tax: "121.00",
+      version: 12,
+      origin: "email",
+    }]));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const result = await listPurchaseInvoices({
+      MONEYBIRD_ADMINISTRATION_ID: "999",
+      MONEYBIRD_ACCESS_TOKEN: "secret-token",
+    } as Env);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0]!;
+    expect(String(url)).toContain("/api/v2/999/documents/purchase_invoices.json");
+    expect((init as RequestInit).method).toBe("GET");
+    expect(result).toEqual([{
+      id: "456",
+      contact_id: "77",
+      supplier_name: "Leverancier BV",
+      reference: "INK-2026-44",
+      date: "2026-08-24",
+      due_date: "2026-09-23",
+      state: "open",
+      currency: "EUR",
+      total_price_excl_tax: "100.00",
+      total_price_incl_tax: "121.00",
+      version: 12,
+      origin: "email",
+    }]);
   });
 });
