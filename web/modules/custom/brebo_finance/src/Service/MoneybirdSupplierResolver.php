@@ -15,6 +15,7 @@ final class MoneybirdSupplierResolver {
   private const BUNDLE = 'brebo_organization';
   private const TYPE_FIELD = 'field_brebo_org_type';
   private const MONEYBIRD_FIELD = 'field_brebo_moneybird_contact_id';
+  private const SUPPLIER_TYPE = 'Leverancier';
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
@@ -69,7 +70,7 @@ final class MoneybirdSupplierResolver {
       $organization = $unlinked[0];
       $organization->set(self::MONEYBIRD_FIELD, $contactId);
       if ($organization->hasField(self::TYPE_FIELD) && $organization->get(self::TYPE_FIELD)->isEmpty()) {
-        $organization->set(self::TYPE_FIELD, 'leverancier');
+        $organization->set(self::TYPE_FIELD, self::SUPPLIER_TYPE);
       }
       $organization->save();
       return $organization;
@@ -84,7 +85,7 @@ final class MoneybirdSupplierResolver {
       'type' => self::BUNDLE,
       'title' => $supplierName,
       'status' => 1,
-      self::TYPE_FIELD => 'leverancier',
+      self::TYPE_FIELD => self::SUPPLIER_TYPE,
       self::MONEYBIRD_FIELD => $contactId,
     ]);
     $organization->save();
