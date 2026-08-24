@@ -1,9 +1,24 @@
 brebo_finance.command_center_page:
   path: '/brebo-office/finance'
-  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::page', _title: 'Financieel Command Center' }
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::page', _title: 'Finance' }
   requirements: { _permission: 'access brebo finance' }
   methods: [GET]
   options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_list:
+  path: '/brebo-office/finance/purchase-invoices'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceController::listing', _title: 'Inkoopfacturen' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_view:
+  path: '/brebo-office/finance/purchase-invoices/{invoice_id}'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceController::view', _title: 'Inkoopfactuur' }
+  requirements: { _permission: 'access brebo finance', invoice_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
 brebo_finance.command_center_api:
   path: '/brebo-office/api/finance/command-center'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::api', _title: 'BREBO Financieel Command Center API' }

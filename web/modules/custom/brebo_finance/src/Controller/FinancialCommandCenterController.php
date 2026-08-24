@@ -6,10 +6,12 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Link;
+use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
-/** Exposes the BREBO portfolio financial command center. */
+/** Exposes the BREBO organisation-wide financial command center. */
 final class FinancialCommandCenterController extends ControllerBase {
 
   public function __construct(private readonly FinancialCommandCenter $commandCenter) {}
@@ -24,13 +26,31 @@ final class FinancialCommandCenterController extends ControllerBase {
       '#attributes' => [
         'id' => 'brebo-finance-command-center',
         'class' => ['brebo-finance-command-center'],
-        'data-api-url' => '/brebo-office/api/finance/command-center',
-        'data-decision-url' => '/brebo-office/finance/decision-inbox',
       ],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Financieel Command Center</h1><p>Portfolio-overzicht van geld, risico, verplichtingen en beslissingen.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Finance</h1><p>Organisatiebreed financieel overzicht. Projectgebonden processen blijven onder Projecten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
       ],
-      'content' => ['#markup' => '<div data-bfcc-content><div class="bfcc-loading">Financiële positie laden…</div></div>'],
+      'navigation' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['bfcc-section']],
+        'links' => [
+          '#theme' => 'item_list',
+          '#items' => [
+            Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
+            Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
+          ],
+          '#attributes' => ['class' => ['bfcc-finance-nav']],
+        ],
+      ],
+      'content' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['bfcc-section']],
+        'title' => ['#markup' => '<span class="bfcc-kicker">ORGANISATIE</span><h2>Financieel dashboard</h2>'],
+        'intro' => ['#markup' => '<p>De organisatiebrede KPI-laag wordt hierna aangesloten op de maatgevende Moneybird-rubrieken. Tot die tijd worden geen projectwaarden als ondernemings-KPI gepresenteerd.</p>'],
+        'purchase_invoices' => [
+          '#markup' => '<p><strong>Operationele werkvoorraad:</strong> ' . Link::fromTextAndUrl($this->t('open Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list'))->toString() . '</p>',
+        ],
+      ],
       '#attached' => ['library' => ['brebo_finance/command_center']],
       '#cache' => ['max-age' => 0],
     ];
