@@ -23,6 +23,32 @@ export interface MoneybirdSalesInvoiceResult {
   sent_at: string | null;
 }
 
+export interface MoneybirdConnectionResult {
+  administration_id: string;
+  administration_name: string | null;
+}
+
+export async function checkMoneybirdConnection(env: Env): Promise<MoneybirdConnectionResult> {
+  const administrationId = env.MONEYBIRD_ADMINISTRATION_ID;
+  const response = await moneybirdFetch("https://moneybird.com/api/v2/administrations.json", env, { method: "GET" });
+  const value: unknown = await response.json();
+  if (!Array.isArray(value)) throw new MoneybirdResponseError(502, "Invalid Moneybird response.");
+
+  const administration = value.find((candidate) => {
+    if (!candidate || typeof candidate !== "object") return false;
+    return String((candidate as Record<string, unknown>).id ?? "") === administrationId;
+  });
+  if (!administration || typeof administration !== "object") {
+    throw new MoneybirdResponseError(404, "Configured Moneybird administration is not accessible.");
+  }
+
+  const record = administration as Record<string, unknown>;
+  return {
+    administration_id: administrationId,
+    administration_name: typeof record.name === "string" ? record.name : null,
+  };
+}
+
 export async function createAndSendSalesInvoice(
   command: SalesInvoiceDispatch,
   env: Env,
