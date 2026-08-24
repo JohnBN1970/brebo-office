@@ -27,7 +27,7 @@ final class PurchaseInvoiceController extends ControllerBase {
     );
   }
 
-  public function list(): array {
+  public function listing(): array {
     $rows = [];
     foreach ($this->loadInvoices() as $invoice) {
       $project = $this->projectLabel((int) ($invoice['project_nid'] ?? 0));
