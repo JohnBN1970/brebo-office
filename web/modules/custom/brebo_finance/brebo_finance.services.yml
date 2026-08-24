@@ -134,3 +134,6 @@ services:
   brebo_finance.moneybird_supplier_resolver:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierResolver
     arguments: ['@entity_type.manager']
+  brebo_finance.moneybird_supplier_diagnosis:
+    class: Drupal\brebo_finance\Service\MoneybirdSupplierDiagnosis
+    arguments: ['@database', '@entity_type.manager']
