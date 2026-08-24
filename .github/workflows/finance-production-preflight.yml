@@ -1,0 +1,76 @@
+name: BREBO Finance Production Preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Verify Finance production readiness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Verify production without changing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== Repository ==="
+          echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
+          echo "PRODUCTION_BRANCH=$(git branch --show-current || true)"
+          test -z "$(git status --porcelain)" || { echo 'Production working tree is not clean.'; git status --short; exit 20; }
+          git fetch origin develop --quiet
+          echo "DEVELOP_SHA=$(git rev-parse origin/develop)"
+
+          echo "=== Drupal ==="
+          "${drush[@]}" status
+          "${drush[@]}" pm:list --type=module --status=enabled --format=list | grep -qx brebo_finance || { echo 'brebo_finance is not enabled.'; exit 21; }
+
+          echo "=== Pending database updates ==="
+          set +e
+          update_output=$("${drush[@]}" updatedb:status 2>&1)
+          update_status=$?
+          set -e
+          printf '%s\n' "$update_output"
+          if [[ $update_status -ne 0 ]]; then
+            echo "updatedb:status failed with exit code $update_status"
+            exit 22
+          fi
+
+          echo "=== Finance routes ==="
+          "${drush[@]}" php:eval '$r=\Drupal::service("router.route_provider"); $names=["brebo_finance.dashboard","brebo_finance.sales_invoice_overview","brebo_finance.work_budget_overview"]; foreach ($names as $n) { try { $r->getRouteByName($n); echo "ROUTE_OK=$n\n"; } catch (\Throwable $e) { echo "ROUTE_MISSING=$n\n"; } }'
+
+          echo "=== Integration configuration presence ==="
+          "${drush[@]}" php:eval '$u=(string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", ""); $s=(string) \Drupal\Core\Site\Settings::get("brebo_integration_shared_secret", ""); echo "INTEGRATION_API_URL_CONFIGURED=" . ($u !== "" ? "yes" : "no") . "\n"; echo "INTEGRATION_SHARED_SECRET_CONFIGURED=" . ($s !== "" ? "yes" : "no") . "\n"; if ($u === "" || $s === "") { exit(23); }'
+
+          echo "FINANCE_PRODUCTION_PREFLIGHT=PASS"
+          REMOTE
