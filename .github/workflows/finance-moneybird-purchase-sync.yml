@@ -1,0 +1,77 @@
+name: BREBO Finance Moneybird Purchase Sync
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Sync Moneybird purchase invoices to Finance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Run controlled purchase invoice sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Finance Moneybird purchase sync preflight ==="
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
+          "${drush[@]}" php:eval '
+            $container = \Drupal::getContainer();
+            foreach (["brebo_finance.purchase_invoice_integration_client", "brebo_finance.purchase_invoice_importer"] as $service) {
+              print $service . "=" . ($container->has($service) ? "yes" : "no") . "\n";
+              if (!$container->has($service)) { throw new \RuntimeException("Missing required service: " . $service); }
+            }
+            $db = \Drupal::database();
+            if (!$db->schema()->tableExists("brebo_finance_purchase_invoice")) { throw new \RuntimeException("Missing purchase invoice table"); }
+            print "PURCHASE_INVOICE_TABLE=yes\n";
+          '
+
+          echo "=== Running one controlled Moneybird purchase invoice sync ==="
+          "${drush[@]}" php:eval '
+            $result = \Drupal::service("brebo_finance.purchase_invoice_importer")->sync();
+            foreach (["received", "inserted", "updated", "unchanged"] as $key) {
+              print strtoupper($key) . "=" . (int) ($result[$key] ?? 0) . "\n";
+            }
+          '
+
+          echo "=== Finance purchase invoice count after sync ==="
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $count = (int) $db->select("brebo_finance_purchase_invoice", "i")->countQuery()->execute()->fetchField();
+            print "PURCHASE_INVOICE_TOTAL=" . $count . "\n";
+            $unlinked = (int) $db->select("brebo_finance_purchase_invoice", "i")->condition("project_nid", 0)->countQuery()->execute()->fetchField();
+            print "PURCHASE_INVOICE_UNLINKED=" . $unlinked . "\n";
+            print "MONEYBIRD_PURCHASE_SYNC=PASS\n";
+          '
+          REMOTE
