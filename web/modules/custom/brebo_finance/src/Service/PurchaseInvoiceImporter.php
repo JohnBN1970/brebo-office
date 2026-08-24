@@ -56,13 +56,31 @@ final class PurchaseInvoiceImporter {
         ->fetchAssoc();
 
       if (!$existing) {
+        // Older/local imports may already contain the same supplier invoice but
+        // not yet carry its Moneybird id. Adopt that record instead of trying
+        // to create a duplicate. This mirrors the table's supplier_invoice
+        // uniqueness rule and preserves BREBO-owned matching data.
+        $natural = $this->database->select('brebo_finance_purchase_invoice', 'i')
+          ->fields('i', ['id', 'source_hash', 'moneybird_id'])
+          ->condition('supplier_ref', $fields['supplier_ref'])
+          ->condition('invoice_number', $fields['invoice_number'])
+          ->execute()
+          ->fetchAssoc();
+
+        if ($natural && trim((string) ($natural['moneybird_id'] ?? '')) === '') {
+          $existing = $natural;
+        }
+      }
+
+      if (!$existing) {
         $fields['created'] = $now;
         $this->database->insert('brebo_finance_purchase_invoice')->fields($fields)->execute();
         $result['inserted']++;
         continue;
       }
 
-      if ((string) ($existing['source_hash'] ?? '') === $fields['source_hash']) {
+      if ((string) ($existing['source_hash'] ?? '') === $fields['source_hash']
+        && trim((string) ($existing['moneybird_id'] ?? $moneybirdId)) === $moneybirdId) {
         $result['unchanged']++;
         continue;
       }
