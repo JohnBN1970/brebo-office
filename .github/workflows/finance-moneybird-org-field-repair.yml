@@ -1,0 +1,124 @@
+name: BREBO Finance Moneybird Organization Field Repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    name: Ensure Moneybird organization identity field
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Ensure field storage, instance and displays
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Moneybird organization field repair preflight ==="
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
+
+          "${drush[@]}" php:eval '
+            use Drupal\field\Entity\FieldConfig;
+            use Drupal\field\Entity\FieldStorageConfig;
+            use Drupal\Core\Entity\Entity\EntityFormDisplay;
+            use Drupal\Core\Entity\Entity\EntityViewDisplay;
+
+            $field = "field_brebo_moneybird_contact_id";
+            $bundle = "brebo_organization";
+
+            if (!FieldStorageConfig::loadByName("node", $field)) {
+              FieldStorageConfig::create([
+                "field_name" => $field,
+                "entity_type" => "node",
+                "type" => "string",
+                "settings" => ["max_length" => 64, "case_sensitive" => TRUE],
+                "cardinality" => 1,
+                "translatable" => FALSE,
+              ])->save();
+              print "FIELD_STORAGE=created\n";
+            }
+            else {
+              print "FIELD_STORAGE=existing\n";
+            }
+
+            if (!FieldConfig::loadByName("node", $bundle, $field)) {
+              FieldConfig::create([
+                "field_name" => $field,
+                "entity_type" => "node",
+                "bundle" => $bundle,
+                "label" => "Moneybird contact-ID",
+                "description" => "Technische externe identiteit van deze organisatie in Moneybird. Niet gebruiken als KVK- of intern relatienummer.",
+                "required" => FALSE,
+                "translatable" => FALSE,
+              ])->save();
+              print "FIELD_INSTANCE=created\n";
+            }
+            else {
+              print "FIELD_INSTANCE=existing\n";
+            }
+
+            $form = EntityFormDisplay::load("node.$bundle.default");
+            if ($form) {
+              $form->setComponent($field, [
+                "type" => "string_textfield",
+                "weight" => 8,
+                "region" => "content",
+                "settings" => ["size" => 60, "placeholder" => ""],
+                "third_party_settings" => [],
+              ])->save();
+              print "FORM_DISPLAY=ready\n";
+            }
+
+            $view = EntityViewDisplay::load("node.$bundle.default");
+            if ($view) {
+              $view->setComponent($field, [
+                "type" => "string",
+                "label" => "above",
+                "weight" => 8,
+                "region" => "content",
+                "settings" => ["link_to_entity" => FALSE],
+                "third_party_settings" => [],
+              ])->save();
+              print "VIEW_DISPLAY=ready\n";
+            }
+
+            \Drupal::service("entity_field.manager")->clearCachedFieldDefinitions();
+            $definition = \Drupal::service("entity_field.manager")->getFieldDefinitions("node", $bundle)[$field] ?? NULL;
+            if (!$definition) {
+              throw new \RuntimeException("Moneybird organization identity field is still unavailable after repair.");
+            }
+            print "MONEYBIRD_ORG_FIELD=PASS\n";
+          '
+
+          "${drush[@]}" cr
+          REMOTE
