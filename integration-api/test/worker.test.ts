@@ -12,8 +12,8 @@ describe("BREBO Integration API", () => {
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
       status: "healthy",
-      api_version: "1.0.0-draft",
-      worker_version: "0.1.0",
+      api_version: "1.1.0-draft",
+      worker_version: "0.2.0",
     });
   });
 
