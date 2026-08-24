@@ -42,6 +42,10 @@
       <span class="brebo-office-nav__icon" aria-hidden="true">✉</span><span class="brebo-office-nav__label">Mail</span>
     </a>
 
+    <a class="brebo-office-nav__item{{ route starts with 'brebo_finance.' ? ' is-active' : '' }}" href="{{ path('brebo_finance.command_center_page') }}" title="Finance"{{ route starts with 'brebo_finance.' ? ' aria-current="page"' : '' }}>
+      <span class="brebo-office-nav__icon" aria-hidden="true">€</span><span class="brebo-office-nav__label">Finance</span>
+    </a>
+
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.quality_dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.quality_dashboard') }}" title="Kwaliteit">
       <span class="brebo-office-nav__icon" aria-hidden="true">◆</span><span class="brebo-office-nav__label">Kwaliteit</span>
     </a>
