@@ -40,22 +40,43 @@ jobs:
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
           remote_php="/opt/alt/php83/usr/bin/php"
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          echo "=== Repository ==="
-          echo "PRODUCTION_SHA=$(git rev-parse HEAD)"
-          echo "PRODUCTION_BRANCH=$(git branch --show-current || true)"
-          test -z "$(git status --porcelain)" || { echo 'Production working tree is not clean.'; git status --short; exit 20; }
-          git fetch origin develop --quiet
-          echo "DEVELOP_SHA=$(git rev-parse origin/develop)"
+          echo "=== Deployment target ==="
+          [[ -d "$app" && ! -L "$app" ]] || { echo 'Production application directory is invalid.'; exit 20; }
+          [[ -d "$webroot" && ! -L "$webroot" ]] || { echo 'Drupal webroot is invalid.'; exit 20; }
+          [[ -f "$webroot/sites/default/settings.php" ]] || { echo 'Production settings.php is missing.'; exit 20; }
+          [[ -f "$webroot/index.php" ]] || { echo 'Drupal index.php is missing.'; exit 20; }
+          [[ ! -d "$webroot/web" ]] || { echo 'Nested Drupal webroot detected.'; exit 20; }
+          [[ -x "$remote_php" ]] || { echo 'Required PHP 8.3 binary is missing.'; exit 20; }
+          echo "PRODUCTION_GIT_METADATA_SHA=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
+          echo "PRODUCTION_GIT_BRANCH=$(git branch --show-current 2>/dev/null || true)"
 
-          echo "=== Drupal ==="
+          # The central deployment copies a release archive into the production
+          # checkout without moving its .git metadata. A dirty git status is
+          # therefore expected and is diagnostic information, not a release gate.
+          dirty_count=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ' || true)
+          echo "PRODUCTION_GIT_STATUS_ENTRIES=${dirty_count:-0}"
+          if [[ "${dirty_count:-0}" != "0" ]]; then
+            echo "NOTICE=Production uses archive overlay deployment; git status is intentionally non-authoritative."
+          fi
+
+          echo "=== Drupal boot ==="
           "${drush[@]}" status
-          "${drush[@]}" pm:list --type=module --status=enabled --format=list | grep -qx brebo_finance || { echo 'brebo_finance is not enabled.'; exit 21; }
 
-          echo "=== Pending database updates ==="
+          echo "=== Finance current state (informational before deploy) ==="
+          if "${drush[@]}" pm:list --type=module --status=enabled --format=list | grep -qx brebo_finance; then
+            echo "BREBO_FINANCE_CURRENTLY_ENABLED=yes"
+            "${drush[@]}" php:eval '$r=\Drupal::service("router.route_provider"); foreach (["brebo_finance.project_finance_page"] as $n) { try { $r->getRouteByName($n); echo "ROUTE_OK=$n\n"; } catch (\Throwable $e) { echo "ROUTE_NOT_CURRENTLY_AVAILABLE=$n\n"; } }'
+          else
+            echo "BREBO_FINANCE_CURRENTLY_ENABLED=no"
+            echo "NOTICE=Central production deploy will enable brebo_finance."
+          fi
+
+          echo "=== Database update readiness ==="
           set +e
           update_output=$("${drush[@]}" updatedb:status 2>&1)
           update_status=$?
@@ -66,11 +87,12 @@ jobs:
             exit 22
           fi
 
-          echo "=== Finance routes ==="
-          "${drush[@]}" php:eval '$r=\Drupal::service("router.route_provider"); $names=["brebo_finance.dashboard","brebo_finance.sales_invoice_overview","brebo_finance.work_budget_overview"]; foreach ($names as $n) { try { $r->getRouteByName($n); echo "ROUTE_OK=$n\n"; } catch (\Throwable $e) { echo "ROUTE_MISSING=$n\n"; } }'
-
           echo "=== Integration configuration presence ==="
           "${drush[@]}" php:eval '$u=(string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", ""); $s=(string) \Drupal\Core\Site\Settings::get("brebo_integration_shared_secret", ""); echo "INTEGRATION_API_URL_CONFIGURED=" . ($u !== "" ? "yes" : "no") . "\n"; echo "INTEGRATION_SHARED_SECRET_CONFIGURED=" . ($s !== "" ? "yes" : "no") . "\n"; if ($u === "" || $s === "") { exit(23); }'
+
+          echo "=== Runtime write locations ==="
+          [[ -w "$webroot/sites/default/files" ]] || { echo 'Drupal public files directory is not writable.'; exit 24; }
+          df -Pk "$app" | tail -n 1
 
           echo "FINANCE_PRODUCTION_PREFLIGHT=PASS"
           REMOTE
