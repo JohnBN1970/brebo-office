@@ -28,10 +28,37 @@ export interface MoneybirdConnectionResult {
   administration_name: string | null;
 }
 
+export interface MoneybirdSupplierContactResult {
+  id: string | null;
+  company_name: string | null;
+  firstname: string | null;
+  lastname: string | null;
+  address1: string | null;
+  address2: string | null;
+  zipcode: string | null;
+  city: string | null;
+  country: string | null;
+  phone: string | null;
+  email: string | null;
+  customer_id: string | null;
+  tax_number: string | null;
+  chamber_of_commerce: string | null;
+  delivery_method: string | null;
+  direct_debit: boolean;
+  sepa_active: boolean;
+  sepa_iban: string | null;
+  sepa_iban_account_name: string | null;
+  sepa_bic: string | null;
+  sepa_mandate_id: string | null;
+  sepa_mandate_date: string | null;
+  sepa_sequence_type: string | null;
+}
+
 export interface MoneybirdPurchaseInvoiceResult {
   id: string;
   contact_id: string | null;
   supplier_name: string | null;
+  supplier_contact: MoneybirdSupplierContactResult | null;
   reference: string | null;
   date: string | null;
   due_date: string | null;
@@ -120,22 +147,57 @@ function purchaseInvoiceResult(value: unknown): MoneybirdPurchaseInvoiceResult {
   const invoice = value as Record<string, unknown>;
   if (invoice.id === undefined || invoice.id === null) throw new MoneybirdResponseError(502, "Invalid Moneybird purchase invoice response.");
   const contact = invoice.contact && typeof invoice.contact === "object" ? invoice.contact as Record<string, unknown> : null;
-  const company = typeof contact?.company_name === "string" ? contact.company_name.trim() : "";
-  const person = [contact?.firstname, contact?.lastname].filter((part) => typeof part === "string" && part.trim() !== "").join(" ").trim();
+  const company = stringValue(contact?.company_name)?.trim() ?? "";
+  const firstname = stringValue(contact?.firstname)?.trim() ?? "";
+  const lastname = stringValue(contact?.lastname)?.trim() ?? "";
+  const person = [firstname, lastname].filter(Boolean).join(" ").trim();
   return {
     id: String(invoice.id),
     contact_id: invoice.contact_id === undefined || invoice.contact_id === null ? null : String(invoice.contact_id),
     supplier_name: company || person || null,
-    reference: typeof invoice.reference === "string" ? invoice.reference : null,
-    date: typeof invoice.date === "string" ? invoice.date : null,
-    due_date: typeof invoice.due_date === "string" ? invoice.due_date : null,
-    state: typeof invoice.state === "string" ? invoice.state : "unknown",
-    currency: typeof invoice.currency === "string" ? invoice.currency : "EUR",
-    total_price_excl_tax: typeof invoice.total_price_excl_tax === "string" ? invoice.total_price_excl_tax : null,
-    total_price_incl_tax: typeof invoice.total_price_incl_tax === "string" ? invoice.total_price_incl_tax : null,
+    supplier_contact: contact ? supplierContactResult(contact) : null,
+    reference: stringValue(invoice.reference),
+    date: stringValue(invoice.date),
+    due_date: stringValue(invoice.due_date),
+    state: stringValue(invoice.state) ?? "unknown",
+    currency: stringValue(invoice.currency) ?? "EUR",
+    total_price_excl_tax: stringValue(invoice.total_price_excl_tax),
+    total_price_incl_tax: stringValue(invoice.total_price_incl_tax),
     version: typeof invoice.version === "string" || typeof invoice.version === "number" ? invoice.version : null,
-    origin: typeof invoice.origin === "string" ? invoice.origin : null,
+    origin: stringValue(invoice.origin),
   };
+}
+
+function supplierContactResult(contact: Record<string, unknown>): MoneybirdSupplierContactResult {
+  return {
+    id: contact.id === undefined || contact.id === null ? null : String(contact.id),
+    company_name: stringValue(contact.company_name),
+    firstname: stringValue(contact.firstname),
+    lastname: stringValue(contact.lastname),
+    address1: stringValue(contact.address1),
+    address2: stringValue(contact.address2),
+    zipcode: stringValue(contact.zipcode),
+    city: stringValue(contact.city),
+    country: stringValue(contact.country),
+    phone: stringValue(contact.phone),
+    email: stringValue(contact.email),
+    customer_id: stringValue(contact.customer_id),
+    tax_number: stringValue(contact.tax_number),
+    chamber_of_commerce: stringValue(contact.chamber_of_commerce),
+    delivery_method: stringValue(contact.delivery_method),
+    direct_debit: contact.direct_debit === true,
+    sepa_active: contact.sepa_active === true,
+    sepa_iban: stringValue(contact.sepa_iban),
+    sepa_iban_account_name: stringValue(contact.sepa_iban_account_name),
+    sepa_bic: stringValue(contact.sepa_bic),
+    sepa_mandate_id: stringValue(contact.sepa_mandate_id),
+    sepa_mandate_date: stringValue(contact.sepa_mandate_date),
+    sepa_sequence_type: stringValue(contact.sepa_sequence_type),
+  };
+}
+
+function stringValue(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value.trim() : null;
 }
 
 function invoiceResult(value: unknown): MoneybirdSalesInvoiceResult {
