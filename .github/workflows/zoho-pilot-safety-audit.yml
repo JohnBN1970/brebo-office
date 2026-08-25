@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   audit:
-    name: Disable backfill and audit exact newest-10 pilot
+    name: Disable backfill and audit original newest-10 pilot range
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -48,7 +48,7 @@ jobs:
             sleep $((attempt * 2))
           done
 
-      - name: Stop migration state and audit Zoho UIDs against Office
+      - name: Stop migration state and audit original pilot range
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -67,10 +67,13 @@ jobs:
           cd "$app"
 
           "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $pilotMaxUid = 22132;
+            $pilotMinUid = 22123;
             $state = \Drupal::state();
             $state->set("brebo_mail_intake.zoho_migration_enabled", FALSE);
             echo "ZOHO_MIGRATION_STATE_ENABLED=NO" . PHP_EOL;
-            echo "ZOHO_NEWEST_FIRST_CURSOR=" . (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0) . PHP_EOL;
+            echo "ORIGINAL_PILOT_UID_MAX=" . $pilotMaxUid . PHP_EOL;
+            echo "ORIGINAL_PILOT_UID_MIN=" . $pilotMinUid . PHP_EOL;
 
             $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
             $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
@@ -89,19 +92,21 @@ jobs:
             }
 
             try {
-              $uids = array_values(array_map("intval", imap_search($stream, "ALL", SE_UID) ?: []));
-              $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid > 0 && $uid <= 22132));
-              rsort($uids, SORT_NUMERIC);
-              $uids = array_slice($uids, 0, 10);
-              echo "AUDIT_UID_COUNT=" . count($uids) . PHP_EOL;
-              if (count($uids) !== 10) {
-                throw new \RuntimeException("Exact 10 pilot-UIDs konden niet worden gereconstrueerd.");
-              }
-
+              $available = array_values(array_map("intval", imap_search($stream, "ALL", SE_UID) ?: []));
+              $available = array_flip($available);
               $storage = \Drupal::entityTypeManager()->getStorage("node");
-              $found = 0;
-              $missing = 0;
-              foreach ($uids as $uid) {
+              $sourcePresent = 0;
+              $sourceMissing = 0;
+              $officeFound = 0;
+              $officeMissing = 0;
+
+              for ($uid = $pilotMaxUid; $uid >= $pilotMinUid; $uid--) {
+                if (!isset($available[$uid])) {
+                  $sourceMissing++;
+                  echo "UID=" . $uid . "|SOURCE=MISSING|OFFICE=UNVERIFIABLE|NODE=UNKNOWN|SUBJECT=SOURCE_NO_LONGER_PRESENT" . PHP_EOL;
+                  continue;
+                }
+                $sourcePresent++;
                 $overviewRows = imap_fetch_overview($stream, (string) $uid, FT_UID);
                 $overview = $overviewRows[0] ?? NULL;
                 $messageId = $overview && isset($overview->message_id) ? trim((string) $overview->message_id) : "";
@@ -122,21 +127,29 @@ jobs:
                   ->range(0, 1)
                   ->execute();
                 $nid = $ids ? (int) reset($ids) : 0;
-                if ($nid > 0) $found++; else $missing++;
+                if ($nid > 0) $officeFound++; else $officeMissing++;
                 $safeSubject = preg_replace("/[^\\pL\\pN .,:;_+()@&\\-]/u", "?", $subject);
                 echo implode("|", [
                   "UID=" . $uid,
+                  "SOURCE=PRESENT",
                   "RECEIVED=" . $received,
                   "OFFICE=" . ($nid > 0 ? "FOUND" : "MISSING"),
                   "NODE=" . ($nid > 0 ? $nid : "NONE"),
                   "SUBJECT=" . mb_substr((string) $safeSubject, 0, 120),
                 ]) . PHP_EOL;
               }
-              echo "AUDIT_FOUND=" . $found . PHP_EOL;
-              echo "AUDIT_MISSING=" . $missing . PHP_EOL;
-              echo "ZOHO_PILOT_AUDIT=" . ($missing === 0 ? "PASS" : "FAIL") . PHP_EOL;
-              if ($missing > 0) {
-                throw new \RuntimeException("Niet alle pilotmails zijn aantoonbaar in Office aanwezig; backfill blijft uit.");
+
+              echo "SOURCE_PRESENT=" . $sourcePresent . PHP_EOL;
+              echo "SOURCE_MISSING=" . $sourceMissing . PHP_EOL;
+              echo "OFFICE_FOUND=" . $officeFound . PHP_EOL;
+              echo "OFFICE_MISSING=" . $officeMissing . PHP_EOL;
+              if ($officeMissing > 0) {
+                echo "ZOHO_PILOT_AUDIT=FAIL" . PHP_EOL;
+                throw new \RuntimeException("Een nog aanwezige oorspronkelijke pilotmail ontbreekt in Office; backfill blijft uit.");
+              }
+              echo "ZOHO_PILOT_AUDIT=" . ($sourceMissing === 0 ? "PASS" : "PARTIAL_SOURCE_GAP") . PHP_EOL;
+              if ($sourceMissing > 0) {
+                throw new \RuntimeException("De oorspronkelijke pilotrange is niet volledig meer in Zoho aanwezig; ontbrekende bron-UIDs kunnen achteraf niet betrouwbaar worden geverifieerd. Backfill blijft uit.");
               }
             }
             finally {
