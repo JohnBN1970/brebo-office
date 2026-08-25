@@ -65,10 +65,15 @@ jobs:
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          cd public_html/sboffice_app
-          DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
-          $DRUSH cr
-          $DRUSH php:eval '
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Canonical BREBO Office application missing: $app"; exit 1; }
+          [[ -x "$remote_php" ]] || { echo "::error::Required PHP 8.3 binary missing: $remote_php"; exit 1; }
+          cd "$app"
+          echo "CANONICAL_CONTEXT_APP_ROOT=$app"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" cr
+          "${drush[@]}" php:eval '
             $container = \Drupal::getContainer();
             if (!$container->has("brebo_mail_intake.canonical_context_resolver")) {
               throw new \RuntimeException("Canonical context resolver service missing.");
