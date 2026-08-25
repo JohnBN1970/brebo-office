@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   diagnose:
-    name: Diagnose Moneybird suppliers in Finance
+    name: Diagnose and classify Moneybird suppliers in Finance
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -31,7 +31,7 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Run read-only supplier diagnosis
+      - name: Run read-only supplier diagnosis and classification
         shell: bash
         run: |
           set -euo pipefail
@@ -48,34 +48,37 @@ jobs:
           "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
           "${drush[@]}" php:eval '
             $container = \Drupal::getContainer();
-            $service = "brebo_finance.moneybird_supplier_diagnosis";
-            print $service . "=" . ($container->has($service) ? "yes" : "no") . "\n";
-            if (!$container->has($service)) { throw new \RuntimeException("Missing required service: " . $service); }
+            foreach (["brebo_finance.moneybird_supplier_diagnosis", "brebo_finance.purchase_invoice_integration_client"] as $service) {
+              print $service . "=" . ($container->has($service) ? "yes" : "no") . "\n";
+              if (!$container->has($service)) { throw new \RuntimeException("Missing required service: " . $service); }
+            }
             $db = \Drupal::database();
             if (!$db->schema()->tableExists("brebo_finance_purchase_invoice")) { throw new \RuntimeException("Missing purchase invoice table"); }
             print "PURCHASE_INVOICE_TABLE=yes\n";
           '
 
-          echo "=== Read-only Moneybird supplier diagnosis ==="
+          echo "=== Existing CRM identity diagnosis ==="
           "${drush[@]}" php:eval '
             $result = \Drupal::service("brebo_finance.moneybird_supplier_diagnosis")->diagnose();
-            foreach ([
-              "invoice_count",
-              "unique_contacts",
-              "by_moneybird_id_count",
-              "by_exact_name_count",
-              "new_count",
-              "ambiguous_count",
-              "invalid_count",
-            ] as $key) {
+            foreach (["invoice_count", "unique_contacts", "by_moneybird_id_count", "by_exact_name_count", "new_count", "ambiguous_count", "invalid_count"] as $key) {
               print strtoupper($key) . "=" . (int) ($result[$key] ?? 0) . "\n";
             }
-            foreach (["by_exact_name", "new", "ambiguous", "invalid"] as $group) {
+          '
+
+          echo "=== Read-only supplier classification dry run ==="
+          "${drush[@]}" php:eval '
+            $invoices = \Drupal::service("brebo_finance.purchase_invoice_integration_client")->fetchAll();
+            $classifier = new \Drupal\brebo_finance\Service\MoneybirdSupplierClassifier();
+            $result = $classifier->classify($invoices);
+            foreach (["invoice_count", "unique_contacts", "supplier_count", "receipt_count", "review_count"] as $key) {
+              print strtoupper($key) . "=" . (int) ($result[$key] ?? 0) . "\n";
+            }
+            foreach (["supplier", "receipt", "review"] as $group) {
               print "--- " . strtoupper($group) . " ---\n";
               foreach (($result[$group] ?? []) as $item) {
                 print json_encode($item, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
               }
             }
-            print "MONEYBIRD_SUPPLIER_DIAGNOSIS=PASS\n";
+            print "MONEYBIRD_SUPPLIER_CLASSIFICATION=PASS\n";
           '
           REMOTE
