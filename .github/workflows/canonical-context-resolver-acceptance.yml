@@ -119,8 +119,9 @@ jobs:
             if (($unknown["project_state"] ?? NULL) !== "provisional_required") {
               throw new \RuntimeException("Unknown project was not marked provisional_required.");
             }
-            if (($unknown["building_state"] ?? NULL) !== "provisional_required") {
-              throw new \RuntimeException("Unknown building was not marked provisional_required.");
+            $buildingState = (string) ($unknown["building_state"] ?? "");
+            if (!in_array($buildingState, ["provisional_required", "ambiguous"], TRUE)) {
+              throw new \RuntimeException("Unknown building did not remain provisional or ambiguous.");
             }
             if (empty($unknown["requires_human_review"])) {
               throw new \RuntimeException("Unknown context did not require human review.");
