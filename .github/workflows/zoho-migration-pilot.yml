@@ -1,6 +1,7 @@
 name: BREBO Zoho migration pilot
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - develop
@@ -16,7 +17,7 @@ concurrency:
 
 jobs:
   pilot:
-    name: Pilot newest-first Zoho batch and activate cron backfill
+    name: Pilot newest 10 Zoho messages and activate cron backfill
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -55,14 +56,16 @@ jobs:
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          cd public_html/sboffice_app
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
           runtime="$HOME/.brebo-mail-runtime.php"
-          if [[ ! -f "$runtime" ]]; then
-            echo "BREBO_RUNTIME_FILE=MISSING"
-            exit 2
-          fi
+          remote_php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Canonical BREBO Office app missing: $app"; exit 1; }
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          [[ -x "$remote_php" ]] || { echo "::error::Required PHP 8.3 binary missing: $remote_php"; exit 1; }
+          cd "$app"
+          echo "BREBO_APP_ROOT=$app"
 
-          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $adapter = \Drupal::service("brebo_mail_intake.zoho_migration_source");
             if (!$adapter->isConfigured()) {
               throw new \RuntimeException("Zoho-migratiebron is niet geconfigureerd.");
@@ -72,8 +75,6 @@ jobs:
             $queue = \Drupal::service("brebo_mail_intake.queue_manager");
             $storage = \Drupal::entityTypeManager()->getStorage("node");
 
-            // Retire the old forward-only pilot cursor and initialize the new
-            // newest-first backfill cursor cleanly.
             $legacyUid = (int) $state->get("brebo_mail_intake.zoho_migration_last_uid", 0);
             echo "ZOHO_LEGACY_UID=" . $legacyUid . PHP_EOL;
             $state->delete("brebo_mail_intake.zoho_migration_before_uid");
@@ -83,23 +84,24 @@ jobs:
             $beforeCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
             echo "COMMUNICATION_COUNT_BEFORE=" . $beforeCount . PHP_EOL;
 
-            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=5");
+            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=10");
             $enqueued = $queue->enqueueSource($adapter);
             echo "ZOHO_PILOT_ENQUEUED=" . $enqueued . PHP_EOL;
-            if ($enqueued < 1 || $enqueued > 5) {
+            if ($enqueued < 1 || $enqueued > 10) {
               throw new \RuntimeException("Onverwacht aantal Zoho-pilotberichten in queue.");
             }
           '
 
-          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl queue:run brebo_mail_intake_process
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl queue:run brebo_mail_intake_process
 
-          php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $state = \Drupal::state();
             $storage = \Drupal::entityTypeManager()->getStorage("node");
             $afterCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
             $cursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
             $complete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
             echo "COMMUNICATION_COUNT_AFTER=" . $afterCount . PHP_EOL;
+            echo "COMMUNICATION_COUNT_DELTA=" . ($afterCount - (int) $state->get("brebo_mail_intake.zoho_pilot_before_count", $afterCount)) . PHP_EOL;
             echo "ZOHO_NEWEST_FIRST_CURSOR=" . $cursor . PHP_EOL;
             echo "ZOHO_MIGRATION_COMPLETE=" . ($complete ? "YES" : "NO") . PHP_EOL;
             if ($cursor <= 0) {
@@ -107,6 +109,6 @@ jobs:
             }
             $state->set("brebo_mail_intake.zoho_migration_enabled", TRUE);
             echo "ZOHO_MIGRATION_STATE_ENABLED=YES" . PHP_EOL;
-            echo "ZOHO_NEWEST_FIRST_PILOT=PASS" . PHP_EOL;
+            echo "ZOHO_NEWEST10_PILOT=PASS" . PHP_EOL;
           '
           REMOTE
