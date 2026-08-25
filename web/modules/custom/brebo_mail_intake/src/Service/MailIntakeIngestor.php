@@ -54,6 +54,7 @@ final class MailIntakeIngestor {
       $direction = 'Inkomend';
     }
 
+    $htmlBody = trim((string) ($mail['body_html'] ?? ''));
     $values = [
       'type' => 'brebo_communication', 'title' => $subject, 'uid' => $ownerUid, 'status' => 1,
       'field_brebo_source_id' => $sourceId, 'field_brebo_source_hash' => $sourceHash,
@@ -64,7 +65,7 @@ final class MailIntakeIngestor {
       'field_brebo_mail_from' => trim((string) ($mail['from'] ?? '')),
       'field_brebo_mail_to' => trim((string) ($mail['to'] ?? '')),
       'field_brebo_mail_classification' => trim((string) ($mail['classification'] ?? '')),
-      'field_brebo_mail_html' => trim((string) ($mail['body_html'] ?? '')),
+      'field_brebo_mail_html' => $htmlBody !== '' ? ['value' => $htmlBody, 'format' => 'brebo_mail_html'] : NULL,
       'field_brebo_match_basis' => trim((string) ($mail['match_basis'] ?? '')),
     ];
 
@@ -80,7 +81,7 @@ final class MailIntakeIngestor {
     if (($id = (int) ($mail['suggested_building_id'] ?? 0)) > 0) $values['field_brebo_suggest_building_ref'] = ['target_id' => $id];
     if (($id = (int) ($mail['suggested_project_id'] ?? 0)) > 0) $values['field_brebo_suggest_project_ref'] = ['target_id' => $id];
 
-    $node = $storage->create($values);
+    $node = $storage->create(array_filter($values, static fn(mixed $value): bool => $value !== NULL));
     if (!$node instanceof NodeInterface) throw new \RuntimeException('BREBO Communication kon niet worden aangemaakt.');
     $node->setNewRevision(TRUE);
     $node->setRevisionLogMessage('Bronmail via Migrerende Mail Intake geregistreerd; koppelingen zijn nog niet formeel vastgesteld.');
@@ -147,9 +148,7 @@ final class MailIntakeIngestor {
     return array_values(array_unique(array_filter($addresses)));
   }
 
-  /**
-   * Ensures the optional HTML body is available without changing other config.
-   */
+  /** Ensures the optional HTML body is available without changing other config. */
   private function ensureHtmlBodyField(): void {
     $storage = FieldStorageConfig::loadByName('node', 'field_brebo_mail_html');
     if (!$storage) {
@@ -171,7 +170,7 @@ final class MailIntakeIngestor {
         'entity_type' => 'node',
         'bundle' => 'brebo_communication',
         'label' => 'HTML-mailinhoud',
-        'description' => 'Originele HTML-variant van een e-mail; uitsluitend via veilige filtering weergeven.',
+        'description' => 'Primaire HTML-body van de e-mail; transcript blijft de platte tekstfallback.',
         'required' => FALSE,
         'translatable' => TRUE,
       ])->save();
