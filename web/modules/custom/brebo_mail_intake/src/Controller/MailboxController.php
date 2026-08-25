@@ -172,14 +172,19 @@ final class MailboxController extends ControllerBase {
     $cc = htmlspecialchars((string) ($message['mail_cc'] ?? ''), ENT_QUOTES, 'UTF-8');
     $date = htmlspecialchars((string) ($message['mail_datetime'] ?? ''), ENT_QUOTES, 'UTF-8');
     $htmlBody = trim((string) ($message['mail_html'] ?? ''));
-    $body = $htmlBody !== ''
-      ? Xss::filter($htmlBody, [
-        'a', 'abbr', 'b', 'blockquote', 'br', 'caption', 'code', 'col', 'colgroup',
-        'dd', 'del', 'div', 'dl', 'dt', 'em', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'hr', 'i', 'ins', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong',
-        'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
-      ])
-      : nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
+    if ($htmlBody !== '') {
+      $safeHtml = Xss::filter($htmlBody, [
+        'a', 'abbr', 'b', 'blockquote', 'br', 'caption', 'center', 'code', 'col', 'colgroup',
+        'dd', 'del', 'div', 'dl', 'dt', 'em', 'font', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+        'hr', 'i', 'img', 'ins', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong',
+        'style', 'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
+      ]);
+      $document = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;max-width:100%;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style></head><body>' . $safeHtml . '</body></html>';
+      $body = '<iframe class="brebo-mail-reader__html-frame" sandbox="" referrerpolicy="no-referrer" srcdoc="' . htmlspecialchars($document, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" style="display:block;width:100%;min-height:680px;border:0;background:#fff"></iframe>';
+    }
+    else {
+      $body = nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
+    }
 
     $contextLabel = trim((string) ($message['context_label'] ?? ''));
     $projectLabel = trim((string) ($message['project_label'] ?? ''));
