@@ -7,9 +7,7 @@ namespace Drupal\brebo_finance\Service;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 
-/**
- * Resolves Moneybird supplier contacts to central BREBO organizations.
- */
+/** Resolves Moneybird supplier contacts to central BREBO organizations. */
 final class MoneybirdSupplierResolver {
 
   private const BUNDLE = 'brebo_organization';
@@ -18,6 +16,7 @@ final class MoneybirdSupplierResolver {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly MoneybirdSupplierMasterdataSynchronizer $masterdataSynchronizer,
   ) {}
 
   /**
@@ -25,8 +24,13 @@ final class MoneybirdSupplierResolver {
    *
    * Moneybird contact ID is authoritative. Name matching is deliberately only
    * a fallback for organizations that have not yet received a Moneybird ID.
+   * Sanitized contact masterdata may enrich empty BREBO fields, but can never
+   * silently overwrite an existing non-empty value.
+   *
+   * @param array<string, mixed> $supplierContact
+   *   Optional sanitized supplier_contact payload from the Integration API.
    */
-  public function resolve(string $contactId, string $supplierName, bool $create = true): ?NodeInterface {
+  public function resolve(string $contactId, string $supplierName, bool $create = true, array $supplierContact = []): ?NodeInterface {
     $contactId = trim($contactId);
     $supplierName = trim($supplierName);
     if ($contactId === '' || $supplierName === '') {
@@ -34,7 +38,6 @@ final class MoneybirdSupplierResolver {
     }
 
     $storage = $this->entityTypeManager->getStorage('node');
-
     $ids = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', self::BUNDLE)
@@ -43,15 +46,15 @@ final class MoneybirdSupplierResolver {
       ->execute();
     if (count($ids) === 1) {
       $organization = $storage->load(reset($ids));
+      if ($organization instanceof NodeInterface && $supplierContact !== []) {
+        $this->masterdataSynchronizer->synchronize($organization, $supplierContact);
+      }
       return $organization instanceof NodeInterface ? $organization : NULL;
     }
     if (count($ids) > 1) {
-      // Never guess when an external identity is already duplicated.
       return NULL;
     }
 
-    // Controlled fallback: exact organization title, but only if exactly one
-    // candidate exists and its Moneybird identity is still empty.
     $nameIds = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', self::BUNDLE)
@@ -72,11 +75,13 @@ final class MoneybirdSupplierResolver {
         $organization->set(self::TYPE_FIELD, 'leverancier');
       }
       $organization->save();
+      if ($supplierContact !== []) {
+        $this->masterdataSynchronizer->synchronize($organization, $supplierContact);
+      }
       return $organization;
     }
 
     if (!$create || $nameIds !== []) {
-      // Multiple/suspicious same-name organizations require manual review.
       return NULL;
     }
 
@@ -88,6 +93,9 @@ final class MoneybirdSupplierResolver {
       self::MONEYBIRD_FIELD => $contactId,
     ]);
     $organization->save();
+    if ($organization instanceof NodeInterface && $supplierContact !== []) {
+      $this->masterdataSynchronizer->synchronize($organization, $supplierContact);
+    }
 
     return $organization instanceof NodeInterface ? $organization : NULL;
   }
