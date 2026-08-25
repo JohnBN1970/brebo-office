@@ -1,0 +1,16 @@
+administer brebo client portal:
+  title: 'BREBO klantportaal beheren'
+  restrict access: true
+
+manage brebo client portal access:
+  title: 'Klantportaaltoegang beheren'
+
+publish brebo client portal content:
+  title: 'Projectinformatie naar klantportaal publiceren'
+
+unpublish brebo client portal content:
+  title: 'Publicatie op klantportaal intrekken'
+
+view brebo client portal audit:
+  title: 'Klantportaal auditlog bekijken'
+  restrict access: true
