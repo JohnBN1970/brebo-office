@@ -6,7 +6,7 @@ BREBO Office gefaseerd ontwikkelen tot een betrouwbaar digitaal bedrijfs- en geb
 
 ## Peildatum
 
-12 augustus 2026.
+25 augustus 2026.
 
 ## Leidende bronnen
 
@@ -14,50 +14,63 @@ De roadmap volgt de volgende bronvolgorde:
 
 1. het vastgestelde BREBO Proceshandboek;
 2. het Canonical Information Model (CIM) en het domein-/objectmodel;
-3. Appendix A voor vastgestelde aanvullingen en ontwikkelbesluiten na de peildatum van het Proceshandboek;
+3. Appendix A voor vastgestelde aanvullingen en ontwikkelbesluiten;
 4. de actuele Drupal-implementatie en technische documentatie.
 
 Bij strijdigheid wordt niet vanuit de software teruggeredeneerd naar de bedrijfsnorm. De software wordt aangepast aan de vastgestelde functionele bron.
+
+## Totale voortgang
+
+BREBO Office is de prototypefase voorbij. Meerdere echte bedrijfsprocessen zijn operationeel of substantieel gebouwd. De actuele indicatieve voortgang is:
+
+- circa **70% richting een breed dagelijks bruikbaar BREBO Office**;
+- circa **55-60% richting de volledige eindvisie**.
+
+Deze percentages zijn stuurinformatie en geen formele acceptatiecriteria. De eindvisie is sinds de vorige peildatum verbreed met onder meer Finance/Moneybird, Inzet, klantportaal, digitale control, Outputgenerator en verdere managementsturing.
+
+| Fase | Actuele status | Indicatief |
+| --- | --- | ---: |
+| 0. Procesfundering en governance | gerealiseerd en leidend | 95% |
+| 1. Technische basis en Integration API | grotendeels gereed, productie-integraties aanwezig | 90% |
+| 2. Canoniek gebouw- en projectmodel | stevige ruggengraat; consolidatie resteert | 80% |
+| 3. Centrale dossierlaag | breed aanwezig; verdere uniformering nodig | 75% |
+| 4. Mail Intake | kern operationeel; historie en verdieping open | 85% |
+| 5. Actie-, signaal- en controlemotor | meerdere controls gebouwd; centrale motor nog verbinden | 60% |
+| 6. Digitale rollen | bouwstenen aanwezig; operationalisering nog niet gesloten | 45% |
+| 7. Feedback en organisatorisch leren | richting en deelbouwstenen aanwezig | 30% |
+| 8. Dashboards en managementsturing | Project Cockpit en financiële sturing aanwezig; portfolio/directie verder uitbouwen | 55% |
 
 ## Fase 0 — Procesfundering en governance
 
 **Status: gerealiseerd als functionele bron**
 
-- Proceshandboek v1.0 is beschikbaar als inhoudelijk vastgestelde procesarchitectuur.
-- Hoofdprincipe: het gebouw staat centraal.
+- Proceshandboek v1.0 is beschikbaar als vastgestelde procesarchitectuur.
+- Het gebouw staat centraal.
 - De BREBO Lens Inzicht — Regie — Realisatie is leidend.
 - Eén keer vastleggen, overal hergebruiken geldt als vast werkprincipe.
 - Digitale rollen en AI ondersteunen; formele bevoegdheid en menselijke eindverantwoordelijkheid blijven bestaan.
-- Appendix A bewaakt aanvullingen en ontwikkelbesluiten na de handboekpeildatum zonder het handboek stilzwijgend te wijzigen.
+- Appendix A bewaakt aanvullingen en ontwikkelbesluiten zonder het handboek stilzwijgend te wijzigen.
 
 ## Fase 1 — Technische basis en Integration API
 
 **Status: grotendeels gereed**
 
 - Beveiligde Drupal ↔ Integration API-koppeling is gerealiseerd.
-- HMAC v1-authenticatie blijft de geldende beveiligingslaag.
-- Fictieve communicatie is end-to-end via de Integration API verwerkt.
+- HMAC v1-authenticatie is de geldende beveiligingslaag.
 - Deployment via GitHub Actions naar de SBOFFICE-runtime is ingericht.
-- De Worker healthcheck is als veilig Drush-script in de deployment opgenomen.
-- De laatste echte end-to-end healthcheck met `BREBO_SHARED_SECRET` staat geparkeerd totdat het secret weer veilig beschikbaar is.
+- Cloudflare Worker / Integration API wordt gebruikt voor externe integratieketens.
+- Moneybird-ketens zijn op deze integratielaag aangesloten.
+- Productie-smokechecks en deploymentguards zijn onderdeel van de werkwijze.
 
-Deze geparkeerde controle blokkeert de functionele ontwikkeling niet.
+Open aandachtspunt is het volledig canoniek maken van de runtimeconfiguratie: `sboffice` moet de enige operationele waarheid zijn en resterende legacy-runtime/configuratie moet gecontroleerd worden uitgefaseerd. Mail-runtimevariabelen/readiness moeten daarbij expliciet worden gecontroleerd.
 
 ## Fase 2 — Canoniek gebouw- en projectmodel
 
-**Status: grotendeels gebouwd; nu consolideren**
+**Status: grotendeels gebouwd; consolidatie loopt**
 
-De huidige Drupal-code bevat reeds:
+De Drupal-code bevat onder meer `brebo_building`, gebouwzones, clusters, woningen/gebruiksobjecten, productposities, `brebo_project` en projectscope.
 
-- `brebo_building` als permanent gebouwobject;
-- `brebo_building_zone` voor permanente technische gebouwzones;
-- `brebo_cluster`;
-- `brebo_dwelling`;
-- `brebo_product_position`;
-- `brebo_project` als tijdelijke opdracht;
-- `brebo_project_scope` als tijdelijke selectie van objecten binnen een gebouw voor een project.
-
-De canonieke richting is:
+Canonieke richting:
 
 ```text
 Gebouw
@@ -70,148 +83,62 @@ Project
       -> selectie van permanente gebouwobjecten
 ```
 
-### Huidige consolidatiepunten
+Resterende hoofdpunten:
 
-1. De historische verplichte relatie `Cluster -> Project` moet veilig worden ontwarren van de permanente gebouwstructuur.
-2. `field_brebo_location` op Project moet als legacy-/weergaveveld worden beoordeeld tegenover het permanente Gebouw.
-3. Relaties moeten technisch worden beschermd tegen koppelingen naar objecten uit een ander gebouw.
-4. Bestaande gegevens moeten zonder verlies of dubbel model worden gemigreerd.
-
-**Eerstvolgende technische stap:** deze vier punten gericht analyseren en via een veilige update/migratie canoniek maken.
+1. historische projectrelaties uit permanente gebouwstructuren ontwarren;
+2. legacy locatie-/weergavevelden beoordelen tegenover het permanente Gebouw;
+3. cross-building relaties technisch blokkeren;
+4. bestaande data verliesvrij migreren zonder dubbel model.
 
 ## Fase 3 — Centrale dossierlaag
 
-**Status: gedeeltelijk aanwezig; samenhang toetsen**
+**Status: substantieel aanwezig; samenhang verder uniformeren**
 
-Bestaande bouwstenen omvatten onder andere:
+Bestaande bouwstenen omvatten communicatie, documenten, controles/verificaties, afwijkingen, werkpakketten, vrijgavepoorten, organisaties/contactpersonen, calculatie, werkbegroting, inkoop, contracten, facturen, bewoners/service en projectdossierfunctionaliteit.
 
-- communicatie;
-- controles en verificaties;
-- afwijkingen;
-- werkpakketten;
-- vrijgavepoorten;
-- projectroutes en procesvereisten;
-- organisaties en contactpersonen;
-- calculatie, werkbegroting, prijsaanvragen en leveranciersoffertes.
+De volgende stap is niet meer voor ieder begrip een nieuwe registratie bouwen, maar bestaande acties, signalen, risico's, besluiten, bewijs, garanties, nazorg en financiële controles via één samenhangende dossier- en control-laag verbinden.
 
-Voor verdere uitbreiding wordt eerst vastgesteld of onderstaande functies al canoniek aanwezig zijn of nog moeten worden aangevuld:
+## Fase 4 — Mail Intake en communicatie
 
-- acties en termijnen;
-- signalen;
-- risico's en kansen;
-- besluiten;
-- kwaliteitscontroles en bewijs;
-- garanties en nazorg;
-- feedback en tevredenheid;
-- leer- en verbeterinformatie.
+**Status: kern operationeel; verdere migratie en verdieping open**
 
-Doel is één samenhangende dossierlaag, niet meerdere concurrerende registers voor hetzelfde begrip.
+De centrale Mail Intake-kernketen is productiegeaccepteerd. Inkomende communicatie wordt gecontroleerd naar `brebo_communication` en beoordelings-/uitzonderingswerkbakken verwerkt zonder automatische formele dossierwaarheid.
 
-## Fase 4 — Migrerende Mail Intake
+Sinds de vorige peildatum is de Mail-laag verder uitgebouwd, waaronder mailboxprojectie en HTML-weergave. De bewezen tabs/reader/compose/linking-baseline blijft beschermd.
 
-**Status: kernketen 100% operationeel geaccepteerd; verdere uitbreidingen zijn afzonderlijke vervolgstappen**
+Open:
 
-De bestaande communicatiestructuur wordt gebruikt als basis voor gecontroleerde invoer vanuit e-mail en later andere kanalen.
-
-Doelketen:
-
-```text
-bronbericht ontvangen
--> origineel en bijlagen als bron bewaren
--> afzender, datum en onderwerp bepalen
--> gebouw herkennen
--> project en projectscope herkennen indien van toepassing
--> communicatietype classificeren
--> feiten, acties, risico's en besluiten voorstellen
--> betrouwbaarheid/confidence vastleggen
--> naar juiste rol routeren
--> menselijke controle waar vereist
--> gecontroleerd opnemen in het dossier
-```
-
-Persoonlijke mailboxen, WhatsApp, telefoon en andere kanalen blijven aanvoerkanalen en worden geen tweede dossierwaarheid.
-
-### Mijlpaal 2026-08-12 — Centrale BREBO-mail live in BREBO Office
-
-**Status: volledig bereikt en end-to-end geaccepteerd**
-
-De centrale mailbox `info@brebobv.nl` is via Hostinger IMAP succesvol aangesloten op BREBO Office. De inkomende kernketen is in productie bewezen en functioneel geaccepteerd:
-
-```text
-Hostinger mailbox
--> beveiligde runtime-configuratie
--> read-only IMAP
--> geplande polling
--> UTF-8-normalisatie
--> Drupal Mail Intake service
--> intakepipeline met foutisolatie per bericht
--> brebo_communication
--> Mail Intake beoordelingswerkbak
--> technische uitzonderingswerkbak
--> menselijke afhandeling / bevestiging
-```
-
-Aantoonbaar bereikt:
-
-- IMAP-authenticatie is succesvol;
-- de mailbox is vanuit de BREBO Office-runtime read-only bereikbaar;
-- geplande GitHub Actions-polling is in productie bewezen;
-- nieuwe mail wordt daadwerkelijk end-to-end verwerkt;
-- legacy/non-UTF-8 mail wordt vóór opslag genormaliseerd;
-- één foutief bericht blokkeert de rest van een batch niet meer;
-- technische uitzonderingen worden privacy-veilig geregistreerd en zichtbaar gemaakt;
-- de synthetische acceptatietest met referentie `deadbeefdeadbeef` is in productie geslaagd;
-- de technische uitzondering werd zichtbaar in de werkbak en de menselijke actie `Markeer gezien` is door de gebruiker succesvol uitgevoerd;
-- de bronmail werd tijdens deze acceptatietest niet gewijzigd of verwijderd;
-- de beoordelingswerkbak toont stoplicht, classificatie, signalen, voorgestelde opvolging, relatievoorstel, vertrouwen, aandachtreden en acties;
-- de dubbele `web/web`-runtimefout is hersteld en de deployment bevat blijvende guards en productie-smokechecks tegen herhaling;
-- classificatie en gebouw-/projectrelaties blijven gecontroleerde voorstellen en worden niet automatisch formele dossierwaarheid.
-
-**Acceptatiebesluit:** de Mail Intake-kernketen geldt per 12 augustus 2026 als **100% functioneel afgerond en productiegeaccepteerd**. Verdere functies hieronder zijn uitbreidingen op deze bewezen basis en geen resterende acceptatiepunten van de kernketen.
-
-### Verdere Mail Intake-uitbreidingen
-
-1. Zoho-historie gecontroleerd migreren en verwerken, uitsluitend na afzonderlijke expliciete goedkeuring;
-2. SMTP/Mime Mail voor uitgaand verkeer aansluiten, met expliciete menselijke vrijgave als blijvende grens;
-3. bijlagen en threads/conversations verdiepen;
-4. verdere AI-verwerking, conceptantwoorden en contextverrijking toevoegen zonder automatische dossierwaarheid;
-5. retentie, rapportage en operationele kwaliteitsmetingen van de intake verder uitbouwen.
+1. Zoho-historie (~19.000 berichten) gecontroleerd migreren, pas na readiness en expliciete vrijgave;
+2. runtimeconfiguratie voor de canonieke `sboffice`-omgeving volledig aantoonbaar maken;
+3. threads/bijlagen en contextverrijking verdiepen;
+4. AI-concepten toevoegen zonder automatische dossierwaarheid;
+5. retentie, rapportage en kwaliteitsmetingen verder uitbouwen.
 
 ## Fase 5 — Actie-, signaal- en controlemotor
 
-**Status: gepland**
+**Status: van gepland naar gedeeltelijk gerealiseerd**
 
-Eén centrale motor voor onder andere:
+Er bestaan inmiddels meerdere control-services, cockpit-signalen, readiness-/release-gates, contract- en financiële controles en leveranciers-/scorecardbouwstenen. De hoofdopgave is deze niet als losse controls te laten eindigen maar te verbinden tot één centrale risicogestuurde motor.
 
-- deadlines en verlopen termijnen;
-- ontbrekende bewijsstukken;
-- open afwijkingen en hercontroles;
-- keurings- en hold points;
-- risico's en escalaties;
-- ontbrekende reacties of bevestigingen;
-- fase- en vrijgavevoorwaarden.
-
-De motor werkt risicogestuurd en houdt bron, eigenaar, termijn, status en afsluitbewijs herleidbaar.
+De centrale motor bewaakt uiteindelijk onder andere deadlines, ontbrekend bewijs, afwijkingen, hold points, risico's, ontbrekende reacties, financiële uitzonderingen en fase-/vrijgavevoorwaarden met bron, eigenaar, termijn, status en afsluitbewijs.
 
 ## Fase 6 — Digitale rollen
 
-**Status: functioneel voorbereid; verdere operationalisering volgt op betrouwbare dossierdata**
+**Status: functioneel voorbereid en gedeeltelijk gevoed door echte data**
 
-De digitale rollen gebruiken dezelfde centrale informatiebron. Minimaal worden de reeds vastgestelde rollen ondersteund, waaronder Projectleider, Werkvoorbereider, Uitvoerder, Calculator/Inkoper en KAM-/Kwaliteitsmanager.
+Projectleider, Werkvoorbereider, Uitvoerder, Calculator/Inkoper en KAM-/Kwaliteitsmanager gebruiken dezelfde centrale informatiebron. De benodigde operationele bouwstenen groeien snel, maar de rollen zijn nog niet als volledige gesloten digitale collega's geoperationaliseerd.
 
-Voor digitale handelingen gelden drie niveaus:
+Niveaus blijven:
 
-1. **Signaleren** — autonoom mogelijk binnen regels en bewijsstatus.
-2. **Voorstellen / voorbereiden** — autonoom conceptueel mogelijk.
-3. **Beslissen / extern handelen** — uitsluitend binnen aantoonbaar mandaat en waar vereist met menselijke goedkeuring.
+1. signaleren — autonoom binnen regels en bewijsstatus;
+2. voorstellen/voorbereiden — autonoom conceptueel mogelijk;
+3. beslissen/extern handelen — uitsluitend binnen aantoonbaar mandaat en waar vereist met menselijke goedkeuring.
 
 ## Fase 7 — Feedback, tevredenheid en organisatorisch leren
 
-**Status: functionele richting vastgesteld; implementatie nog te realiseren/toetsen**
+**Status: richting vastgesteld; deelbouwstenen aanwezig**
 
-BREBO Office moet niet alleen registreren wat is gedaan, maar ook meten hoe uitvoering en communicatie worden ervaren.
-
-De leerkring wordt:
+Bewoners/service, meldingen, klachten, schade, nazorg en kwaliteitsinformatie leveren al relevante bronnen. De organisatiebrede leerkring moet nog expliciet worden gesloten:
 
 ```text
 gebeurtenis / communicatie
@@ -223,32 +150,67 @@ gebeurtenis / communicatie
 -> effectmeting
 ```
 
-Feedback wordt gekoppeld aan gebouw, project, relevante gebeurtenis en opvolging en voedt structurele procesverbetering.
-
 ## Fase 8 — Dashboards en managementsturing
 
-**Status: later**
+**Status: gedeeltelijk gerealiseerd**
 
-Dashboards worden pas leidend wanneer de onderliggende dossierdata betrouwbaar en voldoende compleet zijn.
+De Project Cockpit is een echte operationele stuurlaag met projectcontext voor onder meer planning, geld/cash, inzet, kwaliteit en risico. Projectgebonden tabs en financiële stuurinformatie zijn aanwezig. De volgende uitbreiding ligt op directie-/portfolioniveau, prognoses, organisatiebrede KPI's, faalkosten en leerpatronen.
 
-Beoogde inzichten omvatten onder andere:
+## Dwarsdoorsnijdende productlijnen
 
-- gebouwen en onderhoudshistorie;
-- projectvoortgang;
-- planning en capaciteit;
-- financiën en prognose;
-- kwaliteit en veiligheid;
-- open acties, risico's en besluiten;
-- klachten, garanties en feedback;
-- faalkosten en organisatiebrede leerpatronen.
+### Calculatie
+
+De calculatiemodule beschikt over een spreadsheetachtige hiërarchische werkbank, AJAX/autosave, subtotalen, commerciële opbouw, scenariovergelijking en een prijsbronnenfundering. Eerstvolgende functionele stap is prijsbronnen rechtstreeks vanuit calculatieregels bedienen, controleren en naar OA laten boeken met volledige herleidbaarheid.
+
+### Finance en Moneybird
+
+Finance is uitgegroeid tot een kernlaag met projectbegroting, inkoop, contracten, facturen, termijnschema's, btw-logica, stelpostbewaking, verkoopfactuurconcepten, gecontroleerde vrijgave en integratieketens richting Moneybird. Inkoopfacturen en leveranciers/masterdata worden verder naar één gecontroleerde keten gebracht.
+
+### Inzet en personeelssturing
+
+BREBO Office bevat inmiddels mobiele/PWA-bouwstenen voor inzet, projectgebonden klokregistratie, GPS/klokzones, aanwezigheid/vertrek en afwijkingsafhandeling. Dit vormt de basis van de eigen personeelsplanning- en urenregistratielaag.
+
+### Bewoners en resident service
+
+Bewoners/service gebruikt het canonieke gebouwmodel en ondersteunt bewonerscontext, meldingen, klachten, schade, nazorg, toegang en readiness. Formele vrijgave blijft via bewaakte gates lopen.
+
+### Klantportaal
+
+De veilige interne foundation voor externe projecttoegang is aanwezig in `brebo_client_portal`. BREBO Office blijft bron; alleen expliciet vrijgegeven projectinformatie mag extern worden geprojecteerd. Interne projectbesturing en veilige projectvoortgangprojectie zijn gebouwd. Publieke login/routes worden pas geopend nadat toegang, publicatiegrenzen, concurrency en security aantoonbaar gesloten zijn.
+
+### Outputgenerator
+
+De generieke Outputgenerator is architectonisch vastgesteld als platformvoorziening voor offertes, inkoop, projectrapportage, bewoners/service, KAM, gebouw/MJOP en management. Implementatie moet de vastgestelde scheiding tussen bronobject, outputmodel, lay-outprofiel, bijlagenpakket, snapshot en distributie behouden.
+
+## Actuele hoofdprioriteiten
+
+1. `sboffice` als enige canonieke runtimewaarheid bevestigen en legacy/runtimeconfiguratie opschonen.
+2. Mail/Zoho-readiness aantoonbaar sluiten en daarna historische migratie gecontroleerd uitvoeren.
+3. Finance/Moneybird voor leveranciers, inkoopfacturen en financiële controles verder sluiten.
+4. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
+5. Digitale rollen operationaliseren bovenop betrouwbare dossier- en controldata.
+6. Calculatieprijsbronnen en inkooponderbouwing sluiten.
+7. Klantportaal veilig verder openen na access/publication/security-hardening.
+8. Outputgenerator implementeren.
+9. Management- en portfoliosturing verder uitbouwen.
+10. Canonieke gebouw-/projectconsolidatie en legacy-afbouw continu bewaken.
 
 ## Actuele positie
 
-BREBO Office heeft nu zijn **eerste volledige productiegeaccepteerde bedrijfsworkflow**: de centrale Mail Intake-kernketen is 100% functioneel afgerond en operationeel bewezen.
+BREBO Office heeft niet langer slechts één bewezen workflow. Er staat een groeiend geïntegreerd bedrijfsplatform met echte operationele ketens voor communicatie, calculatie, projectsturing, inzet en Finance.
 
-De eerstvolgende hoofdopgave is daarom niet langer het bewijzen van Mail Intake, maar het verder consolideren van het canonieke gebouw-/projectmodel en de centrale dossierlaag. Mail Intake blijft ondertussen als operationele ingang functioneren; Zoho-migratie, SMTP, bijlagen/threads en verdere AI-verwerking worden als afzonderlijke uitbreidingen gepland en vereisen waar van toepassing hun eigen expliciete besluitmoment.
+De ontwikkelrichting verschuift daarom van **losse functionaliteit bouwen** naar:
 
-De ontwikkelrichting verschuift daarmee van **“kan de eerste keten betrouwbaar werken?”** naar **“hoe verbinden we bewezen intake, canonieke objecten, acties, signalen, risico's en digitale rollen tot één beheerst bedrijfsgeheugen?”**
+```text
+consolideren
+-> koppelen
+-> automatiseren
+-> controleren
+-> digitaal ondersteunen
+-> managementsturing
+```
+
+Nieuwe functionaliteit mag bestaande canonieke objecten en platformvoorzieningen niet dupliceren.
 
 ## Continuïteitsregel
 
