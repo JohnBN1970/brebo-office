@@ -1,0 +1,4 @@
+services:
+  brebo_sandbox_reset.manager:
+    class: Drupal\brebo_sandbox_reset\Service\SandboxResetManager
+    arguments: ['@database', '@entity_type.manager', '@state', '@queue']

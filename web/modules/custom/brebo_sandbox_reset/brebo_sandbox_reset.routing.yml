@@ -1,0 +1,7 @@
+brebo_sandbox_reset.form:
+  path: '/admin/brebo/sandbox-reset'
+  defaults:
+    _form: '\Drupal\brebo_sandbox_reset\Form\SandboxResetForm'
+    _title: 'BREBO Sandbox Reset'
+  requirements:
+    _permission: 'administer brebo sandbox reset'

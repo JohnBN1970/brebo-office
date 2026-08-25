@@ -1,0 +1,6 @@
+brebo_sandbox_reset.form:
+  title: 'Sandbox Reset'
+  description: 'Wis testinhoud zonder BREBO Office software of configuratie te verwijderen.'
+  route_name: brebo_sandbox_reset.form
+  parent: system.admin_config_development
+  weight: 90
