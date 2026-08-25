@@ -56,6 +56,12 @@ services:
       - '@database'
       - '@brebo_control.supplier_performance'
 
+  # Temporary compatibility alias: an older deployed contract-control container
+  # referenced the plural id. Keep bootstrap possible long enough for deployment
+  # to replace stale code and rebuild Drupal's container from the canonical id.
+  brebo_control.supplier_scorecards:
+    alias: brebo_control.supplier_scorecard
+
   brebo_control.supplier_bid_evaluation:
     class: Drupal\brebo_control\Service\SupplierBidEvaluationService
     arguments:
