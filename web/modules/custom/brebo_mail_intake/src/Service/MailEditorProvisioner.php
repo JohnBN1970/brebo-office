@@ -9,7 +9,7 @@ use Drupal\editor\Entity\Editor;
 use Drupal\filter\Entity\FilterFormat;
 use Drupal\user\Entity\Role;
 
-/** Idempotently provisions the restricted CKEditor format used for mail. */
+/** Idempotently provisions the shared HTML format used for BREBO mail. */
 final class MailEditorProvisioner {
 
   public function __construct(private readonly ModuleHandlerInterface $moduleHandler) {}
@@ -19,34 +19,36 @@ final class MailEditorProvisioner {
       throw new \RuntimeException('Drupal Text Editor en CKEditor 5 zijn nog niet geactiveerd.');
     }
 
-    if (!FilterFormat::load('brebo_mail_html')) {
-      FilterFormat::create([
+    $allowedHtml = '<p class style align> <br> <strong> <b> <em> <i> <u> <a href title target rel> <ul> <ol start reversed> <li> <blockquote> <h1> <h2> <h3> <h4> <h5> <h6> <pre> <code> <hr> <div class style align> <span class style> <table class style width border cellspacing cellpadding> <thead> <tbody> <tfoot> <tr class style> <th class style width height align valign colspan rowspan> <td class style width height align valign colspan rowspan> <img src alt title width height class style> <center> <font color face size> <small> <sub> <sup>';
+
+    $format = FilterFormat::load('brebo_mail_html');
+    if (!$format) {
+      $format = FilterFormat::create([
         'uuid' => '89b3ce59-814f-4edf-b361-72f0e8ac6d54',
         'format' => 'brebo_mail_html',
         'name' => 'BREBO HTML-mail',
         'weight' => 0,
-        'filters' => [
-          'filter_html' => [
-            'id' => 'filter_html',
-            'provider' => 'filter',
-            'status' => TRUE,
-            'weight' => -10,
-            'settings' => [
-              'allowed_html' => '<p> <br> <strong> <b> <em> <i> <u> <a href title> <ul> <ol start reversed> <li> <blockquote> <h2> <h3> <h4> <pre> <code> <hr>',
-              'filter_html_help' => FALSE,
-              'filter_html_nofollow' => FALSE,
-            ],
-          ],
-          'filter_htmlcorrector' => [
-            'id' => 'filter_htmlcorrector',
-            'provider' => 'filter',
-            'status' => TRUE,
-            'weight' => 10,
-            'settings' => [],
-          ],
-        ],
-      ])->save();
+      ]);
     }
+    $format->setFilterConfig('filter_html', [
+      'id' => 'filter_html',
+      'provider' => 'filter',
+      'status' => TRUE,
+      'weight' => -10,
+      'settings' => [
+        'allowed_html' => $allowedHtml,
+        'filter_html_help' => FALSE,
+        'filter_html_nofollow' => FALSE,
+      ],
+    ]);
+    $format->setFilterConfig('filter_htmlcorrector', [
+      'id' => 'filter_htmlcorrector',
+      'provider' => 'filter',
+      'status' => TRUE,
+      'weight' => 10,
+      'settings' => [],
+    ]);
+    $format->save();
 
     if (!Editor::load('brebo_mail_html')) {
       Editor::create([
