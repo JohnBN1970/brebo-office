@@ -1,3 +1,12 @@
 services:
   brebo_client_portal.publication_policy:
     class: Drupal\brebo_client_portal\Publication\PortalPublicationPolicy
+
+  brebo_client_portal.publication_manager:
+    class: Drupal\brebo_client_portal\Publication\PortalPublicationManager
+    arguments:
+      - '@database'
+      - '@brebo_client_portal.publication_policy'
+      - '@datetime.time'
+      - '@uuid'
+      - '@current_user'
