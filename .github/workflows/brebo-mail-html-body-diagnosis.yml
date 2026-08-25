@@ -1,0 +1,65 @@
+name: BREBO Mail HTML body diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Diagnose stored HTML bodies
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $total = (int) $db->select("node_field_data", "n")->condition("n.type", "brebo_communication")->countQuery()->execute()->fetchField();
+            $html = $db->schema()->tableExists("node__field_brebo_mail_html")
+              ? (int) $db->select("node__field_brebo_mail_html", "h")->condition("h.deleted", 0)->isNotNull("h.field_brebo_mail_html_value")->condition("h.field_brebo_mail_html_value", "", "<>")->countQuery()->execute()->fetchField()
+              : 0;
+            echo "COMMUNICATION_TOTAL=$total" . PHP_EOL;
+            echo "HTML_BODY_COUNT=$html" . PHP_EOL;
+            $ids = \Drupal::entityQuery("node")->accessCheck(FALSE)->condition("type", "brebo_communication")->sort("created", "DESC")->range(0, 15)->execute();
+            $nodes = \Drupal::entityTypeManager()->getStorage("node")->loadMultiple($ids);
+            foreach ($nodes as $node) {
+              $htmlValue = $node->hasField("field_brebo_mail_html") ? (string) ($node->get("field_brebo_mail_html")->value ?? "") : "";
+              $textValue = $node->hasField("field_brebo_transcript") ? (string) ($node->get("field_brebo_transcript")->value ?? "") : "";
+              echo "NODE=" . $node->id()
+                . "|HTML=" . ($htmlValue !== "" ? "YES" : "NO")
+                . "|HTML_BYTES=" . strlen($htmlValue)
+                . "|TEXT_BYTES=" . strlen($textValue)
+                . "|HAS_TABLE=" . (stripos($htmlValue, "<table") !== FALSE ? "YES" : "NO")
+                . "|HAS_IMG=" . (stripos($htmlValue, "<img") !== FALSE ? "YES" : "NO")
+                . "|HAS_STYLE_BLOCK=" . (stripos($htmlValue, "<style") !== FALSE ? "YES" : "NO")
+                . PHP_EOL;
+            }
+            echo "MAIL_HTML_BODY_DIAGNOSIS=PASS" . PHP_EOL;
+          '
+          REMOTE
