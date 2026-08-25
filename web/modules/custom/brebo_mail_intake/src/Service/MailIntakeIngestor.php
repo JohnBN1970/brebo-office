@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -16,6 +17,7 @@ final class MailIntakeIngestor {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $currentUser,
+    private readonly Connection $database,
   ) {}
 
   public function ingest(array $mail): array {
@@ -39,6 +41,7 @@ final class MailIntakeIngestor {
     $existingIds = $query->execute();
     if ($existingIds) {
       $existingId = (int) reset($existingIds);
+      $this->ensureMailboxProjection($existingId, $mail);
       return ['state' => 'duplicate', 'node_id' => $existingId, 'duplicate_of' => $existingId, 'source_hash' => $sourceHash];
     }
 
@@ -82,9 +85,67 @@ final class MailIntakeIngestor {
     $node->setNewRevision(TRUE);
     $node->setRevisionLogMessage('Bronmail via Migrerende Mail Intake geregistreerd; koppelingen zijn nog niet formeel vastgesteld.');
     $node->save();
+    $this->ensureMailboxProjection((int) $node->id(), $mail);
     return ['state' => 'created', 'node_id' => (int) $node->id(), 'duplicate_of' => NULL, 'source_hash' => $sourceHash];
   }
 
+  /** Repairs the mailbox projection for an existing Communication node. */
+  public function projectExisting(NodeInterface $node): bool {
+    if ($node->bundle() !== 'brebo_communication') {
+      return FALSE;
+    }
+    $field = static fn(NodeInterface $item, string $name): string => $item->hasField($name) ? trim((string) $item->get($name)->value) : '';
+    return $this->ensureMailboxProjection((int) $node->id(), [
+      'direction' => $field($node, 'field_brebo_comm_direction'),
+      'to' => $field($node, 'field_brebo_mail_to'),
+    ]);
+  }
+
+  /** Ensures incoming mail is visible in the logical BREBO mailbox. */
+  private function ensureMailboxProjection(int $communicationId, array $mail): bool {
+    $direction = trim((string) ($mail['direction'] ?? 'Inkomend'));
+    if ($direction !== '' && $direction !== 'Inkomend') {
+      return FALSE;
+    }
+    if (!$this->database->schema()->tableExists('brebo_mailbox') || !$this->database->schema()->tableExists('brebo_mailbox_message')) {
+      return FALSE;
+    }
+
+    $recipients = $this->emailAddresses((string) ($mail['to'] ?? ''));
+    if ($recipients === []) {
+      return FALSE;
+    }
+
+    $rows = $this->database->select('brebo_mailbox', 'mb')
+      ->fields('mb', ['id', 'address'])
+      ->condition('active', 1)
+      ->execute()
+      ->fetchAll();
+    $matches = [];
+    foreach ($rows as $row) {
+      $address = strtolower(trim((string) $row->address));
+      if ($address !== '' && in_array($address, $recipients, TRUE)) {
+        $matches[(int) $row->id] = (int) $row->id;
+      }
+    }
+    if (count($matches) !== 1) {
+      return FALSE;
+    }
+
+    $mailboxId = (int) reset($matches);
+    $this->database->merge('brebo_mailbox_message')
+      ->keys(['mailbox_id' => $mailboxId, 'communication_id' => $communicationId])
+      ->fields(['mail_state' => 'inbox', 'is_read' => 0, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
+      ->execute();
+    return TRUE;
+  }
+
+  /** @return string[] */
+  private function emailAddresses(string $value): array {
+    preg_match_all('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $value, $matches);
+    $addresses = array_map(static fn(string $address): string => strtolower(trim($address)), $matches[0] ?? []);
+    return array_values(array_unique(array_filter($addresses)));
+  }
 
   /**
    * Ensures the optional HTML body is available without changing other config.
