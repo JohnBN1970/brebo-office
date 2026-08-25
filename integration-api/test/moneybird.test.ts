@@ -61,11 +61,36 @@ describe("Moneybird purchase invoice read", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reads and normalizes purchase invoices without mutating Moneybird", async () => {
+  it("reads and normalizes purchase invoices plus safe supplier masterdata without mutating Moneybird", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json([{
       id: "456",
       contact_id: "77",
-      contact: { company_name: "Leverancier BV" },
+      contact: {
+        id: "77",
+        company_name: "Leverancier BV",
+        firstname: "Jan",
+        lastname: "Jansen",
+        address1: "Hoofdstraat 12",
+        address2: "Unit B",
+        zipcode: "1234AB",
+        city: "Amsterdam",
+        country: "NL",
+        phone: "020-1234567",
+        email: "info@leverancier.example",
+        customer_id: "SUP-77",
+        tax_number: "NL123456789B01",
+        chamber_of_commerce: "12345678",
+        delivery_method: "Email",
+        direct_debit: true,
+        sepa_active: true,
+        sepa_iban: "NL91ABNA0417164300",
+        sepa_iban_account_name: "Leverancier BV",
+        sepa_bic: "ABNANL2A",
+        sepa_mandate_id: "MANDATE-77",
+        sepa_mandate_date: "2026-01-15",
+        sepa_sequence_type: "RCUR",
+        credit_card_number: "must-not-be-forwarded",
+      },
       reference: "INK-2026-44",
       date: "2026-08-24",
       due_date: "2026-09-23",
@@ -91,6 +116,31 @@ describe("Moneybird purchase invoice read", () => {
       id: "456",
       contact_id: "77",
       supplier_name: "Leverancier BV",
+      supplier_contact: {
+        id: "77",
+        company_name: "Leverancier BV",
+        firstname: "Jan",
+        lastname: "Jansen",
+        address1: "Hoofdstraat 12",
+        address2: "Unit B",
+        zipcode: "1234AB",
+        city: "Amsterdam",
+        country: "NL",
+        phone: "020-1234567",
+        email: "info@leverancier.example",
+        customer_id: "SUP-77",
+        tax_number: "NL123456789B01",
+        chamber_of_commerce: "12345678",
+        delivery_method: "Email",
+        direct_debit: true,
+        sepa_active: true,
+        sepa_iban: "NL91ABNA0417164300",
+        sepa_iban_account_name: "Leverancier BV",
+        sepa_bic: "ABNANL2A",
+        sepa_mandate_id: "MANDATE-77",
+        sepa_mandate_date: "2026-01-15",
+        sepa_sequence_type: "RCUR",
+      },
       reference: "INK-2026-44",
       date: "2026-08-24",
       due_date: "2026-09-23",
@@ -101,5 +151,6 @@ describe("Moneybird purchase invoice read", () => {
       version: 12,
       origin: "email",
     }]);
+    expect(JSON.stringify(result)).not.toContain("must-not-be-forwarded");
   });
 });
