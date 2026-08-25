@@ -150,3 +150,30 @@ function brebo_mail_intake_post_update_mail_tags(array &$sandbox = NULL): string
 
   return 'BREBO mail-tags aangemaakt; tags blijven los van formele Office-koppelingen.';
 }
+
+/**
+ * Repairs missing mailbox projections for already imported incoming mail.
+ */
+function brebo_mail_intake_post_update_mailbox_projection_backfill(array &$sandbox = NULL): string {
+  if (!\Drupal::database()->schema()->tableExists('brebo_mailbox_message')) {
+    return 'Mailboxprojectietabel ontbreekt; geen herstel uitgevoerd.';
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_communication')
+    ->condition('field_brebo_comm_channel', 'E-mail')
+    ->condition('field_brebo_comm_direction', 'Inkomend')
+    ->execute();
+
+  $ingestor = \Drupal::service('brebo_mail_intake.ingestor');
+  $repaired = 0;
+  foreach ($storage->loadMultiple($ids) as $node) {
+    if ($ingestor->projectExisting($node)) {
+      $repaired++;
+    }
+  }
+
+  return sprintf('Mailboxprojectie hersteld voor %d bestaande inkomende e-mailcommunicaties; niet-eenduidige mailboxmatches zijn ongemoeid gelaten.', $repaired);
+}
