@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   pilot:
-    name: Pilot newest 10 Zoho messages and activate cron backfill
+    name: Pilot newest 10 Zoho messages and hold cron backfill
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -46,7 +46,7 @@ jobs:
             sleep $((attempt * 2))
           done
 
-      - name: Run controlled newest-first pilot and enable persistent cron migration
+      - name: Run controlled newest-first pilot and hold persistent cron migration
         env:
           DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
           DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
@@ -110,8 +110,8 @@ jobs:
               throw new \RuntimeException("Zoho newest-first cursor is niet opgeslagen.");
             }
             $state->delete("brebo_mail_intake.zoho_pilot_before_count");
-            $state->set("brebo_mail_intake.zoho_migration_enabled", TRUE);
-            echo "ZOHO_MIGRATION_STATE_ENABLED=YES" . PHP_EOL;
-            echo "ZOHO_NEWEST10_PILOT=PASS" . PHP_EOL;
+            $state->set("brebo_mail_intake.zoho_migration_enabled", FALSE);
+            echo "ZOHO_MIGRATION_STATE_ENABLED=NO" . PHP_EOL;
+            echo "ZOHO_NEWEST10_PILOT=PENDING_AUDIT" . PHP_EOL;
           '
           REMOTE
