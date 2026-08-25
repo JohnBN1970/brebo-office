@@ -61,13 +61,16 @@ final class MailComposeForm extends FormBase {
     $to = $cc = $subject = $body = '';
     if ($source) {
       $sourceSubject = trim((string) ($source->get('field_brebo_comm_subject')->value ?? $source->label()));
-      $sourceBody = trim((string) ($source->get('field_brebo_transcript')->value ?? ''));
+      $sourceTranscript = trim((string) ($source->get('field_brebo_transcript')->value ?? ''));
+      $sourceHtml = $source->hasField('field_brebo_mail_html') ? trim((string) ($source->get('field_brebo_mail_html')->value ?? '')) : '';
+      $sourceBody = $sourceHtml !== ''
+        ? $this->displayableHtml($sourceHtml)
+        : nl2br(htmlspecialchars($sourceTranscript, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), FALSE);
       $sourceFrom = trim((string) ($source->get('field_brebo_mail_from')->value ?? ''));
       $sourceDate = trim((string) ($source->get('field_brebo_comm_datetime')->value ?? ''));
       $safeFrom = htmlspecialchars($sourceFrom, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeDate = htmlspecialchars($sourceDate, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeSourceSubject = htmlspecialchars($sourceSubject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-      $safeSourceBody = nl2br(htmlspecialchars($sourceBody, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), FALSE);
       if (in_array($mode, ['reply', 'reply-all'], TRUE)) {
         $to = $this->extractAddress($sourceFrom);
         if ($mode === 'reply-all') {
@@ -76,11 +79,11 @@ final class MailComposeForm extends FormBase {
           $cc = implode(', ', $this->replyAllCc($sourceTo . ',' . $sourceCc, $to, trim((string) ($mailbox['address'] ?? ''))));
         }
         $subject = preg_match('/^re:/i', $sourceSubject) ? $sourceSubject : 'Re: ' . $sourceSubject;
-        $body = '<p><br></p><hr><p><strong>Oorspronkelijk bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '</p><blockquote>' . $safeSourceBody . '</blockquote>';
+        $body = '<p><br></p><hr><p><strong>Oorspronkelijk bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '</p><blockquote>' . $sourceBody . '</blockquote>';
       }
       elseif ($mode === 'forward') {
         $subject = preg_match('/^(fw|fwd):/i', $sourceSubject) ? $sourceSubject : 'Fwd: ' . $sourceSubject;
-        $body = '<p><br></p><hr><p><strong>Doorgestuurd bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '<br>Onderwerp: ' . $safeSourceSubject . '</p><blockquote>' . $safeSourceBody . '</blockquote>';
+        $body = '<p><br></p><hr><p><strong>Doorgestuurd bericht</strong><br>Van: ' . $safeFrom . '<br>Datum: ' . $safeDate . '<br>Onderwerp: ' . $safeSourceSubject . '</p><blockquote>' . $sourceBody . '</blockquote>';
       }
     }
 
@@ -210,6 +213,15 @@ final class MailComposeForm extends FormBase {
       $result[$key] = $address;
     }
     return array_values($result);
+  }
+
+  private function displayableHtml(string $html): string {
+    $html = preg_replace('/<(?:script|style|head)\b[^>]*>.*?<\/(?:script|style|head)>/isu', '', $html) ?? $html;
+    $html = preg_replace('/<!doctype[^>]*>/iu', '', $html) ?? $html;
+    if (preg_match('/<body\b[^>]*>(.*)<\/body>/isu', $html, $matches) === 1) {
+      $html = (string) $matches[1];
+    }
+    return trim($html);
   }
 
   private function htmlToText(string $html): string {

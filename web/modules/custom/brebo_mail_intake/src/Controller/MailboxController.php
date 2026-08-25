@@ -6,6 +6,7 @@ namespace Drupal\brebo_mail_intake\Controller;
 
 use Drupal\brebo_mail_intake\Form\MailboxMessageActionForm;
 use Drupal\brebo_mail_intake\Form\MailboxTagForm;
+use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
@@ -13,7 +14,6 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
-use Drupal\Component\Utility\Xss;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -36,6 +36,7 @@ final class MailboxController extends ControllerBase {
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $mailboxEntityTypeManager,
     private readonly AccountProxyInterface $mailboxCurrentUser,
+    private readonly MailEditorProvisioner $editorProvisioner,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -45,10 +46,12 @@ final class MailboxController extends ControllerBase {
       $container->get('database'),
       $container->get('entity_type.manager'),
       $container->get('current_user'),
+      $container->get('brebo_mail_intake.editor_provisioner'),
     );
   }
 
   public function page(int $mailbox_id = 0, string $mail_state = 'inbox', int $communication_id = 0): array {
+    $this->editorProvisioner->ensure();
     $visibleMailboxes = array_values(array_filter(
       $this->mailboxes->all(),
       fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->mailboxCurrentUser, (int) $mailbox['id'], 'view'),
@@ -171,20 +174,6 @@ final class MailboxController extends ControllerBase {
     $to = htmlspecialchars((string) ($message['mail_to'] ?? ''), ENT_QUOTES, 'UTF-8');
     $cc = htmlspecialchars((string) ($message['mail_cc'] ?? ''), ENT_QUOTES, 'UTF-8');
     $date = htmlspecialchars((string) ($message['mail_datetime'] ?? ''), ENT_QUOTES, 'UTF-8');
-    $htmlBody = trim((string) ($message['mail_html'] ?? ''));
-    if ($htmlBody !== '') {
-      $safeHtml = Xss::filter($htmlBody, [
-        'a', 'abbr', 'b', 'blockquote', 'br', 'caption', 'center', 'code', 'col', 'colgroup',
-        'dd', 'del', 'div', 'dl', 'dt', 'em', 'font', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-        'hr', 'i', 'img', 'ins', 'li', 'ol', 'p', 'pre', 's', 'small', 'span', 'strong',
-        'style', 'sub', 'sup', 'table', 'tbody', 'td', 'tfoot', 'th', 'thead', 'tr', 'u', 'ul',
-      ]);
-      $document = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>html,body{margin:0;padding:0;max-width:100%;overflow-wrap:anywhere}img{max-width:100%;height:auto}</style></head><body>' . $safeHtml . '</body></html>';
-      $body = '<iframe class="brebo-mail-reader__html-frame" sandbox="" referrerpolicy="no-referrer" srcdoc="' . htmlspecialchars($document, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '" style="display:block;width:100%;min-height:680px;border:0;background:#fff"></iframe>';
-    }
-    else {
-      $body = nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8'));
-    }
 
     $contextLabel = trim((string) ($message['context_label'] ?? ''));
     $projectLabel = trim((string) ($message['project_label'] ?? ''));
@@ -232,12 +221,29 @@ final class MailboxController extends ControllerBase {
       $tagMarkup .= '<span class="brebo-mail-tag">' . htmlspecialchars((string) $tag, ENT_QUOTES, 'UTF-8') . '</span>';
     }
 
+    $header = '<h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . $attachmentMarkup;
+
+    $htmlBody = trim((string) ($message['mail_html'] ?? ''));
+    $body = $htmlBody !== ''
+      ? [
+        '#type' => 'processed_text',
+        '#text' => $this->displayableHtml($htmlBody),
+        '#format' => 'brebo_mail_html',
+        '#prefix' => '<div class="brebo-mail-reader__body brebo-mail-reader__body--html">',
+        '#suffix' => '</div>',
+      ]
+      : [
+        '#markup' => '<div class="brebo-mail-reader__body">' . nl2br(htmlspecialchars((string) ($message['transcript'] ?? ''), ENT_QUOTES, 'UTF-8')) . '</div>',
+      ];
+
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
       'content' => [
-        '#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . $attachmentMarkup . '<div class="brebo-mail-reader__body">' . $body . '</div></article>',
-        '#allowed_tags' => array_merge(Xss::getAdminTagList(), ['iframe']),
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-mail-reader__article']],
+        'header' => ['#markup' => $header],
+        'body' => $body,
       ],
     ];
 
@@ -245,6 +251,15 @@ final class MailboxController extends ControllerBase {
       $build['tags_form'] = $this->formBuilder()->getForm(MailboxTagForm::class, $mailboxId, $communicationId, $mailState);
     }
     return $build;
+  }
+
+  private function displayableHtml(string $html): string {
+    $html = preg_replace('/<(?:script|style|head)\b[^>]*>.*?<\/(?:script|style|head)>/isu', '', $html) ?? $html;
+    $html = preg_replace('/<!doctype[^>]*>/iu', '', $html) ?? $html;
+    if (preg_match('/<body\b[^>]*>(.*)<\/body>/isu', $html, $matches) === 1) {
+      $html = (string) $matches[1];
+    }
+    return trim($html);
   }
 
   /** @return array<int, array<string, mixed>> */
