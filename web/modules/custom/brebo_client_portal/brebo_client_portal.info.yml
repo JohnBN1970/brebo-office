@@ -3,3 +3,5 @@ type: module
 description: 'Veilige publicatie- en toegangslaag tussen BREBO Office en externe projectcontactpersonen.'
 package: 'BREBO Office'
 core_version_requirement: ^11
+dependencies:
+  - brebo_project_cockpit:brebo_project_cockpit
