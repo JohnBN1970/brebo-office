@@ -54,13 +54,17 @@ jobs:
           set -euo pipefail
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           webroot="$app/web"
+          runtime="$HOME/.brebo-mail-runtime.php"
           remote_php="/opt/alt/php83/usr/bin/php"
           [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Canonical production application missing or invalid: $app"; exit 1; }
           [[ -f "$webroot/index.php" ]] || { echo "::error::Canonical Drupal webroot missing: $webroot"; exit 1; }
+          [[ -f "$runtime" ]] || { echo "::error::Canonical BREBO Mail runtime file missing: $runtime"; exit 1; }
           [[ -x "$remote_php" ]] || { echo "::error::Required PHP 8.3 binary missing: $remote_php"; exit 1; }
           cd "$app"
           echo "MAIL_RUNTIME_APP_ROOT=$app"
-          "$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+          echo "BREBO_RUNTIME_FILE=PRESENT"
+          echo "BREBO_RUNTIME_FILE_MODE=$(stat -c '%a' "$runtime")"
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
             $required = [
               "BREBO_MAIL_SOURCE",
               "BREBO_MAIL_ADDRESS",
