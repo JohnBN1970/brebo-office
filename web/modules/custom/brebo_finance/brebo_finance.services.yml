@@ -131,9 +131,11 @@ services:
   brebo_finance.purchase_invoice_importer:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceImporter
     arguments: ['@database', '@brebo_finance.purchase_invoice_integration_client']
+  brebo_finance.moneybird_supplier_masterdata_synchronizer:
+    class: Drupal\brebo_finance\Service\MoneybirdSupplierMasterdataSynchronizer
   brebo_finance.moneybird_supplier_resolver:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierResolver
-    arguments: ['@entity_type.manager']
+    arguments: ['@entity_type.manager', '@brebo_finance.moneybird_supplier_masterdata_synchronizer']
   brebo_finance.moneybird_supplier_diagnosis:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierDiagnosis
     arguments: ['@database', '@entity_type.manager']
