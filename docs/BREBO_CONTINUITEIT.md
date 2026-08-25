@@ -2,9 +2,11 @@
 
 ## Doel
 
-Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe chat opnieuw vanaf nul moet worden opgebouwd. Het bevat de compacte actuele werkstand en verwijst naar de leidende bronnen.
+Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe chat opnieuw vanaf nul wordt opgebouwd. Het bevat de compacte actuele werkstand en verwijst naar de leidende bronnen.
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
+
+**Actuele peildatum: 25 augustus 2026.**
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -15,9 +17,9 @@ Lees eerst, in deze volgorde:
 3. `docs/CIM.md`;
 4. `docs/ROADMAP.md`;
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
-6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor alle presentatie/UI-werkzaamheden;
-7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` voor calculatie- en parameterwerk;
-8. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor alle document-/rapportoutput;
+6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor presentatie/UI;
+7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` voor calculatie;
+8. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor document-/rapportoutput;
 9. dit continuïteitsdocument;
 10. de actuele GitHub-stand van `develop` en open pull requests.
 
@@ -28,21 +30,20 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - Het gebouw staat centraal als permanente projectoverstijgende kaartenbak.
 - Het project is het tijdelijke stuurmechanisme voor scope, tijd, geld, mensen, toegang, uitvoering en kwaliteit.
 - Projectscope selecteert tijdelijk permanente gebouwobjecten.
-- Technische zones bepalen welk detailniveau nodig is; woningniveau wordt alleen verlangd wanneer de technische scope dat vereist.
 - BMS en CIM zijn leidend; Drupal is de technische vertaling.
 - Eén keer vastleggen, overal hergebruiken.
-- Communicatiekanalen zijn aanvoerkanalen, geen blijvende primaire waarheid.
+- Communicatiekanalen zijn aanvoerkanalen, geen tweede dossierwaarheid.
 - AI en digitale rollen signaleren en bereiden voor; formele materiële besluiten blijven binnen aantoonbaar mandaat.
 - Geen aannames wanneer bewijs nodig is.
 - Belangrijke implementatie geldt pas als duurzaam wanneer zij in GitHub staat.
+- Externe toegang gebruikt uitsluitend expliciet vrijgegeven projecties; BREBO Office blijft de bron.
 
 ## Vaste presentatiearchitectuur
 
 - `web/themes/custom/brebo_office` is het centrale applicatietheme.
-- `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` is leidend voor UI/UX en presentatiepatronen.
-- Functionele modules leveren inhoud en gedrag; zij introduceren geen eigen parallelle visuele taal.
-- Calculatie gebruikt een spreadsheetachtige hiërarchische werkplek met inklapbare hoofdgroepen/paragrafen, inline regels, sticky headers en compacte totalisatie.
-- Presentatie-only migraties van grote controllers worden bij voorkeur via theme/template/preprocess/behavior uitgevoerd.
+- `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` is leidend voor UI/UX.
+- Functionele modules leveren inhoud en gedrag; zij introduceren geen parallelle visuele taal.
+- Calculatie gebruikt een spreadsheetachtige hiërarchische werkplek met inline regels, sticky headers en compacte totalisatie.
 
 ## Actuele objectstructuur
 
@@ -54,231 +55,183 @@ Technische zone/WBS = waar en waaraan uitvoering plaatsvindt
 Taak/workflow = wie wanneer wat moet doen
 ```
 
-Gebouw levert kennis aan het project. Het project bestuurt de uitvoering. Na oplevering vloeit gerealiseerde blijvende kennis terug naar het gebouw.
+Gebouw levert kennis aan het project. Project bestuurt uitvoering. Na oplevering vloeit gerealiseerde blijvende kennis terug naar het gebouw.
 
-## Calculatiearchitectuur — leidend en actuele implementatiestand
+## Totale systeemstand
 
-`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` is functioneel leidend. De implementatie staat inmiddels substantieel verder dan alleen architectuur.
+De actuele roadmap schat BREBO Office op circa **70% richting breed dagelijks bruikbaar** en **55-60% richting de volledige eindvisie**. Het systeem is de prototypefase voorbij. Communicatie, calculatie, projectsturing, inzet en Finance bevatten inmiddels echte operationele ketens.
 
-Vastgelegd en/of gebouwd:
-
-- calculatieboom: Calculatie -> Hoofdgroep -> paragrafen -> calculatieregels;
-- hoofdindeling NL-SfB, STABU of Eigen; classificatie en locatie blijven afzonderlijke dimensies;
-- alleen eindparagrafen bevatten regels; hogere niveaus zijn structuur- en subtotalisatieniveaus;
-- normale regel combineert arbeid, materiaal, materieel, OA en overig;
-- regeltypen: normaal, stelpost, optie, notitie, verdisconterend en verrekenbaar;
-- versiegebonden parameters en lockstatus;
-- migratie-audit voor overgang van legacy calculaties naar het nieuwe domein;
-- calculatiewerkbank met spreadsheetachtige grid, AJAX, inline celbewerking en autosave;
-- live herberekening van directe kostprijs en totalen;
-- toevoegen, dupliceren, verplaatsen en verwijderen van regels via bewaakte mutaties;
-- hoofdgroepen en paragrafen kunnen vanuit BREBO Office worden aangemaakt met behoud van legacy-identiteit zolang de migratieperiode loopt;
-- centrale calculatienavigatie: `Calculatie | Structuur | Parameters | Audit`;
-- structuur kan rechtstreeks vanuit de werkbank worden toegevoegd;
-- hoofdgroepen en paragrafen kunnen worden ingeklapt; de persoonlijke inklapstatus wordt per calculatie onthouden;
-- subtotalen op paragraaf- en hoofdgroepniveau;
-- kostenuitsplitsing op structuur: arbeid, materiaal, materieel, OA, overig en directe kostprijs;
-- commerciële kolommen: AK, risico, winst/marge en verkoopprijs;
-- commerciële opbouw volgt de centrale `CommercialCalculator`: staartkosten sequentieel of als alternatief één enkele marge;
-- vaste commerciële correctie blijft expliciet op calculatieniveau en wordt niet stil over regels verdeeld;
-- commerciële scenariovergelijking `Basis | Scherp | Doel` is als niet-destructieve rekenhulp in de werkbank opgenomen; de directe kostprijs blijft daarbij ongewijzigd;
-- werkbankroutes bestaan voor calculatie, structuur, parameters en audit.
-
-Belangrijke recente implementatiepunten op `develop` zijn onder meer de werkbank, AJAX-autosave, structuur- en rijmanagers, inline structuurcreatie, inklapbare hiërarchie, subtotalen, commerciële verkoopprijskolommen en de prijsbronnenfundering.
-
-## Prijsbronnen / inkooponderbouwing — nieuw vast werkprincipe
-
-Een externe prijs is in BREBO Office niet alleen een bedrag of bestand maar een **prijsbron**.
-
-Een prijsbron kan onder meer zijn:
-
-- leveranciersofferte als PDF/document;
-- e-mail waarin een leverancier rechtstreeks een prijs noemt, ook zonder bijlage;
-- later eventueel een andere traceerbare externe prijsopgave.
-
-Vaste procesketen:
+De hoofdbeweging is nu:
 
 ```text
-Calculatieregel
-  -> prijs nodig / offerteaanvraag
-  -> document of e-mail ontvangen
-  -> bron registreren
-  -> gegevens automatisch uitlezen
-  -> voorstel tonen
-  -> menselijke controle/goedkeuring
-  -> goedgekeurde prijs naar OA
-  -> bronkoppeling aan calculatieregel
-  -> interne notitie / onderbouwing
-  -> bron ook in projectdossier bewaren
+consolideren
+-> koppelen
+-> automatiseren
+-> controleren
+-> digitale rollen
+-> managementsturing
 ```
 
-Kernregels:
+## Calculatie
 
-- AI/extractie mag nooit zelfstandig `subcontracting_unit_cost` overschrijven;
-- extractie levert een voorstel; goedkeuring is een expliciete stap;
-- voorgestelde en goedgekeurde OA-prijs zijn afzonderlijke gegevens;
-- de originele bron blijft altijd aantoonbaar;
-- herziene offerte/e-mail vervangt de oude bron niet destructief; revisie/herkomst blijft zichtbaar;
-- één prijsbron kan aan één of meerdere calculatieregels worden gekoppeld;
-- één calculatieregel kan meerdere prijsbronnen hebben, waarvan er één als actieve/goedgekeurde bron kan gelden;
-- bronmetadata omvat waar beschikbaar leverancier, afzender, offerte-/referentienummer, datum, geldigheid, valuta, totaal, scope, voorwaarden, extractieresultaat en interne notitie;
-- vanuit de calculatie moet later zichtbaar zijn waar een OA-prijs vandaan komt, bijvoorbeeld: `OA €18.750 — bron: offerte/e-mail leverancier X`;
-- prijsbronverwerking moet later ook leveranciersvergelijking ondersteunen op prijs, scope, uitsluitingen, levertijd, garantie, voorwaarden en TCO/risico.
+`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` blijft leidend.
 
-### Gebouwde prijsbronnenfundering
+Gebouwd/op `develop` aanwezig:
 
-In `brebo_calculation.install` zijn op `develop` twee nieuwe domeintabellen toegevoegd:
+- Calculatie -> Hoofdgroep -> paragrafen -> calculatieregels;
+- NL-SfB, STABU of Eigen hoofdindeling;
+- regeltypen normaal, stelpost, optie, notitie, verdisconterend en verrekenbaar;
+- versiegebonden parameters en lockstatus;
+- migratie-audit;
+- spreadsheetachtige werkbank met AJAX/autosave;
+- live herberekening, subtotalen en kostenuitsplitsing;
+- bewaakte rij- en structuurmutaties;
+- inklapbare hiërarchie;
+- commerciële kolommen en centrale `CommercialCalculator`;
+- scenariovergelijking Basis | Scherp | Doel;
+- prijsbronnenfundering via `brebo_calculation_price_source` en `brebo_calculation_price_source_line`.
 
-- `brebo_calculation_price_source` — hoofdrecord van document/e-mail/andere traceerbare prijsbron;
-- `brebo_calculation_price_source_line` — koppeling van bron naar calculatieregel inclusief extractievoorstel, goedgekeurde OA-prijs, goedkeuringsstatus en actieve-bronstatus.
+Vast prijsbronprincipe: externe prijzen blijven herleidbaar naar originele document/e-mailbron; extractie is voorstel; menselijke goedkeuring is vereist voordat OA wordt gewijzigd.
 
-Er is tevens een update hook voor bestaande installaties toegevoegd. Recente funderingscommit: `3813c2ca`.
+**Eerstvolgende calculatiestap:** prijsbronbediening rechtstreeks vanuit calculatieregels, daarna document-/e-mailextractie, review, OA-boeking, bronvergelijking en leveranciersanalyse.
 
-## Eerstvolgende calculatiestap
+## Finance en Moneybird
 
-De eerstvolgende functionele bouwslag is **prijsbronbediening in de calculatiewerkbank**.
+Finance is inmiddels een kernlaag en niet meer alleen een gepland domein.
 
-Gewenste bediening per calculatieregel, direct naast/gerelateerd aan OA:
+Aanwezig/gebouwd zijn onder meer:
 
-- zichtbaar bron/status-icoon;
-- `Document toevoegen`;
-- `E-mail koppelen`;
-- `Prijsbronnen bekijken`;
-- status zoals geen bron / ontvangen / uitgelezen / te controleren / akkoord / vervangen;
-- na akkoord de goedgekeurde bronwaarde gecontroleerd naar OA boeken;
-- bron en interne notitie vanuit de regel kunnen openen;
-- originele document/e-mail tevens aan projectdossier koppelen.
+- projectbegroting en financiële projectsturing;
+- inkoop;
+- contracten;
+- facturen;
+- termijnschema's;
+- gemengde btw-/btw-verlegdlogica;
+- stelpostbewaking;
+- verkoopfactuurconcepten en gecontroleerde vrijgave;
+- immutable outbox en queue-afhandeling;
+- HMAC-beveiligde Integration API-keten;
+- Moneybird-providervertaling en terugschrijving naar de BREBO-spiegel;
+- read-only verwerking/spiegeling van Moneybird-inkoopinformatie en verdere leveranciers/masterdatafundering.
 
-Daarna volgen extractieservice, reviewformulier, Gmail-selectie/koppeling, documentupload, bronvergelijking en leveranciers-/inkoopanalyse.
+De beveiligde verkoopfactuurketen is technisch gesloten. Fail-closed configuratie, idempotency en reconciliation bij onzekere provideruitkomsten blijven vaste veiligheidsprincipes.
+
+**Eerstvolgende Finance-opgave:** leveranciersidentiteit/masterdata, inkoopfacturen, projectkoppeling en financiële control verder tot één gesloten keten brengen en productie-evidence blijven bewaken.
+
+## Mail en communicatie
+
+De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-, reader-, compose-, tabs- en linkingbaseline moet behouden blijven.
+
+Sinds de oorspronkelijke acceptatie zijn mailboxprojectie en HTML-weergave verder uitgebouwd. Inkomende communicatie blijft gecontroleerde broninformatie; classificatie en relaties worden niet stilzwijgend formele dossierwaarheid.
+
+**Belangrijk open punt:** de historische Zoho-backfill van circa 19.000 berichten blijft bewust geblokkeerd totdat de canonieke `sboffice`-runtime alle vereiste Mail-runtimeconfiguratie/readiness aantoonbaar groen heeft. Geen bulkimport forceren om een configuratieprobleem heen.
+
+Daarna: gecontroleerde historie-import, threads/bijlagen, contextverrijking, AI-concepten, retentie en operationele kwaliteitsmetingen.
+
+## Project Cockpit en managementsturing
+
+De Project Cockpit is een persistente operationele stuurlaag en bevat projectcontext voor onder meer:
+
+- project;
+- planning;
+- geld/cash;
+- inzet;
+- kwaliteit;
+- risico;
+- projectgebonden dossier-/financetabs.
+
+Hiermee is roadmapfase 8 niet meer uitsluitend toekomstig. Directie-/portfoliosturing, prognoses, faalkosten, organisatiebrede KPI's en leerpatronen blijven de volgende managementlaag.
+
+## Inzet en personeelssturing
+
+BREBO Office bevat mobiele/PWA-bouwstenen voor personeelsinzet en de eigen Shiftbase-richting, waaronder projectgebonden klokregistratie, GPS/klokzones, aanwezigheid/vertrek en afwijkingsafhandeling.
+
+De personeelslaag moet verder worden verbonden met planning, werkbegroting, projectcontrol en managementinformatie.
+
+## Actie-, signaal- en controlemotor
+
+Roadmapfase 5 is niet meer alleen gepland. Er bestaan meerdere control-services, cockpit-signalen, readiness-/release-gates, contract-/financiële controles en leveranciers-/scorecardbouwstenen.
+
+De hoofdopgave is nu één centrale motor te vormen die bron, eigenaar, termijn, status, risico en afsluitbewijs uniform bewaakt. Nieuwe module-eigen controlelijstjes zijn ongewenst wanneer dezelfde betekenis centraal kan worden gemodelleerd.
+
+## Bewoners, woningen, toegang en service
+
+Resident service gebruikt het canonieke gebouwmodel en omvat bewoners/servicecontext, meldingen, klachten, schade, nazorg, foto's/annotaties en toegang/readiness.
+
+Vaste keten:
+
+```text
+ZoneAccessReadiness
+-> WorkPackageAccessReadiness
+-> formele brebo_release_gate
+```
+
+Look-ahead signaleert en wijzigt planning of formele vrijgave niet zelfstandig.
+
+## Klantportaal
+
+`brebo_client_portal` vormt de veilige foundation voor externe projecttoegang.
+
+Vaste grens:
+
+```text
+BREBO Office interne waarheid
+-> expliciete vrijgave/publicatie
+-> veilige externe projectie
+-> klantportaal
+```
+
+Per project wordt toegang bestuurbaar gemaakt. Alleen expliciet vrijgegeven informatie mag extern zichtbaar worden. Interne projectbesturing en projectvoortgangprojectie zijn gebouwd; publieke routes/login worden pas geopend nadat toegang, blokkering, publicatiegrenzen, concurrency en security aantoonbaar gesloten zijn.
+
+Geen interne objecten rechtstreeks extern renderen en geen tweede klantendossier naast Office bouwen.
 
 ## Generieke Outputgenerator
 
-`docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` is leidend.
-
-De Outputgenerator is een BREBO Office-brede platformvoorziening en niet een calculatiefunctie. Functionele modules leveren brondata; de centrale generator maakt daar via versioneerbare outputmodellen documenten en rapportages van.
+`docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` is leidend. De Outputgenerator is een platformvoorziening, niet een calculatiefunctie.
 
 Vaste scheiding:
 
 ```text
-Bronobject(en)   = inhoudelijke waarheid
-Outputmodel      = inhoudelijk presentatierecept
-Lay-outprofiel   = visuele compositie en huisstijl
-Bijlagenpakket   = geselecteerde/gegenereerde bijlagen
-Outputsnapshot   = vastgelegd resultaat
-Distributie      = verzenden/publiceren/opslaan
+Bronobject(en)
+-> Outputmodel
+-> Lay-outprofiel
+-> Bijlagenpakket
+-> Outputsnapshot
+-> Distributie
 ```
 
-Vastgelegd voor de Outputgenerator:
-
-- generiek inzetbaar voor calculatie/offerte, inkoop, project, bewoners/service, KAM/oplevering, gebouw/MJOP en management;
-- blokgebaseerde, herbruikbare en versioneerbare outputmodellen;
-- lay-out is first-class: centrale lay-outprofielen, documentfamilies, typografie, tabellen, grafieken, foto's, voorbladen, kop/voet, page-breakregels en live pagina-preview;
-- bijlagen zijn onderdeel van een formeel documentpakket en kunnen verplicht, conditioneel of optioneel zijn;
-- leveranciersofferte/e-mail kan inhoudelijke bron zijn voor calculatie en later voor gegenereerde inkoop-/offertedocumenten, terwijl de originele bron herleidbaar bewaard blijft;
-- voorkeursuitvoer is waar passend één integraal document met hoofddocument + bijlagen;
-- integrale documenten hebben standaard doorlopende paginanummering over hoofddocument en bijlagen (`Pagina X van Y`), automatische bijlagenlijst/inhoudsopgave en PDF-bookmarks;
-- externe PDF's kunnen ongewijzigd worden ingevoegd of als BREBO-heruitvoer opnieuw worden opgebouwd;
-- documentpakket bewaart exacte bijlagevolgorde, bron-/versiereferenties, integratiemodus, start-/eindpagina en auditgegevens;
-- pre-flight controle voorkomt ongemerkt verzenden van een incompleet formeel pakket;
-- generatie en distributie blijven gescheiden; definitief vaststellen/verzenden volgt mandaat.
-
-## Bewoners, woningen, toegang en service
-
-Branch `agent/resident-service-module` / draft PR #286 bevat `brebo_resident_service`.
-
-Vastgelegd en/of gebouwd:
-
-- koppeling aan canoniek `brebo_building`; geen tweede gebouwmodel;
-- BAG/PDOK-gevalideerde adressen/gebruiksobjecten;
-- technisch woningdetail alleen wanneer technische zone dit vereist;
-- bewoners/servicecontext, meldingen, klachten, schade en nazorg;
-- onveranderlijke foto's met niet-destructieve annotatielagen;
-- toegang/contact op project-, gebouw-, zone- en woningniveau;
-- leegstand geeft nooit automatisch toegang;
-- `ZoneAccessReadiness` -> `WorkPackageAccessReadiness` -> formele `brebo_release_gate`;
-- standaard look-ahead is 42 dagen;
-- look-ahead signaleert alleen en wijzigt planning of formele vrijgave niet zelfstandig.
-
-## Huidige ontwikkelfase
-
-BREBO Office consolideert het canonieke gebouw- en projectmodel en bouwt centrale dossier- en operationele lagen daarop door. Nieuwe functionaliteit gebruikt deze ruggengraat en introduceert geen parallelle objectstructuren.
-
-De calculatiemodule bevindt zich niet meer alleen in de architectuurfase: er staat op `develop` een serieuze nieuwe calculatiewerkbank met hiërarchie, AJAX, mutaties, subtotalen, commerciële opbouw en scenariovergelijking. De volgende kernlaag is auditbare prijsbron-/inkooponderbouwing vanuit documenten en e-mails rechtstreeks naar gecontroleerde OA-kostprijzen.
-
-De Outputgenerator blijft architectonisch los van calculatie en geldt als generieke document-/rapportengine inclusief lay-out, bijlagenpakketten en integrale documentcompositie.
-
-De bewoners/service-bouwslag bevindt zich op `agent/resident-service-module` / PR #286 en geldt niet als productie-deployment zolang deze niet via de bestaande route is beoordeeld, gemerged en gedeployd.
-
-## Eerstvolgende technische punten
-
-1. Prijsbronbediening per calculatieregel in de werkbank bouwen.
-2. Documentprijsbron-upload + extractievoorstel + review/goedkeuring + OA-boeking bouwen.
-3. Gmail/e-mail zonder bijlage als volwaardige prijsbron kunnen selecteren en koppelen.
-4. Prijsbronnen aan intern calculatienotitie-/auditspoor en projectdocumentatie koppelen.
-5. Meerdere prijsbronnen per regel vergelijkbaar maken voor inkoopkeuze en TCO/risicobeoordeling.
-6. Calculatiewerkbank verder afronden met volgorde/drag-and-drop, zoeken, filteren, kopiëren/import en bronbibliotheken.
-7. Generieke Outputgenerator implementeren vanuit `BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md`.
-8. Commerciële funnel verder migreren naar de centrale presentatielaag.
-9. Automatische readiness-evidence auditbaar aan release-gate-historie vastleggen.
-10. Look-ahead verbreden naar generiek readinessmodel.
-11. Directe canonieke relatie realiseren tussen technische woningscope en BAG-backed residence.
-12. Foto-editor voor niet-destructieve markeringen mobiel uitwerken.
+Implementatie moet generiek bruikbaar zijn voor calculatie/offerte, inkoop, project, bewoners/service, KAM/oplevering, gebouw/MJOP en management.
 
 ## Integration API en deployment
 
 - Worker: `brebo-integration-api`.
-- Testendpoint: `https://brebo-integration-api.john-boon.workers.dev`.
 - HMAC v1-beveiliging blijft leidend.
-- Productie/deploymentwijzigingen verlopen via de bestaande GitHub Actions-route.
+- Deploymentwijzigingen verlopen via GitHub Actions.
+- Externe providercredentials horen niet in Drupal of broncode.
+- `sboffice` moet de enige canonieke productieruntime zijn.
+- Legacy-runtime/resten worden gecontroleerd uitgefaseerd, niet parallel in leven gehouden.
 
-## Mijlpaal 2026-08-23 — beveiligde Moneybird-verkoopfactuurketen
+## Eerstvolgende technische punten — organisatiebreed
 
-Status: **gerealiseerd op `develop`; productieverkeer nog bewust geblokkeerd tot configuratie en end-to-end proef zijn afgerond.**
-
-De verkoopfactuur-heenweg is technisch gesloten:
-
-```text
-Factuurconcept
-  -> vrijgeven
-  -> immutable outbox
-  -> Drupal queue
-  -> HMAC-beveiligde Integration API
-  -> Moneybird
-  -> officiële verkoopfactuurspiegel terug in BREBO Office
-```
-
-Vastgelegd en gebouwd:
-
-- PR #389 completeert de outbox-dispatch van BREBO Office naar de Integration API en de terugschrijving naar de officiële verkoopfactuurspiegel;
-- PR #390 voegt de Moneybird security gate toe;
-- de Integration API gebruikt `MONEYBIRD_ACCESS_TOKEN` als toegangssleutel en `MONEYBIRD_ADMINISTRATION_ID` als expliciete doeladministratie;
-- Moneybird-credentials staan niet in Drupal of in broncode en moeten als deploymentconfiguratie/secrets beschikbaar zijn;
-- requests vanuit BREBO Office worden HMAC-SHA256 ondertekend over methode, endpoint, bodyhash, timestamp en unieke request-ID;
-- idempotency voorkomt automatische dubbele facturen;
-- een onzekere provider- of netwerkuitkomst wordt niet blind opnieuw verzonden maar gaat naar `reconciliation_required`;
-- succesvolle responses kunnen veilig worden hergebruikt zonder opnieuw een providerhandeling uit te voeren;
-- ontbrekende of placeholder Moneybird-configuratie faalt gesloten: er vindt dan geen financiële verzending plaats;
-- lokale afronding koppelt Moneybird-resultaat transactioneel aan de officiële BREBO-verkoopfactuurspiegel.
-
-Relevante mergecommits:
-
-- verkoopfactuur-outbox/disptach: `c5009ad6954331461065adda515647822918ed45`;
-- Moneybird security gate: `e5b03824a9513c24f94bb5007ef939e865e49e60`.
-
-Continuïteitswaarde: BREBO Office hoeft voor verkoopfacturen niet meer te werken met een éénrichtings-PDF-koppeling of dubbele handmatige invoer. BREBO Office blijft de operationele project- en controlelaag; Moneybird blijft de officiële financiële administratie; de centrale Integration API bewaakt transport, authenticatie, providervertaling en herstelgedrag.
-
-Nog open vóór echt productieverkeer:
-
-1. juiste Moneybird-administratie-ID vaststellen;
-2. Moneybird access token aanmaken met minimaal benodigde rechten;
-3. beide waarden veilig in Cloudflare configureren;
-4. gecontroleerde end-to-end proef uitvoeren;
-5. pas na groene proef echte productiefacturen toelaten.
+1. `sboffice` runtime/readiness volledig canoniek maken en legacyconfiguratie opruimen.
+2. Mail/Zoho-readiness groen bewijzen en daarna historische migratie gecontroleerd uitvoeren.
+3. Finance/Moneybird leveranciers- en inkoopfactuurketen verder sluiten.
+4. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
+5. Digitale rollen operationaliseren op betrouwbare dossier- en controldata.
+6. Calculatieprijsbronnen rechtstreeks in de werkbank bedienbaar maken.
+7. Klantportaal access/publication/security-hardening afronden voordat publieke toegang wordt geopend.
+8. Generieke Outputgenerator implementeren.
+9. Management-/portfoliosturing verder uitbouwen.
+10. Canonieke gebouw-/projectconsolidatie en legacy-afbouw blijven bewaken.
 
 ## Ontwikkelregel bij nieuwe chats
 
-Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de hierboven genoemde bronnen en ga verder vanaf de eerstvolgende technische stap.
+Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
 
-Voor de calculatiemodule geldt bij hervatten expliciet: **ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat. Hervat bij prijsbronbediening / document- en e-mailbronverwerking tenzij GitHub inmiddels een latere stand toont.**
+Voor calculatie geldt expliciet: ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat. Hervat bij prijsbronbediening tenzij GitHub inmiddels een latere stand toont.
+
+Voor Mail geldt: behoud de bewezen baseline en forceer geen Zoho-backfill zolang runtime-readiness niet aantoonbaar groen is.
+
+Voor het klantportaal geldt: BREBO Office blijft bron en externe zichtbaarheid ontstaat uitsluitend via expliciete veilige publicatie/projectie.
 
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
