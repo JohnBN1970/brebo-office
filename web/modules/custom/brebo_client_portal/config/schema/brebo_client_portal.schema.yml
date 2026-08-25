@@ -1,0 +1,7 @@
+brebo_client_portal.settings:
+  type: config_object
+  label: 'BREBO Client Portal settings'
+  mapping:
+    global_enabled:
+      type: boolean
+      label: 'Global client portal enabled'
