@@ -82,6 +82,7 @@ jobs:
             $state->set("brebo_mail_intake.zoho_migration_enabled", FALSE);
 
             $beforeCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
+            $state->set("brebo_mail_intake.zoho_pilot_before_count", $beforeCount);
             echo "COMMUNICATION_COUNT_BEFORE=" . $beforeCount . PHP_EOL;
 
             putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=10");
@@ -97,16 +98,18 @@ jobs:
           "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $state = \Drupal::state();
             $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $beforeCount = (int) $state->get("brebo_mail_intake.zoho_pilot_before_count", 0);
             $afterCount = (int) $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->count()->execute();
             $cursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
             $complete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
             echo "COMMUNICATION_COUNT_AFTER=" . $afterCount . PHP_EOL;
-            echo "COMMUNICATION_COUNT_DELTA=" . ($afterCount - (int) $state->get("brebo_mail_intake.zoho_pilot_before_count", $afterCount)) . PHP_EOL;
+            echo "COMMUNICATION_COUNT_DELTA=" . ($afterCount - $beforeCount) . PHP_EOL;
             echo "ZOHO_NEWEST_FIRST_CURSOR=" . $cursor . PHP_EOL;
             echo "ZOHO_MIGRATION_COMPLETE=" . ($complete ? "YES" : "NO") . PHP_EOL;
             if ($cursor <= 0) {
               throw new \RuntimeException("Zoho newest-first cursor is niet opgeslagen.");
             }
+            $state->delete("brebo_mail_intake.zoho_pilot_before_count");
             $state->set("brebo_mail_intake.zoho_migration_enabled", TRUE);
             echo "ZOHO_MIGRATION_STATE_ENABLED=YES" . PHP_EOL;
             echo "ZOHO_NEWEST10_PILOT=PASS" . PHP_EOL;
