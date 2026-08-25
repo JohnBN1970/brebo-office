@@ -144,3 +144,87 @@ jobs:
           done < "$list_file"
           echo "VHOST_REF_FILES_SCANNED=$found"
           REMOTE
+
+  zoho_created_node:
+    name: Zoho pilot created-node read-only diagnosis
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Read recent Communication metadata
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Canonical BREBO Office app missing: $app"; exit 1; }
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          [[ -x "$remote_php" ]] || { echo "::error::Required PHP 8.3 binary missing: $remote_php"; exit 1; }
+          cd "$app"
+
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
+            $state = \Drupal::state();
+            $state->set("brebo_mail_intake.zoho_migration_enabled", FALSE);
+            echo "ZOHO_MIGRATION_STATE_ENABLED=NO" . PHP_EOL;
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->sort("created", "DESC")
+              ->range(0, 25)
+              ->execute();
+            $nodes = $storage->loadMultiple($ids);
+            echo "RECENT_COMMUNICATION_COUNT=" . count($nodes) . PHP_EOL;
+            foreach ($ids as $id) {
+              $node = $nodes[$id] ?? NULL;
+              if (!$node) continue;
+              $field = static function ($node, string $name): string {
+                return $node->hasField($name) ? trim((string) $node->get($name)->value) : "";
+              };
+              $subject = $field($node, "field_brebo_comm_subject");
+              $sourceId = $field($node, "field_brebo_source_id");
+              $received = $field($node, "field_brebo_comm_datetime");
+              $safeSubject = preg_replace("/[^\\pL\\pN .,:;_+()@&\\-]/u", "?", $subject);
+              $safeSource = preg_replace("/[^\\pL\\pN .,:;_+()@<>&\\-]/u", "?", $sourceId);
+              echo implode("|", [
+                "NODE=" . $node->id(),
+                "CREATED=" . gmdate("Y-m-d\\TH:i:s\\Z", (int) $node->getCreatedTime()),
+                "RECEIVED=" . ($received !== "" ? $received . "Z" : "EMPTY"),
+                "SOURCE_ID=" . mb_substr((string) $safeSource, 0, 160),
+                "SUBJECT=" . mb_substr((string) $safeSubject, 0, 140),
+              ]) . PHP_EOL;
+            }
+            echo "ZOHO_CREATED_NODE_DIAGNOSIS=COMPLETED" . PHP_EOL;
+          '
+          REMOTE
