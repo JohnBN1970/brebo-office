@@ -143,6 +143,7 @@ function _brebo_project_cockpit_tabs(int $project_id, string $active_route): arr
     ['Inzet', 'brebo_inzet.live_workforce', ['node' => $project_id]],
     ['Kwaliteit', 'brebo_office_core.deviations', []],
     ['Oplevering', 'brebo_project_cockpit.overview', ['node' => $project_id]],
+    ['Klantportaal', 'brebo_client_portal.project_control', ['node' => $project_id]],
   ];
 
   $items = [];

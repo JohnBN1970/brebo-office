@@ -1,0 +1,12 @@
+brebo_client_portal.project_control:
+  path: '/brebo/project/{node}/client-portal'
+  defaults:
+    _form: '\Drupal\brebo_client_portal\Form\ProjectPortalControlForm'
+    _title: 'Klantportaal'
+  requirements:
+    _permission: 'manage brebo client portal access'
+    node: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
