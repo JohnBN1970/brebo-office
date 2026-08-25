@@ -1,0 +1,95 @@
+name: BREBO Mail MIME structure diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Diagnose Hekwerk MIME structures read-only
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          "$php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+            if (!function_exists("imap_open")) {
+              throw new \RuntimeException("PHP IMAP ontbreekt.");
+            }
+            $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
+            $port = max(1, (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993));
+            $folder = trim((string) (getenv("BREBO_ZOHO_IMAP_FOLDER") ?: "INBOX"));
+            $flags = trim((string) (getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl"));
+            $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
+            $password = (string) getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            if ($host === "" || $user === "" || $password === "") {
+              throw new \RuntimeException("Zoho IMAP runtime ontbreekt.");
+            }
+            $stream = @imap_open(sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder), $user, $password, OP_READONLY);
+            if ($stream === false) {
+              throw new \RuntimeException("Zoho IMAP kon niet read-only worden geopend.");
+            }
+            $typeNames = ["text", "multipart", "message", "application", "audio", "image", "video", "other"];
+            $walk = function(object $part, string $number, int $depth = 0) use (&$walk, $typeNames): void {
+              $type = (int) ($part->type ?? -1);
+              $mime = ($typeNames[$type] ?? "unknown") . "/" . strtolower((string) ($part->subtype ?? ""));
+              $disp = strtolower((string) ($part->disposition ?? ""));
+              echo "PART=" . ($number === "" ? "ROOT" : $number)
+                . "|DEPTH=" . $depth
+                . "|MIME=" . $mime
+                . "|ENCODING=" . (int) ($part->encoding ?? 0)
+                . "|BYTES=" . (int) ($part->bytes ?? 0)
+                . "|DISPOSITION=" . ($disp !== "" ? $disp : "none")
+                . "|CHILDREN=" . count($part->parts ?? [])
+                . PHP_EOL;
+              foreach ($part->parts ?? [] as $index => $child) {
+                if (!is_object($child)) continue;
+                $childNumber = $number === "" ? (string) ($index + 1) : $number . "." . ($index + 1);
+                $walk($child, $childNumber, $depth + 1);
+              }
+            };
+            try {
+              $uids = imap_search($stream, "SUBJECT \"Hekwerk\"", SE_UID) ?: [];
+              rsort($uids, SORT_NUMERIC);
+              $uids = array_slice($uids, 0, 10);
+              echo "HEKWERK_UID_COUNT=" . count($uids) . PHP_EOL;
+              foreach ($uids as $uid) {
+                $overview = imap_fetch_overview($stream, (string) $uid, FT_UID)[0] ?? null;
+                $subject = $overview && isset($overview->subject) ? (string) imap_utf8((string) $overview->subject) : "";
+                echo "UID=" . (int) $uid . "|SUBJECT=" . str_replace(["\r", "\n", "|"], " ", $subject) . PHP_EOL;
+                $structure = imap_fetchstructure($stream, (int) $uid, FT_UID);
+                if (is_object($structure)) $walk($structure, "");
+              }
+              echo "MAIL_MIME_STRUCTURE_DIAGNOSIS=PASS" . PHP_EOL;
+            }
+            finally {
+              imap_close($stream);
+            }
+          '
+          REMOTE
