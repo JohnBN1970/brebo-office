@@ -1,0 +1,8 @@
+name: 'BREBO Sandbox Reset'
+type: module
+description: 'Veilige inhoudsreset voor BREBO Office sandbox zonder software, schema of configuratie te verwijderen.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
+  - brebo_mail_intake:brebo_mail_intake
