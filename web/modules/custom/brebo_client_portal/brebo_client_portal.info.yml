@@ -1,0 +1,5 @@
+name: 'BREBO Client Portal'
+type: module
+description: 'Veilige publicatie- en toegangslaag tussen BREBO Office en externe projectcontactpersonen.'
+package: 'BREBO Office'
+core_version_requirement: ^11

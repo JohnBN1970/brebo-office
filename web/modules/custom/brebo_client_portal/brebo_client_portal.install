@@ -1,0 +1,142 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_client_portal_schema(): array {
+  $schema = [];
+
+  $schema['brebo_portal_project'] = [
+    'description' => 'External portal projection configuration for a canonical BREBO project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'enabled' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'public_title' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'public_status' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'visible_sections_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'valid_from' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'valid_until' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'last_customer_activity' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'last_published_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['uuid' => ['uuid'], 'project' => ['project_id']],
+    'indexes' => ['enabled' => ['enabled'], 'valid_until' => ['valid_until']],
+  ];
+
+  $schema['brebo_portal_identity'] = [
+    'description' => 'External authentication identity linked to an existing BREBO contact.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'contact_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'email_normalized' => ['type' => 'varchar', 'length' => 254, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
+      'verified_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'last_login_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['uuid' => ['uuid'], 'email' => ['email_normalized']],
+    'indexes' => ['contact' => ['contact_id'], 'status' => ['status']],
+  ];
+
+  $schema['brebo_portal_access_grant'] = [
+    'description' => 'Project-scoped external access grant for one portal identity.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'portal_project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'identity_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
+      'capabilities_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'valid_from' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'valid_until' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'invited_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'accepted_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'blocked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'revoked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'last_activity_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['uuid' => ['uuid'], 'project_identity' => ['portal_project_id', 'identity_id']],
+    'indexes' => ['status' => ['status'], 'identity' => ['identity_id'], 'valid_until' => ['valid_until']],
+  ];
+
+  $schema['brebo_portal_login_token'] = [
+    'description' => 'Hashed, expiring and single-use portal authentication tokens.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'identity_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'token_hash' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'purpose' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'login'],
+      'expires_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'redeemed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'revoked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'attempt_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['token_hash' => ['token_hash']],
+    'indexes' => ['identity' => ['identity_id'], 'expires_at' => ['expires_at']],
+  ];
+
+  $schema['brebo_portal_publication'] = [
+    'description' => 'Explicit allowlisted external projection of internal BREBO information.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'portal_project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'source_id' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'source_revision' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'publication_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'payload_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'source_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+      'visible_from' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'visible_until' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'published_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'published_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'revoked_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'revoked_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['uuid' => ['uuid']],
+    'indexes' => ['project_status' => ['portal_project_id', 'status'], 'source' => ['source_type', 'source_id'], 'publication_type' => ['publication_type'], 'visible_until' => ['visible_until']],
+  ];
+
+  $schema['brebo_portal_audit'] = [
+    'description' => 'Append-only security and publication audit trail for the client portal.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'occurred_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'identity_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'contact_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'portal_project_uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'action' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'object_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'object_uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'result' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+      'request_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'ip_fingerprint' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'user_agent' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'metadata_json' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['occurred_at' => ['occurred_at'], 'identity' => ['identity_id'], 'project' => ['portal_project_uuid'], 'action' => ['action']],
+  ];
+
+  return $schema;
+}
