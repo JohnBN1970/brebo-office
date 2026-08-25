@@ -1,0 +1,4 @@
+administer brebo sandbox reset:
+  title: 'BREBO sandbox-inhoud resetten'
+  description: 'Mag sandbox-inhoud verwijderen zonder software of configuratie te wijzigen.'
+  restrict access: true
