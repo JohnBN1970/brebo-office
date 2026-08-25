@@ -235,7 +235,10 @@ final class MailboxController extends ControllerBase {
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-reader']],
-      'content' => ['#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . $attachmentMarkup . '<div class="brebo-mail-reader__body">' . $body . '</div></article>'],
+      'content' => [
+        '#markup' => '<article><h2>' . $title . '</h2><div class="brebo-mail-reader__meta"><strong>Van:</strong> ' . $from . '<br><strong>Aan:</strong> ' . $to . '<br>' . ($cc !== '' ? '<strong>CC:</strong> ' . $cc . '<br>' : '') . '<strong>Datum/tijd:</strong> ' . $date . '</div>' . $contextMarkup . ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list brebo-mail-tag-list--reader">' . $tagMarkup . '</div>' : '') . $attachmentMarkup . '<div class="brebo-mail-reader__body">' . $body . '</div></article>',
+        '#allowed_tags' => array_merge(Xss::getAdminTagList(), ['iframe']),
+      ],
     ];
 
     if ($communicationId > 0) {
