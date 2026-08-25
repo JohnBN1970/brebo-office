@@ -1,0 +1,3 @@
+services:
+  brebo_client_portal.publication_policy:
+    class: Drupal\brebo_client_portal\Publication\PortalPublicationPolicy
