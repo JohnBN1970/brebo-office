@@ -1,0 +1,146 @@
+name: BREBO Finance Organization Payment Profile Repair
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    name: Ensure organization masterdata and payment profile fields
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Ensure organization masterdata and payment profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Finance organization payment profile preflight ==="
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
+
+          "${drush[@]}" php:eval '
+            use Drupal\field\Entity\FieldConfig;
+            use Drupal\field\Entity\FieldStorageConfig;
+            use Drupal\Core\Entity\Entity\EntityFormDisplay;
+            use Drupal\Core\Entity\Entity\EntityViewDisplay;
+
+            $bundle = "brebo_organization";
+            $fields = [
+              "field_brebo_org_postal_code" => ["Postcode", "string", ["max_length" => 16], "string_textfield", "string"],
+              "field_brebo_org_city" => ["Plaats", "string", ["max_length" => 128], "string_textfield", "string"],
+              "field_brebo_org_country" => ["Land", "string", ["max_length" => 64], "string_textfield", "string"],
+              "field_brebo_org_kvk" => ["KVK-nummer", "string", ["max_length" => 32], "string_textfield", "string"],
+              "field_brebo_org_vat" => ["Btw-nummer", "string", ["max_length" => 32], "string_textfield", "string"],
+              "field_brebo_payment_term_days" => ["Betaaltermijn (dagen)", "integer", [], "number", "number_integer"],
+              "field_brebo_payment_method" => ["Betaalwijze", "string", ["max_length" => 32], "string_textfield", "string"],
+              "field_brebo_g_account_iban_org" => ["G-rekening IBAN", "string", ["max_length" => 64], "string_textfield", "string"],
+              "field_brebo_sepa_active" => ["SEPA-incasso actief", "boolean", [], "boolean_checkbox", "boolean"],
+              "field_brebo_sepa_iban" => ["SEPA IBAN", "string", ["max_length" => 64], "string_textfield", "string"],
+              "field_brebo_sepa_account_name" => ["SEPA tenaamstelling", "string", ["max_length" => 255], "string_textfield", "string"],
+              "field_brebo_sepa_bic" => ["SEPA BIC", "string", ["max_length" => 32], "string_textfield", "string"],
+              "field_brebo_sepa_mandate_id" => ["SEPA mandaatreferentie", "string", ["max_length" => 128], "string_textfield", "string"],
+              "field_brebo_sepa_mandate_date" => ["SEPA mandaatdatum", "datetime", ["datetime_type" => "date"], "datetime_default", "datetime_default"],
+              "field_brebo_sepa_sequence" => ["SEPA sequence type", "string", ["max_length" => 32], "string_textfield", "string"],
+            ];
+
+            $weight = 20;
+            $form = EntityFormDisplay::load("node.$bundle.default");
+            $view = EntityViewDisplay::load("node.$bundle.default");
+
+            foreach ($fields as $name => [$label, $type, $settings, $widget, $formatter]) {
+              if (!FieldStorageConfig::loadByName("node", $name)) {
+                FieldStorageConfig::create([
+                  "field_name" => $name,
+                  "entity_type" => "node",
+                  "type" => $type,
+                  "settings" => $settings,
+                  "cardinality" => 1,
+                  "translatable" => FALSE,
+                ])->save();
+                print "$name.storage=created\n";
+              }
+              else {
+                print "$name.storage=existing\n";
+              }
+
+              if (!FieldConfig::loadByName("node", $bundle, $name)) {
+                FieldConfig::create([
+                  "field_name" => $name,
+                  "entity_type" => "node",
+                  "bundle" => $bundle,
+                  "label" => $label,
+                  "required" => FALSE,
+                  "translatable" => FALSE,
+                ])->save();
+                print "$name.instance=created\n";
+              }
+              else {
+                print "$name.instance=existing\n";
+              }
+
+              if ($form) {
+                $form->setComponent($name, [
+                  "type" => $widget,
+                  "weight" => $weight,
+                  "region" => "content",
+                  "settings" => [],
+                  "third_party_settings" => [],
+                ]);
+              }
+              if ($view) {
+                $view->setComponent($name, [
+                  "type" => $formatter,
+                  "label" => "above",
+                  "weight" => $weight,
+                  "region" => "content",
+                  "settings" => [],
+                  "third_party_settings" => [],
+                ]);
+              }
+              $weight++;
+            }
+
+            if ($form) $form->save();
+            if ($view) $view->save();
+            \Drupal::service("entity_field.manager")->clearCachedFieldDefinitions();
+
+            $definitions = \Drupal::service("entity_field.manager")->getFieldDefinitions("node", $bundle);
+            foreach (array_keys($fields) as $name) {
+              if (!isset($definitions[$name])) {
+                throw new \RuntimeException("Missing organization payment profile field: $name");
+              }
+            }
+            print "ORGANIZATION_PAYMENT_PROFILE=PASS\n";
+          '
+
+          "${drush[@]}" cr
+          REMOTE
