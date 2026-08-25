@@ -19,7 +19,10 @@ final class MailEditorProvisioner {
       throw new \RuntimeException('Drupal Text Editor en CKEditor 5 zijn nog niet geactiveerd.');
     }
 
-    $allowedHtml = '<p class style align> <br> <strong> <b> <em> <i> <u> <a href title target rel> <ul> <ol start reversed> <li> <blockquote> <h1> <h2> <h3> <h4> <h5> <h6> <pre> <code> <hr> <div class style align> <span class style> <table class style width border cellspacing cellpadding> <thead> <tbody> <tfoot> <tr class style> <th class style width height align valign colspan rowspan> <td class style width height align valign colspan rowspan> <img src alt title width height class style> <center> <font color face size> <small> <sub> <sup>';
+    // Keep the structural markup and inline presentation attributes that real
+    // HTML email relies on. Active content and document-level style blocks are
+    // deliberately not allowed in the shared Office DOM.
+    $allowedHtml = '<p class style align dir> <br> <strong> <b> <em> <i> <u> <a href title target rel style> <ul class style> <ol start reversed class style> <li class style> <blockquote class style> <h1 class style align> <h2 class style align> <h3 class style align> <h4 class style align> <h5 class style align> <h6 class style align> <pre class style> <code> <hr class style> <div id class style align dir> <span id class style dir> <table id class style width border cellspacing cellpadding align dir role> <thead class style> <tbody class style> <tfoot class style> <tr id class style align valign> <th id class style width height align valign colspan rowspan> <td id class style width height align valign colspan rowspan> <img src alt title width height border class style align> <center class style> <font color face size> <small class style> <sub> <sup>';
 
     $format = FilterFormat::load('brebo_mail_html');
     if (!$format) {
