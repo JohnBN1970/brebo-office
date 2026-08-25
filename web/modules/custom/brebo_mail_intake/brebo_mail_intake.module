@@ -33,8 +33,9 @@ function brebo_mail_intake_cron(): void {
     _brebo_mail_intake_enqueue_source($serviceId, strtoupper($source));
   }
 
-  $zohoMigrationEnabled = filter_var(getenv('BREBO_ZOHO_MIGRATION_ENABLED') ?: '0', FILTER_VALIDATE_BOOL)
-    || (bool) \Drupal::state()->get('brebo_mail_intake.zoho_migration_enabled', FALSE);
+  // Zoho historical migration is intentionally state-gated. A stale runtime
+  // environment variable must never re-enable backfill after a failed audit.
+  $zohoMigrationEnabled = (bool) \Drupal::state()->get('brebo_mail_intake.zoho_migration_enabled', FALSE);
   if ($zohoMigrationEnabled) {
     _brebo_mail_intake_enqueue_source('brebo_mail_intake.zoho_migration_source', 'ZOHO-MIGRATIE');
   }
