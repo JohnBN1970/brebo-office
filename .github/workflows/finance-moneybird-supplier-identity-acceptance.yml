@@ -1,0 +1,27 @@
+name: BREBO Finance Moneybird Supplier Identity Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php'
+      - '.github/workflows/finance-moneybird-supplier-identity-diagnosis.yml'
+      - '.github/workflows/finance-moneybird-supplier-identity-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate identity diagnosis PHP syntax
+        run: |
+          set -euo pipefail
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
+      - name: Guard read-only workflow
+        run: |
+          set -euo pipefail
+          ! grep -Eq '->save\(|->create\(' web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
+          grep -q 'MONEYBIRD_SUPPLIER_IDENTITY_DIAGNOSIS=PASS' .github/workflows/finance-moneybird-supplier-identity-diagnosis.yml
