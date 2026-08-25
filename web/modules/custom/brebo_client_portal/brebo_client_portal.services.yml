@@ -10,3 +10,9 @@ services:
       - '@datetime.time'
       - '@uuid'
       - '@current_user'
+
+  brebo_client_portal.project_projection_builder:
+    class: Drupal\brebo_client_portal\Projection\ProjectPortalProjectionBuilder
+    arguments:
+      - '@brebo_project_cockpit.project_progress_builder'
+      - '@brebo_project_cockpit.project_milestone_builder'
