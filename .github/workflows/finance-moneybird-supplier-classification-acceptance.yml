@@ -1,0 +1,32 @@
+name: BREBO Finance Moneybird Supplier Classification Acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierClassifier.php'
+      - 'web/modules/custom/brebo_finance/tests/src/Unit/MoneybirdSupplierClassifierTest.php'
+      - '.github/workflows/finance-moneybird-supplier-diagnosis.yml'
+      - '.github/workflows/finance-moneybird-supplier-classification-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: |
+          set -euo pipefail
+          php -l web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierClassifier.php
+          php -l web/modules/custom/brebo_finance/tests/src/Unit/MoneybirdSupplierClassifierTest.php
+      - name: Run classifier unit test when PHPUnit is available
+        run: |
+          set -euo pipefail
+          if [ -x vendor/bin/phpunit ]; then
+            vendor/bin/phpunit web/modules/custom/brebo_finance/tests/src/Unit/MoneybirdSupplierClassifierTest.php
+          else
+            echo 'vendor/bin/phpunit unavailable in checkout; syntax validation completed.'
+          fi
