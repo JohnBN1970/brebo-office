@@ -98,22 +98,27 @@ final class MailIntakeIngestor {
     $field = static fn(NodeInterface $item, string $name): string => $item->hasField($name) ? trim((string) $item->get($name)->value) : '';
     return $this->ensureMailboxProjection((int) $node->id(), [
       'direction' => $field($node, 'field_brebo_comm_direction'),
+      'from' => $field($node, 'field_brebo_mail_from'),
       'to' => $field($node, 'field_brebo_mail_to'),
     ]);
   }
 
-  /** Ensures incoming mail is visible in the logical BREBO mailbox. */
+  /** Ensures incoming and outgoing mail are visible in the logical BREBO mailbox. */
   private function ensureMailboxProjection(int $communicationId, array $mail): bool {
     $direction = trim((string) ($mail['direction'] ?? 'Inkomend'));
-    if ($direction !== '' && $direction !== 'Inkomend') {
-      return FALSE;
+    if (!in_array($direction, ['Inkomend', 'Uitgaand'], TRUE)) {
+      $direction = 'Inkomend';
     }
     if (!$this->database->schema()->tableExists('brebo_mailbox') || !$this->database->schema()->tableExists('brebo_mailbox_message')) {
       return FALSE;
     }
 
-    $recipients = $this->emailAddresses((string) ($mail['to'] ?? ''));
-    if ($recipients === []) {
+    $mailState = $direction === 'Uitgaand' ? 'sent' : 'inbox';
+    $addressSource = $direction === 'Uitgaand'
+      ? (string) ($mail['from'] ?? '')
+      : (string) ($mail['to'] ?? '');
+    $mailAddresses = $this->emailAddresses($addressSource);
+    if ($mailAddresses === []) {
       return FALSE;
     }
 
@@ -125,7 +130,7 @@ final class MailIntakeIngestor {
     $matches = [];
     foreach ($rows as $row) {
       $address = strtolower(trim((string) $row->address));
-      if ($address !== '' && in_array($address, $recipients, TRUE)) {
+      if ($address !== '' && in_array($address, $mailAddresses, TRUE)) {
         $matches[(int) $row->id] = (int) $row->id;
       }
     }
@@ -136,7 +141,7 @@ final class MailIntakeIngestor {
     $mailboxId = (int) reset($matches);
     $this->database->merge('brebo_mailbox_message')
       ->keys(['mailbox_id' => $mailboxId, 'communication_id' => $communicationId])
-      ->fields(['mail_state' => 'inbox', 'is_read' => 0, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
+      ->fields(['mail_state' => $mailState, 'is_read' => 0, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
       ->execute();
     return TRUE;
   }
