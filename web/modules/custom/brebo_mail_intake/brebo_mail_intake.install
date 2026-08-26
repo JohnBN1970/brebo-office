@@ -7,6 +7,8 @@ use Drupal\Core\Entity\Entity\EntityViewDisplay;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\Entity\NodeType;
+use Drupal\user\RoleInterface;
+use Drupal\user\UserInterface;
 
 /**
  * Implements hook_install().
@@ -173,4 +175,153 @@ function brebo_mail_intake_install(): void {
     }
     $view_display->save();
   }
+}
+
+/**
+ * Adds owner-only personal mailboxes and seeds functional mailbox routing.
+ */
+function brebo_mail_intake_update_11001(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if (!$schema->tableExists('brebo_mailbox')) {
+    return 'BREBO mailbox foundation ontbreekt; owner/routing update niet uitgevoerd.';
+  }
+
+  if (!$schema->fieldExists('brebo_mailbox', 'owner_uid')) {
+    $schema->addField('brebo_mailbox', 'owner_uid', [
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+      'description' => 'Drupal user owner for personal mailboxes; zero for non-personal mailboxes.',
+    ]);
+    $schema->addIndex('brebo_mailbox', 'owner_uid', ['owner_uid']);
+  }
+
+  $now = time();
+  $functional = [
+    'info' => ['label' => 'BREBO INFO', 'address' => 'info@brebobv.nl'],
+    'facturen' => ['label' => 'BREBO Facturen', 'address' => 'facturen@brebobv.nl'],
+    'offerte' => ['label' => 'BREBO Offerte', 'address' => 'offerte@brebobv.nl'],
+    'admin' => ['label' => 'BREBO Admin', 'address' => 'admin@brebobv.nl'],
+  ];
+
+  $mailboxIds = [];
+  foreach ($functional as $machineName => $definition) {
+    $existing = $database->select('brebo_mailbox', 'm')
+      ->fields('m', ['id'])
+      ->condition('machine_name', $machineName)
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+
+    if ($existing) {
+      $database->update('brebo_mailbox')
+        ->fields([
+          'label' => $definition['label'],
+          'address' => $definition['address'],
+          'privacy_type' => 'functional',
+          'owner_uid' => 0,
+          'active' => 1,
+          'changed' => $now,
+        ])
+        ->condition('id', (int) $existing)
+        ->execute();
+      $mailboxIds[] = (int) $existing;
+      continue;
+    }
+
+    $mailboxIds[] = (int) $database->insert('brebo_mailbox')
+      ->fields([
+        'machine_name' => $machineName,
+        'label' => $definition['label'],
+        'address' => $definition['address'],
+        'privacy_type' => 'functional',
+        'owner_uid' => 0,
+        'active' => 1,
+        'created' => $now,
+        'changed' => $now,
+      ])
+      ->execute();
+  }
+
+  $directieRoleId = NULL;
+  foreach (\Drupal::entityTypeManager()->getStorage('user_role')->loadMultiple() as $role) {
+    if ($role instanceof RoleInterface && mb_strtolower(trim((string) $role->label())) === 'directie') {
+      $directieRoleId = $role->id();
+      break;
+    }
+  }
+
+  if ($directieRoleId !== NULL && $schema->tableExists('brebo_mailbox_role')) {
+    foreach ($mailboxIds as $mailboxId) {
+      foreach (['view', 'handle', 'send_as', 'send_on_behalf', 'archive', 'delete', 'administer'] as $capability) {
+        $database->merge('brebo_mailbox_role')
+          ->keys([
+            'mailbox_id' => $mailboxId,
+            'role_id' => $directieRoleId,
+            'capability' => $capability,
+          ])
+          ->fields([])
+          ->execute();
+      }
+    }
+  }
+
+  $functionalAddresses = array_map(static fn(array $definition): string => $definition['address'], $functional);
+  $personalCount = 0;
+  foreach (\Drupal::entityTypeManager()->getStorage('user')->loadMultiple() as $user) {
+    if (!$user instanceof UserInterface || !$user->isActive() || (int) $user->id() === 0) {
+      continue;
+    }
+    $address = mb_strtolower(trim((string) $user->getEmail()));
+    if ($address === '' || !str_ends_with($address, '@brebobv.nl') || in_array($address, $functionalAddresses, TRUE)) {
+      continue;
+    }
+
+    $existing = $database->select('brebo_mailbox', 'm')
+      ->fields('m', ['id'])
+      ->condition('address', $address)
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+
+    $local = strstr($address, '@', TRUE) ?: ('user-' . $user->id());
+    $machineName = 'personal_' . preg_replace('/[^a-z0-9_]+/', '_', str_replace('.', '_', $local));
+    $label = 'Mijn mail - ' . $address;
+
+    if ($existing) {
+      $database->update('brebo_mailbox')
+        ->fields([
+          'privacy_type' => 'personal',
+          'owner_uid' => (int) $user->id(),
+          'active' => 1,
+          'changed' => $now,
+        ])
+        ->condition('id', (int) $existing)
+        ->execute();
+    }
+    else {
+      $database->insert('brebo_mailbox')
+        ->fields([
+          'machine_name' => $machineName,
+          'label' => $label,
+          'address' => $address,
+          'privacy_type' => 'personal',
+          'owner_uid' => (int) $user->id(),
+          'active' => 1,
+          'created' => $now,
+          'changed' => $now,
+        ])
+        ->execute();
+    }
+    $personalCount++;
+  }
+
+  return sprintf(
+    'Mailbox owner/routing actief: %d functionele mailboxen geregistreerd, Directie-rol %s, %d persoonlijke BREBO-mailbox(en) owner-only gekoppeld.',
+    count($functional),
+    $directieRoleId !== NULL ? 'gekoppeld' : 'niet gevonden',
+    $personalCount,
+  );
 }
