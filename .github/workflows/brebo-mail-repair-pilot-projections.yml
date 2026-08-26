@@ -1,0 +1,46 @@
+name: BREBO Mail repair pilot projections
+
+on:
+  workflow_dispatch:
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repair current pilot mailbox projections
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script: |
+            set -eu
+            APP_ROOT=/home/${{ secrets.DEPLOY_USER }}/domains/brebobv.nl/public_html/sboffice
+            PHP=/opt/alt/php83/usr/bin/php
+            cd "$APP_ROOT"
+            "$PHP" vendor/bin/drush php:eval '
+              $storage = \Drupal::entityTypeManager()->getStorage("node");
+              $ids = $storage->getQuery()
+                ->accessCheck(FALSE)
+                ->condition("type", "brebo_communication")
+                ->sort("nid", "DESC")
+                ->range(0, 10)
+                ->execute();
+              $ingestor = \Drupal::service("brebo_mail_intake.ingestor");
+              $repaired = 0;
+              $skipped = 0;
+              foreach ($storage->loadMultiple($ids) as $node) {
+                if ($ingestor->projectExisting($node)) {
+                  $repaired++;
+                  print "PROJECTED=" . $node->id() . "\n";
+                }
+                else {
+                  $skipped++;
+                  print "SKIPPED=" . $node->id() . "\n";
+                }
+              }
+              print "PILOT_PROJECTION_REPAIRED={$repaired}\n";
+              print "PILOT_PROJECTION_SKIPPED={$skipped}\n";
+              print "MAIL_PILOT_PROJECTION_REPAIR=PASS\n";
+            '
