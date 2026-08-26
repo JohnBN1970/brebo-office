@@ -1,0 +1,56 @@
+name: BREBO Mail pilot projection distribution
+
+on:
+  workflow_dispatch:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit current sandbox mail projection
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 185.224.138.59
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script: |
+            set -eu
+            APP_ROOT=/home/${{ secrets.DEPLOY_USER }}/domains/brebobv.nl/public_html/sboffice
+            PHP=/opt/alt/php83/usr/bin/php
+            cd "$APP_ROOT"
+            "$PHP" vendor/bin/drush php:eval '
+              $db = \Drupal::database();
+              $total = (int) $db->select("brebo_mailbox_message", "bm")->countQuery()->execute()->fetchField();
+              print "PROJECTION_TOTAL={$total}\n";
+
+              $q = $db->select("brebo_mailbox_message", "bm");
+              $q->addField("bm", "mailbox_id");
+              $q->addField("bm", "mail_state");
+              $q->addExpression("COUNT(*)", "message_count");
+              $q->groupBy("bm.mailbox_id");
+              $q->groupBy("bm.mail_state");
+              $q->orderBy("bm.mailbox_id");
+              $q->orderBy("bm.mail_state");
+              foreach ($q->execute() as $row) {
+                print "MAILBOX={$row->mailbox_id}|STATE={$row->mail_state}|COUNT={$row->message_count}\n";
+              }
+
+              $q = $db->select("brebo_mailbox_message", "bm");
+              $q->fields("bm", ["mailbox_id", "communication_id", "mail_state"]);
+              $q->orderBy("bm.communication_id", "DESC");
+              $q->range(0, 20);
+              $rows = $q->execute()->fetchAll();
+              $storage = \Drupal::entityTypeManager()->getStorage("node");
+              foreach ($rows as $row) {
+                $node = $storage->load((int) $row->communication_id);
+                $subject = $node && $node->hasField("field_brebo_comm_subject") && !$node->get("field_brebo_comm_subject")->isEmpty()
+                  ? (string) $node->get("field_brebo_comm_subject")->value
+                  : ($node ? (string) $node->label() : "[missing]");
+                $direction = $node && $node->hasField("field_brebo_comm_direction") && !$node->get("field_brebo_comm_direction")->isEmpty()
+                  ? (string) $node->get("field_brebo_comm_direction")->value
+                  : "";
+                print "COMMUNICATION={$row->communication_id}|MAILBOX={$row->mailbox_id}|STATE={$row->mail_state}|DIRECTION=" . str_replace(["\r", "\n"], " ", $direction) . "|SUBJECT=" . str_replace(["\r", "\n"], " ", $subject) . "\n";
+              }
+              print "MAIL_PILOT_PROJECTION_DISTRIBUTION=PASS\n";
+            '
