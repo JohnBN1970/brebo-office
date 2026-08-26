@@ -3,38 +3,61 @@ name: BREBO Mail pilot address diagnosis
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
       - name: Diagnose pilot directions and mailbox matching
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: 77.37.34.160
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 65002
-          script: |
-            set -eu
-            APP_ROOT=/home/${{ secrets.DEPLOY_USER }}/domains/brebobv.nl/public_html/sboffice
-            PHP=/opt/alt/php83/usr/bin/php
-            cd "$APP_ROOT"
-            "$PHP" vendor/bin/drush php:eval '
-              $db = \Drupal::database();
-              foreach ($db->select("brebo_mailbox", "mb")->fields("mb", ["id", "address", "active"])->execute() as $row) {
-                print "MAILBOX={$row->id}|ADDRESS={$row->address}|ACTIVE={$row->active}\n";
-              }
-              $storage = \Drupal::entityTypeManager()->getStorage("node");
-              $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->sort("nid", "DESC")->range(0, 10)->execute();
-              foreach ($storage->loadMultiple($ids) as $node) {
-                $v = static fn($n, $f) => $n->hasField($f) && !$n->get($f)->isEmpty() ? trim((string) $n->get($f)->value) : "";
-                $projected = (int) $db->select("brebo_mailbox_message", "bm")->condition("communication_id", (int) $node->id())->countQuery()->execute()->fetchField();
-                print "COMMUNICATION=" . $node->id()
-                  . "|DIRECTION=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_comm_direction"))
-                  . "|FROM=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_mail_from"))
-                  . "|TO=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_mail_to"))
-                  . "|PROJECTED={$projected}"
-                  . "|SUBJECT=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_comm_subject")) . "\n";
-              }
-              print "MAIL_PILOT_ADDRESS_DIAGNOSIS=PASS\n";
-            '
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          output=$("${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            foreach ($db->select("brebo_mailbox", "mb")->fields("mb", ["id", "address", "active"])->execute() as $row) {
+              echo "MAILBOX=" . $row->id . "|ADDRESS=" . $row->address . "|ACTIVE=" . $row->active . PHP_EOL;
+            }
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_communication")->sort("nid", "DESC")->range(0, 10)->execute();
+            foreach ($storage->loadMultiple($ids) as $node) {
+              $v = static fn($n, $f) => $n->hasField($f) && !$n->get($f)->isEmpty() ? trim((string) $n->get($f)->value) : "";
+              $projected = (int) $db->select("brebo_mailbox_message", "bm")->condition("communication_id", (int) $node->id())->countQuery()->execute()->fetchField();
+              echo "COMMUNICATION=" . $node->id()
+                . "|DIRECTION=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_comm_direction"))
+                . "|FROM=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_mail_from"))
+                . "|TO=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_mail_to"))
+                . "|PROJECTED=" . $projected
+                . "|SUBJECT=" . str_replace(["\r", "\n"], " ", $v($node, "field_brebo_comm_subject")) . PHP_EOL;
+            }
+            echo "MAIL_PILOT_ADDRESS_DIAGNOSIS=PASS" . PHP_EOL;
+          ')
+
+          printf '%s\n' "$output" | grep -E '^(MAILBOX=|COMMUNICATION=|MAIL_PILOT_ADDRESS_DIAGNOSIS=)'
+          REMOTE
