@@ -1,7 +1,7 @@
 # BREBO Office — Mail Intake Privacy & AVG-kader
 
 Status: vastgesteld ontwikkelprincipe
-Datum: 12 augustus 2026
+Datum: 26 augustus 2026
 
 ## Doel
 
@@ -13,77 +13,86 @@ Dit document is een technische en organisatorische ontwerpregel. Voor formele ju
 
 ### 1. Gedeelde functionele bedrijfsbox
 
-Voorbeeld: `info@brebobv.nl`.
+Voorbeelden: `info@brebobv.nl`, `facturen@brebobv.nl`, `offerte@brebobv.nl` en `admin@brebobv.nl`.
 
-Een gedeelde functionele mailbox mag automatisch worden ingelezen wanneer:
+Een gedeelde functionele mailbox mag automatisch via de aangewezen mailbron worden gesynchroniseerd wanneer:
 
 - het zakelijke doel vooraf is vastgelegd;
 - de mailbox expliciet als bedrijfsbron is aangewezen;
 - alleen gegevens worden verwerkt die voor dat doel nodig zijn;
-- toegang, rollen en logging zijn geregeld;
-- bewaartermijnen en verwijder-/beperkingsprocessen zijn vastgesteld;
+- toegang via rollen en permissies is geregeld;
+- logging, bewaartermijnen en verwijder-/beperkingsprocessen zijn vastgesteld;
 - bronmail read-only wordt benaderd waar de intake dat toelaat.
+
+Functionele mailboxen zijn niet aan één natuurlijke persoon voor zichtbaarheid gekoppeld. Toegang volgt de toegekende Drupal-rollen en mailboxpermissies. Eén gebruiker kan meerdere rollen hebben en daardoor toegang hebben tot meerdere functionele mailboxen.
 
 ### 2. Persoonlijke zakelijke mailbox
 
-Een persoonlijke mailbox wordt standaard **niet automatisch gepolld**.
+Het zakelijke e-mailadres dat aan een BREBO Office-gebruiker is gekoppeld, geldt als diens persoonlijke zakelijke mailboxidentiteit.
 
-De standaardmodus is **push-gestuurd**:
+Een persoonlijke zakelijke mailbox mag automatisch via de aangewezen mailbron worden gesynchroniseerd, maar de veilige standaard is **owner-only**:
 
-- de gebruiker start zelf de intake met een expliciete actie in BREBO Office;
-- de actie is zichtbaar en herleidbaar;
-- alleen een afgebakende nieuwe set berichten wordt verwerkt;
-- per gebruiker/mailbox wordt een eigen voortgangsstatus bijgehouden;
-- bronmail wordt niet verwijderd, verplaatst of als gelezen gemarkeerd door de intake;
-- BREBO Office leest niet stilzwijgend de volledige persoonlijke mailbox uit.
+- de mailbox is gekoppeld aan de betreffende BREBO Office-gebruiker/eigenaar;
+- gesynchroniseerde persoonlijke mailboxdata is standaard uitsluitend zichtbaar voor die eigenaar;
+- een algemene functie- of mailboxrol geeft nooit automatisch toegang tot de persoonlijke mailbox van een andere gebruiker;
+- zoekresultaten, AI, projecttijdlijnen, documenten, bijlagen en andere afgeleide weergaven mogen deze toegangsregel niet omzeilen;
+- bronmail wordt niet door de intake verwijderd, verplaatst of als gelezen gemarkeerd zolang daarvoor geen afzonderlijk vastgesteld proces bestaat;
+- toegang en relevante beheerhandelingen zijn auditable.
 
-Een eventuele permanente automatische intake van een persoonlijke mailbox is een afzonderlijk besluit en vereist voorafgaande beoordeling van doel, noodzaak, proportionaliteit, rechtsgrond, transparantie, toegang, bewaartermijn en werknemersprivacy.
+Automatische synchronisatie betekent niet dat persoonlijke communicatie automatisch gedeelde bedrijfscommunicatie wordt. Persoonlijke mailboxinhoud blijft binnen de persoonlijke toegangscontext totdat de eigenaar bewust een zakelijke mail deelt/promoveert naar een functionele mailbox of een andere toegestane gedeelde context.
 
-## Push-knop — functioneel minimum
+## Delen/promoveren vanuit persoonlijke mailbox
 
-De gebruikersactie voor persoonlijke inboxen krijgt minimaal de betekenis:
+De eigenaar van een persoonlijke mailbox kan een werkgerelateerd bericht bewust beschikbaar maken binnen een functionele BREBO-mailbox waarvoor die handeling is toegestaan.
 
-`Nieuwe zakelijke e-mail naar BREBO Office verwerken`
+De gebruikersactie krijgt bijvoorbeeld de betekenis `Delen met BREBO` of `Naar functionele mailbox`.
 
 De actie:
 
-- toont of vermeldt welke mailbox wordt gebruikt;
-- verwerkt uitsluitend berichten sinds de laatst geregistreerde intakepositie, tenzij de gebruiker bewust een andere begrensde selectie kiest;
-- gebruikt een ingestelde maximum batchgrootte;
-- maakt geen automatische permanente polling actief;
-- registreert wie de intake startte, wanneer en voor welke mailbox;
-- geeft achteraf een technisch resultaat, bijvoorbeeld aantal verwerkt / duplicaat / controle vereist;
-- mag geen externe verzending veroorzaken.
+- laat de gebruiker bewust een toegestane functionele doelmailbox kiezen;
+- maakt de mail vanaf dat moment zichtbaar volgens de rollen en permissies van die functionele mailbox;
+- registreert wie de handeling uitvoerde, wanneer en naar welke mailbox/context;
+- veroorzaakt niet automatisch een externe verzending;
+- dupliceert de canonieke Communication niet: waar technisch passend wordt een extra mailboxprojectie/toegangscontext toegevoegd;
+- kan dossiercontext voorstellen, maar maakt geen automatische formele dossierkoppeling zonder voldoende grondslag/zekerheid.
+
+Het delen/promoveren van een persoonlijk bericht is daarmee een expliciete overgang van owner-only zichtbaarheid naar een gedeelde zakelijke context.
+
+## Rollen en mailboxrechten
+
+BREBO Office ondersteunt meerdere Drupal-rollen per gebruiker.
+
+Mailboxtoegang volgt waar mogelijk rollen en fijnmazige mailboxpermissies. Denk aan:
+
+- mailbox bekijken;
+- behandelen;
+- verzenden als;
+- verzenden namens;
+- archiveren;
+- verwijderen;
+- permanent verwijderen;
+- mailbox beheren.
+
+Persoonlijke mailboxeigendom blijft daarvan gescheiden: de eigenaar heeft toegang tot zijn eigen persoonlijke mailbox; andere rollen geven niet impliciet toegang tot persoonlijke mailboxen van collega's.
 
 ## Dataminimalisatie
 
-Niet ieder bericht hoeft permanent dossierdata te worden. De verwerkingslaag moet kunnen onderscheiden tussen:
-
-- relevante zakelijke/dossierinformatie;
-- administratieve informatie;
-- persoonlijke of evident niet-relevante communicatie;
-- bijzondere of gevoelige informatie die extra bescherming of beperkte toegang vereist.
+Niet ieder bericht hoeft permanent dossierdata te worden. De verwerkingslaag moet kunnen onderscheiden tussen relevante zakelijke/dossierinformatie, administratieve informatie, persoonlijke of evident niet-relevante communicatie en bijzondere of gevoelige informatie die extra bescherming of beperkte toegang vereist.
 
 Waar volledige inhoud niet noodzakelijk is voor het vastgestelde doel, moet BREBO Office technisch ruimte bieden voor beperktere opslag, afscherming, uitsluiting of latere verwijdering.
 
 ## Toegang en vertrouwelijkheid
 
 - Toegang volgt het need-to-know-principe.
-- Persoonlijke mailboxdata wordt niet automatisch zichtbaar voor alle BREBO Office-gebruikers.
+- Persoonlijke mailboxdata is standaard owner-only.
+- Functionele mailboxdata wordt zichtbaar op basis van rollen en mailboxpermissies.
 - Rollen en permissies moeten mailboxbron, communicatieobject en eventuele gevoelige classificaties respecteren.
 - Secrets en mailboxcredentials blijven buiten Git en exporteerbare Drupal-configuratie.
 - Toegang en relevante beheerhandelingen worden auditable gemaakt.
 
 ## Transparantie en betrokkenenrechten
 
-De organisatie moet kunnen uitleggen:
-
-- welke mailboxen worden verwerkt;
-- voor welk doel;
-- welke gegevens worden opgeslagen;
-- wie toegang heeft;
-- hoe lang gegevens worden bewaard;
-- hoe rechten van betrokkenen kunnen worden uitgeoefend, waaronder inzage, rectificatie, beperking en verwijdering waar van toepassing.
+De organisatie moet kunnen uitleggen welke mailboxen worden verwerkt, voor welk doel, welke gegevens worden opgeslagen, wie toegang heeft, hoe lang gegevens worden bewaard en hoe rechten van betrokkenen kunnen worden uitgeoefend, waaronder inzage, rectificatie, beperking en verwijdering waar van toepassing.
 
 De software moet deze processen niet blokkeren en waar mogelijk ondersteunen.
 
@@ -91,34 +100,39 @@ De software moet deze processen niet blokkeren en waar mogelijk ondersteunen.
 
 BREBO Office hanteert geen onbeperkte opslag als standaard. Bewaartermijnen moeten per gegevenscategorie/doel worden vastgesteld. Dossier-, contract-, fiscale, garantie- of wettelijke verplichtingen kunnen verschillende termijnen vereisen.
 
-Technisch moet onderscheid mogelijk blijven tussen:
-
-- bronmail;
-- afgeleide dossierfeiten;
-- tijdelijke AI-/classificatiegegevens;
-- auditgegevens.
+Technisch moet onderscheid mogelijk blijven tussen bronmail, afgeleide dossierfeiten, tijdelijke AI-/classificatiegegevens en auditgegevens.
 
 ## DPIA / werknemersmonitoring
 
-Wanneer een verwerking waarschijnlijk een hoog privacyrisico oplevert — bijvoorbeeld structurele monitoring van werknemers of grootschalige verwerking van persoonlijke mailboxen — wordt vóór ingebruikname beoordeeld of een DPIA vereist is.
+Wanneer een verwerking waarschijnlijk een hoog privacyrisico oplevert — bijvoorbeeld structurele monitoring van werknemers of grootschalige verwerking waarbij persoonlijke mailboxinhoud buiten de eigenaar beschikbaar wordt gemaakt — wordt vóór ingebruikname beoordeeld of een DPIA vereist is.
 
-Een systeem dat e-mailverkeer van werknemers registreert of controleert kan tevens onder werknemersprivacy- en medezeggenschapsregels vallen. Daarom wordt automatische persoonlijke-mailboxmonitoring niet als standaardfunctie gebouwd.
+Automatische synchronisatie van een persoonlijke zakelijke mailbox mag niet worden gebruikt om die mailbox stilzwijgend voor leidinggevenden, collega's of algemene rollen toegankelijk te maken.
 
 ## Privacy by design/default
 
-Voor persoonlijke inboxen is de veilige standaard:
+Voor persoonlijke zakelijke mailboxen is de veilige standaard:
 
-- polling uit;
-- gebruiker initieert intake;
-- beperkte batch;
-- read-only bron;
+- automatische synchronisatie toegestaan binnen het vastgestelde zakelijke mailproces;
+- mailboxidentiteit gekoppeld aan de eigenaar/gebruiker;
+- owner-only zichtbaarheid;
+- read-only bron zolang geen ander proces is vastgesteld;
 - minimale toegang;
 - logging;
+- expliciete gebruikersactie voor overgang naar gedeelde/functionele zichtbaarheid;
 - geen automatische formele dossierkoppeling zonder voldoende grondslag/zekerheid;
 - geen externe actie zonder afzonderlijk mandaat.
 
+Voor functionele mailboxen is de veilige standaard:
+
+- automatische synchronisatie mogelijk na expliciete aanwijzing;
+- toegang via rollen en mailboxpermissies;
+- meerdere rollen per gebruiker toegestaan;
+- geen impliciete toegang tot persoonlijke mailboxen.
+
 ## Vaste ontwerpregel
 
-**Gedeelde functionele bedrijfsbox = automatische intake mogelijk na expliciete aanwijzing en beleid.**
+**Gedeelde functionele bedrijfsbox = automatische synchronisatie mogelijk; zichtbaarheid en handelingen zijn rol- en permissiegestuurd.**
 
-**Persoonlijke zakelijke mailbox = standaard uitsluitend push-gestuurde intake door de mailboxgebruiker; geen stille achtergrondpolling.**
+**Persoonlijke zakelijke mailbox = automatische synchronisatie mogelijk, maar standaard uitsluitend zichtbaar voor de gekoppelde eigenaar.**
+
+**Werkgerelateerde mail uit een persoonlijke mailbox wordt pas gedeeld wanneer de eigenaar deze bewust promoveert/deelt naar een functionele mailbox of andere toegestane gedeelde context.**
