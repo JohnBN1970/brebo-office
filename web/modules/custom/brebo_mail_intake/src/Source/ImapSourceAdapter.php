@@ -364,7 +364,18 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
   }
 
   private function attachmentFilename(object $part): string {
-    foreach (array_merge($part->dparameters ?? [], $part->parameters ?? []) as $parameter) {
+    $parameters = [];
+    foreach (['dparameters', 'parameters'] as $property) {
+      $value = $part->{$property} ?? [];
+      if (is_array($value)) {
+        $parameters = array_merge($parameters, $value);
+      }
+      elseif (is_object($value)) {
+        $parameters[] = $value;
+      }
+    }
+
+    foreach ($parameters as $parameter) {
       if (!is_object($parameter)) {
         continue;
       }
@@ -390,78 +401,73 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     return strtolower($primary . '/' . ((string) ($part->subtype ?? 'octet-stream')));
   }
 
-  private function decodeBody(string $value, int $encoding): string {
+  private function partCharset(object $part): string {
+    foreach ($part->parameters ?? [] as $parameter) {
+      if (is_object($parameter) && strtolower((string) ($parameter->attribute ?? '')) === 'charset') {
+        return (string) ($parameter->value ?? 'UTF-8');
+      }
+    }
+    return 'UTF-8';
+  }
+
+  private function decodeBody(string $data, int $encoding): string {
     return match ($encoding) {
-      3 => (string) base64_decode($value, TRUE),
-      4 => quoted_printable_decode($value),
-      default => $value,
+      3 => (string) base64_decode($data, TRUE),
+      4 => quoted_printable_decode($data),
+      default => $data,
     };
+  }
+
+  private function ensureUtf8(string $value, string $charset = 'UTF-8'): string {
+    if ($value === '') {
+      return '';
+    }
+    if (strcasecmp($charset, 'UTF-8') !== 0) {
+      $converted = @mb_convert_encoding($value, 'UTF-8', $charset);
+      if (is_string($converted)) {
+        return $converted;
+      }
+    }
+    if (!mb_check_encoding($value, 'UTF-8')) {
+      $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
+      if (is_string($converted)) {
+        return $converted;
+      }
+    }
+    return $value;
   }
 
   private function decodeHeader(string $value): string {
     $parts = imap_mime_header_decode($value);
     $decoded = '';
     foreach ($parts as $part) {
-      $decoded .= $this->ensureUtf8((string) $part->text, (string) ($part->charset ?? ''));
+      $charset = (string) ($part->charset ?? 'default');
+      $text = (string) ($part->text ?? '');
+      $decoded .= ($charset !== 'default' && strcasecmp($charset, 'UTF-8') !== 0)
+        ? (string) @mb_convert_encoding($text, 'UTF-8', $charset)
+        : $text;
     }
     return trim($decoded);
   }
 
-  private function partCharset(object $part): string {
-    foreach (array_merge($part->parameters ?? [], $part->dparameters ?? []) as $parameter) {
-      if (!is_object($parameter)) {
+  private function addresses(array $addresses): string {
+    $values = [];
+    foreach ($addresses as $address) {
+      if (!is_object($address)) {
         continue;
       }
-      if (strcasecmp((string) ($parameter->attribute ?? ''), 'charset') === 0) {
-        return trim((string) ($parameter->value ?? ''));
-      }
-    }
-    return '';
-  }
-
-  private function ensureUtf8(string $value, string $declaredCharset = ''): string {
-    if ($value === '') {
-      return '';
-    }
-
-    $charset = trim($declaredCharset, " \t\n\r\0\x0B\"'");
-    if ($charset !== '' && strcasecmp($charset, 'default') !== 0 && strcasecmp($charset, 'utf-8') !== 0 && strcasecmp($charset, 'utf8') !== 0) {
-      $converted = @mb_convert_encoding($value, 'UTF-8', $charset);
-      if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
-        return $converted;
-      }
-    }
-
-    if (mb_check_encoding($value, 'UTF-8')) {
-      return $value;
-    }
-
-    foreach (['Windows-1252', 'ISO-8859-1'] as $fallback) {
-      $converted = @mb_convert_encoding($value, 'UTF-8', $fallback);
-      if (is_string($converted) && mb_check_encoding($converted, 'UTF-8')) {
-        return $converted;
-      }
-    }
-
-    return (string) iconv('UTF-8', 'UTF-8//IGNORE', $value);
-  }
-
-  /** @param array<int, object> $addresses */
-  private function addresses(array $addresses): string {
-    $result = [];
-    foreach ($addresses as $address) {
       $mailbox = (string) ($address->mailbox ?? '');
       $host = (string) ($address->host ?? '');
       if ($mailbox !== '' && $host !== '') {
-        $result[] = $mailbox . '@' . $host;
+        $values[] = $mailbox . '@' . $host;
       }
     }
-    return implode(', ', $result);
+    return implode(', ', array_unique($values));
   }
 
   private function isOwnAddress(string $from): bool {
-    $own = mb_strtolower(trim((string) (getenv('BREBO_MAIL_ADDRESS') ?: $this->env('USER'))));
-    return $own !== '' && str_contains(mb_strtolower($from), $own);
+    $own = strtolower(trim((string) getenv('BREBO_MAIL_ADDRESS')));
+    return $own !== '' && str_contains(strtolower($from), $own);
   }
 
   private function env(string $suffix): string {
