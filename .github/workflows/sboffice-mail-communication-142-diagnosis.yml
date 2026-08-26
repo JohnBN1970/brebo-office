@@ -1,0 +1,64 @@
+name: BREBO Mail communication 142 diagnosis
+
+on:
+  workflow_dispatch:
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Diagnose communication 142 on production runtime
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.HOSTINGER_HOST }}
+          username: ${{ secrets.HOSTINGER_USERNAME }}
+          key: ${{ secrets.HOSTINGER_SSH_KEY }}
+          port: ${{ secrets.HOSTINGER_PORT }}
+          script: |
+            set -eu
+            APP_ROOT=/home/${{ secrets.HOSTINGER_USERNAME }}/domains/brebobv.nl/public_html/sboffice
+            cd "$APP_ROOT"
+            ./vendor/bin/drush php:eval '
+              $nid = 142;
+              $node = \Drupal::entityTypeManager()->getStorage("node")->load($nid);
+              if (!$node || $node->bundle() !== "brebo_communication") {
+                throw new \RuntimeException("Communication 142 not found.");
+              }
+              $value = static function ($node, string $field): string {
+                if (!$node->hasField($field) || $node->get($field)->isEmpty()) { return ""; }
+                $item = $node->get($field)->first();
+                return (string) ($item->value ?? "");
+              };
+              $transcript = $value($node, "field_brebo_comm_transcript");
+              $html = $value($node, "field_brebo_mail_html");
+              $source = $value($node, "field_brebo_comm_source_id");
+              $subject = $value($node, "field_brebo_comm_subject");
+              $from = $value($node, "field_brebo_mail_from");
+              $hasBoundary = preg_match("/(?:^|\\r?\\n)--[-_A-Za-z0-9.=]+/", $transcript) === 1 || stripos($transcript, "boundary=") !== false;
+              $hasMimeHeaders = stripos($transcript, "Content-Type:") !== false || stripos($transcript, "Content-Transfer-Encoding:") !== false;
+              $hasBase64Run = preg_match("/(?:^|\\n)[A-Za-z0-9+\\/]{80,}={0,2}(?:\\r?$|\\n)/m", $transcript) === 1;
+              $projection = \Drupal::database()->select("brebo_mailbox_message", "bm")
+                ->fields("bm", ["mailbox_id", "communication_id", "mail_state"])
+                ->condition("communication_id", $nid)
+                ->execute()->fetchAssoc();
+              print "NODE={$nid}\\n";
+              print "SUBJECT=" . str_replace(["\\r", "\\n"], " ", $subject) . "\\n";
+              print "FROM=" . str_replace(["\\r", "\\n"], " ", $from) . "\\n";
+              print "SOURCE_ID_PRESENT=" . ($source !== "" ? "YES" : "NO") . "\\n";
+              print "SOURCE_ID=" . str_replace(["\\r", "\\n"], " ", $source) . "\\n";
+              print "TRANSCRIPT_BYTES=" . strlen($transcript) . "\\n";
+              print "HTML_PRESENT=" . ($html !== "" ? "YES" : "NO") . "\\n";
+              print "HTML_BYTES=" . strlen($html) . "\\n";
+              print "TRANSCRIPT_HAS_BOUNDARY=" . ($hasBoundary ? "YES" : "NO") . "\\n";
+              print "TRANSCRIPT_HAS_MIME_HEADERS=" . ($hasMimeHeaders ? "YES" : "NO") . "\\n";
+              print "TRANSCRIPT_HAS_BASE64_RUN=" . ($hasBase64Run ? "YES" : "NO") . "\\n";
+              print "PROJECTION=" . ($projection ? "FOUND" : "MISSING") . "\\n";
+              if ($projection) {
+                print "MAILBOX_ID=" . $projection["mailbox_id"] . "\\n";
+                print "MAIL_STATE=" . $projection["mail_state"] . "\\n";
+              }
+              print "MAIL_COMMUNICATION_142_DIAGNOSIS=PASS\\n";
+            '
