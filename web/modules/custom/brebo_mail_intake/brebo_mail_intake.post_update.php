@@ -177,3 +177,55 @@ function brebo_mail_intake_post_update_mailbox_projection_backfill(array &$sandb
 
   return sprintf('Mailboxprojectie hersteld voor %d bestaande inkomende e-mailcommunicaties; niet-eenduidige mailboxmatches zijn ongemoeid gelaten.', $repaired);
 }
+
+/**
+ * Creates the canonical Directie role and binds functional mailboxes to it.
+ */
+function brebo_mail_intake_post_update_directie_mailbox_binding(array &$sandbox = NULL): string {
+  $role = Role::load('brebo_directie');
+  if (!$role) {
+    $role = Role::create([
+      'id' => 'brebo_directie',
+      'label' => 'Directie',
+    ]);
+    $role->save();
+  }
+  elseif ((string) $role->label() !== 'Directie') {
+    $role->set('label', 'Directie')->save();
+  }
+
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  if (!$schema->tableExists('brebo_mailbox') || !$schema->tableExists('brebo_mailbox_role')) {
+    throw new \RuntimeException('BREBO mailbox foundation ontbreekt; Directie-koppeling kan niet veilig worden uitgevoerd.');
+  }
+
+  $mailboxIds = $database->select('brebo_mailbox', 'm')
+    ->fields('m', ['id'])
+    ->condition('privacy_type', 'functional')
+    ->condition('active', 1)
+    ->execute()
+    ->fetchCol();
+
+  $capabilities = ['view', 'handle', 'send_as', 'send_on_behalf', 'archive', 'delete', 'administer'];
+  $bindings = 0;
+  foreach ($mailboxIds as $mailboxId) {
+    foreach ($capabilities as $capability) {
+      $database->merge('brebo_mailbox_role')
+        ->keys([
+          'mailbox_id' => (int) $mailboxId,
+          'role_id' => 'brebo_directie',
+          'capability' => $capability,
+        ])
+        ->fields([])
+        ->execute();
+      $bindings++;
+    }
+  }
+
+  return sprintf(
+    'Directie-rol actief en gekoppeld aan %d functionele mailbox(en) met %d mailboxcapaciteiten.',
+    count($mailboxIds),
+    $bindings,
+  );
+}
