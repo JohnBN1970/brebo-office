@@ -229,3 +229,51 @@ function brebo_mail_intake_post_update_directie_mailbox_binding(array &$sandbox 
     $bindings,
   );
 }
+
+/**
+ * Bootstraps Directie to the sole existing personal mailbox owner.
+ *
+ * This is intentionally one-time and conservative: once multiple personal
+ * mailboxes exist, role assignment must be managed explicitly per user.
+ */
+function brebo_mail_intake_post_update_bootstrap_directie_owner(array &$sandbox = NULL): string {
+  $role = Role::load('brebo_directie');
+  if (!$role) {
+    return 'Directie-rol ontbreekt; eigenaar niet automatisch gekoppeld.';
+  }
+
+  $database = \Drupal::database();
+  if (!$database->schema()->tableExists('brebo_mailbox')) {
+    return 'Mailboxregister ontbreekt; eigenaar niet automatisch gekoppeld.';
+  }
+
+  $ownerUids = $database->select('brebo_mailbox', 'm')
+    ->fields('m', ['owner_uid'])
+    ->condition('privacy_type', 'personal')
+    ->condition('active', 1)
+    ->condition('owner_uid', 0, '>')
+    ->distinct()
+    ->execute()
+    ->fetchCol();
+  $ownerUids = array_values(array_unique(array_map('intval', $ownerUids ?: [])));
+
+  if (count($ownerUids) !== 1) {
+    return sprintf(
+      'Directie-bootstrap niet uitgevoerd: %d actieve persoonlijke mailboxeigenaren gevonden; roltoekenning blijft expliciet beheer.',
+      count($ownerUids),
+    );
+  }
+
+  $user = \Drupal::entityTypeManager()->getStorage('user')->load($ownerUids[0]);
+  if (!$user || !$user->isActive()) {
+    return 'Directie-bootstrap niet uitgevoerd: persoonlijke mailboxeigenaar ontbreekt of is niet actief.';
+  }
+
+  if (!in_array('brebo_directie', $user->getRoles(), TRUE)) {
+    $user->addRole('brebo_directie');
+    $user->save();
+    return 'Directie-rol gekoppeld aan de enige actieve persoonlijke mailboxeigenaar.';
+  }
+
+  return 'De enige actieve persoonlijke mailboxeigenaar had de Directie-rol al.';
+}
