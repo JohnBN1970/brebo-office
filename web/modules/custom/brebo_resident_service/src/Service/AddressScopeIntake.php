@@ -23,6 +23,12 @@ final class AddressScopeIntake {
   public function propose(string $text, string $sourceType, ?string $sourceId = NULL, ?int $buildingNid = NULL, ?int $projectId = NULL, ?int $uid = NULL): array {
     $proposals = [];
     foreach ($this->parser->parse($text) as $scope) {
+      // Parser output originates from untrusted free text. A false-positive match
+      // must never overflow the persistence schema or make mail intake fail.
+      if (!$this->isPersistableScope($scope)) {
+        continue;
+      }
+
       $now = time();
       $id = (int) $this->database->insert('brebo_address_scope_intake')->fields([
         'building_nid' => $buildingNid,
@@ -57,6 +63,34 @@ final class AddressScopeIntake {
       }
     }
     return $proposals;
+  }
+
+  /**
+   * Reject implausible parser output instead of truncating it into an address.
+   *
+   * Lengths mirror brebo_address_scope_intake exactly. This keeps false-positive
+   * matches from arbitrary mail bodies out of the database and prevents SQL
+   * exceptions from exposing full source text in operational logs.
+   *
+   * @param array<string, mixed> $scope
+   */
+  private function isPersistableScope(array $scope): bool {
+    $limits = [
+      'matched_text' => 512,
+      'street' => 255,
+      'range_parity' => 16,
+      'postal_code' => 16,
+      'city' => 128,
+    ];
+
+    foreach ($limits as $key => $limit) {
+      $value = $scope[$key] ?? NULL;
+      if ($value !== NULL && mb_strlen((string) $value) > $limit) {
+        return FALSE;
+      }
+    }
+
+    return trim((string) ($scope['matched_text'] ?? '')) !== '';
   }
 
   /** Materialize a resolved proposal into canonical building addresses and residences. */
