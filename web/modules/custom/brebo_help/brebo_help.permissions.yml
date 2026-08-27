@@ -1,0 +1,8 @@
+access brebo help:
+  title: 'BREBO Help gebruiken'
+  description: 'Het centrale en contextuele BREBO Office helpcentrum bekijken.'
+
+administer brebo help:
+  title: 'BREBO Help beheren'
+  description: 'Beheerfuncties en technische helpinformatie gebruiken.'
+  restrict access: true

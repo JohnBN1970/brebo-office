@@ -1,0 +1,7 @@
+name: BREBO Help
+type: module
+description: 'Centraal, contextueel en taakgericht helpcentrum voor BREBO Office.'
+package: BREBO
+core_version_requirement: ^11
+dependencies:
+  - drupal:user

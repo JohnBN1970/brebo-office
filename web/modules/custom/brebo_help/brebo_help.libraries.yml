@@ -1,0 +1,4 @@
+help:
+  css:
+    theme:
+      css/brebo-help.css: {}
