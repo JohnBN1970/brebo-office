@@ -3,63 +3,86 @@ name: BREBO Mail personal projection diagnosis
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   diagnose:
     runs-on: ubuntu-latest
     steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
       - name: Diagnose Communication 663 to personal mailbox 5
-        uses: appleboy/ssh-action@v1.2.0
-        with:
-          host: 77.37.34.160
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: 65002
-          script: |
-            set -eu
-            APP_ROOT=/home/${{ secrets.DEPLOY_USER }}/domains/brebobv.nl/public_html/sboffice
-            PHP=/opt/alt/php83/usr/bin/php
-            cd "$APP_ROOT"
-            "$PHP" vendor/bin/drush php:eval '
-              $nid = 663;
-              $mailboxId = 5;
-              $node = \Drupal::entityTypeManager()->getStorage("node")->load($nid);
-              if (!$node || $node->bundle() !== "brebo_communication") {
-                throw new \RuntimeException("Communication 663 ontbreekt.");
-              }
-              $field = static fn($item, string $name): string => $item->hasField($name) ? trim((string) $item->get($name)->value) : "";
-              $from = $field($node, "field_brebo_mail_from");
-              $to = $field($node, "field_brebo_mail_to");
-              $direction = $field($node, "field_brebo_comm_direction");
-              print "COMMUNICATION={$nid}\n";
-              print "DIRECTION={$direction}\n";
-              print "FROM={$from}\n";
-              print "TO={$to}\n";
-              $db = \Drupal::database();
-              $mailbox = $db->select("brebo_mailbox", "mb")
-                ->fields("mb", ["id", "address", "privacy_type", "owner_uid", "active"])
-                ->condition("id", $mailboxId)
-                ->execute()->fetchAssoc();
-              if (!$mailbox) {
-                throw new \RuntimeException("Mailbox 5 ontbreekt.");
-              }
-              print "MAILBOX={$mailbox["id"]}|ADDRESS={$mailbox["address"]}|PRIVACY={$mailbox["privacy_type"]}|OWNER_UID={$mailbox["owner_uid"]}|ACTIVE={$mailbox["active"]}\n";
-              preg_match_all("/[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}/i", $to, $matches);
-              $parsed = array_values(array_unique(array_filter(array_map(static fn(string $address): string => strtolower(trim($address)), $matches[0] ?? []))));
-              print "PARSED_TO=" . implode(",", $parsed) . "\n";
-              print "ADDRESS_MATCH=" . (in_array(strtolower(trim((string) $mailbox["address"])), $parsed, TRUE) ? "YES" : "NO") . "\n";
-              $before = $db->select("brebo_mailbox_message", "mm")
-                ->fields("mm", ["mailbox_id", "communication_id", "mail_state"])
-                ->condition("mailbox_id", $mailboxId)
-                ->condition("communication_id", $nid)
-                ->execute()->fetchAssoc();
-              print "PROJECTION_BEFORE=" . ($before ? json_encode($before) : "NONE") . "\n";
-              $result = \Drupal::service("brebo_mail_intake.ingestor")->projectExisting($node);
-              print "PROJECT_EXISTING_RESULT=" . ($result ? "TRUE" : "FALSE") . "\n";
-              $after = $db->select("brebo_mailbox_message", "mm")
-                ->fields("mm", ["mailbox_id", "communication_id", "mail_state"])
-                ->condition("mailbox_id", $mailboxId)
-                ->condition("communication_id", $nid)
-                ->execute()->fetchAssoc();
-              print "PROJECTION_AFTER=" . ($after ? json_encode($after) : "NONE") . "\n";
-              print "MAIL_PERSONAL_PROJECTION_DIAGNOSIS=" . ($after ? "PASS" : "FAIL") . "\n";
-            '
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: '65002'
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          output=$("${drush[@]}" php:eval '
+            $nid = 663;
+            $mailboxId = 5;
+            $node = \Drupal::entityTypeManager()->getStorage("node")->load($nid);
+            if (!$node || $node->bundle() !== "brebo_communication") {
+              throw new \RuntimeException("Communication 663 ontbreekt.");
+            }
+            $field = static fn($item, string $name): string => $item->hasField($name) ? trim((string) $item->get($name)->value) : "";
+            $from = $field($node, "field_brebo_mail_from");
+            $to = $field($node, "field_brebo_mail_to");
+            $direction = $field($node, "field_brebo_comm_direction");
+            echo "COMMUNICATION={$nid}" . PHP_EOL;
+            echo "DIRECTION={$direction}" . PHP_EOL;
+            echo "FROM={$from}" . PHP_EOL;
+            echo "TO={$to}" . PHP_EOL;
+            $db = \Drupal::database();
+            $mailbox = $db->select("brebo_mailbox", "mb")
+              ->fields("mb", ["id", "address", "privacy_type", "owner_uid", "active"])
+              ->condition("id", $mailboxId)
+              ->execute()->fetchAssoc();
+            if (!$mailbox) {
+              throw new \RuntimeException("Mailbox 5 ontbreekt.");
+            }
+            echo "MAILBOX={$mailbox["id"]}|ADDRESS={$mailbox["address"]}|PRIVACY={$mailbox["privacy_type"]}|OWNER_UID={$mailbox["owner_uid"]}|ACTIVE={$mailbox["active"]}" . PHP_EOL;
+            preg_match_all("/[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}/i", $to, $matches);
+            $parsed = array_values(array_unique(array_filter(array_map(static fn(string $address): string => strtolower(trim($address)), $matches[0] ?? []))));
+            echo "PARSED_TO=" . implode(",", $parsed) . PHP_EOL;
+            echo "ADDRESS_MATCH=" . (in_array(strtolower(trim((string) $mailbox["address"])), $parsed, TRUE) ? "YES" : "NO") . PHP_EOL;
+            $before = $db->select("brebo_mailbox_message", "mm")
+              ->fields("mm", ["mailbox_id", "communication_id", "mail_state"])
+              ->condition("mailbox_id", $mailboxId)
+              ->condition("communication_id", $nid)
+              ->execute()->fetchAssoc();
+            echo "PROJECTION_BEFORE=" . ($before ? json_encode($before) : "NONE") . PHP_EOL;
+            $result = \Drupal::service("brebo_mail_intake.ingestor")->projectExisting($node);
+            echo "PROJECT_EXISTING_RESULT=" . ($result ? "TRUE" : "FALSE") . PHP_EOL;
+            $after = $db->select("brebo_mailbox_message", "mm")
+              ->fields("mm", ["mailbox_id", "communication_id", "mail_state"])
+              ->condition("mailbox_id", $mailboxId)
+              ->condition("communication_id", $nid)
+              ->execute()->fetchAssoc();
+            echo "PROJECTION_AFTER=" . ($after ? json_encode($after) : "NONE") . PHP_EOL;
+            echo "MAIL_PERSONAL_PROJECTION_DIAGNOSIS=" . ($after ? "PASS" : "FAIL") . PHP_EOL;
+          ')
+
+          printf '%s\n' "$output" | grep -E '^(COMMUNICATION=|DIRECTION=|FROM=|TO=|MAILBOX=|PARSED_TO=|ADDRESS_MATCH=|PROJECTION_BEFORE=|PROJECT_EXISTING_RESULT=|PROJECTION_AFTER=|MAIL_PERSONAL_PROJECTION_DIAGNOSIS=)'
+          REMOTE
