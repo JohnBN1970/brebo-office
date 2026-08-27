@@ -1,0 +1,101 @@
+name: BREBO Mail projection backfill
+
+on:
+  workflow_dispatch:
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        shell: bash
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: 65002
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" >> ~/.ssh/known_hosts
+
+      - name: Backfill mailbox projections for existing email communications
+        shell: bash
+        env:
+          DEPLOY_HOST: 77.37.34.160
+          DEPLOY_PORT: 65002
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          output=$("${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->condition("field_brebo_comm_channel", "E-mail")
+              ->sort("nid", "ASC")
+              ->execute();
+
+            $ingestor = \Drupal::service("brebo_mail_intake.ingestor");
+            $processed = 0;
+            $matched = 0;
+            $skipped = 0;
+            foreach ($storage->loadMultiple($ids) as $node) {
+              $processed++;
+              if ($ingestor->projectExisting($node)) {
+                $matched++;
+              }
+              else {
+                $skipped++;
+              }
+            }
+
+            echo "COMMUNICATION_EMAIL_TOTAL={$processed}" . PHP_EOL;
+            echo "PROJECTION_MATCHED={$matched}" . PHP_EOL;
+            echo "PROJECTION_SKIPPED_NO_MAILBOX_MATCH={$skipped}" . PHP_EOL;
+
+            $mailboxes = $db->select("brebo_mailbox", "mb")
+              ->fields("mb", ["id", "address", "privacy_type", "owner_uid", "active"])
+              ->condition("active", 1)
+              ->orderBy("id")
+              ->execute()
+              ->fetchAllAssoc("id");
+
+            foreach ($mailboxes as $mailbox) {
+              $count = (int) $db->select("brebo_mailbox_message", "mm")
+                ->condition("mailbox_id", (int) $mailbox->id)
+                ->countQuery()
+                ->execute()
+                ->fetchField();
+              echo "MAILBOX={$mailbox->id}|ADDRESS={$mailbox->address}|PRIVACY={$mailbox->privacy_type}|OWNER_UID={$mailbox->owner_uid}|PROJECTED_COUNT={$count}" . PHP_EOL;
+            }
+
+            $john = $db->select("brebo_mailbox", "mb")
+              ->fields("mb", ["id"])
+              ->condition("address", "john.boon@brebobv.nl")
+              ->condition("active", 1)
+              ->execute()
+              ->fetchField();
+            if ($john) {
+              $johnCount = (int) $db->select("brebo_mailbox_message", "mm")
+                ->condition("mailbox_id", (int) $john)
+                ->countQuery()
+                ->execute()
+                ->fetchField();
+              echo "PERSONAL_JOHN_PROJECTED_COUNT={$johnCount}" . PHP_EOL;
+            }
+            echo "MAIL_PROJECTION_BACKFILL=PASS" . PHP_EOL;
+          ')
+
+          printf '%s\n' "$output" | grep -E '^(COMMUNICATION_EMAIL_TOTAL=|PROJECTION_MATCHED=|PROJECTION_SKIPPED_NO_MAILBOX_MATCH=|MAILBOX=|PERSONAL_JOHN_PROJECTED_COUNT=|MAIL_PROJECTION_BACKFILL=)'
+          REMOTE
