@@ -1,0 +1,94 @@
+name: BREBO Zoho migration batch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-zoho-migration-batch
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate next 100 Zoho messages newest-first
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Migrate controlled Zoho batch
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || exit 1
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $state = \Drupal::state();
+            $adapter = \Drupal::service("brebo_mail_intake.zoho_migration_source");
+            $queue = \Drupal::service("brebo_mail_intake.queue_manager");
+            if (!$adapter->isConfigured()) { throw new \RuntimeException("Zoho migration source not configured."); }
+            $cursorBefore = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
+            $completeBefore = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
+            echo "ZOHO_CURSOR_BEFORE={$cursorBefore}" . PHP_EOL;
+            echo "ZOHO_COMPLETE_BEFORE=" . ($completeBefore ? "YES" : "NO") . PHP_EOL;
+            if ($completeBefore) { echo "ZOHO_BATCH=ALREADY_COMPLETE" . PHP_EOL; return; }
+            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=100");
+            $enqueued = $queue->enqueueSource($adapter);
+            echo "ZOHO_BATCH_ENQUEUED={$enqueued}" . PHP_EOL;
+            if ($enqueued < 0 || $enqueued > 100) { throw new \RuntimeException("Unexpected Zoho batch size."); }
+          '
+
+          "${drush[@]}" queue:run brebo_mail_intake_process
+
+          "${drush[@]}" php:eval '
+            $state = \Drupal::state();
+            $db = \Drupal::database();
+            $cursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
+            $complete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
+            echo "ZOHO_CURSOR_AFTER={$cursor}" . PHP_EOL;
+            echo "ZOHO_MIGRATION_COMPLETE=" . ($complete ? "YES" : "NO") . PHP_EOL;
+            $boxes = $db->select("brebo_mailbox", "mb")->fields("mb", ["id", "address"])->condition("active", 1)->execute()->fetchAllAssoc("id");
+            foreach ($boxes as $id => $box) {
+              $count = (int) $db->select("brebo_mailbox_message", "mm")->condition("mailbox_id", (int) $id)->countQuery()->execute()->fetchField();
+              echo "MAILBOX={$id}|ADDRESS={$box->address}|PROJECTED_COUNT={$count}" . PHP_EOL;
+            }
+            echo "ZOHO_MIGRATION_BATCH=PASS" . PHP_EOL;
+          '
+          REMOTE
