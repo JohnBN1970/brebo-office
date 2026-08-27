@@ -195,7 +195,6 @@ function brebo_mail_intake_update_11001(): string {
       'default' => 0,
       'description' => 'Drupal user owner for personal mailboxes; zero for non-personal mailboxes.',
     ]);
-    $schema->addIndex('brebo_mailbox', 'owner_uid', ['owner_uid']);
   }
 
   $now = time();
