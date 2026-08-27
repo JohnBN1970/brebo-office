@@ -87,6 +87,12 @@ function brebo_resident_service_detect_communication_scope(EntityInterface $enti
     \Drupal::service('brebo_resident_service.address_scope_intake')->propose($text, 'communication', $sourceId, $buildingNid, $projectId, (int) $entity->getOwnerId());
   }
   catch (\Throwable $e) {
-    \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt: @message', ['@nid' => $entity->id(), '@message' => $e->getMessage()]);
+    // Communication bodies may contain personal or commercially sensitive mail
+    // content. Do not interpolate database exception messages here: SQL driver
+    // messages can contain bound values, including the complete source text.
+    \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt (@exception).', [
+      '@nid' => $entity->id(),
+      '@exception' => get_class($e),
+    ]);
   }
 }
