@@ -1,3 +1,4 @@
+# One-time targeted activation for BREBO Help production runtime.
 name: BREBO Help production enable
 
 on:
