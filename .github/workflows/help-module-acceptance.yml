@@ -1,0 +1,31 @@
+name: Help module acceptance
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_help/**'
+      - '.github/workflows/help-module-acceptance.yml'
+
+jobs:
+  static-acceptance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: php -l web/modules/custom/brebo_help/src/Controller/HelpController.php
+      - name: Validate required module files
+        run: |
+          set -euo pipefail
+          test -f web/modules/custom/brebo_help/brebo_help.info.yml
+          test -f web/modules/custom/brebo_help/brebo_help.permissions.yml
+          test -f web/modules/custom/brebo_help/brebo_help.routing.yml
+          test -f web/modules/custom/brebo_help/brebo_help.links.menu.yml
+          test -f web/modules/custom/brebo_help/brebo_help.libraries.yml
+          grep -q "path: '/brebo/help'" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "access brebo help" web/modules/custom/brebo_help/brebo_help.permissions.yml
+          grep -q "brebo_help.center" web/modules/custom/brebo_help/brebo_help.links.menu.yml
+      - name: Guard against schema and destructive operations
+        run: |
+          set -euo pipefail
+          test ! -f web/modules/custom/brebo_help/brebo_help.install
+          ! grep -R -E "(DROP TABLE|DELETE FROM|TRUNCATE|entity_delete|->delete\()" web/modules/custom/brebo_help --include='*.php'
