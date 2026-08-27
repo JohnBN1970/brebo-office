@@ -1,0 +1,16 @@
+brebo_help.center:
+  path: '/brebo/help'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\HelpController::center'
+    _title: 'Help'
+  requirements:
+    _permission: 'access brebo help'
+
+brebo_help.article:
+  path: '/brebo/help/{article}'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\HelpController::article'
+    _title_callback: '\Drupal\brebo_help\Controller\HelpController::articleTitle'
+  requirements:
+    _permission: 'access brebo help'
+    article: '[a-z0-9-]+'
