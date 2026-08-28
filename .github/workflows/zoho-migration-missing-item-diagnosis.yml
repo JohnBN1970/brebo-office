@@ -34,24 +34,33 @@ jobs:
           set -euo pipefail
           ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
           runtime="$HOME/.brebo-mail-runtime.php"
           php="/opt/alt/php83/usr/bin/php"
-          "$php" -d auto_prepend_file="$runtime" -r '
+          cd "$app"
+          drush=("$php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
             $host = getenv("BREBO_ZOHO_IMAP_HOST");
             $user = getenv("BREBO_ZOHO_IMAP_USER");
             $password = getenv("BREBO_ZOHO_IMAP_PASSWORD");
             $folder = getenv("BREBO_ZOHO_IMAP_FOLDER") ?: "INBOX";
             $port = (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993);
             $flags = getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl";
+            if ($host === "" || $user === "" || $password === "") {
+              throw new \RuntimeException("Zoho runtime credentials are not loaded.");
+            }
             $mailbox = sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder);
             $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
-            if ($stream === false) { throw new RuntimeException("IMAP open failed"); }
+            if ($stream === FALSE) {
+              throw new \RuntimeException("Zoho IMAP could not be opened read-only.");
+            }
             try {
               $uids = imap_search($stream, "ALL", SE_UID) ?: [];
               $uids = array_values(array_filter(array_map("intval", $uids), static fn(int $uid): bool => $uid > 21823 && $uid < 21935));
               rsort($uids, SORT_NUMERIC);
               foreach ($uids as $uid) {
-                $overview = (imap_fetch_overview($stream, (string) $uid, FT_UID)[0] ?? null);
+                $overview = (imap_fetch_overview($stream, (string) $uid, FT_UID)[0] ?? NULL);
                 $rawSubject = $overview && isset($overview->subject) ? trim((string) $overview->subject) : "";
                 $messageId = $overview && isset($overview->message_id) ? trim((string) $overview->message_id) : "";
                 $structure = imap_fetchstructure($stream, $uid, FT_UID);
@@ -59,6 +68,9 @@ jobs:
                 echo "UID={$uid}|SUBJECT_PRESENT=" . ($rawSubject !== "" ? "YES" : "NO") . "|MESSAGE_ID_PRESENT=" . ($messageId !== "" ? "YES" : "NO") . "|BODY_BYTES=" . strlen($body) . "|STRUCTURE=" . ($structure ? "YES" : "NO") . PHP_EOL;
               }
               echo "ZOHO_MISSING_ITEM_DIAGNOSIS=PASS" . PHP_EOL;
-            } finally { imap_close($stream); }
+            }
+            finally {
+              imap_close($stream);
+            }
           '
           REMOTE
