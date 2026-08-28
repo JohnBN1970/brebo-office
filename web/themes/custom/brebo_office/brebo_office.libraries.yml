@@ -1,5 +1,5 @@
 global:
-  version: 1.4.0
+  version: 1.5.0
   css:
     base:
       css/base.css: {}
@@ -11,6 +11,7 @@ global:
       css/theme-modes.css: {}
       css/dashboard.css: {}
       css/office-sidebar.css: {}
+      css/app-shell.css: {}
       css/office-cockpit.css: {}
       css/mail.css: {}
       css/mail-actions.css: {}
