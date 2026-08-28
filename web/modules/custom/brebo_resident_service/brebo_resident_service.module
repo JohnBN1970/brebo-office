@@ -8,7 +8,9 @@ use Drupal\node\NodeInterface;
 
 /** Implements hook_entity_insert(). */
 function brebo_resident_service_entity_insert(EntityInterface $entity): void {
-  brebo_resident_service_detect_communication_scope($entity);
+  // Communications are source evidence, not canonical building/project objects.
+  // Never derive address scope automatically on insert. Linking remains an
+  // explicit human decision; AI may provide a non-binding suggestion elsewhere.
 }
 
 /** Implements hook_form_node_form_alter(). */
@@ -55,7 +57,13 @@ function brebo_resident_service_form_node_form_alter(array &$form, FormStateInte
   }
 }
 
-/** Detects address ranges in newly created BREBO communications. */
+/**
+ * Explicitly detects address ranges for a communication when a user requests it.
+ *
+ * This helper is intentionally not called from entity insert hooks. It may be
+ * used by a future AI suggestion action or a manual review flow, but never to
+ * create or attach canonical building/project data without human confirmation.
+ */
 function brebo_resident_service_detect_communication_scope(EntityInterface $entity): void {
   if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_communication' || !$entity->id()) {
     return;
