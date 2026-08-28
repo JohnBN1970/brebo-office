@@ -1,0 +1,296 @@
+/* BREBO Office App Shell v1.0
+ * Structural presentation layer shared by every authenticated Office module.
+ * Modules may compose inside this shell, but must not redefine it.
+ */
+
+.brebo-shell--authenticated {
+  min-height: 100vh;
+  background: var(--brebo-bg-page);
+}
+
+.brebo-shell--authenticated .brebo-header {
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  min-height: 60px;
+  color: var(--brebo-text-primary);
+  background: color-mix(in srgb, var(--brebo-bg-surface) 94%, transparent);
+  border-bottom: 1px solid var(--brebo-border);
+  box-shadow: none;
+  backdrop-filter: blur(14px);
+}
+
+.brebo-shell--authenticated .brebo-header__inner {
+  width: 100%;
+  max-width: none;
+  min-height: 60px;
+  padding: 0 28px;
+  gap: 24px;
+}
+
+.brebo-shell--authenticated .brebo-brand {
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated .brebo-brand__mark {
+  display: inline-grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  color: #1b160c;
+  background: var(--brebo-accent);
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .brebo-brand__name span {
+  color: var(--brebo-text-secondary);
+}
+
+.brebo-shell--authenticated .brebo-environment {
+  border: 1px solid var(--brebo-border);
+  background: var(--brebo-bg-elevated);
+  color: var(--brebo-text-secondary);
+}
+
+.brebo-shell--authenticated .brebo-user-link {
+  border: 1px solid var(--brebo-border);
+  background: var(--brebo-bg-elevated);
+  color: var(--brebo-text-primary);
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .brebo-app-layout {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 24px 28px 32px;
+  grid-template-columns: 252px minmax(0, 1fr);
+  gap: 28px;
+}
+
+.brebo-shell--authenticated .brebo-app-layout.is-nav-collapsed {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.brebo-shell--authenticated .brebo-office-nav {
+  top: 84px;
+  height: calc(100vh - 108px);
+  padding: 10px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 12px;
+  background: var(--brebo-bg-surface);
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .brebo-office-nav__toggle,
+.brebo-shell--authenticated .brebo-office-nav__item {
+  min-height: 42px;
+  border-radius: 8px;
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated .brebo-office-nav__toggle,
+.brebo-shell--authenticated .brebo-office-nav__subitem {
+  color: var(--brebo-text-secondary);
+}
+
+.brebo-shell--authenticated .brebo-office-nav__item:hover,
+.brebo-shell--authenticated .brebo-office-nav__item:focus-visible,
+.brebo-shell--authenticated .brebo-office-nav__toggle:hover,
+.brebo-shell--authenticated .brebo-office-nav__toggle:focus-visible,
+.brebo-shell--authenticated .brebo-office-nav__subitem:hover,
+.brebo-shell--authenticated .brebo-office-nav__subitem:focus-visible {
+  background: var(--brebo-bg-elevated);
+}
+
+.brebo-shell--authenticated .brebo-office-nav__item.is-active,
+.brebo-shell--authenticated .brebo-office-nav__group.is-active > .brebo-office-nav__group-toggle,
+.brebo-shell--authenticated .brebo-office-nav__subitem.is-active {
+  color: var(--brebo-text-primary);
+  background: color-mix(in srgb, var(--brebo-accent) 16%, var(--brebo-bg-elevated));
+  box-shadow: inset 3px 0 0 var(--brebo-accent);
+}
+
+.brebo-shell--authenticated .brebo-office-nav__submenu,
+.brebo-shell--authenticated .brebo-app-layout.is-nav-collapsed .brebo-office-nav__submenu {
+  border-color: var(--brebo-border);
+  background: var(--brebo-bg-surface);
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .brebo-app-layout__content {
+  min-width: 0;
+  width: 100%;
+}
+
+.brebo-shell--authenticated .brebo-main,
+.brebo-shell--authenticated .brebo-app-layout .brebo-main {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0 0 48px;
+  gap: 24px;
+}
+
+.brebo-shell--authenticated .brebo-content {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Standard module composition primitives. */
+.brebo-page-shell {
+  width: 100%;
+  display: grid;
+  gap: 24px;
+}
+
+.brebo-page-header,
+.brebo-context-header {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.brebo-page-header {
+  padding: 4px 0 20px;
+  border-bottom: 1px solid var(--brebo-border);
+}
+
+.brebo-page-header__main,
+.brebo-context-header__main {
+  min-width: 0;
+}
+
+.brebo-page-header__eyebrow,
+.brebo-context-header__eyebrow {
+  margin: 0 0 6px;
+  color: var(--brebo-text-secondary);
+  font-size: .75rem;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.brebo-page-header__title,
+.brebo-context-header__title {
+  margin: 0;
+  color: var(--brebo-text-primary);
+  font-size: clamp(1.65rem, 2.3vw, 2.25rem);
+  line-height: 1.12;
+  letter-spacing: -.025em;
+}
+
+.brebo-page-header__description,
+.brebo-context-header__description {
+  max-width: 78ch;
+  margin: 8px 0 0;
+  color: var(--brebo-text-secondary);
+  line-height: 1.55;
+}
+
+.brebo-page-header__actions,
+.brebo-context-header__actions,
+.brebo-action-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.brebo-context-header {
+  padding: 18px 20px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: var(--brebo-bg-surface);
+}
+
+.brebo-content-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px;
+}
+
+.brebo-content-grid > * {
+  min-width: 0;
+}
+
+.brebo-span-12 { grid-column: span 12; }
+.brebo-span-9 { grid-column: span 9; }
+.brebo-span-8 { grid-column: span 8; }
+.brebo-span-6 { grid-column: span 6; }
+.brebo-span-4 { grid-column: span 4; }
+.brebo-span-3 { grid-column: span 3; }
+
+.brebo-shell--authenticated .brebo-highlighted,
+.brebo-shell--authenticated .brebo-footer {
+  border-color: var(--brebo-border);
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-secondary);
+}
+
+@media (max-width: 1180px) {
+  .brebo-shell--authenticated .brebo-app-layout,
+  .brebo-shell--authenticated .brebo-app-layout.is-nav-collapsed {
+    grid-template-columns: 72px minmax(0, 1fr);
+    gap: 20px;
+    padding: 20px;
+  }
+
+  .brebo-shell--authenticated .brebo-office-nav__label,
+  .brebo-shell--authenticated .brebo-office-nav__chevron {
+    display: none;
+  }
+
+  .brebo-shell--authenticated .brebo-office-nav__toggle,
+  .brebo-shell--authenticated .brebo-office-nav__item {
+    justify-content: center;
+    padding-inline: 8px;
+  }
+
+  .brebo-span-3,
+  .brebo-span-4 { grid-column: span 6; }
+  .brebo-span-8,
+  .brebo-span-9 { grid-column: span 12; }
+}
+
+@media (max-width: 767px) {
+  .brebo-shell--authenticated .brebo-header__inner {
+    min-height: 58px;
+    padding: 0 14px;
+  }
+
+  .brebo-shell--authenticated .brebo-app-layout,
+  .brebo-shell--authenticated .brebo-app-layout.is-nav-collapsed {
+    display: block;
+    padding: 12px;
+  }
+
+  .brebo-page-header,
+  .brebo-context-header {
+    flex-direction: column;
+  }
+
+  .brebo-page-header__actions,
+  .brebo-context-header__actions,
+  .brebo-action-bar {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .brebo-content-grid {
+    gap: 16px;
+  }
+
+  .brebo-span-3,
+  .brebo-span-4,
+  .brebo-span-6,
+  .brebo-span-8,
+  .brebo-span-9,
+  .brebo-span-12 {
+    grid-column: span 12;
+  }
+}
