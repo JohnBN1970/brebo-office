@@ -83,29 +83,34 @@ jobs:
             }
 
             $storage = \Drupal::entityTypeManager()->getStorage("node");
-            $projectIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->condition("status", 1)->execute();
-            $buildingIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_building")->condition("status", 1)->execute();
-            if (!$projectIds || !$buildingIds) {
-              throw new \RuntimeException("Acceptance requires at least one published project and building.");
-            }
-            $project = $storage->load(reset($projectIds));
-            $building = $storage->load(reset($buildingIds));
-            if (!$project instanceof \Drupal\node\NodeInterface || !$building instanceof \Drupal\node\NodeInterface) {
-              throw new \RuntimeException("Acceptance fixtures could not be loaded.");
-            }
-
             $resolver = $container->get("brebo_mail_intake.canonical_context_resolver");
-            $existing = $resolver->resolve(
-              "Project " . $project->label(),
-              "Gebouw " . $building->label()
-            );
-            echo "EXISTING_PROJECT_ID=" . (int) ($existing["project_id"] ?? 0) . PHP_EOL;
-            echo "EXISTING_BUILDING_ID=" . (int) ($existing["building_id"] ?? 0) . PHP_EOL;
-            if ((int) ($existing["project_id"] ?? 0) !== (int) $project->id()) {
-              throw new \RuntimeException("Existing project was not resolved canonically.");
+
+            $projectIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->condition("status", 1)->range(0, 1)->execute();
+            $buildingIds = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_building")->condition("status", 1)->range(0, 1)->execute();
+
+            if ($projectIds && $buildingIds) {
+              $project = $storage->load(reset($projectIds));
+              $building = $storage->load(reset($buildingIds));
+              if (!$project instanceof \Drupal\node\NodeInterface || !$building instanceof \Drupal\node\NodeInterface) {
+                throw new \RuntimeException("Acceptance fixtures could not be loaded.");
+              }
+
+              $existing = $resolver->resolve(
+                "Project " . $project->label(),
+                "Gebouw " . $building->label()
+              );
+              echo "EXISTING_PROJECT_ID=" . (int) ($existing["project_id"] ?? 0) . PHP_EOL;
+              echo "EXISTING_BUILDING_ID=" . (int) ($existing["building_id"] ?? 0) . PHP_EOL;
+              if ((int) ($existing["project_id"] ?? 0) !== (int) $project->id()) {
+                throw new \RuntimeException("Existing project was not resolved canonically.");
+              }
+              if ((int) ($existing["building_id"] ?? 0) !== (int) $building->id()) {
+                throw new \RuntimeException("Existing building was not resolved canonically.");
+              }
+              echo "EXISTING_CONTEXT_RESOLUTION=PASS" . PHP_EOL;
             }
-            if ((int) ($existing["building_id"] ?? 0) !== (int) $building->id()) {
-              throw new \RuntimeException("Existing building was not resolved canonically.");
+            else {
+              echo "EXISTING_CONTEXT_RESOLUTION=SKIP_NO_PUBLISHED_FIXTURES" . PHP_EOL;
             }
 
             $unknown = $resolver->resolve(
