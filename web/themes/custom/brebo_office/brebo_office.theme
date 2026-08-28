@@ -14,6 +14,10 @@ declare(strict_types=1);
  * preference is stored server-side through Drupal user.data and defaults to
  * system when no preference exists yet.
  *
+ * The Office front page also receives read-only aggregate counts from the
+ * existing node bundles. These are presentation metrics only: no business
+ * status is inferred unless the source model explicitly provides it.
+ *
  * The canonical project dashboard route is altered to use the Project Cockpit
  * controller. That controller already renders the cockpit and project tabs in
  * page.content. The generic persistent project shell is intended for project
@@ -29,6 +33,57 @@ function brebo_office_preprocess_page(array &$variables): void {
       'userId' => (int) $account->id(),
       'defaultMode' => $mode,
       'persistUrl' => \Drupal\Core\Url::fromRoute('brebo_office_core.appearance_preference')->toString(),
+    ];
+  }
+
+  if ($account->isAuthenticated() && \Drupal::routeMatch()->getRouteName() === 'brebo_office_core.dashboard') {
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    $bundles = [
+      'projects' => 'brebo_project',
+      'buildings' => 'brebo_building',
+      'dwellings' => 'brebo_dwelling',
+      'positions' => 'brebo_product_position',
+      'organizations' => 'brebo_organization',
+      'contacts' => 'brebo_contact',
+      'calculations' => 'brebo_calculation',
+      'work_budgets' => 'brebo_work_budget',
+      'rfqs' => 'brebo_rfq',
+      'supplier_quotes' => 'brebo_supplier_quote',
+      'verifications' => 'brebo_verification',
+      'deviations' => 'brebo_deviation',
+    ];
+
+    $metrics = [];
+    foreach ($bundles as $key => $bundle) {
+      $metrics[$key] = (int) $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', $bundle)
+        ->count()
+        ->execute();
+    }
+
+    $recent_project_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_project')
+      ->sort('changed', 'DESC')
+      ->range(0, 5)
+      ->execute();
+
+    $recent_projects = [];
+    foreach ($storage->loadMultiple($recent_project_ids) as $project) {
+      if (!$project instanceof \Drupal\node\NodeInterface) {
+        continue;
+      }
+      $recent_projects[] = [
+        'id' => (int) $project->id(),
+        'title' => (string) $project->label(),
+        'changed' => \Drupal::service('date.formatter')->format($project->getChangedTime(), 'short'),
+      ];
+    }
+
+    $variables['brebo_dashboard'] = [
+      'metrics' => $metrics,
+      'recent_projects' => $recent_projects,
     ];
   }
 
