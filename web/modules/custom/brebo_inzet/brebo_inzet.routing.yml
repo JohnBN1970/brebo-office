@@ -6,6 +6,14 @@ brebo_inzet.app:
   requirements:
     _user_is_logged_in: 'TRUE'
 
+brebo_inzet.personnel_planning:
+  path: '/inzet/planning'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelPlanningController::overview'
+    _title: 'Personeelsplanning'
+  requirements:
+    _user_is_logged_in: 'TRUE'
+
 brebo_inzet.app_clock:
   path: '/inzet/project/{node}'
   defaults:
