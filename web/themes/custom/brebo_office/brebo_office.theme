@@ -10,12 +10,24 @@ declare(strict_types=1);
 /**
  * Implements hook_preprocess_page().
  *
+ * Adds the authenticated user id to drupalSettings so the presentation layer
+ * can keep appearance preferences isolated per user without introducing a
+ * content-entity field or schema change.
+ *
  * The canonical project dashboard route is altered to use the Project Cockpit
  * controller. That controller already renders the cockpit and project tabs in
  * page.content. The generic persistent project shell is intended for project
  * subpages only, so suppress it here on the canonical dashboard route.
  */
 function brebo_office_preprocess_page(array &$variables): void {
+  $account = \Drupal::currentUser();
+  if ($account->isAuthenticated()) {
+    $variables['page']['#attached']['drupalSettings']['breboOfficeAppearance'] = [
+      'userId' => (int) $account->id(),
+      'defaultMode' => 'system',
+    ];
+  }
+
   if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.project_dashboard') {
     return;
   }
