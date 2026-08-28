@@ -18,17 +18,21 @@
   }
 
   function readMode() {
-    const fallback = MODES.includes(settings().defaultMode) ? settings().defaultMode : 'system';
+    const serverMode = settings().defaultMode;
+    if (MODES.includes(serverMode)) {
+      return serverMode;
+    }
+
     try {
       const stored = window.localStorage.getItem(storageKey());
-      return MODES.includes(stored) ? stored : fallback;
+      return MODES.includes(stored) ? stored : 'system';
     }
     catch (error) {
-      return fallback;
+      return 'system';
     }
   }
 
-  function saveMode(mode) {
+  function saveLocalMode(mode) {
     if (!MODES.includes(mode)) {
       return;
     }
@@ -37,6 +41,46 @@
     }
     catch (error) {
       // Storage can be unavailable in privacy-restricted browser contexts.
+    }
+  }
+
+  async function persistMode(mode) {
+    const persistUrl = settings().persistUrl;
+    if (!persistUrl || !MODES.includes(mode)) {
+      return;
+    }
+
+    try {
+      const tokenResponse = await fetch(Drupal.url('session/token'), {
+        credentials: 'same-origin',
+      });
+      if (!tokenResponse.ok) {
+        return;
+      }
+
+      const token = await tokenResponse.text();
+      const response = await fetch(persistUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token,
+        },
+        body: JSON.stringify({mode}),
+      });
+
+      if (response.ok) {
+        settings().defaultMode = mode;
+        try {
+          window.localStorage.removeItem(storageKey());
+        }
+        catch (error) {
+          // Local fallback cleanup is optional.
+        }
+      }
+    }
+    catch (error) {
+      // The local preference remains active if server persistence is unavailable.
     }
   }
 
@@ -65,8 +109,9 @@
       button.textContent = LABELS[mode];
       button.title = Drupal.t('Weergave: @mode', {'@mode': LABELS[mode]});
       button.addEventListener('click', () => {
-        saveMode(mode);
+        saveLocalMode(mode);
         applyMode(mode);
+        persistMode(mode);
       });
       wrapper.appendChild(button);
     });
@@ -74,7 +119,7 @@
     return wrapper;
   }
 
-  // Apply the preference as soon as this asset executes.
+  // Apply the server preference as soon as this asset executes.
   applyMode(readMode());
 
   Drupal.behaviors.breboOfficeThemePreference = {
