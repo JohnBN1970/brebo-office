@@ -169,8 +169,11 @@ function brebo_office_preprocess_page(array &$variables): void {
       'inzet' => $inzet,
     ];
 
-    $variables['#cache']['contexts'] = array_values(array_unique(array_merge(
-      $variables['#cache']['contexts'] ?? [],
+    // Dashboard aggregates and recent-project labels depend on the viewer and
+    // formatted timestamps depend on the active timezone. Attach these cache
+    // contexts to the page render array so Dynamic Page Cache varies safely.
+    $variables['page']['#cache']['contexts'] = array_values(array_unique(array_merge(
+      $variables['page']['#cache']['contexts'] ?? [],
       ['user', 'timezone']
     )));
   }
