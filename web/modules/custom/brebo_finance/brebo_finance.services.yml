@@ -139,3 +139,6 @@ services:
   brebo_finance.moneybird_supplier_diagnosis:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierDiagnosis
     arguments: ['@database', '@entity_type.manager']
+  brebo_finance.mail_purchase_invoice_router:
+    class: Drupal\brebo_finance\Service\MailPurchaseInvoiceRouter
+    arguments: ['@database']
