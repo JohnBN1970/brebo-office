@@ -70,6 +70,7 @@ html[data-brebo-theme='system'] {
 
 /* Compatibility aliases for the existing BREBO design system. */
 html[data-brebo-theme] {
+  --brebo-accent: var(--brebo-accent-primary);
   --brebo-surface: var(--brebo-bg-surface);
   --brebo-surface-muted: var(--brebo-bg-muted);
   --brebo-text-muted: var(--brebo-text-secondary);
