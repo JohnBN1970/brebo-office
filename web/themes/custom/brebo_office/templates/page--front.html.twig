@@ -8,6 +8,7 @@
   {% if logged_in %}
     {% set m = brebo_dashboard.metrics|default({}) %}
     {% set s = brebo_dashboard.signals|default({}) %}
+    {% set i = brebo_dashboard.inzet|default({}) %}
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
@@ -16,7 +17,7 @@
             <div class="brebo-page-header__main">
               <p class="brebo-page-header__eyebrow">BREBO OFFICE</p>
               <h1 class="brebo-page-header__title">Overzicht</h1>
-              <p class="brebo-page-header__description">Bedrijfsbrede cockpit voor projecten, commercie, werkvoorraad, kwaliteit en het gebouwmodel.</p>
+              <p class="brebo-page-header__description">Bedrijfsbrede cockpit voor projecten, commercie, werkvoorraad, kwaliteit, inzet en het gebouwmodel.</p>
             </div>
             <div class="brebo-page-header__actions">
               <a class="button" href="{{ path('brebo_office_core.funnel') }}">Funnel</a>
@@ -55,7 +56,7 @@
             <section class="brebo-dashboard-panel" aria-label="Managementsignalen">
               <div class="brebo-section-heading">
                 <div><p class="brebo-page-header__eyebrow">MANAGEMENTSIGNALEN</p><h2>Actuele statusverdeling</h2></div>
-                <span class="brebo-dashboard-signal-note">Live uit Office-workflows</span>
+                <span class="brebo-dashboard-signal-note">Live uit Office-data</span>
               </div>
               <div class="brebo-dashboard-signal-grid">
                 {% set signal_labels = {
@@ -107,6 +108,24 @@
               </div>
               <div class="brebo-dashboard-panel__action"><a href="{{ path('brebo_office_core.funnel') }}">Open commerciële funnel</a></div>
             </aside>
+
+            {% if i.available|default(false) %}
+              <article class="brebo-dashboard-panel brebo-span-4">
+                <div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">INZET & TIJD</p><h2>Wie werkt er?</h2></div></div>
+                <div class="brebo-dashboard-mini-grid">
+                  <a href="{{ i.url }}"><span>Nu aan het werk</span><strong>{{ i.active|default(0) }}</strong></a>
+                  <a href="{{ i.url }}"><span>Klokregistraties</span><strong>{{ i.registrations|default(0) }}</strong></a>
+                </div>
+                {% if i.severity|default([]) %}
+                  <div class="brebo-dashboard-signal-pills" style="margin-top: 16px;">
+                    {% for item in i.severity %}
+                      <span class="brebo-dashboard-signal-pill"><span>{{ item.label }}</span><b>{{ item.count }}</b></span>
+                    {% endfor %}
+                  </div>
+                {% endif %}
+                <div class="brebo-dashboard-panel__action"><a href="{{ i.url }}">Open BREBO Inzet</a></div>
+              </article>
+            {% endif %}
 
             <article class="brebo-dashboard-panel brebo-span-4">
               <div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">GEBOUWMODEL</p><h2>Objecten</h2></div></div>
