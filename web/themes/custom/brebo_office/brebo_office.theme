@@ -109,14 +109,71 @@ function brebo_office_preprocess_page(array &$variables): void {
       }
     }
 
+    $inzet = [
+      'available' => FALSE,
+      'active' => 0,
+      'registrations' => 0,
+      'severity' => [],
+      'url' => NULL,
+    ];
+
+    if (\Drupal::moduleHandler()->moduleExists('brebo_inzet')) {
+      $definitions = \Drupal::service('entity_field.manager')->getFieldDefinitions('node', 'brebo_clock_registration');
+      if (isset($definitions['field_brebo_clock_in'], $definitions['field_brebo_clock_out'])) {
+        $clock_ids = $storage->getQuery()
+          ->accessCheck(TRUE)
+          ->condition('type', 'brebo_clock_registration')
+          ->exists('field_brebo_clock_in')
+          ->sort('field_brebo_clock_in', 'DESC')
+          ->execute();
+
+        $severity = [];
+        foreach ($storage->loadMultiple($clock_ids) as $registration) {
+          if (!$registration instanceof \Drupal\node\NodeInterface) {
+            continue;
+          }
+          $inzet['registrations']++;
+          $clock_out = $registration->hasField('field_brebo_clock_out')
+            ? trim((string) $registration->get('field_brebo_clock_out')->value)
+            : '';
+          if ($clock_out === '') {
+            $inzet['active']++;
+          }
+          if ($registration->hasField('field_brebo_clock_severity')) {
+            $value = trim((string) $registration->get('field_brebo_clock_severity')->value);
+            if ($value !== '') {
+              $severity[$value] = ($severity[$value] ?? 0) + 1;
+            }
+          }
+        }
+
+        if ($severity) {
+          ksort($severity, SORT_NATURAL | SORT_FLAG_CASE);
+          foreach ($severity as $value => $count) {
+            $inzet['severity'][] = [
+              'label' => (string) $value,
+              'count' => (int) $count,
+            ];
+          }
+        }
+
+        $inzet['available'] = TRUE;
+        $inzet['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.app')->toString();
+      }
+    }
+
     $variables['brebo_dashboard'] = [
       'metrics' => $metrics,
       'recent_projects' => $recent_projects,
       'signals' => $signal_distributions,
+      'inzet' => $inzet,
     ];
 
-    $variables['#cache']['contexts'] = array_values(array_unique(array_merge(
-      $variables['#cache']['contexts'] ?? [],
+    // Dashboard aggregates and recent-project labels depend on the viewer and
+    // formatted timestamps depend on the active timezone. Attach these cache
+    // contexts to the page render array so Dynamic Page Cache varies safely.
+    $variables['page']['#cache']['contexts'] = array_values(array_unique(array_merge(
+      $variables['page']['#cache']['contexts'] ?? [],
       ['user', 'timezone']
     )));
   }
