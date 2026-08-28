@@ -8,3 +8,10 @@ brebo_help.center:
     attributes:
       class:
         - brebo-help-menu-link
+
+brebo_help.glossary:
+  title: 'Begrippen & beslisregels'
+  description: 'Uitleg van kernbegrippen en vaste BREBO-regels'
+  route_name: brebo_help.glossary
+  parent: brebo_help.center
+  weight: 20

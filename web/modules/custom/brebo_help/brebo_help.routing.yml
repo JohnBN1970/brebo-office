@@ -23,6 +23,23 @@ brebo_help.task:
     _permission: 'access brebo help'
     task: '[a-z0-9-]+'
 
+brebo_help.glossary:
+  path: '/brebo/help/begrippen'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\GlossaryController::index'
+    _title: 'Begrippen & beslisregels'
+  requirements:
+    _permission: 'access brebo help'
+
+brebo_help.term:
+  path: '/brebo/help/begrippen/{term}'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\GlossaryController::term'
+    _title_callback: '\Drupal\brebo_help\Controller\GlossaryController::title'
+  requirements:
+    _permission: 'access brebo help'
+    term: '[a-z0-9-]+'
+
 brebo_help.article:
   path: '/brebo/help/{article}'
   defaults:
