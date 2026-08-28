@@ -15,7 +15,7 @@ use Drupal\node\NodeInterface;
 final class PersonnelPlanningController extends ControllerBase {
 
   /**
-   * Lists upcoming and recent planned personnel assignments.
+   * Lists planned personnel assignments with pagination.
    */
   public function overview(): array {
     $storage = $this->entityTypeManager()->getStorage('node');
@@ -23,8 +23,8 @@ final class PersonnelPlanningController extends ControllerBase {
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_personnel_assignment')
       ->sort('field_brebo_plan_date', 'ASC')
-      ->sort('field_brebo_plan_start', 'ASC')
-      ->range(0, 100)
+      ->sort('field_brebo_assignment_start', 'ASC')
+      ->pager(50)
       ->execute();
 
     $rows = [];
@@ -35,7 +35,7 @@ final class PersonnelPlanningController extends ControllerBase {
 
       $project = $assignment->get('field_brebo_project_ref')->entity;
       $person = $assignment->get('field_brebo_plan_user')->entity;
-      $status_item = $assignment->get('field_brebo_plan_status')->first();
+      $status_item = $assignment->get('field_brebo_assignment_status')->first();
       $status = $status_item ? (string) $status_item->getString() : '';
       $status_labels = [
         'planned' => $this->t('Gepland'),
@@ -51,7 +51,7 @@ final class PersonnelPlanningController extends ControllerBase {
         $person ? $person->label() : '-',
         $project ? $project->label() : '-',
         (string) ($assignment->get('field_brebo_plan_date')->value ?? ''),
-        trim((string) ($assignment->get('field_brebo_plan_start')->value ?? '') . ' - ' . (string) ($assignment->get('field_brebo_plan_end')->value ?? ''), ' -'),
+        trim((string) ($assignment->get('field_brebo_assignment_start')->value ?? '') . ' - ' . (string) ($assignment->get('field_brebo_assignment_end')->value ?? ''), ' -'),
         (string) ($assignment->get('field_brebo_planned_hours')->value ?? ''),
         $status_labels[$status] ?? $status,
       ];
@@ -59,7 +59,7 @@ final class PersonnelPlanningController extends ControllerBase {
 
     $build = [
       '#cache' => [
-        'contexts' => ['user.permissions'],
+        'contexts' => ['user.permissions', 'url.query_args:pagers'],
         'tags' => ['node_list:brebo_personnel_assignment'],
       ],
       'header' => [
@@ -86,6 +86,9 @@ final class PersonnelPlanningController extends ControllerBase {
         ],
         '#rows' => $rows,
         '#empty' => $this->t('Er is nog geen personeelsinzet gepland.'),
+      ],
+      'pager' => [
+        '#type' => 'pager',
       ],
     ];
 
