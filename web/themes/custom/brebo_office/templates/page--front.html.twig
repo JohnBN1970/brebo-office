@@ -6,6 +6,7 @@
   {% endif %}
 
   {% if logged_in %}
+    {% set m = brebo_dashboard.metrics|default({}) %}
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
@@ -14,71 +15,118 @@
             <div class="brebo-page-header__main">
               <p class="brebo-page-header__eyebrow">BREBO OFFICE</p>
               <h1 class="brebo-page-header__title">Overzicht</h1>
-              <p class="brebo-page-header__description">Actuele systeemingang voor gebouwen, projecten, woningen en technische productposities.</p>
+              <p class="brebo-page-header__description">Bedrijfsbrede cockpit voor projecten, commercie, werkvoorraad, kwaliteit en het gebouwmodel.</p>
             </div>
             <div class="brebo-page-header__actions">
+              <a class="button" href="{{ path('brebo_office_core.funnel') }}">Funnel</a>
               <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
             </div>
           </header>
 
-          <section class="brebo-dashboard-kpis brebo-content-grid" aria-label="Objectoverzicht">
-            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.buildings') }}">
-              <span class="brebo-dashboard-kpi__label">Gebouwen</span>
-              <strong>{{ brebo_counts.buildings|default(0) }}</strong>
-              <small>Permanent gebouw- en onderhoudsdossier</small>
-              <span class="brebo-dashboard-kpi__link">Open gebouwen</span>
-            </a>
+          <section class="brebo-dashboard-kpis brebo-content-grid" aria-label="Kerncijfers">
             <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.projects') }}">
               <span class="brebo-dashboard-kpi__label">Projecten</span>
-              <strong>{{ brebo_counts.projects|default(0) }}</strong>
-              <small>Tijdelijke opdrachten, scopes en projectregie</small>
-              <span class="brebo-dashboard-kpi__link">Open projecten</span>
+              <strong>{{ m.projects|default(brebo_counts.projects|default(0)) }}</strong>
+              <small>Alle geregistreerde projecten</small>
+              <span class="brebo-dashboard-kpi__link">Projectportefeuille</span>
             </a>
-            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.dwellings') }}">
-              <span class="brebo-dashboard-kpi__label">Woningen</span>
-              <strong>{{ brebo_counts.dwellings|default(0) }}</strong>
-              <small>Zelfstandige objecten binnen het gebouwmodel</small>
-              <span class="brebo-dashboard-kpi__link">Open woningen</span>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.calculations') }}">
+              <span class="brebo-dashboard-kpi__label">Calculaties</span>
+              <strong>{{ m.calculations|default(0) }}</strong>
+              <small>Commerciële en projectcalculaties</small>
+              <span class="brebo-dashboard-kpi__link">Calculaties openen</span>
             </a>
-            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.positions') }}">
-              <span class="brebo-dashboard-kpi__label">Productposities</span>
-              <strong>{{ brebo_counts.positions|default(0) }}</strong>
-              <small>Technische onderdelen met controle en bewijs</small>
-              <span class="brebo-dashboard-kpi__link">Open posities</span>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.work_budgets') }}">
+              <span class="brebo-dashboard-kpi__label">Werkbegrotingen</span>
+              <strong>{{ m.work_budgets|default(0) }}</strong>
+              <small>Financiële projectmeetlatten</small>
+              <span class="brebo-dashboard-kpi__link">Werkbegrotingen</span>
+            </a>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.deviations') }}">
+              <span class="brebo-dashboard-kpi__label">Afwijkingen</span>
+              <strong>{{ m.deviations|default(0) }}</strong>
+              <small>Geregistreerde kwaliteitsafwijkingen</small>
+              <span class="brebo-dashboard-kpi__link">Kwaliteit bewaken</span>
             </a>
           </section>
 
-          <section class="brebo-content-grid" aria-label="Systeemoverzicht">
+          <section class="brebo-content-grid" aria-label="Bedrijfsinformatie">
             <article class="brebo-dashboard-panel brebo-span-8">
               <div class="brebo-section-heading">
                 <div>
-                  <p class="brebo-page-header__eyebrow">BESTURINGSKETEN</p>
-                  <h2>Van opdracht naar aantoonbaar resultaat</h2>
+                  <p class="brebo-page-header__eyebrow">RECENT</p>
+                  <h2>Laatste projecten</h2>
                 </div>
-                <span class="brebo-status brebo-status--ready">Operationeel</span>
+                <a href="{{ path('brebo_office_core.projects') }}">Alle projecten</a>
               </div>
-              <ol class="brebo-flow">
-                <li><span>1</span><div><strong>Projectkader</strong><small>Soort, rol, geld en inkoop</small></div></li>
-                <li><span>2</span><div><strong>Projectroute</strong><small>Automatische stappen en producten</small></div></li>
-                <li><span>3</span><div><strong>Regie-acties</strong><small>Eigenaar, termijn en blokkering</small></div></li>
-                <li><span>4</span><div><strong>Bewijs</strong><small>Controle, besluit en vrijgave</small></div></li>
-              </ol>
+              {% if brebo_dashboard.recent_projects|default([]) %}
+                <div class="brebo-dashboard-list">
+                  {% for project in brebo_dashboard.recent_projects %}
+                    <a class="brebo-dashboard-list__row" href="{{ path('brebo_office_core.project_dashboard', {'node': project.id}) }}">
+                      <span><strong>{{ project.title }}</strong><small>Laatst gewijzigd {{ project.changed }}</small></span>
+                      <span aria-hidden="true">→</span>
+                    </a>
+                  {% endfor %}
+                </div>
+              {% else %}
+                <p class="brebo-dashboard-empty">Nog geen projecten beschikbaar.</p>
+              {% endif %}
             </article>
 
             <aside class="brebo-dashboard-panel brebo-span-4">
               <div class="brebo-section-heading">
                 <div>
-                  <p class="brebo-page-header__eyebrow">SYSTEEMSTATUS</p>
-                  <h2>Digitale regie</h2>
+                  <p class="brebo-page-header__eyebrow">COMMERCIËLE BASIS</p>
+                  <h2>Relaties</h2>
                 </div>
               </div>
-              <ul class="brebo-checklist">
-                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Projectbesturing</strong><small>Vier onafhankelijke assen</small></div></li>
-                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Automatische routes</strong><small>Passend bij de projectsoort</small></div></li>
-                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Centrale actielijst</strong><small>Termijnen, blokkeringen en eigenaarschap</small></div></li>
-                <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Audit en bewijs</strong><small>N.V.T., afwijkingen en besluitvorming</small></div></li>
-              </ul>
+              <div class="brebo-dashboard-mini-grid">
+                <a href="{{ path('brebo_office_core.organizations') }}"><span>Organisaties</span><strong>{{ m.organizations|default(0) }}</strong></a>
+                <a href="{{ path('brebo_office_core.contacts') }}"><span>Contacten</span><strong>{{ m.contacts|default(0) }}</strong></a>
+              </div>
+              <div class="brebo-dashboard-panel__action"><a href="{{ path('brebo_office_core.funnel') }}">Open commerciële funnel</a></div>
             </aside>
+
+            <article class="brebo-dashboard-panel brebo-span-4">
+              <div class="brebo-section-heading">
+                <div>
+                  <p class="brebo-page-header__eyebrow">GEBOUWMODEL</p>
+                  <h2>Objecten</h2>
+                </div>
+              </div>
+              <div class="brebo-dashboard-metric-list">
+                <a href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span><strong>{{ m.buildings|default(0) }}</strong></a>
+                <a href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ m.dwellings|default(0) }}</strong></a>
+                <a href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ m.positions|default(0) }}</strong></a>
+              </div>
+            </article>
+
+            <article class="brebo-dashboard-panel brebo-span-4">
+              <div class="brebo-section-heading">
+                <div>
+                  <p class="brebo-page-header__eyebrow">INKOOP</p>
+                  <h2>Markt & leveranciers</h2>
+                </div>
+              </div>
+              <div class="brebo-dashboard-metric-list">
+                <a href="{{ path('brebo_office_core.rfqs') }}"><span>Prijsaanvragen</span><strong>{{ m.rfqs|default(0) }}</strong></a>
+                <a href="{{ path('brebo_office_core.supplier_quotes') }}"><span>Leveranciersoffertes</span><strong>{{ m.supplier_quotes|default(0) }}</strong></a>
+              </div>
+            </article>
+
+            <article class="brebo-dashboard-panel brebo-span-4">
+              <div class="brebo-section-heading">
+                <div>
+                  <p class="brebo-page-header__eyebrow">KWALITEIT</p>
+                  <h2>Controle & afwijking</h2>
+                </div>
+              </div>
+              <div class="brebo-dashboard-metric-list">
+                <a href="{{ path('brebo_office_core.verifications') }}"><span>Controles</span><strong>{{ m.verifications|default(0) }}</strong></a>
+                <a href="{{ path('brebo_office_core.deviations') }}"><span>Afwijkingen</span><strong>{{ m.deviations|default(0) }}</strong></a>
+              </div>
+              <div class="brebo-dashboard-panel__action"><a href="{{ path('brebo_office_core.quality_dashboard') }}">Open kwaliteitsdashboard</a></div>
+            </article>
           </section>
         </main>
       </div>
