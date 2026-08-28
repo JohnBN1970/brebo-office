@@ -1,0 +1,170 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\Entity\NodeType;
+use Drupal\user\Entity\Role;
+
+/**
+ * Implements hook_install().
+ */
+function brebo_inzet_install(): void {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+}
+
+/**
+ * Adds the minimal planned personnel-assignment model for existing installs.
+ */
+function brebo_inzet_update_11001(): string {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+  return 'Personeelsplanning toegevoegd: persoon, project, datum, geplande tijden/uren en status.';
+}
+
+/**
+ * Ensures the canonical planned personnel-assignment bundle exists.
+ */
+function _brebo_inzet_ensure_personnel_assignment_schema(): void {
+  $bundle = 'brebo_personnel_assignment';
+
+  if (!NodeType::load($bundle)) {
+    NodeType::create([
+      'type' => $bundle,
+      'name' => 'Personeelsinzet',
+      'description' => 'Geplande inzet van één persoon op één project en datum. Werkelijke aanwezigheid blijft afkomstig uit BREBO Inzet-klokregistraties.',
+      'new_revision' => TRUE,
+      'preview_mode' => 0,
+      'display_submitted' => FALSE,
+    ])->save();
+  }
+
+  $fields = [
+    'field_brebo_project_ref' => [
+      'label' => 'Project',
+      'type' => 'entity_reference',
+      'required' => TRUE,
+      'storage' => ['target_type' => 'node'],
+      'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+      'widget' => 'entity_reference_autocomplete',
+      'weight' => 1,
+    ],
+    'field_brebo_plan_user' => [
+      'label' => 'Persoon',
+      'type' => 'entity_reference',
+      'required' => TRUE,
+      'storage' => ['target_type' => 'user'],
+      'field_settings' => ['handler' => 'default:user'],
+      'widget' => 'entity_reference_autocomplete',
+      'weight' => 2,
+    ],
+    'field_brebo_plan_date' => [
+      'label' => 'Datum',
+      'type' => 'datetime',
+      'required' => TRUE,
+      'storage' => ['datetime_type' => 'date'],
+      'field_settings' => [],
+      'widget' => 'datetime_default',
+      'weight' => 3,
+    ],
+    'field_brebo_plan_start' => [
+      'label' => 'Gepland vanaf',
+      'type' => 'string',
+      'required' => FALSE,
+      'storage' => ['max_length' => 5],
+      'field_settings' => [],
+      'widget' => 'string_textfield',
+      'weight' => 4,
+    ],
+    'field_brebo_plan_end' => [
+      'label' => 'Gepland tot',
+      'type' => 'string',
+      'required' => FALSE,
+      'storage' => ['max_length' => 5],
+      'field_settings' => [],
+      'widget' => 'string_textfield',
+      'weight' => 5,
+    ],
+    'field_brebo_planned_hours' => [
+      'label' => 'Geplande uren',
+      'type' => 'decimal',
+      'required' => FALSE,
+      'storage' => ['precision' => 6, 'scale' => 2],
+      'field_settings' => [],
+      'widget' => 'number',
+      'weight' => 6,
+    ],
+    'field_brebo_plan_status' => [
+      'label' => 'Status',
+      'type' => 'list_string',
+      'required' => TRUE,
+      'storage' => ['allowed_values' => [
+        'planned' => 'Gepland',
+        'confirmed' => 'Bevestigd',
+        'cancelled' => 'Geannuleerd',
+      ]],
+      'field_settings' => [],
+      'widget' => 'options_select',
+      'weight' => 7,
+      'default_value' => [['value' => 'planned']],
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', $bundle, $field_name)) {
+      $field = FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'required' => $definition['required'],
+        'settings' => $definition['field_settings'],
+      ]);
+      if (!empty($definition['default_value'])) {
+        $field->setDefaultValue($definition['default_value']);
+      }
+      $field->save();
+    }
+  }
+
+  $display = EntityFormDisplay::load("node.$bundle.default") ?: EntityFormDisplay::create([
+    'targetEntityType' => 'node',
+    'bundle' => $bundle,
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  foreach ($fields as $field_name => $definition) {
+    $display->setComponent($field_name, [
+      'type' => $definition['widget'],
+      'weight' => $definition['weight'],
+    ]);
+  }
+  $display->save();
+
+  foreach (['brebo_projectleider', 'brebo_werkvoorbereider', 'brebo_uitvoerder'] as $role_id) {
+    if ($role = Role::load($role_id)) {
+      foreach ([
+        'create brebo_personnel_assignment content',
+        'edit own brebo_personnel_assignment content',
+        'edit any brebo_personnel_assignment content',
+        'delete own brebo_personnel_assignment content',
+        'delete any brebo_personnel_assignment content',
+        'view brebo_personnel_assignment revisions',
+      ] as $permission) {
+        $role->grantPermission($permission);
+      }
+      $role->save();
+    }
+  }
+}
