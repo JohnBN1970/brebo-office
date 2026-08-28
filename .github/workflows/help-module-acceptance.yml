@@ -14,6 +14,7 @@ jobs:
       - name: Validate PHP syntax
         run: |
           php -l web/modules/custom/brebo_help/src/Controller/HelpController.php
+          php -l web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           php -l web/modules/custom/brebo_help/brebo_help.module
       - name: Validate required module files
         run: |
@@ -24,7 +25,14 @@ jobs:
           test -f web/modules/custom/brebo_help/brebo_help.links.menu.yml
           test -f web/modules/custom/brebo_help/brebo_help.libraries.yml
           test -f web/modules/custom/brebo_help/brebo_help.module
+          test -f web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           grep -q "path: '/brebo/help'" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "path: '/brebo/help/taken'" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "brebo_help.tasks" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "project-vrijgeven" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
+          grep -q "afwijking-verwerken" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
+          grep -q "inkoop-controleren" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
+          grep -q "restpunt-afronden" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           grep -q "access brebo help" web/modules/custom/brebo_help/brebo_help.permissions.yml
           grep -q "brebo_help.center" web/modules/custom/brebo_help/brebo_help.links.menu.yml
           grep -q "weight: 99" web/modules/custom/brebo_help/brebo_help.links.menu.yml
