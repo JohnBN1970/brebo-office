@@ -30,7 +30,7 @@ final class SandboxResetForm extends FormBase {
 
     $form['warning'] = [
       '#type' => 'markup',
-      '#markup' => '<div class="messages messages--warning"><strong>Alleen inhoud wordt gewist.</strong> Modules, database-schema, velden, rollen, workflows, configuratie en externe bronnen blijven intact. Zoho en Moneybird worden nooit gewijzigd.</div>',
+      '#markup' => '<div class="messages messages--warning"><strong>Alleen gekozen bedrijfsinhoud wordt gewist.</strong> Software, database-schema, velden, rollen, workflows en configuratie blijven intact. Externe bronnen zoals Zoho en Moneybird worden nooit gewijzigd.</div>',
     ];
 
     $form['scope'] = [
@@ -39,15 +39,18 @@ final class SandboxResetForm extends FormBase {
       '#options' => [
         'mail_content' => $this->t('Mail-inhoud wissen — broncursors behouden'),
         'mail_content_zoho' => $this->t('Mail-inhoud wissen + Zoho pilot/migratiestate terug naar start'),
+        'projects' => $this->t('Alle projecten wissen — overige inhoud behouden'),
+        'buildings' => $this->t('Alle gebouwen wissen — overige inhoud behouden'),
+        'projects_buildings' => $this->t('Alle projecten + gebouwen wissen — overige inhoud behouden'),
       ],
       '#default_value' => $scope,
       '#required' => TRUE,
-      '#description' => $this->t('De permanente IMAP-cursor wordt bewust niet teruggezet; een reset mag niet onbedoeld de volledige actuele mailbox opnieuw importeren.'),
+      '#description' => $this->t('Bij project/gebouw-reset worden verwijzingen vanuit andere records eerst veilig losgekoppeld. Mail en andere bedrijfsinhoud blijven bestaan.'),
     ];
 
     $form['preview'] = [
       '#type' => 'details',
-      '#title' => $this->t('Wat wordt verwijderd?'),
+      '#title' => $this->t('Wat wordt geraakt?'),
       '#open' => TRUE,
     ];
     $form['preview']['counts'] = [
@@ -55,17 +58,19 @@ final class SandboxResetForm extends FormBase {
       '#items' => [
         $this->t('@count via Mail Intake geregistreerde e-mailcommunicaties', ['@count' => $preview['mail_communications']]),
         $this->t('@count mailboxprojecties', ['@count' => $preview['mailbox_rows']]),
-        $this->t('@count mailtags', ['@count' => $preview['mail_tags']]),
-        $this->t('@count document/communicatie-koppelingen', ['@count' => $preview['document_links']]),
+        $this->t('@count projecten in gekozen reset', ['@count' => $preview['projects']]),
+        $this->t('@count gebouwen in gekozen reset', ['@count' => $preview['buildings']]),
+        $this->t('@count verwijzende records/velden worden eerst losgekoppeld', ['@count' => $preview['object_references']]),
+        $this->t('@count onbevestigde adres-/scopevoorstellen worden bij object-reset gewist', ['@count' => $preview['address_scope_proposals']]),
       ],
     ];
     $form['preview']['kept'] = [
-      '#markup' => '<p><strong>Blijft staan:</strong> software, schema, configuratie, mailboxdefinities, gebruikers/rollen, handmatig gemaakte Communication-records zonder Mail Intake source-id en alle externe bronmail.</p>',
+      '#markup' => '<p><strong>Blijft staan:</strong> software, schema, configuratie, mailboxdefinities, gebruikers/rollen en externe bronmail. Een project/gebouw-reset verwijdert geen Communications; die worden alleen losgekoppeld van verwijderde objecten.</p>',
     ];
 
     $form['confirm'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Ik begrijp dat de genoemde sandbox-inhoud definitief uit BREBO Office wordt verwijderd.'),
+      '#title' => $this->t('Ik begrijp dat de inhoud binnen het gekozen resetbereik definitief uit BREBO Office wordt verwijderd.'),
       '#required' => TRUE,
     ];
     $form['confirmation_text'] = [
@@ -78,10 +83,9 @@ final class SandboxResetForm extends FormBase {
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
       '#type' => 'submit',
-      '#value' => $this->t('Sandbox-inhoud resetten'),
+      '#value' => $this->t('Gekozen inhoud resetten'),
       '#button_type' => 'danger',
     ];
-
     return $form;
   }
 
@@ -92,14 +96,13 @@ final class SandboxResetForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $scope = (string) $form_state->getValue('scope');
-    $result = $this->resetManager->reset($scope);
-
+    $result = $this->resetManager->reset((string) $form_state->getValue('scope'));
     $this->messenger()->addStatus($this->t(
-      'Sandbox-reset voltooid: @communications e-mailcommunicaties en @mailbox mailboxprojecties verwijderd. Software en configuratie zijn behouden.',
+      'Reset voltooid: @projects projecten, @buildings gebouwen en @communications mailcommunicaties binnen het gekozen bereik verwijderd. Software en configuratie zijn behouden.',
       [
+        '@projects' => $result['projects'],
+        '@buildings' => $result['buildings'],
         '@communications' => $result['mail_communications'],
-        '@mailbox' => $result['mailbox_rows'],
       ],
     ));
   }
