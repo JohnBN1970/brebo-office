@@ -63,8 +63,6 @@ final class SandboxResetManager {
             $storage->delete($nodes);
           }
         }
-        // These are unapproved machine proposals, not business objects. They
-        // must not survive an object reset and point at a clean baseline.
         if ($this->database->schema()->tableExists('brebo_address_scope_intake')) {
           $this->database->delete('brebo_address_scope_intake')->execute();
         }
@@ -129,9 +127,13 @@ final class SandboxResetManager {
   }
 
   /**
-   * Clears node entity-reference fields that point to objects being removed.
+   * Removes field rows that reference objects being removed.
    *
-   * This prevents dangling references while preserving the referring records.
+   * Do this directly in the configurable field tables instead of loading and
+   * saving every referring node. Saving unrelated business records can invoke
+   * validation and hooks that are outside the reset scope and made the admin
+   * reset fail at runtime. Both current and revision rows are cleaned inside
+   * the same database transaction.
    *
    * @param int[] $targetIds
    */
@@ -139,25 +141,16 @@ final class SandboxResetManager {
     if ($targetIds === []) {
       return;
     }
-    $storage = $this->entityTypeManager->getStorage('node');
-    $fieldMap = $this->entityFieldManager->getFieldMapByFieldType('entity_reference')['node'] ?? [];
-    foreach (array_keys($fieldMap) as $fieldName) {
-      $definitions = $this->entityFieldManager->getFieldStorageDefinitions('node');
-      $definition = $definitions[$fieldName] ?? NULL;
-      if (!$definition || $definition->getSetting('target_type') !== 'node') {
-        continue;
-      }
-      $ids = $storage->getQuery()->accessCheck(FALSE)->condition($fieldName . '.target_id', $targetIds, 'IN')->execute();
-      foreach ($storage->loadMultiple($ids) as $node) {
-        $kept = [];
-        foreach ($node->get($fieldName) as $item) {
-          $targetId = (int) $item->target_id;
-          if (!in_array($targetId, $targetIds, TRUE)) {
-            $kept[] = ['target_id' => $targetId];
-          }
+
+    foreach ($this->nodeReferenceFields() as $fieldName) {
+      $column = $fieldName . '_target_id';
+      foreach (['node__' . $fieldName, 'node_revision__' . $fieldName] as $table) {
+        if (!$this->database->schema()->tableExists($table) || !$this->database->schema()->fieldExists($table, $column)) {
+          continue;
         }
-        $node->set($fieldName, $kept);
-        $node->save();
+        $this->database->delete($table)
+          ->condition($column, $targetIds, 'IN')
+          ->execute();
       }
     }
   }
@@ -167,17 +160,35 @@ final class SandboxResetManager {
     if ($targetIds === []) {
       return 0;
     }
-    $storage = $this->entityTypeManager->getStorage('node');
+
+    $count = 0;
+    foreach ($this->nodeReferenceFields() as $fieldName) {
+      $table = 'node__' . $fieldName;
+      $column = $fieldName . '_target_id';
+      if (!$this->database->schema()->tableExists($table) || !$this->database->schema()->fieldExists($table, $column)) {
+        continue;
+      }
+      $count += (int) $this->database->select($table, 'r')
+        ->condition($column, $targetIds, 'IN')
+        ->countQuery()
+        ->execute()
+        ->fetchField();
+    }
+    return $count;
+  }
+
+  /** @return string[] */
+  private function nodeReferenceFields(): array {
     $definitions = $this->entityFieldManager->getFieldStorageDefinitions('node');
     $fieldMap = $this->entityFieldManager->getFieldMapByFieldType('entity_reference')['node'] ?? [];
-    $count = 0;
+    $fields = [];
     foreach (array_keys($fieldMap) as $fieldName) {
       $definition = $definitions[$fieldName] ?? NULL;
       if ($definition && $definition->getSetting('target_type') === 'node') {
-        $count += (int) $storage->getQuery()->accessCheck(FALSE)->condition($fieldName . '.target_id', $targetIds, 'IN')->count()->execute();
+        $fields[] = $fieldName;
       }
     }
-    return $count;
+    return $fields;
   }
 
   private function countAddressScopeProposals(): int {
