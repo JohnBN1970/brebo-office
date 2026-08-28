@@ -1,0 +1,147 @@
+:root {
+  color-scheme: light dark;
+  --brebo-accent-primary: #f47b20;
+  --brebo-status-success: #237a45;
+  --brebo-status-warning: #a45b00;
+  --brebo-status-danger: #b42318;
+  --brebo-status-info: #175cd3;
+  --brebo-radius-sm: .375rem;
+  --brebo-radius-md: .5rem;
+  --brebo-radius-lg: .75rem;
+  --brebo-shadow-subtle: 0 1px 3px rgba(16, 24, 40, .08);
+}
+
+html[data-brebo-theme='day'] {
+  color-scheme: light;
+  --brebo-bg-page: #f4f6f8;
+  --brebo-bg-surface: #ffffff;
+  --brebo-bg-elevated: #ffffff;
+  --brebo-bg-muted: #eef1f4;
+  --brebo-text-primary: #17202a;
+  --brebo-text-secondary: #5b6571;
+  --brebo-border-default: #d9dee5;
+  --brebo-overlay: rgba(17, 24, 39, .42);
+}
+
+html[data-brebo-theme='night'] {
+  color-scheme: dark;
+  --brebo-bg-page: #11161d;
+  --brebo-bg-surface: #18202a;
+  --brebo-bg-elevated: #202a35;
+  --brebo-bg-muted: #151c24;
+  --brebo-text-primary: #f4f6f8;
+  --brebo-text-secondary: #aeb8c4;
+  --brebo-border-default: #303b48;
+  --brebo-overlay: rgba(0, 0, 0, .58);
+  --brebo-status-success: #52b77a;
+  --brebo-status-warning: #e4a340;
+  --brebo-status-danger: #f97066;
+  --brebo-status-info: #75a7ff;
+}
+
+html[data-brebo-theme='system'] {
+  color-scheme: light dark;
+  --brebo-bg-page: #f4f6f8;
+  --brebo-bg-surface: #ffffff;
+  --brebo-bg-elevated: #ffffff;
+  --brebo-bg-muted: #eef1f4;
+  --brebo-text-primary: #17202a;
+  --brebo-text-secondary: #5b6571;
+  --brebo-border-default: #d9dee5;
+  --brebo-overlay: rgba(17, 24, 39, .42);
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-brebo-theme='system'] {
+    --brebo-bg-page: #11161d;
+    --brebo-bg-surface: #18202a;
+    --brebo-bg-elevated: #202a35;
+    --brebo-bg-muted: #151c24;
+    --brebo-text-primary: #f4f6f8;
+    --brebo-text-secondary: #aeb8c4;
+    --brebo-border-default: #303b48;
+    --brebo-overlay: rgba(0, 0, 0, .58);
+    --brebo-status-success: #52b77a;
+    --brebo-status-warning: #e4a340;
+    --brebo-status-danger: #f97066;
+    --brebo-status-info: #75a7ff;
+  }
+}
+
+/* Compatibility aliases for the existing BREBO design system. */
+html[data-brebo-theme] {
+  --brebo-surface: var(--brebo-bg-surface);
+  --brebo-surface-muted: var(--brebo-bg-muted);
+  --brebo-text-muted: var(--brebo-text-secondary);
+  --brebo-border: var(--brebo-border-default);
+  --brebo-positive: var(--brebo-status-success);
+  --brebo-attention: var(--brebo-status-warning);
+  --brebo-critical: var(--brebo-status-danger);
+  --brebo-neutral: var(--brebo-text-secondary);
+  background: var(--brebo-bg-page);
+  color: var(--brebo-text-primary);
+}
+
+html[data-brebo-theme] body,
+html[data-brebo-theme] .brebo-shell,
+html[data-brebo-theme] .brebo-app-layout,
+html[data-brebo-theme] .brebo-app-layout__content,
+html[data-brebo-theme] .brebo-main,
+html[data-brebo-theme] .brebo-content {
+  background-color: var(--brebo-bg-page);
+  color: var(--brebo-text-primary);
+}
+
+html[data-brebo-theme] a {
+  color: inherit;
+}
+
+.brebo-theme-switcher {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .25rem;
+  margin: .5rem;
+  padding: .25rem;
+  border: 1px solid var(--brebo-border-default);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-muted);
+}
+
+.brebo-theme-switcher__button {
+  appearance: none;
+  min-width: 0;
+  border: 0;
+  border-radius: var(--brebo-radius-sm);
+  padding: .45rem .35rem;
+  background: transparent;
+  color: var(--brebo-text-secondary);
+  font: inherit;
+  font-size: .72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.brebo-theme-switcher__button:hover,
+.brebo-theme-switcher__button:focus-visible {
+  background: var(--brebo-bg-elevated);
+  color: var(--brebo-text-primary);
+  outline: 2px solid transparent;
+}
+
+.brebo-theme-switcher__button[aria-pressed='true'] {
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+  box-shadow: var(--brebo-shadow-subtle);
+}
+
+.brebo-office-nav.is-collapsed .brebo-theme-switcher {
+  grid-template-columns: 1fr;
+}
+
+.brebo-office-nav.is-collapsed .brebo-theme-switcher__button {
+  font-size: 0;
+}
+
+.brebo-office-nav.is-collapsed .brebo-theme-switcher__button::first-letter {
+  font-size: .8rem;
+}
