@@ -24,6 +24,7 @@ final class MailIntakePipeline {
     private readonly CanonicalCrmContextResolver $canonicalCrmContextResolver,
     private readonly AttachmentEvidenceExtractor $attachmentEvidenceExtractor,
     private readonly AttachmentDocumentPersister $attachmentDocumentPersister,
+    private readonly ?PurchaseInvoiceMailRouterInterface $purchaseInvoiceRouter = NULL,
   ) {}
 
   /** @return array<int, array<string, mixed>> */
@@ -106,6 +107,8 @@ final class MailIntakePipeline {
       $communicationNid,
       is_array($attachmentEvidence['evidence'] ?? NULL) ? $attachmentEvidence['evidence'] : [],
     );
+    $invoiceRoute = $this->purchaseInvoiceRouter?->route($mail, $attachmentEvidence, $communicationNid)
+      ?? ['state' => 'router_unavailable'];
 
     $result['classification'] = $mail['classification'];
     $result['classification_confidence'] = $classification['confidence'];
@@ -137,6 +140,8 @@ final class MailIntakePipeline {
       static fn(array $item): int => (int) ($item['document_id'] ?? 0),
       $persistedDocuments,
     ));
+    $result['purchase_invoice_route_state'] = $invoiceRoute['state'] ?? 'unknown';
+    $result['purchase_invoice_id'] = $invoiceRoute['invoice_id'] ?? NULL;
     $result['requires_human_review'] = TRUE;
     return $result;
   }

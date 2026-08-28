@@ -94,6 +94,7 @@ services:
       - '@brebo_mail_intake.canonical_crm_context_resolver'
       - '@brebo_mail_intake.attachment_evidence'
       - '@brebo_mail_intake.attachment_document_persister'
+      - '@?brebo_finance.mail_purchase_invoice_router'
 
   brebo_mail_intake.queue_manager:
     class: Drupal\brebo_mail_intake\Service\MailIntakeQueueManager
