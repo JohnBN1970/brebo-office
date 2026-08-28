@@ -1,143 +1,39 @@
 /* BREBO Office dashboard v2 — first screen migrated to the central App Shell. */
 
-.brebo-dashboard {
-  padding-top: 0;
-}
-
-.brebo-dashboard-kpis {
-  margin: 0;
-}
-
-.brebo-dashboard-kpi {
-  position: relative;
-  min-height: 170px;
-  padding: 20px;
-  display: flex;
-  flex-direction: column;
-  border: 1px solid var(--brebo-border);
-  border-radius: 10px;
-  background: var(--brebo-bg-surface);
-  color: var(--brebo-text-primary);
-  text-decoration: none;
-  box-shadow: none;
-  transition: border-color .15s ease, transform .15s ease, background .15s ease;
-}
-
-.brebo-dashboard-kpi:hover,
-.brebo-dashboard-kpi:focus-visible {
-  border-color: color-mix(in srgb, var(--brebo-accent) 45%, var(--brebo-border));
-  background: var(--brebo-bg-elevated);
-  color: var(--brebo-text-primary);
-  text-decoration: none;
-  transform: translateY(-2px);
-}
-
-.brebo-dashboard-kpi::before {
-  content: "";
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 3px;
-  border-radius: 10px 0 0 10px;
-  background: var(--brebo-accent);
-}
-
-.brebo-dashboard-kpi__label {
-  color: var(--brebo-text-secondary);
-  font-size: .78rem;
-  font-weight: 750;
-  letter-spacing: .06em;
-  text-transform: uppercase;
-}
-
-.brebo-dashboard-kpi strong {
-  display: block;
-  margin: 14px 0 8px;
-  color: var(--brebo-text-primary);
-  font-size: clamp(2.1rem, 3vw, 2.8rem);
-  line-height: 1;
-  letter-spacing: -.04em;
-}
-
-.brebo-dashboard-kpi small {
-  display: block;
-  color: var(--brebo-text-secondary);
-  line-height: 1.45;
-}
-
-.brebo-dashboard-kpi__link {
-  margin-top: auto;
-  padding-top: 18px;
-  color: var(--brebo-text-primary);
-  font-size: .82rem;
-  font-weight: 700;
-}
-
-.brebo-dashboard-kpi__link::after {
-  content: " →";
-  color: var(--brebo-accent);
-}
-
-.brebo-dashboard-panel {
-  min-width: 0;
-  padding: 22px;
-  border: 1px solid var(--brebo-border);
-  border-radius: 10px;
-  background: var(--brebo-bg-surface);
-  box-shadow: none;
-}
-
-.brebo-dashboard-panel .brebo-section-heading {
-  margin-bottom: 22px;
-}
-
-.brebo-dashboard-panel .brebo-section-heading h2 {
-  margin: 4px 0 0;
-  color: var(--brebo-text-primary);
-  font-size: 1.15rem;
-}
-
-.brebo-dashboard-panel .brebo-flow li div {
-  background: var(--brebo-bg-surface);
-}
-
-.brebo-dashboard-panel .brebo-flow li > span {
-  color: #1b160c;
-  background: var(--brebo-accent);
-}
-
-.brebo-dashboard-panel .brebo-flow strong,
-.brebo-dashboard-panel .brebo-checklist strong {
-  color: var(--brebo-text-primary);
-}
-
-.brebo-dashboard-panel .brebo-flow small,
-.brebo-dashboard-panel .brebo-checklist small {
-  color: var(--brebo-text-secondary);
-}
-
-.brebo-dashboard-panel .brebo-checklist li {
-  border-color: var(--brebo-border);
-}
-
-.brebo-dashboard-panel .brebo-checklist li.is-done > span {
-  color: var(--brebo-status-success);
-  background: color-mix(in srgb, var(--brebo-status-success) 12%, var(--brebo-bg-elevated));
-}
-
-@media (max-width: 1180px) {
-  .brebo-dashboard-kpi {
-    min-height: 155px;
-  }
-}
-
-@media (max-width: 767px) {
-  .brebo-dashboard-kpi,
-  .brebo-dashboard-panel {
-    padding: 18px;
-  }
-
-  .brebo-dashboard-panel .brebo-flow {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
-}
+.brebo-dashboard { padding-top: 0; }
+.brebo-dashboard-kpis { margin: 0; }
+.brebo-dashboard-kpi { position: relative; min-height: 170px; padding: 20px; display: flex; flex-direction: column; border: 1px solid var(--brebo-border); border-radius: 10px; background: var(--brebo-bg-surface); color: var(--brebo-text-primary); text-decoration: none; box-shadow: none; transition: border-color .15s ease, transform .15s ease, background .15s ease; }
+.brebo-dashboard-kpi:hover,.brebo-dashboard-kpi:focus-visible { border-color: color-mix(in srgb, var(--brebo-accent) 45%, var(--brebo-border)); background: var(--brebo-bg-elevated); color: var(--brebo-text-primary); text-decoration: none; transform: translateY(-2px); }
+.brebo-dashboard-kpi::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; border-radius: 10px 0 0 10px; background: var(--brebo-accent); }
+.brebo-dashboard-kpi__label { color: var(--brebo-text-secondary); font-size: .78rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+.brebo-dashboard-kpi strong { display: block; margin: 14px 0 8px; color: var(--brebo-text-primary); font-size: clamp(2.1rem, 3vw, 2.8rem); line-height: 1; letter-spacing: -.04em; }
+.brebo-dashboard-kpi small { display: block; color: var(--brebo-text-secondary); line-height: 1.45; }
+.brebo-dashboard-kpi__link { margin-top: auto; padding-top: 18px; color: var(--brebo-text-primary); font-size: .82rem; font-weight: 700; }
+.brebo-dashboard-kpi__link::after { content: " →"; color: var(--brebo-accent); }
+.brebo-dashboard-panel { min-width: 0; padding: 22px; border: 1px solid var(--brebo-border); border-radius: 10px; background: var(--brebo-bg-surface); box-shadow: none; }
+.brebo-dashboard-panel .brebo-section-heading { margin-bottom: 22px; }
+.brebo-dashboard-panel .brebo-section-heading h2 { margin: 4px 0 0; color: var(--brebo-text-primary); font-size: 1.15rem; }
+.brebo-dashboard-panel .brebo-section-heading > a,.brebo-dashboard-panel__action a { color: var(--brebo-text-primary); font-size: .83rem; font-weight: 700; text-decoration: none; }
+.brebo-dashboard-panel .brebo-section-heading > a:hover,.brebo-dashboard-panel__action a:hover { color: var(--brebo-accent); }
+.brebo-dashboard-list { display: grid; }
+.brebo-dashboard-list__row { min-width: 0; padding: 14px 2px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-top: 1px solid var(--brebo-border); color: var(--brebo-text-primary); text-decoration: none; }
+.brebo-dashboard-list__row:first-child { border-top: 0; }
+.brebo-dashboard-list__row:hover { color: var(--brebo-text-primary); }
+.brebo-dashboard-list__row > span:first-child { min-width: 0; }
+.brebo-dashboard-list__row strong,.brebo-dashboard-list__row small { display: block; }
+.brebo-dashboard-list__row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.brebo-dashboard-list__row small { margin-top: 4px; color: var(--brebo-text-secondary); }
+.brebo-dashboard-list__row > span:last-child { color: var(--brebo-accent); font-size: 1.15rem; }
+.brebo-dashboard-mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.brebo-dashboard-mini-grid a,.brebo-dashboard-metric-list a { color: var(--brebo-text-primary); text-decoration: none; }
+.brebo-dashboard-mini-grid a { min-height: 100px; padding: 15px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--brebo-border); border-radius: 8px; background: var(--brebo-bg-elevated); }
+.brebo-dashboard-mini-grid span,.brebo-dashboard-metric-list span { color: var(--brebo-text-secondary); font-size: .82rem; font-weight: 650; }
+.brebo-dashboard-mini-grid strong { font-size: 1.9rem; line-height: 1; }
+.brebo-dashboard-metric-list { display: grid; gap: 0; }
+.brebo-dashboard-metric-list a { min-height: 48px; padding: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-top: 1px solid var(--brebo-border); }
+.brebo-dashboard-metric-list a:first-child { border-top: 0; }
+.brebo-dashboard-metric-list strong { font-size: 1.15rem; }
+.brebo-dashboard-panel__action { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--brebo-border); }
+.brebo-dashboard-empty { margin: 0; color: var(--brebo-text-secondary); }
+@media (max-width: 1180px) { .brebo-dashboard-kpi { min-height: 155px; } }
+@media (max-width: 767px) { .brebo-dashboard-kpi,.brebo-dashboard-panel { padding: 18px; } .brebo-dashboard-mini-grid { grid-template-columns: 1fr 1fr; } }
