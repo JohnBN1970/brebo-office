@@ -10,9 +10,9 @@ declare(strict_types=1);
 /**
  * Implements hook_preprocess_page().
  *
- * Adds the authenticated user id to drupalSettings so the presentation layer
- * can keep appearance preferences isolated per user without introducing a
- * content-entity field or schema change.
+ * Adds the authenticated user appearance preference to drupalSettings. The
+ * preference is stored server-side through Drupal user.data and defaults to
+ * system when no preference exists yet.
  *
  * The canonical project dashboard route is altered to use the Project Cockpit
  * controller. That controller already renders the cockpit and project tabs in
@@ -22,9 +22,13 @@ declare(strict_types=1);
 function brebo_office_preprocess_page(array &$variables): void {
   $account = \Drupal::currentUser();
   if ($account->isAuthenticated()) {
+    $stored_mode = \Drupal::service('user.data')->get('brebo_office_core', (int) $account->id(), 'appearance_mode');
+    $mode = in_array($stored_mode, ['day', 'night', 'system'], TRUE) ? $stored_mode : 'system';
+
     $variables['page']['#attached']['drupalSettings']['breboOfficeAppearance'] = [
       'userId' => (int) $account->id(),
-      'defaultMode' => 'system',
+      'defaultMode' => $mode,
+      'persistUrl' => '/brebo-office/appearance',
     ];
   }
 
