@@ -1,0 +1,85 @@
+name: BREBO Zoho queue item diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Inspect remaining Mail Intake queue item safely
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Diagnose queue row without mail content
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          "$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+            $db = \Drupal::database();
+            $rows = $db->select("queue", "q")
+              ->fields("q", ["item_id", "created", "expire", "data"])
+              ->condition("name", "brebo_mail_intake_process")
+              ->orderBy("item_id", "ASC")
+              ->execute()
+              ->fetchAll();
+            echo "QUEUE_ROWS=" . count($rows) . PHP_EOL;
+            foreach ($rows as $row) {
+              $decoded = @unserialize($row->data, ["allowed_classes" => FALSE]);
+              $mail = is_array($decoded) && is_array($decoded["mail"] ?? NULL) ? $decoded["mail"] : [];
+              $sourceId = trim((string) ($mail["source_id"] ?? ""));
+              $subject = trim((string) ($mail["subject"] ?? ""));
+              $body = trim((string) ($mail["body"] ?? ""));
+              $sourceSystem = trim((string) ($mail["source_system"] ?? ""));
+              echo "ITEM=" . (int) $row->item_id
+                . "|CREATED=" . (int) $row->created
+                . "|EXPIRE=" . (int) $row->expire
+                . "|MODE=" . (is_array($decoded) ? (string) ($decoded["mode"] ?? "") : "invalid")
+                . "|SOURCE_SYSTEM_PRESENT=" . ($sourceSystem !== "" ? "YES" : "NO")
+                . "|SOURCE_ID_PRESENT=" . ($sourceId !== "" ? "YES" : "NO")
+                . "|SOURCE_ID_LEN=" . strlen($sourceId)
+                . "|SUBJECT_PRESENT=" . ($subject !== "" ? "YES" : "NO")
+                . "|SUBJECT_LEN=" . mb_strlen($subject)
+                . "|BODY_PRESENT=" . ($body !== "" ? "YES" : "NO")
+                . "|BODY_LEN=" . mb_strlen($body)
+                . PHP_EOL;
+            }
+            echo "ZOHO_QUEUE_ITEM_DIAGNOSIS=PASS" . PHP_EOL;
+          '
+          REMOTE
