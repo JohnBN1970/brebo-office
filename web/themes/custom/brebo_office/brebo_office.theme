@@ -9,19 +9,6 @@ declare(strict_types=1);
 
 /**
  * Implements hook_preprocess_page().
- *
- * Adds the authenticated user appearance preference to drupalSettings. The
- * preference is stored server-side through Drupal user.data and defaults to
- * system when no preference exists yet.
- *
- * The Office front page also receives read-only aggregate counts from the
- * existing node bundles. These are presentation metrics only: no business
- * status is inferred unless the source model explicitly provides it.
- *
- * The canonical project dashboard route is altered to use the Project Cockpit
- * controller. That controller already renders the cockpit and project tabs in
- * page.content. The generic persistent project shell is intended for project
- * subpages only, so suppress it here on the canonical dashboard route.
  */
 function brebo_office_preprocess_page(array &$variables): void {
   $account = \Drupal::currentUser();
@@ -81,9 +68,50 @@ function brebo_office_preprocess_page(array &$variables): void {
       ];
     }
 
+    $signal_sources = [
+      'projects' => ['bundle' => 'brebo_project', 'field' => 'field_brebo_status'],
+      'work_budgets' => ['bundle' => 'brebo_work_budget', 'field' => 'field_brebo_budget_status'],
+      'rfqs' => ['bundle' => 'brebo_rfq', 'field' => 'field_brebo_rfq_status'],
+      'supplier_quotes' => ['bundle' => 'brebo_supplier_quote', 'field' => 'field_brebo_quote_status'],
+      'deviations' => ['bundle' => 'brebo_deviation', 'field' => 'field_brebo_deviation_status'],
+    ];
+
+    $signal_distributions = [];
+    $field_manager = \Drupal::service('entity_field.manager');
+    foreach ($signal_sources as $key => $source) {
+      $definitions = $field_manager->getFieldDefinitions('node', $source['bundle']);
+      $definition = $definitions[$source['field']] ?? NULL;
+      if (!$definition) {
+        continue;
+      }
+
+      $allowed_values = $definition->getSetting('allowed_values') ?: [];
+      $distribution = [];
+      foreach ($allowed_values as $value => $label) {
+        $count = (int) $storage->getQuery()
+          ->accessCheck(TRUE)
+          ->condition('type', $source['bundle'])
+          ->condition($source['field'], $value)
+          ->count()
+          ->execute();
+        if ($count > 0) {
+          $distribution[] = [
+            'value' => (string) $value,
+            'label' => (string) $label,
+            'count' => $count,
+          ];
+        }
+      }
+
+      if ($distribution) {
+        $signal_distributions[$key] = $distribution;
+      }
+    }
+
     $variables['brebo_dashboard'] = [
       'metrics' => $metrics,
       'recent_projects' => $recent_projects,
+      'signals' => $signal_distributions,
     ];
   }
 
