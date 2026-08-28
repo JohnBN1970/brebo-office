@@ -1,0 +1,64 @@
+name: BREBO Zoho missing item diagnosis
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Diagnose skipped item without mail content
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          "$php" -d auto_prepend_file="$runtime" -r '
+            $host = getenv("BREBO_ZOHO_IMAP_HOST");
+            $user = getenv("BREBO_ZOHO_IMAP_USER");
+            $password = getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            $folder = getenv("BREBO_ZOHO_IMAP_FOLDER") ?: "INBOX";
+            $port = (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993);
+            $flags = getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl";
+            $mailbox = sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder);
+            $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
+            if ($stream === false) { throw new RuntimeException("IMAP open failed"); }
+            try {
+              $uids = imap_search($stream, "ALL", SE_UID) ?: [];
+              $uids = array_values(array_filter(array_map("intval", $uids), static fn(int $uid): bool => $uid > 21823 && $uid < 21935));
+              rsort($uids, SORT_NUMERIC);
+              foreach ($uids as $uid) {
+                $overview = (imap_fetch_overview($stream, (string) $uid, FT_UID)[0] ?? null);
+                $rawSubject = $overview && isset($overview->subject) ? trim((string) $overview->subject) : "";
+                $messageId = $overview && isset($overview->message_id) ? trim((string) $overview->message_id) : "";
+                $structure = imap_fetchstructure($stream, $uid, FT_UID);
+                $body = trim((string) imap_body($stream, $uid, FT_UID | FT_PEEK));
+                echo "UID={$uid}|SUBJECT_PRESENT=" . ($rawSubject !== "" ? "YES" : "NO") . "|MESSAGE_ID_PRESENT=" . ($messageId !== "" ? "YES" : "NO") . "|BODY_BYTES=" . strlen($body) . "|STRUCTURE=" . ($structure ? "YES" : "NO") . PHP_EOL;
+              }
+              echo "ZOHO_MISSING_ITEM_DIAGNOSIS=PASS" . PHP_EOL;
+            } finally { imap_close($stream); }
+          '
+          REMOTE
