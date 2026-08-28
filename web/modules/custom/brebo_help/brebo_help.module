@@ -1,0 +1,91 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Url;
+
+/**
+ * Implements hook_page_attachments().
+ */
+function brebo_help_page_attachments(array &$attachments): void {
+  $attachments['#attached']['library'][] = 'brebo_help/help';
+}
+
+/**
+ * Implements hook_page_top().
+ */
+function brebo_help_page_top(array &$page_top): void {
+  $account = \Drupal::currentUser();
+  if (!$account->hasPermission('access brebo help')) {
+    return;
+  }
+
+  $route_name = (string) \Drupal::routeMatch()->getRouteName();
+  if ($route_name === '' || str_starts_with($route_name, 'brebo_help.')) {
+    return;
+  }
+
+  $context = brebo_help_context_for_route($route_name);
+  if ($context === null) {
+    return;
+  }
+
+  $page_top['brebo_help_context_link'] = [
+    '#type' => 'link',
+    '#title' => '?',
+    '#url' => Url::fromRoute('brebo_help.center', [], [
+      'query' => ['context' => $context],
+    ]),
+    '#attributes' => [
+      'class' => ['brebo-help-context-link'],
+      'title' => 'Help over dit scherm',
+      'aria-label' => 'Help over dit scherm',
+    ],
+    '#weight' => 1000,
+  ];
+}
+
+/**
+ * Resolves Office routes to the most relevant Help context.
+ */
+function brebo_help_context_for_route(string $route_name): ?string {
+  $rules = [
+    'brebo_office_core.crm' => 'relation',
+    'brebo_office_core.funnel' => 'funnel',
+    'brebo_office_core.opportunity' => 'funnel',
+    'brebo_office_core.organization' => 'relation',
+    'brebo_office_core.contact' => 'relation',
+    'brebo_office_core.calculation' => 'calculation',
+    'brebo_calculation.' => 'calculation',
+    'brebo_office_core.project' => 'project',
+    'brebo_project_cockpit.' => 'project',
+    'brebo_office_core.work_budget' => 'budget',
+    'brebo_office_core.rfq' => 'procurement',
+    'brebo_office_core.supplier_quote' => 'procurement',
+    'brebo_procurement_control.' => 'procurement',
+    'brebo_finance.' => 'finance',
+    'brebo_contract_control.' => 'finance',
+    'brebo_control.' => 'quality',
+    'brebo_office_core.quality' => 'quality',
+    'brebo_office_core.verification' => 'quality',
+    'brebo_office_core.deviation' => 'quality',
+    'brebo_document_data.' => 'document',
+    'brebo_office_core.communication' => 'mail',
+    'brebo_mail_intake.' => 'mail',
+    'brebo_inzet.' => 'planning',
+    'brebo_office_core.project_planning' => 'planning',
+    'brebo_glass.' => 'glass',
+    'brebo_client_portal.' => 'client portal',
+    'brebo_resident_service.' => 'quality',
+    'brebo_building_data.' => 'building',
+    'brebo_office_core.building' => 'building',
+  ];
+
+  foreach ($rules as $prefix => $context) {
+    if ($route_name === $prefix || str_starts_with($route_name, $prefix)) {
+      return $context;
+    }
+  }
+
+  return null;
+}

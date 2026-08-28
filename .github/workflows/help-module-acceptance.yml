@@ -12,7 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Validate PHP syntax
-        run: php -l web/modules/custom/brebo_help/src/Controller/HelpController.php
+        run: |
+          php -l web/modules/custom/brebo_help/src/Controller/HelpController.php
+          php -l web/modules/custom/brebo_help/brebo_help.module
       - name: Validate required module files
         run: |
           set -euo pipefail
@@ -21,9 +23,14 @@ jobs:
           test -f web/modules/custom/brebo_help/brebo_help.routing.yml
           test -f web/modules/custom/brebo_help/brebo_help.links.menu.yml
           test -f web/modules/custom/brebo_help/brebo_help.libraries.yml
+          test -f web/modules/custom/brebo_help/brebo_help.module
           grep -q "path: '/brebo/help'" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "access brebo help" web/modules/custom/brebo_help/brebo_help.permissions.yml
           grep -q "brebo_help.center" web/modules/custom/brebo_help/brebo_help.links.menu.yml
+          grep -q "weight: 99" web/modules/custom/brebo_help/brebo_help.links.menu.yml
+          grep -q "brebo-help-menu-link" web/modules/custom/brebo_help/brebo_help.links.menu.yml
+          grep -q "brebo_help_context_for_route" web/modules/custom/brebo_help/brebo_help.module
+          grep -q "brebo-help-context-link" web/modules/custom/brebo_help/css/brebo-help.css
       - name: Guard against schema and destructive operations
         run: |
           set -euo pipefail

@@ -3,4 +3,8 @@ brebo_help.center:
   description: 'Handleidingen, processen en hulp bij BREBO Office'
   route_name: brebo_help.center
   menu_name: main
-  weight: 100
+  weight: 99
+  options:
+    attributes:
+      class:
+        - brebo-help-menu-link
