@@ -9,27 +9,52 @@
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
-        <main class="brebo-dashboard">
-          <section class="brebo-dashboard__intro">
-            <div>
-              <p class="brebo-eyebrow">DIGITAAL BEDRIJFSBUREAU</p>
-              <h1>Goedemorgen. Waar pakken we de regie?</h1>
-              <p>Projecten besturen vanuit één actueel kader voor proces, geld, kwaliteit en bewijs.</p>
+        <main class="brebo-dashboard brebo-page-shell">
+          <header class="brebo-page-header">
+            <div class="brebo-page-header__main">
+              <p class="brebo-page-header__eyebrow">BREBO OFFICE</p>
+              <h1 class="brebo-page-header__title">Overzicht</h1>
+              <p class="brebo-page-header__description">Actuele systeemingang voor gebouwen, projecten, woningen en technische productposities.</p>
             </div>
-            <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
+            <div class="brebo-page-header__actions">
+              <a class="button brebo-button--primary" href="{{ path('node.add', {'node_type': 'brebo_project'}) }}">Nieuw project</a>
+            </div>
+          </header>
+
+          <section class="brebo-dashboard-kpis brebo-content-grid" aria-label="Objectoverzicht">
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.buildings') }}">
+              <span class="brebo-dashboard-kpi__label">Gebouwen</span>
+              <strong>{{ brebo_counts.buildings|default(0) }}</strong>
+              <small>Permanent gebouw- en onderhoudsdossier</small>
+              <span class="brebo-dashboard-kpi__link">Open gebouwen</span>
+            </a>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.projects') }}">
+              <span class="brebo-dashboard-kpi__label">Projecten</span>
+              <strong>{{ brebo_counts.projects|default(0) }}</strong>
+              <small>Tijdelijke opdrachten, scopes en projectregie</small>
+              <span class="brebo-dashboard-kpi__link">Open projecten</span>
+            </a>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.dwellings') }}">
+              <span class="brebo-dashboard-kpi__label">Woningen</span>
+              <strong>{{ brebo_counts.dwellings|default(0) }}</strong>
+              <small>Zelfstandige objecten binnen het gebouwmodel</small>
+              <span class="brebo-dashboard-kpi__link">Open woningen</span>
+            </a>
+            <a class="brebo-dashboard-kpi brebo-span-3" href="{{ path('brebo_office_core.positions') }}">
+              <span class="brebo-dashboard-kpi__label">Productposities</span>
+              <strong>{{ brebo_counts.positions|default(0) }}</strong>
+              <small>Technische onderdelen met controle en bewijs</small>
+              <span class="brebo-dashboard-kpi__link">Open posities</span>
+            </a>
           </section>
 
-          <section class="brebo-kpis" aria-label="Objectoverzicht">
-            <a class="brebo-kpi" href="{{ path('brebo_office_core.buildings') }}"><span>Gebouwen</span><strong>{{ brebo_counts.buildings|default(0) }}</strong><small>Permanent gebouw- en onderhoudsdossier</small></a>
-            <a class="brebo-kpi" href="{{ path('brebo_office_core.projects') }}"><span>Projecten</span><strong>{{ brebo_counts.projects|default(0) }}</strong><small>Tijdelijke opdrachten en scopes</small></a>
-            <a class="brebo-kpi" href="{{ path('brebo_office_core.dwellings') }}"><span>Woningen</span><strong>{{ brebo_counts.dwellings|default(0) }}</strong><small>Zelfstandige objecten</small></a>
-            <a class="brebo-kpi" href="{{ path('brebo_office_core.positions') }}"><span>Productposities</span><strong>{{ brebo_counts.positions|default(0) }}</strong><small>Onderdelen met controle en bewijs</small></a>
-          </section>
-
-          <section class="brebo-dashboard__grid">
-            <article class="brebo-card brebo-workflow">
+          <section class="brebo-content-grid" aria-label="Systeemoverzicht">
+            <article class="brebo-dashboard-panel brebo-span-8">
               <div class="brebo-section-heading">
-                <div><p class="brebo-eyebrow">BESTURINGSKETEN</p><h2>Van opdracht naar aantoonbaar resultaat</h2></div>
+                <div>
+                  <p class="brebo-page-header__eyebrow">BESTURINGSKETEN</p>
+                  <h2>Van opdracht naar aantoonbaar resultaat</h2>
+                </div>
                 <span class="brebo-status brebo-status--ready">Operationeel</span>
               </div>
               <ol class="brebo-flow">
@@ -40,8 +65,13 @@
               </ol>
             </article>
 
-            <aside class="brebo-card brebo-next-actions">
-              <div class="brebo-section-heading"><div><p class="brebo-eyebrow">SYSTEEMSTATUS</p><h2>Digitale regie</h2></div></div>
+            <aside class="brebo-dashboard-panel brebo-span-4">
+              <div class="brebo-section-heading">
+                <div>
+                  <p class="brebo-page-header__eyebrow">SYSTEEMSTATUS</p>
+                  <h2>Digitale regie</h2>
+                </div>
+              </div>
               <ul class="brebo-checklist">
                 <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Projectbesturing</strong><small>Vier onafhankelijke assen</small></div></li>
                 <li class="is-done"><span aria-hidden="true">✓</span><div><strong>Automatische routes</strong><small>Passend bij de projectsoort</small></div></li>
