@@ -17,6 +17,11 @@ services:
     arguments:
       - '@database'
 
+  brebo_office_core.appearance_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\AppearanceRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
   logger.channel.brebo_office_core:
     parent: logger.channel_base
     arguments:
