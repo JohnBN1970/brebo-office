@@ -77,34 +77,35 @@ function brebo_office_preprocess_page(array &$variables): void {
     ];
 
     $signal_distributions = [];
-    $field_manager = \Drupal::service('entity_field.manager');
     foreach ($signal_sources as $key => $source) {
-      $definitions = $field_manager->getFieldDefinitions('node', $source['bundle']);
-      $definition = $definitions[$source['field']] ?? NULL;
-      if (!$definition) {
-        continue;
-      }
+      $ids = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', $source['bundle'])
+        ->exists($source['field'])
+        ->execute();
 
-      $allowed_values = $definition->getSetting('allowed_values') ?: [];
       $distribution = [];
-      foreach ($allowed_values as $value => $label) {
-        $count = (int) $storage->getQuery()
-          ->accessCheck(TRUE)
-          ->condition('type', $source['bundle'])
-          ->condition($source['field'], $value)
-          ->count()
-          ->execute();
-        if ($count > 0) {
-          $distribution[] = [
-            'value' => (string) $value,
-            'label' => (string) $label,
-            'count' => $count,
-          ];
+      foreach ($storage->loadMultiple($ids) as $entity) {
+        if (!$entity instanceof \Drupal\node\NodeInterface || !$entity->hasField($source['field'])) {
+          continue;
         }
+        $value = trim((string) $entity->get($source['field'])->value);
+        if ($value === '') {
+          continue;
+        }
+        $distribution[$value] = ($distribution[$value] ?? 0) + 1;
       }
 
       if ($distribution) {
-        $signal_distributions[$key] = $distribution;
+        ksort($distribution, SORT_NATURAL | SORT_FLAG_CASE);
+        $signal_distributions[$key] = [];
+        foreach ($distribution as $value => $count) {
+          $signal_distributions[$key][] = [
+            'value' => (string) $value,
+            'label' => (string) $value,
+            'count' => (int) $count,
+          ];
+        }
       }
     }
 
@@ -113,6 +114,11 @@ function brebo_office_preprocess_page(array &$variables): void {
       'recent_projects' => $recent_projects,
       'signals' => $signal_distributions,
     ];
+
+    $variables['#cache']['contexts'] = array_values(array_unique(array_merge(
+      $variables['#cache']['contexts'] ?? [],
+      ['user', 'timezone']
+    )));
   }
 
   if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.project_dashboard') {
