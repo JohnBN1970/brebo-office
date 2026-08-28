@@ -50,7 +50,12 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          # Push-triggered diagnostics can start seconds before the corresponding
+          # production deployment has finished replacing files/rebuilding the
+          # Drupal container. Retry bootstrap briefly so a transient mixed-tree
+          # state does not create a false red build.
+          for attempt in 1 2 3 4 5 6; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
           cd public_html/sboffice_app
           runtime="$HOME/.brebo-mail-runtime.php"
@@ -81,3 +86,13 @@ jobs:
             echo "MAIL_MEANING_AUDIT=COMPLETED" . PHP_EOL;
           '
           REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 6 ]]; then
+              echo "::error::Mail meaning audit still cannot bootstrap after deployment grace period."
+              exit 1
+            fi
+            echo "Remote Drupal bootstrap not ready yet; retrying after deployment (attempt $attempt/6)."
+            sleep 10
+          done
