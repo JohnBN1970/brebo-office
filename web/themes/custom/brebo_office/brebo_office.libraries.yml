@@ -1,5 +1,5 @@
 global:
-  version: 1.3.0
+  version: 1.4.0
   css:
     base:
       css/base.css: {}
@@ -8,6 +8,7 @@ global:
     component:
       css/components.css: {}
       css/design-system.css: {}
+      css/theme-modes.css: {}
       css/dashboard.css: {}
       css/office-sidebar.css: {}
       css/office-cockpit.css: {}
@@ -17,6 +18,7 @@ global:
       css/mail-context.css: {}
       css/mail-layout-v2.css: {}
   js:
+    js/theme-preference.js: {}
     js/office-sidebar.js: {}
     js/office-cockpit.js: {}
     js/mail-workspace.js: {}
@@ -32,6 +34,7 @@ global:
     js/form-presentation.js: {}
   dependencies:
     - core/drupal
+    - core/drupalSettings
     - core/once
 
 project-tabs:
