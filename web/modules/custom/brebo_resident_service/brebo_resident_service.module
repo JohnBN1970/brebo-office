@@ -8,7 +8,10 @@ use Drupal\node\NodeInterface;
 
 /** Implements hook_entity_insert(). */
 function brebo_resident_service_entity_insert(EntityInterface $entity): void {
-  brebo_resident_service_detect_communication_scope($entity);
+  // Communications, including imported e-mail, must never create or propose
+  // building/project scope as a side effect of persistence. Linking mail to a
+  // building or project is a human decision. AI may later call the proposal
+  // service explicitly from a dedicated review workflow.
 }
 
 /** Implements hook_form_node_form_alter(). */
@@ -47,15 +50,18 @@ function brebo_resident_service_form_node_form_alter(array &$form, FormStateInte
     'note' => ['#markup' => '<br><em>Dit is automatische beslisinformatie. De formele poortbeoordeling blijft een afzonderlijk menselijk besluit.</em>'],
   ];
 
-  // Never silently approve a formal gate. When access is not ready, prevent a
-  // stale/default Akkoord from being submitted without an explicit deviation.
   if (!$assessment['ready'] && isset($form['field_brebo_gate_result']['widget'][0]['value'])) {
     $element =& $form['field_brebo_gate_result']['widget'][0]['value'];
     $element['#description'] = trim(($element['#description'] ?? '') . ' Automatische toegangscontrole is niet gereed; kies geen Akkoord zonder aantoonbare afwijkings-/besluitgrond.');
   }
 }
 
-/** Detects address ranges in newly created BREBO communications. */
+/**
+ * Builds an address-scope proposal for an explicitly reviewed communication.
+ *
+ * This function is deliberately NOT called from an entity insert/update hook.
+ * It is retained as the proposal engine for a future human-reviewed AI action.
+ */
 function brebo_resident_service_detect_communication_scope(EntityInterface $entity): void {
   if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_communication' || !$entity->id()) {
     return;
@@ -87,9 +93,6 @@ function brebo_resident_service_detect_communication_scope(EntityInterface $enti
     \Drupal::service('brebo_resident_service.address_scope_intake')->propose($text, 'communication', $sourceId, $buildingNid, $projectId, (int) $entity->getOwnerId());
   }
   catch (\Throwable $e) {
-    // Communication bodies may contain personal or commercially sensitive mail
-    // content. Do not interpolate database exception messages here: SQL driver
-    // messages can contain bound values, including the complete source text.
     \Drupal::logger('brebo_resident_service')->warning('Adres-scope detectie voor communicatie @nid is mislukt (@exception).', [
       '@nid' => $entity->id(),
       '@exception' => get_class($e),
