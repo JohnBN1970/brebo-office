@@ -28,7 +28,7 @@ function brebo_office_preprocess_page(array &$variables): void {
     $variables['page']['#attached']['drupalSettings']['breboOfficeAppearance'] = [
       'userId' => (int) $account->id(),
       'defaultMode' => $mode,
-      'persistUrl' => '/brebo-office/appearance',
+      'persistUrl' => \Drupal\Core\Url::fromRoute('brebo_office_core.appearance_preference')->toString(),
     ];
   }
 
