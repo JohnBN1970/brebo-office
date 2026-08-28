@@ -50,14 +50,13 @@ jobs:
           DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
         run: |
           set -euo pipefail
-          # Push-triggered diagnostics can start seconds before the corresponding
-          # production deployment has finished replacing files/rebuilding the
-          # Drupal container. Retry bootstrap briefly so a transient mixed-tree
-          # state does not create a false red build.
+          # The canonical production app root is ~/domains/brebobv.nl/public_html/sboffice.
+          # Never bootstrap diagnostics from the retired sboffice_app tree.
           for attempt in 1 2 3 4 5 6; do
             if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          cd public_html/sboffice_app
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
           runtime="$HOME/.brebo-mail-runtime.php"
           php -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl php:eval '
             $storage = \Drupal::entityTypeManager()->getStorage("node");
