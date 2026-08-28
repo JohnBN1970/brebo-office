@@ -24,6 +24,53 @@ function brebo_inzet_update_11001(): string {
 }
 
 /**
+ * Repairs field-name collisions introduced by the first planning foundation.
+ */
+function brebo_inzet_update_11002(): string {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+
+  $bundle = 'brebo_personnel_assignment';
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', $bundle)->execute();
+  $entities = $storage->loadMultiple($ids);
+
+  $mapping = [
+    'field_brebo_plan_start' => 'field_brebo_assignment_start',
+    'field_brebo_plan_end' => 'field_brebo_assignment_end',
+    'field_brebo_plan_status' => 'field_brebo_assignment_status',
+  ];
+
+  foreach ($entities as $entity) {
+    foreach ($mapping as $old => $new) {
+      if (!$entity->hasField($old) || !$entity->hasField($new) || $entity->get($old)->isEmpty() || !$entity->get($new)->isEmpty()) {
+        continue;
+      }
+      $value = (string) $entity->get($old)->value;
+      if ($new === 'field_brebo_assignment_status') {
+        $normalized = strtolower(trim($value));
+        $allowed = ['planned', 'confirmed', 'cancelled'];
+        $value = in_array($normalized, $allowed, TRUE) ? $normalized : 'planned';
+      }
+      elseif (in_array($new, ['field_brebo_assignment_start', 'field_brebo_assignment_end'], TRUE)) {
+        if (preg_match('/^\d{2}:\d{2}$/', $value) !== 1) {
+          continue;
+        }
+      }
+      $entity->set($new, $value);
+    }
+    $entity->save();
+  }
+
+  foreach (array_keys($mapping) as $old_field) {
+    if ($config = FieldConfig::loadByName('node', $bundle, $old_field)) {
+      $config->delete();
+    }
+  }
+
+  return 'Personeelsplanning hersteld met unieke inzetvelden en behoud van compatibele bestaande waarden.';
+}
+
+/**
  * Ensures the canonical planned personnel-assignment bundle exists.
  */
 function _brebo_inzet_ensure_personnel_assignment_schema(): void {
@@ -42,71 +89,40 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
 
   $fields = [
     'field_brebo_project_ref' => [
-      'label' => 'Project',
-      'type' => 'entity_reference',
-      'required' => TRUE,
+      'label' => 'Project', 'type' => 'entity_reference', 'required' => TRUE,
       'storage' => ['target_type' => 'node'],
       'field_settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
-      'widget' => 'entity_reference_autocomplete',
-      'weight' => 1,
+      'widget' => 'entity_reference_autocomplete', 'weight' => 1,
     ],
     'field_brebo_plan_user' => [
-      'label' => 'Persoon',
-      'type' => 'entity_reference',
-      'required' => TRUE,
-      'storage' => ['target_type' => 'user'],
-      'field_settings' => ['handler' => 'default:user'],
-      'widget' => 'entity_reference_autocomplete',
-      'weight' => 2,
+      'label' => 'Persoon', 'type' => 'entity_reference', 'required' => TRUE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'widget' => 'entity_reference_autocomplete', 'weight' => 2,
     ],
     'field_brebo_plan_date' => [
-      'label' => 'Datum',
-      'type' => 'datetime',
-      'required' => TRUE,
-      'storage' => ['datetime_type' => 'date'],
-      'field_settings' => [],
-      'widget' => 'datetime_default',
-      'weight' => 3,
+      'label' => 'Datum', 'type' => 'datetime', 'required' => TRUE,
+      'storage' => ['datetime_type' => 'date'], 'field_settings' => [],
+      'widget' => 'datetime_default', 'weight' => 3,
     ],
-    'field_brebo_plan_start' => [
-      'label' => 'Gepland vanaf',
-      'type' => 'string',
-      'required' => FALSE,
-      'storage' => ['max_length' => 5],
-      'field_settings' => [],
-      'widget' => 'string_textfield',
-      'weight' => 4,
+    'field_brebo_assignment_start' => [
+      'label' => 'Gepland vanaf', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 5], 'field_settings' => [],
+      'widget' => 'string_textfield', 'weight' => 4,
     ],
-    'field_brebo_plan_end' => [
-      'label' => 'Gepland tot',
-      'type' => 'string',
-      'required' => FALSE,
-      'storage' => ['max_length' => 5],
-      'field_settings' => [],
-      'widget' => 'string_textfield',
-      'weight' => 5,
+    'field_brebo_assignment_end' => [
+      'label' => 'Gepland tot', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 5], 'field_settings' => [],
+      'widget' => 'string_textfield', 'weight' => 5,
     ],
     'field_brebo_planned_hours' => [
-      'label' => 'Geplande uren',
-      'type' => 'decimal',
-      'required' => FALSE,
-      'storage' => ['precision' => 6, 'scale' => 2],
-      'field_settings' => [],
-      'widget' => 'number',
-      'weight' => 6,
+      'label' => 'Geplande uren', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => ['precision' => 6, 'scale' => 2], 'field_settings' => [],
+      'widget' => 'number', 'weight' => 6,
     ],
-    'field_brebo_plan_status' => [
-      'label' => 'Status',
-      'type' => 'list_string',
-      'required' => TRUE,
-      'storage' => ['allowed_values' => [
-        'planned' => 'Gepland',
-        'confirmed' => 'Bevestigd',
-        'cancelled' => 'Geannuleerd',
-      ]],
-      'field_settings' => [],
-      'widget' => 'options_select',
-      'weight' => 7,
+    'field_brebo_assignment_status' => [
+      'label' => 'Status', 'type' => 'list_string', 'required' => TRUE,
+      'storage' => ['allowed_values' => ['planned' => 'Gepland', 'confirmed' => 'Bevestigd', 'cancelled' => 'Geannuleerd']],
+      'field_settings' => [], 'widget' => 'options_select', 'weight' => 7,
       'default_value' => [['value' => 'planned']],
     ],
   ];
@@ -139,16 +155,13 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
   }
 
   $display = EntityFormDisplay::load("node.$bundle.default") ?: EntityFormDisplay::create([
-    'targetEntityType' => 'node',
-    'bundle' => $bundle,
-    'mode' => 'default',
-    'status' => TRUE,
+    'targetEntityType' => 'node', 'bundle' => $bundle, 'mode' => 'default', 'status' => TRUE,
   ]);
   foreach ($fields as $field_name => $definition) {
-    $display->setComponent($field_name, [
-      'type' => $definition['widget'],
-      'weight' => $definition['weight'],
-    ]);
+    $display->setComponent($field_name, ['type' => $definition['widget'], 'weight' => $definition['weight']]);
+  }
+  foreach (['field_brebo_plan_start', 'field_brebo_plan_end', 'field_brebo_plan_status'] as $obsolete) {
+    $display->removeComponent($obsolete);
   }
   $display->save();
 
