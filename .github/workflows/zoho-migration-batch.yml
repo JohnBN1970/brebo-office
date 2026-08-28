@@ -71,7 +71,14 @@ jobs:
             if ($completeBefore) { echo "ZOHO_BATCH=ALREADY_COMPLETE" . PHP_EOL; return; }
             putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=100");
             $enqueued = $queue->enqueueSource($adapter);
+            $candidateCursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", $cursorBefore);
+            $candidateComplete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
+            $state->set("brebo_mail_intake.zoho_migration_pending_before_uid", $candidateCursor);
+            $state->set("brebo_mail_intake.zoho_migration_pending_complete", $candidateComplete);
+            $state->set("brebo_mail_intake.zoho_migration_before_uid", $cursorBefore);
+            $state->set("brebo_mail_intake.zoho_migration_complete", $completeBefore);
             echo "ZOHO_BATCH_ENQUEUED={$enqueued}" . PHP_EOL;
+            echo "ZOHO_CANDIDATE_CURSOR={$candidateCursor}" . PHP_EOL;
             if ($enqueued < 0 || $enqueued > 100) { throw new \RuntimeException("Unexpected Zoho batch size."); }
           '
 
@@ -80,6 +87,20 @@ jobs:
           "${drush[@]}" php:eval '
             $state = \Drupal::state();
             $db = \Drupal::database();
+            $queue = \Drupal::queue("brebo_mail_intake_process");
+            $remaining = (int) $queue->numberOfItems();
+            echo "ZOHO_QUEUE_REMAINING={$remaining}" . PHP_EOL;
+            if ($remaining !== 0) {
+              throw new \RuntimeException("Zoho batch not fully processed; migration cursor remains at previous checkpoint.");
+            }
+            $candidateCursor = (int) $state->get("brebo_mail_intake.zoho_migration_pending_before_uid", 0);
+            $candidateComplete = (bool) $state->get("brebo_mail_intake.zoho_migration_pending_complete", FALSE);
+            if ($candidateCursor > 0) {
+              $state->set("brebo_mail_intake.zoho_migration_before_uid", $candidateCursor);
+            }
+            $state->set("brebo_mail_intake.zoho_migration_complete", $candidateComplete);
+            $state->delete("brebo_mail_intake.zoho_migration_pending_before_uid");
+            $state->delete("brebo_mail_intake.zoho_migration_pending_complete");
             $cursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
             $complete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
             echo "ZOHO_CURSOR_AFTER={$cursor}" . PHP_EOL;
