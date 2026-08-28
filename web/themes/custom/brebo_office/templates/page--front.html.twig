@@ -7,6 +7,7 @@
 
   {% if logged_in %}
     {% set m = brebo_dashboard.metrics|default({}) %}
+    {% set s = brebo_dashboard.signals|default({}) %}
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
@@ -49,6 +50,34 @@
               <span class="brebo-dashboard-kpi__link">Kwaliteit bewaken</span>
             </a>
           </section>
+
+          {% if s %}
+            <section class="brebo-dashboard-panel" aria-label="Managementsignalen">
+              <div class="brebo-section-heading">
+                <div><p class="brebo-page-header__eyebrow">MANAGEMENTSIGNALEN</p><h2>Actuele statusverdeling</h2></div>
+                <span class="brebo-dashboard-signal-note">Live uit Office-workflows</span>
+              </div>
+              <div class="brebo-dashboard-signal-grid">
+                {% set signal_labels = {
+                  'projects': 'Projecten',
+                  'work_budgets': 'Werkbegrotingen',
+                  'rfqs': 'Prijsaanvragen',
+                  'supplier_quotes': 'Leveranciersoffertes',
+                  'deviations': 'Afwijkingen'
+                } %}
+                {% for key, distribution in s %}
+                  <div class="brebo-dashboard-signal-group">
+                    <strong>{{ signal_labels[key]|default(key) }}</strong>
+                    <div class="brebo-dashboard-signal-pills">
+                      {% for item in distribution %}
+                        <span class="brebo-dashboard-signal-pill"><span>{{ item.label }}</span><b>{{ item.count }}</b></span>
+                      {% endfor %}
+                    </div>
+                  </div>
+                {% endfor %}
+              </div>
+            </section>
+          {% endif %}
 
           <section class="brebo-content-grid" aria-label="Bedrijfsinformatie">
             <article class="brebo-dashboard-panel brebo-span-8">
