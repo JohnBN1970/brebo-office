@@ -1,3 +1,4 @@
+{% set route = app.request.attributes.get('_route')|default('') %}
 <div class="brebo-shell{{ logged_in ? ' brebo-shell--authenticated' : ' brebo-shell--guest' }}">
   {% include '@brebo_office/includes/brebo-header.html.twig' %}
 
@@ -21,6 +22,38 @@
             {% if brebo_project_context_tabs %}
               {{ brebo_project_context_tabs }}
             {% endif %}
+
+            {% if not (route starts with 'brebo_help.') %}
+              {% set help_query = '' %}
+              {% if route == 'brebo_office_core.dashboard' %}
+                {% set help_query = 'office' %}
+              {% elseif route starts with 'brebo_project_cockpit.' or route starts with 'brebo_office_core.project' %}
+                {% set help_query = 'project' %}
+              {% elseif route starts with 'brebo_calculation.' or route == 'brebo_office_core.calculations' %}
+                {% set help_query = 'calculatie' %}
+              {% elseif route == 'brebo_office_core.crm' %}
+                {% set help_query = 'relatie' %}
+              {% elseif route starts with 'brebo_mail_intake.' %}
+                {% set help_query = 'mail' %}
+              {% elseif route starts with 'brebo_finance.' %}
+                {% set help_query = 'financieel' %}
+              {% elseif route == 'brebo_office_core.quality_dashboard' %}
+                {% set help_query = 'kwaliteit' %}
+              {% elseif route starts with 'brebo_inzet.' %}
+                {% set help_query = 'planning' %}
+              {% elseif route starts with 'brebo_glass.' %}
+                {% set help_query = 'glas' %}
+              {% elseif route starts with 'brebo_office_core.building' or route == 'brebo_office_core.dwellings' or route == 'brebo_office_core.positions' %}
+                {% set help_query = 'gebouw' %}
+              {% endif %}
+
+              {% if help_query %}
+                <div class="brebo-screen-help">
+                  <a href="{{ path('brebo_help.search', {}, {'query': {'q': help_query}}) }}">Hulp bij dit scherm</a>
+                </div>
+              {% endif %}
+            {% endif %}
+
             {{ page.content }}
           </section>
         </main>
