@@ -14,6 +14,23 @@ brebo_help.search:
   requirements:
     _permission: 'access brebo help'
 
+brebo_help.modules:
+  path: '/brebo/help/modules'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\ModuleGuideController::index'
+    _title: 'Modulehandleidingen'
+  requirements:
+    _permission: 'access brebo help'
+
+brebo_help.module:
+  path: '/brebo/help/modules/{module}'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\ModuleGuideController::guide'
+    _title_callback: '\Drupal\brebo_help\Controller\ModuleGuideController::title'
+  requirements:
+    _permission: 'access brebo help'
+    module: '[a-z0-9-]+'
+
 brebo_help.tasks:
   path: '/brebo/help/taken'
   defaults:
