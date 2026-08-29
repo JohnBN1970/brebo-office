@@ -1,5 +1,5 @@
 global:
-  version: 1.6.0
+  version: 1.7.0
   css:
     base:
       css/base.css: {}
@@ -19,6 +19,7 @@ global:
       css/mail-list-controls.css: {}
       css/mail-context.css: {}
       css/mail-layout-v2.css: {}
+      css/office-wide.css: {}
   js:
     js/theme-preference.js: {}
     js/office-sidebar.js: {}
