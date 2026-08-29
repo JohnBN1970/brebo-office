@@ -60,7 +60,8 @@
       <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
         <a class="brebo-office-nav__subitem{{ route == 'brebo_help.center' or route == 'brebo_help.article' ? ' is-active' : '' }}" href="{{ path('brebo_help.center') }}"><span>Helpcentrum</span></a>
         <a class="brebo-office-nav__subitem{{ route starts with 'brebo_help.task' ? ' is-active' : '' }}" href="{{ path('brebo_help.tasks') }}"><span>Dagelijkse taken</span></a>
-        <a class="brebo-office-nav__subitem{{ route == 'brebo_help.glossary' ? ' is-active' : '' }}" href="{{ path('brebo_help.glossary') }}"><span>Begrippen & beslisregels</span></a>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_help.glossary' or route == 'brebo_help.term' ? ' is-active' : '' }}" href="{{ path('brebo_help.glossary') }}"><span>Begrippen & beslisregels</span></a>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_help.faq' ? ' is-active' : '' }}" href="{{ path('brebo_help.faq') }}"><span>Vragen & problemen</span></a>
       </div>
     </div>
 
