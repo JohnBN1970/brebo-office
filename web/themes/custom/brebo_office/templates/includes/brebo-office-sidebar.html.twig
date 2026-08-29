@@ -52,6 +52,18 @@
   </div>
 
   <div class="brebo-office-nav__footer">
+    {% set help_active = route starts with 'brebo_help.' %}
+    <div class="brebo-office-nav__group{{ help_active ? ' is-active' : '' }}" data-brebo-nav-group="help">
+      <button class="brebo-office-nav__item brebo-office-nav__group-toggle" type="button" aria-expanded="{{ help_active ? 'true' : 'false' }}" data-brebo-nav-group-toggle title="Help">
+        <span class="brebo-office-nav__icon" aria-hidden="true">?</span><span class="brebo-office-nav__label">Help</span><span class="brebo-office-nav__chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_help.center' or route == 'brebo_help.article' ? ' is-active' : '' }}" href="{{ path('brebo_help.center') }}"><span>Helpcentrum</span></a>
+        <a class="brebo-office-nav__subitem{{ route starts with 'brebo_help.task' ? ' is-active' : '' }}" href="{{ path('brebo_help.tasks') }}"><span>Dagelijkse taken</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_help.glossary' ? ' is-active' : '' }}" href="{{ path('brebo_help.glossary') }}"><span>Begrippen & beslisregels</span></a>
+      </div>
+    </div>
+
     <a class="brebo-office-nav__item brebo-office-nav__settings{{ route == 'brebo_office_core.settings' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.settings') }}" title="Instellingen"{{ route == 'brebo_office_core.settings' ? ' aria-current="page"' : '' }}>
       <span class="brebo-office-nav__icon brebo-office-nav__gear" aria-hidden="true">⚙</span><span class="brebo-office-nav__label">Instellingen</span>
     </a>
