@@ -1,0 +1,26 @@
+/* Mobile exemptions for compact Office controls.
+ * office-wide.css intentionally makes primary action controls full width on
+ * small screens. Navigation tabs, toggles, close buttons, map controls and
+ * icon controls must retain their compact intrinsic width.
+ */
+@media (max-width: 620px) {
+  .brebo-shell--authenticated :is(
+    .brebo-project-tabs button,
+    .brebo-office-nav__toggle,
+    .brebo-office-nav__group-toggle,
+    .brebo-theme-switcher__button,
+    .brebo-mail-tab-close,
+    .brebo-mail-close,
+    .brebo-mail-resize-handle,
+    .brebo-clock-zone-map__marker,
+    .brebo-clock-zone-map__radius-handle,
+    .brebo-clock-zone-map__controls button,
+    .brebo-icon-button,
+    [data-brebo-compact-control]
+  ) {
+    width: auto;
+    max-width: none;
+    flex: 0 0 auto;
+    justify-content: initial;
+  }
+}
