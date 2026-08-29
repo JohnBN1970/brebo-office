@@ -1,0 +1,137 @@
+name: BREBO facturen mail routing acceptance
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_finance/src/Service/MailPurchaseInvoiceRouter.php'
+      - 'web/modules/custom/brebo_finance/brebo_finance.services.yml'
+      - 'web/modules/custom/brebo_mail_intake/src/Service/MailIntakePipeline.php'
+      - '.github/workflows/facturen-mail-routing-acceptance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  acceptance:
+    name: Verify facturen mailbox routing safely
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Run transactional routing acceptance
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5 6; do
+            if ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          "$remote_php" -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi php:eval '
+            $db = \Drupal::database();
+            $router = \Drupal::service("brebo_finance.mail_purchase_invoice_router");
+            $before = (int) $db->select("brebo_finance_purchase_invoice", "i")->countQuery()->execute()->fetchField();
+            $transaction = $db->startTransaction();
+            try {
+              $base = [
+                "to" => "facturen@brebobv.nl",
+                "from" => "acceptance@leverancier-a.invalid",
+                "subject" => "Factuur TEST-ROUTE-20260829",
+                "body" => "Factuurnummer: TEST-ROUTE-20260829\nFactuurdatum: 29-08-2026\nTotaal excl. btw: 100,00\nBTW 21%: 21,00\nTotaal incl. btw: 121,00",
+                "received_at" => "2026-08-29T06:30:00+02:00",
+                "source_id" => "acceptance:invoice:a",
+                "source_hash" => hash("sha256", "acceptance:invoice:a"),
+                "attachments" => [["mime_type" => "application/pdf"]],
+              ];
+              $evidence = ["context_text" => ""];
+
+              $wrongMailbox = $base;
+              $wrongMailbox["to"] = "info@brebobv.nl";
+              $r = $router->route($wrongMailbox, $evidence, 0);
+              if (($r["state"] ?? "") !== "not_invoice_mailbox") throw new \RuntimeException("Wrong mailbox was not rejected.");
+
+              $reminder = $base;
+              $reminder["subject"] = "Betalingsherinnering factuur TEST-ROUTE-20260829";
+              $r = $router->route($reminder, $evidence, 0);
+              if (($r["state"] ?? "") !== "financial_correspondence") throw new \RuntimeException("Reminder was treated as invoice.");
+
+              $created = $router->route($base, $evidence, 0);
+              if (($created["state"] ?? "") !== "created" || empty($created["invoice_id"])) throw new \RuntimeException("Valid invoice was not created.");
+              $invoiceId = (int) $created["invoice_id"];
+              $row = $db->select("brebo_finance_purchase_invoice", "i")
+                ->fields("i", ["supplier_ref", "invoice_number", "status", "match_status", "project_nid", "amount_ex_vat", "vat_amount", "amount_inc_vat"])
+                ->condition("id", $invoiceId)
+                ->execute()->fetchAssoc();
+              if (!$row) throw new \RuntimeException("Created invoice row missing.");
+              if ($row["supplier_ref"] !== "acceptance@leverancier-a.invalid") throw new \RuntimeException("Supplier reference mismatch.");
+              if ($row["invoice_number"] !== "TEST-ROUTE-20260829") throw new \RuntimeException("Invoice number mismatch.");
+              if ($row["status"] !== "received" || $row["match_status"] !== "unmatched") throw new \RuntimeException("Unsafe invoice status.");
+              if ((int) $row["project_nid"] !== 0) throw new \RuntimeException("Invoice was unexpectedly project-linked.");
+              if (abs((float) $row["amount_ex_vat"] - 100.0) > 0.001 || abs((float) $row["vat_amount"] - 21.0) > 0.001 || abs((float) $row["amount_inc_vat"] - 121.0) > 0.001) throw new \RuntimeException("Invoice amount parsing mismatch.");
+
+              $duplicate = $router->route($base, $evidence, 0);
+              if (($duplicate["state"] ?? "") !== "duplicate" || (int) ($duplicate["invoice_id"] ?? 0) !== $invoiceId) throw new \RuntimeException("Same supplier invoice was not deduplicated.");
+
+              $otherSupplier = $base;
+              $otherSupplier["from"] = "acceptance@leverancier-b.invalid";
+              $otherSupplier["source_id"] = "acceptance:invoice:b";
+              $otherSupplier["source_hash"] = hash("sha256", "acceptance:invoice:b");
+              $other = $router->route($otherSupplier, $evidence, 0);
+              if (($other["state"] ?? "") !== "created") throw new \RuntimeException("Different supplier with same invoice number collided.");
+
+              echo "FACTUREN_ROUTE_WRONG_MAILBOX=PASS\n";
+              echo "FACTUREN_ROUTE_REMINDER_FILTER=PASS\n";
+              echo "FACTUREN_ROUTE_CREATE=PASS\n";
+              echo "FACTUREN_ROUTE_DUPLICATE=PASS\n";
+              echo "FACTUREN_ROUTE_SUPPLIER_SCOPE=PASS\n";
+              echo "FACTUREN_ROUTE_SAFE_STATUS=PASS\n";
+            }
+            finally {
+              $transaction->rollBack();
+            }
+            $after = (int) $db->select("brebo_finance_purchase_invoice", "i")->countQuery()->execute()->fetchField();
+            if ($after !== $before) throw new \RuntimeException("Acceptance transaction did not roll back cleanly.");
+            echo "FACTUREN_ROUTE_ROLLBACK=PASS\n";
+            echo "FACTUREN_MAIL_ROUTING_ACCEPTANCE=PASS\n";
+          '
+          REMOTE
+            then
+              exit 0
+            fi
+            if [[ "$attempt" -eq 6 ]]; then
+              echo "::error::Facturen mail routing acceptance still cannot bootstrap after deployment grace period."
+              exit 1
+            fi
+            echo "Remote Drupal bootstrap not ready yet; retrying after deployment (attempt $attempt/6)."
+            sleep 10
+          done

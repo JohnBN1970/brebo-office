@@ -42,8 +42,12 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
       return ['state' => 'communication_only', 'reason' => 'required_invoice_fields_missing'];
     }
 
+    // Invoice numbers are only unique within one supplier administration.
+    // Compare the same key as the finance table's supplier_invoice unique key;
+    // otherwise two unrelated suppliers using invoice "2026-001" would collide.
     $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
       ->fields('i', ['id', 'supplier_ref', 'invoice_number'])
+      ->condition('supplier_ref', $from)
       ->condition('invoice_number', $invoiceNumber)
       ->execute()
       ->fetchAllAssoc('id');
@@ -51,7 +55,7 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
       return ['state' => 'duplicate', 'invoice_id' => (int) array_key_first($existing)];
     }
     if (count($existing) > 1) {
-      return ['state' => 'communication_only', 'reason' => 'ambiguous_existing_invoice_number'];
+      return ['state' => 'communication_only', 'reason' => 'ambiguous_existing_supplier_invoice'];
     }
 
     $date = $this->invoiceDate($text, (string) ($mail['received_at'] ?? ''));
@@ -129,14 +133,26 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
   /** @return array{ex:float,vat:float,inc:float}|null */
   private function amounts(string $text): ?array {
     $inc = $this->labelAmount($text, ['totaal incl. btw', 'totaal inclusief btw', 'te betalen', 'amount due', 'total incl. vat', 'total including vat']);
-    $vat = $this->labelAmount($text, ['btw', 'vat']);
     $ex = $this->labelAmount($text, ['totaal excl. btw', 'totaal exclusief btw', 'subtotal', 'total excl. vat', 'total excluding vat']);
+    $vat = $this->vatAmount($text);
     if ($inc === NULL) return NULL;
     if ($ex === NULL && $vat !== NULL) $ex = round($inc - $vat, 4);
     if ($vat === NULL && $ex !== NULL) $vat = round($inc - $ex, 4);
     if ($ex === NULL || $vat === NULL || $ex < 0 || $vat < 0 || $inc < 0) return NULL;
     if (abs(($ex + $vat) - $inc) > 0.03) return NULL;
     return ['ex' => $ex, 'vat' => $vat, 'inc' => $inc];
+  }
+
+  private function vatAmount(string $text): ?float {
+    $amount = '([0-9][0-9. ]*,[0-9]{2}|[0-9][0-9, ]*\.[0-9]{2})';
+    $patterns = [
+      '/(?:^|\R)\s*(?:btw[- ]bedrag|vat amount)\s*[:€ ]*' . $amount . '/imu',
+      '/(?:^|\R)\s*(?:btw|vat)(?:\s+[0-9]+(?:[.,][0-9]+)?\s*%)?\s*[:€ ]+' . $amount . '/imu',
+    ];
+    foreach ($patterns as $pattern) {
+      if (preg_match($pattern, $text, $m) === 1) return $this->money((string) $m[1]);
+    }
+    return NULL;
   }
 
   private function labelAmount(string $text, array $labels): ?float {
