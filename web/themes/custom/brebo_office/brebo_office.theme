@@ -115,6 +115,15 @@ function brebo_office_preprocess_page(array &$variables): void {
       'registrations' => 0,
       'severity' => [],
       'url' => NULL,
+      'management' => [
+        'visible' => FALSE,
+        'url' => NULL,
+        'today_planned_hours' => 0.0,
+        'today_clocked_hours' => 0.0,
+        'today_deviations' => 0,
+        'today_pending' => 0,
+        'unclocked_7d' => 0,
+      ],
     ];
 
     if (\Drupal::moduleHandler()->moduleExists('brebo_inzet')) {
@@ -160,6 +169,61 @@ function brebo_office_preprocess_page(array &$variables): void {
         $inzet['available'] = TRUE;
         $inzet['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.app')->toString();
       }
+
+      if ($account->hasPermission('edit any brebo_personnel_assignment content')
+        && \Drupal::hasService('brebo_inzet.personnel_assignment_comparison')) {
+        $timezone_name = (string) (\Drupal::config('system.date')->get('timezone.default') ?: date_default_timezone_get());
+        $timezone = new \DateTimeZone($timezone_name ?: 'Europe/Brussels');
+        $now = new \DateTimeImmutable('now', $timezone);
+        $today = $now->format('Y-m-d');
+        $seven_days_ago = $now->modify('-7 days')->format('Y-m-d');
+        $comparison = \Drupal::service('brebo_inzet.personnel_assignment_comparison');
+
+        $today_ids = $storage->getQuery()
+          ->accessCheck(TRUE)
+          ->condition('type', 'brebo_personnel_assignment')
+          ->condition('field_brebo_plan_date', $today)
+          ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+          ->execute();
+
+        foreach ($storage->loadMultiple($today_ids) as $assignment) {
+          if (!$assignment instanceof \Drupal\node\NodeInterface || !$assignment->access('view')) {
+            continue;
+          }
+          $result = $comparison->compare($assignment);
+          $inzet['management']['today_planned_hours'] += (float) $result['planned_hours'];
+          $inzet['management']['today_clocked_hours'] += (float) $result['clocked_hours'];
+          if (in_array($result['state'], ['under', 'over'], TRUE)) {
+            $inzet['management']['today_deviations']++;
+          }
+          if ($result['state'] === 'today_pending') {
+            $inzet['management']['today_pending']++;
+          }
+        }
+
+        $recent_ids = $storage->getQuery()
+          ->accessCheck(TRUE)
+          ->condition('type', 'brebo_personnel_assignment')
+          ->condition('field_brebo_plan_date', $seven_days_ago, '>=')
+          ->condition('field_brebo_plan_date', $today, '<')
+          ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+          ->execute();
+
+        foreach ($storage->loadMultiple($recent_ids) as $assignment) {
+          if (!$assignment instanceof \Drupal\node\NodeInterface || !$assignment->access('view')) {
+            continue;
+          }
+          $result = $comparison->compare($assignment);
+          if ($result['state'] === 'unclocked') {
+            $inzet['management']['unclocked_7d']++;
+          }
+        }
+
+        $inzet['management']['today_planned_hours'] = round($inzet['management']['today_planned_hours'], 2);
+        $inzet['management']['today_clocked_hours'] = round($inzet['management']['today_clocked_hours'], 2);
+        $inzet['management']['visible'] = TRUE;
+        $inzet['management']['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.personnel_planning')->toString();
+      }
     }
 
     $variables['brebo_dashboard'] = [
@@ -176,6 +240,11 @@ function brebo_office_preprocess_page(array &$variables): void {
       $variables['page']['#cache']['contexts'] ?? [],
       ['user', 'timezone']
     )));
+    $variables['page']['#cache']['tags'] = array_values(array_unique(array_merge(
+      $variables['page']['#cache']['tags'] ?? [],
+      ['node_list:brebo_personnel_assignment', 'node_list:brebo_clock_registration']
+    )));
+    $variables['page']['#cache']['max-age'] = 60;
   }
 
   if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.project_dashboard') {
