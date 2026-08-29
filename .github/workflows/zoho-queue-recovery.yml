@@ -1,0 +1,72 @@
+name: BREBO Zoho queue recovery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  recover:
+    name: Recover diagnosed empty-subject queue item
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+      - name: Repair and process only diagnosed row
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $rows = $db->select("queue", "q")->fields("q", ["item_id", "data"])->condition("name", "brebo_mail_intake_process")->execute()->fetchAll();
+            if (count($rows) !== 1) throw new \RuntimeException("Expected exactly one pending Mail Intake item.");
+            $row = $rows[0];
+            $decoded = @unserialize($row->data, ["allowed_classes" => FALSE]);
+            $mail = is_array($decoded) && is_array($decoded["mail"] ?? NULL) ? $decoded["mail"] : [];
+            if (trim((string) ($mail["source_system"] ?? "")) !== "zoho_migration") throw new \RuntimeException("Unexpected source system.");
+            if (trim((string) ($mail["source_id"] ?? "")) === "" || trim((string) ($mail["body"] ?? "")) === "") throw new \RuntimeException("Additional required field is missing.");
+            if (trim((string) ($mail["subject"] ?? "")) !== "") throw new \RuntimeException("Item no longer matches diagnosis.");
+            $decoded["mail"]["subject"] = "(zonder onderwerp)";
+            $db->update("queue")->fields(["data" => serialize($decoded)])->condition("item_id", (int) $row->item_id)->condition("name", "brebo_mail_intake_process")->execute();
+            echo "ZOHO_QUEUE_RECOVERY=REPAIRED_ONE_EMPTY_SUBJECT" . PHP_EOL;
+          '
+          "${drush[@]}" queue:run brebo_mail_intake_process
+          "${drush[@]}" php:eval '
+            $count = (int) \Drupal::database()->select("queue", "q")->condition("name", "brebo_mail_intake_process")->countQuery()->execute()->fetchField();
+            echo "ZOHO_QUEUE_REMAINING=" . $count . PHP_EOL;
+            if ($count !== 0) throw new \RuntimeException("Queue is not empty after recovery.");
+            echo "ZOHO_QUEUE_RECOVERY=PASS" . PHP_EOL;
+          '
+          REMOTE
