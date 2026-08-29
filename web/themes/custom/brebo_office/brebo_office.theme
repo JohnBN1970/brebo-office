@@ -262,12 +262,52 @@ function brebo_office_preprocess_page(array &$variables): void {
       ];
     }
 
+    $regie = [
+      'url' => \Drupal\Core\Url::fromRoute('brebo_office_core.regie_actions')->toString(),
+      'open' => 0,
+      'mine' => 0,
+      'overdue' => 0,
+      'blocked' => 0,
+      'unassigned' => 0,
+    ];
+    $route_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_route_item')
+      ->condition('field_brebo_route_applicable', 1)
+      ->condition('field_brebo_route_status', ['Gereed', 'N.V.T.', 'Vervallen'], 'NOT IN')
+      ->sort('field_brebo_route_due', 'ASC')
+      ->sort('field_brebo_route_sequence', 'ASC')
+      ->execute();
+    $regie['open'] = count($route_ids);
+    $today = date('Y-m-d');
+    foreach ($storage->loadMultiple($route_ids) as $item) {
+      if (!$item instanceof \Drupal\node\NodeInterface || !$item->access('view')) {
+        continue;
+      }
+      $owner = $item->get('field_brebo_route_owner')->entity;
+      $due = trim((string) ($item->get('field_brebo_route_due')->value ?? ''));
+      $status = trim((string) ($item->get('field_brebo_route_status')->value ?? ''));
+      if ($owner && (int) $owner->id() === (int) $account->id()) {
+        $regie['mine']++;
+      }
+      if ($due !== '' && $due < $today) {
+        $regie['overdue']++;
+      }
+      if ($status === 'Geblokkeerd') {
+        $regie['blocked']++;
+      }
+      if (!$owner) {
+        $regie['unassigned']++;
+      }
+    }
+
     $variables['brebo_dashboard'] = [
       'metrics' => $metrics,
       'recent_projects' => $recent_projects,
       'signals' => $signal_distributions,
       'inzet' => $inzet,
       'finance' => $finance,
+      'regie' => $regie,
     ];
 
     // Dashboard aggregates and recent-project labels depend on the viewer and
@@ -279,7 +319,12 @@ function brebo_office_preprocess_page(array &$variables): void {
     )));
     $variables['page']['#cache']['tags'] = array_values(array_unique(array_merge(
       $variables['page']['#cache']['tags'] ?? [],
-      ['node_list:brebo_personnel_assignment', 'node_list:brebo_clock_registration']
+      [
+        'node_list:brebo_personnel_assignment',
+        'node_list:brebo_clock_registration',
+        'node_list:brebo_route_item',
+        'node_list:brebo_project',
+      ]
     )));
     $variables['page']['#cache']['max-age'] = $finance['visible'] ? 0 : 60;
   }
