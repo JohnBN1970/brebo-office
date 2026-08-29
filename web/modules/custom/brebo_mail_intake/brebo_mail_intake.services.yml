@@ -131,6 +131,13 @@ services:
       - 'BREBO_ZOHO_IMAP'
       - 'zoho_migration'
 
+  brebo_mail_intake.zoho_sent_migration_source:
+    class: Drupal\brebo_mail_intake\Source\ImapSourceAdapter
+    arguments:
+      - '@state'
+      - 'BREBO_ZOHO_SENT_IMAP'
+      - 'zoho_sent_migration'
+
   brebo_mail_intake.source_mailbox_attachment_reader:
     class: Drupal\brebo_mail_intake\Service\SourceMailboxAttachmentReader
 
