@@ -2,6 +2,16 @@ name: BREBO Zoho migration batch
 
 on:
   workflow_dispatch:
+    inputs:
+      batch_size:
+        description: Number of Zoho Inbox messages to migrate in this transaction
+        required: true
+        default: '500'
+        type: choice
+        options:
+          - '100'
+          - '250'
+          - '500'
 
 permissions:
   contents: read
@@ -12,9 +22,9 @@ concurrency:
 
 jobs:
   migrate:
-    name: Migrate next 100 Zoho messages newest-first
+    name: Migrate next ${{ inputs.batch_size }} Zoho messages newest-first
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Configure SSH
         env:
@@ -60,16 +70,19 @@ jobs:
           drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           "${drush[@]}" php:eval '
+            $limit = (int) "${{ inputs.batch_size }}";
+            if (!in_array($limit, [100, 250, 500], TRUE)) { throw new \RuntimeException("Unsupported Zoho batch size."); }
             $state = \Drupal::state();
             $adapter = \Drupal::service("brebo_mail_intake.zoho_migration_source");
             $queue = \Drupal::service("brebo_mail_intake.queue_manager");
             if (!$adapter->isConfigured()) { throw new \RuntimeException("Zoho migration source not configured."); }
             $cursorBefore = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", 0);
             $completeBefore = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
+            echo "ZOHO_BATCH_LIMIT={$limit}" . PHP_EOL;
             echo "ZOHO_CURSOR_BEFORE={$cursorBefore}" . PHP_EOL;
             echo "ZOHO_COMPLETE_BEFORE=" . ($completeBefore ? "YES" : "NO") . PHP_EOL;
             if ($completeBefore) { echo "ZOHO_BATCH=ALREADY_COMPLETE" . PHP_EOL; return; }
-            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT=100");
+            putenv("BREBO_ZOHO_IMAP_BATCH_LIMIT={$limit}");
             $enqueued = $queue->enqueueSource($adapter);
             $candidateCursor = (int) $state->get("brebo_mail_intake.zoho_migration_before_uid", $cursorBefore);
             $candidateComplete = (bool) $state->get("brebo_mail_intake.zoho_migration_complete", FALSE);
@@ -79,7 +92,7 @@ jobs:
             $state->set("brebo_mail_intake.zoho_migration_complete", $completeBefore);
             echo "ZOHO_BATCH_ENQUEUED={$enqueued}" . PHP_EOL;
             echo "ZOHO_CANDIDATE_CURSOR={$candidateCursor}" . PHP_EOL;
-            if ($enqueued < 0 || $enqueued > 100) { throw new \RuntimeException("Unexpected Zoho batch size."); }
+            if ($enqueued < 0 || $enqueued > $limit) { throw new \RuntimeException("Unexpected Zoho batch size."); }
           '
 
           "${drush[@]}" queue:run brebo_mail_intake_process
