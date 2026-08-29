@@ -83,10 +83,27 @@ jobs:
           fi
           echo "ZOHO_ORGANIZATION_ID=DETECTED"
 
-          groups_json="$(curl --fail-with-body --silent --show-error \
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          http_code="$(curl --silent --show-error --output "$response_file" --write-out '%{http_code}' \
             -H "Authorization: Zoho-oauthtoken $access_token" \
             -H 'Accept: application/json' \
             "$mail_base/api/organization/$zoid/groups")"
+          groups_json="$(cat "$response_file")"
+
+          if [[ "$http_code" != "200" ]]; then
+            api_code="$(jq -r '.status.code? // .data.errorCode? // .errorCode? // .code? // empty' <<<"$groups_json" 2>/dev/null || true)"
+            api_description="$(jq -r '.status.description? // .data.message? // .message? // .error? // empty' <<<"$groups_json" 2>/dev/null || true)"
+            [[ -n "$api_code" ]] || api_code="UNKNOWN"
+            [[ -n "$api_description" ]] || api_description="NO_SAFE_DESCRIPTION"
+            api_description="${api_description//$'\n'/ }"
+            echo "ZOHO_GROUP_API_HTTP=$http_code"
+            echo "ZOHO_GROUP_API_CODE=$api_code"
+            echo "ZOHO_GROUP_API_DESCRIPTION=$api_description"
+            echo "::error::Zoho Groups API denied the read-only request; see safe status lines above."
+            exit 6
+          fi
+          echo "ZOHO_GROUP_API_HTTP=200"
 
           for target in facturen@brebobv.nl offerte@brebobv.nl admin@brebobv.nl; do
             group="$(jq -c --arg t "$target" '
