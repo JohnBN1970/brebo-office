@@ -1,0 +1,75 @@
+name: BREBO Zoho group mail coverage
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit group address coverage in Inbox and Sent
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Count group-address headers read-only
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
+            $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
+            $password = (string) getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            $port = max(1, (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993));
+            $flags = trim((string) (getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl"));
+            if ($host === "" || $user === "" || $password === "") throw new \RuntimeException("Zoho runtime missing.");
+            $groups = ["facturen@brebobv.nl", "offerte@brebobv.nl", "admin@brebobv.nl"];
+            foreach (["INBOX", "Sent"] as $folder) {
+              $mailbox = sprintf("{%s:%d%s}%s", $host, $port, $flags, $folder);
+              $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
+              if ($stream === FALSE) throw new \RuntimeException("Cannot open " . $folder . " read-only.");
+              try {
+                foreach ($groups as $address) {
+                  $to = imap_search($stream, "TO \"" . $address . "\"", SE_UID) ?: [];
+                  $cc = imap_search($stream, "CC \"" . $address . "\"", SE_UID) ?: [];
+                  $from = imap_search($stream, "FROM \"" . $address . "\"", SE_UID) ?: [];
+                  $all = array_values(array_unique(array_merge(array_map("intval", $to), array_map("intval", $cc), array_map("intval", $from))));
+                  echo "GROUP=" . $address . "|FOLDER=" . $folder . "|TO=" . count($to) . "|CC=" . count($cc) . "|FROM=" . count($from) . "|UNIQUE=" . count($all) . PHP_EOL;
+                }
+              }
+              finally { imap_close($stream); }
+            }
+            echo "ZOHO_GROUP_MAIL_COVERAGE=PASS" . PHP_EOL;
+          '
+          REMOTE
