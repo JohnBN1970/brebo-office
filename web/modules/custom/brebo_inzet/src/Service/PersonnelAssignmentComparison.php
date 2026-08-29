@@ -42,13 +42,14 @@ final class PersonnelAssignmentComparison {
     $dayStartUtc = $dayStartLocal->setTimezone($utc);
     $dayEndUtc = $dayEndLocal->setTimezone($utc);
 
+    [$windowStartUtc, $windowEndUtc] = $this->assignmentWindow($assignment, $dayStartLocal, $dayEndLocal, $utc);
+
     $storage = $this->entityTypeManager->getStorage('node');
     $ids = $storage->getQuery()
       ->accessCheck(TRUE)
       ->condition('type', 'brebo_clock_registration')
       ->condition('field_brebo_project_ref', $projectId)
       ->condition('field_brebo_clock_user', $userId)
-      ->condition('field_brebo_clock_in', $dayStartUtc->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT), '>=')
       ->condition('field_brebo_clock_in', $dayEndUtc->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT), '<')
       ->execute();
 
@@ -67,14 +68,20 @@ final class PersonnelAssignmentComparison {
       $in = new \DateTimeImmutable($inValue, $utc);
       $outValue = (string) ($clock->get('field_brebo_clock_out')->value ?? '');
       if ($outValue === '') {
-        $openSession = TRUE;
         $out = $now < $dayEndUtc ? $now : $dayEndUtc;
+        $openSession = $out > $windowStartUtc && $in < $windowEndUtc;
       }
       else {
         $out = new \DateTimeImmutable($outValue, $utc);
       }
-      $from = $in > $dayStartUtc ? $in : $dayStartUtc;
-      $to = $out < $dayEndUtc ? $out : $dayEndUtc;
+
+      // Include sessions that started before midnight but overlap this day,
+      // then allocate only the part inside this assignment's time window.
+      if ($out <= $dayStartUtc || $in >= $dayEndUtc) {
+        continue;
+      }
+      $from = $in > $windowStartUtc ? $in : $windowStartUtc;
+      $to = $out < $windowEndUtc ? $out : $windowEndUtc;
       if ($to > $from) {
         $seconds += $to->getTimestamp() - $from->getTimestamp();
       }
@@ -104,6 +111,24 @@ final class PersonnelAssignmentComparison {
     }
 
     return $this->result($plannedHours, $clockedHours, $state, $openSession);
+  }
+
+  /**
+   * @return array{0: \DateTimeImmutable, 1: \DateTimeImmutable}
+   */
+  private function assignmentWindow(NodeInterface $assignment, \DateTimeImmutable $dayStartLocal, \DateTimeImmutable $dayEndLocal, \DateTimeZone $utc): array {
+    $start = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
+    $end = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
+    if (preg_match('/^\d{2}:\d{2}$/', $start) !== 1 || preg_match('/^\d{2}:\d{2}$/', $end) !== 1) {
+      return [$dayStartLocal->setTimezone($utc), $dayEndLocal->setTimezone($utc)];
+    }
+
+    $windowStart = new \DateTimeImmutable($dayStartLocal->format('Y-m-d') . ' ' . $start . ':00', $dayStartLocal->getTimezone());
+    $windowEnd = new \DateTimeImmutable($dayStartLocal->format('Y-m-d') . ' ' . $end . ':00', $dayStartLocal->getTimezone());
+    if ($windowEnd <= $windowStart) {
+      return [$dayStartLocal->setTimezone($utc), $dayEndLocal->setTimezone($utc)];
+    }
+    return [$windowStart->setTimezone($utc), $windowEnd->setTimezone($utc)];
   }
 
   private function plannedHours(NodeInterface $assignment): float {
