@@ -4,12 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Datetime\DrupalDateTime;
-use Drupal\Core\Datetime\Entity\DateFormat;
-use Drupal\Core\Datetime\DateFormatterInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
 use Drupal\node\NodeInterface;
 
@@ -40,7 +37,6 @@ final class PersonnelAssignmentComparison {
     $timezoneName = (string) ($this->configFactory->get('system.date')->get('timezone.default') ?: date_default_timezone_get());
     $timezone = new \DateTimeZone($timezoneName ?: 'Europe/Brussels');
     $utc = new \DateTimeZone('UTC');
-
     $dayStartLocal = new \DateTimeImmutable($date . ' 00:00:00', $timezone);
     $dayEndLocal = $dayStartLocal->modify('+1 day');
     $dayStartUtc = $dayStartLocal->setTimezone($utc);
@@ -116,19 +112,17 @@ final class PersonnelAssignmentComparison {
       return round($explicit, 2);
     }
 
-    $date = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
     $start = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
     $end = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
-    if ($date === '' || preg_match('/^\d{2}:\d{2}$/', $start) !== 1 || preg_match('/^\d{2}:\d{2}$/', $end) !== 1) {
+    if (preg_match('/^(\d{2}):(\d{2})$/', $start, $startParts) !== 1 || preg_match('/^(\d{2}):(\d{2})$/', $end, $endParts) !== 1) {
       return 0.0;
     }
-
-    $from = new \DateTimeImmutable($date . ' ' . $start . ':00');
-    $to = new \DateTimeImmutable($date . ' ' . $end . ':00');
-    if ($to <= $from) {
+    $startMinutes = ((int) $startParts[1] * 60) + (int) $startParts[2];
+    $endMinutes = ((int) $endParts[1] * 60) + (int) $endParts[2];
+    if ($endMinutes <= $startMinutes) {
       return 0.0;
     }
-    return round(($to->getTimestamp() - $from->getTimestamp()) / 3600, 2);
+    return round(($endMinutes - $startMinutes) / 60, 2);
   }
 
   /**
