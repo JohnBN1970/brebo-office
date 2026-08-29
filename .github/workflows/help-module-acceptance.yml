@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'web/modules/custom/brebo_help/**'
+      - 'web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig'
       - '.github/workflows/help-module-acceptance.yml'
 
 jobs:
@@ -17,7 +18,7 @@ jobs:
           php -l web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           php -l web/modules/custom/brebo_help/src/Controller/GlossaryController.php
           php -l web/modules/custom/brebo_help/brebo_help.module
-      - name: Validate required module files
+      - name: Validate required module files and navigation
         run: |
           set -euo pipefail
           test -f web/modules/custom/brebo_help/brebo_help.info.yml
@@ -44,8 +45,12 @@ jobs:
           grep -q "brebo_help.center" web/modules/custom/brebo_help/brebo_help.links.menu.yml
           grep -q "weight: 99" web/modules/custom/brebo_help/brebo_help.links.menu.yml
           grep -q "brebo-help-menu-link" web/modules/custom/brebo_help/brebo_help.links.menu.yml
-          grep -q "brebo_help_context_for_route" web/modules/custom/brebo_help/brebo_help.module
-          grep -q "brebo-help-context-link" web/modules/custom/brebo_help/css/brebo-help.css
+          grep -q "data-brebo-nav-group=\"help\"" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
+          grep -q "path('brebo_help.center')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
+          grep -q "path('brebo_help.tasks')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
+          grep -q "path('brebo_help.glossary')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
+          ! grep -q "brebo_help_page_top" web/modules/custom/brebo_help/brebo_help.module
+          ! grep -q "brebo-help-context-link" web/modules/custom/brebo_help/css/brebo-help.css
       - name: Guard against schema and destructive operations
         run: |
           set -euo pipefail
