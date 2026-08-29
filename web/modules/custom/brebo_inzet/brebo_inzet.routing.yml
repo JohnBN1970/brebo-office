@@ -12,7 +12,7 @@ brebo_inzet.personnel_planning:
     _controller: '\Drupal\brebo_inzet\Controller\PersonnelPlanningController::overview'
     _title: 'Personeelsplanning'
   requirements:
-    _user_is_logged_in: 'TRUE'
+    _permission: 'edit any brebo_personnel_assignment content'
 
 brebo_inzet.app_clock:
   path: '/inzet/project/{node}'
