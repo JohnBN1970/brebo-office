@@ -9,6 +9,7 @@
     {% set m = brebo_dashboard.metrics|default({}) %}
     {% set s = brebo_dashboard.signals|default({}) %}
     {% set i = brebo_dashboard.inzet|default({}) %}
+    {% set f = brebo_dashboard.finance|default({}) %}
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
@@ -51,6 +52,21 @@
               <span class="brebo-dashboard-kpi__link">Kwaliteit bewaken</span>
             </a>
           </section>
+
+          {% if f.visible|default(false) %}
+            <section class="brebo-dashboard-panel" aria-label="Financieel management">
+              <div class="brebo-section-heading">
+                <div><p class="brebo-page-header__eyebrow">FINANCIEEL MANAGEMENT</p><h2>Portfolio & beslissingen</h2></div>
+                <a href="{{ f.url }}">Open Finance</a>
+              </div>
+              <div class="brebo-dashboard-signal-grid">
+                <div class="brebo-dashboard-signal-group"><strong>Facturatie</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Factureerbaar, niet gefactureerd</span><b>€ {{ f.billable_not_invoiced_ex_vat|number_format(2, ',', '.') }}</b></span><span class="brebo-dashboard-signal-pill"><span>Gefactureerd excl. btw</span><b>€ {{ f.invoiced_ex_vat|number_format(2, ',', '.') }}</b></span></div></div>
+                <div class="brebo-dashboard-signal-group"><strong>Inkoop & betaling</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Gecommitteerd excl. btw</span><b>€ {{ f.committed_ex_vat|number_format(2, ',', '.') }}</b></span><span class="brebo-dashboard-signal-pill"><span>Betaalvrijgaven open</span><b>{{ f.pending_payment_releases }}</b></span></div></div>
+                <div class="brebo-dashboard-signal-group"><strong>Bewaking</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Achterstallige facturen</span><b>{{ f.overdue_invoice_count }}</b></span><span class="brebo-dashboard-signal-pill"><span>Verouderde prognoses</span><b>{{ f.forecast_stale_count }}</b></span></div></div>
+                <div class="brebo-dashboard-signal-group"><strong>Besluiten</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Open</span><b>{{ f.decision_count }}</b></span><span class="brebo-dashboard-signal-pill"><span>Nu</span><b>{{ f.decision_now }}</b></span><span class="brebo-dashboard-signal-pill"><span>Vandaag</span><b>{{ f.decision_today }}</b></span></div></div>
+              </div>
+            </section>
+          {% endif %}
 
           {% if s %}
             <section class="brebo-dashboard-panel" aria-label="Managementsignalen">
