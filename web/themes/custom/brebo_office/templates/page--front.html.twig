@@ -10,6 +10,7 @@
     {% set s = brebo_dashboard.signals|default({}) %}
     {% set i = brebo_dashboard.inzet|default({}) %}
     {% set f = brebo_dashboard.finance|default({}) %}
+    {% set r = brebo_dashboard.regie|default({}) %}
     <div class="brebo-app-layout">
       {% include '@brebo_office/includes/brebo-office-sidebar.html.twig' %}
       <div class="brebo-app-layout__content">
@@ -51,6 +52,19 @@
               <small>Geregistreerde kwaliteitsafwijkingen</small>
               <span class="brebo-dashboard-kpi__link">Kwaliteit bewaken</span>
             </a>
+          </section>
+
+          <section class="brebo-dashboard-panel" aria-label="Regie en aandacht">
+            <div class="brebo-section-heading">
+              <div><p class="brebo-page-header__eyebrow">REGIE & AANDACHT</p><h2>Wat vraagt opvolging?</h2></div>
+              <a href="{{ r.url }}">Open regie-acties</a>
+            </div>
+            <div class="brebo-dashboard-signal-grid">
+              <div class="brebo-dashboard-signal-group"><strong>Werkvoorraad</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Open regie-acties</span><b>{{ r.open|default(0) }}</b></span><span class="brebo-dashboard-signal-pill"><span>Mijn acties</span><b>{{ r.mine|default(0) }}</b></span></div></div>
+              <div class="brebo-dashboard-signal-group"><strong>Termijn</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Te laat</span><b>{{ r.overdue|default(0) }}</b></span></div></div>
+              <div class="brebo-dashboard-signal-group"><strong>Blokkering</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Geblokkeerd</span><b>{{ r.blocked|default(0) }}</b></span></div></div>
+              <div class="brebo-dashboard-signal-group"><strong>Eigenaarschap</strong><div class="brebo-dashboard-signal-pills"><span class="brebo-dashboard-signal-pill"><span>Niet toegewezen</span><b>{{ r.unassigned|default(0) }}</b></span></div></div>
+            </div>
           </section>
 
           {% if f.visible|default(false) %}
