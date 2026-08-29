@@ -138,7 +138,12 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $overview = $overviewRows[0] ?? NULL;
     $header = imap_headerinfo($stream, imap_msgno($stream, $uid));
 
-    $subject = $overview && isset($overview->subject) ? $this->decodeHeader((string) $overview->subject) : '(zonder onderwerp)';
+    $subject = $overview && isset($overview->subject)
+      ? trim($this->decodeHeader((string) $overview->subject))
+      : '';
+    if ($subject === '') {
+      $subject = '(zonder onderwerp)';
+    }
     $messageId = $overview && isset($overview->message_id) ? trim((string) $overview->message_id) : '';
     $from = $header && isset($header->from) ? $this->addresses($header->from) : '';
     $to = $header && isset($header->to) ? $this->addresses($header->to) : '';
@@ -146,7 +151,9 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     $date = $overview && isset($overview->date) ? (string) $overview->date : '';
     $timestamp = $date !== '' ? strtotime($date) : FALSE;
 
-    $structure = imap_fetchstructure($stream, $uid, FT_UID);
+    // Some legacy Zoho messages have no fetchable MIME structure. That is not
+    // fatal: fetchReadableBody() falls back to the complete body read-only.
+    $structure = @imap_fetchstructure($stream, $uid, FT_UID);
     $bodyParts = $this->fetchReadableBody($stream, $uid, $structure ?: NULL);
     $body = $bodyParts['text'];
     $bodyHtml = $bodyParts['html'];
@@ -178,7 +185,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
   /** @return array{text:string,html:string} */
   private function fetchReadableBody($stream, int $uid, ?object $structure = NULL): array {
-    $structure ??= imap_fetchstructure($stream, $uid, FT_UID) ?: NULL;
+    $structure ??= @imap_fetchstructure($stream, $uid, FT_UID) ?: NULL;
     if (!$structure) {
       return [
         'text' => trim($this->ensureUtf8((string) imap_body($stream, $uid, FT_UID | FT_PEEK))),
@@ -363,46 +370,44 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     return $selected;
   }
 
-  private function attachmentFilename(object $part): string {
-    $parameters = [];
-    foreach (['dparameters', 'parameters'] as $property) {
-      $value = $part->{$property} ?? [];
-      if (is_array($value)) {
-        $parameters = array_merge($parameters, $value);
-      }
-      elseif (is_object($value)) {
-        $parameters[] = $value;
-      }
-    }
+  private function mimeType(object $part): string {
+    $primary = [0 => 'text', 1 => 'multipart', 2 => 'message', 3 => 'application', 4 => 'audio', 5 => 'image', 6 => 'video', 7 => 'other'];
+    $type = $primary[(int) ($part->type ?? 7)] ?? 'other';
+    $subtype = strtolower((string) ($part->subtype ?? 'octet-stream'));
+    return strtolower($type . '/' . $subtype);
+  }
 
-    foreach ($parameters as $parameter) {
-      if (!is_object($parameter)) {
+  private function attachmentFilename(object $part): string {
+    foreach (['dparameters', 'parameters'] as $property) {
+      $parameters = $part->{$property} ?? [];
+      if (is_object($parameters)) {
+        $parameters = [$parameters];
+      }
+      if (!is_array($parameters)) {
         continue;
       }
-      $attribute = strtolower((string) ($parameter->attribute ?? ''));
-      if (($attribute === 'filename' || $attribute === 'name') && trim((string) ($parameter->value ?? '')) !== '') {
-        return $this->decodeHeader((string) $parameter->value);
+      foreach ($parameters as $parameter) {
+        if (!is_object($parameter)) {
+          continue;
+        }
+        $attribute = strtolower((string) ($parameter->attribute ?? ''));
+        if ($attribute === 'filename' || $attribute === 'name') {
+          return $this->decodeHeader((string) ($parameter->value ?? ''));
+        }
       }
     }
     return '';
   }
 
-  private function mimeType(object $part): string {
-    $primary = match ((int) ($part->type ?? 0)) {
-      0 => 'text',
-      1 => 'multipart',
-      2 => 'message',
-      3 => 'application',
-      4 => 'audio',
-      5 => 'image',
-      6 => 'video',
-      default => 'application',
-    };
-    return strtolower($primary . '/' . ((string) ($part->subtype ?? 'octet-stream')));
-  }
-
   private function partCharset(object $part): string {
-    foreach ($part->parameters ?? [] as $parameter) {
+    $parameters = $part->parameters ?? [];
+    if (is_object($parameters)) {
+      $parameters = [$parameters];
+    }
+    if (!is_array($parameters)) {
+      return 'UTF-8';
+    }
+    foreach ($parameters as $parameter) {
       if (is_object($parameter) && strtolower((string) ($parameter->attribute ?? '')) === 'charset') {
         return (string) ($parameter->value ?? 'UTF-8');
       }
@@ -412,7 +417,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
 
   private function decodeBody(string $data, int $encoding): string {
     return match ($encoding) {
-      3 => (string) base64_decode($data, TRUE),
+      3 => base64_decode($data, TRUE) ?: '',
       4 => quoted_printable_decode($data),
       default => $data,
     };
@@ -422,36 +427,28 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     if ($value === '') {
       return '';
     }
-    if (strcasecmp($charset, 'UTF-8') !== 0) {
+    if (strtoupper($charset) !== 'UTF-8') {
       $converted = @mb_convert_encoding($value, 'UTF-8', $charset);
       if (is_string($converted)) {
         return $converted;
       }
     }
-    if (!mb_check_encoding($value, 'UTF-8')) {
-      $converted = @mb_convert_encoding($value, 'UTF-8', 'Windows-1252');
-      if (is_string($converted)) {
-        return $converted;
-      }
-    }
-    return $value;
+    return mb_check_encoding($value, 'UTF-8') ? $value : mb_convert_encoding($value, 'UTF-8', 'auto');
   }
 
   private function decodeHeader(string $value): string {
-    $parts = imap_mime_header_decode($value);
-    $decoded = '';
-    foreach ($parts as $part) {
-      $charset = (string) ($part->charset ?? 'default');
-      $text = (string) ($part->text ?? '');
-      $decoded .= ($charset !== 'default' && strcasecmp($charset, 'UTF-8') !== 0)
-        ? (string) @mb_convert_encoding($text, 'UTF-8', $charset)
-        : $text;
+    if ($value === '') {
+      return '';
     }
-    return trim($decoded);
+    $decoded = @iconv_mime_decode($value, ICONV_MIME_DECODE_CONTINUE_ON_ERROR, 'UTF-8');
+    return is_string($decoded) ? trim($decoded) : trim($value);
   }
 
-  private function addresses(array $addresses): string {
-    $values = [];
+  private function addresses(mixed $addresses): string {
+    if (!is_array($addresses)) {
+      return '';
+    }
+    $result = [];
     foreach ($addresses as $address) {
       if (!is_object($address)) {
         continue;
@@ -459,19 +456,29 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
       $mailbox = (string) ($address->mailbox ?? '');
       $host = (string) ($address->host ?? '');
       if ($mailbox !== '' && $host !== '') {
-        $values[] = $mailbox . '@' . $host;
+        $result[] = strtolower($mailbox . '@' . $host);
       }
     }
-    return implode(', ', array_unique($values));
+    return implode(', ', array_values(array_unique($result)));
   }
 
   private function isOwnAddress(string $from): bool {
-    $own = strtolower(trim((string) getenv('BREBO_MAIL_ADDRESS')));
-    return $own !== '' && str_contains(strtolower($from), $own);
+    $own = array_filter(array_map(
+      static fn(string $value): string => strtolower(trim($value)),
+      explode(',', $this->env('OWN_ADDRESSES')),
+    ));
+    if ($own === []) {
+      $own = [strtolower($this->env('USER'))];
+    }
+    foreach ($own as $address) {
+      if ($address !== '' && str_contains(strtolower($from), $address)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
   private function env(string $suffix): string {
     return trim((string) getenv($this->envPrefix . '_' . $suffix));
   }
-
 }
