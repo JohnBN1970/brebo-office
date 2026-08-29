@@ -17,6 +17,7 @@ jobs:
           php -l web/modules/custom/brebo_help/src/Controller/HelpController.php
           php -l web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           php -l web/modules/custom/brebo_help/src/Controller/GlossaryController.php
+          php -l web/modules/custom/brebo_help/src/Controller/FaqController.php
           php -l web/modules/custom/brebo_help/brebo_help.module
       - name: Validate required module files and navigation
         run: |
@@ -29,11 +30,14 @@ jobs:
           test -f web/modules/custom/brebo_help/brebo_help.module
           test -f web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           test -f web/modules/custom/brebo_help/src/Controller/GlossaryController.php
+          test -f web/modules/custom/brebo_help/src/Controller/FaqController.php
           grep -q "path: '/brebo/help'" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "path: '/brebo/help/taken'" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "path: '/brebo/help/begrippen'" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "path: '/brebo/help/vragen'" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "brebo_help.tasks" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "brebo_help.glossary" web/modules/custom/brebo_help/brebo_help.routing.yml
+          grep -q "brebo_help.faq" web/modules/custom/brebo_help/brebo_help.routing.yml
           grep -q "project-vrijgeven" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           grep -q "afwijking-verwerken" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
           grep -q "inkoop-controleren" web/modules/custom/brebo_help/src/Controller/TaskGuideController.php
@@ -41,6 +45,9 @@ jobs:
           grep -q "werkbegroting" web/modules/custom/brebo_help/src/Controller/GlossaryController.php
           grep -q "g-rekening" web/modules/custom/brebo_help/src/Controller/GlossaryController.php
           grep -q "mjop-reserveringsprijs" web/modules/custom/brebo_help/src/Controller/GlossaryController.php
+          grep -q "kan-niet-goedkeuren" web/modules/custom/brebo_help/src/Controller/FaqController.php
+          grep -q "foutmelding" web/modules/custom/brebo_help/src/Controller/FaqController.php
+          grep -q "uren-kloppen-niet" web/modules/custom/brebo_help/src/Controller/FaqController.php
           grep -q "access brebo help" web/modules/custom/brebo_help/brebo_help.permissions.yml
           grep -q "brebo_help.center" web/modules/custom/brebo_help/brebo_help.links.menu.yml
           grep -q "weight: 99" web/modules/custom/brebo_help/brebo_help.links.menu.yml
@@ -49,6 +56,7 @@ jobs:
           grep -q "path('brebo_help.center')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
           grep -q "path('brebo_help.tasks')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
           grep -q "path('brebo_help.glossary')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
+          grep -q "path('brebo_help.faq')" web/themes/custom/brebo_office/templates/includes/brebo-office-sidebar.html.twig
           ! grep -q "brebo_help_page_top" web/modules/custom/brebo_help/brebo_help.module
           ! grep -q "brebo-help-context-link" web/modules/custom/brebo_help/css/brebo-help.css
       - name: Guard against schema and destructive operations

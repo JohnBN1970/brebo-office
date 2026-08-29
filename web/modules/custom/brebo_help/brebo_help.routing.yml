@@ -40,6 +40,23 @@ brebo_help.term:
     _permission: 'access brebo help'
     term: '[a-z0-9-]+'
 
+brebo_help.faq:
+  path: '/brebo/help/vragen'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\FaqController::index'
+    _title: 'Veelgestelde vragen & problemen oplossen'
+  requirements:
+    _permission: 'access brebo help'
+
+brebo_help.faq_item:
+  path: '/brebo/help/vragen/{faq}'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\FaqController::item'
+    _title_callback: '\Drupal\brebo_help\Controller\FaqController::title'
+  requirements:
+    _permission: 'access brebo help'
+    faq: '[a-z0-9-]+'
+
 brebo_help.article:
   path: '/brebo/help/{article}'
   defaults:
