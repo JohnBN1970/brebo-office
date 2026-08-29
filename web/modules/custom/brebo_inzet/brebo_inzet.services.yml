@@ -40,3 +40,7 @@ services:
   brebo_inzet.clock_session_manager:
     class: Drupal\brebo_inzet\Service\ClockSessionManager
     arguments: ['@entity_type.manager', '@brebo_inzet.project_clock_zone_manager', '@brebo_inzet.project_clock_zone_control', '@brebo_inzet.clock_action_control', '@brebo_inzet.clock_transition_reconciler']
+
+  brebo_inzet.personnel_assignment_comparison:
+    class: Drupal\brebo_inzet\Service\PersonnelAssignmentComparison
+    arguments: ['@entity_type.manager', '@config.factory', '@datetime.time']
