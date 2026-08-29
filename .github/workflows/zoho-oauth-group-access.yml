@@ -1,0 +1,105 @@
+name: BREBO Zoho OAuth group access
+
+on:
+  workflow_dispatch:
+    inputs:
+      data_center:
+        description: Zoho data center
+        required: true
+        default: eu
+        type: choice
+        options:
+          - eu
+          - com
+          - in
+          - com.au
+          - jp
+          - ca
+          - ae
+          - sa
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    name: Verify read-only Zoho API visibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify OAuth secrets are present
+        env:
+          CLIENT_ID: ${{ secrets.BREBO_ZOHO_OAUTH_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.BREBO_ZOHO_OAUTH_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.BREBO_ZOHO_OAUTH_REFRESH_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLIENT_ID CLIENT_SECRET REFRESH_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Missing required Zoho OAuth secret: ${name}"
+              exit 2
+            fi
+          done
+          echo "ZOHO_OAUTH_SECRETS=PRESENT"
+
+      - name: Refresh token and inspect visible mail accounts
+        env:
+          CLIENT_ID: ${{ secrets.BREBO_ZOHO_OAUTH_CLIENT_ID }}
+          CLIENT_SECRET: ${{ secrets.BREBO_ZOHO_OAUTH_CLIENT_SECRET }}
+          REFRESH_TOKEN: ${{ secrets.BREBO_ZOHO_OAUTH_REFRESH_TOKEN }}
+          DC: ${{ inputs.data_center }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          case "$DC" in
+            eu) accounts_base="https://accounts.zoho.eu"; mail_base="https://mail.zoho.eu" ;;
+            com) accounts_base="https://accounts.zoho.com"; mail_base="https://mail.zoho.com" ;;
+            in) accounts_base="https://accounts.zoho.in"; mail_base="https://mail.zoho.in" ;;
+            com.au) accounts_base="https://accounts.zoho.com.au"; mail_base="https://mail.zoho.com.au" ;;
+            jp) accounts_base="https://accounts.zoho.jp"; mail_base="https://mail.zoho.jp" ;;
+            ca) accounts_base="https://accounts.zohocloud.ca"; mail_base="https://mail.zohocloud.ca" ;;
+            ae) accounts_base="https://accounts.zoho.ae"; mail_base="https://mail.zoho.ae" ;;
+            sa) accounts_base="https://accounts.zoho.sa"; mail_base="https://mail.zoho.sa" ;;
+            *) echo "::error::Unsupported Zoho data center"; exit 3 ;;
+          esac
+
+          token_json="$(curl --fail-with-body --silent --show-error --request POST \
+            --data-urlencode "refresh_token=$REFRESH_TOKEN" \
+            --data-urlencode "client_id=$CLIENT_ID" \
+            --data-urlencode "client_secret=$CLIENT_SECRET" \
+            --data-urlencode "grant_type=refresh_token" \
+            "$accounts_base/oauth/v2/token")"
+
+          access_token="$(jq -r '.access_token // empty' <<<"$token_json")"
+          if [[ -z "$access_token" ]]; then
+            error="$(jq -r '.error // "unknown_token_error"' <<<"$token_json")"
+            echo "::error::Zoho refresh token failed: $error"
+            exit 4
+          fi
+          echo "ZOHO_OAUTH_REFRESH=PASS"
+
+          accounts_json="$(curl --fail-with-body --silent --show-error \
+            -H "Authorization: Zoho-oauthtoken $access_token" \
+            -H 'Accept: application/json' \
+            "$mail_base/api/accounts")"
+
+          # Never print tokens or unrelated account addresses. Only report total
+          # visibility and whether the three known BREBO group addresses appear
+          # as API-visible mail accounts/shared mailboxes.
+          account_count="$(jq '[.data[]?] | length' <<<"$accounts_json")"
+          echo "ZOHO_API_ACCOUNT_COUNT=$account_count"
+
+          for target in facturen@brebobv.nl offerte@brebobv.nl admin@brebobv.nl; do
+            visible="$(jq -r --arg target "$target" '
+              [ .data[]? | .. | strings | ascii_downcase | select(. == ($target|ascii_downcase)) ] | length
+            ' <<<"$accounts_json")"
+            if [[ "$visible" -gt 0 ]]; then
+              echo "GROUP_ACCOUNT=$target|API_VISIBLE=YES"
+            else
+              echo "GROUP_ACCOUNT=$target|API_VISIBLE=NO"
+            fi
+          done
+
+          echo "ZOHO_OAUTH_GROUP_ACCESS=PASS"
