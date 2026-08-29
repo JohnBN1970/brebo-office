@@ -111,11 +111,25 @@
 
             {% if i.available|default(false) %}
               <article class="brebo-dashboard-panel brebo-span-4">
-                <div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">INZET & TIJD</p><h2>Wie werkt er?</h2></div></div>
-                <div class="brebo-dashboard-mini-grid">
-                  <a href="{{ i.url }}"><span>Nu aan het werk</span><strong>{{ i.active|default(0) }}</strong></a>
-                  <a href="{{ i.url }}"><span>Klokregistraties</span><strong>{{ i.registrations|default(0) }}</strong></a>
-                </div>
+                <div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">INZET & TIJD</p><h2>Personeel & inzet</h2></div></div>
+                {% if i.management.visible|default(false) %}
+                  <div class="brebo-dashboard-mini-grid">
+                    <a href="{{ i.management.url }}"><span>Gepland vandaag</span><strong>{{ i.management.today_planned_hours|number_format(2, ',', '.') }} u</strong></a>
+                    <a href="{{ i.management.url }}"><span>Geklokt vandaag</span><strong>{{ i.management.today_clocked_hours|number_format(2, ',', '.') }} u</strong></a>
+                    <a href="{{ i.management.url }}"><span>Afwijkingen vandaag</span><strong>{{ i.management.today_deviations|default(0) }}</strong></a>
+                    <a href="{{ i.management.url }}"><span>Niet geklokt 7 dagen</span><strong>{{ i.management.unclocked_7d|default(0) }}</strong></a>
+                  </div>
+                  {% if i.management.today_pending|default(0) > 0 %}
+                    <div class="brebo-dashboard-signal-pills" style="margin-top: 16px;">
+                      <span class="brebo-dashboard-signal-pill"><span>Vandaag nog niet gestart</span><b>{{ i.management.today_pending }}</b></span>
+                    </div>
+                  {% endif %}
+                {% else %}
+                  <div class="brebo-dashboard-mini-grid">
+                    <a href="{{ i.url }}"><span>Nu aan het werk</span><strong>{{ i.active|default(0) }}</strong></a>
+                    <a href="{{ i.url }}"><span>Klokregistraties</span><strong>{{ i.registrations|default(0) }}</strong></a>
+                  </div>
+                {% endif %}
                 {% if i.severity|default([]) %}
                   <div class="brebo-dashboard-signal-pills" style="margin-top: 16px;">
                     {% for item in i.severity %}
@@ -123,7 +137,7 @@
                     {% endfor %}
                   </div>
                 {% endif %}
-                <div class="brebo-dashboard-panel__action"><a href="{{ i.url }}">Open BREBO Inzet</a></div>
+                <div class="brebo-dashboard-panel__action"><a href="{{ i.management.visible|default(false) ? i.management.url : i.url }}">Open BREBO Inzet</a></div>
               </article>
             {% endif %}
 
