@@ -1,30 +1,35 @@
 # BREBO Help
 
-Centraal helpcentrum voor BREBO Office op `/brebo/help`.
+BREBO Help is de centrale interne help- en kennislaag van BREBO Office.
 
-## Principes
+## Toegang
 
-- Office blijft de bron; Help legt de bestaande werking uit en introduceert geen tweede bedrijfsadministratie.
-- Inhoud is taak- en procesgericht: wat doet de gebruiker, waarom doet BREBO dit zo en waar hoort de informatie thuis.
-- Zoeken werkt zonder extra zoekinfrastructuur zodat de module veilig als zelfstandige eerste help-laag kan worden uitgerold.
-- `?context=<term>` kan vanuit Office-schermen worden gebruikt om relevante artikelen bovenaan te zetten.
-- Toegang loopt via `access brebo help`; beheeruitbreidingen via `administer brebo help`.
+Help is bereikbaar vanuit de vaste BREBO Office-sidebar, direct boven Instellingen. De Help-groep bevat:
 
-## Uitbreidpad
+- Helpcentrum
+- Dagelijkse taken
+- Begrippen & beslisregels
 
-De huidige catalogus is bewust centraal in `HelpController::articles()` gehouden zodat deze PR zonder nieuwe contenttypes, databasevelden of configuratie-afhankelijkheden kan landen. Een volgende stap kan de catalogus achter een repository/service plaatsen en beheerbare kenniscontent aansluiten zonder routes of gebruikersinterface te breken.
+De eerdere zwevende contextuele `?`-knop is bewust verwijderd om dubbele navigatie te voorkomen.
 
-Contextuele links kunnen bijvoorbeeld verwijzen naar `/brebo/help?context=finance`, `/brebo/help?context=project` of `/brebo/help?context=clock`.
+## Inhoud
 
-## Acceptatie
+De module bevat taakgerichte handleidingen, rolgerichte werkwijzen, processen en begrippen. Office blijft de bron van waarheid; Help introduceert geen tweede bedrijfsregistratie.
 
-1. Module inschakelen: `drush en brebo_help -y`.
-2. Cache legen: `drush cr`.
-3. Geef de gewenste rollen `access brebo help`.
-4. Controleer `/brebo/help`, zoeken en minimaal één artikel.
-5. Controleer dat een gebruiker zonder permissie HTTP 403 krijgt.
-6. Controleer een contextlink, bijvoorbeeld `/brebo/help?context=finance`.
+## Architectuur
 
-## Rollback
+De huidige implementatie is schema-loos. Inhoud is onderdeel van de module en kan later worden gekoppeld aan beheerbare kenniscontent zonder bestaande bedrijfsobjecten te dupliceren.
 
-De module bevat geen schema en schrijft geen bedrijfsdata. Rollback is daarom: module uitschakelen/verwijderen en cache legen. Er is geen datamigratie nodig.
+## Rechten
+
+Toegang wordt beschermd met de Drupal-permissie `access brebo help`.
+
+## Routes
+
+- `/brebo/help`
+- `/brebo/help/taken`
+- `/brebo/help/begrippen`
+
+## Ontwerpregel
+
+Help beschrijft niet alleen welke knop moet worden gebruikt, maar ook waarom BREBO een proces op die manier uitvoert. Daarmee is de module zowel gebruikershulp als interne werkinstructie.
