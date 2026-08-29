@@ -1,0 +1,71 @@
+name: BREBO Zoho Sent migration pilot
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  pilot:
+    name: Pilot Zoho Sent read-only source
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Inspect Sent source without importing
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || exit 1
+          [[ -f "$runtime" ]] || exit 2
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
+            $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
+            $password = (string) getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            $port = max(1, (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993));
+            $flags = trim((string) (getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl"));
+            if ($host === "" || $user === "" || $password === "") { throw new \RuntimeException("Zoho runtime missing."); }
+            $mailbox = sprintf("{%s:%d%s}Sent", $host, $port, $flags);
+            $stream = @imap_open($mailbox, $user, $password, OP_READONLY);
+            if ($stream === FALSE) { throw new \RuntimeException("Zoho Sent unavailable read-only."); }
+            try {
+              $uids = array_values(array_map("intval", imap_search($stream, "ALL", SE_UID) ?: []));
+              $uids = array_values(array_filter($uids, static fn(int $uid): bool => $uid > 0));
+              sort($uids, SORT_NUMERIC);
+              echo "ZOHO_SENT_MESSAGES=" . count($uids) . PHP_EOL;
+              echo "ZOHO_SENT_FIRST_UID=" . ($uids[0] ?? 0) . PHP_EOL;
+              echo "ZOHO_SENT_LAST_UID=" . ($uids !== [] ? $uids[count($uids)-1] : 0) . PHP_EOL;
+              echo "ZOHO_SENT_PILOT=PASS" . PHP_EOL;
+            } finally { imap_close($stream); }
+          '
+          REMOTE
