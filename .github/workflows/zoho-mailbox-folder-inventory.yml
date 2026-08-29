@@ -1,0 +1,105 @@
+name: BREBO Zoho mailbox folder inventory
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    name: Inventory Zoho folders read-only
+    runs-on: ubuntu-latest
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to obtain SSH host key."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Inventory configured Zoho account and folders
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || exit 1
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $host = trim((string) getenv("BREBO_ZOHO_IMAP_HOST"));
+            $user = trim((string) getenv("BREBO_ZOHO_IMAP_USER"));
+            $password = (string) getenv("BREBO_ZOHO_IMAP_PASSWORD");
+            $port = max(1, (int) (getenv("BREBO_ZOHO_IMAP_PORT") ?: 993));
+            $flags = trim((string) (getenv("BREBO_ZOHO_IMAP_FLAGS") ?: "/imap/ssl"));
+            if ($host === "" || $user === "" || $password === "") {
+              throw new \RuntimeException("Zoho migration runtime is not configured.");
+            }
+            if (!function_exists("imap_open")) {
+              throw new \RuntimeException("PHP IMAP extension unavailable.");
+            }
+
+            // Do not print credentials or message metadata. Only a one-way account
+            // fingerprint plus folder names and counts are emitted.
+            echo "ACCOUNT_FINGERPRINT=" . substr(hash("sha256", strtolower($user)), 0, 12) . PHP_EOL;
+            $root = sprintf("{%s:%d%s}", $host, $port, $flags);
+            $stream = @imap_open($root . "INBOX", $user, $password, OP_READONLY);
+            if ($stream === FALSE) {
+              throw new \RuntimeException("Configured Zoho account could not be opened read-only.");
+            }
+            try {
+              $folders = imap_list($stream, $root, "*") ?: [];
+              sort($folders, SORT_NATURAL | SORT_FLAG_CASE);
+              echo "FOLDER_COUNT=" . count($folders) . PHP_EOL;
+              foreach ($folders as $mailbox) {
+                $folder = str_starts_with($mailbox, $root) ? substr($mailbox, strlen($root)) : $mailbox;
+                $folder = imap_utf7_decode((string) $folder);
+                $probe = @imap_open($mailbox, $user, $password, OP_READONLY);
+                if ($probe === FALSE) {
+                  echo "FOLDER=" . $folder . "|STATUS=UNREADABLE" . PHP_EOL;
+                  continue;
+                }
+                try {
+                  $status = imap_status($probe, $mailbox, SA_MESSAGES | SA_UIDNEXT | SA_UIDVALIDITY);
+                  $messages = $status ? (int) $status->messages : (int) imap_num_msg($probe);
+                  $uidNext = $status && isset($status->uidnext) ? (int) $status->uidnext : 0;
+                  $uidValidity = $status && isset($status->uidvalidity) ? (int) $status->uidvalidity : 0;
+                  echo "FOLDER=" . $folder . "|MESSAGES=" . $messages . "|UIDNEXT=" . $uidNext . "|UIDVALIDITY=" . $uidValidity . PHP_EOL;
+                }
+                finally {
+                  imap_close($probe);
+                }
+              }
+            }
+            finally {
+              imap_close($stream);
+            }
+            echo "ZOHO_MAILBOX_FOLDER_INVENTORY=PASS" . PHP_EOL;
+          '
+          REMOTE
