@@ -51,7 +51,7 @@ final class ImapSourceAdapter implements MailSourceAdapterInterface {
     }
 
     try {
-      if ($this->stateKey === 'zoho_migration') {
+      if (str_ends_with($this->stateKey, '_migration')) {
         yield from $this->migrationMessages($stream, $folder);
         return;
       }
