@@ -1,0 +1,505 @@
+/* BREBO Office-wide visual system
+ * Final presentation layer for all authenticated Office screens.
+ * Keeps module-specific CSS intact while enforcing shared tokens, spacing,
+ * controls, surfaces, tables, forms, states and responsive behaviour.
+ */
+
+html[data-brebo-theme] {
+  --brebo-radius-xs: 6px;
+  --brebo-radius-sm: 8px;
+  --brebo-radius-md: 10px;
+  --brebo-radius-lg: 14px;
+  --brebo-radius-xl: 18px;
+  --brebo-space-1: 4px;
+  --brebo-space-2: 8px;
+  --brebo-space-3: 12px;
+  --brebo-space-4: 16px;
+  --brebo-space-5: 20px;
+  --brebo-space-6: 24px;
+  --brebo-space-8: 32px;
+  --brebo-space-10: 40px;
+  --brebo-control-height: 42px;
+  --brebo-content-max: 1680px;
+  --brebo-shadow-card: 0 1px 2px rgba(16, 24, 40, .04), 0 6px 18px rgba(16, 24, 40, .035);
+  --brebo-shadow-float: 0 10px 35px rgba(16, 24, 40, .14);
+  --brebo-focus-ring: 0 0 0 3px color-mix(in srgb, var(--brebo-accent) 24%, transparent);
+  --brebo-accent-soft: color-mix(in srgb, var(--brebo-accent) 13%, var(--brebo-bg-surface));
+  --brebo-success-soft: color-mix(in srgb, var(--brebo-positive) 12%, var(--brebo-bg-surface));
+  --brebo-warning-soft: color-mix(in srgb, var(--brebo-attention) 12%, var(--brebo-bg-surface));
+  --brebo-danger-soft: color-mix(in srgb, var(--brebo-critical) 12%, var(--brebo-bg-surface));
+  --brebo-info-soft: color-mix(in srgb, var(--brebo-status-info) 12%, var(--brebo-bg-surface));
+}
+
+html[data-brebo-theme] body {
+  margin: 0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+.brebo-shell--authenticated,
+.brebo-shell--authenticated input,
+.brebo-shell--authenticated select,
+.brebo-shell--authenticated textarea,
+.brebo-shell--authenticated button {
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated * {
+  box-sizing: border-box;
+}
+
+.brebo-shell--authenticated a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.brebo-shell--authenticated a:hover {
+  text-decoration-color: var(--brebo-accent);
+}
+
+.brebo-shell--authenticated :focus-visible {
+  outline: 2px solid var(--brebo-accent);
+  outline-offset: 2px;
+}
+
+.brebo-shell--authenticated .brebo-app-layout__content {
+  max-width: var(--brebo-content-max);
+}
+
+.brebo-shell--authenticated h1,
+.brebo-shell--authenticated h2,
+.brebo-shell--authenticated h3,
+.brebo-shell--authenticated h4 {
+  color: var(--brebo-text-primary);
+  letter-spacing: -.018em;
+}
+
+.brebo-shell--authenticated h2 { font-size: 1.2rem; }
+.brebo-shell--authenticated h3 { font-size: 1rem; }
+
+/* Shared surfaces. */
+.brebo-shell--authenticated :is(
+  .brebo-card,
+  .brebo-dashboard-panel,
+  .brebo-section,
+  .brebo-context-header,
+  .brebo-work-package-decision__state,
+  .brebo-work-package-decision__fact,
+  .brebo-kanban-card,
+  .brebo-form__group,
+  .brebo-building-identity,
+  .brebo-funnel-details,
+  .brebo-funnel-summary,
+  details,
+  fieldset
+) {
+  border-color: var(--brebo-border);
+}
+
+.brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section) {
+  background: var(--brebo-bg-surface);
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-lg);
+  box-shadow: var(--brebo-shadow-card);
+}
+
+.brebo-shell--authenticated .brebo-dashboard-panel,
+.brebo-shell--authenticated .brebo-card {
+  padding: var(--brebo-space-6);
+}
+
+.brebo-shell--authenticated .brebo-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--brebo-space-4);
+  margin-bottom: var(--brebo-space-5);
+}
+
+.brebo-shell--authenticated .brebo-section-heading h2 {
+  margin: 0;
+}
+
+.brebo-shell--authenticated .brebo-section-heading > a,
+.brebo-shell--authenticated .brebo-dashboard-panel__action a,
+.brebo-shell--authenticated .brebo-dashboard-kpi__link {
+  color: var(--brebo-text-secondary);
+  font-size: .84rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brebo-shell--authenticated .brebo-section-heading > a:hover,
+.brebo-shell--authenticated .brebo-dashboard-panel__action a:hover,
+.brebo-shell--authenticated .brebo-dashboard-kpi__link:hover {
+  color: var(--brebo-accent);
+}
+
+/* Buttons and action bars. */
+.brebo-shell--authenticated :is(.button,button,input[type="submit"],input[type="button"]) {
+  min-height: var(--brebo-control-height);
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-sm);
+  padding: 9px 14px;
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+
+.brebo-shell--authenticated :is(.button,button,input[type="submit"],input[type="button"]):hover {
+  border-color: color-mix(in srgb, var(--brebo-border) 55%, var(--brebo-text-secondary));
+  background: var(--brebo-bg-elevated);
+}
+
+.brebo-shell--authenticated :is(.brebo-button--primary,.button--primary,input[type="submit"]) {
+  border-color: var(--brebo-accent);
+  background: var(--brebo-accent);
+  color: #1d160c;
+}
+
+.brebo-shell--authenticated :is(.brebo-button--primary,.button--primary,input[type="submit"]):hover {
+  border-color: color-mix(in srgb, var(--brebo-accent) 80%, #000);
+  background: color-mix(in srgb, var(--brebo-accent) 88%, #fff);
+}
+
+.brebo-shell--authenticated :is(.button:disabled,button:disabled,input:disabled) {
+  opacity: .5;
+  cursor: not-allowed;
+}
+
+.brebo-shell--authenticated :is(.brebo-action-bar,.brebo-list-actions,.form-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--brebo-space-2);
+  align-items: center;
+}
+
+/* Form controls. */
+.brebo-shell--authenticated :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea) {
+  width: 100%;
+  min-height: var(--brebo-control-height);
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-sm);
+  padding: 9px 11px;
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+  font: inherit;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--brebo-text-primary) 3%, transparent);
+}
+
+.brebo-shell--authenticated textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+.brebo-shell--authenticated :is(input,select,textarea):focus {
+  border-color: var(--brebo-accent);
+  outline: 0;
+  box-shadow: var(--brebo-focus-ring);
+}
+
+.brebo-shell--authenticated label {
+  color: var(--brebo-text-primary);
+  font-weight: 700;
+}
+
+.brebo-shell--authenticated :is(.description,.form-item__description,.form-item .description) {
+  margin-top: 5px;
+  color: var(--brebo-text-secondary);
+  font-size: .84rem;
+}
+
+.brebo-shell--authenticated fieldset,
+.brebo-shell--authenticated details {
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-surface);
+}
+
+.brebo-shell--authenticated summary,
+.brebo-shell--authenticated legend {
+  color: var(--brebo-text-primary);
+  font-weight: 750;
+}
+
+/* Tables across Office. */
+.brebo-shell--authenticated .brebo-content table,
+.brebo-shell--authenticated .brebo-app-layout__content table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-surface);
+  overflow: hidden;
+}
+
+.brebo-shell--authenticated table th,
+.brebo-shell--authenticated table td {
+  padding: 11px 13px;
+  border-bottom: 1px solid var(--brebo-border);
+  vertical-align: top;
+  text-align: left;
+}
+
+.brebo-shell--authenticated table th {
+  background: var(--brebo-bg-muted);
+  color: var(--brebo-text-secondary);
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.brebo-shell--authenticated table tr:last-child > td {
+  border-bottom: 0;
+}
+
+.brebo-shell--authenticated table tbody tr:hover > td {
+  background: color-mix(in srgb, var(--brebo-accent) 3.5%, var(--brebo-bg-surface));
+}
+
+/* KPI and management presentation. */
+.brebo-shell--authenticated .brebo-dashboard-kpi {
+  display: flex;
+  flex-direction: column;
+  min-height: 154px;
+  padding: 20px;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-lg);
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+  text-decoration: none;
+  box-shadow: var(--brebo-shadow-card);
+  transition: transform .14s ease, border-color .14s ease;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brebo-accent) 45%, var(--brebo-border));
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi__label {
+  color: var(--brebo-text-secondary);
+  font-size: .75rem;
+  font-weight: 800;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi > strong {
+  margin: 10px 0 4px;
+  font-size: clamp(1.75rem, 2.6vw, 2.45rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi small {
+  color: var(--brebo-text-secondary);
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi__link {
+  margin-top: auto;
+  padding-top: 15px;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-grid {
+  display: grid;
+  grid-template-columns: repeat(4,minmax(0,1fr));
+  gap: var(--brebo-space-4);
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-group {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-muted);
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-group > strong {
+  display: block;
+  margin-bottom: 10px;
+  font-size: .82rem;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-pill,
+.brebo-shell--authenticated .brebo-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 999px;
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-secondary);
+  font-size: .78rem;
+  line-height: 1.1;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-signal-pill b {
+  color: var(--brebo-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Meaningful state utilities reusable by every module. */
+.brebo-state--success,.brebo-status--positive { color: var(--brebo-positive) !important; }
+.brebo-state--warning,.brebo-status--attention { color: var(--brebo-attention) !important; }
+.brebo-state--danger,.brebo-status--critical { color: var(--brebo-critical) !important; }
+.brebo-state--info { color: var(--brebo-status-info) !important; }
+.brebo-bg--success { background: var(--brebo-success-soft) !important; }
+.brebo-bg--warning { background: var(--brebo-warning-soft) !important; }
+.brebo-bg--danger { background: var(--brebo-danger-soft) !important; }
+.brebo-bg--info { background: var(--brebo-info-soft) !important; }
+
+/* Lists, tabs, navigation and breadcrumbs. */
+.brebo-shell--authenticated :is(.tabs,.tabs ul,.brebo-project-tabs) {
+  scrollbar-width: thin;
+}
+
+.brebo-shell--authenticated .tabs ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 var(--brebo-space-5);
+  padding: 4px;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-muted);
+}
+
+.brebo-shell--authenticated .tabs li { margin: 0; }
+
+.brebo-shell--authenticated .tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: var(--brebo-radius-sm);
+  color: var(--brebo-text-secondary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.brebo-shell--authenticated .tabs a.is-active,
+.brebo-shell--authenticated .tabs a:hover {
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated .breadcrumb {
+  color: var(--brebo-text-secondary);
+  font-size: .82rem;
+}
+
+/* Drupal messages. */
+.brebo-shell--authenticated .messages {
+  border: 1px solid var(--brebo-border);
+  border-inline-start-width: 4px;
+  border-radius: var(--brebo-radius-md);
+  padding: 12px 14px;
+  background: var(--brebo-bg-surface);
+  box-shadow: none;
+}
+.brebo-shell--authenticated .messages--status { border-inline-start-color: var(--brebo-positive); background: var(--brebo-success-soft); }
+.brebo-shell--authenticated .messages--warning { border-inline-start-color: var(--brebo-attention); background: var(--brebo-warning-soft); }
+.brebo-shell--authenticated .messages--error { border-inline-start-color: var(--brebo-critical); background: var(--brebo-danger-soft); }
+
+/* Empty states and secondary text. */
+.brebo-shell--authenticated :is(.brebo-dashboard-empty,.brebo-empty,.empty) {
+  padding: 24px;
+  border: 1px dashed var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  color: var(--brebo-text-secondary);
+  background: var(--brebo-bg-muted);
+  text-align: center;
+}
+
+/* Planning presentation on the main cockpit. */
+.brebo-planning-strip {
+  display: grid;
+  grid-template-columns: minmax(130px,1.2fr) repeat(4,minmax(110px,1fr));
+  gap: 10px;
+}
+.brebo-planning-strip__item {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-md);
+  background: var(--brebo-bg-muted);
+}
+.brebo-planning-strip__item span { display:block; color:var(--brebo-text-secondary); font-size:.75rem; font-weight:750; }
+.brebo-planning-strip__item strong { display:block; margin-top:5px; font-size:1.35rem; font-variant-numeric:tabular-nums; }
+.brebo-planning-strip__item--late strong { color:var(--brebo-critical); }
+.brebo-planning-strip__item--blocked strong { color:var(--brebo-attention); }
+.brebo-planning-strip__item--critical strong { color:var(--brebo-critical); }
+
+/* Night mode depth is deliberately subtle: hierarchy comes from borders/surfaces. */
+html[data-brebo-theme='night'] .brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section,.brebo-dashboard-kpi) {
+  box-shadow: 0 1px 0 rgba(255,255,255,.015), 0 10px 28px rgba(0,0,0,.10);
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-brebo-theme='system'] .brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section,.brebo-dashboard-kpi) {
+    box-shadow: 0 1px 0 rgba(255,255,255,.015), 0 10px 28px rgba(0,0,0,.10);
+  }
+}
+
+/* Responsive: preserve information density without desktop-only layouts. */
+@media (max-width: 1180px) {
+  .brebo-shell--authenticated .brebo-dashboard-signal-grid { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .brebo-planning-strip { grid-template-columns: repeat(3,minmax(0,1fr)); }
+}
+
+@media (max-width: 860px) {
+  .brebo-shell--authenticated .brebo-app-layout { padding: 16px; gap: 16px; }
+  .brebo-shell--authenticated .brebo-page-header,
+  .brebo-shell--authenticated .brebo-context-header,
+  .brebo-shell--authenticated .brebo-section-heading { flex-direction: column; align-items: stretch; }
+  .brebo-shell--authenticated .brebo-page-header__actions,
+  .brebo-shell--authenticated .brebo-context-header__actions { justify-content: flex-start; }
+  .brebo-shell--authenticated .brebo-content table,
+  .brebo-shell--authenticated .brebo-app-layout__content table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .brebo-planning-strip { grid-template-columns: repeat(2,minmax(0,1fr)); }
+}
+
+@media (max-width: 620px) {
+  .brebo-shell--authenticated .brebo-dashboard-panel,
+  .brebo-shell--authenticated .brebo-card { padding: 16px; }
+  .brebo-shell--authenticated .brebo-dashboard-signal-grid { grid-template-columns: 1fr; }
+  .brebo-shell--authenticated :is(.button,button,input[type="submit"],input[type="button"]) { width: 100%; justify-content: center; }
+  .brebo-shell--authenticated :is(.brebo-action-bar,.brebo-list-actions,.form-actions) { align-items: stretch; }
+  .brebo-planning-strip { grid-template-columns: 1fr 1fr; }
+}
+
+@media (max-width: 420px) {
+  .brebo-planning-strip { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .brebo-shell--authenticated *,
+  .brebo-shell--authenticated *::before,
+  .brebo-shell--authenticated *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .001ms !important;
+    animation-duration: .001ms !important;
+  }
+}
