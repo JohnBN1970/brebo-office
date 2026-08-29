@@ -42,8 +42,12 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
       return ['state' => 'communication_only', 'reason' => 'required_invoice_fields_missing'];
     }
 
+    // Invoice numbers are only unique within one supplier administration.
+    // Compare the same key as the finance table's supplier_invoice unique key;
+    // otherwise two unrelated suppliers using invoice "2026-001" would collide.
     $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
       ->fields('i', ['id', 'supplier_ref', 'invoice_number'])
+      ->condition('supplier_ref', $from)
       ->condition('invoice_number', $invoiceNumber)
       ->execute()
       ->fetchAllAssoc('id');
@@ -51,7 +55,7 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
       return ['state' => 'duplicate', 'invoice_id' => (int) array_key_first($existing)];
     }
     if (count($existing) > 1) {
-      return ['state' => 'communication_only', 'reason' => 'ambiguous_existing_invoice_number'];
+      return ['state' => 'communication_only', 'reason' => 'ambiguous_existing_supplier_invoice'];
     }
 
     $date = $this->invoiceDate($text, (string) ($mail['received_at'] ?? ''));
