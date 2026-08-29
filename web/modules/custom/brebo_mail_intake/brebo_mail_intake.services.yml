@@ -160,7 +160,7 @@ services:
       - '@file_system'
       - '@file.usage'
       - '@brebo_document_data.repository'
-      - '@brebo_document_data.revision_series'
+      - '@brebo_document_data.storage_locator'
       - '@brebo_mail_intake.source_mailbox_attachment_reader'
 
   brebo_mail_intake.outbound:
