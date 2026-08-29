@@ -1,0 +1,120 @@
+name: BREBO Zoho Sent migration batch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-zoho-sent-migration-batch
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    name: Migrate next 100 Zoho Sent messages newest-first
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Migrate controlled Zoho Sent batch
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || exit 1
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            foreach (["HOST", "USER", "PASSWORD", "PORT", "FLAGS", "OWN_ADDRESSES"] as $suffix) {
+              $value = (string) getenv("BREBO_ZOHO_IMAP_" . $suffix);
+              if ($value !== "") { putenv("BREBO_ZOHO_SENT_IMAP_" . $suffix . "=" . $value); }
+            }
+            putenv("BREBO_ZOHO_SENT_IMAP_FOLDER=Sent");
+            putenv("BREBO_ZOHO_SENT_IMAP_BATCH_LIMIT=100");
+
+            $state = \Drupal::state();
+            $adapter = \Drupal::service("brebo_mail_intake.zoho_sent_migration_source");
+            $queueManager = \Drupal::service("brebo_mail_intake.queue_manager");
+            if (!$adapter->isConfigured()) { throw new \RuntimeException("Zoho Sent migration source not configured."); }
+
+            $cursorKey = "brebo_mail_intake.zoho_sent_migration_before_uid";
+            $completeKey = "brebo_mail_intake.zoho_sent_migration_complete";
+            $pendingCursorKey = "brebo_mail_intake.zoho_sent_migration_pending_before_uid";
+            $pendingCompleteKey = "brebo_mail_intake.zoho_sent_migration_pending_complete";
+            $cursorBefore = (int) $state->get($cursorKey, 0);
+            $completeBefore = (bool) $state->get($completeKey, FALSE);
+            echo "ZOHO_SENT_CURSOR_BEFORE={$cursorBefore}" . PHP_EOL;
+            echo "ZOHO_SENT_COMPLETE_BEFORE=" . ($completeBefore ? "YES" : "NO") . PHP_EOL;
+            if ($completeBefore) { echo "ZOHO_SENT_BATCH=ALREADY_COMPLETE" . PHP_EOL; return; }
+
+            $enqueued = $queueManager->enqueueSource($adapter);
+            $candidateCursor = (int) $state->get($cursorKey, $cursorBefore);
+            $candidateComplete = (bool) $state->get($completeKey, FALSE);
+            $state->set($pendingCursorKey, $candidateCursor);
+            $state->set($pendingCompleteKey, $candidateComplete);
+            $state->set($cursorKey, $cursorBefore);
+            $state->set($completeKey, $completeBefore);
+            echo "ZOHO_SENT_BATCH_ENQUEUED={$enqueued}" . PHP_EOL;
+            echo "ZOHO_SENT_CANDIDATE_CURSOR={$candidateCursor}" . PHP_EOL;
+            if ($enqueued < 0 || $enqueued > 100) { throw new \RuntimeException("Unexpected Zoho Sent batch size."); }
+          '
+
+          "${drush[@]}" queue:run brebo_mail_intake_process
+
+          "${drush[@]}" php:eval '
+            $state = \Drupal::state();
+            $queue = \Drupal::queue("brebo_mail_intake_process");
+            $remaining = (int) $queue->numberOfItems();
+            echo "ZOHO_SENT_QUEUE_REMAINING={$remaining}" . PHP_EOL;
+            if ($remaining !== 0) {
+              throw new \RuntimeException("Zoho Sent batch not fully processed; cursor remains at previous checkpoint.");
+            }
+            $cursorKey = "brebo_mail_intake.zoho_sent_migration_before_uid";
+            $completeKey = "brebo_mail_intake.zoho_sent_migration_complete";
+            $pendingCursorKey = "brebo_mail_intake.zoho_sent_migration_pending_before_uid";
+            $pendingCompleteKey = "brebo_mail_intake.zoho_sent_migration_pending_complete";
+            $candidateCursor = (int) $state->get($pendingCursorKey, 0);
+            $candidateComplete = (bool) $state->get($pendingCompleteKey, FALSE);
+            if ($candidateCursor > 0) { $state->set($cursorKey, $candidateCursor); }
+            $state->set($completeKey, $candidateComplete);
+            $state->delete($pendingCursorKey);
+            $state->delete($pendingCompleteKey);
+            $cursor = (int) $state->get($cursorKey, 0);
+            $complete = (bool) $state->get($completeKey, FALSE);
+            echo "ZOHO_SENT_CURSOR_AFTER={$cursor}" . PHP_EOL;
+            echo "ZOHO_SENT_MIGRATION_COMPLETE=" . ($complete ? "YES" : "NO") . PHP_EOL;
+            echo "ZOHO_SENT_MIGRATION_BATCH=PASS" . PHP_EOL;
+          '
+          REMOTE
