@@ -226,11 +226,48 @@ function brebo_office_preprocess_page(array &$variables): void {
       }
     }
 
+    $finance = [
+      'visible' => FALSE,
+      'url' => NULL,
+      'project_count' => 0,
+      'billable_not_invoiced_ex_vat' => 0.0,
+      'invoiced_ex_vat' => 0.0,
+      'committed_ex_vat' => 0.0,
+      'overdue_invoice_count' => 0,
+      'pending_payment_releases' => 0,
+      'forecast_stale_count' => 0,
+      'decision_count' => 0,
+      'decision_now' => 0,
+      'decision_today' => 0,
+    ];
+    if (\Drupal::moduleHandler()->moduleExists('brebo_finance')
+      && $account->hasPermission('access brebo finance')
+      && \Drupal::hasService('brebo_finance.financial_command_center')) {
+      $financial_command_center = \Drupal::service('brebo_finance.financial_command_center')->build($account);
+      $portfolio = $financial_command_center['portfolio'] ?? [];
+      $decisions = $financial_command_center['decisions'] ?? [];
+      $finance = [
+        'visible' => TRUE,
+        'url' => \Drupal\Core\Url::fromRoute('brebo_finance.command_center_page')->toString(),
+        'project_count' => (int) ($portfolio['project_count'] ?? 0),
+        'billable_not_invoiced_ex_vat' => (float) ($portfolio['billable_not_invoiced_ex_vat'] ?? 0),
+        'invoiced_ex_vat' => (float) ($portfolio['invoiced_ex_vat'] ?? 0),
+        'committed_ex_vat' => (float) ($portfolio['committed_ex_vat'] ?? 0),
+        'overdue_invoice_count' => (int) ($portfolio['overdue_invoice_count'] ?? 0),
+        'pending_payment_releases' => (int) ($portfolio['pending_payment_releases'] ?? 0),
+        'forecast_stale_count' => (int) ($portfolio['forecast_stale_count'] ?? 0),
+        'decision_count' => (int) ($decisions['count'] ?? 0),
+        'decision_now' => (int) ($decisions['now'] ?? 0),
+        'decision_today' => (int) ($decisions['today'] ?? 0),
+      ];
+    }
+
     $variables['brebo_dashboard'] = [
       'metrics' => $metrics,
       'recent_projects' => $recent_projects,
       'signals' => $signal_distributions,
       'inzet' => $inzet,
+      'finance' => $finance,
     ];
 
     // Dashboard aggregates and recent-project labels depend on the viewer and
@@ -244,7 +281,7 @@ function brebo_office_preprocess_page(array &$variables): void {
       $variables['page']['#cache']['tags'] ?? [],
       ['node_list:brebo_personnel_assignment', 'node_list:brebo_clock_registration']
     )));
-    $variables['page']['#cache']['max-age'] = 60;
+    $variables['page']['#cache']['max-age'] = $finance['visible'] ? 0 : 60;
   }
 
   if (\Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.project_dashboard') {
