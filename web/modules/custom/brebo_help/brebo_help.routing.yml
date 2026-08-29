@@ -6,6 +6,14 @@ brebo_help.center:
   requirements:
     _permission: 'access brebo help'
 
+brebo_help.search:
+  path: '/brebo/help/zoeken'
+  defaults:
+    _controller: '\Drupal\brebo_help\Controller\UnifiedSearchController::index'
+    _title: 'Zoeken in Help'
+  requirements:
+    _permission: 'access brebo help'
+
 brebo_help.tasks:
   path: '/brebo/help/taken'
   defaults:
