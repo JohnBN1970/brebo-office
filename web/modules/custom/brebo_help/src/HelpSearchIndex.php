@@ -10,6 +10,14 @@ final class HelpSearchIndex {
 
   public static function items(): array {
     return [
+      self::item('module', 'Gebouwen, woningen en productposities', 'Beheer de fysieke vastgoedstructuur als vaste bron voor projecten, inspecties, documenten en onderhoud.', ['gebouwen', 'woningen', 'productposities', 'gebouwmodel'], 'brebo_help.module', ['module' => 'gebouwen']),
+      self::item('module', 'Projecten en projectcockpit', 'Stuur een opdracht vanuit één projectbeeld op scope, planning, geld, capaciteit, kwaliteit en besluiten.', ['project', 'projecten', 'projectcockpit', 'scope', 'planning'], 'brebo_help.module', ['module' => 'projecten']),
+      self::item('module', 'Calculaties en offertes', 'Bouw een herleidbare commerciële prijs op van kostprijs tot aanbieding.', ['calculatie', 'offerte', 'kostprijs', 'marge', 'staartkosten'], 'brebo_help.module', ['module' => 'calculaties']),
+      self::item('module', 'Taken en regieacties', 'Maak opvolging zichtbaar met eigenaar, context, deadline en aantoonbare afronding.', ['taken', 'taak', 'regieacties', 'actie', 'opvolging'], 'brebo_help.module', ['module' => 'taken']),
+      self::item('module', 'Relaties, contactpersonen en CRM', 'Leg organisaties, personen, commerciële kansen en contacthistorie één keer centraal vast.', ['relaties', 'crm', 'contactpersoon', 'organisatie', 'kans'], 'brebo_help.module', ['module' => 'relaties']),
+      self::item('module', 'Mail en communicatie', 'Koppel relevante communicatie aan de juiste bedrijfscontext zonder de mailbox als dossier te gebruiken.', ['mail', 'e-mail', 'communicatie', 'bijlage', 'koppelen'], 'brebo_help.module', ['module' => 'mail']),
+      self::item('module', 'Finance en financiële controle', 'Maak verplichtingen, afwijkingen, cashflow en financiële beslissingen tijdig zichtbaar.', ['finance', 'financieel', 'verplichtingen', 'cashflow', 'werkbegroting'], 'brebo_help.module', ['module' => 'finance']),
+      self::item('module', 'Kwaliteit, restpunten en oplevering', 'Borg bevinding, bewijs, herstel en nacontrole in één controleketen.', ['kwaliteit', 'restpunt', 'oplevering', 'gebrek', 'nacontrole'], 'brebo_help.module', ['module' => 'kwaliteit']),
       self::item('handleiding', 'Starten met BREBO Office', 'Overzicht van de vaste werkwijze in Office.', ['start', 'office', 'navigatie'], 'brebo_help.article', ['article' => 'starten-met-office']),
       self::item('rol', 'Projectleider: sturen vanuit de projectcockpit', 'Stuur scope, planning, geld, kwaliteit en besluiten vanuit één projectbeeld.', ['projectleider', 'projectcockpit', 'werkbegroting', 'planning'], 'brebo_help.article', ['article' => 'rol-projectleider']),
       self::item('rol', 'Werkvoorbereider: uitvoering gereedmaken', 'Maak informatie, materiaal, inkoop, planning en documenten uitvoeringsgereed.', ['werkvoorbereider', 'document', 'inkoop', 'planning'], 'brebo_help.article', ['article' => 'rol-werkvoorbereider']),
