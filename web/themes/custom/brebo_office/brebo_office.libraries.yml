@@ -1,5 +1,5 @@
 global:
-  version: 1.7.1
+  version: 1.7.2
   css:
     base:
       css/base.css: {}
@@ -35,6 +35,7 @@ global:
     js/building-cockpit.js: {}
     js/residence-cockpit.js: {}
     js/funnel-cockpit.js: {}
+    js/dashboard-commercial.js: {}
     js/form-presentation.js: {}
   dependencies:
     - core/drupal
