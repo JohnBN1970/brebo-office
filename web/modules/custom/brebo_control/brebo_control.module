@@ -15,7 +15,8 @@ function brebo_control_preprocess_page(array &$variables): void {
   if (!$account->isAuthenticated()
     || \Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.dashboard'
     || !$account->hasPermission('access brebo finance')
-    || !\Drupal::hasService('brebo_control.portfolio_early_warning')) {
+    || !\Drupal::hasService('brebo_control.portfolio_early_warning')
+    || !\Drupal::hasService('brebo_office_core.project_early_warning')) {
     return;
   }
 
