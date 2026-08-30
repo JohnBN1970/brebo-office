@@ -8,6 +8,40 @@ declare(strict_types=1);
  */
 
 /**
+ * Implements hook_preprocess_page().
+ */
+function brebo_control_preprocess_page(array &$variables): void {
+  $account = \Drupal::currentUser();
+  if (!$account->isAuthenticated()
+    || \Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.dashboard'
+    || !$account->hasPermission('access brebo finance')
+    || !\Drupal::hasService('brebo_control.portfolio_early_warning')
+    || !\Drupal::hasService('brebo_office_core.project_early_warning')) {
+    return;
+  }
+
+  try {
+    $analysis = \Drupal::service('brebo_control.portfolio_early_warning')->analyze();
+    $portfolio = (array) ($analysis['portfolio'] ?? []);
+    $variables['page']['#attached']['library'][] = 'brebo_control/dashboard_risk';
+    $variables['page']['#attached']['drupalSettings']['breboControlRisk'] = [
+      'visible' => TRUE,
+      'score' => (int) ($analysis['score'] ?? 0),
+      'level' => (string) ($analysis['level'] ?? 'laag'),
+      'status' => (string) ($analysis['status'] ?? 'Onder controle'),
+      'project_count' => (int) ($portfolio['project_count'] ?? 0),
+      'critical_or_high' => (int) ($portfolio['critical_or_high'] ?? 0),
+      'deteriorating' => (int) ($portfolio['deteriorating'] ?? 0),
+      'pattern_count' => count((array) ($analysis['patterns'] ?? [])),
+    ];
+    $variables['page']['#cache']['max-age'] = 0;
+  }
+  catch (\Throwable $e) {
+    \Drupal::logger('brebo_control')->warning('Dashboardrisico kon niet worden opgebouwd: @message', ['@message' => $e->getMessage()]);
+  }
+}
+
+/**
  * Implements hook_cron().
  */
 function brebo_control_cron(): void {

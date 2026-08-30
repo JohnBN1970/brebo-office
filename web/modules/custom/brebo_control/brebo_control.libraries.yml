@@ -1,0 +1,6 @@
+dashboard_risk:
+  js:
+    js/dashboard-risk.js: {}
+  dependencies:
+    - core/drupal
+    - core/drupalSettings
