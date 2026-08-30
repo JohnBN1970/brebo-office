@@ -31,16 +31,34 @@ function brebo_resident_service_preprocess_page(array &$variables): void {
     'red' => 0,
     'attention' => 0,
   ];
+  $signal_map = [
+    'groen' => 'green',
+    'oranje' => 'orange',
+    'rood' => 'red',
+  ];
   $look_ahead = \Drupal::service('brebo_resident_service.look_ahead_access_readiness');
+  $counted_scopes = [];
 
   foreach ($project_ids as $project_id) {
     foreach ($look_ahead->forProject((int) $project_id, $summary['horizon_days']) as $row) {
       $summary['total']++;
       $signal = (string) ($row['signal'] ?? 'groen');
-      if (isset($summary[$signal])) {
-        $summary[$signal]++;
+      $bucket = $signal_map[$signal] ?? NULL;
+      if ($bucket !== NULL) {
+        $summary[$bucket]++;
       }
-      $summary['attention'] += (int) ($row['attention'] ?? 0);
+
+      $technical_zone_id = (int) ($row['technical_zone_id'] ?? 0);
+      if ($technical_zone_id > 0) {
+        $scope_key = (int) $project_id . ':' . $technical_zone_id;
+        if (!isset($counted_scopes[$scope_key])) {
+          $summary['attention'] += (int) ($row['attention'] ?? 0);
+          $counted_scopes[$scope_key] = TRUE;
+        }
+      }
+      else {
+        $summary['attention'] += (int) ($row['attention'] ?? 0);
+      }
     }
   }
 
