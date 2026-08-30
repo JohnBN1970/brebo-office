@@ -38,10 +38,7 @@ final class LookAheadAccessReadiness {
       if (!$package instanceof NodeInterface) {
         continue;
       }
-      $start = $this->parseDate(
-        $package->hasField('field_brebo_planned_start') ? (string) $package->get('field_brebo_planned_start')->value : '',
-        $timezone,
-      );
+      $start = $this->parseDate($package->hasField('field_brebo_planned_start') ? (string) $package->get('field_brebo_planned_start')->value : '', $timezone);
       if ($start === NULL || $start < $today || $start > $horizon) {
         continue;
       }
@@ -58,6 +55,9 @@ final class LookAheadAccessReadiness {
         'reason' => $assessment['reason'],
         'percentage' => $assessment['summary']['percentage'] ?? NULL,
         'attention' => $assessment['summary']['attention'] ?? 0,
+        'project_id' => $assessment['project_id'] ?? $projectId,
+        'building_nid' => $assessment['building_nid'] ?? NULL,
+        'technical_zone_id' => $assessment['technical_zone_id'] ?? NULL,
       ];
     }
     return $rows;
