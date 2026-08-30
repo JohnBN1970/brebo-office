@@ -262,6 +262,10 @@ function brebo_office_preprocess_page(array &$variables): void {
       ];
     }
 
+    $timezone_name = (string) (\Drupal::config('system.date')->get('timezone.default') ?: date_default_timezone_get());
+    $timezone = new \DateTimeZone($timezone_name ?: 'Europe/Brussels');
+    $today = (new \DateTimeImmutable('now', $timezone))->format('Y-m-d');
+
     $regie = [
       'url' => \Drupal\Core\Url::fromRoute('brebo_office_core.regie_actions')->toString(),
       'open' => 0,
@@ -279,7 +283,6 @@ function brebo_office_preprocess_page(array &$variables): void {
       ->sort('field_brebo_route_sequence', 'ASC')
       ->execute();
     $regie['open'] = count($route_ids);
-    $today = date('Y-m-d');
     foreach ($storage->loadMultiple($route_ids) as $item) {
       if (!$item instanceof \Drupal\node\NodeInterface || !$item->access('view')) {
         continue;
@@ -301,6 +304,54 @@ function brebo_office_preprocess_page(array &$variables): void {
       }
     }
 
+    $planning = [
+      'total' => 0,
+      'done' => 0,
+      'late' => 0,
+      'blocked' => 0,
+      'critical' => 0,
+      'progress' => 0,
+    ];
+    $plan_ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_plan_activity')
+      ->execute();
+    foreach ($storage->loadMultiple($plan_ids) as $activity) {
+      if (!$activity instanceof \Drupal\node\NodeInterface || !$activity->access('view')) {
+        continue;
+      }
+      $status = $activity->hasField('field_brebo_plan_status')
+        ? trim((string) ($activity->get('field_brebo_plan_status')->value ?? ''))
+        : '';
+      if ($status === 'Vervallen') {
+        continue;
+      }
+      $end = $activity->hasField('field_brebo_plan_end')
+        ? trim((string) ($activity->get('field_brebo_plan_end')->value ?? ''))
+        : '';
+      $progress = $activity->hasField('field_brebo_plan_progress')
+        ? (float) ($activity->get('field_brebo_plan_progress')->value ?? 0)
+        : 0.0;
+      $done = $status === 'Gereed' || $progress >= 100;
+
+      $planning['total']++;
+      if ($done) {
+        $planning['done']++;
+      }
+      elseif ($end !== '' && $end < $today) {
+        $planning['late']++;
+      }
+      if ($status === 'Geblokkeerd') {
+        $planning['blocked']++;
+      }
+      if ($activity->hasField('field_brebo_plan_critical') && (bool) ($activity->get('field_brebo_plan_critical')->value ?? FALSE)) {
+        $planning['critical']++;
+      }
+    }
+    $planning['progress'] = $planning['total'] > 0
+      ? (int) round(($planning['done'] / $planning['total']) * 100)
+      : 0;
+
     $variables['brebo_dashboard'] = [
       'metrics' => $metrics,
       'recent_projects' => $recent_projects,
@@ -308,6 +359,7 @@ function brebo_office_preprocess_page(array &$variables): void {
       'inzet' => $inzet,
       'finance' => $finance,
       'regie' => $regie,
+      'planning' => $planning,
     ];
 
     // Dashboard aggregates and recent-project labels depend on the viewer and
@@ -324,6 +376,7 @@ function brebo_office_preprocess_page(array &$variables): void {
         'node_list:brebo_clock_registration',
         'node_list:brebo_route_item',
         'node_list:brebo_project',
+        'node_list:brebo_plan_activity',
       ]
     )));
     $variables['page']['#cache']['max-age'] = $finance['visible'] ? 0 : 60;
