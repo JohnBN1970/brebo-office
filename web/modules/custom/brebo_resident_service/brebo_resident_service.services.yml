@@ -33,3 +33,4 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@brebo_resident_service.work_package_access_readiness'
+      - '@config.factory'
