@@ -109,6 +109,54 @@ function brebo_office_preprocess_page(array &$variables): void {
       }
     }
 
+    if ($account->hasPermission('access content')) {
+      $communication_ids = $storage->getQuery()
+        ->accessCheck(TRUE)
+        ->condition('type', 'brebo_communication')
+        ->execute();
+      $communication_timezone_name = (string) (\Drupal::config('system.date')->get('timezone.default') ?: date_default_timezone_get());
+      $communication_timezone = new \DateTimeZone($communication_timezone_name ?: 'Europe/Brussels');
+      $communication_today = (new \DateTimeImmutable('now', $communication_timezone))->format('Y-m-d');
+      $communication_open = 0;
+      $communication_overdue = 0;
+      $communication_unassigned = 0;
+      $communication_confirmation_pending = 0;
+      $communication_review_required = 0;
+
+      foreach ($storage->loadMultiple($communication_ids) as $communication) {
+        if (!$communication instanceof \Drupal\node\NodeInterface || !$communication->access('view')) {
+          continue;
+        }
+        $status = trim((string) ($communication->get('field_brebo_comm_status')->value ?? ''));
+        $due = trim((string) ($communication->get('field_brebo_due_date')->value ?? ''));
+        $response_required = (bool) ($communication->get('field_brebo_response_required')->value ?? FALSE);
+        $written_required = (bool) ($communication->get('field_brebo_written_required')->value ?? FALSE);
+        $written_received = (bool) ($communication->get('field_brebo_written_received')->value ?? FALSE);
+        $owner = $communication->get('field_brebo_responsible_user')->entity;
+        $ai_status = trim((string) ($communication->get('field_brebo_ai_status')->value ?? ''));
+
+        $is_open = $response_required && !in_array($status, ['Beantwoord', 'Bevestigd', 'Vervallen', 'Gesloten'], TRUE);
+        $is_overdue = $is_open && $due !== '' && $due < $communication_today;
+        $is_unassigned = $is_open && !$owner;
+        $is_confirmation_pending = $written_required && !$written_received
+          && !in_array($status, ['Vervallen', 'Gesloten'], TRUE);
+
+        $communication_open += $is_open ? 1 : 0;
+        $communication_overdue += $is_overdue ? 1 : 0;
+        $communication_unassigned += $is_unassigned ? 1 : 0;
+        $communication_confirmation_pending += $is_confirmation_pending ? 1 : 0;
+        $communication_review_required += in_array($ai_status, ['Concept gemaakt', 'Controle vereist'], TRUE) ? 1 : 0;
+      }
+
+      $signal_distributions['Communicatie'] = [
+        ['value' => 'open', 'label' => 'Open reacties', 'count' => $communication_open],
+        ['value' => 'overdue', 'label' => 'Termijn verlopen', 'count' => $communication_overdue],
+        ['value' => 'unassigned', 'label' => 'Niet toegewezen', 'count' => $communication_unassigned],
+        ['value' => 'confirmation_pending', 'label' => 'Bevestiging ontbreekt', 'count' => $communication_confirmation_pending],
+        ['value' => 'review_required', 'label' => 'Controle vereist', 'count' => $communication_review_required],
+      ];
+    }
+
     $inzet = [
       'available' => FALSE,
       'active' => 0,
@@ -377,6 +425,7 @@ function brebo_office_preprocess_page(array &$variables): void {
         'node_list:brebo_route_item',
         'node_list:brebo_project',
         'node_list:brebo_plan_activity',
+        'node_list:brebo_communication',
       ]
     )));
     $variables['page']['#cache']['max-age'] = $finance['visible'] ? 0 : 60;
