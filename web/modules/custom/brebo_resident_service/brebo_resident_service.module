@@ -6,6 +6,85 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 
+/** Implements hook_preprocess_page(). */
+function brebo_resident_service_preprocess_page(array &$variables): void {
+  $account = \Drupal::currentUser();
+  if (!$account->isAuthenticated() || \Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.dashboard') {
+    return;
+  }
+  if (!\Drupal::hasService('brebo_resident_service.work_package_access_readiness')) {
+    return;
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $timezone_name = (string) (\Drupal::config('system.date')->get('timezone.default') ?: date_default_timezone_get());
+  $timezone = new \DateTimeZone($timezone_name ?: 'Europe/Brussels');
+  $today = new \DateTimeImmutable('today', $timezone);
+  $horizon_days = 42;
+  $horizon = $today->modify('+' . $horizon_days . ' days');
+
+  $package_ids = $storage->getQuery()
+    ->accessCheck(TRUE)
+    ->condition('type', 'brebo_work_package')
+    ->condition('field_brebo_planned_start', $today->format('Y-m-d'), '>=')
+    ->condition('field_brebo_planned_start', $horizon->format('Y-m-d'), '<=')
+    ->sort('field_brebo_planned_start', 'ASC')
+    ->execute();
+
+  $summary = [
+    'available' => TRUE,
+    'horizon_days' => $horizon_days,
+    'total' => 0,
+    'green' => 0,
+    'orange' => 0,
+    'red' => 0,
+    'attention' => 0,
+  ];
+  $readiness = \Drupal::service('brebo_resident_service.work_package_access_readiness');
+  $counted_scopes = [];
+
+  foreach ($storage->loadMultiple($package_ids) as $package) {
+    if (!$package instanceof NodeInterface || !$package->access('view')) {
+      continue;
+    }
+    $start_value = $package->hasField('field_brebo_planned_start') ? trim((string) $package->get('field_brebo_planned_start')->value) : '';
+    if ($start_value === '') {
+      continue;
+    }
+    try {
+      $start = new \DateTimeImmutable($start_value, $timezone);
+    }
+    catch (\Throwable) {
+      continue;
+    }
+
+    $assessment = $readiness->evaluate($package);
+    $summary['total']++;
+    $days_until = max(0, (int) $today->diff($start)->format('%a'));
+    $bucket = (!$assessment['applicable'] || $assessment['ready']) ? 'green' : ($days_until <= 7 ? 'red' : 'orange');
+    $summary[$bucket]++;
+
+    $project_id = (int) ($assessment['project_id'] ?? 0);
+    $technical_zone_id = (int) ($assessment['technical_zone_id'] ?? 0);
+    if ($project_id > 0 && $technical_zone_id > 0) {
+      $scope_key = $project_id . ':' . $technical_zone_id;
+      if (!isset($counted_scopes[$scope_key])) {
+        $summary['attention'] += (int) ($assessment['summary']['attention'] ?? 0);
+        $counted_scopes[$scope_key] = TRUE;
+      }
+    }
+    else {
+      $summary['attention'] += (int) ($assessment['summary']['attention'] ?? 0);
+    }
+  }
+
+  $variables['brebo_start_readiness'] = $summary;
+  $variables['page']['#cache']['tags'] = array_values(array_unique(array_merge(
+    $variables['page']['#cache']['tags'] ?? [],
+    ['node_list:brebo_project', 'node_list:brebo_work_package']
+  )));
+}
+
 /** Implements hook_entity_insert(). */
 function brebo_resident_service_entity_insert(EntityInterface $entity): void {
   // Communications, including imported e-mail, must never create or propose
