@@ -6,6 +6,51 @@ use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
 
+/** Implements hook_preprocess_page(). */
+function brebo_resident_service_preprocess_page(array &$variables): void {
+  $account = \Drupal::currentUser();
+  if (!$account->isAuthenticated() || \Drupal::routeMatch()->getRouteName() !== 'brebo_office_core.dashboard') {
+    return;
+  }
+  if (!\Drupal::hasService('brebo_resident_service.look_ahead_access_readiness')) {
+    return;
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $storage->getQuery()
+    ->accessCheck(TRUE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+
+  $summary = [
+    'available' => TRUE,
+    'horizon_days' => 42,
+    'total' => 0,
+    'green' => 0,
+    'orange' => 0,
+    'red' => 0,
+    'attention' => 0,
+  ];
+  $look_ahead = \Drupal::service('brebo_resident_service.look_ahead_access_readiness');
+
+  foreach ($project_ids as $project_id) {
+    foreach ($look_ahead->forProject((int) $project_id, $summary['horizon_days']) as $row) {
+      $summary['total']++;
+      $signal = (string) ($row['signal'] ?? 'groen');
+      if (isset($summary[$signal])) {
+        $summary[$signal]++;
+      }
+      $summary['attention'] += (int) ($row['attention'] ?? 0);
+    }
+  }
+
+  $variables['brebo_start_readiness'] = $summary;
+  $variables['page']['#cache']['tags'] = array_values(array_unique(array_merge(
+    $variables['page']['#cache']['tags'] ?? [],
+    ['node_list:brebo_project', 'node_list:brebo_work_package']
+  )));
+}
+
 /** Implements hook_entity_insert(). */
 function brebo_resident_service_entity_insert(EntityInterface $entity): void {
   // Communications, including imported e-mail, must never create or propose
