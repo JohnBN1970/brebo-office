@@ -1,0 +1,99 @@
+name: BREBO mail functional-personal overlap audit
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Audit functional versus personal mailbox overlap
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Configure SSH
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 12 ssh-keyscan -T 8 -p "$DEPLOY_PORT" -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null && [[ -s ~/.ssh/known_hosts ]]; then
+              sort -u ~/.ssh/known_hosts -o ~/.ssh/known_hosts
+              break
+            fi
+            : > ~/.ssh/known_hosts
+            [[ "$attempt" -lt 5 ]] || exit 1
+            sleep $((attempt * 2))
+          done
+
+      - name: Audit latest imported mail projections read-only
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          runtime="$HOME/.brebo-mail-runtime.php"
+          php="/opt/alt/php83/usr/bin/php"
+          [[ -d "$app" && ! -L "$app" ]] || exit 1
+          [[ -f "$runtime" ]] || { echo "BREBO_RUNTIME_FILE=MISSING"; exit 2; }
+          cd "$app"
+          drush=("$php" -d memory_limit=512M -d auto_prepend_file="$runtime" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $personal = "john.boon@brebobv.nl";
+            $functional = ["info@brebobv.nl", "facturen@brebobv.nl"];
+            $ids = $storage->getQuery()->accessCheck(FALSE)
+              ->condition("type", "brebo_communication")
+              ->condition("field_brebo_comm_channel", "E-mail")
+              ->sort("nid", "DESC")
+              ->range(0, 500)
+              ->execute();
+            $nodes = $storage->loadMultiple($ids);
+            $directPersonal = 0;
+            $functionalOnly = 0;
+            $overlap = 0;
+            $neither = 0;
+            foreach ($nodes as $node) {
+              $to = $node->hasField("field_brebo_mail_to") ? strtolower((string) $node->get("field_brebo_mail_to")->value) : "";
+              preg_match_all("/[A-Z0-9._%+\\-]+@[A-Z0-9.\\-]+\\.[A-Z]{2,}/i", $to, $m);
+              $addresses = array_values(array_unique(array_map(static fn($v) => strtolower(trim($v)), $m[0] ?? [])));
+              $hasPersonal = in_array($personal, $addresses, TRUE);
+              $hasFunctional = array_intersect($functional, $addresses) !== [];
+              if ($hasPersonal && $hasFunctional) { $overlap++; }
+              elseif ($hasPersonal) { $directPersonal++; }
+              elseif ($hasFunctional) { $functionalOnly++; }
+              else { $neither++; }
+            }
+            echo "AUDIT_SAMPLE_SIZE=" . count($nodes) . PHP_EOL;
+            echo "TO_PERSONAL_ONLY={$directPersonal}" . PHP_EOL;
+            echo "TO_FUNCTIONAL_ONLY={$functionalOnly}" . PHP_EOL;
+            echo "TO_PERSONAL_AND_FUNCTIONAL={$overlap}" . PHP_EOL;
+            echo "TO_NEITHER_TARGET={$neither}" . PHP_EOL;
+
+            $mailboxes = $db->select("brebo_mailbox", "m")->fields("m", ["id", "address", "privacy_type"])->condition("active", 1)->execute()->fetchAll();
+            $byAddress = [];
+            foreach ($mailboxes as $box) { $byAddress[strtolower((string) $box->address)] = $box; }
+            foreach (["info@brebobv.nl", "facturen@brebobv.nl", "john.boon@brebobv.nl"] as $address) {
+              if (!isset($byAddress[$address])) { echo "MAILBOX=$address|FOUND=NO" . PHP_EOL; continue; }
+              $box = $byAddress[$address];
+              $count = (int) $db->select("brebo_mailbox_message", "mm")->condition("mailbox_id", (int) $box->id)->countQuery()->execute()->fetchField();
+              echo "MAILBOX=$address|PRIVACY={$box->privacy_type}|PROJECTED_COUNT={$count}" . PHP_EOL;
+            }
+            echo "FUNCTIONAL_PERSONAL_OVERLAP_AUDIT=PASS" . PHP_EOL;
+          '
+          REMOTE
