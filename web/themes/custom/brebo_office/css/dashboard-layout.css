@@ -1,0 +1,80 @@
+.brebo-dashboard-layout-controls {
+  display: none;
+  align-items: center;
+  gap: .5rem;
+  margin: -.25rem 0 .75rem;
+  padding: .5rem .6rem;
+  border: 1px dashed var(--brebo-border, #334155);
+  border-radius: .6rem;
+  background: color-mix(in srgb, var(--brebo-surface, #111827) 92%, transparent);
+}
+
+.brebo-dashboard.is-layout-editing .brebo-dashboard-layout-controls {
+  display: flex;
+}
+
+.brebo-dashboard-layout-controls button {
+  min-height: 2rem;
+  padding: .25rem .55rem;
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 1px solid var(--brebo-border, #334155);
+  border-radius: .45rem;
+  cursor: pointer;
+}
+
+.brebo-dashboard-layout-handle {
+  cursor: grab !important;
+  font-weight: 700;
+}
+
+.brebo-dashboard-layout-spacer {
+  flex: 1 1 auto;
+}
+
+.brebo-dashboard.is-layout-editing [data-brebo-dashboard-block] {
+  outline: 1px dashed color-mix(in srgb, var(--brebo-accent, #f97316) 45%, transparent);
+  outline-offset: 3px;
+}
+
+.brebo-dashboard.is-layout-editing [data-brebo-dashboard-block].is-dashboard-hidden {
+  display: block !important;
+  opacity: .45;
+}
+
+.brebo-dashboard [data-brebo-dashboard-block].is-dashboard-collapsed > :not(.brebo-dashboard-layout-controls):not(.brebo-section-heading) {
+  display: none !important;
+}
+
+.brebo-dashboard [data-brebo-dashboard-block].is-dashboard-collapsed > .brebo-section-heading {
+  margin-bottom: 0;
+}
+
+.brebo-dashboard .is-dashboard-dragging {
+  opacity: .5;
+}
+
+.brebo-dashboard--compact .brebo-dashboard-panel,
+.brebo-dashboard--compact .brebo-dashboard-kpis,
+.brebo-dashboard--compact .brebo-content-grid[aria-label="Bedrijfsinformatie"] {
+  margin-block: .55rem;
+}
+
+.brebo-dashboard--compact .brebo-dashboard-panel {
+  padding: .8rem;
+}
+
+.brebo-dashboard--compact .brebo-dashboard-signal-grid {
+  gap: .55rem;
+}
+
+@media (max-width: 900px) {
+  .brebo-dashboard-layout-controls {
+    flex-wrap: wrap;
+  }
+
+  .brebo-dashboard-layout-spacer {
+    display: none;
+  }
+}

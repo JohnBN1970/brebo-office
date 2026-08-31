@@ -9,12 +9,12 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Adds the authenticated BREBO Office appearance preference endpoint.
+ * Adds authenticated BREBO Office user-preference endpoints.
  */
 final class AppearanceRouteSubscriber extends RouteSubscriberBase {
 
   protected function alterRoutes(RouteCollection $collection): void {
-    $route = new Route(
+    $appearance = new Route(
       '/brebo-office/appearance',
       ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\AppearancePreferenceController::save'],
       [
@@ -26,8 +26,32 @@ final class AppearanceRouteSubscriber extends RouteSubscriberBase {
       [],
       ['POST'],
     );
+    $collection->add('brebo_office_core.appearance_preference', $appearance);
 
-    $collection->add('brebo_office_core.appearance_preference', $route);
+    $layout_load = new Route(
+      '/brebo-office/dashboard-layout',
+      ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\DashboardLayoutPreferenceController::load'],
+      ['_user_is_logged_in' => 'TRUE'],
+      [],
+      '',
+      [],
+      ['GET'],
+    );
+    $collection->add('brebo_office_core.dashboard_layout_load', $layout_load);
+
+    $layout_save = new Route(
+      '/brebo-office/dashboard-layout',
+      ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\DashboardLayoutPreferenceController::save'],
+      [
+        '_user_is_logged_in' => 'TRUE',
+        '_csrf_request_header_token' => 'TRUE',
+      ],
+      [],
+      '',
+      [],
+      ['POST'],
+    );
+    $collection->add('brebo_office_core.dashboard_layout_save', $layout_save);
   }
 
 }
