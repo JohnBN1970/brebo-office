@@ -16,6 +16,16 @@ function brebo_mail_intake_review_queue(): array {
 }
 
 /**
+ * Implements hook_page_attachments().
+ */
+function brebo_mail_intake_page_attachments(array &$attachments): void {
+  $routeName = (string) \Drupal::routeMatch()->getRouteName();
+  if (in_array($routeName, ['brebo_mail_intake.mailbox', 'brebo_mail_intake.mailbox_message'], TRUE)) {
+    $attachments['#attached']['library'][] = 'brebo_mail_intake/mail_pager';
+  }
+}
+
+/**
  * Implements hook_cron().
  */
 function brebo_mail_intake_cron(): void {
