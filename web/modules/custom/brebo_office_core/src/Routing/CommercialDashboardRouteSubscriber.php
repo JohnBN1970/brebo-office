@@ -9,25 +9,26 @@ use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Adds the authenticated commercial dashboard summary endpoint.
+ * Adds authenticated Office dashboard summary endpoints.
  */
 final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
 
   protected function alterRoutes(RouteCollection $collection): void {
-    $route = new Route(
+    $commercial = new Route(
       '/brebo-office/dashboard/commercial-summary',
       ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\CommercialDashboardSummaryController::summary'],
-      [
-        '_user_is_logged_in' => 'TRUE',
-        '_permission' => 'access content',
-      ],
-      [],
-      '',
-      [],
-      ['GET'],
+      ['_user_is_logged_in' => 'TRUE', '_permission' => 'access content'],
+      [], '', [], ['GET'],
     );
+    $collection->add('brebo_office_core.dashboard_commercial_summary', $commercial);
 
-    $collection->add('brebo_office_core.dashboard_commercial_summary', $route);
+    $quality = new Route(
+      '/brebo-office/dashboard/quality-summary',
+      ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\QualityDashboardSummaryController::summary'],
+      ['_user_is_logged_in' => 'TRUE', '_permission' => 'access content'],
+      [], '', [], ['GET'],
+    );
+    $collection->add('brebo_office_core.dashboard_quality_summary', $quality);
   }
 
 }
