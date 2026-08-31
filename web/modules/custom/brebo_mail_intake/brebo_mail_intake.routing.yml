@@ -67,6 +67,14 @@ brebo_mail_intake.mailbox_root:
   requirements:
     _permission: 'review brebo mail intake'
 
+brebo_mail_intake.mail_search:
+  path: '/mail/zoeken'
+  defaults:
+    _controller: '\Drupal\brebo_mail_intake\Controller\MailSearchController::page'
+    _title: 'Mail zoeken'
+  requirements:
+    _permission: 'review brebo mail intake'
+
 brebo_mail_intake.mail_compose_new:
   path: '/mail/{mailbox_id}/opstellen'
   defaults:
