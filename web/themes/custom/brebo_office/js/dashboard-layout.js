@@ -16,13 +16,13 @@
   };
   const canonicalOrder = [
     'core-kpis',
-    'commercial',
     'regie',
+    'control-risk',
+    'quality',
     'planning',
     'readiness',
     'finance',
-    'control-risk',
-    'quality',
+    'commercial',
     'signals',
     'business',
   ];
@@ -43,9 +43,9 @@
   }
 
   function reorder(dashboard) {
-    if (!layout.order.length) return;
     const current = blocks(dashboard);
-    const index = new Map(layout.order.map((id, position) => [id, position]));
+    const order = layout.order.length ? layout.order : canonicalOrder;
+    const index = new Map(order.map((id, position) => [id, position]));
     const desired = current.slice().sort((a, b) => {
       const aIndex = index.has(idFor(a)) ? index.get(idFor(a)) : Number.MAX_SAFE_INTEGER;
       const bIndex = index.has(idFor(b)) ? index.get(idFor(b)) : Number.MAX_SAFE_INTEGER;
