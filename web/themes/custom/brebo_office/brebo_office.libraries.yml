@@ -1,5 +1,5 @@
 global:
-  version: 1.7.2
+  version: 1.7.3
   css:
     base:
       css/base.css: {}
@@ -14,6 +14,7 @@ global:
       css/app-shell.css: {}
       css/dashboard-v2.css: {}
       css/office-cockpit.css: {}
+      css/dashboard-layout.css: {}
       css/mail.css: {}
       css/mail-actions.css: {}
       css/mail-list-controls.css: {}
@@ -36,6 +37,7 @@ global:
     js/residence-cockpit.js: {}
     js/funnel-cockpit.js: {}
     js/dashboard-commercial.js: {}
+    js/dashboard-layout.js: {}
     js/form-presentation.js: {}
   dependencies:
     - core/drupal
