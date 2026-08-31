@@ -42,6 +42,25 @@
     return Array.from(dashboard.children).filter((el) => el.matches('section') && idFor(el));
   }
 
+  function isZeroValue(text) {
+    let normalized = String(text || '').toLowerCase().replace(/\s+/g, '').replace(/€/g, '').replace(/u$/g, '').replace(/%$/g, '');
+    normalized = normalized.replace(/\./g, '').replace(',', '.').replace(/[^0-9.-]/g, '');
+    if (!normalized || normalized === '-' || normalized === '.') return false;
+    const value = Number(normalized);
+    return Number.isFinite(value) && value === 0;
+  }
+
+  function annotateZeroState(block) {
+    const groups = Array.from(block.querySelectorAll(':scope .brebo-dashboard-signal-group'));
+    groups.forEach((group) => {
+      const values = Array.from(group.querySelectorAll('.brebo-dashboard-signal-pill b'));
+      const zeroOnly = values.length > 0 && values.every((value) => isZeroValue(value.textContent));
+      group.classList.toggle('is-dashboard-zero-group', zeroOnly);
+    });
+    const zeroSection = groups.length > 0 && groups.every((group) => group.classList.contains('is-dashboard-zero-group'));
+    block.classList.toggle('is-dashboard-zero-section', zeroSection);
+  }
+
   function reorder(dashboard) {
     const current = blocks(dashboard);
     const order = layout.order.length ? layout.order : canonicalOrder;
@@ -65,6 +84,7 @@
       block.classList.toggle('is-dashboard-hidden', isHidden);
       block.classList.toggle('is-dashboard-collapsed', isCollapsed);
       block.hidden = isHidden && !dashboard.classList.contains('is-layout-editing');
+      annotateZeroState(block);
       ensureControls(block, dashboard);
     });
   }
