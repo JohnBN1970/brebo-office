@@ -30,7 +30,7 @@ final class MailSearchController extends ControllerBase {
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
     private readonly Connection $database,
-    private readonly AccountProxyInterface $currentUser,
+    private readonly AccountProxyInterface $mailboxCurrentUser,
     private readonly RequestStack $requestStack,
   ) {}
 
@@ -47,7 +47,7 @@ final class MailSearchController extends ControllerBase {
   public function page(): array {
     $visible = array_values(array_filter(
       $this->mailboxes->all(),
-      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->currentUser, (int) $mailbox['id'], 'view'),
+      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->mailboxCurrentUser, (int) $mailbox['id'], 'view'),
     ));
 
     if ($visible === []) {
