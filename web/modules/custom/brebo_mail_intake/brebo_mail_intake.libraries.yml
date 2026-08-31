@@ -1,0 +1,10 @@
+mail_pager:
+  version: 1.x
+  css:
+    component:
+      css/mail-pager.css: {}
+  js:
+    js/mail-pager.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
