@@ -15,11 +15,14 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** Provides the three-pane BREBO mailbox workspace. */
 final class MailboxController extends ControllerBase {
+
+  private const PAGE_SIZE = 50;
 
   private const STATES = [
     'inbox' => 'Postvak IN',
@@ -37,6 +40,7 @@ final class MailboxController extends ControllerBase {
     private readonly EntityTypeManagerInterface $mailboxEntityTypeManager,
     private readonly AccountProxyInterface $mailboxCurrentUser,
     private readonly MailEditorProvisioner $editorProvisioner,
+    private readonly RequestStack $mailboxRequestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -47,6 +51,7 @@ final class MailboxController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('current_user'),
       $container->get('brebo_mail_intake.editor_provisioner'),
+      $container->get('request_stack'),
     );
   }
 
@@ -79,7 +84,10 @@ final class MailboxController extends ControllerBase {
       $mail_state = 'inbox';
     }
 
-    $messages = $this->messageRows($mailbox_id, $mail_state);
+    $request = $this->mailboxRequestStack->getCurrentRequest();
+    $page = max(0, (int) ($request?->query->get('mail_page') ?? 0));
+    $messagePage = $this->messageRows($mailbox_id, $mail_state, $page);
+    $messages = $messagePage['rows'];
     if ($communication_id <= 0 && $messages !== []) {
       $communication_id = (int) $messages[0]['communication_id'];
     }
@@ -104,7 +112,7 @@ final class MailboxController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-mail-layout']],
       'folders' => $this->folderPane($visibleMailboxes, $mailbox_id, $mail_state),
-      'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id),
+      'messages' => $this->messagePane($messages, $mailbox_id, $mail_state, $communication_id, $page, $messagePage['has_next']),
       'reader' => $this->readerPane($selected, $mailbox_id, $communication_id, $mail_state),
     ];
 
@@ -131,15 +139,30 @@ final class MailboxController extends ControllerBase {
     return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-folders']], 'items' => $items];
   }
 
-  private function messagePane(array $messages, int $mailboxId, string $state, int $selectedId): array {
+  private function messagePane(array $messages, int $mailboxId, string $state, int $selectedId, int $page, bool $hasNext): array {
     if ($messages === []) {
-      return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-list']], 'empty' => ['#markup' => '<p class="brebo-mail-list__empty">Geen berichten in ' . htmlspecialchars(self::STATES[$state], ENT_QUOTES, 'UTF-8') . '.</p>']];
+      $empty = $page > 0
+        ? 'Geen berichten op deze pagina.'
+        : 'Geen berichten in ' . self::STATES[$state] . '.';
+      $build = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-mail-list']],
+        'empty' => ['#markup' => '<p class="brebo-mail-list__empty">' . htmlspecialchars($empty, ENT_QUOTES, 'UTF-8') . '</p>'],
+      ];
+      if ($page > 0) {
+        $build['pager'] = $this->mailPager($mailboxId, $state, $page, FALSE);
+      }
+      return $build;
     }
 
     $items = [];
     foreach ($messages as $row) {
       $id = (int) $row['communication_id'];
-      $url = Url::fromRoute('brebo_mail_intake.mailbox_message', ['mailbox_id' => $mailboxId, 'mail_state' => $state, 'communication_id' => $id]);
+      $url = Url::fromRoute('brebo_mail_intake.mailbox_message', [
+        'mailbox_id' => $mailboxId,
+        'mail_state' => $state,
+        'communication_id' => $id,
+      ], ['query' => ['mail_page' => $page]]);
       $subject = trim((string) ($row['subject'] ?? '')) ?: '(geen onderwerp)';
       $from = trim((string) ($row['mail_from'] ?? '')) ?: 'Onbekende afzender';
       $date = trim((string) ($row['mail_datetime'] ?? ''));
@@ -161,7 +184,48 @@ final class MailboxController extends ControllerBase {
         '#suffix' => ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list">' . $tagMarkup . '</div>' : '') . '</div>',
       ];
     }
-    return ['#type' => 'container', '#attributes' => ['class' => ['brebo-mail-list']], 'items' => $items];
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-mail-list']],
+      'page_info' => ['#markup' => '<div class="brebo-mail-list__page-info">Pagina ' . ($page + 1) . ' · maximaal ' . self::PAGE_SIZE . ' berichten</div>'],
+      'items' => $items,
+      'pager' => $this->mailPager($mailboxId, $state, $page, $hasNext),
+    ];
+  }
+
+  private function mailPager(int $mailboxId, string $state, int $page, bool $hasNext): array {
+    $links = [];
+    if ($page > 0) {
+      $links['previous'] = [
+        '#type' => 'link',
+        '#title' => '← Nieuwere berichten',
+        '#url' => Url::fromRoute('brebo_mail_intake.mailbox', [
+          'mailbox_id' => $mailboxId,
+          'mail_state' => $state,
+        ], ['query' => ['mail_page' => $page - 1]]),
+        '#prefix' => '<span class="brebo-mail-pager__previous">',
+        '#suffix' => '</span>',
+      ];
+    }
+    if ($hasNext) {
+      $links['next'] = [
+        '#type' => 'link',
+        '#title' => 'Oudere berichten →',
+        '#url' => Url::fromRoute('brebo_mail_intake.mailbox', [
+          'mailbox_id' => $mailboxId,
+          'mail_state' => $state,
+        ], ['query' => ['mail_page' => $page + 1]]),
+        '#prefix' => '<span class="brebo-mail-pager__next">',
+        '#suffix' => '</span>',
+      ];
+    }
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-mail-pager']],
+      'links' => $links,
+    ];
   }
 
   private function readerPane(?array $message, int $mailboxId, int $communicationId, string $mailState): array {
@@ -262,8 +326,8 @@ final class MailboxController extends ControllerBase {
     return trim($html);
   }
 
-  /** @return array<int, array<string, mixed>> */
-  private function messageRows(int $mailboxId, string $state): array {
+  /** @return array{rows: array<int, array<string, mixed>>, has_next: bool} */
+  private function messageRows(int $mailboxId, string $state, int $page): array {
     $query = $this->database->select('brebo_mailbox_message', 'bm');
     $query->join('node_field_data', 'n', 'n.nid = bm.communication_id AND n.default_langcode = 1');
     $query->leftJoin('node__field_brebo_mail_from', 'mf', 'mf.entity_id = n.nid AND mf.deleted = 0');
@@ -274,10 +338,15 @@ final class MailboxController extends ControllerBase {
     $query->addField('ms', 'field_brebo_comm_subject_value', 'subject');
     $query->addField('md', 'field_brebo_comm_datetime_value', 'mail_datetime');
     $query->condition('bm.mailbox_id', $mailboxId)->condition('bm.mail_state', $state)->condition('n.type', 'brebo_communication');
-    $query->orderBy('md.field_brebo_comm_datetime_value', 'DESC')->orderBy('bm.changed', 'DESC')->range(0, 100);
+    $query->orderBy('md.field_brebo_comm_datetime_value', 'DESC')->orderBy('bm.changed', 'DESC');
+    $query->range($page * self::PAGE_SIZE, self::PAGE_SIZE + 1);
     $rows = array_values(array_map('get_object_vars', $query->execute()->fetchAll()));
+    $hasNext = count($rows) > self::PAGE_SIZE;
+    if ($hasNext) {
+      array_pop($rows);
+    }
     if ($rows === []) {
-      return [];
+      return ['rows' => [], 'has_next' => FALSE];
     }
 
     $ids = array_map(static fn(array $row): int => (int) $row['communication_id'], $rows);
@@ -302,7 +371,7 @@ final class MailboxController extends ControllerBase {
     }
     unset($row);
 
-    return $rows;
+    return ['rows' => $rows, 'has_next' => $hasNext];
   }
 
   /** @return array<string, mixed>|null */
