@@ -14,8 +14,19 @@
     'Controle en risico': 'control-risk',
     'Kwaliteit en oplevering': 'quality',
   };
+  const canonicalOrder = [
+    'core-kpis',
+    'commercial',
+    'regie',
+    'planning',
+    'readiness',
+    'finance',
+    'control-risk',
+    'quality',
+    'signals',
+    'business',
+  ];
 
-  const defaultOrders = new WeakMap();
   let layout = {version: 1, density: 'normal', order: [], hidden: [], collapsed: []};
   let csrfToken = null;
 
@@ -162,8 +173,7 @@
     reset.className = 'button brebo-dashboard-layout-reset';
     reset.textContent = Drupal.t('BREBO standaard');
     reset.addEventListener('click', () => {
-      const original = defaultOrders.get(dashboard) || [];
-      layout = {version: 1, density: 'normal', order: original, hidden: [], collapsed: []};
+      layout = {version: 1, density: 'normal', order: canonicalOrder.slice(), hidden: [], collapsed: []};
       dashboard.classList.remove('is-layout-editing');
       blocks(dashboard).forEach((block) => { block.hidden = false; });
       apply(dashboard);
@@ -177,7 +187,6 @@
   Drupal.behaviors.breboDashboardLayout = {
     attach(context) {
       once('brebo-dashboard-layout', '.brebo-dashboard', context).forEach(async (dashboard) => {
-        defaultOrders.set(dashboard, blocks(dashboard).map(idFor));
         try {
           const response = await fetch(Drupal.url(endpoint), {credentials: 'same-origin', headers: {Accept: 'application/json'}});
           if (response.ok) layout = await response.json();
