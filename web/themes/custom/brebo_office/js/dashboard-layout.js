@@ -15,6 +15,7 @@
     'Kwaliteit en oplevering': 'quality',
   };
 
+  const defaultOrders = new WeakMap();
   let layout = {version: 1, density: 'normal', order: [], hidden: [], collapsed: []};
   let csrfToken = null;
 
@@ -30,13 +31,22 @@
     return Array.from(dashboard.children).filter((el) => el.matches('section') && idFor(el));
   }
 
+  function reorder(dashboard) {
+    if (!layout.order.length) return;
+    const current = blocks(dashboard);
+    const index = new Map(layout.order.map((id, position) => [id, position]));
+    const desired = current.slice().sort((a, b) => {
+      const aIndex = index.has(idFor(a)) ? index.get(idFor(a)) : Number.MAX_SAFE_INTEGER;
+      const bIndex = index.has(idFor(b)) ? index.get(idFor(b)) : Number.MAX_SAFE_INTEGER;
+      return aIndex === bIndex ? current.indexOf(a) - current.indexOf(b) : aIndex - bIndex;
+    });
+    if (desired.every((block, position) => block === current[position])) return;
+    desired.forEach((block) => dashboard.appendChild(block));
+  }
+
   function apply(dashboard) {
     dashboard.classList.toggle('brebo-dashboard--compact', layout.density === 'compact');
-    const byId = new Map(blocks(dashboard).map((block) => [idFor(block), block]));
-    layout.order.forEach((id) => {
-      const block = byId.get(id);
-      if (block) dashboard.appendChild(block);
-    });
+    reorder(dashboard);
     blocks(dashboard).forEach((block) => {
       const id = idFor(block);
       const isHidden = layout.hidden.includes(id);
@@ -152,10 +162,13 @@
     reset.className = 'button brebo-dashboard-layout-reset';
     reset.textContent = Drupal.t('BREBO standaard');
     reset.addEventListener('click', () => {
-      layout = {version: 1, density: 'normal', order: [], hidden: [], collapsed: []};
+      const original = defaultOrders.get(dashboard) || [];
+      layout = {version: 1, density: 'normal', order: original, hidden: [], collapsed: []};
       dashboard.classList.remove('is-layout-editing');
       blocks(dashboard).forEach((block) => { block.hidden = false; });
       apply(dashboard);
+      layout.order = [];
+      edit.textContent = Drupal.t('Indeling aanpassen');
       persist(dashboard, true);
     });
     actions.prepend(reset, density, edit);
@@ -164,6 +177,7 @@
   Drupal.behaviors.breboDashboardLayout = {
     attach(context) {
       once('brebo-dashboard-layout', '.brebo-dashboard', context).forEach(async (dashboard) => {
+        defaultOrders.set(dashboard, blocks(dashboard).map(idFor));
         try {
           const response = await fetch(Drupal.url(endpoint), {credentials: 'same-origin', headers: {Accept: 'application/json'}});
           if (response.ok) layout = await response.json();
