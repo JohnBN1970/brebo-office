@@ -1,5 +1,5 @@
 global:
-  version: 1.7.3
+  version: 1.7.4
   css:
     base:
       css/base.css: {}
@@ -37,6 +37,7 @@ global:
     js/residence-cockpit.js: {}
     js/funnel-cockpit.js: {}
     js/dashboard-commercial.js: {}
+    js/dashboard-quality.js: {}
     js/dashboard-layout.js: {}
     js/form-presentation.js: {}
   dependencies:
