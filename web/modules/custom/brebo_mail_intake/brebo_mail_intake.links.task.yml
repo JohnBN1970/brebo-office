@@ -1,0 +1,11 @@
+brebo_mail_intake.mailbox_root_tab:
+  route_name: brebo_mail_intake.mailbox_root
+  title: 'Mailbox'
+  base_route: brebo_mail_intake.mailbox_root
+  weight: 0
+
+brebo_mail_intake.mail_search_tab:
+  route_name: brebo_mail_intake.mail_search
+  title: 'Zoeken'
+  base_route: brebo_mail_intake.mailbox_root
+  weight: 10
