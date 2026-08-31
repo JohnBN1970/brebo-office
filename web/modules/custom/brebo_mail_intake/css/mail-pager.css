@@ -1,0 +1,66 @@
+.brebo-mail-page-navigation {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: .75rem;
+  padding: .55rem .65rem;
+  background: var(--brebo-surface, #fff);
+  border-bottom: 1px solid rgba(127, 127, 127, .25);
+}
+
+.brebo-mail-page-navigation--top {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.brebo-mail-page-navigation--bottom {
+  border-top: 1px solid rgba(127, 127, 127, .25);
+  border-bottom: 0;
+}
+
+.brebo-mail-pager {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.brebo-mail-pager a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: .35rem .65rem;
+  border: 1px solid rgba(127, 127, 127, .35);
+  border-radius: .45rem;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.brebo-mail-list__page-info {
+  margin: 0;
+  white-space: nowrap;
+  font-size: .82rem;
+  opacity: .8;
+}
+
+.brebo-mail-page-navigation--bottom .brebo-mail-list__page-info {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.brebo-mail-page-navigation--bottom .brebo-mail-pager {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+@media (max-width: 900px) {
+  .brebo-mail-page-navigation {
+    grid-template-columns: 1fr;
+  }
+
+  .brebo-mail-page-navigation--bottom .brebo-mail-list__page-info,
+  .brebo-mail-page-navigation--bottom .brebo-mail-pager {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}
