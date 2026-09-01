@@ -1,0 +1,156 @@
+/* Final BREBO Office night/system-dark compatibility layer.
+ * Loaded after the regular Office presentation CSS so legacy hard-coded light
+ * surfaces do not leak through authenticated dark mode screens.
+ */
+
+html[data-brebo-theme='night'],
+html[data-brebo-theme='system'] {
+  --brebo-ink: var(--brebo-text-primary);
+  --brebo-muted: var(--brebo-text-secondary);
+  --brebo-canvas: var(--brebo-bg-page);
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated,
+html[data-brebo-theme='night'] .brebo-shell--authenticated .brebo-content,
+html[data-brebo-theme='night'] .brebo-shell--authenticated .brebo-app-layout__content,
+html[data-brebo-theme='night'] .brebo-shell--authenticated .brebo-main {
+  background-color: var(--brebo-bg-page);
+  color: var(--brebo-text-primary);
+}
+
+/* Legacy dashboard/table rules still contain #fff/#faf9fb. Normalize them here. */
+html[data-brebo-theme='night'] .brebo-shell--authenticated table,
+html[data-brebo-theme='night'] .brebo-shell--authenticated table tbody,
+html[data-brebo-theme='night'] .brebo-shell--authenticated table tbody tr,
+html[data-brebo-theme='night'] .brebo-shell--authenticated table tbody tr:nth-child(even),
+html[data-brebo-theme='night'] .brebo-shell--authenticated table tbody tr:nth-child(odd) {
+  background: var(--brebo-bg-surface) !important;
+  color: var(--brebo-text-primary);
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated table th {
+  background: var(--brebo-bg-muted) !important;
+  color: var(--brebo-text-secondary) !important;
+  border-color: var(--brebo-border) !important;
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated table td {
+  background: transparent !important;
+  color: var(--brebo-text-primary);
+  border-color: var(--brebo-border) !important;
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated table tbody tr:hover > td {
+  background: color-mix(in srgb, var(--brebo-accent) 5%, var(--brebo-bg-surface)) !important;
+}
+
+/* Legacy core/dashboard surfaces. */
+html[data-brebo-theme='night'] .brebo-shell--authenticated :is(
+  .brebo-kpi,
+  .brebo-signal-card,
+  .brebo-flow li div,
+  .brebo-mail-office-link-status,
+  .brebo-mail-list-control,
+  .brebo-funnel-details,
+  .brebo-funnel-summary
+) {
+  background: var(--brebo-bg-surface) !important;
+  color: var(--brebo-text-primary) !important;
+  border-color: var(--brebo-border) !important;
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated :is(
+  .brebo-kpi strong,
+  .brebo-signal-card strong,
+  .brebo-mail-office-link-status strong
+) {
+  color: var(--brebo-text-primary) !important;
+}
+
+/* Finance command center still owns several hard-coded white surfaces. */
+html[data-brebo-theme='night'] .brebo-shell--authenticated :is(
+  .bfcc-kpi,
+  .bfcc-section,
+  .bfcc-decision,
+  .bfcc-error,
+  .bfcc-loading
+) {
+  background: var(--brebo-bg-surface) !important;
+  color: var(--brebo-text-primary) !important;
+  border-color: var(--brebo-border) !important;
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated :is(
+  .bfcc-header p,
+  .bfcc-kpi small,
+  .bfcc-project small,
+  .bfcc-decision small
+) {
+  color: var(--brebo-text-secondary) !important;
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated .bfcc-project {
+  border-color: var(--brebo-border) !important;
+}
+
+/* The collapsed state is on the layout, not on .brebo-office-nav itself. */
+.brebo-app-layout.is-nav-collapsed .brebo-theme-switcher {
+  grid-template-columns: 1fr;
+  width: 44px;
+  margin-inline: auto;
+}
+
+.brebo-app-layout.is-nav-collapsed .brebo-theme-switcher__button {
+  width: 36px;
+  min-width: 36px;
+  padding-inline: 0;
+  overflow: hidden;
+  text-overflow: clip;
+  white-space: nowrap;
+  font-size: 0;
+}
+
+.brebo-app-layout.is-nav-collapsed .brebo-theme-switcher__button::first-letter {
+  font-size: .8rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-brebo-theme='system'] .brebo-shell--authenticated,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated .brebo-content,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated .brebo-app-layout__content,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated .brebo-main {
+    background-color: var(--brebo-bg-page);
+    color: var(--brebo-text-primary);
+  }
+
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table tbody,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table tbody tr,
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table tbody tr:nth-child(even),
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table tbody tr:nth-child(odd),
+  html[data-brebo-theme='system'] .brebo-shell--authenticated :is(.brebo-kpi,.brebo-signal-card,.brebo-flow li div,.brebo-mail-office-link-status,.brebo-mail-list-control,.brebo-funnel-details,.brebo-funnel-summary,.bfcc-kpi,.bfcc-section,.bfcc-decision,.bfcc-error,.bfcc-loading) {
+    background: var(--brebo-bg-surface) !important;
+    color: var(--brebo-text-primary) !important;
+    border-color: var(--brebo-border) !important;
+  }
+
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table th {
+    background: var(--brebo-bg-muted) !important;
+    color: var(--brebo-text-secondary) !important;
+    border-color: var(--brebo-border) !important;
+  }
+
+  html[data-brebo-theme='system'] .brebo-shell--authenticated table td {
+    background: transparent !important;
+    color: var(--brebo-text-primary);
+    border-color: var(--brebo-border) !important;
+  }
+
+  html[data-brebo-theme='system'] .brebo-shell--authenticated :is(.brebo-kpi strong,.brebo-signal-card strong,.brebo-mail-office-link-status strong) {
+    color: var(--brebo-text-primary) !important;
+  }
+
+  html[data-brebo-theme='system'] .brebo-shell--authenticated :is(.bfcc-header p,.bfcc-kpi small,.bfcc-project small,.bfcc-decision small) {
+    color: var(--brebo-text-secondary) !important;
+  }
+}
