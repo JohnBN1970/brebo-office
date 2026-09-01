@@ -31,6 +31,19 @@
     background: #f7f5f7;
   }
 
+  .brebo-mail-compose-shortcut {
+    margin: 0 0 10px;
+  }
+
+  .brebo-mail-compose-shortcut .brebo-mail-action {
+    display: flex;
+    width: 100%;
+    min-height: 38px;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: .8rem;
+  }
+
   .brebo-mail-mailbox-name {
     margin: 0 0 3px;
   }
