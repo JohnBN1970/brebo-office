@@ -37,6 +37,40 @@
   gap: .65rem;
 }
 
+/* Final cockpit polish: compact the existing grid instead of stacking margins. */
+.brebo-shell--authenticated .brebo-page-shell.brebo-dashboard {
+  gap: 18px;
+}
+
+/* Extra selector weight keeps the intended emphasis after office-wide.css. */
+.brebo-shell--authenticated .brebo-dashboard [data-brebo-dashboard-block="regie"],
+.brebo-shell--authenticated .brebo-dashboard [data-brebo-dashboard-block="control-risk"],
+.brebo-shell--authenticated .brebo-dashboard [data-brebo-dashboard-block="quality"] {
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--brebo-accent, #f97316) 7%, transparent);
+}
+
+.brebo-shell--authenticated .brebo-dashboard [data-brebo-dashboard-block="signals"] .brebo-section-heading,
+.brebo-shell--authenticated .brebo-dashboard [data-brebo-dashboard-block="business"] .brebo-section-heading {
+  margin-bottom: .55rem;
+}
+
+.brebo-shell--authenticated .brebo-dashboard .brebo-dashboard-signal-grid {
+  gap: .72rem;
+}
+
+.brebo-shell--authenticated .brebo-dashboard .brebo-dashboard-signal-group {
+  min-height: 0;
+}
+
+.brebo-shell--authenticated .brebo-dashboard .brebo-dashboard-signal-pills {
+  gap: .42rem;
+}
+
+.brebo-shell--authenticated .brebo-dashboard .brebo-dashboard-signal-pill {
+  min-height: 2.35rem;
+  padding-block: .42rem;
+}
+
 .brebo-dashboard--compact .brebo-dashboard-panel,
 .brebo-dashboard--compact .brebo-dashboard-kpis,
 .brebo-dashboard--compact .brebo-content-grid[aria-label="Bedrijfsinformatie"] { margin-block: .55rem; }
@@ -46,4 +80,12 @@
 @media (max-width: 900px) {
   .brebo-dashboard-layout-controls { flex-wrap: wrap; }
   .brebo-dashboard-layout-spacer { display: none; }
+
+  .brebo-shell--authenticated .brebo-page-shell.brebo-dashboard {
+    gap: 14px;
+  }
+
+  .brebo-shell--authenticated .brebo-dashboard .brebo-dashboard-signal-grid {
+    gap: .58rem;
+  }
 }
