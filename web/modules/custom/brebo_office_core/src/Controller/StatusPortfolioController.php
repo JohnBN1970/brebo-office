@@ -52,7 +52,7 @@ final class StatusPortfolioController extends ControllerBase {
     $view = $request->query->get('view') === 'kanban' ? 'kanban' : 'list';
     $storage = $this->statusEntityTypeManager->getStorage('node');
     $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', $bundle)->sort('changed', 'DESC');
-    if ($view === 'list') $query->pager(25); else $query->range(0, 500);
+    if ($view === 'list') $query->pager(25);
 
     $rows = [];
     $columns = [];
