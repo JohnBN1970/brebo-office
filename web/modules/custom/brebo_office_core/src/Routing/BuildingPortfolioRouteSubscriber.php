@@ -20,19 +20,21 @@ final class BuildingPortfolioRouteSubscriber extends RouteSubscriberBase {
       $route->setDefault('bundle', NULL);
     }
 
-    $collection->add('brebo_office_core.buildings_kanban_move', new Route(
+    $moveRoute = new Route(
       '/gebouwen/kanban/verplaatsen',
       ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\BuildingPortfolioController::move'],
-      ['_permission' => 'access content', '_csrf_token' => 'TRUE'],
-      ['methods' => ['POST']]
-    ));
+      ['_permission' => 'access content', '_csrf_token' => 'TRUE']
+    );
+    $moveRoute->setMethods(['POST']);
+    $collection->add('brebo_office_core.buildings_kanban_move', $moveRoute);
 
-    $collection->add('brebo_office_core.buildings_kanban_config', new Route(
+    $configRoute = new Route(
       '/gebouwen/kanban/indeling',
       ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\BuildingPortfolioController::saveConfig'],
-      ['_permission' => 'access content', '_csrf_token' => 'TRUE'],
-      ['methods' => ['POST']]
-    ));
+      ['_permission' => 'access content', '_csrf_token' => 'TRUE']
+    );
+    $configRoute->setMethods(['POST']);
+    $collection->add('brebo_office_core.buildings_kanban_config', $configRoute);
   }
 
 }
