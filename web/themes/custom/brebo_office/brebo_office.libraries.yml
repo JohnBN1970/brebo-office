@@ -1,5 +1,5 @@
 global:
-  version: 1.7.6
+  version: 1.7.7
   css:
     base:
       css/base.css: {}
@@ -24,6 +24,7 @@ global:
       css/office-wide-mobile-fixes.css: {}
       css/night-compat.css: {}
       css/pager-shell-fixes.css: {}
+      css/mail-compact-three-pane.css: {}
   js:
     js/theme-preference.js: {}
     js/office-sidebar.js: {}
@@ -34,6 +35,7 @@ global:
     js/mail-list-controls.js: {}
     js/mail-resize.js: {}
     js/mail-context-actions.js: {}
+    js/mail-compact-navigation.js: {}
     js/work-package-cockpit.js: {}
     js/building-cockpit.js: {}
     js/residence-cockpit.js: {}
