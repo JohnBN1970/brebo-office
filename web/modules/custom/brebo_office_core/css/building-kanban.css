@@ -1,0 +1,171 @@
+.brebo-building-portfolio__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.brebo-view-switcher {
+  display: inline-flex;
+  gap: 6px;
+}
+
+.brebo-view-switcher .is-active,
+.brebo-building-kanban__configure.is-active {
+  border-color: var(--brebo-accent);
+  box-shadow: inset 0 0 0 1px var(--brebo-accent);
+}
+
+.brebo-building-kanban__config-help {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--brebo-border);
+  border-radius: 10px;
+  background: var(--brebo-bg-muted);
+  color: var(--brebo-text-secondary);
+}
+
+.brebo-building-kanban__config-help p { margin: 0; }
+
+.brebo-building-kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(280px, 330px);
+  gap: 14px;
+  overflow-x: auto;
+  align-items: start;
+  padding: 2px 2px 14px;
+  scroll-snap-type: x proximity;
+}
+
+.brebo-building-kanban__column {
+  min-height: 420px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 14px;
+  background: var(--brebo-bg-muted);
+  scroll-snap-align: start;
+}
+
+.brebo-building-kanban__column-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: center;
+  min-height: 48px;
+  padding: 10px 11px;
+  border-bottom: 1px solid var(--brebo-border);
+}
+
+.brebo-building-kanban__column-header h3 {
+  margin: 0;
+  overflow: hidden;
+  font-size: .9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brebo-building-kanban__column-handle {
+  color: var(--brebo-text-secondary);
+  cursor: default;
+  opacity: .45;
+  user-select: none;
+}
+
+.brebo-building-kanban.is-configuring .brebo-building-kanban__column-handle {
+  cursor: grab;
+  opacity: 1;
+}
+
+.brebo-building-kanban__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 25px;
+  height: 25px;
+  padding: 0 7px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 999px;
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-secondary);
+  font-size: .75rem;
+  font-weight: 800;
+}
+
+.brebo-building-kanban__visibility {
+  display: none;
+  min-height: 28px !important;
+  padding: 4px 7px !important;
+  font-size: .72rem !important;
+}
+
+.brebo-building-kanban.is-configuring .brebo-building-kanban__visibility { display: inline-flex; }
+
+.brebo-building-kanban__cards {
+  min-height: 360px;
+  padding: 10px;
+}
+
+.brebo-building-kanban__cards.is-drop-target {
+  background: color-mix(in srgb, var(--brebo-accent) 7%, transparent);
+}
+
+.brebo-building-kanban__card {
+  margin-bottom: 9px;
+  padding: 12px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: var(--brebo-bg-surface);
+  box-shadow: var(--brebo-shadow-card);
+  cursor: grab;
+}
+
+.brebo-building-kanban__card.is-dragging,
+.brebo-building-kanban__column.is-column-dragging {
+  opacity: .48;
+}
+
+.brebo-building-kanban__card-title {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--brebo-text-primary);
+  font-weight: 800;
+  line-height: 1.3;
+  text-decoration: none;
+}
+
+.brebo-building-kanban__meta {
+  margin-top: 4px;
+  color: var(--brebo-text-secondary);
+  font-size: .76rem;
+  line-height: 1.35;
+}
+
+.brebo-building-kanban__card-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--brebo-border);
+  font-size: .76rem;
+  font-weight: 700;
+}
+
+.brebo-building-kanban__column.is-kanban-column-hidden {
+  display: none;
+}
+
+.brebo-building-kanban.is-configuring .brebo-building-kanban__column.is-kanban-column-hidden {
+  display: block;
+  opacity: .42;
+}
+
+@media (max-width: 700px) {
+  .brebo-building-kanban {
+    grid-auto-columns: minmax(250px, 86vw);
+  }
+
+  .brebo-building-portfolio__toolbar {
+    align-items: stretch;
+  }
+}

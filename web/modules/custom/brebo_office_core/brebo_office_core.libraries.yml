@@ -14,3 +14,14 @@ funnel:
   css:
     component:
       css/funnel.css: {}
+
+building-kanban:
+  version: 1.x
+  js:
+    js/building-kanban.js: {}
+  css:
+    component:
+      css/building-kanban.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
