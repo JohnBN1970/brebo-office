@@ -1,5 +1,5 @@
 global:
-  version: 1.7.5
+  version: 1.7.6
   css:
     base:
       css/base.css: {}
@@ -23,6 +23,7 @@ global:
       css/office-wide.css: {}
       css/office-wide-mobile-fixes.css: {}
       css/night-compat.css: {}
+      css/pager-shell-fixes.css: {}
   js:
     js/theme-preference.js: {}
     js/office-sidebar.js: {}
