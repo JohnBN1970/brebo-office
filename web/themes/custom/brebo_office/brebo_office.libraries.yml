@@ -1,5 +1,5 @@
 global:
-  version: 1.7.4
+  version: 1.7.5
   css:
     base:
       css/base.css: {}
@@ -22,6 +22,7 @@ global:
       css/mail-layout-v2.css: {}
       css/office-wide.css: {}
       css/office-wide-mobile-fixes.css: {}
+      css/night-compat.css: {}
   js:
     js/theme-preference.js: {}
     js/office-sidebar.js: {}
