@@ -25,3 +25,9 @@ building-kanban:
   dependencies:
     - core/drupal
     - core/once
+
+status-list-kanban:
+  version: 1.x
+  css:
+    component:
+      css/status-list-kanban.css: {}

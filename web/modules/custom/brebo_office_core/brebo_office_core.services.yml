@@ -32,6 +32,11 @@ services:
     tags:
       - { name: event_subscriber }
 
+  brebo_office_core.status_portfolio_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\StatusPortfolioRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
   logger.channel.brebo_office_core:
     parent: logger.channel_base
     arguments:
