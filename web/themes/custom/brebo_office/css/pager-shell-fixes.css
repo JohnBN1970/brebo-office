@@ -1,0 +1,107 @@
+/* BREBO Office generic pager + shell stacking cleanup.
+ * Loaded last so Drupal core pager styles and legacy module CSS cannot leak
+ * light-only controls into authenticated day/night/system screens.
+ */
+
+.brebo-shell--authenticated .pager {
+  margin: 18px 0 0;
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated .pager__items {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.brebo-shell--authenticated .pager__item {
+  margin: 0;
+  padding: 0;
+}
+
+.brebo-shell--authenticated .pager__item a,
+.brebo-shell--authenticated .pager__item > span {
+  min-width: 38px;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 7px 10px;
+  border: 1px solid var(--brebo-border);
+  border-radius: var(--brebo-radius-sm, 8px);
+  background: var(--brebo-bg-surface);
+  color: var(--brebo-text-primary);
+  font-size: .82rem;
+  font-weight: 750;
+  line-height: 1;
+  text-decoration: none;
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .pager__item a:hover,
+.brebo-shell--authenticated .pager__item a:focus-visible {
+  border-color: color-mix(in srgb, var(--brebo-accent) 48%, var(--brebo-border));
+  background: var(--brebo-bg-elevated);
+  color: var(--brebo-text-primary);
+}
+
+.brebo-shell--authenticated .pager__item.is-active a,
+.brebo-shell--authenticated .pager__item--active a,
+.brebo-shell--authenticated .pager__item[aria-current='page'] a,
+.brebo-shell--authenticated .pager__item a[aria-current='page'] {
+  border-color: var(--brebo-accent);
+  background: var(--brebo-accent);
+  color: #1d160c;
+}
+
+.brebo-shell--authenticated .pager__item--first a,
+.brebo-shell--authenticated .pager__item--previous a,
+.brebo-shell--authenticated .pager__item--next a,
+.brebo-shell--authenticated .pager__item--last a {
+  min-width: auto;
+  padding-inline: 12px;
+}
+
+.brebo-shell--authenticated .pager__item.is-disabled,
+.brebo-shell--authenticated .pager__item[aria-disabled='true'] {
+  opacity: .45;
+  pointer-events: none;
+}
+
+/* Keep the authenticated shell in one predictable stacking context. The
+ * sticky header stays above page content; page content and tables never create
+ * a competing root stacking layer of their own.
+ */
+.brebo-shell--authenticated {
+  isolation: isolate;
+}
+
+.brebo-shell--authenticated .brebo-header {
+  z-index: 200;
+}
+
+.brebo-shell--authenticated .brebo-app-layout,
+.brebo-shell--authenticated .brebo-app-layout__content,
+.brebo-shell--authenticated .brebo-main,
+.brebo-shell--authenticated .brebo-content {
+  position: relative;
+  z-index: 0;
+}
+
+@media (max-width: 680px) {
+  .brebo-shell--authenticated .pager__items {
+    gap: 4px;
+  }
+
+  .brebo-shell--authenticated .pager__item a,
+  .brebo-shell--authenticated .pager__item > span {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 6px 8px;
+  }
+}
