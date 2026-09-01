@@ -17,11 +17,34 @@
   }
 
   function enhance() {
-    const folders = document.querySelector('.brebo-mail-workspace .brebo-mail-folders');
-    if (!folders || folders.dataset.compactNavigation === '1') return;
+    const workspace = document.querySelector('.brebo-mail-workspace');
+    const folders = workspace?.querySelector('.brebo-mail-folders');
+    const layout = workspace?.querySelector('.brebo-mail-layout');
+    if (!workspace || !folders || !layout || folders.dataset.compactNavigation === '1') return;
     folders.dataset.compactNavigation = '1';
 
-    const children = Array.from(folders.children);
+    const syncLayoutMetrics = () => {
+      const computed = getComputedStyle(layout);
+      const folderWidth = computed.getPropertyValue('--brebo-mail-folders-width').trim();
+      const messageWidth = computed.getPropertyValue('--brebo-mail-messages-width').trim();
+      if (folderWidth) workspace.style.setProperty('--brebo-mail-folders-width', folderWidth);
+      if (messageWidth) workspace.style.setProperty('--brebo-mail-messages-width', messageWidth);
+    };
+    syncLayoutMetrics();
+    if ('ResizeObserver' in window) new ResizeObserver(syncLayoutMetrics).observe(layout);
+    new MutationObserver(syncLayoutMetrics).observe(layout, {attributes: true, attributeFilter: ['style']});
+
+    const compose = workspace.querySelector('.brebo-mail-toolbar .brebo-mail-action--primary');
+    if (compose) {
+      const shortcut = document.createElement('div');
+      shortcut.className = 'brebo-mail-compose-shortcut';
+      shortcut.append(compose);
+      folders.prepend(shortcut);
+      const emptyGroup = workspace.querySelector('.brebo-mail-toolbar__group:empty');
+      if (emptyGroup) emptyGroup.remove();
+    }
+
+    const children = Array.from(folders.children).filter((child) => !child.classList.contains('brebo-mail-compose-shortcut'));
     const groups = [];
     let group = null;
 
