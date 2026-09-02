@@ -108,8 +108,8 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
       }
     }
 
-    $maxCount = max(1, ...array_map(static fn(array $item): int => $item['count'], $stageData));
-    $maxValue = max(1.0, ...array_map(static fn(array $item): float => $item['value'], $stageData));
+    $maxCount = max([1, ...array_values(array_map(static fn(array $item): int => $item['count'], $stageData))]);
+    $maxValue = max([1.0, ...array_values(array_map(static fn(array $item): float => $item['value'], $stageData))]);
     $funnelRows = [];
     $pipelineRows = [];
     foreach ($stageData as $stage => $data) {
