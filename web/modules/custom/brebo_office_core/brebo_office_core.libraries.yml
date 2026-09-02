@@ -15,6 +15,12 @@ funnel:
     component:
       css/funnel.css: {}
 
+crm-dashboard:
+  version: 1.x
+  css:
+    component:
+      css/crm-dashboard.css: {}
+
 building-kanban:
   version: 1.x
   js:
