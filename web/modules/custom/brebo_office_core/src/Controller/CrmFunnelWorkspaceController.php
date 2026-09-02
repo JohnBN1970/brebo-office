@@ -26,6 +26,16 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
     'Verloren',
   ];
 
+  private const FUNNEL_STAGES = [
+    'Marketing lead',
+    'Lead',
+    'Kans',
+    'Afspraak',
+    'Calculatie/offerte',
+    'Onderhandeling',
+    'Gewonnen',
+  ];
+
   public function __construct(
     private readonly EntityTypeManagerInterface $crmEntityTypeManager,
     private readonly ClassResolverInterface $classResolver,
@@ -108,19 +118,21 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
       }
     }
 
-    $maxCount = max([1, ...array_values(array_map(static fn(array $item): int => $item['count'], $stageData))]);
-    $maxValue = max([1.0, ...array_values(array_map(static fn(array $item): float => $item['value'], $stageData))]);
     $funnelRows = [];
     $pipelineRows = [];
     $previousCount = NULL;
-    foreach ($stageData as $stage => $data) {
+    $stageTotal = count(self::FUNNEL_STAGES);
+    foreach (self::FUNNEL_STAGES as $index => $stage) {
+      $data = $stageData[$stage];
       $conversion = $previousCount !== NULL && $previousCount > 0
         ? number_format(($data['count'] / $previousCount) * 100, 1, ',', '.') . '% door'
         : ($data['count'] > 0 ? '100% start' : '0%');
-      $funnelRows[] = $this->funnelRow($request, $stage, $data['count'], $maxCount, $conversion);
-      $pipelineRows[] = $this->pipelineRow($request, $stage, $data['value'], $data['weighted'], $maxValue);
+      $funnelRows[] = $this->funnelRow($request, $stage, $data['count'], $conversion, $index, $stageTotal);
+      $pipelineRows[] = $this->pipelineRow($request, $stage, $data['value'], $data['weighted'], $index, $stageTotal);
       $previousCount = $data['count'];
     }
+
+    $lostValue = (float) ($stageData['Verloren']['value'] ?? 0.0);
 
     return [
       '#type' => 'container',
@@ -140,14 +152,16 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
         '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard__charts']],
         'funnel' => [
           '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--funnel']],
-          'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Conversietrechter</h2><p>Aantallen en doorstroom per commerciële fase. Klik op een fase om de lijst te openen.</p></div>'],
+          'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Conversietrechter</h2><p>Vaste commerciële route van marketing lead naar gewonnen. Klik op een fase om de lijst te openen.</p></div>'],
           'rows' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-funnel']]] + $funnelRows,
+          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'list'),
         ],
         'pipeline' => [
           '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--pipeline']],
-          'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Omzetpijplijn</h2><p>Verwachte en gewogen omzet als trechter per fase. Klik op een fase om door te sturen.</p></div>'],
+          'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Omzetpijplijn</h2><p>Verwachte en gewogen omzet binnen dezelfde vaste commerciële trechter.</p></div>'],
           'legend' => ['#markup' => '<div class="brebo-crm-chart__legend"><span><i class="brebo-crm-chart__legend-total"></i> Verwachte omzet</span><span><i class="brebo-crm-chart__legend-weighted"></i> Gewogen omzet</span></div>'],
           'rows' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-pipeline']]] + $pipelineRows,
+          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'kanban'),
         ],
       ],
       '#cache' => [
@@ -194,19 +208,26 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
     return ['#markup' => '<section class="brebo-crm-kpi"><span class="brebo-crm-kpi__label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span><strong class="brebo-crm-kpi__value">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</strong><span class="brebo-crm-kpi__detail">' . htmlspecialchars($detail, ENT_QUOTES, 'UTF-8') . '</span></section>'];
   }
 
-  private function funnelRow(Request $request, string $stage, int $count, int $maxCount, string $conversion): array {
-    $width = $count > 0 ? max(18, (int) round(($count / $maxCount) * 100)) : 18;
+  private function funnelRow(Request $request, string $stage, int $count, string $conversion, int $index, int $total): array {
+    $geometry = max(34, 100 - (int) round(($index / max(1, $total - 1)) * 60));
+    $tone = $index + 1;
     $url = $this->stageUrl($request, $stage, 'list');
-    $markup = '<a class="brebo-crm-funnel__row" data-conversion="' . htmlspecialchars($conversion, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-funnel__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-funnel__bar-wrap"><span class="brebo-crm-funnel__bar" style="width:' . $width . '%"><strong>' . $count . '</strong></span></span></a>';
+    $markup = '<a class="brebo-crm-funnel__row brebo-crm-funnel__row--tone-' . $tone . '" data-conversion="' . htmlspecialchars($conversion, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-funnel__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-funnel__bar-wrap"><span class="brebo-crm-funnel__bar" style="width:' . $geometry . '%"><strong>' . $count . '</strong></span></span></a>';
     return ['#markup' => $markup];
   }
 
-  private function pipelineRow(Request $request, string $stage, float $value, float $weighted, float $maxValue): array {
-    $totalWidth = $value > 0 ? max(18, (int) round(($value / $maxValue) * 100)) : 18;
+  private function pipelineRow(Request $request, string $stage, float $value, float $weighted, int $index, int $total): array {
+    $geometry = max(34, 100 - (int) round(($index / max(1, $total - 1)) * 60));
     $weightedWidth = $value > 0 ? max(0, min(100, (int) round(($weighted / $value) * 100))) : 0;
+    $tone = $index + 1;
     $url = $this->stageUrl($request, $stage, 'kanban');
-    $markup = '<a class="brebo-crm-pipeline__row" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-pipeline__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-pipeline__bar-wrap"><span class="brebo-crm-pipeline__bar" style="width:' . $totalWidth . '%"><span class="brebo-crm-pipeline__weighted" style="width:' . $weightedWidth . '%"></span></span></span><span class="brebo-crm-pipeline__value"><strong>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</strong><small>' . htmlspecialchars($this->money($weighted), ENT_QUOTES, 'UTF-8') . ' gewogen</small></span></a>';
+    $markup = '<a class="brebo-crm-pipeline__row brebo-crm-pipeline__row--tone-' . $tone . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-pipeline__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-pipeline__bar-wrap"><span class="brebo-crm-pipeline__bar" style="width:' . $geometry . '%"><span class="brebo-crm-pipeline__weighted" style="width:' . $weightedWidth . '%"></span></span></span><span class="brebo-crm-pipeline__value"><strong>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</strong><small>' . htmlspecialchars($this->money($weighted), ENT_QUOTES, 'UTF-8') . ' gewogen</small></span></a>';
     return ['#markup' => $markup];
+  }
+
+  private function outflow(Request $request, int $count, float $value, string $view): array {
+    $url = $this->stageUrl($request, 'Verloren', $view);
+    return ['#markup' => '<a class="brebo-crm-outflow" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span><strong>Verloren</strong><small>Uitstroom buiten de hoofdtrechter</small></span><span><strong>' . $count . '</strong><small>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</small></span></a>'];
   }
 
   private function stageUrl(Request $request, string $stage, string $view): string {
