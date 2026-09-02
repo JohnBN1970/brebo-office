@@ -146,8 +146,9 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
         ],
       ],
       '#cache' => [
-        'contexts' => ['user.permissions', 'url.query_args'],
+        'contexts' => ['user', 'user.permissions', 'url.query_args'],
         'tags' => ['node_list:brebo_opportunity'],
+        'max-age' => 3600,
       ],
     ];
   }
