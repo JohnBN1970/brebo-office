@@ -15,7 +15,7 @@
     overflow: hidden;
     border: 1px solid var(--brebo-border);
     border-radius: 12px;
-    background: #fff;
+    background: var(--brebo-surface);
     box-shadow: var(--brebo-shadow-sm);
   }
 
@@ -28,7 +28,7 @@
 
   .brebo-mail-folders {
     padding: 10px 8px;
-    background: #f7f5f7;
+    background: var(--brebo-canvas);
   }
 
   .brebo-mail-compose-shortcut {
@@ -68,7 +68,7 @@
 
   .brebo-mail-mailbox-switch:hover,
   .brebo-mail-mailbox-name.is-current .brebo-mail-mailbox-switch {
-    background: #ebe6ed;
+    background: color-mix(in srgb, var(--brebo-surface) 82%, var(--brebo-purple-700) 18%);
   }
 
   .brebo-mail-mailbox-switch::after {
@@ -93,8 +93,8 @@
   }
 
   .brebo-mail-folder.is-current-folder a {
-    color: var(--brebo-purple-950);
-    background: #e8e1eb;
+    color: var(--brebo-ink);
+    background: color-mix(in srgb, var(--brebo-surface) 78%, var(--brebo-purple-700) 22%);
     box-shadow: inset 3px 0 0 var(--brebo-purple-700);
   }
 
@@ -109,7 +109,7 @@
     border: 0;
     border-bottom: 1px solid var(--brebo-border);
     border-radius: 0;
-    background: #fff;
+    background: var(--brebo-surface);
     box-shadow: none;
   }
 
@@ -132,7 +132,7 @@
     border: 0;
     border-bottom: 1px solid var(--brebo-border);
     border-radius: 0;
-    background: #fff;
+    background: var(--brebo-surface);
     box-shadow: none;
   }
 
@@ -149,6 +149,9 @@
   .brebo-mail-list-control select {
     min-height: 30px;
     padding: 4px 7px;
+    color: var(--brebo-ink);
+    border-color: var(--brebo-border);
+    background: var(--brebo-canvas);
     font-size: .76rem;
   }
 
@@ -159,33 +162,68 @@
   .brebo-mail-list-count {
     align-self: center;
     justify-self: end;
+    color: var(--brebo-muted);
     font-size: .7rem;
   }
 
   .brebo-mail-list {
     padding-top: 112px;
+    background: var(--brebo-surface);
   }
 
   .brebo-mail-reader {
     padding-top: 44px;
+    background: var(--brebo-surface);
+  }
+
+  .brebo-mail-item,
+  .brebo-mail-message-row {
+    border-color: var(--brebo-border);
   }
 
   .brebo-mail-item a,
   .brebo-mail-message-row {
     padding: 8px 10px !important;
+    color: var(--brebo-ink);
+    background: var(--brebo-surface);
+  }
+
+  .brebo-mail-item a:hover,
+  .brebo-mail-message-row:hover {
+    background: color-mix(in srgb, var(--brebo-surface) 88%, var(--brebo-purple-700) 12%);
+  }
+
+  .brebo-mail-item.is-selected a,
+  .brebo-mail-message-row.is-selected {
+    background: color-mix(in srgb, var(--brebo-surface) 78%, var(--brebo-purple-700) 22%);
+    box-shadow: inset 3px 0 0 var(--brebo-purple-700);
   }
 
   .brebo-mail-item__from,
   .brebo-mail-item__subject {
+    color: var(--brebo-ink);
     font-size: .8rem;
   }
 
   .brebo-mail-item__date {
+    color: var(--brebo-muted);
     font-size: .68rem;
   }
 
   .brebo-mail-reader article {
     padding: 0 24px 30px;
+    color: var(--brebo-ink);
+    background: var(--brebo-surface);
+  }
+
+  .brebo-mail-tabs,
+  .brebo-mail-reader__sticky {
+    border-color: var(--brebo-border);
+    background: var(--brebo-surface);
+  }
+
+  .brebo-mail-tab.is-active {
+    background: var(--brebo-canvas);
   }
 
   .brebo-mail-reader__sticky {
@@ -196,5 +234,6 @@
 
   .brebo-mail-reader__body {
     max-width: none;
+    color: var(--brebo-ink);
   }
 }
