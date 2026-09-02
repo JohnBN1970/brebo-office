@@ -1,0 +1,200 @@
+/* BREBO Mail compact three-pane workspace.
+ * Presentation only: preserves mailbox routing, privacy and message actions.
+ */
+@media (min-width: 1101px) {
+  .brebo-mail-workspace {
+    position: relative;
+    gap: 0;
+  }
+
+  .brebo-mail-layout {
+    --brebo-mail-folders-width: 238px;
+    --brebo-mail-messages-width: 430px;
+    height: calc(100vh - 92px);
+    min-height: 680px;
+    overflow: hidden;
+    border: 1px solid var(--brebo-border);
+    border-radius: 12px;
+    background: #fff;
+    box-shadow: var(--brebo-shadow-sm);
+  }
+
+  .brebo-mail-folders,
+  .brebo-mail-list,
+  .brebo-mail-reader {
+    height: 100%;
+    overflow-y: auto;
+  }
+
+  .brebo-mail-folders {
+    padding: 10px 8px;
+    background: #f7f5f7;
+  }
+
+  .brebo-mail-compose-shortcut {
+    margin: 0 0 10px;
+  }
+
+  .brebo-mail-compose-shortcut .brebo-mail-action {
+    display: flex;
+    width: 100%;
+    min-height: 38px;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: .8rem;
+  }
+
+  .brebo-mail-mailbox-name {
+    margin: 0 0 3px;
+  }
+
+  .brebo-mail-mailbox-switch {
+    display: flex;
+    width: 100%;
+    min-height: 38px;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: 8px;
+    color: var(--brebo-ink);
+    background: transparent;
+    cursor: pointer;
+    font: inherit;
+    font-size: .8rem;
+    font-weight: 850;
+    text-align: left;
+  }
+
+  .brebo-mail-mailbox-switch:hover,
+  .brebo-mail-mailbox-name.is-current .brebo-mail-mailbox-switch {
+    background: #ebe6ed;
+  }
+
+  .brebo-mail-mailbox-switch::after {
+    content: '›';
+    color: var(--brebo-muted);
+    font-size: 1.15rem;
+  }
+
+  .brebo-mail-mailbox-name.is-current .brebo-mail-mailbox-switch::after {
+    content: '⌄';
+  }
+
+  .brebo-mail-folder {
+    margin: 1px 0 1px 8px;
+  }
+
+  .brebo-mail-folder a {
+    min-height: 31px;
+    padding: 5px 9px;
+    font-size: .8rem;
+    font-weight: 650;
+  }
+
+  .brebo-mail-folder.is-current-folder a {
+    color: var(--brebo-purple-950);
+    background: #e8e1eb;
+    box-shadow: inset 3px 0 0 var(--brebo-purple-700);
+  }
+
+  .brebo-mail-toolbar {
+    position: absolute;
+    z-index: 10;
+    top: 0;
+    left: calc(var(--brebo-mail-folders-width, 238px) + 6px);
+    right: 0;
+    min-height: 44px;
+    padding: 4px 8px;
+    border: 0;
+    border-bottom: 1px solid var(--brebo-border);
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .brebo-mail-toolbar .brebo-mail-action {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: .78rem;
+  }
+
+  .brebo-mail-list-controls {
+    position: absolute;
+    z-index: 9;
+    top: 44px;
+    left: calc(var(--brebo-mail-folders-width, 238px) + 6px);
+    width: var(--brebo-mail-messages-width, 430px);
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 5px;
+    padding: 6px 8px;
+    border: 0;
+    border-bottom: 1px solid var(--brebo-border);
+    border-radius: 0;
+    background: #fff;
+    box-shadow: none;
+  }
+
+  .brebo-mail-list-search {
+    grid-column: 1 / -1;
+  }
+
+  .brebo-mail-list-search span,
+  .brebo-mail-list-control span {
+    display: none;
+  }
+
+  .brebo-mail-list-search input,
+  .brebo-mail-list-control select {
+    min-height: 30px;
+    padding: 4px 7px;
+    font-size: .76rem;
+  }
+
+  .brebo-mail-list-control:nth-of-type(n+3) {
+    display: none;
+  }
+
+  .brebo-mail-list-count {
+    align-self: center;
+    justify-self: end;
+    font-size: .7rem;
+  }
+
+  .brebo-mail-list {
+    padding-top: 112px;
+  }
+
+  .brebo-mail-reader {
+    padding-top: 44px;
+  }
+
+  .brebo-mail-item a,
+  .brebo-mail-message-row {
+    padding: 8px 10px !important;
+  }
+
+  .brebo-mail-item__from,
+  .brebo-mail-item__subject {
+    font-size: .8rem;
+  }
+
+  .brebo-mail-item__date {
+    font-size: .68rem;
+  }
+
+  .brebo-mail-reader article {
+    padding: 0 24px 30px;
+  }
+
+  .brebo-mail-reader__sticky {
+    top: 0;
+    margin: 0 -24px 14px;
+    padding: 15px 24px 10px;
+  }
+
+  .brebo-mail-reader__body {
+    max-width: none;
+  }
+}
