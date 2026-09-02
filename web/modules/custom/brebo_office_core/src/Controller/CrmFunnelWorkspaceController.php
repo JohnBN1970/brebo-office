@@ -49,6 +49,7 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
       $request->query->set('view', $view);
       $build = $legacy->funnel($request);
       return [
+        '#attached' => ['library' => ['brebo_office_core/crm-dashboard']],
         'workspace_switch' => $this->workspaceSwitch($request, $view),
         'content' => $build,
       ];
@@ -96,7 +97,9 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
       if ($stage === 'Gewonnen') $wonValue += $value;
       if ($stage === 'Verloren') $lostCount++;
 
-      $nextActionDate = trim((string) ($opportunity->get('field_brebo_opp_next_action_date')->value ?? ''));
+      $nextActionDate = $opportunity->hasField('field_brebo_opp_next_date')
+        ? trim((string) ($opportunity->get('field_brebo_opp_next_date')->value ?? ''))
+        : '';
       if ($active && $nextActionDate !== '') {
         try {
           if (new \DateTimeImmutable($nextActionDate) < $today) $overdue++;
