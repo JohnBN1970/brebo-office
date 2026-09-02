@@ -8,9 +8,7 @@ use Drupal\Core\Routing\RouteSubscriberBase;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
-/**
- * Adds authenticated Office dashboard summary endpoints.
- */
+/** Adds authenticated Office dashboard summary endpoints. */
 final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
 
   protected function alterRoutes(RouteCollection $collection): void {
@@ -29,6 +27,12 @@ final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
       [], '', [], ['GET'],
     );
     $collection->add('brebo_office_core.dashboard_quality_summary', $quality);
+
+    // Keep the canonical CRM URL, but make Dashboard the third presentation mode.
+    // List and Kanban are delegated to the existing CrmController unchanged.
+    if ($funnel = $collection->get('brebo_office_core.funnel')) {
+      $funnel->setDefault('_controller', '\\Drupal\\brebo_office_core\\Controller\\CrmFunnelWorkspaceController::overview');
+    }
   }
 
 }
