@@ -14,7 +14,7 @@ final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
   protected function alterRoutes(RouteCollection $collection): void {
     $commercial = new Route(
       '/brebo-office/dashboard/commercial-summary',
-      ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\CommercialDashboardSummaryController::summary'],
+      ['_controller' => '\Drupal\brebo_office_core\Controller\CommercialDashboardSummaryController::summary'],
       ['_user_is_logged_in' => 'TRUE', '_permission' => 'access content'],
       [], '', [], ['GET'],
     );
@@ -22,7 +22,7 @@ final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
 
     $quality = new Route(
       '/brebo-office/dashboard/quality-summary',
-      ['_controller' => '\\Drupal\\brebo_office_core\\Controller\\QualityDashboardSummaryController::summary'],
+      ['_controller' => '\Drupal\brebo_office_core\Controller\QualityDashboardSummaryController::summary'],
       ['_user_is_logged_in' => 'TRUE', '_permission' => 'access content'],
       [], '', [], ['GET'],
     );
@@ -31,7 +31,7 @@ final class CommercialDashboardRouteSubscriber extends RouteSubscriberBase {
     // Keep the canonical CRM URL, but make Dashboard the third presentation mode.
     // List and Kanban are delegated to the existing CrmController unchanged.
     if ($funnel = $collection->get('brebo_office_core.funnel')) {
-      $funnel->setDefault('_controller', '\\Drupal\\brebo_office_core\\Controller\\CrmFunnelWorkspaceController::overview');
+      $funnel->setDefault('_controller', '\Drupal\brebo_office_core\Controller\CrmFunnelWorkspaceController::overview');
     }
   }
 
