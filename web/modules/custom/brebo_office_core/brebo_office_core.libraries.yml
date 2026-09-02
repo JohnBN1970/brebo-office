@@ -17,9 +17,14 @@ funnel:
 
 crm-dashboard:
   version: 1.x
+  js:
+    js/crm-dashboard.js: {}
   css:
     component:
       css/crm-dashboard.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
 
 building-kanban:
   version: 1.x
