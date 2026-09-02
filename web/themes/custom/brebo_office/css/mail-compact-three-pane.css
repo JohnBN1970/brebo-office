@@ -23,6 +23,7 @@
   .brebo-mail-list,
   .brebo-mail-reader {
     height: 100%;
+    min-height: 0;
     overflow-y: auto;
   }
 
@@ -98,37 +99,15 @@
     box-shadow: inset 3px 0 0 var(--brebo-purple-700);
   }
 
-  .brebo-mail-toolbar {
-    position: absolute;
-    z-index: 10;
-    top: 0;
-    left: calc(var(--brebo-mail-folders-width, 238px) + 6px);
-    right: 0;
-    min-height: 44px;
-    padding: 4px 8px;
-    border: 0;
-    border-bottom: 1px solid var(--brebo-border);
-    border-radius: 0;
-    background: var(--brebo-surface);
-    box-shadow: none;
-  }
-
-  .brebo-mail-toolbar .brebo-mail-action {
-    min-height: 32px;
-    padding: 5px 8px;
-    font-size: .78rem;
-  }
-
-  .brebo-mail-list-controls {
-    position: absolute;
+  .brebo-mail-list-controls--local {
+    position: sticky;
     z-index: 9;
-    top: 44px;
-    left: calc(var(--brebo-mail-folders-width, 238px) + 6px);
-    width: var(--brebo-mail-messages-width, 430px);
+    top: 0;
+    width: 100%;
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 5px;
-    padding: 6px 8px;
+    padding: 7px 8px;
     border: 0;
     border-bottom: 1px solid var(--brebo-border);
     border-radius: 0;
@@ -167,13 +146,36 @@
   }
 
   .brebo-mail-list {
-    padding-top: 112px;
+    padding-top: 0;
     background: var(--brebo-surface);
   }
 
   .brebo-mail-reader {
-    padding-top: 44px;
+    padding-top: 0;
     background: var(--brebo-surface);
+  }
+
+  .brebo-mail-reader-toolbar {
+    position: sticky;
+    z-index: 10;
+    top: 0;
+    left: auto;
+    right: auto;
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    padding: 4px 10px;
+    border: 0;
+    border-bottom: 1px solid var(--brebo-border);
+    border-radius: 0;
+    background: var(--brebo-surface);
+    box-shadow: none;
+  }
+
+  .brebo-mail-reader-toolbar .brebo-mail-action {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: .78rem;
   }
 
   .brebo-mail-item,
@@ -227,7 +229,7 @@
   }
 
   .brebo-mail-reader__sticky {
-    top: 0;
+    top: 44px;
     margin: 0 -24px 14px;
     padding: 15px 24px 10px;
   }
