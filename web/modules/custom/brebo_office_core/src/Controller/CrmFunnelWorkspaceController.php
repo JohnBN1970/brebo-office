@@ -16,24 +16,13 @@ use Symfony\Component\HttpFoundation\Request;
 final class CrmFunnelWorkspaceController extends ControllerBase {
 
   private const STAGES = [
-    'Marketing lead',
-    'Lead',
-    'Kans',
-    'Afspraak',
-    'Calculatie/offerte',
-    'Onderhandeling',
-    'Gewonnen',
-    'Verloren',
+    'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte',
+    'Onderhandeling', 'Gewonnen', 'Verloren',
   ];
 
   private const FUNNEL_STAGES = [
-    'Marketing lead',
-    'Lead',
-    'Kans',
-    'Afspraak',
-    'Calculatie/offerte',
-    'Onderhandeling',
-    'Gewonnen',
+    'Marketing lead', 'Lead', 'Kans', 'Afspraak', 'Calculatie/offerte',
+    'Onderhandeling', 'Gewonnen',
   ];
 
   public function __construct(
@@ -42,50 +31,44 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static(
-      $container->get('entity_type.manager'),
-      $container->get('class_resolver'),
-    );
+    return new static($container->get('entity_type.manager'), $container->get('class_resolver'));
   }
 
   public function overview(Request $request): array {
     $view = in_array((string) $request->query->get('view', 'dashboard'), ['dashboard', 'list', 'kanban'], TRUE)
-      ? (string) $request->query->get('view', 'dashboard')
-      : 'dashboard';
+      ? (string) $request->query->get('view', 'dashboard') : 'dashboard';
 
     if ($view !== 'dashboard') {
       /** @var \Drupal\brebo_office_core\Controller\CrmController $legacy */
       $legacy = $this->classResolver->getInstanceFromDefinition(CrmController::class);
       $request->query->set('view', $view);
-      $build = $legacy->funnel($request);
       return [
         '#attached' => ['library' => ['brebo_office_core/crm-dashboard']],
         'workspace_switch' => $this->workspaceSwitch($request, $view),
-        'content' => $build,
+        'content' => $legacy->funnel($request),
       ];
     }
 
     $storage = $this->crmEntityTypeManager->getStorage('node');
-    $query = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', 'brebo_opportunity')
-      ->sort('changed', 'DESC');
-
+    $query = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_opportunity')->sort('changed', 'DESC');
     $this->applyFilters($query, $request);
     $opportunities = $storage->loadMultiple($query->execute());
 
     $stageData = [];
-    foreach (self::STAGES as $stage) {
-      $stageData[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
-    }
+    foreach (self::STAGES as $stage) $stageData[$stage] = ['count' => 0, 'value' => 0.0, 'weighted' => 0.0];
 
-    $activeCount = 0;
-    $pipelineValue = 0.0;
-    $weightedValue = 0.0;
-    $wonValue = 0.0;
-    $lostCount = 0;
-    $overdue = 0;
+    $activeCount = 0; $pipelineValue = 0.0; $weightedValue = 0.0; $wonValue = 0.0; $lostCount = 0; $overdue = 0;
     $today = new \DateTimeImmutable('today');
+    $monthStart = $today->modify('first day of this month');
+    $forecast = []; $inflow = [];
+    for ($offset = 0; $offset < 6; $offset++) {
+      $month = $monthStart->modify('+' . $offset . ' months');
+      $forecast[$month->format('Y-m')] = ['label' => $this->monthLabel($month), 'value' => 0.0, 'weighted' => 0.0, 'count' => 0];
+    }
+    for ($offset = 5; $offset >= 0; $offset--) {
+      $month = $monthStart->modify('-' . $offset . ' months');
+      $inflow[$month->format('Y-m')] = ['label' => $this->monthLabel($month), 'count' => 0, 'value' => 0.0];
+    }
 
     foreach ($opportunities as $opportunity) {
       if (!$opportunity instanceof NodeInterface) continue;
@@ -95,150 +78,123 @@ final class CrmFunnelWorkspaceController extends ControllerBase {
       $probability = max(0, min(100, (int) ($opportunity->get('field_brebo_opp_probability')->value ?? 0)));
       $weighted = $value * ($probability / 100);
       $active = (bool) ($opportunity->get('field_brebo_opp_active')->value ?? FALSE);
-      $stageData[$stage]['count']++;
-      $stageData[$stage]['value'] += $value;
-      $stageData[$stage]['weighted'] += $weighted;
-
-      if ($active) {
-        $activeCount++;
-        $pipelineValue += $value;
-        $weightedValue += $weighted;
-      }
+      $stageData[$stage]['count']++; $stageData[$stage]['value'] += $value; $stageData[$stage]['weighted'] += $weighted;
+      if ($active) { $activeCount++; $pipelineValue += $value; $weightedValue += $weighted; }
       if ($stage === 'Gewonnen') $wonValue += $value;
       if ($stage === 'Verloren') $lostCount++;
 
-      $nextActionDate = $opportunity->hasField('field_brebo_opp_next_date')
-        ? trim((string) ($opportunity->get('field_brebo_opp_next_date')->value ?? ''))
-        : '';
+      $nextActionDate = $opportunity->hasField('field_brebo_opp_next_date') ? trim((string) ($opportunity->get('field_brebo_opp_next_date')->value ?? '')) : '';
       if ($active && $nextActionDate !== '') {
-        try {
-          if (new \DateTimeImmutable($nextActionDate) < $today) $overdue++;
-        }
-        catch (\Throwable) {}
+        try { if (new \DateTimeImmutable($nextActionDate) < $today) $overdue++; } catch (\Throwable) {}
       }
+
+      if ($active && $opportunity->hasField('field_brebo_opp_close_date')) {
+        $closeDate = trim((string) ($opportunity->get('field_brebo_opp_close_date')->value ?? ''));
+        if ($closeDate !== '') {
+          try {
+            $key = (new \DateTimeImmutable($closeDate))->format('Y-m');
+            if (isset($forecast[$key])) { $forecast[$key]['count']++; $forecast[$key]['value'] += $value; $forecast[$key]['weighted'] += $weighted; }
+          } catch (\Throwable) {}
+        }
+      }
+
+      $created = (new \DateTimeImmutable('@' . (int) $opportunity->getCreatedTime()))->setTimezone(new \DateTimeZone(date_default_timezone_get()));
+      $createdKey = $created->format('Y-m');
+      if (isset($inflow[$createdKey])) { $inflow[$createdKey]['count']++; $inflow[$createdKey]['value'] += $value; }
     }
 
-    $funnelRows = [];
-    $pipelineRows = [];
-    $previousCount = NULL;
-    $stageTotal = count(self::FUNNEL_STAGES);
+    $funnelRows = []; $pipelineRows = []; $previousCount = NULL;
     foreach (self::FUNNEL_STAGES as $index => $stage) {
       $data = $stageData[$stage];
-      $conversion = $previousCount !== NULL && $previousCount > 0
-        ? number_format(($data['count'] / $previousCount) * 100, 1, ',', '.') . '% door'
-        : ($data['count'] > 0 ? '100% start' : '0%');
-      $funnelRows[] = $this->funnelRow($request, $stage, $data['count'], $conversion, $index, $stageTotal);
-      $pipelineRows[] = $this->pipelineRow($request, $stage, $data['value'], $data['weighted'], $index, $stageTotal);
+      $conversion = $previousCount !== NULL && $previousCount > 0 ? number_format(($data['count'] / $previousCount) * 100, 1, ',', '.') . '% door' : ($data['count'] > 0 ? '100% start' : '0%');
+      $funnelRows[] = $this->funnelRow($request, $stage, $data['count'], $conversion, $index);
+      $pipelineRows[] = $this->pipelineRow($request, $stage, $data['value'], $data['weighted'], $index);
       $previousCount = $data['count'];
     }
 
     $lostValue = (float) ($stageData['Verloren']['value'] ?? 0.0);
+    $wonCount = (int) ($stageData['Gewonnen']['count'] ?? 0);
+    $closedCount = $wonCount + $lostCount;
+    $winRate = $closedCount > 0 ? ($wonCount / $closedCount) * 100 : 0.0;
+    $forecastMax = max([1.0, ...array_values(array_map(static fn(array $row): float => $row['value'], $forecast))]);
+    $inflowMax = max([1, ...array_values(array_map(static fn(array $row): int => $row['count'], $inflow))]);
 
     return [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['brebo-crm-dashboard']],
+      '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard']],
       '#attached' => ['library' => ['brebo_office_core/crm-dashboard']],
       'workspace_switch' => $this->workspaceSwitch($request, 'dashboard'),
-      'kpis' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard__kpis']],
+      'kpis' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard__kpis']],
         'active' => $this->kpi('Open kansen', (string) $activeCount, 'Actieve commerciële dossiers'),
         'pipeline' => $this->kpi('Pipeline', $this->money($pipelineValue), 'Ongewogen open omzet'),
         'weighted' => $this->kpi('Gewogen pipeline', $this->money($weightedValue), 'Op basis van scoringskans'),
         'won' => $this->kpi('Gewonnen omzet', $this->money($wonValue), 'Waarde in fase Gewonnen'),
         'overdue' => $this->kpi('Achterstallige opvolging', (string) $overdue, 'Open kansen met verlopen actiedatum'),
-        'lost' => $this->kpi('Verloren kansen', (string) $lostCount, 'Kansen in fase Verloren'),
-      ],
-      'charts' => [
-        '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard__charts']],
-        'funnel' => [
-          '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--funnel']],
+        'lost' => $this->kpi('Verloren kansen', (string) $lostCount, 'Kansen in fase Verloren')],
+      'charts' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-dashboard__charts']],
+        'funnel' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--funnel']],
           'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Conversietrechter</h2><p>Vaste commerciële route van marketing lead naar gewonnen. Klik op een fase om de lijst te openen.</p></div>'],
           'rows' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-funnel']]] + $funnelRows,
-          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'list'),
-        ],
-        'pipeline' => [
-          '#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--pipeline']],
+          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'list')],
+        'pipeline' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-chart', 'brebo-crm-chart--pipeline']],
           'heading' => ['#markup' => '<div class="brebo-crm-chart__heading"><h2>Omzetpijplijn</h2><p>Verwachte en gewogen omzet binnen dezelfde vaste commerciële trechter.</p></div>'],
           'legend' => ['#markup' => '<div class="brebo-crm-chart__legend"><span><i class="brebo-crm-chart__legend-total"></i> Verwachte omzet</span><span><i class="brebo-crm-chart__legend-weighted"></i> Gewogen omzet</span></div>'],
           'rows' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-pipeline']]] + $pipelineRows,
-          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'kanban'),
-        ],
-      ],
-      '#cache' => [
-        'contexts' => ['user', 'user.permissions', 'url.query_args'],
-        'tags' => ['node_list:brebo_opportunity'],
-        'max-age' => 3600,
-      ],
+          'outflow' => $this->outflow($request, $lostCount, $lostValue, 'kanban')]],
+      'analytics' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-analytics']],
+        'forecast' => $this->forecastCard($forecast, $forecastMax),
+        'outcome' => $this->outcomeCard($request, $wonCount, $lostCount, $wonValue, $lostValue, $winRate),
+        'inflow' => $this->inflowCard($inflow, $inflowMax)],
+      '#cache' => ['contexts' => ['user', 'user.permissions', 'url.query_args'], 'tags' => ['node_list:brebo_opportunity'], 'max-age' => 3600],
     ];
   }
 
   private function applyFilters(object $query, Request $request): void {
-    $mine = (bool) $request->query->get('mine', FALSE);
-    $ownerFilter = max(0, (int) $request->query->get('owner_filter', 0));
-    $organizationFilter = max(0, (int) $request->query->get('organization_filter', 0));
-    $sourceFilter = trim((string) $request->query->get('source_filter', ''));
-    $channelFilter = trim((string) $request->query->get('channel_filter', ''));
-    $stageFilter = trim((string) $request->query->get('stage_filter', ''));
+    $mine = (bool) $request->query->get('mine', FALSE); $ownerFilter = max(0, (int) $request->query->get('owner_filter', 0)); $organizationFilter = max(0, (int) $request->query->get('organization_filter', 0));
+    $sourceFilter = trim((string) $request->query->get('source_filter', '')); $channelFilter = trim((string) $request->query->get('channel_filter', '')); $stageFilter = trim((string) $request->query->get('stage_filter', ''));
     $statusFilter = in_array((string) $request->query->get('status', 'all'), ['all', 'open', 'closed'], TRUE) ? (string) $request->query->get('status', 'all') : 'all';
     if ($organizationFilter > 0) $query->condition('field_brebo_opp_org_ref.target_id', $organizationFilter);
-    if ($sourceFilter !== '') $query->condition('field_brebo_opp_source', $sourceFilter);
-    if ($channelFilter !== '') $query->condition('field_brebo_opp_channel', $channelFilter);
-    if (in_array($stageFilter, self::STAGES, TRUE)) $query->condition('field_brebo_opp_stage', $stageFilter);
-    if ($statusFilter === 'open') $query->condition('field_brebo_opp_active', 1);
-    elseif ($statusFilter === 'closed') $query->condition('field_brebo_opp_active', 0);
-    if ($mine) $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id());
-    elseif ($ownerFilter > 0) $query->condition('field_brebo_opp_owner.target_id', $ownerFilter);
+    if ($sourceFilter !== '') $query->condition('field_brebo_opp_source', $sourceFilter); if ($channelFilter !== '') $query->condition('field_brebo_opp_channel', $channelFilter);
+    if (in_array($stageFilter, self::STAGES, TRUE)) $query->condition('field_brebo_opp_stage', $stageFilter); if ($statusFilter === 'open') $query->condition('field_brebo_opp_active', 1); elseif ($statusFilter === 'closed') $query->condition('field_brebo_opp_active', 0);
+    if ($mine) $query->condition('field_brebo_opp_owner.target_id', (int) $this->currentUser()->id()); elseif ($ownerFilter > 0) $query->condition('field_brebo_opp_owner.target_id', $ownerFilter);
   }
 
   private function workspaceSwitch(Request $request, string $active): array {
-    $baseQuery = $request->query->all();
-    unset($baseQuery['view']);
-    $links = [];
-    foreach (['dashboard' => 'Dashboard', 'list' => 'Lijst', 'kanban' => 'Kanban'] as $view => $label) {
-      $links[$view] = [
-        '#type' => 'link', '#title' => $this->t($label),
-        '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => $baseQuery + ['view' => $view]]),
-        '#attributes' => ['class' => $active === $view ? ['is-active'] : []],
-      ];
-    }
+    $baseQuery = $request->query->all(); unset($baseQuery['view']); $links = [];
+    foreach (['dashboard' => 'Dashboard', 'list' => 'Lijst', 'kanban' => 'Kanban'] as $view => $label) $links[$view] = ['#type' => 'link', '#title' => $this->t($label), '#url' => Url::fromRoute('brebo_office_core.funnel', [], ['query' => $baseQuery + ['view' => $view]]), '#attributes' => ['class' => $active === $view ? ['is-active'] : []]];
     return ['#type' => 'container', '#attributes' => ['class' => ['brebo-crm-workspace-switch'], 'aria-label' => $this->t('CRM-weergave')]] + $links;
   }
 
-  private function kpi(string $label, string $value, string $detail): array {
-    return ['#markup' => '<section class="brebo-crm-kpi"><span class="brebo-crm-kpi__label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span><strong class="brebo-crm-kpi__value">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</strong><span class="brebo-crm-kpi__detail">' . htmlspecialchars($detail, ENT_QUOTES, 'UTF-8') . '</span></section>'];
+  private function kpi(string $label, string $value, string $detail): array { return ['#markup' => '<section class="brebo-crm-kpi"><span class="brebo-crm-kpi__label">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</span><strong class="brebo-crm-kpi__value">' . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . '</strong><span class="brebo-crm-kpi__detail">' . htmlspecialchars($detail, ENT_QUOTES, 'UTF-8') . '</span></section>']; }
+
+  private function funnelRow(Request $request, string $stage, int $count, string $conversion, int $index): array {
+    $tone = $index + 1; $url = $this->stageUrl($request, $stage, 'list');
+    return ['#markup' => '<a class="brebo-crm-funnel__row brebo-crm-funnel__row--tone-' . $tone . '" data-conversion="' . htmlspecialchars($conversion, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-funnel__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-funnel__bar-wrap"><span class="brebo-crm-funnel__bar"><strong>' . $count . '</strong></span></span></a>'];
   }
 
-  private function funnelRow(Request $request, string $stage, int $count, string $conversion, int $index, int $total): array {
-    $geometry = max(34, 100 - (int) round(($index / max(1, $total - 1)) * 60));
-    $tone = $index + 1;
-    $url = $this->stageUrl($request, $stage, 'list');
-    $markup = '<a class="brebo-crm-funnel__row brebo-crm-funnel__row--tone-' . $tone . '" data-conversion="' . htmlspecialchars($conversion, ENT_QUOTES, 'UTF-8') . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-funnel__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-funnel__bar-wrap"><span class="brebo-crm-funnel__bar" style="width:' . $geometry . '%"><strong>' . $count . '</strong></span></span></a>';
-    return ['#markup' => $markup];
+  private function pipelineRow(Request $request, string $stage, float $value, float $weighted, int $index): array {
+    $tone = $index + 1; $url = $this->stageUrl($request, $stage, 'kanban'); $weightedPercent = $value > 0 ? max(0, min(100, (int) round(($weighted / $value) * 100))) : 0;
+    return ['#markup' => '<a class="brebo-crm-pipeline__row brebo-crm-pipeline__row--tone-' . $tone . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-pipeline__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-pipeline__bar-wrap"><span class="brebo-crm-pipeline__bar"><progress class="brebo-crm-pipeline__weighted" max="100" value="' . $weightedPercent . '"></progress></span></span><span class="brebo-crm-pipeline__value"><strong>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</strong><small>' . htmlspecialchars($this->money($weighted), ENT_QUOTES, 'UTF-8') . ' gewogen</small></span></a>'];
   }
 
-  private function pipelineRow(Request $request, string $stage, float $value, float $weighted, int $index, int $total): array {
-    $geometry = max(34, 100 - (int) round(($index / max(1, $total - 1)) * 60));
-    $weightedWidth = $value > 0 ? max(0, min(100, (int) round(($weighted / $value) * 100))) : 0;
-    $tone = $index + 1;
-    $url = $this->stageUrl($request, $stage, 'kanban');
-    $markup = '<a class="brebo-crm-pipeline__row brebo-crm-pipeline__row--tone-' . $tone . '" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span class="brebo-crm-pipeline__stage">' . htmlspecialchars($stage, ENT_QUOTES, 'UTF-8') . '</span><span class="brebo-crm-pipeline__bar-wrap"><span class="brebo-crm-pipeline__bar" style="width:' . $geometry . '%"><span class="brebo-crm-pipeline__weighted" style="width:' . $weightedWidth . '%"></span></span></span><span class="brebo-crm-pipeline__value"><strong>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</strong><small>' . htmlspecialchars($this->money($weighted), ENT_QUOTES, 'UTF-8') . ' gewogen</small></span></a>';
-    return ['#markup' => $markup];
+  private function outflow(Request $request, int $count, float $value, string $view): array { $url = $this->stageUrl($request, 'Verloren', $view); return ['#markup' => '<a class="brebo-crm-outflow" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span><strong>Verloren</strong><small>Uitstroom buiten de hoofdtrechter</small></span><span><strong>' . $count . '</strong><small>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</small></span></a>']; }
+
+  private function forecastCard(array $forecast, float $max): array {
+    $rows = ''; foreach ($forecast as $row) $rows .= '<div class="brebo-crm-analytics__row"><span><strong>' . htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8') . '</strong><small>' . (int) $row['count'] . ' kansen</small></span><span class="brebo-crm-analytics__meter"><progress max="' . $max . '" value="' . (float) $row['value'] . '"></progress><progress class="is-weighted" max="' . $max . '" value="' . (float) $row['weighted'] . '"></progress></span><span class="brebo-crm-analytics__value"><strong>' . htmlspecialchars($this->money((float) $row['value']), ENT_QUOTES, 'UTF-8') . '</strong><small>' . htmlspecialchars($this->money((float) $row['weighted']), ENT_QUOTES, 'UTF-8') . ' gewogen</small></span></div>';
+    return ['#markup' => '<section class="brebo-crm-analytics__card"><header><h2>Sluitprognose · 6 maanden</h2><p>Open pipeline op basis van de verwachte sluitdatum.</p></header><div class="brebo-crm-analytics__rows">' . $rows . '</div></section>'];
   }
 
-  private function outflow(Request $request, int $count, float $value, string $view): array {
-    $url = $this->stageUrl($request, 'Verloren', $view);
-    return ['#markup' => '<a class="brebo-crm-outflow" href="' . htmlspecialchars($url, ENT_QUOTES, 'UTF-8') . '"><span><strong>Verloren</strong><small>Uitstroom buiten de hoofdtrechter</small></span><span><strong>' . $count . '</strong><small>' . htmlspecialchars($this->money($value), ENT_QUOTES, 'UTF-8') . '</small></span></a>'];
+  private function outcomeCard(Request $request, int $wonCount, int $lostCount, float $wonValue, float $lostValue, float $winRate): array {
+    $closed = max(1, $wonCount + $lostCount); $wonUrl = $this->stageUrl($request, 'Gewonnen', 'list'); $lostUrl = $this->stageUrl($request, 'Verloren', 'list');
+    return ['#markup' => '<section class="brebo-crm-analytics__card"><header><h2>Gewonnen versus verloren</h2><p>Actuele uitkomstverdeling van afgesloten kansen.</p></header><div class="brebo-crm-outcome"><div class="brebo-crm-outcome__rate"><strong>' . number_format($winRate, 1, ',', '.') . '%</strong><span>winrate</span></div><a href="' . htmlspecialchars($wonUrl, ENT_QUOTES, 'UTF-8') . '"><span>Gewonnen</span><progress class="is-won" max="' . $closed . '" value="' . $wonCount . '"></progress><strong>' . $wonCount . ' · ' . htmlspecialchars($this->money($wonValue), ENT_QUOTES, 'UTF-8') . '</strong></a><a href="' . htmlspecialchars($lostUrl, ENT_QUOTES, 'UTF-8') . '"><span>Verloren</span><progress class="is-lost" max="' . $closed . '" value="' . $lostCount . '"></progress><strong>' . $lostCount . ' · ' . htmlspecialchars($this->money($lostValue), ENT_QUOTES, 'UTF-8') . '</strong></a></div></section>'];
   }
 
-  private function stageUrl(Request $request, string $stage, string $view): string {
-    $query = $request->query->all();
-    $query['stage_filter'] = $stage;
-    $query['view'] = $view;
-    return Url::fromRoute('brebo_office_core.funnel', [], ['query' => $query])->toString();
+  private function inflowCard(array $inflow, int $max): array {
+    $rows = ''; foreach ($inflow as $row) $rows .= '<div class="brebo-crm-analytics__row"><span><strong>' . htmlspecialchars($row['label'], ENT_QUOTES, 'UTF-8') . '</strong><small>nieuwe kansen</small></span><span class="brebo-crm-analytics__meter"><progress max="' . $max . '" value="' . (int) $row['count'] . '"></progress></span><span class="brebo-crm-analytics__value"><strong>' . (int) $row['count'] . '</strong><small>' . htmlspecialchars($this->money((float) $row['value']), ENT_QUOTES, 'UTF-8') . ' instroom</small></span></div>';
+    return ['#markup' => '<section class="brebo-crm-analytics__card"><header><h2>Commerciële instroom · 6 maanden</h2><p>Nieuwe kansen per maand op basis van de aanmaakdatum.</p></header><div class="brebo-crm-analytics__rows">' . $rows . '</div></section>'];
   }
 
-  private function money(float $value): string {
-    return '€ ' . number_format($value, 0, ',', '.');
-  }
+  private function stageUrl(Request $request, string $stage, string $view): string { $query = $request->query->all(); $query['stage_filter'] = $stage; $query['view'] = $view; return Url::fromRoute('brebo_office_core.funnel', [], ['query' => $query])->toString(); }
+  private function monthLabel(\DateTimeImmutable $month): string { $months = [1 => 'jan', 2 => 'feb', 3 => 'mrt', 4 => 'apr', 5 => 'mei', 6 => 'jun', 7 => 'jul', 8 => 'aug', 9 => 'sep', 10 => 'okt', 11 => 'nov', 12 => 'dec']; return $months[(int) $month->format('n')] . ' ' . $month->format('Y'); }
+  private function money(float $value): string { return '€ ' . number_format($value, 0, ',', '.'); }
 
 }
