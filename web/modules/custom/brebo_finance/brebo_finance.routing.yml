@@ -270,3 +270,17 @@ brebo_finance.phase_gate_exception_decide:
   requirements: { _permission: 'approve brebo finance', exception_id: '\d+' }
   methods: [POST]
   options: { no_cache: TRUE }
+
+brebo_finance.project_financial_closure_state:
+  path: '/brebo-office/api/finance/projects/{project_nid}/closure'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\ProjectFinancialClosureController::closureState', _title: 'Financiële projectafsluiting' }
+  requirements: { _permission: 'access brebo finance', project_nid: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
+brebo_finance.project_financial_closure_close:
+  path: '/brebo-office/api/finance/projects/{project_nid}/closure'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\ProjectFinancialClosureController::close', _title: 'Project financieel afsluiten' }
+  requirements: { _permission: 'approve brebo finance', project_nid: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
