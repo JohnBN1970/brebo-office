@@ -1,0 +1,1 @@
+Slice F integration point: planned billing instalments may be approved through route brebo_project_cockpit.instalment_billable_approve. The route delegates billability to BillingControlManager::approveBillable() and retains existing four-eyes and phase-gate controls.
