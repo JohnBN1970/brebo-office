@@ -1,6 +1,6 @@
 import { analyzeRequestSchema } from "./contracts";
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
-import { checkMoneybirdConnection, createAndSendSalesInvoice, listPurchaseInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
+import { checkMoneybirdConnection, createAndSendSalesInvoice, listPurchaseInvoices, listSalesInvoices, MoneybirdResponseError, SalesInvoiceDispatch } from "./moneybird";
 import { analyzeWithOpenAI, ProviderResponseError, ProviderTimeoutError } from "./openai";
 export { ReplayGuard } from "./replay-guard";
 export { UsageGuard } from "./usage-guard";
@@ -23,6 +23,8 @@ export default {
         response = await accountingConnection(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/purchase-invoices" && request.method === "GET") {
         response = await accountingPurchaseInvoices(request, env, url.pathname, requestId);
+      } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "GET") {
+        response = await accountingSalesInvoices(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/communications/analyze" && request.method === "POST") {
         response = await analyze(request, env, url.pathname, requestId);
       } else if (url.pathname === "/v1/accounting/sales-invoices" && request.method === "POST") {
@@ -78,6 +80,24 @@ async function accountingPurchaseInvoices(request: Request, env: Env, path: stri
     if (error instanceof MoneybirdResponseError) {
       console.error(JSON.stringify({ event: "moneybird_purchase_invoice_read_failed", request_hash: await sha256Hex(requestId), provider_status: error.status }));
       return errorResponse(502, "accounting_read_failed", "Accounting provider purchase invoice read failed.", requestId);
+    }
+    throw error;
+  }
+}
+
+async function accountingSalesInvoices(request: Request, env: Env, path: string, requestId: string): Promise<Response> {
+  const auth = await authenticate(request, env, path, "", requestId);
+  if (auth) return auth;
+  if (!env.MONEYBIRD_ACCESS_TOKEN || !env.MONEYBIRD_ADMINISTRATION_ID || env.MONEYBIRD_ADMINISTRATION_ID === "REPLACE_IN_DEPLOYMENT") {
+    return errorResponse(503, "accounting_not_configured", "Accounting provider configuration is incomplete.", requestId);
+  }
+  try {
+    const salesInvoices = await listSalesInvoices(env);
+    return Response.json({ status: "ok", request_id: requestId, provider: "moneybird", sales_invoices: salesInvoices });
+  } catch (error) {
+    if (error instanceof MoneybirdResponseError) {
+      console.error(JSON.stringify({ event: "moneybird_sales_invoice_read_failed", request_hash: await sha256Hex(requestId), provider_status: error.status }));
+      return errorResponse(502, "accounting_read_failed", "Accounting provider sales invoice read failed.", requestId);
     }
     throw error;
   }
