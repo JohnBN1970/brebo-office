@@ -134,6 +134,12 @@ services:
   brebo_finance.sales_invoice_integration_client:
     class: Drupal\brebo_finance\Service\SalesInvoiceIntegrationClient
     arguments: ['@http_client']
+  brebo_finance.sales_invoice_receivables_integration_client:
+    class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
+    arguments: ['@http_client']
+  brebo_finance.sales_invoice_receivables_reconciler:
+    class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesReconciler
+    arguments: ['@database', '@brebo_finance.sales_invoice_receivables_integration_client', '@brebo_finance.billing_control_manager']
   brebo_finance.purchase_invoice_integration_client:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient
     arguments: ['@http_client']
