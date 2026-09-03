@@ -59,34 +59,55 @@ final class ProjectInvoicesController extends ControllerBase {
     $invoiced = 0.0;
     $received = 0.0;
     $open = 0.0;
+    $overdueOpen = 0.0;
+    $disputedOpen = 0.0;
+    $today = date('Y-m-d');
     foreach ($invoices as $row) {
       if (!in_array((string) ($row['status'] ?? ''), ['credited', 'cancelled'], TRUE)) {
         $gross = (float) ($row['amount_inc_vat'] ?? 0);
         $paid = (float) ($row['paid_amount_inc_vat'] ?? 0);
+        $openAmount = max(0.0, $gross - $paid);
         $invoiced += (float) ($row['amount_ex_vat'] ?? 0);
         $received += $paid;
-        $open += max(0.0, $gross - $paid);
+        $open += $openAmount;
+        if ($openAmount > 0 && (string) ($row['due_date'] ?? '') !== '' && (string) $row['due_date'] < $today) {
+          $overdueOpen += $openAmount;
+        }
+        if ($openAmount > 0 && ((string) ($row['status'] ?? '') === 'disputed' || trim((string) ($row['dispute_reason'] ?? '')) !== '')) {
+          $disputedOpen += $openAmount;
+        }
       }
     }
 
-    $planned = 0.0;
-    foreach ($instalments as $row) {
-      if (!in_array((string) ($row['status'] ?? ''), ['cancelled'], TRUE)) {
-        $planned += (float) ($row['amount_ex_vat'] ?? 0);
-      }
-    }
     $remaining = max(0.0, $currentOrderValue - $invoiced);
+    $canApproveBillable = $this->currentUser()->hasPermission('approve brebo finance');
 
     $instalmentRows = [];
     foreach ($instalments as $row) {
+      $status = (string) ($row['status'] ?? '—');
+      $action = '—';
+      if ($status === 'planned' && $canApproveBillable && !empty($row['id'])) {
+        $action = [
+          'data' => [
+            '#type' => 'link',
+            '#title' => $this->t('Factureerbaar goedkeuren'),
+            '#url' => Url::fromRoute('brebo_project_cockpit.instalment_billable_approve', [
+              'node' => $projectId,
+              'instalment' => (int) $row['id'],
+            ]),
+            '#attributes' => ['class' => ['button', 'button--small']],
+          ],
+        ];
+      }
       $instalmentRows[] = [
         (string) ($row['instalment_number'] ?? '—'),
         (string) ($row['description'] ?? '—'),
         (string) ($row['planned_invoice_date'] ?? '—'),
         $this->triggerLabel((string) ($row['trigger_type'] ?? '')),
-        (string) ($row['status'] ?? '—'),
+        $status,
         $this->money($row['amount_ex_vat'] ?? NULL),
         $this->instalmentVatLabel($row),
+        $action,
       ];
     }
 
@@ -157,15 +178,18 @@ final class ProjectInvoicesController extends ControllerBase {
 
     $invoiceRows = [];
     foreach ($invoices as $row) {
+      $gross = (float) ($row['amount_inc_vat'] ?? 0);
+      $paid = (float) ($row['paid_amount_inc_vat'] ?? 0);
+      $openAmount = max(0.0, $gross - $paid);
       $invoiceRows[] = [
         (string) ($row['invoice_number'] ?? '—'),
         (string) ($row['invoice_date'] ?? '—'),
         (string) ($row['due_date'] ?? '—'),
-        (string) ($row['status'] ?? '—'),
-        $this->money($row['amount_ex_vat'] ?? NULL),
-        $this->money($row['vat_amount'] ?? NULL),
+        $this->receivableState($row, $today),
         $this->money($row['amount_inc_vat'] ?? NULL),
         $this->money($row['paid_amount_inc_vat'] ?? NULL),
+        $this->money($openAmount),
+        trim((string) ($row['dispute_reason'] ?? '')) !== '' ? (string) $row['dispute_reason'] : '—',
       ];
     }
 
@@ -174,16 +198,17 @@ final class ProjectInvoicesController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-invoices-principle']],
         'title' => ['#markup' => '<h2>' . $this->t('Opbrengsten en verkoopfacturen') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Deze projecttab toont uitsluitend de opbrengstenkant: termijnschema, meer-/minderwerk, stelposten, factuurconcepten en verkoopfacturen. Moneybird blijft de boekhoudkundige bron voor de officiële verkoopfactuurspiegel.') . '</p>'],
+        'text' => ['#markup' => '<p>' . $this->t('Moneybird blijft de boekhoudkundige bron voor verkoopfactuur- en betaalstatus. BREBO Office toont de operationele opvolging, projectimpact en de gecontroleerde volgende actie.') . '</p>'],
       ],
       'kpis' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],
         'order' => ['#markup' => $this->kpi('Actuele opdrachtwaarde', $currentOrderValue, 'excl. btw')],
-        'provisional' => ['#markup' => $this->kpi('Stelpostprognose', $forecastProvisionalSettlement, 'verwachte verrekening')],
         'invoiced' => ['#markup' => $this->kpi('Gefactureerd', $invoiced, 'excl. btw')],
         'received' => ['#markup' => $this->kpi('Ontvangen', $received, 'incl. btw')],
         'open' => ['#markup' => $this->kpi('Openstaand', $open, 'incl. btw')],
+        'overdue' => ['#markup' => $this->kpi('Vervallen openstaand', $overdueOpen, 'incl. btw')],
+        'disputed' => ['#markup' => $this->kpi('In geschil', $disputedOpen, 'open saldo')],
         'remaining' => ['#markup' => $this->kpi('Nog te factureren', $remaining, 'excl. btw')],
       ],
       'actions' => [
@@ -201,7 +226,13 @@ final class ProjectInvoicesController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_project_cockpit.provisional_sum_add', ['node' => $projectId]),
           '#attributes' => ['class' => ['button']],
         ],
-        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een concept wordt pas financieel definitief nadat het is vrijgegeven, via de integration API in Moneybird is aangemaakt en daarna als officiële factuur is teruggesynchroniseerd.') . '</p>'],
+        'finance' => [
+          '#type' => 'link',
+          '#title' => $this->t('Projectfinanciën'),
+          '#url' => Url::fromRoute('brebo_finance.project_finance_page', ['project_nid' => $projectId]),
+          '#attributes' => ['class' => ['button']],
+        ],
+        'note' => ['#markup' => '<p><strong>' . $this->t('Bewaking:') . '</strong> ' . $this->t('Een termijn wordt eerst gecontroleerd factureerbaar. Een concept wordt pas financieel definitief nadat Moneybird de officiële factuur heeft aangemaakt en die status terug in Office is gespiegeld.') . '</p>'],
       ],
       'instalments' => [
         '#type' => 'details',
@@ -209,7 +240,7 @@ final class ProjectInvoicesController extends ControllerBase {
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Termijn'), $this->t('Omschrijving'), $this->t('Gepland'), $this->t('Trigger'), $this->t('Status'), $this->t('Excl. btw'), $this->t('BTW')],
+          '#header' => [$this->t('Termijn'), $this->t('Omschrijving'), $this->t('Gepland'), $this->t('Trigger'), $this->t('Status'), $this->t('Excl. btw'), $this->t('BTW'), $this->t('Actie')],
           '#rows' => $instalmentRows,
           '#empty' => $this->t('Voor dit project is nog geen termijnschema geregistreerd.'),
         ],
@@ -249,11 +280,11 @@ final class ProjectInvoicesController extends ControllerBase {
       ],
       'invoices' => [
         '#type' => 'details',
-        '#title' => $this->t('Officiële verkoopfacturen (@count)', ['@count' => count($invoiceRows)]),
+        '#title' => $this->t('Debiteuren / officiële Moneybird-facturen (@count)', ['@count' => count($invoiceRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Factuur'), $this->t('Datum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Excl. btw'), $this->t('BTW'), $this->t('Incl. btw'), $this->t('Ontvangen')],
+          '#header' => [$this->t('Factuur'), $this->t('Datum'), $this->t('Vervaldatum'), $this->t('Debiteurenstatus'), $this->t('Incl. btw'), $this->t('Ontvangen'), $this->t('Open'), $this->t('Geschil')],
           '#rows' => $invoiceRows,
           '#empty' => $this->t('Voor dit project zijn nog geen officiële Moneybird-verkoopfacturen geregistreerd.'),
         ],
@@ -291,6 +322,29 @@ final class ProjectInvoicesController extends ControllerBase {
 
   private function money(mixed $value): string {
     return !is_numeric($value) ? '—' : '€ ' . number_format((float) $value, 2, ',', '.');
+  }
+
+  private function receivableState(array $row, string $today): string {
+    $status = (string) ($row['status'] ?? '—');
+    if (in_array($status, ['credited', 'cancelled'], TRUE)) {
+      return $status;
+    }
+    if ($status === 'disputed' || trim((string) ($row['dispute_reason'] ?? '')) !== '') {
+      return (string) $this->t('Geschil');
+    }
+    $gross = (float) ($row['amount_inc_vat'] ?? 0);
+    $paid = (float) ($row['paid_amount_inc_vat'] ?? 0);
+    if ($gross > 0 && $paid >= $gross) {
+      return (string) $this->t('Betaald');
+    }
+    $dueDate = (string) ($row['due_date'] ?? '');
+    if ($gross > $paid && $dueDate !== '' && $dueDate < $today) {
+      return $paid > 0 ? (string) $this->t('Deels betaald · vervallen') : (string) $this->t('Vervallen');
+    }
+    if ($paid > 0 && $paid < $gross) {
+      return (string) $this->t('Deels betaald');
+    }
+    return $status !== '' ? $status : (string) $this->t('Open');
   }
 
   private function triggerLabel(string $trigger): string {
