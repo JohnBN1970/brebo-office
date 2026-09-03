@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\brebo_finance\Service\PaymentReleaseManager;
+use Drupal\brebo_finance\Service\PerformanceReceiptManager;
 use Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder;
 use Drupal\brebo_finance\Service\ThreeWayMatchManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -17,7 +18,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Controlled invoice matching and payment actions for Office. */
+/** Controlled invoice matching, performance and payment actions for Office. */
 final class PurchaseInvoiceActionController extends ControllerBase {
 
   public function __construct(
@@ -25,6 +26,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ThreeWayMatchManager $matchManager,
     private readonly PaymentReleaseManager $paymentReleaseManager,
+    private readonly PerformanceReceiptManager $performanceReceiptManager,
     private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
@@ -34,6 +36,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_finance.three_way_match_manager'),
       $container->get('brebo_finance.payment_release_manager'),
+      $container->get('brebo_finance.performance_receipt_manager'),
       $container->get('brebo_finance.purchase_invoice_control_view_builder'),
     );
   }
@@ -47,6 +50,63 @@ final class PurchaseInvoiceActionController extends ControllerBase {
       'approve_finance' => $this->currentUser()->hasPermission('approve brebo finance'),
     ];
     return $this->json($state);
+  }
+
+  public function registerPerformance(int $invoice_id, int $invoice_line_id, Request $request): JsonResponse {
+    $this->assertInvoiceAccess($invoice_id);
+    $line = $this->invoiceLine($invoice_id, $invoice_line_id);
+    $commitmentLineId = (int) ($line['commitment_line_id'] ?? 0);
+    if ($commitmentLineId <= 0) {
+      throw new BadRequestHttpException('Invoice line must be linked to a commitment line first.');
+    }
+    $data = $this->payload($request);
+    foreach (['amount_ex_vat', 'description', 'evidence', 'building_nid', 'object_id'] as $field) {
+      if (!array_key_exists($field, $data)) {
+        throw new BadRequestHttpException('Missing field: ' . $field);
+      }
+    }
+    if (!is_array($data['evidence'])) {
+      throw new BadRequestHttpException('Evidence must be an array.');
+    }
+    try {
+      $receiptId = $this->performanceReceiptManager->register(
+        $commitmentLineId,
+        (string) $data['amount_ex_vat'],
+        (string) $data['description'],
+        $data['evidence'],
+        (int) $data['building_nid'],
+        (int) $data['object_id'],
+        (int) $this->currentUser()->id(),
+      );
+    }
+    catch (\InvalidArgumentException|\RuntimeException|\UnexpectedValueException $e) {
+      throw new BadRequestHttpException($e->getMessage(), $e);
+    }
+    return $this->json(['ok' => TRUE, 'invoice_id' => $invoice_id, 'invoice_line_id' => $invoice_line_id, 'performance_receipt_id' => $receiptId], 201);
+  }
+
+  public function verifyPerformance(int $invoice_id, int $receipt_id, Request $request): JsonResponse {
+    $this->assertInvoiceAccess($invoice_id);
+    $this->assertReceiptBelongsToInvoice($invoice_id, $receipt_id);
+    $data = $this->payload($request);
+    foreach (['building_evidence_complete', 'quality_accepted', 'note'] as $field) {
+      if (!array_key_exists($field, $data)) {
+        throw new BadRequestHttpException('Missing field: ' . $field);
+      }
+    }
+    try {
+      $this->performanceReceiptManager->verify(
+        $receipt_id,
+        (bool) $data['building_evidence_complete'],
+        (bool) $data['quality_accepted'],
+        (string) $data['note'],
+        (int) $this->currentUser()->id(),
+      );
+    }
+    catch (\InvalidArgumentException|\RuntimeException|\UnexpectedValueException $e) {
+      throw new BadRequestHttpException($e->getMessage(), $e);
+    }
+    return $this->json(['ok' => TRUE, 'invoice_id' => $invoice_id, 'performance_receipt_id' => $receipt_id]);
   }
 
   public function matchLine(int $invoice_id, int $invoice_line_id): JsonResponse {
@@ -132,10 +192,25 @@ final class PurchaseInvoiceActionController extends ControllerBase {
     return $invoice;
   }
 
-  private function assertLineBelongsToInvoice(int $invoiceId, int $lineId): void {
-    $exists = $this->database->select('brebo_finance_purchase_invoice_line', 'l')->fields('l', ['id'])->condition('id', $lineId)->condition('invoice_id', $invoiceId)->execute()->fetchField();
-    if (!$exists) {
+  private function invoiceLine(int $invoiceId, int $lineId): array {
+    $line = $this->database->select('brebo_finance_purchase_invoice_line', 'l')->fields('l')->condition('id', $lineId)->condition('invoice_id', $invoiceId)->execute()->fetchAssoc();
+    if ($line === FALSE) {
       throw new NotFoundHttpException('Invoice line does not belong to this invoice.');
+    }
+    return $line;
+  }
+
+  private function assertLineBelongsToInvoice(int $invoiceId, int $lineId): void {
+    $this->invoiceLine($invoiceId, $lineId);
+  }
+
+  private function assertReceiptBelongsToInvoice(int $invoiceId, int $receiptId): void {
+    $query = $this->database->select('brebo_finance_performance_receipt', 'r');
+    $query->join('brebo_finance_purchase_invoice_line', 'il', 'il.commitment_line_id = r.commitment_line_id');
+    $query->addField('r', 'id');
+    $exists = $query->condition('r.id', $receiptId)->condition('il.invoice_id', $invoiceId)->range(0, 1)->execute()->fetchField();
+    if (!$exists) {
+      throw new NotFoundHttpException('Performance receipt does not belong to this invoice workflow.');
     }
   }
 
