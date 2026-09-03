@@ -117,43 +117,50 @@ function brebo_finance_post_update_sales_invoice_drafts(array &$sandbox): string
   return 'BREBO Finance sales-invoice draft storage installed.';
 }
 
-/**
- * Adds an immutable/idempotent outbound release queue for sales-invoice drafts.
- */
+/** Adds an immutable/idempotent outbound release queue for sales-invoice drafts. */
 function brebo_finance_post_update_sales_invoice_release_outbox(array &$sandbox): string {
   $schema = \Drupal::database()->schema();
-  if ($schema->tableExists('brebo_finance_sales_invoice_outbox')) {
-    return 'BREBO Finance sales-invoice release outbox already exists.';
-  }
-  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE];
-  $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
+  if ($schema->tableExists('brebo_finance_sales_invoice_outbox')) return 'BREBO Finance sales-invoice release outbox already exists.';
+  $timestamp = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE]; $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
   $schema->createTable('brebo_finance_sales_invoice_outbox', [
     'description' => 'Immutable outbound command for creation/sending of a Moneybird sales invoice through the BREBO integration API.',
     'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'draft_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'command_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE, 'default' => 'sales_invoice.create_and_send'],
-      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'queued'],
-      'idempotency_key' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE],
-      'payload_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'attempt_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'last_attempt' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'last_error' => ['type' => 'text', 'not null' => FALSE],
-      'integration_request_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-      'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-      'released' => $timestamp,
-      'released_by' => $user,
-      'completed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => $timestamp,
-      'created_by' => $user,
-      'changed' => $timestamp,
-      'changed_by' => $user,
+      'id' => ['type' => 'serial', 'not null' => TRUE], 'draft_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'command_type' => ['type' => 'varchar', 'length' => 48, 'not null' => TRUE, 'default' => 'sales_invoice.create_and_send'], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'queued'],
+      'idempotency_key' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE], 'payload_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'attempt_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0], 'last_attempt' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'last_error' => ['type' => 'text', 'not null' => FALSE],
+      'integration_request_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'moneybird_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'released' => $timestamp, 'released_by' => $user,
+      'completed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => $timestamp, 'created_by' => $user, 'changed' => $timestamp, 'changed_by' => $user,
     ],
-    'primary key' => ['id'],
-    'unique keys' => ['draft_command' => ['draft_id', 'command_type'], 'idempotency_key' => ['idempotency_key']],
-    'indexes' => ['status_created' => ['status', 'created'], 'project_status' => ['project_nid', 'status'], 'payload_hash' => ['payload_hash']],
+    'primary key' => ['id'], 'unique keys' => ['draft_command' => ['draft_id', 'command_type'], 'idempotency_key' => ['idempotency_key']], 'indexes' => ['status_created' => ['status', 'created'], 'project_status' => ['project_nid', 'status'], 'payload_hash' => ['payload_hash']],
   ]);
   return 'BREBO Finance sales-invoice release outbox installed.';
+}
+
+/** Adds immutable financial project closure storage. */
+function brebo_finance_post_update_project_financial_closure(array &$sandbox): string {
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_finance_project_closure')) return 'BREBO Finance project closure storage already exists.';
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
+  $schema->createTable('brebo_finance_project_closure', [
+    'description' => 'Immutable evidence-backed final financial result for one BREBO project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'forecast_snapshot_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'final_revenue_ex_vat' => $money,
+      'final_cost_ex_vat' => $money,
+      'final_result_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'final_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => FALSE],
+      'forecast_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'closure_note' => ['type' => 'text', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'closed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'closed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['project' => ['project_nid'], 'content_hash' => ['content_hash']],
+    'indexes' => ['forecast_snapshot' => ['forecast_snapshot_id'], 'closed' => ['closed']],
+  ]);
+  return 'BREBO Finance project closure storage installed.';
 }
