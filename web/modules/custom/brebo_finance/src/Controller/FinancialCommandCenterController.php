@@ -37,6 +37,7 @@ final class FinancialCommandCenterController extends ControllerBase {
           '#theme' => 'item_list',
           '#items' => [
             Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
+            Link::fromTextAndUrl($this->t('Te doen'), Url::fromRoute('brebo_finance.payables_work_queues')),
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
@@ -47,8 +48,11 @@ final class FinancialCommandCenterController extends ControllerBase {
         '#attributes' => ['class' => ['bfcc-section']],
         'title' => ['#markup' => '<span class="bfcc-kicker">ORGANISATIE</span><h2>Financieel dashboard</h2>'],
         'intro' => ['#markup' => '<p>De organisatiebrede KPI-laag wordt hierna aangesloten op de maatgevende Moneybird-rubrieken. Tot die tijd worden geen projectwaarden als ondernemings-KPI gepresenteerd.</p>'],
+        'payables' => [
+          '#markup' => '<p><strong>Dagelijkse werkvoorraad:</strong> ' . Link::fromTextAndUrl($this->t('open Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues'))->toString() . '</p>',
+        ],
         'purchase_invoices' => [
-          '#markup' => '<p><strong>Operationele werkvoorraad:</strong> ' . Link::fromTextAndUrl($this->t('open Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list'))->toString() . '</p>',
+          '#markup' => '<p><strong>Alle inkoopfacturen:</strong> ' . Link::fromTextAndUrl($this->t('open Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list'))->toString() . '</p>',
         ],
       ],
       '#attached' => ['library' => ['brebo_finance/command_center']],

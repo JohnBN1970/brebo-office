@@ -62,6 +62,9 @@ services:
   brebo_finance.purchase_invoice_control_view_builder:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder
     arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
+  brebo_finance.payables_work_queue_builder:
+    class: Drupal\brebo_finance\Service\PayablesWorkQueueBuilder
+    arguments: ['@database', '@entity_type.manager', '@brebo_finance.purchase_invoice_control_view_builder']
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']

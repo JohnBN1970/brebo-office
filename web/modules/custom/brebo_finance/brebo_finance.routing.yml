@@ -5,6 +5,20 @@ brebo_finance.command_center_page:
   methods: [GET]
   options: { no_cache: TRUE }
 
+brebo_finance.payables_work_queues:
+  path: '/brebo-office/finance/payables'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PayablesWorkQueueController::page', _title: 'Te doen · Inkoop & betaling' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
+brebo_finance.payables_work_queues_api:
+  path: '/brebo-office/api/finance/payables'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PayablesWorkQueueController::api', _title: 'Payables work queues API' }
+  requirements: { _permission: 'access brebo finance' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
 brebo_finance.purchase_invoice_list:
   path: '/brebo-office/finance/purchase-invoices'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceController::listing', _title: 'Inkoopfacturen' }
