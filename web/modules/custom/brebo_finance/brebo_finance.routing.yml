@@ -54,6 +54,20 @@ brebo_finance.purchase_invoice_action_state:
   methods: [GET]
   options: { no_cache: TRUE }
 
+brebo_finance.purchase_invoice_performance_register:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{invoice_line_id}/performances'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::registerPerformance', _title: 'Prestatie registreren' }
+  requirements: { _permission: 'manage brebo procurement', invoice_id: '\d+', invoice_line_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_performance_verify:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/performances/{receipt_id}/verification'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::verifyPerformance', _title: 'Prestatie verifiëren' }
+  requirements: { _permission: 'approve brebo finance', invoice_id: '\d+', receipt_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
 brebo_finance.purchase_invoice_line_match:
   path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{invoice_line_id}/match'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::matchLine', _title: 'Three-way match uitvoeren' }
