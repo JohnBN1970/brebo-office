@@ -23,14 +23,8 @@ final class SalesInvoiceReceivablesReconciler {
 
     foreach ($received as $source) {
       $moneybirdId = trim((string) ($source['id'] ?? ''));
-      if ($moneybirdId === '') {
-        continue;
-      }
-      $existing = $this->database->select('brebo_finance_sales_invoice', 'i')
-        ->fields('i')
-        ->condition('moneybird_id', $moneybirdId)
-        ->execute()
-        ->fetchAssoc();
+      if ($moneybirdId === '') continue;
+      $existing = $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i')->condition('moneybird_id', $moneybirdId)->execute()->fetchAssoc();
       if ($existing === FALSE) {
         // Office owns the project/instalment association. Never guess that
         // relationship from provider data during reconciliation.
@@ -61,6 +55,7 @@ final class SalesInvoiceReceivablesReconciler {
         continue;
       }
 
+      $existingDisputeReason = trim((string) ($existing['dispute_reason'] ?? ''));
       $this->billingControlManager->synchronizeMoneybirdInvoice([
         'project_nid' => (int) $existing['project_nid'],
         'instalment_id' => $existing['instalment_id'] !== NULL ? (int) $existing['instalment_id'] : NULL,
@@ -74,11 +69,11 @@ final class SalesInvoiceReceivablesReconciler {
         'vat_amount' => $vat,
         'amount_inc_vat' => $totalInc,
         'paid_amount_inc_vat' => $paid,
-        // The accounting split is a BREBO contract/control fact; provider
-        // reconciliation updates receivable state without inventing a new split.
         'regular_account_amount' => (string) $existing['regular_account_amount'],
         'g_account_amount' => (string) $existing['g_account_amount'],
-        'dispute_reason' => $status === 'disputed' ? ((string) ($existing['dispute_reason'] ?? '') ?: 'Geschilstatus uit Moneybird.') : NULL,
+        // Dispute notes are BREBO operational facts and may never be erased
+        // solely because Moneybird reports a different accounting state.
+        'dispute_reason' => $existingDisputeReason !== '' ? $existingDisputeReason : ($status === 'disputed' ? 'Geschilstatus uit Moneybird.' : NULL),
         'source_hash' => $sourceHash,
         'recorded_at' => $recordedAt,
       ], 0);
