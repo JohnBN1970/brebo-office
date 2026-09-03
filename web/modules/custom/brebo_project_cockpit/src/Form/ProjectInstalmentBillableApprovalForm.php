@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\BillingControlManager;
+use Drupal\Component\Utility\Html;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -49,10 +50,10 @@ final class ProjectInstalmentBillableApprovalForm extends FormBase {
     }
 
     $form['summary'] = [
-      '#markup' => '<p><strong>' . $this->t('Termijn:') . '</strong> ' . (string) ($row['instalment_number'] ?? '—')
-        . '<br><strong>' . $this->t('Omschrijving:') . '</strong> ' . (string) ($row['description'] ?? '—')
+      '#markup' => '<p><strong>' . $this->t('Termijn:') . '</strong> ' . Html::escape((string) ($row['instalment_number'] ?? '—'))
+        . '<br><strong>' . $this->t('Omschrijving:') . '</strong> ' . Html::escape((string) ($row['description'] ?? '—'))
         . '<br><strong>' . $this->t('Bedrag excl. btw:') . '</strong> € ' . number_format((float) ($row['amount_ex_vat'] ?? 0), 2, ',', '.')
-        . '<br><strong>' . $this->t('Status:') . '</strong> ' . (string) ($row['status'] ?? '—') . '</p>',
+        . '<br><strong>' . $this->t('Status:') . '</strong> ' . Html::escape((string) ($row['status'] ?? '—')) . '</p>',
     ];
 
     if (($row['status'] ?? '') !== 'planned') {
