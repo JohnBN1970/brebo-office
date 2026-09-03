@@ -8,6 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\brebo_finance\Service\PaymentReleaseManager;
+use Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder;
 use Drupal\brebo_finance\Service\ThreeWayMatchManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -24,6 +25,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ThreeWayMatchManager $matchManager,
     private readonly PaymentReleaseManager $paymentReleaseManager,
+    private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,7 +34,19 @@ final class PurchaseInvoiceActionController extends ControllerBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_finance.three_way_match_manager'),
       $container->get('brebo_finance.payment_release_manager'),
+      $container->get('brebo_finance.purchase_invoice_control_view_builder'),
     );
+  }
+
+  public function state(int $invoice_id): JsonResponse {
+    $this->assertInvoiceAccess($invoice_id);
+    $state = $this->controlViewBuilder->build($invoice_id);
+    $state['permissions'] = [
+      'manage_finance' => $this->currentUser()->hasPermission('manage brebo finance'),
+      'manage_procurement' => $this->currentUser()->hasPermission('manage brebo procurement'),
+      'approve_finance' => $this->currentUser()->hasPermission('approve brebo finance'),
+    ];
+    return $this->json($state);
   }
 
   public function matchLine(int $invoice_id, int $invoice_line_id): JsonResponse {
