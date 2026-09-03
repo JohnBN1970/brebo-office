@@ -23,6 +23,15 @@ export interface MoneybirdSalesInvoiceResult {
   sent_at: string | null;
 }
 
+export interface MoneybirdSalesInvoiceReceivableResult extends MoneybirdSalesInvoiceResult {
+  contact_id: string | null;
+  currency: string;
+  total_price_excl_tax: string | null;
+  total_price_incl_tax: string | null;
+  paid_amount: string;
+  version: string | number | null;
+}
+
 export interface MoneybirdConnectionResult {
   administration_id: string;
   administration_name: string | null;
@@ -107,6 +116,22 @@ export async function listPurchaseInvoices(env: Env): Promise<MoneybirdPurchaseI
   return result;
 }
 
+export async function listSalesInvoices(env: Env): Promise<MoneybirdSalesInvoiceReceivableResult[]> {
+  const base = `https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`;
+  const result: MoneybirdSalesInvoiceReceivableResult[] = [];
+  const perPage = 100;
+
+  for (let page = 1; page <= 100; page++) {
+    const response = await moneybirdFetch(`${base}/sales_invoices.json?per_page=${perPage}&page=${page}&filter=${encodeURIComponent("period:this_year,state:all")}`, env, { method: "GET" });
+    const value: unknown = await response.json();
+    if (!Array.isArray(value)) throw new MoneybirdResponseError(502, "Invalid Moneybird sales invoice response.");
+    for (const candidate of value) result.push(salesInvoiceReceivableResult(candidate));
+    if (value.length < perPage) break;
+  }
+
+  return result;
+}
+
 export async function createAndSendSalesInvoice(
   command: SalesInvoiceDispatch,
   env: Env,
@@ -165,6 +190,34 @@ function purchaseInvoiceResult(value: unknown): MoneybirdPurchaseInvoiceResult {
     total_price_incl_tax: stringValue(invoice.total_price_incl_tax),
     version: typeof invoice.version === "string" || typeof invoice.version === "number" ? invoice.version : null,
     origin: stringValue(invoice.origin),
+  };
+}
+
+function salesInvoiceReceivableResult(value: unknown): MoneybirdSalesInvoiceReceivableResult {
+  if (!value || typeof value !== "object") throw new MoneybirdResponseError(502, "Invalid Moneybird sales invoice response.");
+  const invoice = value as Record<string, unknown>;
+  if (invoice.id === undefined || invoice.id === null) throw new MoneybirdResponseError(502, "Invalid Moneybird sales invoice response.");
+  const payments = Array.isArray(invoice.payments) ? invoice.payments : [];
+  let paid = 0;
+  for (const candidate of payments) {
+    if (!candidate || typeof candidate !== "object") continue;
+    const payment = candidate as Record<string, unknown>;
+    const amount = Number(payment.price ?? payment.amount ?? 0);
+    if (Number.isFinite(amount) && amount > 0) paid += amount;
+  }
+  return {
+    id: String(invoice.id),
+    invoice_id: stringValue(invoice.invoice_id),
+    state: stringValue(invoice.state) ?? "unknown",
+    invoice_date: stringValue(invoice.invoice_date),
+    due_date: stringValue(invoice.due_date),
+    sent_at: stringValue(invoice.sent_at),
+    contact_id: invoice.contact_id === undefined || invoice.contact_id === null ? null : String(invoice.contact_id),
+    currency: stringValue(invoice.currency) ?? "EUR",
+    total_price_excl_tax: stringValue(invoice.total_price_excl_tax),
+    total_price_incl_tax: stringValue(invoice.total_price_incl_tax),
+    paid_amount: paid.toFixed(4),
+    version: typeof invoice.version === "string" || typeof invoice.version === "number" ? invoice.version : null,
   };
 }
 
