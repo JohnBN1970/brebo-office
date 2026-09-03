@@ -44,3 +44,14 @@ project_finance_detail:
   dependencies:
     - core/drupal
     - core/once
+
+purchase_invoice_coding:
+  version: 1.x
+  css:
+    component:
+      css/purchase-invoice-coding.css: {}
+  js:
+    js/purchase-invoice-coding.js: {}
+  dependencies:
+    - core/drupal
+    - core/once
