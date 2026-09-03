@@ -18,7 +18,7 @@ final class ProjectFinancialClosureController extends ControllerBase {
   public function __construct(private readonly ProjectFinancialClosureManager $closureManager, private readonly EntityTypeManagerInterface $financeEntityTypeManager) {}
   public static function create(ContainerInterface $container): static { return new static($container->get('brebo_finance.project_financial_closure_manager'), $container->get('entity_type.manager')); }
 
-  public function state(int $project_nid): JsonResponse {
+  public function closureState(int $project_nid): JsonResponse {
     $this->assertProject($project_nid);
     return new JsonResponse(['assessment' => $this->closureManager->assess($project_nid), 'closure' => $this->closureManager->closure($project_nid)]);
   }
