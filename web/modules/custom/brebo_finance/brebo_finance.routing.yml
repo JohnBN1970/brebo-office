@@ -63,7 +63,7 @@ brebo_finance.purchase_invoice_line_commitment:
 
 brebo_finance.purchase_invoice_action_state:
   path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/actions'
-  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::state', _title: 'Inkoopfactuur acties' }
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::actionState', _title: 'Inkoopfactuur acties' }
   requirements: { _permission: 'access brebo finance', invoice_id: '\d+' }
   methods: [GET]
   options: { no_cache: TRUE }
