@@ -47,6 +47,13 @@ brebo_finance.purchase_invoice_line_commitment:
   methods: [POST]
   options: { no_cache: TRUE }
 
+brebo_finance.purchase_invoice_action_state:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/actions'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::state', _title: 'Inkoopfactuur acties' }
+  requirements: { _permission: 'access brebo finance', invoice_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
 brebo_finance.purchase_invoice_line_match:
   path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{invoice_line_id}/match'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::matchLine', _title: 'Three-way match uitvoeren' }
