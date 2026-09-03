@@ -19,6 +19,34 @@ brebo_finance.purchase_invoice_view:
   methods: [GET]
   options: { no_cache: TRUE }
 
+brebo_finance.purchase_invoice_coding_overview:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/coding'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceCodingController::overview', _title: 'Inkoopfactuur codering' }
+  requirements: { _permission: 'access brebo finance', invoice_id: '\d+' }
+  methods: [GET]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_assign_project:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/project'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceCodingController::assignProject', _title: 'Inkoopfactuur projectcodering' }
+  requirements: { _permission: 'manage brebo procurement', invoice_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_line_upsert:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{line_number}'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceCodingController::upsertLine', _title: 'Inkoopfactuurregel coderen' }
+  requirements: { _permission: 'manage brebo procurement', invoice_id: '\d+', line_number: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_line_commitment:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{invoice_line_id}/commitment'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceCodingController::linkCommitmentLine', _title: 'Inkoopfactuurregel koppelen' }
+  requirements: { _permission: 'manage brebo procurement', invoice_id: '\d+', invoice_line_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
 brebo_finance.command_center_api:
   path: '/brebo-office/api/finance/command-center'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::api', _title: 'BREBO Financieel Command Center API' }

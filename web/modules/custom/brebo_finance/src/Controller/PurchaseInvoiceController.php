@@ -100,7 +100,7 @@ final class PurchaseInvoiceController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-finance-purchase-invoice']],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE · INKOOPFACTUREN</span><h1>' . $this->t('Inkoopfactuur @number', ['@number' => (string) ($invoice['invoice_number'] ?? '#' . $invoice_id)]) . '</h1></div></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE · INKOOPFACTUREN</span><h1>' . $this->t('Inkoopfactuur @number', ['@number' => (string) ($invoice['invoice_number'] ?? '#' . $invoice_id)]) . '</h1><p>Intake, projectcodering en koppeling aan bestaande inkoopverplichtingen.</p></div></header>',
       ],
       'navigation' => $this->navigation(),
       'back' => [
@@ -114,7 +114,18 @@ final class PurchaseInvoiceController extends ControllerBase {
       'project_link' => $projectNid > 0 ? [
         '#markup' => '<p>' . Link::fromTextAndUrl($this->t('Open gekoppeld project'), Url::fromRoute('entity.node.canonical', ['node' => $projectNid]))->toString() . '</p>',
       ] : [],
-      '#attached' => ['library' => ['brebo_finance/command_center']],
+      'coding_workbench' => [
+        '#type' => 'container',
+        '#attributes' => [
+          'data-brebo-invoice-coding' => '',
+          'data-invoice-id' => (string) $invoice_id,
+          'data-api-url' => '/brebo-office/api/finance/purchase-invoices/' . $invoice_id . '/coding',
+          'data-can-manage' => $this->currentUser()->hasPermission('manage brebo procurement') ? '1' : '0',
+          'class' => ['brebo-finance-purchase-invoice-coding'],
+        ],
+        'loading' => ['#markup' => '<p>Codeerwerkbank laden…</p>'],
+      ],
+      '#attached' => ['library' => ['brebo_finance/command_center', 'brebo_finance/purchase_invoice_coding']],
       '#cache' => ['max-age' => 0],
     ];
   }
