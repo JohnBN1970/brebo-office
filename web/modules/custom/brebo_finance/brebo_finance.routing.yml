@@ -47,6 +47,34 @@ brebo_finance.purchase_invoice_line_commitment:
   methods: [POST]
   options: { no_cache: TRUE }
 
+brebo_finance.purchase_invoice_line_match:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/lines/{invoice_line_id}/match'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::matchLine', _title: 'Three-way match uitvoeren' }
+  requirements: { _permission: 'manage brebo finance', invoice_id: '\d+', invoice_line_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_release_request:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/payment-releases'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::requestRelease', _title: 'Betaalvrijgave aanvragen' }
+  requirements: { _permission: 'manage brebo finance', invoice_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_release_decide:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/payment-releases/{release_id}/decision'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::decideRelease', _title: 'Betaalvrijgave beoordelen' }
+  requirements: { _permission: 'approve brebo finance', invoice_id: '\d+', release_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
+brebo_finance.purchase_invoice_release_execute:
+  path: '/brebo-office/api/finance/purchase-invoices/{invoice_id}/payment-releases/{release_id}/execution'
+  defaults: { _controller: '\Drupal\brebo_finance\Controller\PurchaseInvoiceActionController::executeRelease', _title: 'Betaling uitgevoerd registreren' }
+  requirements: { _permission: 'manage brebo finance', invoice_id: '\d+', release_id: '\d+' }
+  methods: [POST]
+  options: { no_cache: TRUE }
+
 brebo_finance.command_center_api:
   path: '/brebo-office/api/finance/command-center'
   defaults: { _controller: '\Drupal\brebo_finance\Controller\FinancialCommandCenterController::api', _title: 'BREBO Financieel Command Center API' }
