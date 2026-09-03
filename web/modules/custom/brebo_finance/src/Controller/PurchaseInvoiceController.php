@@ -9,6 +9,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
+use Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -18,12 +19,14 @@ final class PurchaseInvoiceController extends ControllerBase {
   public function __construct(
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $financeEntityTypeManager,
+    private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
       $container->get('entity_type.manager'),
+      $container->get('brebo_finance.purchase_invoice_control_view_builder'),
     );
   }
 
@@ -96,11 +99,13 @@ final class PurchaseInvoiceController extends ControllerBase {
       $detailRows[] = [$label, (string) $value];
     }
 
+    $control = $this->controlViewBuilder->build($invoice_id);
+
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-finance-purchase-invoice']],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE · INKOOPFACTUREN</span><h1>' . $this->t('Inkoopfactuur @number', ['@number' => (string) ($invoice['invoice_number'] ?? '#' . $invoice_id)]) . '</h1><p>Intake, projectcodering en koppeling aan bestaande inkoopverplichtingen.</p></div></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE · INKOOPFACTUREN</span><h1>' . $this->t('Inkoopfactuur @number', ['@number' => (string) ($invoice['invoice_number'] ?? '#' . $invoice_id)]) . '</h1><p>Intake, codering en volledige financiële controlestatus in één werkblad.</p></div></header>',
       ],
       'navigation' => $this->navigation(),
       'back' => [
@@ -114,6 +119,7 @@ final class PurchaseInvoiceController extends ControllerBase {
       'project_link' => $projectNid > 0 ? [
         '#markup' => '<p>' . Link::fromTextAndUrl($this->t('Open gekoppeld project'), Url::fromRoute('entity.node.canonical', ['node' => $projectNid]))->toString() . '</p>',
       ] : [],
+      'control_view' => $this->controlView($control, $invoice_id),
       'coding_workbench' => [
         '#type' => 'container',
         '#attributes' => [
@@ -127,6 +133,95 @@ final class PurchaseInvoiceController extends ControllerBase {
       ],
       '#attached' => ['library' => ['brebo_finance/command_center', 'brebo_finance/purchase_invoice_coding']],
       '#cache' => ['max-age' => 0],
+    ];
+  }
+
+  /** @return array<string,mixed> */
+  private function controlView(array $control, int $invoiceId): array {
+    if (!($control['available'] ?? FALSE)) {
+      return [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['bfcc-section']],
+        'title' => ['#markup' => '<h2>Controlestatus</h2>'],
+        'message' => ['#markup' => '<p>Controlestatus is tijdelijk niet beschikbaar tijdens deze deployment-overgang.</p>'],
+      ];
+    }
+
+    $summary = $control['summary'] ?? [];
+    $lineRows = [];
+    foreach ($control['lines'] ?? [] as $line) {
+      $blocker = $line['blocker'] ?? [];
+      $priority = $blocker['priority']['level'] ?? '';
+      $verified = $blocker['verified_performance_ex_vat'] ?? 0;
+      $shortfall = $blocker['verified_shortfall_ex_vat'] ?? 0;
+      $commitment = trim((string) ($line['commitment_header_commitment_number'] ?? ''));
+      if ($commitment === '') {
+        $commitment = 'Niet gekoppeld';
+      }
+      $lineRows[] = [
+        (string) ($line['line_number'] ?? ''),
+        (string) ($line['description'] ?? ''),
+        $this->money($line['amount_ex_vat'] ?? 0),
+        $commitment,
+        (string) ($line['match_status'] ?? 'unmatched'),
+        (string) ($line['variance_code'] ?? ''),
+        $this->money($verified),
+        $this->money($shortfall),
+        (bool) ($blocker['blocked'] ?? FALSE) ? ('Geblokkeerd' . ($priority !== '' ? ' · ' . $priority : '')) : 'Vrij',
+      ];
+    }
+
+    $g = $control['g_account'] ?? NULL;
+    $gRows = $g ? [
+      ['Status', (string) ($g['status'] ?? '')],
+      ['Tegenpartij', (string) ($g['counterparty_name'] ?? '')],
+      ['Reguliere rekening', $this->money($g['regular_account_amount'] ?? 0)],
+      ['G-rekening', $this->money($g['g_account_amount'] ?? 0)],
+      ['Afspraak', (string) ($g['agreement_ref'] ?? '')],
+    ] : [['Status', 'Geen G-rekeningsinstructie gekoppeld']];
+
+    $release = $control['payment_release'] ?? NULL;
+    $releaseRows = $release ? [
+      ['Vrijgavenummer', (string) ($release['release_number'] ?? '')],
+      ['Status', (string) ($release['status'] ?? '')],
+      ['Reguliere rekening', $this->money($release['regular_account_amount'] ?? 0)],
+      ['G-rekening', $this->money($release['g_account_amount'] ?? 0)],
+      ['Totaal', $this->money($release['total_amount'] ?? 0)],
+      ['Aangevraagd door', (string) ($release['requested_by'] ?? '')],
+      ['Goedgekeurd door', (string) ($release['approved_by'] ?? '')],
+      ['Uitgevoerd door', (string) ($release['executed_by'] ?? '')],
+    ] : [['Status', 'Nog geen betaalvrijgave aangemaakt']];
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['bfcc-section', 'brebo-finance-invoice-control']],
+      'title' => ['#markup' => '<h2>Controlestatus</h2><p>Read-only beeld van order, prestatie, matching, G-rekening en betaalvrijgave.</p>'],
+      'summary' => [
+        '#type' => 'table',
+        '#header' => ['Controle', 'Waarde'],
+        '#rows' => [
+          ['Factuurregels', (string) ($summary['line_count'] ?? 0)],
+          ['Niet gematchte regels', (string) ($summary['unmatched_lines'] ?? 0)],
+          ['Geblokkeerde regels', (string) ($summary['blocked_lines'] ?? 0)],
+          ['Regeltotaal excl. btw', $this->money($summary['line_amount_ex_vat'] ?? 0)],
+          ['Factuurkop excl. btw', $this->money($summary['header_amount_ex_vat'] ?? 0)],
+          ['Verschil regels/kop', $this->money($summary['line_header_difference_ex_vat'] ?? 0)],
+        ],
+      ],
+      'lines_title' => ['#markup' => '<h3>Factuurregels · order · prestatie · match</h3>'],
+      'lines' => [
+        '#type' => 'table',
+        '#header' => ['Regel', 'Omschrijving', 'Factuur excl. btw', 'Commitment', 'Match', 'Afwijking', 'Verified performance', 'Tekort', 'Blokkade'],
+        '#rows' => $lineRows,
+        '#empty' => 'Nog geen factuurregels vastgelegd.',
+      ],
+      'g_title' => ['#markup' => '<h3>G-rekening</h3>'],
+      'g_account' => ['#type' => 'table', '#header' => ['Gegeven', 'Waarde'], '#rows' => $gRows],
+      'release_title' => ['#markup' => '<h3>Betaalvrijgave</h3>'],
+      'payment_release' => ['#type' => 'table', '#header' => ['Gegeven', 'Waarde'], '#rows' => $releaseRows],
+      'trace' => [
+        '#markup' => '<p>' . Link::fromTextAndUrl($this->t('Open financiële eurotrace'), Url::fromRoute('brebo_finance.euro_trace', ['entity_type' => 'purchase_invoice', 'entity_id' => $invoiceId]))->toString() . '</p>',
+      ],
     ];
   }
 
