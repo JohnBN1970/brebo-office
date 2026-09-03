@@ -1,0 +1,70 @@
+name: BREBO Finance Moneybird Receivables Sync
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 5,11,17,23 * * *'
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Reconcile Moneybird receivables to Finance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Run controlled receivables reconciliation
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Finance Moneybird receivables preflight ==="
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
+          "${drush[@]}" php:eval '
+            $container = \Drupal::getContainer();
+            foreach (["brebo_finance.sales_invoice_receivables_integration_client", "brebo_finance.sales_invoice_receivables_reconciler"] as $service) {
+              print $service . "=" . ($container->has($service) ? "yes" : "no") . "\n";
+              if (!$container->has($service)) { throw new \RuntimeException("Missing required service: " . $service); }
+            }
+            $db = \Drupal::database();
+            if (!$db->schema()->tableExists("brebo_finance_sales_invoice")) { throw new \RuntimeException("Missing sales invoice table"); }
+            print "SALES_INVOICE_TABLE=yes\n";
+          '
+
+          echo "=== Reconciling Moneybird receivables ==="
+          "${drush[@]}" php:eval '
+            $result = \Drupal::service("brebo_finance.sales_invoice_receivables_reconciler")->sync();
+            foreach (["received", "updated", "unchanged", "unmatched"] as $key) {
+              print strtoupper($key) . "=" . (int) ($result[$key] ?? 0) . "\n";
+            }
+            print "MONEYBIRD_RECEIVABLES_SYNC=PASS\n";
+          '
+          REMOTE
