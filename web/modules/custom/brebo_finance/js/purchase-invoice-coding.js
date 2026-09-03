@@ -59,7 +59,7 @@
                 ${permissions.manage_procurement && line.commitment_line_id ? `
                   <details>
                     <summary>Prestatie registreren tegen commitmentregel #${esc(line.commitment_line_id)}</summary>
-                    <form data-performance-form data-commitment-line-id="${esc(line.commitment_line_id)}">
+                    <form data-performance-form data-invoice-line-id="${esc(line.id)}">
                       <label>Bedrag excl. btw <input name="amount_ex_vat" inputmode="decimal" value="${esc(line.amount_ex_vat || '')}" required></label>
                       <label>Omschrijving <input name="description" value="${esc(line.description || '')}" required></label>
                       <label>Gebouw-NID <input name="building_nid" type="number" min="1" required></label>
@@ -110,8 +110,7 @@
             event.preventDefault();
             const data = new FormData(form);
             try {
-              await post('/brebo-office/api/finance/performance-receipts', {
-                commitment_line_id: Number(form.dataset.commitmentLineId),
+              await post(`/brebo-office/api/finance/purchase-invoices/${invoiceId}/lines/${Number(form.dataset.invoiceLineId)}/performances`, {
                 amount_ex_vat: data.get('amount_ex_vat'),
                 description: data.get('description'),
                 evidence: parseEvidence(data.get('evidence')),
@@ -127,7 +126,7 @@
             event.preventDefault();
             const data = new FormData(form);
             try {
-              await post(`/brebo-office/api/finance/performance-receipts/${Number(form.dataset.receiptId)}/verification`, {
+              await post(`/brebo-office/api/finance/purchase-invoices/${invoiceId}/performances/${Number(form.dataset.receiptId)}/verification`, {
                 building_evidence_complete: data.get('building_evidence_complete') === '1',
                 quality_accepted: data.get('quality_accepted') === '1',
                 note: data.get('note')
