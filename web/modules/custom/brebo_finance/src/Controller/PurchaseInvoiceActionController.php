@@ -41,7 +41,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
     );
   }
 
-  public function state(int $invoice_id): JsonResponse {
+  public function actionState(int $invoice_id): JsonResponse {
     $this->assertInvoiceAccess($invoice_id);
     $state = $this->controlViewBuilder->build($invoice_id);
     $state['permissions'] = [
