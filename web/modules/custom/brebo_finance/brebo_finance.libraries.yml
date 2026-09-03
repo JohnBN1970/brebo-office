@@ -41,6 +41,7 @@ project_finance_detail:
   js:
     js/project-finance-detail.js: {}
     js/project-finance-priority.js: {}
+    js/project-finance-closure.js: {}
   dependencies:
     - core/drupal
     - core/once
