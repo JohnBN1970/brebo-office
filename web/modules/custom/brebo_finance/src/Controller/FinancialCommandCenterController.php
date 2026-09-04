@@ -70,6 +70,7 @@ final class FinancialCommandCenterController extends ControllerBase {
             Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
             Link::fromTextAndUrl($this->t('Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues')),
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
+            Link::fromTextAndUrl($this->t('Betaalcentrum'), Url::fromRoute('brebo_finance.payment_center')),
             ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
             ['#markup' => '<a href="#bfcc-business-health">' . $this->t('Bedrijfsgezondheid') . '</a>'],
           ],
