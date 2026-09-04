@@ -21,6 +21,17 @@ final class FinancialCommandCenterController extends ControllerBase {
   }
 
   public function page(): array {
+    $commandCenter = $this->commandCenter->build($this->currentUser());
+    $sync = $commandCenter['receivables_sync'] ?? [];
+    $syncAttention = !empty($sync['requires_attention']);
+    $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
+    $syncLabel = $lastSuccess !== NULL
+      ? $this->t('Laatste succesvolle Moneybird debiteurensync: @date', ['@date' => date('d-m-Y H:i', $lastSuccess)])
+      : $this->t('Er is nog geen succesvolle Moneybird debiteurensync geregistreerd.');
+    $syncError = $syncAttention && !empty($sync['error'])
+      ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . htmlspecialchars((string) $sync['error'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+      : '';
+
     return [
       '#type' => 'container',
       '#attributes' => [
@@ -41,6 +52,13 @@ final class FinancialCommandCenterController extends ControllerBase {
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
+        ],
+      ],
+      'sync_health' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['bfcc-section', $syncAttention ? 'bfcc-sync-warning' : 'bfcc-sync-ok']],
+        'content' => [
+          '#markup' => '<span class="bfcc-kicker">MONEYBIRD DEBITEUREN</span><p><strong>' . ($syncAttention ? $this->t('Synchronisatie vraagt aandacht') : $this->t('Synchronisatie actief')) . '</strong><br>' . $syncLabel . $syncError . '</p>',
         ],
       ],
       'content' => [
