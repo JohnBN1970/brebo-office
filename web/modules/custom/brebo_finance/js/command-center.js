@@ -19,7 +19,12 @@
           const overdueTone = Number(p.overdue_invoice_count || 0) > 0 ? 'red' : 'green';
           const releaseTone = Number(p.pending_payment_releases || 0) > 0 ? 'orange' : 'green';
           const staleTone = Number(p.forecast_stale_count || 0) > 0 ? 'orange' : 'green';
-          const decisionTone = Number(d.now || 0) > 0 ? 'red' : (Number(d.today || 0) > 0 ? 'orange' : 'green');
+          const decisionTone = Number(d.now || 0) > 0 ? 'red' : (Number(d.count || 0) > 0 ? 'orange' : 'green');
+          const decisionUrl = app.dataset.decisionUrl || '';
+          const decisionHeadLink = decisionUrl ? `<a href="${esc(decisionUrl)}">Open beslisinbox →</a>` : '';
+          const decisionRows = decisionUrl && d.top.length
+            ? `<div class="bfcc-decisions">${d.top.map((x) => `<a href="${esc(decisionUrl)}?exception_id=${esc(x.exception_id)}" class="bfcc-decision"><span class="bfcc-priority">${esc(x.priority?.label || 'Deze week')}</span><strong>Project #${esc(x.project_nid)} · ${esc(x.gate)}</strong><span>${esc(money(x.exposure?.exposure_amount))}</span><small>${esc(x.priority?.explanation || '')}</small></a>`).join('')}</div>`
+            : '<p>Geen financiële besluiten die op jou wachten.</p>';
 
           root.innerHTML = `
             <section class="bfcc-kpis">
@@ -52,9 +57,9 @@
               </article>
             </section>
 
-            <section class="bfcc-section"><div class="bfcc-section-head"><div><span class="bfcc-kicker">ACTIE</span><h2>Financiële beslissingen</h2></div><a href="${esc(app.dataset.decisionUrl)}">Open beslisinbox →</a></div>${d.top.length ? `<div class="bfcc-decisions">${d.top.map((x) => `<a href="${esc(app.dataset.decisionUrl)}?exception_id=${esc(x.exception_id)}" class="bfcc-decision"><span class="bfcc-priority">${esc(x.priority?.label || 'Deze week')}</span><strong>Project #${esc(x.project_nid)} · ${esc(x.gate)}</strong><span>${esc(money(x.exposure?.exposure_amount))}</span><small>${esc(x.priority?.explanation || '')}</small></a>`).join('')}</div>` : '<p>Geen financiële besluiten die op jou wachten.</p>'}</section>
+            <section class="bfcc-section"><div class="bfcc-section-head"><div><span class="bfcc-kicker">ACTIE</span><h2>Financiële beslissingen</h2></div>${decisionHeadLink}</div>${decisionRows}</section>
 
-            <section class="bfcc-section"><div class="bfcc-section-head"><div><span class="bfcc-kicker">PORTFOLIO</span><h2>Projecten onder controle</h2></div><span>${esc(p.project_count)} projecten · ${esc(p.forecast_stale_count)} forecast(s) verouderd</span></div><div class="bfcc-projects">${data.projects.map((x) => `<article class="bfcc-project"><div><h3><a href="/brebo-office/finance/projects/${esc(x.project_nid)}">${esc(x.title)}</a></h3><small>Project #${esc(x.project_nid)}${x.forecast_is_stale ? ' · forecast verouderd' : ''}</small></div><div><small>Te factureren</small><strong>${esc(money(x.billing_position?.billable_not_invoiced_ex_vat))}</strong></div><div><small>Verplichtingen</small><strong>${esc(money(x.procurement_pipeline?.committed_ex_vat))}</strong></div><div><small>Contractrisico</small><strong>${esc(money(x.contract_obligations?.open_exposure_ex_vat))}</strong></div><div><small>Faalkosten</small><strong>${esc(money(x.failure_costs?.net_failure_cost_ex_vat))}</strong></div><div><small>Betaalvrijgaven</small><strong>${esc(x.workflow?.payment_releases_pending || 0)}</strong></div></article>`).join('')}</div></section>`;
+            <section class="bfcc-section"><div class="bfcc-section-head"><div><span class="bfcc-kicker">PORTFOLIO</span><h2>Financiële portefeuille</h2></div><span>${esc(p.project_count)} projecten</span></div><div class="bfcc-domain-metrics"><div><small>Contractrisico open</small><strong>${esc(money(p.open_contract_exposure_ex_vat))}</strong></div><div><small>Open meerwerk</small><strong>${esc(money(p.open_change_order_sales_ex_vat))}</strong></div><div><small>Forecasts verouderd</small><strong>${esc(p.forecast_stale_count || 0)}</strong></div></div></section>`;
         }
         catch (e) {
           root.innerHTML = `<div class="bfcc-error">${esc(e.message)}</div>`;
