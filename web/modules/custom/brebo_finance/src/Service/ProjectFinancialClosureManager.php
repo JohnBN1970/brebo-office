@@ -30,8 +30,8 @@ final class ProjectFinancialClosureManager {
       if ((string) $forecast['forecast_remaining_cost_ex_vat'] !== '0.0000' || (string) $forecast['risk_reserve_ex_vat'] !== '0.0000') {
         $blockers[] = ['code' => 'forecast_not_final', 'label' => 'Forecast bevat nog resterende kosten of risicoreserve.'];
       }
-      if ($this->hasFinancialChangesAfter($projectNid, (int) $forecast['created'])) {
-        $blockers[] = ['code' => 'forecast_stale', 'label' => 'Financiële brongegevens zijn gewijzigd na de laatste forecast. Maak eerst een nieuwe forecast.'];
+      if ($this->hasFinancialChangesAtOrAfter($projectNid, (int) $forecast['created'])) {
+        $blockers[] = ['code' => 'forecast_stale', 'label' => 'Financiële brongegevens zijn gewijzigd op of na de laatste forecast. Maak eerst een nieuwe forecast.'];
       }
     }
 
@@ -104,7 +104,7 @@ final class ProjectFinancialClosureManager {
     return $row === FALSE ? NULL : $row;
   }
 
-  private function hasFinancialChangesAfter(int $projectNid, int $forecastCreated): bool {
+  private function hasFinancialChangesAtOrAfter(int $projectNid, int $forecastCreated): bool {
     $tables = [
       'brebo_finance_project_contract',
       'brebo_finance_revenue_mutation',
@@ -136,7 +136,10 @@ final class ProjectFinancialClosureManager {
       if ($timeField === NULL) continue;
       $query = $this->database->select($table, 't')->condition('project_nid', $projectNid);
       $query->addExpression("COALESCE(MAX($timeField), 0)", 'latest_change');
-      if ((int) $query->execute()->fetchField() > $forecastCreated) return TRUE;
+      // Second-resolution timestamps cannot safely order a mutation and a
+      // forecast created in the same second. Fail closed on equality; taking a
+      // new snapshot after that second clears the blocker deterministically.
+      if ((int) $query->execute()->fetchField() >= $forecastCreated) return TRUE;
     }
     return FALSE;
   }
