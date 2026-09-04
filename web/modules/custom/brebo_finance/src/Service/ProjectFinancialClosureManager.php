@@ -95,24 +95,11 @@ final class ProjectFinancialClosureManager {
     if (is_string($storedHash) && $storedHash !== '') {
       return !hash_equals($storedHash, $this->financialSourceStateHash($projectNid));
     }
-    return $this->hasFinancialChangesAfter($projectNid, (int) $forecast['created']);
-  }
 
-  /** Backward-compatible fallback for forecasts created before source hashing. */
-  private function hasFinancialChangesAfter(int $projectNid, int $forecastCreated): bool {
-    $schema = $this->database->schema();
-    foreach ($this->sourceTables() as $table) {
-      if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'project_nid')) continue;
-      $timeField = NULL;
-      foreach (['changed', 'recorded_at', 'created'] as $candidate) {
-        if ($schema->fieldExists($table, $candidate)) { $timeField = $candidate; break; }
-      }
-      if ($timeField === NULL) continue;
-      $query = $this->database->select($table, 't')->condition('project_nid', $projectNid);
-      $query->addExpression("COALESCE(MAX($timeField), 0)", 'latest_change');
-      if ((int) $query->execute()->fetchField() > $forecastCreated) return TRUE;
-    }
-    return FALSE;
+    // Legacy forecasts cannot prove exact ordering because their source
+    // timestamps only have second resolution. Fail closed and require a new
+    // forecast carrying source_state_hash before immutable closure is allowed.
+    return TRUE;
   }
 
   private function financialSourceStateHash(int $projectNid): string {
@@ -137,13 +124,24 @@ final class ProjectFinancialClosureManager {
     return hash('sha256', json_encode($state, JSON_THROW_ON_ERROR));
   }
 
-  /** @return string[] */
+  /** @return list<string> */
   private function sourceTables(): array {
     return [
-      'brebo_finance_project_contract', 'brebo_finance_revenue_mutation', 'brebo_finance_budget', 'brebo_finance_commitment',
-      'brebo_finance_performance_receipt', 'brebo_finance_purchase_invoice', 'brebo_finance_payment_release', 'brebo_finance_billing_instalment',
-      'brebo_finance_sales_invoice', 'brebo_finance_sales_invoice_draft', 'brebo_finance_sales_invoice_outbox', 'brebo_finance_budget_mutation',
-      'brebo_finance_contract_obligation', 'brebo_finance_failure_cost', 'brebo_finance_change_order', 'brebo_finance_provisional_sum',
+      'brebo_finance_budget',
+      'brebo_finance_commitment',
+      'brebo_finance_commitment_line',
+      'brebo_finance_purchase_invoice',
+      'brebo_finance_purchase_invoice_line',
+      'brebo_finance_performance_receipt',
+      'brebo_finance_payment_release',
+      'brebo_finance_billing_instalment',
+      'brebo_finance_sales_invoice',
+      'brebo_finance_sales_invoice_draft',
+      'brebo_finance_sales_invoice_outbox',
+      'brebo_finance_budget_mutation',
+      'brebo_finance_contract_obligation',
+      'brebo_finance_failure_cost',
     ];
   }
+
 }
