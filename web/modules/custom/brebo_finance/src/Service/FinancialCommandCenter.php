@@ -4,19 +4,71 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\node\NodeInterface;
 
-/** Builds a management-wide financial command center from project cockpits. */
+/** Builds a management-wide financial command center from verified sources. */
 final class FinancialCommandCenter {
 
   public function __construct(
+    private readonly Connection $database,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly FinancialCockpitBuilder $cockpitBuilder,
     private readonly FinancialDecisionInbox $decisionInbox,
     private readonly FinancialDecisionAssignmentResolver $assignmentResolver,
     private readonly ReceivablesReconciliationMonitor $receivablesMonitor,
   ) {}
+
+  /**
+   * Lightweight dashboard payload using a fixed number of aggregate queries.
+   *
+   * @return array<string, mixed>
+   */
+  public function dashboard(AccountInterface $account): array {
+    $projectIds = $this->viewableProjectIds($account);
+    $portfolio = [
+      'project_count' => count($projectIds),
+      'billable_not_invoiced_ex_vat' => $this->sumByStatus('brebo_finance_billing_instalment', 'amount_ex_vat', $projectIds, ['billable']),
+      'invoiced_ex_vat' => $this->sumExceptStatus('brebo_finance_sales_invoice', 'amount_ex_vat', $projectIds, ['draft', 'cancelled']),
+      'committed_ex_vat' => $this->sumExceptStatus('brebo_finance_commitment', 'amount_ex_vat', $projectIds, ['cancelled']),
+      'open_contract_exposure_ex_vat' => $this->sumByStatus('brebo_finance_contract_obligation', 'financial_exposure_ex_vat', $projectIds, ['open', 'pending_verification', 'waiver_review']),
+      'net_failure_cost_ex_vat' => $this->sumByStatus('brebo_finance_failure_cost', 'net_failure_cost_ex_vat', $projectIds, ['observed', 'validated', 'recovery_pending', 'closed']),
+      'open_change_order_sales_ex_vat' => $this->sumByStatus('brebo_finance_change_order', 'sales_amount_ex_vat', $projectIds, ['priced', 'offered', 'client_approved', 'risk_review', 'risk_accepted', 'executed', 'invoiced']),
+      'overdue_invoice_count' => $this->countByStatus('brebo_finance_sales_invoice', $projectIds, ['overdue']),
+      'pending_payment_releases' => $this->countExceptStatus('brebo_finance_payment_release', $projectIds, ['executed', 'rejected', 'cancelled']),
+      'forecast_stale_count' => $this->staleForecastCount($projectIds),
+    ];
+
+    $decisions = [];
+    $decisionExposure = 0.0;
+    $priority = ['now' => 0, 'today' => 0, 'this_week' => 0];
+    foreach ($this->decisionInbox->pending() as $decision) {
+      if (!in_array((int) ($decision['project_nid'] ?? 0), $projectIds, TRUE)) continue;
+      $canAct = $this->assignmentResolver->canAct($account, (string) $decision['gate'], (string) $decision['authorization']['level']);
+      if (!$canAct['authorized']) continue;
+      $band = (string) ($decision['priority']['band'] ?? 'this_week');
+      if (isset($priority[$band])) $priority[$band]++;
+      $decisionExposure += (float) ($decision['exposure']['exposure_amount'] ?? 0);
+      $decisions[] = $decision;
+    }
+
+    return [
+      'generated_at' => time(),
+      'portfolio' => $portfolio,
+      'receivables_sync' => $this->receivablesSyncHealth(),
+      'decisions' => [
+        'count' => count($decisions),
+        'now' => $priority['now'],
+        'today' => $priority['today'],
+        'this_week' => $priority['this_week'],
+        'exposure_amount' => number_format($decisionExposure, 2, '.', ''),
+        'top' => array_slice($decisions, 0, 10),
+      ],
+      'basis' => 'Bounded organisation-wide aggregate queries over projects the current user may view; no per-project cockpit rebuild is performed for the Finance dashboard.',
+    ];
+  }
 
   /** @return array<string, mixed> */
   public function build(AccountInterface $account): array {
@@ -113,5 +165,69 @@ final class FinancialCommandCenter {
       'error_code' => $syncStatus === 'failed' ? 'moneybird_receivables_sync_failed' : NULL,
       'operator_message' => $syncStatus === 'failed' ? 'De Moneybird debiteurensynchronisatie is mislukt. Controleer de beheerlogs of probeer de synchronisatie opnieuw.' : NULL,
     ];
+  }
+
+  /** @return list<int> */
+  private function viewableProjectIds(AccountInterface $account): array {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_project')->execute();
+    $result = [];
+    foreach ($storage->loadMultiple($ids) as $project) {
+      if ($project instanceof NodeInterface && $project->access('view', $account)) $result[] = (int) $project->id();
+    }
+    return $result;
+  }
+
+  /** @param list<int> $projectIds @param list<string> $statuses */
+  private function sumByStatus(string $table, string $field, array $projectIds, array $statuses): float {
+    if ($projectIds === [] || !$this->tableHas($table, [$field, 'project_nid', 'status'])) return 0.0;
+    $query = $this->database->select($table, 't');
+    $query->addExpression('COALESCE(SUM(t.' . $field . '), 0)', 'total');
+    return (float) $query->condition('project_nid', $projectIds, 'IN')->condition('status', $statuses, 'IN')->execute()->fetchField();
+  }
+
+  /** @param list<int> $projectIds @param list<string> $statuses */
+  private function sumExceptStatus(string $table, string $field, array $projectIds, array $statuses): float {
+    if ($projectIds === [] || !$this->tableHas($table, [$field, 'project_nid', 'status'])) return 0.0;
+    $query = $this->database->select($table, 't');
+    $query->addExpression('COALESCE(SUM(t.' . $field . '), 0)', 'total');
+    return (float) $query->condition('project_nid', $projectIds, 'IN')->condition('status', $statuses, 'NOT IN')->execute()->fetchField();
+  }
+
+  /** @param list<int> $projectIds @param list<string> $statuses */
+  private function countByStatus(string $table, array $projectIds, array $statuses): int {
+    if ($projectIds === [] || !$this->tableHas($table, ['project_nid', 'status'])) return 0;
+    return (int) $this->database->select($table, 't')->condition('project_nid', $projectIds, 'IN')->condition('status', $statuses, 'IN')->countQuery()->execute()->fetchField();
+  }
+
+  /** @param list<int> $projectIds @param list<string> $statuses */
+  private function countExceptStatus(string $table, array $projectIds, array $statuses): int {
+    if ($projectIds === [] || !$this->tableHas($table, ['project_nid', 'status'])) return 0;
+    return (int) $this->database->select($table, 't')->condition('project_nid', $projectIds, 'IN')->condition('status', $statuses, 'NOT IN')->countQuery()->execute()->fetchField();
+  }
+
+  /** @param list<int> $projectIds */
+  private function staleForecastCount(array $projectIds): int {
+    if ($projectIds === [] || !$this->tableHas('brebo_finance_forecast_snapshot', ['project_nid', 'snapshot_date'])) return count($projectIds);
+    $threshold = date('Y-m-d', strtotime('-30 days'));
+    $query = $this->database->select('brebo_finance_forecast_snapshot', 'f');
+    $query->addField('f', 'project_nid');
+    $query->addExpression('MAX(f.snapshot_date)', 'latest_snapshot');
+    $query->condition('project_nid', $projectIds, 'IN')->groupBy('project_nid');
+    $fresh = 0;
+    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+      if ((string) ($row['latest_snapshot'] ?? '') >= $threshold) $fresh++;
+    }
+    return max(0, count($projectIds) - $fresh);
+  }
+
+  /** @param list<string> $fields */
+  private function tableHas(string $table, array $fields): bool {
+    $schema = $this->database->schema();
+    if (!$schema->tableExists($table)) return FALSE;
+    foreach ($fields as $field) {
+      if (!$schema->fieldExists($table, $field)) return FALSE;
+    }
+    return TRUE;
   }
 }
