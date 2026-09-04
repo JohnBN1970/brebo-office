@@ -68,6 +68,9 @@ services:
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.payment_batch_manager:
+    class: Drupal\brebo_finance\Service\PaymentBatchManager
+    arguments: ['@database', '@brebo_finance.purchase_invoice_importer', '@brebo_finance.payment_release_manager']
   brebo_finance.project_financial_position:
     class: Drupal\brebo_finance\Service\ProjectFinancialPosition
     arguments: ['@database', '@brebo_finance.vat_calculator']
