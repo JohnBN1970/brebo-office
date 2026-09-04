@@ -26,8 +26,13 @@ final class ProjectFinancialClosureManager {
     if ($forecast === FALSE) {
       $blockers[] = ['code' => 'forecast_missing', 'label' => 'Definitieve financiële forecast ontbreekt.'];
     }
-    elseif ((string) $forecast['forecast_remaining_cost_ex_vat'] !== '0.0000' || (string) $forecast['risk_reserve_ex_vat'] !== '0.0000') {
-      $blockers[] = ['code' => 'forecast_not_final', 'label' => 'Forecast bevat nog resterende kosten of risicoreserve.'];
+    else {
+      if ((string) $forecast['forecast_remaining_cost_ex_vat'] !== '0.0000' || (string) $forecast['risk_reserve_ex_vat'] !== '0.0000') {
+        $blockers[] = ['code' => 'forecast_not_final', 'label' => 'Forecast bevat nog resterende kosten of risicoreserve.'];
+      }
+      if ($this->hasFinancialChangesAfter($projectNid, (int) $forecast['created'])) {
+        $blockers[] = ['code' => 'forecast_stale', 'label' => 'Financiële brongegevens zijn gewijzigd na de laatste forecast. Maak eerst een nieuwe forecast.'];
+      }
     }
 
     $checks = [
@@ -35,8 +40,10 @@ final class ProjectFinancialClosureManager {
       ['performances_open', 'brebo_finance_performance_receipt', ['verified', 'rejected', 'cancelled'], 'Niet-afgesloten prestaties'],
       ['purchase_invoices_open', 'brebo_finance_purchase_invoice', ['paid', 'cancelled', 'credited'], 'Open inkoopfacturen'],
       ['payment_releases_open', 'brebo_finance_payment_release', ['executed', 'rejected', 'cancelled'], 'Open betaalvrijgaven'],
-      ['billing_instalments_open', 'brebo_finance_billing_instalment', ['invoiced', 'cancelled'], 'Nog te factureren termijnen'],
+      ['billing_instalments_open', 'brebo_finance_billing_instalment', ['invoiced', 'paid', 'cancelled'], 'Nog te factureren termijnen'],
       ['sales_invoices_open', 'brebo_finance_sales_invoice', ['paid', 'cancelled', 'credited'], 'Open verkoopfacturen/debiteuren'],
+      ['sales_invoice_drafts_open', 'brebo_finance_sales_invoice_draft', ['sent', 'cancelled'], 'Open verkoopfactuurconcepten'],
+      ['sales_invoice_commands_open', 'brebo_finance_sales_invoice_outbox', ['completed'], 'Nog niet afgeronde Moneybird factuurcommando’s'],
       ['budget_mutations_open', 'brebo_finance_budget_mutation', ['approved', 'rejected', 'cancelled'], 'Open budgetmutaties'],
       ['contract_obligations_open', 'brebo_finance_contract_obligation', ['verified', 'waived', 'closed'], 'Open contractverplichtingen'],
       ['failure_costs_open', 'brebo_finance_failure_cost', ['closed', 'rejected'], 'Open faalkosten'],
@@ -75,7 +82,16 @@ final class ProjectFinancialClosureManager {
     if ($existing !== FALSE) return $existing;
 
     $forecast = $assessment['final_forecast'];
-    $payload = ['project_nid' => $projectNid, 'forecast_snapshot_id' => $forecast['id'], 'final_revenue_ex_vat' => $forecast['revenue_ex_vat'], 'final_cost_ex_vat' => $forecast['end_cost_ex_vat'], 'final_result_ex_vat' => $forecast['result_ex_vat'], 'final_margin_pct' => $forecast['margin_pct'], 'forecast_hash' => $forecast['content_hash'], 'closure_note' => $note];
+    $payload = [
+      'project_nid' => $projectNid,
+      'forecast_snapshot_id' => $forecast['id'],
+      'final_revenue_ex_vat' => $forecast['revenue_ex_vat'],
+      'final_cost_ex_vat' => $forecast['end_cost_ex_vat'],
+      'final_result_ex_vat' => $forecast['result_ex_vat'],
+      'final_margin_pct' => $forecast['margin_pct'],
+      'forecast_hash' => $forecast['content_hash'],
+      'closure_note' => $note,
+    ];
     $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     $payload += ['closed' => time(), 'closed_by' => $userId];
     $id = (int) $this->database->insert('brebo_finance_project_closure')->fields($payload)->execute();
@@ -86,5 +102,42 @@ final class ProjectFinancialClosureManager {
   public function closure(int $projectNid): ?array {
     $row = $this->database->select('brebo_finance_project_closure', 'c')->fields('c')->condition('project_nid', $projectNid)->execute()->fetchAssoc();
     return $row === FALSE ? NULL : $row;
+  }
+
+  private function hasFinancialChangesAfter(int $projectNid, int $forecastCreated): bool {
+    $tables = [
+      'brebo_finance_project_contract',
+      'brebo_finance_revenue_mutation',
+      'brebo_finance_budget',
+      'brebo_finance_commitment',
+      'brebo_finance_performance_receipt',
+      'brebo_finance_purchase_invoice',
+      'brebo_finance_payment_release',
+      'brebo_finance_billing_instalment',
+      'brebo_finance_sales_invoice',
+      'brebo_finance_sales_invoice_draft',
+      'brebo_finance_sales_invoice_outbox',
+      'brebo_finance_budget_mutation',
+      'brebo_finance_contract_obligation',
+      'brebo_finance_failure_cost',
+      'brebo_finance_change_order',
+      'brebo_finance_provisional_sum',
+    ];
+    $schema = $this->database->schema();
+    foreach ($tables as $table) {
+      if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'project_nid')) continue;
+      $timeField = NULL;
+      foreach (['changed', 'recorded_at', 'created'] as $candidate) {
+        if ($schema->fieldExists($table, $candidate)) {
+          $timeField = $candidate;
+          break;
+        }
+      }
+      if ($timeField === NULL) continue;
+      $query = $this->database->select($table, 't')->condition('project_nid', $projectNid);
+      $query->addExpression("COALESCE(MAX($timeField), 0)", 'latest_change');
+      if ((int) $query->execute()->fetchField() > $forecastCreated) return TRUE;
+    }
+    return FALSE;
   }
 }
