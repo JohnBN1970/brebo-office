@@ -49,6 +49,9 @@ final class ProjectFinancialPosition {
     $forecastResult = $this->decimal->subtract($currentRevenue, $forecastEndCost);
     $forecastMargin = $this->decimal->percentage($forecastResult, $currentRevenue);
 
+    // Verify that the exact source rows used by closure did not change while
+    // this forecast was being calculated. This removes timestamp-ordering
+    // ambiguity, including same-second writes.
     $sourceStateAfter = $this->financialSourceStateHash($projectNid);
     if (!hash_equals($sourceStateBefore, $sourceStateAfter)) {
       throw new RuntimeException('Financiële brongegevens wijzigden tijdens het maken van de forecast. Probeer opnieuw.');
