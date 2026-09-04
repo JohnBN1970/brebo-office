@@ -112,54 +112,37 @@ services:
     arguments: ['@database', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
   brebo_finance.financial_command_center:
     class: Drupal\brebo_finance\Service\FinancialCommandCenter
-    arguments: ['@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver', '@brebo_finance.receivables_reconciliation_monitor']
+    arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.financial_project_ledger:
     class: Drupal\brebo_finance\Service\FinancialProjectLedger
     arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
   brebo_finance.financial_euro_trace:
     class: Drupal\brebo_finance\Service\FinancialEuroTrace
     arguments: ['@database']
-  brebo_finance.financial_euro_trace_control:
-    class: Drupal\brebo_finance\Service\FinancialEuroTraceControl
-    arguments: ['@brebo_finance.financial_euro_trace']
   brebo_finance.financial_euro_trace_finding_synchronizer:
     class: Drupal\brebo_finance\Service\FinancialEuroTraceFindingSynchronizer
-    arguments: ['@database', '@brebo_finance.financial_euro_trace_control']
-  brebo_finance.control_finding_manager:
-    class: Drupal\brebo_finance\Service\ControlFindingManager
     arguments: ['@database']
-  brebo_finance.ai_assessment_manager:
-    class: Drupal\brebo_finance\Service\AiFinancialAssessmentManager
-    arguments: ['@database']
-  brebo_finance.digital_controller:
-    class: Drupal\brebo_finance\Service\DigitalController
-    arguments: ['@database', '@brebo_finance.control_scanner', '@brebo_finance.controller_briefing_builder', '@brebo_finance.ai_assessment_manager']
-  brebo_finance.sales_invoice_integration_client:
-    class: Drupal\brebo_finance\Service\SalesInvoiceIntegrationClient
-    arguments: ['@http_client']
-  brebo_finance.sales_invoice_receivables_integration_client:
-    class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
-    arguments: ['@http_client']
+  brebo_finance.purchase_invoice_action_manager:
+    class: Drupal\brebo_finance\Service\PurchaseInvoiceActionManager
+    arguments: ['@database', '@brebo_finance.purchase_invoice_coding_manager', '@brebo_finance.performance_receipt_manager', '@brebo_finance.three_way_match_manager', '@brebo_finance.payment_release_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
   brebo_finance.receivables_reconciliation_monitor:
     class: Drupal\brebo_finance\Service\ReceivablesReconciliationMonitor
-    arguments: ['@state', '@database']
+    arguments: ['@state']
+  brebo_finance.sales_invoice_receivables_integration_client:
+    class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
+    arguments: ['@http_client', '@config.factory']
   brebo_finance.sales_invoice_receivables_reconciler:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesReconciler
     arguments: ['@database', '@brebo_finance.sales_invoice_receivables_integration_client', '@brebo_finance.billing_control_manager', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.purchase_invoice_integration_client:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient
-    arguments: ['@http_client']
+    arguments: ['@http_client', '@config.factory']
   brebo_finance.purchase_invoice_importer:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceImporter
-    arguments: ['@database', '@brebo_finance.purchase_invoice_integration_client']
-  brebo_finance.moneybird_supplier_masterdata_synchronizer:
-    class: Drupal\brebo_finance\Service\MoneybirdSupplierMasterdataSynchronizer
-  brebo_finance.moneybird_supplier_resolver:
-    class: Drupal\brebo_finance\Service\MoneybirdSupplierResolver
-    arguments: ['@entity_type.manager', '@brebo_finance.moneybird_supplier_masterdata_synchronizer']
-  brebo_finance.moneybird_supplier_diagnosis:
-    class: Drupal\brebo_finance\Service\MoneybirdSupplierDiagnosis
-    arguments: ['@database', '@entity_type.manager']
-  brebo_finance.mail_purchase_invoice_router:
-    class: Drupal\brebo_finance\Service\MailPurchaseInvoiceRouter
+    arguments: ['@database', '@brebo_finance.purchase_invoice_integration_client', '@brebo_finance.vat_calculator']
+  brebo_finance.project_financial_closure_guard:
+    class: Drupal\brebo_finance\Service\ProjectFinancialClosureGuard
+    arguments: ['@database', '@brebo_finance.project_financial_closure_manager']
+  brebo_finance.finance_operating_layer:
+    class: Drupal\brebo_finance\Service\FinanceOperatingLayer
     arguments: ['@database']

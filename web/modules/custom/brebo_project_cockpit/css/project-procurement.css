@@ -27,3 +27,46 @@
   font-size: .82rem;
   opacity: .72;
 }
+
+.brebo-finance-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.brebo-finance-status__light {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #98a2b3;
+  box-shadow: 0 0 0 3px rgba(152, 162, 179, .12);
+}
+
+.brebo-finance-status--green .brebo-finance-status__light {
+  background: #12b76a;
+  box-shadow: 0 0 0 3px rgba(18, 183, 106, .12);
+}
+
+.brebo-finance-status--orange .brebo-finance-status__light {
+  background: #f79009;
+  box-shadow: 0 0 0 3px rgba(247, 144, 9, .12);
+}
+
+.brebo-finance-status--red .brebo-finance-status__light {
+  background: #f04438;
+  box-shadow: 0 0 0 3px rgba(240, 68, 56, .12);
+}
+
+.brebo-finance-row--red > td:first-child {
+  border-left: 3px solid #f04438;
+}
+
+.brebo-finance-row--orange > td:first-child {
+  border-left: 3px solid #f79009;
+}
+
+.brebo-finance-row--green > td:first-child {
+  border-left: 3px solid #12b76a;
+}

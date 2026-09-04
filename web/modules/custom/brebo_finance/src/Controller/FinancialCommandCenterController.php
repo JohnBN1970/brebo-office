@@ -37,15 +37,21 @@ final class FinancialCommandCenterController extends ControllerBase {
     $syncError = $syncAttention && !empty($sync['operator_message'])
       ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . $this->t((string) $sync['operator_message'])
       : '';
+    $decisionUrl = Url::fromRoute('brebo_finance.financial_decision_page');
+    $canOpenDecisionInbox = $decisionUrl->access($this->currentUser());
 
     return [
       '#type' => 'container',
       '#attributes' => [
         'id' => 'brebo-finance-command-center',
         'class' => ['brebo-finance-command-center'],
+        'data-api-url' => Url::fromRoute('brebo_finance.command_center_api')->toString(),
+        'data-decision-url' => $canOpenDecisionInbox ? $decisionUrl->toString() : '',
+        'data-payables-url' => Url::fromRoute('brebo_finance.payables_work_queues')->toString(),
+        'data-purchase-invoices-url' => Url::fromRoute('brebo_finance.purchase_invoice_list')->toString(),
       ],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Finance</h1><p>Organisatiebreed financieel overzicht. Projectgebonden processen blijven onder Projecten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Finance</h1><p>Financieel commandocentrum voor inkoop, verkoop, cash, risico en besluiten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
       ],
       'navigation' => [
         '#type' => 'container',
@@ -54,8 +60,9 @@ final class FinancialCommandCenterController extends ControllerBase {
           '#theme' => 'item_list',
           '#items' => [
             Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
-            Link::fromTextAndUrl($this->t('Te doen'), Url::fromRoute('brebo_finance.payables_work_queues')),
+            Link::fromTextAndUrl($this->t('Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues')),
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
+            ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
         ],
@@ -69,14 +76,9 @@ final class FinancialCommandCenterController extends ControllerBase {
       ],
       'content' => [
         '#type' => 'container',
-        '#attributes' => ['class' => ['bfcc-section']],
-        'title' => ['#markup' => '<span class="bfcc-kicker">ORGANISATIE</span><h2>Financieel dashboard</h2>'],
-        'intro' => ['#markup' => '<p>De organisatiebrede KPI-laag wordt hierna aangesloten op de maatgevende Moneybird-rubrieken. Tot die tijd worden geen projectwaarden als ondernemings-KPI gepresenteerd.</p>'],
-        'payables' => [
-          '#markup' => '<p><strong>Dagelijkse werkvoorraad:</strong> ' . Link::fromTextAndUrl($this->t('open Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues'))->toString() . '</p>',
-        ],
-        'purchase_invoices' => [
-          '#markup' => '<p><strong>Alle inkoopfacturen:</strong> ' . Link::fromTextAndUrl($this->t('open Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list'))->toString() . '</p>',
+        '#attributes' => ['data-bfcc-content' => 'true'],
+        'loading' => [
+          '#markup' => '<div class="bfcc-loading">' . $this->t('Financieel dashboard wordt geladen…') . '</div>',
         ],
       ],
       '#attached' => ['library' => ['brebo_finance/command_center']],
@@ -85,7 +87,7 @@ final class FinancialCommandCenterController extends ControllerBase {
   }
 
   public function api(): JsonResponse {
-    $response = new JsonResponse($this->commandCenter->build($this->currentUser()));
+    $response = new JsonResponse($this->commandCenter->dashboard($this->currentUser()));
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
   }
