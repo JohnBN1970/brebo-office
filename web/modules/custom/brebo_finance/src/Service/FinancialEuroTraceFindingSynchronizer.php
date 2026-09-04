@@ -18,10 +18,14 @@ final class FinancialEuroTraceFindingSynchronizer {
     'incomplete_trace' => 'FIN-EUROTRACE-INCOMPLETE',
   ];
 
+  private readonly FinancialEuroTraceControl $control;
+
   public function __construct(
     private readonly Connection $database,
-    private readonly FinancialEuroTraceControl $control,
-  ) {}
+    ?FinancialEuroTraceControl $control = NULL,
+  ) {
+    $this->control = $control ?? new FinancialEuroTraceControl(new FinancialEuroTrace($database));
+  }
 
   /** @return array<string, mixed> */
   public function sync(string $entityType, int $entityId, int $actorUid = 0): array {
