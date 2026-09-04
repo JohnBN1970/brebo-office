@@ -1,0 +1,44 @@
+liquidity:
+  red_months: 1
+  orange_months: 2
+fixed_cost_categories:
+  huisvesting:
+    label: 'Huisvesting'
+    monthly_budget: 0
+    ledger_account_ids: []
+  voertuigen:
+    label: 'Voertuigen'
+    monthly_budget: 0
+    ledger_account_ids: []
+  verzekeringen:
+    label: 'Verzekeringen'
+    monthly_budget: 0
+    ledger_account_ids: []
+  ict:
+    label: 'Software & ICT'
+    monthly_budget: 0
+    ledger_account_ids: []
+  advies:
+    label: 'Accountancy & advies'
+    monthly_budget: 0
+    ledger_account_ids: []
+  telecom:
+    label: 'Telefoon & communicatie'
+    monthly_budget: 0
+    ledger_account_ids: []
+  financiering:
+    label: 'Financiering'
+    monthly_budget: 0
+    ledger_account_ids: []
+  management:
+    label: 'Personeel & management'
+    monthly_budget: 0
+    ledger_account_ids: []
+  abonnementen:
+    label: 'Abonnementen'
+    monthly_budget: 0
+    ledger_account_ids: []
+  overig:
+    label: 'Overige vaste kosten'
+    monthly_budget: 0
+    ledger_account_ids: []
