@@ -20,18 +20,19 @@ final class BusinessHealthBuilder {
 
   /** @return array<string, mixed> */
   public function build(): array {
-    if ($cached = $this->cache->get(self::CACHE_ID)) {
-      return is_array($cached->data) ? $cached->data : [];
+    $cached = $this->cachedResult();
+    if ($cached !== NULL) {
+      return $cached;
     }
 
     try {
       $source = $this->client->fetch();
       $result = $this->normalize($source);
-      $this->cache->set(self::CACHE_ID, $result, time() + 300, ['brebo_finance_business_health']);
+      $this->cacheResult($result, 300);
       return $result;
     }
     catch (\Throwable) {
-      return [
+      $result = [
         'status' => 'unavailable',
         'tone' => 'neutral',
         'source' => 'moneybird',
@@ -42,6 +43,31 @@ final class BusinessHealthBuilder {
         'break_even' => NULL,
         'steering' => [],
       ];
+      // Negative-cache provider failures briefly. Cache failures themselves
+      // must never take the operational Finance dashboard down.
+      $this->cacheResult($result, 60);
+      return $result;
+    }
+  }
+
+  /** @return array<string, mixed>|null */
+  private function cachedResult(): ?array {
+    try {
+      $cached = $this->cache->get(self::CACHE_ID);
+      return $cached && is_array($cached->data) ? $cached->data : NULL;
+    }
+    catch (\Throwable) {
+      return NULL;
+    }
+  }
+
+  /** @param array<string, mixed> $result */
+  private function cacheResult(array $result, int $ttl): void {
+    try {
+      $this->cache->set(self::CACHE_ID, $result, time() + $ttl, ['brebo_finance_business_health']);
+    }
+    catch (\Throwable) {
+      // Business-health caching is an optimization, never a runtime dependency.
     }
   }
 
@@ -61,11 +87,11 @@ final class BusinessHealthBuilder {
     $expenseRows = is_array($profitLoss['expenses_by_ledger_account'] ?? NULL)
       ? $profitLoss['expenses_by_ledger_account']
       : [];
-    $fixed = $this->fixedCosts($expenseRows);
+    $elapsedMonths = $this->elapsedMonths();
+    $fixed = $this->fixedCosts($expenseRows, $elapsedMonths);
 
-    $monthsElapsed = max(1, (int) date('n'));
     $indirectCostYtd = array_reduce($expenseRows, fn(float $carry, mixed $row): float => $carry + (is_array($row) ? $this->number($row['value'] ?? 0) : 0.0), 0.0);
-    $indirectMonthlyRunRate = $indirectCostYtd / $monthsElapsed;
+    $indirectMonthlyRunRate = $indirectCostYtd / $elapsedMonths;
     $grossMarginRatio = $grossMarginPct !== NULL ? $grossMarginPct / 100 : NULL;
     $breakEvenMonthly = $grossMarginRatio !== NULL && $grossMarginRatio > 0
       ? $indirectMonthlyRunRate / $grossMarginRatio
@@ -97,7 +123,7 @@ final class BusinessHealthBuilder {
       $steering[] = 'Markeer de Moneybird-grootboekrekeningen die als vaste kosten tellen om budget versus werkelijk en het vaste-kosten-break-evenpunt te activeren.';
     }
     if ($breakEvenMonthly !== NULL && $revenue > 0) {
-      $averageMonthlyRevenue = $revenue / $monthsElapsed;
+      $averageMonthlyRevenue = $revenue / $elapsedMonths;
       if ($averageMonthlyRevenue < $breakEvenMonthly) {
         $steering[] = 'De gemiddelde maandelijkse omzet ligt onder het berekende break-evenniveau op basis van de huidige brutomarge en indirecte kosten.';
       }
@@ -137,7 +163,7 @@ final class BusinessHealthBuilder {
   }
 
   /** @return array<string, mixed> */
-  private function fixedCosts(array $expenseRows): array {
+  private function fixedCosts(array $expenseRows, float $elapsedMonths): array {
     $config = $this->configFactory->get('brebo_finance.business_health');
     $categories = $config->get('fixed_cost_categories');
     if (!is_array($categories)) {
@@ -186,8 +212,7 @@ final class BusinessHealthBuilder {
       }
     }
 
-    $monthsElapsed = max(1, (int) date('n'));
-    $ytdBudget = $monthlyBudget * $monthsElapsed;
+    $ytdBudget = $monthlyBudget * $elapsedMonths;
     return [
       'categories' => array_values($normalizedCategories),
       'monthly_budget' => $this->money($monthlyBudget),
@@ -197,6 +222,14 @@ final class BusinessHealthBuilder {
       'unclassified_expense_accounts' => $unclassified,
       'requires_configuration' => $ledgerToCategory === [] || $monthlyBudget <= 0,
     ];
+  }
+
+  /** Return elapsed calendar months YTD, including the current month fraction. */
+  private function elapsedMonths(): float {
+    $month = max(1, (int) date('n'));
+    $day = max(1, (int) date('j'));
+    $daysInMonth = max(1, (int) date('t'));
+    return max(1.0 / $daysInMonth, ($month - 1) + ($day / $daysInMonth));
   }
 
   private function liquidityTone(float $closingBalance, ?float $months): string {
