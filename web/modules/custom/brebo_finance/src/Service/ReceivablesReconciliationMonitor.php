@@ -19,22 +19,30 @@ final class ReceivablesReconciliationMonitor {
 
   /** @param array<string, int> $summary */
   public function succeeded(array $summary, int $startedAt): void {
+    $completedAt = time();
     $this->state->set(self::STATE_KEY, [
       'status' => 'ok',
       'started_at' => $startedAt,
-      'completed_at' => time(),
+      'completed_at' => $completedAt,
       'summary' => $summary,
       'error' => NULL,
+      'last_success_started_at' => $startedAt,
+      'last_success_completed_at' => $completedAt,
+      'last_success_summary' => $summary,
     ]);
   }
 
   public function failed(\Throwable $error, int $startedAt): void {
+    $previous = $this->status();
     $this->state->set(self::STATE_KEY, [
       'status' => 'failed',
       'started_at' => $startedAt,
       'completed_at' => time(),
       'summary' => NULL,
       'error' => mb_substr($error->getMessage(), 0, 1000),
+      'last_success_started_at' => $previous['last_success_started_at'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['started_at'] ?? NULL) : NULL,
+      'last_success_completed_at' => $previous['last_success_completed_at'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['completed_at'] ?? NULL) : NULL,
+      'last_success_summary' => $previous['last_success_summary'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['summary'] ?? NULL) : NULL,
     ]);
   }
 
