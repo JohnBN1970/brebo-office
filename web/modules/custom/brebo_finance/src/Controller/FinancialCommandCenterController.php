@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,22 +15,27 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /** Exposes the BREBO organisation-wide financial command center. */
 final class FinancialCommandCenterController extends ControllerBase {
 
-  public function __construct(private readonly FinancialCommandCenter $commandCenter) {}
+  public function __construct(
+    private readonly FinancialCommandCenter $commandCenter,
+    private readonly DateFormatterInterface $dateFormatter,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_finance.financial_command_center'));
+    return new static(
+      $container->get('brebo_finance.financial_command_center'),
+      $container->get('date.formatter'),
+    );
   }
 
   public function page(): array {
-    $commandCenter = $this->commandCenter->build($this->currentUser());
-    $sync = $commandCenter['receivables_sync'] ?? [];
+    $sync = $this->commandCenter->receivablesSyncHealth();
     $syncAttention = !empty($sync['requires_attention']);
     $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
     $syncLabel = $lastSuccess !== NULL
-      ? $this->t('Laatste succesvolle Moneybird debiteurensync: @date', ['@date' => date('d-m-Y H:i', $lastSuccess)])
+      ? $this->t('Laatste succesvolle Moneybird debiteurensync: @date', ['@date' => $this->dateFormatter->format($lastSuccess, 'custom', 'd-m-Y H:i')])
       : $this->t('Er is nog geen succesvolle Moneybird debiteurensync geregistreerd.');
-    $syncError = $syncAttention && !empty($sync['error'])
-      ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . htmlspecialchars((string) $sync['error'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+    $syncError = $syncAttention && !empty($sync['operator_message'])
+      ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . $this->t((string) $sync['operator_message'])
       : '';
 
     return [
