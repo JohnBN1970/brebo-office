@@ -78,26 +78,12 @@ final class FinancialCommandCenter {
       $decisions[] = $decision;
     }
 
-    $sync = $this->receivablesMonitor->status();
-    $syncStatus = (string) ($sync['status'] ?? 'unknown');
-    $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
-    $ageSeconds = $lastSuccess !== NULL ? max(0, time() - $lastSuccess) : NULL;
-    $syncHealth = [
-      'status' => $syncStatus,
-      'requires_attention' => $syncStatus === 'failed' || $lastSuccess === NULL || ($ageSeconds !== NULL && $ageSeconds > 86400),
-      'last_attempt_completed_at' => isset($sync['completed_at']) ? (int) $sync['completed_at'] : NULL,
-      'last_success_completed_at' => $lastSuccess,
-      'last_success_age_seconds' => $ageSeconds,
-      'last_success_summary' => is_array($sync['last_success_summary'] ?? NULL) ? $sync['last_success_summary'] : NULL,
-      'error' => $syncStatus === 'failed' ? (string) ($sync['error'] ?? 'Onbekende Moneybird synchronisatiefout.') : NULL,
-    ];
-
     usort($rows, static fn(array $a, array $b): int => ((int) $b['forecast_is_stale'] <=> (int) $a['forecast_is_stale']) ?: ((int) ($b['workflow']['payment_releases_pending'] ?? 0) <=> (int) ($a['workflow']['payment_releases_pending'] ?? 0)));
 
     return [
       'generated_at' => time(),
       'portfolio' => $portfolio,
-      'receivables_sync' => $syncHealth,
+      'receivables_sync' => $this->receivablesSyncHealth(),
       'decisions' => [
         'count' => count($decisions),
         'now' => $priority['now'],
@@ -108,6 +94,24 @@ final class FinancialCommandCenter {
       ],
       'projects' => $rows,
       'basis' => 'Aggregated from project financial cockpits, live authorized financial decisions and Moneybird receivables synchronization health; no financial values are inferred when source records are absent.',
+    ];
+  }
+
+  /** @return array<string, mixed> */
+  public function receivablesSyncHealth(): array {
+    $sync = $this->receivablesMonitor->status();
+    $syncStatus = (string) ($sync['status'] ?? 'unknown');
+    $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
+    $ageSeconds = $lastSuccess !== NULL ? max(0, time() - $lastSuccess) : NULL;
+    return [
+      'status' => $syncStatus,
+      'requires_attention' => $syncStatus === 'failed' || $lastSuccess === NULL || ($ageSeconds !== NULL && $ageSeconds > 86400),
+      'last_attempt_completed_at' => isset($sync['completed_at']) ? (int) $sync['completed_at'] : NULL,
+      'last_success_completed_at' => $lastSuccess,
+      'last_success_age_seconds' => $ageSeconds,
+      'last_success_summary' => is_array($sync['last_success_summary'] ?? NULL) ? $sync['last_success_summary'] : NULL,
+      'error_code' => $syncStatus === 'failed' ? 'moneybird_receivables_sync_failed' : NULL,
+      'operator_message' => $syncStatus === 'failed' ? 'De Moneybird debiteurensynchronisatie is mislukt. Controleer de beheerlogs of probeer de synchronisatie opnieuw.' : NULL,
     ];
   }
 }
