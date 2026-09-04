@@ -135,6 +135,16 @@ final class ProjectFinancialPosition {
       if ($schema->fieldExists($table, 'id')) $query->orderBy('id', 'ASC');
       $state[$table] = $query->execute()->fetchAll();
     }
+
+    // The locked baseline is calculated from budget lines, which do not carry
+    // project_nid themselves. Include them through their owning project budget.
+    if ($schema->tableExists('brebo_finance_budget_line') && $schema->tableExists('brebo_finance_budget')) {
+      $query = $this->database->select('brebo_finance_budget_line', 'l');
+      $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
+      $query->fields('l')->condition('b.project_nid', $projectNid)->orderBy('l.id', 'ASC');
+      $state['brebo_finance_budget_line'] = $query->execute()->fetchAll();
+    }
+
     return hash('sha256', json_encode($state, JSON_THROW_ON_ERROR));
   }
 
