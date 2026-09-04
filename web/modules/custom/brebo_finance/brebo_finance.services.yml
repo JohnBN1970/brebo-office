@@ -112,7 +112,7 @@ services:
     arguments: ['@database', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
   brebo_finance.financial_command_center:
     class: Drupal\brebo_finance\Service\FinancialCommandCenter
-    arguments: ['@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver']
+    arguments: ['@entity_type.manager', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.financial_project_ledger:
     class: Drupal\brebo_finance\Service\FinancialProjectLedger
     arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
