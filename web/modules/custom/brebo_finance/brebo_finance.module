@@ -49,6 +49,24 @@ function brebo_finance_modules_installed(array $modules, bool $is_syncing): void
 }
 
 /**
+ * Implements hook_module_preuninstall().
+ *
+ * Closure storage is created after fresh installation instead of through the
+ * historical hook_schema definition, so remove it explicitly before Finance is
+ * uninstalled. This prevents stale closure rows surviving uninstall/reinstall.
+ */
+function brebo_finance_module_preuninstall(string $module, bool $is_syncing): void {
+  if ($module !== 'brebo_finance') {
+    return;
+  }
+
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_finance_project_closure')) {
+    $schema->dropTable('brebo_finance_project_closure');
+  }
+}
+
+/**
  * Implements hook_route_alter().
  */
 function brebo_finance_route_alter(RouteCollection $collection): void {
