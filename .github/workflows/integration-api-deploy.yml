@@ -2,6 +2,12 @@ name: Deploy BREBO Integration API
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'integration-api/**'
+      - '.github/workflows/integration-api-deploy.yml'
 
 permissions:
   contents: read
@@ -39,7 +45,7 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
-      - name: Verify Moneybird connection
+      - name: Verify Moneybird connection and Finance business health
         shell: bash
         env:
           BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
@@ -56,35 +62,45 @@ jobs:
             throw new Error('Smoke-test configuration is incomplete.');
           }
 
-          const method = 'GET';
-          const path = '/v1/accounting/connection';
-          const body = '';
-          const timestamp = Math.floor(Date.now() / 1000).toString();
-          const requestId = randomUUID();
-          const bodyHash = createHash('sha256').update(body).digest('hex');
-          const canonical = [method, path, bodyHash, timestamp, requestId].join('\n');
-          const signature = createHmac('sha256', secret).update(canonical).digest('hex');
-
-          const response = await fetch(`${baseUrl}${path}`, {
-            method,
-            headers: {
-              'X-BREBO-Request-Id': requestId,
-              'X-BREBO-Timestamp': timestamp,
-              'X-BREBO-Signature': `v1=${signature}`,
-              'Accept': 'application/json',
-            },
-          });
-
-          const payload = await response.json().catch(() => null);
-          if (!response.ok) {
-            throw new Error(`Moneybird connection check failed with HTTP ${response.status}.`);
+          async function signedGet(path) {
+            const method = 'GET';
+            const body = '';
+            const timestamp = Math.floor(Date.now() / 1000).toString();
+            const requestId = randomUUID();
+            const bodyHash = createHash('sha256').update(body).digest('hex');
+            const canonical = [method, path, bodyHash, timestamp, requestId].join('\n');
+            const signature = createHmac('sha256', secret).update(canonical).digest('hex');
+            const response = await fetch(`${baseUrl}${path}`, {
+              method,
+              headers: {
+                'X-BREBO-Request-Id': requestId,
+                'X-BREBO-Timestamp': timestamp,
+                'X-BREBO-Signature': `v1=${signature}`,
+                'Accept': 'application/json',
+              },
+            });
+            const payload = await response.json().catch(() => null);
+            return { response, payload };
           }
-          if (!payload || payload.status !== 'ok' || payload.provider !== 'moneybird' || payload.connection !== 'healthy') {
+
+          const connection = await signedGet('/v1/accounting/connection');
+          if (!connection.response.ok) {
+            throw new Error(`Moneybird connection check failed with HTTP ${connection.response.status}.`);
+          }
+          if (!connection.payload || connection.payload.status !== 'ok' || connection.payload.provider !== 'moneybird' || connection.payload.connection !== 'healthy') {
             throw new Error('Moneybird connection check returned an unexpected response.');
           }
-          if (String(payload.administration?.administration_id ?? '') !== expectedAdministrationId) {
+          if (String(connection.payload.administration?.administration_id ?? '') !== expectedAdministrationId) {
             throw new Error('Moneybird connection check reached an unexpected administration.');
           }
 
-          console.log(`Moneybird connection healthy for administration ${expectedAdministrationId}.`);
+          const health = await signedGet('/v1/accounting/business-health');
+          if (!health.response.ok) {
+            throw new Error(`Finance business-health check failed with HTTP ${health.response.status}.`);
+          }
+          if (!health.payload || health.payload.status !== 'ok' || !health.payload.business_health) {
+            throw new Error('Finance business-health check returned an unexpected response.');
+          }
+
+          console.log(`Moneybird connection and Finance business health healthy for administration ${expectedAdministrationId}.`);
           NODE
