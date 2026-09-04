@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Service\BusinessHealthBuilder;
+use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
@@ -18,12 +20,18 @@ final class FinancialCommandCenterController extends ControllerBase {
   public function __construct(
     private readonly FinancialCommandCenter $commandCenter,
     private readonly DateFormatterInterface $dateFormatter,
+    private readonly BusinessHealthBuilder $businessHealth,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_finance.financial_command_center'),
       $container->get('date.formatter'),
+      new BusinessHealthBuilder(
+        new BusinessHealthIntegrationClient($container->get('http_client')),
+        $container->get('config.factory'),
+        $container->get('cache.default'),
+      ),
     );
   }
 
@@ -51,7 +59,7 @@ final class FinancialCommandCenterController extends ControllerBase {
         'data-purchase-invoices-url' => Url::fromRoute('brebo_finance.purchase_invoice_list')->toString(),
       ],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Finance</h1><p>Financieel commandocentrum voor inkoop, verkoop, cash, risico en besluiten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Finance</h1><p>Financieel commandocentrum voor resultaat, liquiditeit, inkoop, verkoop, vaste kosten, risico en besluiten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
       ],
       'navigation' => [
         '#type' => 'container',
@@ -63,6 +71,7 @@ final class FinancialCommandCenterController extends ControllerBase {
             Link::fromTextAndUrl($this->t('Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues')),
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
             ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
+            ['#markup' => '<a href="#bfcc-business-health">' . $this->t('Bedrijfsgezondheid') . '</a>'],
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
         ],
@@ -87,7 +96,9 @@ final class FinancialCommandCenterController extends ControllerBase {
   }
 
   public function api(): JsonResponse {
-    $response = new JsonResponse($this->commandCenter->dashboard($this->currentUser()));
+    $data = $this->commandCenter->dashboard($this->currentUser());
+    $data['business_health'] = $this->businessHealth->build();
+    $response = new JsonResponse($data);
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
   }
