@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,13 +15,29 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 /** Exposes the BREBO organisation-wide financial command center. */
 final class FinancialCommandCenterController extends ControllerBase {
 
-  public function __construct(private readonly FinancialCommandCenter $commandCenter) {}
+  public function __construct(
+    private readonly FinancialCommandCenter $commandCenter,
+    private readonly DateFormatterInterface $dateFormatter,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_finance.financial_command_center'));
+    return new static(
+      $container->get('brebo_finance.financial_command_center'),
+      $container->get('date.formatter'),
+    );
   }
 
   public function page(): array {
+    $sync = $this->commandCenter->receivablesSyncHealth();
+    $syncAttention = !empty($sync['requires_attention']);
+    $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
+    $syncLabel = $lastSuccess !== NULL
+      ? $this->t('Laatste succesvolle Moneybird debiteurensync: @date', ['@date' => $this->dateFormatter->format($lastSuccess, 'custom', 'd-m-Y H:i')])
+      : $this->t('Er is nog geen succesvolle Moneybird debiteurensync geregistreerd.');
+    $syncError = $syncAttention && !empty($sync['operator_message'])
+      ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . $this->t((string) $sync['operator_message'])
+      : '';
+
     return [
       '#type' => 'container',
       '#attributes' => [
@@ -41,6 +58,13 @@ final class FinancialCommandCenterController extends ControllerBase {
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
+        ],
+      ],
+      'sync_health' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['bfcc-section', $syncAttention ? 'bfcc-sync-warning' : 'bfcc-sync-ok']],
+        'content' => [
+          '#markup' => '<span class="bfcc-kicker">MONEYBIRD DEBITEUREN</span><p><strong>' . ($syncAttention ? $this->t('Synchronisatie vraagt aandacht') : $this->t('Synchronisatie actief')) . '</strong><br>' . $syncLabel . $syncError . '</p>',
         ],
       ],
       'content' => [
