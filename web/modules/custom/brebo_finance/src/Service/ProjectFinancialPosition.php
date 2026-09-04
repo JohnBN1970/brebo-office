@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Database\Connection;
 use InvalidArgumentException;
+use RuntimeException;
 use UnexpectedValueException;
 
 /**
@@ -40,6 +41,7 @@ final class ProjectFinancialPosition {
     }
 
     $date = $snapshotDate ?? date('Y-m-d');
+    $sourceStateBefore = $this->financialSourceStateHash($projectNid);
     $contractRevenue = $this->singleValue(
       'brebo_finance_project_contract',
       'amount_ex_vat',
@@ -95,6 +97,11 @@ final class ProjectFinancialPosition {
     $forecastResult = $this->decimal->subtract($currentRevenue, $forecastEndCost);
     $forecastMargin = $this->decimal->percentage($forecastResult, $currentRevenue);
 
+    $sourceStateAfter = $this->financialSourceStateHash($projectNid);
+    if (!hash_equals($sourceStateBefore, $sourceStateAfter)) {
+      throw new RuntimeException('Financiële brongegevens wijzigden tijdens het maken van de forecast. Probeer opnieuw.');
+    }
+
     $payload = [
       'project_nid' => $projectNid,
       'snapshot_date' => $date,
@@ -113,6 +120,7 @@ final class ProjectFinancialPosition {
       'forecast_end_cost_ex_vat' => $forecastEndCost,
       'forecast_result_ex_vat' => $forecastResult,
       'forecast_margin_pct' => $forecastMargin,
+      'source_state_hash' => $sourceStateAfter,
     ];
     $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
 
@@ -183,6 +191,41 @@ final class ProjectFinancialPosition {
     $query->condition('m.status', 'approved');
     $query->addExpression('COALESCE(SUM(m.amount_ex_vat), 0)', 'total');
     return (string) $query->execute()->fetchField();
+  }
+
+  /** Hashes the exact project-level source rows that can invalidate closure. */
+  private function financialSourceStateHash(int $projectNid): string {
+    $tables = [
+      'brebo_finance_project_contract',
+      'brebo_finance_revenue_mutation',
+      'brebo_finance_budget',
+      'brebo_finance_commitment',
+      'brebo_finance_performance_receipt',
+      'brebo_finance_purchase_invoice',
+      'brebo_finance_payment_release',
+      'brebo_finance_billing_instalment',
+      'brebo_finance_sales_invoice',
+      'brebo_finance_sales_invoice_draft',
+      'brebo_finance_sales_invoice_outbox',
+      'brebo_finance_budget_mutation',
+      'brebo_finance_contract_obligation',
+      'brebo_finance_failure_cost',
+      'brebo_finance_change_order',
+      'brebo_finance_provisional_sum',
+    ];
+    $schema = $this->database->schema();
+    $state = [];
+    foreach ($tables as $table) {
+      if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'project_nid')) {
+        continue;
+      }
+      $query = $this->database->select($table, 't')->fields('t')->condition('project_nid', $projectNid);
+      if ($schema->fieldExists($table, 'id')) {
+        $query->orderBy('id', 'ASC');
+      }
+      $state[$table] = $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    }
+    return hash('sha256', json_encode($state, JSON_THROW_ON_ERROR));
   }
 
 }
