@@ -20,14 +20,15 @@ final class BusinessHealthBuilder {
 
   /** @return array<string, mixed> */
   public function build(): array {
-    if ($cached = $this->cache->get(self::CACHE_ID)) {
-      return is_array($cached->data) ? $cached->data : [];
+    $cached = $this->cachedResult();
+    if ($cached !== NULL) {
+      return $cached;
     }
 
     try {
       $source = $this->client->fetch();
       $result = $this->normalize($source);
-      $this->cache->set(self::CACHE_ID, $result, time() + 300, ['brebo_finance_business_health']);
+      $this->cacheResult($result, 300);
       return $result;
     }
     catch (\Throwable) {
@@ -42,10 +43,31 @@ final class BusinessHealthBuilder {
         'break_even' => NULL,
         'steering' => [],
       ];
-      // Negative-cache provider failures briefly so the operational Finance
-      // dashboard is not blocked by repeated upstream timeouts.
-      $this->cache->set(self::CACHE_ID, $result, time() + 60, ['brebo_finance_business_health']);
+      // Negative-cache provider failures briefly. Cache failures themselves
+      // must never take the operational Finance dashboard down.
+      $this->cacheResult($result, 60);
       return $result;
+    }
+  }
+
+  /** @return array<string, mixed>|null */
+  private function cachedResult(): ?array {
+    try {
+      $cached = $this->cache->get(self::CACHE_ID);
+      return $cached && is_array($cached->data) ? $cached->data : NULL;
+    }
+    catch (\Throwable) {
+      return NULL;
+    }
+  }
+
+  /** @param array<string, mixed> $result */
+  private function cacheResult(array $result, int $ttl): void {
+    try {
+      $this->cache->set(self::CACHE_ID, $result, time() + $ttl, ['brebo_finance_business_health']);
+    }
+    catch (\Throwable) {
+      // Business-health caching is an optimization, never a runtime dependency.
     }
   }
 
