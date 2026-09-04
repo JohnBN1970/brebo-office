@@ -37,6 +37,8 @@ final class FinancialCommandCenterController extends ControllerBase {
     $syncError = $syncAttention && !empty($sync['operator_message'])
       ? '<br><strong>' . $this->t('Actie vereist:') . '</strong> ' . $this->t((string) $sync['operator_message'])
       : '';
+    $decisionUrl = Url::fromRoute('brebo_finance.financial_decision_page');
+    $canOpenDecisionInbox = $decisionUrl->access($this->currentUser());
 
     return [
       '#type' => 'container',
@@ -44,7 +46,7 @@ final class FinancialCommandCenterController extends ControllerBase {
         'id' => 'brebo-finance-command-center',
         'class' => ['brebo-finance-command-center'],
         'data-api-url' => Url::fromRoute('brebo_finance.command_center_api')->toString(),
-        'data-decision-url' => Url::fromRoute('brebo_finance.financial_decision_page')->toString(),
+        'data-decision-url' => $canOpenDecisionInbox ? $decisionUrl->toString() : '',
         'data-payables-url' => Url::fromRoute('brebo_finance.payables_work_queues')->toString(),
         'data-purchase-invoices-url' => Url::fromRoute('brebo_finance.purchase_invoice_list')->toString(),
       ],
@@ -85,7 +87,7 @@ final class FinancialCommandCenterController extends ControllerBase {
   }
 
   public function api(): JsonResponse {
-    $response = new JsonResponse($this->commandCenter->build($this->currentUser()));
+    $response = new JsonResponse($this->commandCenter->dashboard($this->currentUser()));
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
   }
