@@ -21,6 +21,7 @@ final class BreboFinanceServiceProvider extends ServiceProviderBase {
       ->setArguments([
         new Reference('database'),
         new Reference('brebo_finance.purchase_invoice_importer'),
+        new Reference('brebo_finance.vat_calculator'),
       ]);
   }
 
