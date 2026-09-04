@@ -7,6 +7,26 @@ export interface MoneybirdSalesInvoiceReceivableResult extends MoneybirdSalesInv
 export interface MoneybirdConnectionResult { administration_id: string; administration_name: string | null; }
 export interface MoneybirdSupplierContactResult { id:string|null; company_name:string|null; firstname:string|null; lastname:string|null; address1:string|null; address2:string|null; zipcode:string|null; city:string|null; country:string|null; phone:string|null; email:string|null; customer_id:string|null; tax_number:string|null; chamber_of_commerce:string|null; delivery_method:string|null; direct_debit:boolean; sepa_active:boolean; sepa_iban:string|null; sepa_iban_account_name:string|null; sepa_bic:string|null; sepa_mandate_id:string|null; sepa_mandate_date:string|null; sepa_sequence_type:string|null; }
 export interface MoneybirdPurchaseInvoiceResult { id:string; contact_id:string|null; supplier_name:string|null; supplier_contact:MoneybirdSupplierContactResult|null; reference:string|null; date:string|null; due_date:string|null; state:string; currency:string; total_price_excl_tax:string|null; total_price_incl_tax:string|null; version:string|number|null; origin:string|null; }
+export interface MoneybirdLedgerAmount { ledger_account_id:string; ledger_account_name:string|null; account_type:string|null; value:string; }
+export interface MoneybirdBusinessHealthResult {
+  period:string;
+  profit_loss:{
+    total_revenue:string;
+    gross_profit:string;
+    operating_profit:string;
+    net_profit:string;
+    total_expenses:string;
+    revenue_by_ledger_account:MoneybirdLedgerAmount[];
+    direct_costs_by_ledger_account:MoneybirdLedgerAmount[];
+    expenses_by_ledger_account:MoneybirdLedgerAmount[];
+    other_income_expenses_by_ledger_account:MoneybirdLedgerAmount[];
+  };
+  bank:{
+    opening_balance:string;
+    closing_balance:string;
+    accounts:Array<{id:string;name:string;identifier:string;type:string;currency:string;opening_balance:string;closing_balance:string}>;
+  };
+}
 
 export async function checkMoneybirdConnection(env: Env): Promise<MoneybirdConnectionResult> {
   const administrationId=env.MONEYBIRD_ADMINISTRATION_ID; const response=await moneybirdFetch("https://moneybird.com/api/v2/administrations.json",env,{method:"GET"}); const value:unknown=await response.json();
@@ -23,20 +43,55 @@ export async function listPurchaseInvoices(env: Env): Promise<MoneybirdPurchaseI
 
 export async function listSalesInvoices(env: Env): Promise<MoneybirdSalesInvoiceReceivableResult[]> {
   const base=`https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`; const byId=new Map<string,MoneybirdSalesInvoiceReceivableResult>();
-  // Current-year history catches invoices that were paid/closed during this year.
   await collectSalesInvoices(base, "period:this_year,state:all", env, byId);
-  // Open-state query intentionally has no period restriction so older debtors
-  // remain reconciled until they are actually settled.
   await collectSalesInvoices(base, "state:open", env, byId);
   return Array.from(byId.values());
+}
+
+export async function getBusinessHealth(env:Env):Promise<MoneybirdBusinessHealthResult>{
+  const base=`https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`;
+  const [profitLossRaw, ledgerAccountsRaw, financialAccountsRaw, aggregateCashRaw]=await Promise.all([
+    moneybirdJson(`${base}/reports/profit_loss.json?period=this_year`,env),
+    moneybirdJson(`${base}/ledger_accounts.json`,env),
+    moneybirdJson(`${base}/financial_accounts.json`,env),
+    moneybirdJson(`${base}/reports/cash_flow.json?period=this_month`,env),
+  ]);
+  if(!profitLossRaw||typeof profitLossRaw!=="object"||Array.isArray(profitLossRaw))throw new MoneybirdResponseError(502,"Invalid Moneybird profit-loss response.");
+  if(!Array.isArray(ledgerAccountsRaw)||!Array.isArray(financialAccountsRaw))throw new MoneybirdResponseError(502,"Invalid Moneybird account response.");
+  if(!aggregateCashRaw||typeof aggregateCashRaw!=="object"||Array.isArray(aggregateCashRaw))throw new MoneybirdResponseError(502,"Invalid Moneybird cash-flow response.");
+  const ledgerNames=new Map<string,{name:string|null;account_type:string|null}>();
+  for(const candidate of ledgerAccountsRaw){if(!candidate||typeof candidate!=="object")continue;const row=candidate as Record<string,unknown>;const id=stringValue(row.id);if(!id)continue;ledgerNames.set(id,{name:stringValue(row.name),account_type:stringValue(row.account_type)});}
+  const profitLoss=profitLossRaw as Record<string,unknown>;
+  const aggregateCash=aggregateCashRaw as Record<string,unknown>;
+  const bankAccounts=financialAccountsRaw.filter((candidate):candidate is Record<string,unknown>=>!!candidate&&typeof candidate==="object"&&!Array.isArray(candidate)&&String((candidate as Record<string,unknown>).type??"").includes("BankAccount"));
+  const accounts=await Promise.all(bankAccounts.map(async(account)=>{
+    const id=String(account.id??"");
+    let cash:Record<string,unknown>={};
+    if(id){const raw=await moneybirdJson(`${base}/reports/cash_flow.json?period=this_month&financial_account_id=${encodeURIComponent(id)}`,env);if(raw&&typeof raw==="object"&&!Array.isArray(raw))cash=raw as Record<string,unknown>;}
+    return{id,name:stringValue(account.name)??"Bankrekening",identifier:stringValue(account.identifier)??"",type:stringValue(account.type)??"BankAccount",currency:stringValue(account.currency)??"EUR",opening_balance:numberString(cash.opening_balance),closing_balance:numberString(cash.closing_balance)};
+  }));
+  return{
+    period:"this_year",
+    profit_loss:{
+      total_revenue:numberString(profitLoss.total_revenue),gross_profit:numberString(profitLoss.gross_profit),operating_profit:numberString(profitLoss.operating_profit),net_profit:numberString(profitLoss.net_profit),total_expenses:numberString(profitLoss.total_expenses),
+      revenue_by_ledger_account:ledgerAmounts(profitLoss.revenue_by_ledger_account,ledgerNames),
+      direct_costs_by_ledger_account:ledgerAmounts(profitLoss.direct_costs_by_ledger_account,ledgerNames),
+      expenses_by_ledger_account:ledgerAmounts(profitLoss.expenses_by_ledger_account,ledgerNames),
+      other_income_expenses_by_ledger_account:ledgerAmounts(profitLoss.other_income_expenses_by_ledger_account,ledgerNames),
+    },
+    bank:{opening_balance:numberString(aggregateCash.opening_balance),closing_balance:numberString(aggregateCash.closing_balance),accounts},
+  };
 }
 
 async function collectSalesInvoices(base:string, filter:string, env:Env, byId:Map<string,MoneybirdSalesInvoiceReceivableResult>):Promise<void>{const perPage=100;for(let page=1;page<=100;page++){const response=await moneybirdFetch(`${base}/sales_invoices.json?per_page=${perPage}&page=${page}&filter=${encodeURIComponent(filter)}`,env,{method:"GET"});const value:unknown=await response.json();if(!Array.isArray(value)) throw new MoneybirdResponseError(502,"Invalid Moneybird sales invoice response.");for(const candidate of value){const invoice=salesInvoiceReceivableResult(candidate);byId.set(invoice.id,invoice);}if(value.length<perPage)break;}}
 
 export async function createAndSendSalesInvoice(command:SalesInvoiceDispatch,env:Env):Promise<MoneybirdSalesInvoiceResult>{const base=`https://moneybird.com/api/v2/${encodeURIComponent(env.MONEYBIRD_ADMINISTRATION_ID)}`;const created=await moneybirdFetch(`${base}/sales_invoices.json`,env,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sales_invoice:command.sales_invoice})});const createdInvoice=invoiceResult(await created.json());const sent=await moneybirdFetch(`${base}/sales_invoices/${encodeURIComponent(createdInvoice.id)}/send_invoice.json`,env,{method:"PATCH",headers:{"Content-Type":"application/json"},body:JSON.stringify({sales_invoice_sending:command.sending??{}})});return invoiceResult(await sent.json());}
 async function moneybirdFetch(url:string,env:Env,init:RequestInit):Promise<Response>{const response=await fetch(url,{...init,headers:{...init.headers,Authorization:`Bearer ${env.MONEYBIRD_ACCESS_TOKEN}`,Accept:"application/json"}});if(!response.ok)throw new MoneybirdResponseError(response.status);return response;}
+async function moneybirdJson(url:string,env:Env):Promise<unknown>{const response=await moneybirdFetch(url,env,{method:"GET"});return response.json();}
+function ledgerAmounts(value:unknown,names:Map<string,{name:string|null;account_type:string|null}>):MoneybirdLedgerAmount[]{if(!value||typeof value!=="object"||Array.isArray(value))return[];const rows=(value as Record<string,unknown>).ledger_accounts;if(!Array.isArray(rows))return[];const result:MoneybirdLedgerAmount[]=[];for(const candidate of rows){if(!candidate||typeof candidate!=="object")continue;const row=candidate as Record<string,unknown>;const id=String(row.ledger_account_id??"");if(!id)continue;const meta=names.get(id);result.push({ledger_account_id:id,ledger_account_name:meta?.name??null,account_type:meta?.account_type??null,value:numberString(row.value)});}return result;}
+function numberString(value:unknown):string{const number=Number(value??0);return Number.isFinite(number)?number.toFixed(4):"0.0000";}
 function purchaseInvoiceResult(value:unknown):MoneybirdPurchaseInvoiceResult{if(!value||typeof value!=="object")throw new MoneybirdResponseError(502,"Invalid Moneybird purchase invoice response.");const invoice=value as Record<string,unknown>;if(invoice.id===undefined||invoice.id===null)throw new MoneybirdResponseError(502,"Invalid Moneybird purchase invoice response.");const contact=invoice.contact&&typeof invoice.contact==="object"?invoice.contact as Record<string,unknown>:null;const company=stringValue(contact?.company_name)?.trim()??"",firstname=stringValue(contact?.firstname)?.trim()??"",lastname=stringValue(contact?.lastname)?.trim()??"",person=[firstname,lastname].filter(Boolean).join(" ").trim();return{id:String(invoice.id),contact_id:invoice.contact_id===undefined||invoice.contact_id===null?null:String(invoice.contact_id),supplier_name:company||person||null,supplier_contact:contact?supplierContactResult(contact):null,reference:stringValue(invoice.reference),date:stringValue(invoice.date),due_date:stringValue(invoice.due_date),state:stringValue(invoice.state)??"unknown",currency:stringValue(invoice.currency)??"EUR",total_price_excl_tax:stringValue(invoice.total_price_excl_tax),total_price_incl_tax:stringValue(invoice.total_price_incl_tax),version:typeof invoice.version==="string"||typeof invoice.version==="number"?invoice.version:null,origin:stringValue(invoice.origin)};}
 function salesInvoiceReceivableResult(value:unknown):MoneybirdSalesInvoiceReceivableResult{if(!value||typeof value!=="object")throw new MoneybirdResponseError(502,"Invalid Moneybird sales invoice response.");const invoice=value as Record<string,unknown>;if(invoice.id===undefined||invoice.id===null)throw new MoneybirdResponseError(502,"Invalid Moneybird sales invoice response.");const payments=Array.isArray(invoice.payments)?invoice.payments:[];let paid=0;for(const candidate of payments){if(!candidate||typeof candidate!=="object")continue;const payment=candidate as Record<string,unknown>,amount=Number(payment.price??payment.amount??0);if(Number.isFinite(amount)&&amount>0)paid+=amount;}return{id:String(invoice.id),invoice_id:stringValue(invoice.invoice_id),state:stringValue(invoice.state)??"unknown",invoice_date:stringValue(invoice.invoice_date),due_date:stringValue(invoice.due_date),sent_at:stringValue(invoice.sent_at),contact_id:invoice.contact_id===undefined||invoice.contact_id===null?null:String(invoice.contact_id),currency:stringValue(invoice.currency)??"EUR",total_price_excl_tax:stringValue(invoice.total_price_excl_tax),total_price_incl_tax:stringValue(invoice.total_price_incl_tax),paid_amount:paid.toFixed(4),version:typeof invoice.version==="string"||typeof invoice.version==="number"?invoice.version:null};}
 function supplierContactResult(contact:Record<string,unknown>):MoneybirdSupplierContactResult{return{id:contact.id===undefined||contact.id===null?null:String(contact.id),company_name:stringValue(contact.company_name),firstname:stringValue(contact.firstname),lastname:stringValue(contact.lastname),address1:stringValue(contact.address1),address2:stringValue(contact.address2),zipcode:stringValue(contact.zipcode),city:stringValue(contact.city),country:stringValue(contact.country),phone:stringValue(contact.phone),email:stringValue(contact.email),customer_id:stringValue(contact.customer_id),tax_number:stringValue(contact.tax_number),chamber_of_commerce:stringValue(contact.chamber_of_commerce),delivery_method:stringValue(contact.delivery_method),direct_debit:contact.direct_debit===true,sepa_active:contact.sepa_active===true,sepa_iban:stringValue(contact.sepa_iban),sepa_iban_account_name:stringValue(contact.sepa_iban_account_name),sepa_bic:stringValue(contact.sepa_bic),sepa_mandate_id:stringValue(contact.sepa_mandate_id),sepa_mandate_date:stringValue(contact.sepa_mandate_date),sepa_sequence_type:stringValue(contact.sepa_sequence_type)};}
-function stringValue(value:unknown):string|null{return typeof value==="string"&&value.trim()!==""?value.trim():null;}
+function stringValue(value:unknown):string|null{return typeof value==="string"&&value.trim()!==""?value.trim():value!==undefined&&value!==null?String(value).trim()||null:null;}
 function invoiceResult(value:unknown):MoneybirdSalesInvoiceResult{if(!value||typeof value!=="object")throw new MoneybirdResponseError(502,"Invalid Moneybird response.");const invoice=value as Record<string,unknown>;if(typeof invoice.id!=="string")throw new MoneybirdResponseError(502,"Invalid Moneybird response.");return{id:invoice.id,invoice_id:typeof invoice.invoice_id==="string"?invoice.invoice_id:null,state:typeof invoice.state==="string"?invoice.state:"unknown",invoice_date:typeof invoice.invoice_date==="string"?invoice.invoice_date:null,due_date:typeof invoice.due_date==="string"?invoice.due_date:null,sent_at:typeof invoice.sent_at==="string"?invoice.sent_at:null};}
