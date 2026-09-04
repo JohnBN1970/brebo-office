@@ -15,6 +15,7 @@ final class FinancialCommandCenter {
     private readonly FinancialCockpitBuilder $cockpitBuilder,
     private readonly FinancialDecisionInbox $decisionInbox,
     private readonly FinancialDecisionAssignmentResolver $assignmentResolver,
+    private readonly ReceivablesReconciliationMonitor $receivablesMonitor,
   ) {}
 
   /** @return array<string, mixed> */
@@ -77,11 +78,26 @@ final class FinancialCommandCenter {
       $decisions[] = $decision;
     }
 
+    $sync = $this->receivablesMonitor->status();
+    $syncStatus = (string) ($sync['status'] ?? 'unknown');
+    $lastSuccess = isset($sync['last_success_completed_at']) ? (int) $sync['last_success_completed_at'] : NULL;
+    $ageSeconds = $lastSuccess !== NULL ? max(0, time() - $lastSuccess) : NULL;
+    $syncHealth = [
+      'status' => $syncStatus,
+      'requires_attention' => $syncStatus === 'failed' || $lastSuccess === NULL || ($ageSeconds !== NULL && $ageSeconds > 86400),
+      'last_attempt_completed_at' => isset($sync['completed_at']) ? (int) $sync['completed_at'] : NULL,
+      'last_success_completed_at' => $lastSuccess,
+      'last_success_age_seconds' => $ageSeconds,
+      'last_success_summary' => is_array($sync['last_success_summary'] ?? NULL) ? $sync['last_success_summary'] : NULL,
+      'error' => $syncStatus === 'failed' ? (string) ($sync['error'] ?? 'Onbekende Moneybird synchronisatiefout.') : NULL,
+    ];
+
     usort($rows, static fn(array $a, array $b): int => ((int) $b['forecast_is_stale'] <=> (int) $a['forecast_is_stale']) ?: ((int) ($b['workflow']['payment_releases_pending'] ?? 0) <=> (int) ($a['workflow']['payment_releases_pending'] ?? 0)));
 
     return [
       'generated_at' => time(),
       'portfolio' => $portfolio,
+      'receivables_sync' => $syncHealth,
       'decisions' => [
         'count' => count($decisions),
         'now' => $priority['now'],
@@ -91,7 +107,7 @@ final class FinancialCommandCenter {
         'top' => array_slice($decisions, 0, 10),
       ],
       'projects' => $rows,
-      'basis' => 'Aggregated from project financial cockpits and live authorized financial decisions; no financial values are inferred when source records are absent.',
+      'basis' => 'Aggregated from project financial cockpits, live authorized financial decisions and Moneybird receivables synchronization health; no financial values are inferred when source records are absent.',
     ];
   }
 }
