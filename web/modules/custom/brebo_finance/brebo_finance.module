@@ -2,10 +2,22 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Routing\RouteCollection;
+
 /**
  * @file
  * Runtime hooks for BREBO Finance.
  */
+
+/**
+ * Implements hook_route_alter().
+ */
+function brebo_finance_route_alter(RouteCollection $collection): void {
+  $route = $collection->get('brebo_finance.project_financial_closure_close');
+  if ($route !== NULL) {
+    $route->setRequirement('_csrf_request_header_token', 'TRUE');
+  }
+}
 
 /**
  * Implements hook_page_attachments().
