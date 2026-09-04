@@ -2,10 +2,79 @@
 
 declare(strict_types=1);
 
+use Symfony\Component\Routing\RouteCollection;
+
 /**
  * @file
  * Runtime hooks for BREBO Finance.
  */
+
+/**
+ * Implements hook_modules_installed().
+ */
+function brebo_finance_modules_installed(array $modules, bool $is_syncing): void {
+  if (!in_array('brebo_finance', $modules, TRUE)) {
+    return;
+  }
+
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_finance_project_closure')) {
+    return;
+  }
+
+  // Fresh installations do not execute historical post-update hooks. Keep the
+  // closure storage definition in parity with
+  // brebo_finance_post_update_project_financial_closure().
+  $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
+  $schema->createTable('brebo_finance_project_closure', [
+    'description' => 'Immutable evidence-backed final financial result for one BREBO project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'forecast_snapshot_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'final_revenue_ex_vat' => $money,
+      'final_cost_ex_vat' => $money,
+      'final_result_ex_vat' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'final_margin_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => FALSE],
+      'forecast_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'closure_note' => ['type' => 'text', 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'closed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'closed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['project' => ['project_nid'], 'content_hash' => ['content_hash']],
+    'indexes' => ['forecast_snapshot' => ['forecast_snapshot_id'], 'closed' => ['closed']],
+  ]);
+}
+
+/**
+ * Implements hook_module_preuninstall().
+ *
+ * Closure storage is created after fresh installation instead of through the
+ * historical hook_schema definition, so remove it explicitly before Finance is
+ * uninstalled. This prevents stale closure rows surviving uninstall/reinstall.
+ */
+function brebo_finance_module_preuninstall(string $module, bool $is_syncing): void {
+  if ($module !== 'brebo_finance') {
+    return;
+  }
+
+  $schema = \Drupal::database()->schema();
+  if ($schema->tableExists('brebo_finance_project_closure')) {
+    $schema->dropTable('brebo_finance_project_closure');
+  }
+}
+
+/**
+ * Implements hook_route_alter().
+ */
+function brebo_finance_route_alter(RouteCollection $collection): void {
+  $route = $collection->get('brebo_finance.project_financial_closure_close');
+  if ($route !== NULL) {
+    $route->setRequirement('_csrf_request_header_token', 'TRUE');
+  }
+}
 
 /**
  * Implements hook_page_attachments().
