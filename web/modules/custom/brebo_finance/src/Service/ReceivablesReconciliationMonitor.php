@@ -34,15 +34,20 @@ final class ReceivablesReconciliationMonitor {
 
   public function failed(\Throwable $error, int $startedAt): void {
     $previous = $this->status();
+    $previousWasSuccessful = ($previous['status'] ?? NULL) === 'ok';
+    $lastSuccessStartedAt = $previous['last_success_started_at'] ?? ($previousWasSuccessful ? ($previous['started_at'] ?? NULL) : NULL);
+    $lastSuccessCompletedAt = $previous['last_success_completed_at'] ?? ($previousWasSuccessful ? ($previous['completed_at'] ?? NULL) : NULL);
+    $lastSuccessSummary = $previous['last_success_summary'] ?? ($previousWasSuccessful ? ($previous['summary'] ?? NULL) : NULL);
+
     $this->state->set(self::STATE_KEY, [
       'status' => 'failed',
       'started_at' => $startedAt,
       'completed_at' => time(),
       'summary' => NULL,
       'error' => mb_substr($error->getMessage(), 0, 1000),
-      'last_success_started_at' => $previous['last_success_started_at'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['started_at'] ?? NULL) : NULL,
-      'last_success_completed_at' => $previous['last_success_completed_at'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['completed_at'] ?? NULL) : NULL,
-      'last_success_summary' => $previous['last_success_summary'] ?? ($previous['status'] ?? NULL) === 'ok' ? ($previous['summary'] ?? NULL) : NULL,
+      'last_success_started_at' => $lastSuccessStartedAt,
+      'last_success_completed_at' => $lastSuccessCompletedAt,
+      'last_success_summary' => $lastSuccessSummary,
     ]);
   }
 
