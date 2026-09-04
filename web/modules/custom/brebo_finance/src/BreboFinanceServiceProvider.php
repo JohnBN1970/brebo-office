@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
+use Drupal\brebo_finance\Routing\PaymentCenterRouteSubscriber;
 use Drupal\brebo_finance\Service\PaymentBatchManager;
 use Drupal\brebo_finance\Service\SepaPain001Generator;
 use Symfony\Component\DependencyInjection\Reference;
@@ -28,6 +29,11 @@ final class BreboFinanceServiceProvider extends ServiceProviderBase {
         ->setArguments([
           new Reference('brebo_finance.payment_batch_manager'),
         ]);
+    }
+
+    if (!$container->hasDefinition('brebo_finance.payment_center_route_subscriber')) {
+      $container->register('brebo_finance.payment_center_route_subscriber', PaymentCenterRouteSubscriber::class)
+        ->addTag('event_subscriber');
     }
   }
 
