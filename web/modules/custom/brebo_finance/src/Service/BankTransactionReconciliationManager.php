@@ -14,13 +14,8 @@ final class BankTransactionReconciliationManager {
     private readonly VatCalculator $decimal,
   ) {}
 
-  /**
-   * Reconciles one normalized bank activity.
-   *
-   * Exact EndToEndId + amount + currency + creditor IBAN is green. Ambiguous or
-   * incomplete matches remain orange/neutral; material contradictions are red.
-   */
   public function reconcile(array $activity): array {
+    $this->ensureStorage();
     $transactionId = trim((string) ($activity['transaction_id'] ?? ''));
     $amount = (string) ($activity['amount'] ?? '0');
     $currency = strtoupper(trim((string) ($activity['currency'] ?? 'EUR')));
@@ -33,6 +28,7 @@ final class BankTransactionReconciliationManager {
 
     $existing = $this->database->select('brebo_finance_bank_reconciliation', 'r')
       ->fields('r')
+      ->condition('bank_provider', 'abnamro')
       ->condition('bank_transaction_id', $transactionId)
       ->execute()->fetchAssoc();
     if ($existing) {
@@ -40,7 +36,7 @@ final class BankTransactionReconciliationManager {
     }
 
     $candidates = [];
-    if ($endToEndId !== '') {
+    if ($endToEndId !== '' && $this->database->schema()->tableExists('brebo_finance_payment_batch_item')) {
       $query = $this->database->select('brebo_finance_payment_batch_item', 'i');
       $query->join('brebo_finance_payment_batch', 'b', 'b.id = i.batch_id');
       $query->fields('i')->addField('b', 'status', 'batch_status');
@@ -64,13 +60,10 @@ final class BankTransactionReconciliationManager {
       return $this->persist($activity, NULL, 'red', 'duplicate_end_to_end_id', 'Dezelfde EndToEndId wijst naar meerdere BREBO-betaalinstructies.');
     }
 
-    // No BREBO-originating instruction: retain the activity for ordinary-bank
-    // matching/classification instead of silently treating it as unexplained.
     return $this->persist($activity, NULL, 'orange', 'external_bank_payment', 'Bankmutatie is buiten een BREBO-betaalrun ontstaan en vraagt automatische vervolgmatching of classificatie.');
   }
 
   private function persist(array $activity, ?array $item, string $light, string $reason, string $message): array {
-    $this->ensureStorage();
     $now = time();
     $fields = [
       'bank_provider' => 'abnamro',
@@ -105,9 +98,7 @@ final class BankTransactionReconciliationManager {
 
   private function ensureStorage(): void {
     $schema = $this->database->schema();
-    if ($schema->tableExists('brebo_finance_bank_reconciliation')) {
-      return;
-    }
+    if ($schema->tableExists('brebo_finance_bank_reconciliation')) return;
     $schema->createTable('brebo_finance_bank_reconciliation', [
       'description' => 'Bank to BREBO to Moneybird reconciliation evidence.',
       'fields' => [
@@ -132,12 +123,7 @@ final class BankTransactionReconciliationManager {
       ],
       'primary key' => ['id'],
       'unique keys' => ['provider_transaction' => ['bank_provider', 'bank_transaction_id']],
-      'indexes' => [
-        'traffic_light' => ['traffic_light'],
-        'invoice_id' => ['invoice_id'],
-        'batch_id' => ['batch_id'],
-        'moneybird_state' => ['moneybird_state'],
-      ],
+      'indexes' => ['traffic_light' => ['traffic_light'], 'invoice_id' => ['invoice_id'], 'batch_id' => ['batch_id'], 'moneybird_state' => ['moneybird_state']],
     ]);
   }
 }
