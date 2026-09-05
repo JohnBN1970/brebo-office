@@ -85,7 +85,9 @@ final class SourceNeutralIntakeManager {
       'source_neutral_intake',
     );
 
-    $lockName = 'brebo_data_intake:review:' . hash('sha256', $sourceId . '|' . $envelope['source_record_id']);
+    $identityHash = hash('sha256', $envelope['source_record_id']);
+    $persistedIdentity = 'sha256:' . $identityHash;
+    $lockName = 'brebo_data_intake:review:' . hash('sha256', $sourceId . '|' . $identityHash);
     if (!$this->lock->acquire($lockName, 30.0)) {
       $this->lock->wait($lockName, 30);
       if (!$this->lock->acquire($lockName, 30.0)) {
@@ -97,7 +99,7 @@ final class SourceNeutralIntakeManager {
       $existingRecordId = $this->ingestManager->findRecordBySourceIdentity(
         $sourceId,
         'source_neutral_intake',
-        $envelope['source_record_id'],
+        $persistedIdentity,
         'review_required',
       );
       if ($existingRecordId !== NULL) {
@@ -115,7 +117,7 @@ final class SourceNeutralIntakeManager {
         $runId,
         'source_neutral_intake',
         ['reason' => $reason, 'envelope' => $envelope],
-        $envelope['source_record_id'],
+        $persistedIdentity,
         $envelope['source_record_id'],
         $envelope['confidence'],
         'review_required',
