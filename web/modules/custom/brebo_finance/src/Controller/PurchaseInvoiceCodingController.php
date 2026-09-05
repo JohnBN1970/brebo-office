@@ -9,6 +9,7 @@ use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\brebo_finance\Service\PurchaseInvoiceCodingManager;
+use Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -23,6 +24,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly PurchaseInvoiceCodingManager $codingManager,
+    private readonly PurchaseInvoiceIntegrationClient $integrationClient,
     private readonly AccountProxyInterface $currentUser,
   ) {}
 
@@ -31,6 +33,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
       $container->get('database'),
       $container->get('entity_type.manager'),
       $container->get('brebo_finance.purchase_invoice_coding_manager'),
+      $container->get('brebo_finance.purchase_invoice_integration_client'),
       $container->get('current_user'),
     );
   }
@@ -57,12 +60,16 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
       $query->addField('c', 'supplier_name');
       $commitments = $query->condition('c.project_nid', $projectNid)->condition('c.status', ['cancelled'], 'NOT IN')->orderBy('c.id', 'DESC')->orderBy('cl.line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     }
+    $source = $this->sourceInvoice($invoice);
     $lineTotal = array_reduce($lines, static fn(float $sum, array $line): float => $sum + (float) ($line['amount_inc_vat'] ?? 0), 0.0);
     return $this->json([
       'invoice' => $invoice,
       'projects' => $this->projectChoices(),
       'lines' => $lines,
       'commitment_lines' => $commitments,
+      'source_invoice_available' => $source !== NULL,
+      'source_document' => $source ? $this->sourceDocument($source) : NULL,
+      'source_lines' => $source ? $this->sourceLines($source) : [],
       'reconciliation' => [
         'header_amount_inc_vat' => (float) ($invoice['amount_inc_vat'] ?? 0),
         'line_amount_inc_vat' => $lineTotal,
@@ -127,6 +134,96 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
       $projects[] = ['id' => (int) $project->id(), 'label' => (string) $project->label()];
     }
     return $projects;
+  }
+
+  /** Return the current source payload without making Finance unavailable on integration errors. */
+  private function sourceInvoice(array $invoice): ?array {
+    $moneybirdId = trim((string) ($invoice['moneybird_id'] ?? $invoice['external_id'] ?? $invoice['source_record_id'] ?? ''));
+    if ($moneybirdId === '') {
+      return NULL;
+    }
+    try {
+      foreach ($this->integrationClient->fetchAll() as $source) {
+        if (trim((string) ($source['id'] ?? '')) === $moneybirdId) {
+          return $source;
+        }
+      }
+    }
+    catch (\Throwable) {
+      return NULL;
+    }
+    return NULL;
+  }
+
+  /** @return array<string,string>|null */
+  private function sourceDocument(array $source): ?array {
+    foreach (['document_url', 'pdf_url', 'download_url', 'attachment_url'] as $key) {
+      $url = trim((string) ($source[$key] ?? ''));
+      if ($this->isHttpUrl($url)) {
+        return ['url' => $url, 'label' => 'Originele factuur'];
+      }
+    }
+    foreach ((array) ($source['attachments'] ?? []) as $attachment) {
+      if (!is_array($attachment)) {
+        continue;
+      }
+      foreach (['download_url', 'url', 'document_url'] as $key) {
+        $url = trim((string) ($attachment[$key] ?? ''));
+        if ($this->isHttpUrl($url)) {
+          return ['url' => $url, 'label' => trim((string) ($attachment['filename'] ?? 'Originele factuur')) ?: 'Originele factuur'];
+        }
+      }
+    }
+    return NULL;
+  }
+
+  /** @return array<int,array<string,mixed>> */
+  private function sourceLines(array $source): array {
+    $rawLines = [];
+    foreach (['details', 'lines', 'items'] as $key) {
+      if (isset($source[$key]) && is_array($source[$key])) {
+        $rawLines = array_values(array_filter($source[$key], 'is_array'));
+        if ($rawLines !== []) {
+          break;
+        }
+      }
+    }
+    $result = [];
+    foreach ($rawLines as $index => $line) {
+      $quantity = $this->numeric($line['amount'] ?? $line['quantity'] ?? 1, 1.0);
+      $unitPrice = $this->numeric($line['price'] ?? $line['unit_price_ex_vat'] ?? 0, 0.0);
+      $amountEx = $this->numeric($line['total_price_excl_tax'] ?? $line['amount_ex_vat'] ?? ($unitPrice * $quantity), 0.0);
+      $amountInc = $this->numeric($line['total_price_incl_tax'] ?? $line['amount_inc_vat'] ?? 0, 0.0);
+      $vatAmount = $this->numeric($line['tax'] ?? $line['vat_amount'] ?? ($amountInc > 0 ? $amountInc - $amountEx : 0), 0.0);
+      if ($amountInc <= 0 && $amountEx !== 0) {
+        $amountInc = $amountEx + $vatAmount;
+      }
+      $vatRate = $this->numeric($line['tax_rate_percentage'] ?? $line['vat_rate'] ?? 0, 0.0);
+      if ($vatRate <= 0 && abs($amountEx) > 0.0001 && abs($vatAmount) > 0.0001) {
+        $vatRate = round(($vatAmount / $amountEx) * 100, 4);
+      }
+      $result[] = [
+        'line_number' => (int) ($line['line_number'] ?? $line['row_order'] ?? ($index + 1)),
+        'description' => trim((string) ($line['description'] ?? $line['title'] ?? $line['name'] ?? '')),
+        'quantity' => $quantity,
+        'unit' => trim((string) ($line['unit'] ?? '')),
+        'unit_price_ex_vat' => $unitPrice,
+        'amount_ex_vat' => $amountEx,
+        'vat_code' => trim((string) ($line['vat_code'] ?? $line['tax_rate_id'] ?? '')),
+        'vat_rate' => $vatRate,
+        'vat_amount' => $vatAmount,
+        'amount_inc_vat' => $amountInc,
+      ];
+    }
+    return $result;
+  }
+
+  private function numeric(mixed $value, float $default): float {
+    return is_numeric($value) ? (float) $value : $default;
+  }
+
+  private function isHttpUrl(string $value): bool {
+    return $value !== '' && filter_var($value, FILTER_VALIDATE_URL) !== FALSE && in_array((string) parse_url($value, PHP_URL_SCHEME), ['http', 'https'], TRUE);
   }
 
   private function assertProjectAccess(int $projectNid): void {
