@@ -2,6 +2,26 @@
 
 declare(strict_types=1);
 
+use Drupal\node\Entity\NodeType;
+
+/**
+ * Implements hook_requirements().
+ */
+function brebo_project_publication_requirements(string $phase): array {
+  $requirements = [];
+
+  if (in_array($phase, ['install', 'runtime'], TRUE) && !NodeType::load('brebo_project')) {
+    $requirements['brebo_project_publication_project_model'] = [
+      'title' => t('BREBO project publication'),
+      'value' => t('Canonical project model is missing'),
+      'description' => t('BREBO Project Publication requires the existing brebo_project bundle from BREBO Office. Install or update BREBO Office Core so the canonical project model exists before enabling this module.'),
+      'severity' => REQUIREMENT_ERROR,
+    ];
+  }
+
+  return $requirements;
+}
+
 /**
  * Implements hook_schema().
  */
