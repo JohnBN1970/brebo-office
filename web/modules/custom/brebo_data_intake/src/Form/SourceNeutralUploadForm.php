@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Form;
 
 use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Throwable;
 
 /** Manual upload adapter for the BREBO source-neutral intake pipeline. */
 final class SourceNeutralUploadForm extends FormBase {
@@ -17,12 +19,14 @@ final class SourceNeutralUploadForm extends FormBase {
   public function __construct(
     private readonly SourceNeutralIntakeManager $intakeManager,
     private readonly FileSystemInterface $fileSystem,
+    private readonly Connection $database,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_data_intake.source_neutral_intake_manager'),
       $container->get('file_system'),
+      $container->get('database'),
     );
   }
 
@@ -95,7 +99,6 @@ final class SourceNeutralUploadForm extends FormBase {
       $this->messenger()->addError($this->t('De controlewaarde van het bronbestand kon niet worden bepaald; de intake is niet verwerkt.'));
       return;
     }
-    $sourceId = $contentHash;
 
     $canonical = [];
     if ((int) $form_state->getValue('project_nid') > 0) {
@@ -105,41 +108,62 @@ final class SourceNeutralUploadForm extends FormBase {
       $canonical['supplier_ref'] = trim((string) $form_state->getValue('supplier_ref'));
     }
 
-    $result = $this->intakeManager->intake([
-      'source' => 'upload',
-      'source_record_id' => $sourceId,
-      'classification' => (string) $form_state->getValue('classification'),
-      'confidence' => 1.0,
-      'canonical' => $canonical,
-      'payload' => [
-        'filename' => $file->getFilename(),
-        'file_id' => (int) $file->id(),
-        'uri' => $uri,
-        'mime_type' => $file->getMimeType(),
-        'size' => (int) $file->getSize(),
-        'content_sha256' => $contentHash,
-        'notes' => trim((string) $form_state->getValue('notes')),
-      ],
-      'attachments' => [[
-        'file_id' => (int) $file->id(),
-        'filename' => $file->getFilename(),
-        'uri' => $uri,
-        'mime_type' => $file->getMimeType(),
-        'size' => (int) $file->getSize(),
-        'content_sha256' => $contentHash,
-      ]],
-      'received_at' => time(),
-      'actor_uid' => (int) $this->currentUser()->id(),
-    ]);
+    $transaction = $this->database->startTransaction();
+    try {
+      // Promotion and canonical intake persistence share one DB transaction. If
+      // intake fails (or the request terminates), the file entity remains
+      // temporary and Drupal can clean it normally.
+      $file->setPermanent();
+      $file->save();
 
-    $state = (string) ($result['state'] ?? 'review_required');
-    if ($state === 'duplicate') {
-      $this->messenger()->addStatus($this->t('Dit bronbestand was al ontvangen; de bestaande intake is hergebruikt.'));
+      $result = $this->intakeManager->intake([
+        'source' => 'upload',
+        'source_record_id' => $contentHash,
+        'classification' => (string) $form_state->getValue('classification'),
+        'confidence' => 1.0,
+        'canonical' => $canonical,
+        'payload' => [
+          'filename' => $file->getFilename(),
+          'file_id' => (int) $file->id(),
+          'uri' => $uri,
+          'mime_type' => $file->getMimeType(),
+          'size' => (int) $file->getSize(),
+          'content_sha256' => $contentHash,
+          'notes' => trim((string) $form_state->getValue('notes')),
+        ],
+        'attachments' => [[
+          'file_id' => (int) $file->id(),
+          'filename' => $file->getFilename(),
+          'uri' => $uri,
+          'mime_type' => $file->getMimeType(),
+          'size' => (int) $file->getSize(),
+          'content_sha256' => $contentHash,
+        ]],
+        'received_at' => time(),
+        'actor_uid' => (int) $this->currentUser()->id(),
+      ]);
+
+      $state = (string) ($result['state'] ?? 'review_required');
+      if ($state === 'duplicate') {
+        // Do not retain the retry upload. Rolling back also reverts its
+        // permanent status, while the previously persisted canonical source
+        // remains untouched.
+        $transaction->rollBack();
+        $this->messenger()->addStatus($this->t('Dit bronbestand was al ontvangen; de bestaande intake is hergebruikt.'));
+        return;
+      }
+
+      unset($transaction);
+    }
+    catch (Throwable $exception) {
+      $transaction->rollBack();
+      $this->getLogger('brebo_data_intake')->error('Upload intake failed for digest @digest: @message', [
+        '@digest' => $contentHash,
+        '@message' => $exception->getMessage(),
+      ]);
+      $this->messenger()->addError($this->t('De upload kon niet veilig worden vastgelegd; het bestand blijft tijdelijk en kan opnieuw worden aangeboden.'));
       return;
     }
-
-    $file->setPermanent();
-    $file->save();
 
     if ($state === 'review_required') {
       $this->messenger()->addWarning($this->t('Upload is veilig ontvangen en staat klaar voor beoordeling.'));
