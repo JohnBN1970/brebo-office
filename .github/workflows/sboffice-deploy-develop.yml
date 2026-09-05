@@ -179,6 +179,26 @@ jobs:
           "${drush[@]}" updb -y --no-cache-clear
           echo "DATABASE_UPDATES_OK=1"
 
+          page_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectPageController.php"
+          ledger_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialProjectLedgerController.php"
+          euro_trace_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialEuroTraceController.php"
+          cockpit_controller="$webroot/modules/custom/brebo_project_cockpit/src/Controller/ProjectCockpitController.php"
+          cockpit_route_subscriber="$webroot/modules/custom/brebo_project_cockpit/src/Routing/ProjectCockpitRouteSubscriber.php"
+
+          for controller in "$page_controller" "$ledger_controller" "$euro_trace_controller" "$cockpit_controller" "$cockpit_route_subscriber"; do
+            [[ -f "$controller" ]] || { echo "::error::Required controller/runtime file missing on production: $controller"; exit 1; }
+            "$remote_php" -l "$controller"
+          done
+
+          if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$page_controller" "$ledger_controller" "$euro_trace_controller"; then
+            echo "::error::Stale readonly entityTypeManager property still exists in production finance controller."
+            exit 1
+          fi
+          grep -n 'financeEntityTypeManager' "$page_controller" || { echo "::error::FinancialProjectPageController does not contain financeEntityTypeManager."; exit 1; }
+          grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
+          grep -n 'financeEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain financeEntityTypeManager."; exit 1; }
+          echo "CONTROLLERS_DEPLOY_PROOF_OK=1"
+
           "${drush[@]}" cr -vvv
           echo "CACHE_REBUILD_OK=1"
 
@@ -187,9 +207,42 @@ jobs:
             foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
+            foreach ([
+              "brebo_building_data.project_building_repository",
+              "brebo_building_data.object_repository",
+              "brebo_finance.performance_location_manager",
+              "brebo_finance.performance_receipt_manager",
+              "brebo_contract_control.management_control_center",
+              "brebo_contract_control.management_decision_records",
+              "brebo_project_cockpit.project_status_aggregator",
+              "brebo_project_cockpit.project_progress_builder",
+              "brebo_project_cockpit.project_milestone_builder"
+            ] as $service) { \Drupal::service($service); }
+            $routes = \Drupal::service("router.route_provider");
+            foreach ([
+              "brebo_finance.project_finance_page",
+              "brebo_finance.performance_receipt_submit",
+              "brebo_finance.performance_evidence_upload",
+              "brebo_building_data.object_tree",
+              "brebo_contract_control.management_control_center",
+              "brebo_contract_control.management_recommendation_accept",
+              "brebo_contract_control.management_recommendation_reject",
+              "brebo_contract_control.management_decision_outcome_review",
+              "brebo_project_cockpit.overview",
+              "brebo_office_core.project_dashboard",
+              "brebo_sandbox_reset.form"
+            ] as $route) { $routes->getRouteByName($route); }
+            $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
+            $controller = (string) $projectRoute->getDefault("_controller");
+            if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
+              throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
+            }
             foreach (["brebo_project_publication", "brebo_project_publication_media", "brebo_project_publication_audit"] as $table) {
               if (!\Drupal::database()->schema()->tableExists($table)) { throw new \RuntimeException("Publication table missing: " . $table); }
             }
+            print "BREBO_RUNTIME_OK=1\n";
+            print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
+            print "SANDBOX_RESET_RUNTIME_OK=1\n";
             print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
           '
 
@@ -197,11 +250,26 @@ jobs:
           [[ "$login_status" == "200" ]]
           echo "PUBLIC_LOGIN_OK=1"
 
+          finance_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/brebo-office/finance)"
+          [[ "$finance_status" != "500" && "$finance_status" != "000" && "$finance_status" != "404" ]]
+          echo "FINANCE_HTTP_SMOKE_OK=$finance_status"
+
+          control_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/brebo/control-center)"
+          [[ "$control_status" != "500" && "$control_status" != "000" && "$control_status" != "404" ]]
+          echo "CONTROL_CENTER_HTTP_SMOKE_OK=$control_status"
+
+          sandbox_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/admin/brebo/sandbox-reset)"
+          [[ "$sandbox_status" != "500" && "$sandbox_status" != "000" && "$sandbox_status" != "404" ]]
+          echo "SANDBOX_RESET_HTTP_SMOKE_OK=$sandbox_status"
+
           timeout 180 "${drush[@]}" cex -y
           test -d config/sync
           tar -czf "$config_archive" config/sync
           echo "CONFIG_EXPORT_OK=1"
           echo "DEPLOY_OK=1"
+          echo "APP_ROOT=$app"
+          echo "DRUPAL_WEBROOT=$webroot"
+          echo "RUNTIME_SETTINGS_PRESERVED=1"
           REMOTE
 
       - name: Download exported config
