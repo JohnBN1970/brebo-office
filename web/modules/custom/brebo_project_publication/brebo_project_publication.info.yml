@@ -1,0 +1,7 @@
+name: 'BREBO Project Publication'
+type: module
+description: 'Controlled public project projections from canonical BREBO Office projects.'
+package: BREBO
+core_version_requirement: ^11
+dependencies:
+  - drupal:node
