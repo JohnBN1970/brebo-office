@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Form;
 
 use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
+use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\Entity\File;
@@ -13,10 +14,16 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Manual upload adapter for the BREBO source-neutral intake pipeline. */
 final class SourceNeutralUploadForm extends FormBase {
 
-  public function __construct(private readonly SourceNeutralIntakeManager $intakeManager) {}
+  public function __construct(
+    private readonly SourceNeutralIntakeManager $intakeManager,
+    private readonly FileSystemInterface $fileSystem,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_data_intake.source_neutral_intake_manager'));
+    return new static(
+      $container->get('brebo_data_intake.source_neutral_intake_manager'),
+      $container->get('file_system'),
+    );
   }
 
   public function getFormId(): string {
@@ -84,7 +91,14 @@ final class SourceNeutralUploadForm extends FormBase {
     $file->setPermanent();
     $file->save();
     $uri = $file->getFileUri();
-    $sourceId = hash('sha256', implode('|', ['upload', (string) $file->id(), $uri, (string) $file->getSize()]));
+    $realpath = $this->fileSystem->realpath($uri);
+    $contentHash = $realpath && is_readable($realpath) ? hash_file('sha256', $realpath) : FALSE;
+    if (!is_string($contentHash) || $contentHash === '') {
+      $this->messenger()->addError($this->t('De controlewaarde van het bronbestand kon niet worden bepaald; de intake is niet verwerkt.'));
+      return;
+    }
+    $sourceId = $contentHash;
+
     $canonical = [];
     if ((int) $form_state->getValue('project_nid') > 0) {
       $canonical['project_nid'] = (int) $form_state->getValue('project_nid');
@@ -105,6 +119,7 @@ final class SourceNeutralUploadForm extends FormBase {
         'uri' => $uri,
         'mime_type' => $file->getMimeType(),
         'size' => (int) $file->getSize(),
+        'content_sha256' => $contentHash,
         'notes' => trim((string) $form_state->getValue('notes')),
       ],
       'attachments' => [[
@@ -113,6 +128,7 @@ final class SourceNeutralUploadForm extends FormBase {
         'uri' => $uri,
         'mime_type' => $file->getMimeType(),
         'size' => (int) $file->getSize(),
+        'content_sha256' => $contentHash,
       ]],
       'received_at' => time(),
       'actor_uid' => (int) $this->currentUser()->id(),
