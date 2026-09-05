@@ -4,4 +4,4 @@ brebo_data_intake.upload:
     _form: '\Drupal\brebo_data_intake\Form\SourceNeutralUploadForm'
     _title: 'Nieuwe intake'
   requirements:
-    _permission: 'access content'
+    _permission: 'submit brebo office intake'
