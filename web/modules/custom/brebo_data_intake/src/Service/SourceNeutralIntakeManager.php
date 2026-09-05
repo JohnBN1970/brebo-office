@@ -87,9 +87,7 @@ final class SourceNeutralIntakeManager {
 
     $lockName = 'brebo_data_intake:review:' . hash('sha256', $sourceId . '|' . $envelope['source_record_id']);
     if (!$this->lock->acquire($lockName, 30.0)) {
-      if (!$this->lock->wait($lockName, 30)) {
-        throw new RuntimeException('BREBO intake review identity is busy; retry the intake.');
-      }
+      $this->lock->wait($lockName, 30);
       if (!$this->lock->acquire($lockName, 30.0)) {
         throw new RuntimeException('BREBO intake review identity could not be locked.');
       }
