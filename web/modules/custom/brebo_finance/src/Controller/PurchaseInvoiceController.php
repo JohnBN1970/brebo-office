@@ -119,7 +119,6 @@ final class PurchaseInvoiceController extends ControllerBase {
       'project_link' => $projectNid > 0 ? [
         '#markup' => '<p>' . Link::fromTextAndUrl($this->t('Open gekoppeld project'), Url::fromRoute('entity.node.canonical', ['node' => $projectNid]))->toString() . '</p>',
       ] : [],
-      'control_view' => $this->controlView($control, $invoice_id),
       'coding_workbench' => [
         '#type' => 'container',
         '#attributes' => [
@@ -131,6 +130,7 @@ final class PurchaseInvoiceController extends ControllerBase {
         ],
         'loading' => ['#markup' => '<p>Codeerwerkbank laden…</p>'],
       ],
+      'control_view' => $this->controlView($control, $invoice_id),
       '#attached' => ['library' => ['brebo_finance/command_center', 'brebo_finance/purchase_invoice_coding']],
       '#cache' => ['max-age' => 0],
     ];
