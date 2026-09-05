@@ -194,24 +194,50 @@
           const invoice = data.invoice || {};
           const projects = data.projects || [];
           const lines = data.lines || [];
+          const sourceLines = data.source_lines || [];
+          const sourceDocument = data.source_document || null;
+          const sourceAvailable = data.source_invoice_available === true;
           const commitmentLines = data.commitment_lines || [];
           const rec = data.reconciliation || {};
           const unmatched = lines.filter(line => line.match_status !== 'matched').length;
+          const firstSourceLine = sourceLines[0] || {};
           const nextAction = !invoice.project_nid
             ? 'Koppel eerst het juiste project.'
-            : lines.length === 0
-              ? 'Controleer de bronfactuur en leg de factuurregels vast.'
-              : !rec.balanced
-                ? 'Maak de factuurregels sluitend met de factuurkop.'
-                : unmatched > 0
-                  ? 'Koppel de regels aan commitments en voer de controle uit.'
-                  : 'De codering is gereed; ga door met prestatie, match en betaalvrijgave.';
+            : lines.length === 0 && sourceLines.length > 0
+              ? 'Controleer de bronfactuur en neem de bronregels over.'
+              : lines.length === 0
+                ? 'Controleer de bronfactuur en leg de factuurregels vast.'
+                : !rec.balanced
+                  ? 'Maak de factuurregels sluitend met de factuurkop.'
+                  : unmatched > 0
+                    ? 'Koppel de regels aan commitments en voer de controle uit.'
+                    : 'De codering is gereed; ga door met prestatie, match en betaalvrijgave.';
+
+          const sourcePanel = `
+            <section class="bfpic-action bfpic-source-invoice">
+              <h2>Bronfactuur</h2>
+              ${sourceDocument && sourceDocument.url ? `
+                <div class="bfpic-source-preview">
+                  <iframe src="${esc(sourceDocument.url)}" title="${esc(sourceDocument.label || 'Originele factuur')}" loading="lazy"></iframe>
+                </div>
+                <p><a href="${esc(sourceDocument.url)}" target="_blank" rel="noopener">Open originele factuur in nieuw venster</a></p>` :
+                `<p><strong>${sourceAvailable ? 'Brongegevens zijn geladen, maar de huidige integratie levert nog geen rechtstreeks PDF-/documentadres mee.' : 'De bronfactuur kon op dit moment niet uit de integratie worden geladen.'}</strong></p>`}
+              ${sourceLines.length ? `
+                <h3>Herkende bronregels</h3>
+                <div class="bfpic-source-lines">
+                  ${sourceLines.map((line, index) => `<article class="bfpic-line">
+                    <div><strong>#${esc(line.line_number || index + 1)} · ${esc(line.description || 'Zonder omschrijving')}</strong><small>${money(line.amount_ex_vat)} excl. · ${money(line.amount_inc_vat)} incl.</small></div>
+                    ${canManage ? `<button type="button" data-source-line="${index}">Neem bronregel over</button>` : ''}
+                  </article>`).join('')}
+                </div>` : '<p>De bron bevat nog geen machineleesbare factuurregels.</p>'}
+            </section>`;
 
           app.innerHTML = `
             <section class="bfpic-action bfpic-next-action">
               <h2>Wat moet ik nu doen?</h2>
               <p><strong>${esc(nextAction)}</strong></p>
             </section>
+            ${sourcePanel}
             <section class="bfpic-summary">
               <div><small>Project</small><strong>${invoice.project_nid ? esc((projects.find(project => Number(project.id) === Number(invoice.project_nid)) || {}).label || `#${invoice.project_nid}`) : 'Niet gecodeerd'}</strong></div>
               <div><small>Factuurregels</small><strong>${lines.length}</strong></div>
@@ -234,16 +260,16 @@
               <section class="bfpic-action">
                 <h3>2. Factuurregel controleren / vastleggen</h3>
                 <form data-line-form>
-                  <label>Regelnummer <input name="line_number" type="number" min="1" required></label>
-                  <label>Omschrijving <input name="description" required></label>
-                  <label>Aantal <input name="quantity" inputmode="decimal" required></label>
-                  <label>Eenheid <input name="unit"></label>
-                  <label>Prijs excl. btw <input name="unit_price_ex_vat" inputmode="decimal" required></label>
-                  <label>Bedrag excl. btw <input name="amount_ex_vat" inputmode="decimal" required></label>
-                  <label>Btw-code <input name="vat_code" value="NL_21" required></label>
-                  <label>Btw % <input name="vat_rate" inputmode="decimal" value="21" required></label>
-                  <label>Btw-bedrag <input name="vat_amount" inputmode="decimal" required></label>
-                  <label>Bedrag incl. btw <input name="amount_inc_vat" inputmode="decimal" required></label>
+                  <label>Regelnummer <input name="line_number" type="number" min="1" value="${esc(firstSourceLine.line_number || '')}" required></label>
+                  <label>Omschrijving <input name="description" value="${esc(firstSourceLine.description || '')}" required></label>
+                  <label>Aantal <input name="quantity" inputmode="decimal" value="${esc(firstSourceLine.quantity || '')}" required></label>
+                  <label>Eenheid <input name="unit" value="${esc(firstSourceLine.unit || '')}"></label>
+                  <label>Prijs excl. btw <input name="unit_price_ex_vat" inputmode="decimal" value="${esc(firstSourceLine.unit_price_ex_vat || '')}" required></label>
+                  <label>Bedrag excl. btw <input name="amount_ex_vat" inputmode="decimal" value="${esc(firstSourceLine.amount_ex_vat || '')}" required></label>
+                  <label>Btw-code <input name="vat_code" value="${esc(firstSourceLine.vat_code || 'NL_21')}" required></label>
+                  <label>Btw % <input name="vat_rate" inputmode="decimal" value="${esc(firstSourceLine.vat_rate || '21')}" required></label>
+                  <label>Btw-bedrag <input name="vat_amount" inputmode="decimal" value="${esc(firstSourceLine.vat_amount || '')}" required></label>
+                  <label>Bedrag incl. btw <input name="amount_inc_vat" inputmode="decimal" value="${esc(firstSourceLine.amount_inc_vat || '')}" required></label>
                   <label>Notitie <textarea name="review_note"></textarea></label>
                   <button type="submit">Regel opslaan</button>
                 </form>
@@ -277,6 +303,17 @@
           };
 
           const lineForm = app.querySelector('[data-line-form]');
+          const fillLineForm = sourceLine => {
+            if (!lineForm) return;
+            const fields = ['line_number', 'description', 'quantity', 'unit', 'unit_price_ex_vat', 'amount_ex_vat', 'vat_code', 'vat_rate', 'vat_amount', 'amount_inc_vat'];
+            fields.forEach(name => {
+              const field = lineForm.elements.namedItem(name);
+              if (field) field.value = sourceLine[name] ?? '';
+            });
+            lineForm.scrollIntoView({behavior: 'smooth', block: 'start'});
+          };
+          app.querySelectorAll('[data-source-line]').forEach(button => button.onclick = () => fillLineForm(sourceLines[Number(button.dataset.sourceLine)] || {}));
+
           if (lineForm) lineForm.onsubmit = async event => {
             event.preventDefault();
             const form = new FormData(lineForm);
