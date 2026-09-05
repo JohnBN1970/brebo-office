@@ -60,6 +60,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
     $lineTotal = array_reduce($lines, static fn(float $sum, array $line): float => $sum + (float) ($line['amount_inc_vat'] ?? 0), 0.0);
     return $this->json([
       'invoice' => $invoice,
+      'projects' => $this->projectChoices(),
       'lines' => $lines,
       'commitment_lines' => $commitments,
       'reconciliation' => [
@@ -103,6 +104,29 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
       throw new NotFoundHttpException('Purchase invoice does not exist.');
     }
     return $invoice;
+  }
+
+  /** @return array<int,array{id:int,label:string}> */
+  private function projectChoices(): array {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(TRUE)
+      ->condition('type', 'brebo_project')
+      ->condition('status', 1)
+      ->sort('title', 'ASC')
+      ->range(0, 500)
+      ->execute();
+    if ($ids === []) {
+      return [];
+    }
+    $projects = [];
+    foreach ($storage->loadMultiple($ids) as $project) {
+      if (!$project->access('view', $this->currentUser)) {
+        continue;
+      }
+      $projects[] = ['id' => (int) $project->id(), 'label' => (string) $project->label()];
+    }
+    return $projects;
   }
 
   private function assertProjectAccess(int $projectNid): void {
