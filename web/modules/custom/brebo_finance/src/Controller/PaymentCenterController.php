@@ -21,7 +21,7 @@ final class PaymentCenterController extends ControllerBase {
   public function __construct(
     private readonly Connection $database,
     private readonly PaymentBatchManager $batches,
-    private readonly FormBuilderInterface $formBuilder,
+    private readonly FormBuilderInterface $paymentFormBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -102,7 +102,7 @@ final class PaymentCenterController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['bfcc-section']],
         'title' => ['#markup' => '<h2>Klaar voor betaalrun</h2><p>Vink één of meerdere regels aan en zet ze daarna gezamenlijk in een betaalbatch.</p>'],
-        'form' => $this->formBuilder->getForm(PaymentBatchPrepareForm::class),
+        'form' => $this->paymentFormBuilder->getForm(PaymentBatchPrepareForm::class),
       ],
       'batches' => [
         '#type' => 'container',
