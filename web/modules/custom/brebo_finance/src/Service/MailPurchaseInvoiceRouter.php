@@ -15,9 +15,6 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
   public function __construct(private readonly ?SourceNeutralIntakeManager $intakeManager) {}
 
   public function route(array $mail, array $attachmentEvidence, int $communicationNid): array {
-    if ($this->intakeManager === NULL) {
-      return ['state' => 'intake_unavailable', 'reason' => 'source_neutral_intake_service_not_enabled'];
-    }
     if (!$this->containsAddress((string) ($mail['to'] ?? ''), self::MAILBOX)) {
       return ['state' => 'not_invoice_mailbox'];
     }
@@ -40,6 +37,10 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
     $from = $this->firstAddress((string) ($mail['from'] ?? ''));
     if ($invoiceNumber === '' || $from === '' || $amounts === NULL) {
       return ['state' => 'communication_only', 'reason' => 'required_invoice_fields_missing'];
+    }
+
+    if ($this->intakeManager === NULL) {
+      return ['state' => 'intake_unavailable', 'reason' => 'source_neutral_intake_service_not_enabled'];
     }
 
     $sourceRecordId = trim((string) ($mail['source_id'] ?? $mail['source_hash'] ?? ''));
