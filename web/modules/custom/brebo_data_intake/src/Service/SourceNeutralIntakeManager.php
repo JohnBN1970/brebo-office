@@ -30,13 +30,25 @@ final class SourceNeutralIntakeManager {
         continue;
       }
       $result = $destination->route($envelope);
-      $state = (string) ($result['state'] ?? 'routed');
-      if ($state === 'review_required') {
-        $reviewRecordId = $this->persistForReview($envelope, (string) ($result['reason'] ?? 'destination_requires_review'));
+      $destinationState = (string) ($result['state'] ?? 'review_required');
+      $terminalStates = ['created', 'duplicate', 'routed', 'accepted', 'processed'];
+      if (!in_array($destinationState, $terminalStates, TRUE)) {
+        $reason = (string) ($result['reason'] ?? 'destination_' . $destinationState);
+        $reviewRecordId = $this->persistForReview($envelope, $reason);
         $result['review_record_id'] = $reviewRecordId;
+        return [
+          'state' => 'review_required',
+          'reason' => $reason,
+          'source' => $envelope['source'],
+          'classification' => $envelope['classification'],
+          'source_record_id' => $envelope['source_record_id'],
+          'canonical' => $envelope['canonical'],
+          'destination' => $result,
+          'review_record_id' => $reviewRecordId,
+        ];
       }
       return [
-        'state' => $state,
+        'state' => $destinationState,
         'source' => $envelope['source'],
         'classification' => $envelope['classification'],
         'source_record_id' => $envelope['source_record_id'],
