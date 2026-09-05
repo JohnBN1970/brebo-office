@@ -47,7 +47,6 @@ final class PayablesWorkQueueController extends ControllerBase {
             Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
             Link::fromTextAndUrl($this->t('Te doen'), Url::fromRoute('brebo_finance.payables_work_queues')),
             Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
-            Link::fromTextAndUrl($this->t('Betaalcentrum'), Url::fromRoute('brebo_finance.payment_center')),
           ],
           '#attributes' => ['class' => ['bfcc-finance-nav']],
         ],
