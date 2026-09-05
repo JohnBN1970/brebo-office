@@ -30,13 +30,12 @@ final class PayablesWorkQueueController extends ControllerBase {
       'to_approve' => ['Goed te keuren', 'Betaalvrijgave wacht op onafhankelijke goedkeuring.'],
       'ready_to_pay' => ['Klaar om te betalen', 'Goedgekeurde vrijgave wacht op betalingsuitvoering.'],
     ];
-    $paymentCenterUrl = Url::fromRoute('brebo_finance.payment_center')->toString();
 
     $build = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-finance-payables-queues']],
       'header' => [
-        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Te doen · Inkoop & betaling</h1><p>Dagelijkse werkvoorraad van ontvangen factuur tot gecontroleerde betaling.</p></div><a class="bfcc-live" href="' . $paymentCenterUrl . '">LIVE CONTROL</a></header>',
+        '#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Te doen · Inkoop & betaling</h1><p>Dagelijkse werkvoorraad van ontvangen factuur tot gecontroleerde betaling.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>',
       ],
       'navigation' => [
         '#type' => 'container',
