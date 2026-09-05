@@ -40,6 +40,29 @@ final class DataIngestManager {
     return (int) $this->database->select('brebo_data_source', 's')->fields('s', ['id'])->condition('source_key', $sourceKey)->execute()->fetchField();
   }
 
+  /**
+   * Finds an existing normalized record for one source and source identity.
+   */
+  public function findRecordBySourceIdentity(int $sourceId, string $recordType, string $externalKey, string $status = 'review_required'): ?int {
+    if ($sourceId <= 0 || trim($recordType) === '' || trim($externalKey) === '') {
+      return NULL;
+    }
+
+    $query = $this->database->select('brebo_data_record', 'r');
+    $query->innerJoin('brebo_data_ingest_run', 'run', 'run.id = r.run_id');
+    $recordId = $query
+      ->fields('r', ['id'])
+      ->condition('run.source_id', $sourceId)
+      ->condition('r.record_type', mb_substr(trim($recordType), 0, 64))
+      ->condition('r.external_key', mb_substr(trim($externalKey), 0, 255))
+      ->condition('r.status', mb_substr(trim($status), 0, 32))
+      ->range(0, 1)
+      ->execute()
+      ->fetchField();
+
+    return $recordId ? (int) $recordId : NULL;
+  }
+
   /** @param array<string,mixed> $metadata */
   public function startRun(int $sourceId, string $triggerType, ?string $sourceReference = NULL, ?string $sourceHash = NULL, array $metadata = []): int {
     if ($sourceId <= 0 || trim($triggerType) === '') {
