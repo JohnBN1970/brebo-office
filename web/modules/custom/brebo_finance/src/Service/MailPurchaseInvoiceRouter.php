@@ -12,9 +12,12 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
 
   private const MAILBOX = 'facturen@brebobv.nl';
 
-  public function __construct(private readonly SourceNeutralIntakeManager $intakeManager) {}
+  public function __construct(private readonly ?SourceNeutralIntakeManager $intakeManager) {}
 
   public function route(array $mail, array $attachmentEvidence, int $communicationNid): array {
+    if ($this->intakeManager === NULL) {
+      return ['state' => 'intake_unavailable', 'reason' => 'source_neutral_intake_service_not_enabled'];
+    }
     if (!$this->containsAddress((string) ($mail['to'] ?? ''), self::MAILBOX)) {
       return ['state' => 'not_invoice_mailbox'];
     }
