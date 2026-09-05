@@ -4,20 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
 use Drupal\brebo_mail_intake\Service\PurchaseInvoiceMailRouterInterface;
 
-/** Conservatively routes real invoice mail into received purchase invoices. */
+/** Classifies invoice mail, then hands it to the source-neutral intake pipeline. */
 final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterface {
 
   private const MAILBOX = 'facturen@brebobv.nl';
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly SourceNeutralIntakeManager $intakeManager) {}
 
   public function route(array $mail, array $attachmentEvidence, int $communicationNid): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_purchase_invoice')) {
-      return ['state' => 'finance_unavailable'];
-    }
     if (!$this->containsAddress((string) ($mail['to'] ?? ''), self::MAILBOX)) {
       return ['state' => 'not_invoice_mailbox'];
     }
@@ -42,67 +39,37 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
       return ['state' => 'communication_only', 'reason' => 'required_invoice_fields_missing'];
     }
 
-    // Invoice numbers are only unique within one supplier administration.
-    // Compare the same key as the finance table's supplier_invoice unique key;
-    // otherwise two unrelated suppliers using invoice "2026-001" would collide.
-    $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i', ['id', 'supplier_ref', 'invoice_number'])
-      ->condition('supplier_ref', $from)
-      ->condition('invoice_number', $invoiceNumber)
-      ->execute()
-      ->fetchAllAssoc('id');
-    if (count($existing) === 1) {
-      return ['state' => 'duplicate', 'invoice_id' => (int) array_key_first($existing)];
-    }
-    if (count($existing) > 1) {
-      return ['state' => 'communication_only', 'reason' => 'ambiguous_existing_supplier_invoice'];
+    $sourceRecordId = trim((string) ($mail['source_id'] ?? $mail['source_hash'] ?? ''));
+    $attachments = is_array($mail['attachments'] ?? NULL) ? $mail['attachments'] : [];
+    if ($attachmentEvidence !== []) {
+      $attachments[] = ['type' => 'mail_attachment_evidence', 'evidence' => $attachmentEvidence];
     }
 
-    $date = $this->invoiceDate($text, (string) ($mail['received_at'] ?? ''));
-    $supplier = $this->supplierName($from);
-    $sourceHash = trim((string) ($mail['source_hash'] ?? ''));
-    if ($sourceHash === '') {
-      $sourceHash = hash('sha256', (string) ($mail['source_id'] ?? '') . "\n" . $invoiceNumber . "\n" . $from);
-    }
-    $now = time();
-    $invoiceId = (int) $this->database->insert('brebo_finance_purchase_invoice')->fields([
-      'project_nid' => 0,
-      'commitment_id' => NULL,
-      'moneybird_id' => NULL,
-      'supplier_ref' => substr($from, 0, 255),
-      'supplier_name' => substr($supplier, 0, 255),
-      'invoice_number' => substr($invoiceNumber, 0, 128),
-      'invoice_date' => $date,
-      'due_date' => NULL,
-      'status' => 'received',
-      'match_status' => 'unmatched',
-      'amount_ex_vat' => $amounts['ex'],
-      'vat_amount' => $amounts['vat'],
-      'amount_inc_vat' => $amounts['inc'],
-      'g_account_amount' => 0,
-      'regular_account_amount' => $amounts['inc'],
-      'currency' => 'EUR',
-      'source_hash' => substr($sourceHash, 0, 64),
-      'created' => $now,
-      'created_by' => NULL,
-      'changed' => $now,
-      'changed_by' => NULL,
-    ])->execute();
+    $result = $this->intakeManager->intake([
+      'source' => 'email',
+      'source_record_id' => $sourceRecordId,
+      'classification' => 'purchase_invoice',
+      'confidence' => 1.0,
+      'canonical' => ['supplier_ref' => $from],
+      'payload' => [
+        'supplier_ref' => $from,
+        'supplier_name' => $this->supplierName($from),
+        'invoice_number' => $invoiceNumber,
+        'invoice_date' => $this->invoiceDate($text, (string) ($mail['received_at'] ?? '')),
+        'amount_ex_vat' => $amounts['ex'],
+        'vat_amount' => $amounts['vat'],
+        'amount_inc_vat' => $amounts['inc'],
+        'regular_account_amount' => $amounts['inc'],
+        'currency' => 'EUR',
+        'communication_nid' => $communicationNid,
+        'mailbox' => self::MAILBOX,
+      ],
+      'attachments' => $attachments,
+      'received_at' => $this->timestamp((string) ($mail['received_at'] ?? '')),
+    ]);
 
-    if ($this->database->schema()->tableExists('brebo_finance_audit')) {
-      $this->database->insert('brebo_finance_audit')->fields([
-        'project_nid' => 0,
-        'entity_type' => 'purchase_invoice',
-        'entity_id' => $invoiceId,
-        'action' => 'mail_invoice_received',
-        'payload' => json_encode(['communication_nid' => $communicationNid, 'mailbox' => self::MAILBOX], JSON_THROW_ON_ERROR),
-        'reason' => 'Deterministically identified supplier invoice received through the dedicated invoice mailbox.',
-        'created' => $now,
-        'created_by' => NULL,
-      ])->execute();
-    }
-
-    return ['state' => 'created', 'invoice_id' => $invoiceId];
+    $destination = is_array($result['destination'] ?? NULL) ? $result['destination'] : [];
+    return $destination !== [] ? $destination : $result;
   }
 
   private function isCollectionMessage(string $text): bool {
@@ -171,8 +138,12 @@ final class MailPurchaseInvoiceRouter implements PurchaseInvoiceMailRouterInterf
 
   private function invoiceDate(string $text, string $receivedAt): string {
     if (preg_match('/(?:factuurdatum|invoice\s*date)\s*[: ]+([0-3]?\d)[-.\/]([01]?\d)[-.\/](20\d{2})/iu', $text, $m) === 1) return sprintf('%04d-%02d-%02d', (int) $m[3], (int) $m[2], (int) $m[1]);
-    $ts = strtotime($receivedAt);
-    return gmdate('Y-m-d', $ts === FALSE ? time() : $ts);
+    return gmdate('Y-m-d', $this->timestamp($receivedAt));
+  }
+
+  private function timestamp(string $value): int {
+    $timestamp = strtotime($value);
+    return $timestamp === FALSE ? time() : $timestamp;
   }
 
   private function supplierName(string $email): string {

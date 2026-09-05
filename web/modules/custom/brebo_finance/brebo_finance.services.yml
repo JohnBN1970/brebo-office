@@ -1,6 +1,11 @@
 services:
   brebo_finance.vat_calculator:
     class: Drupal\brebo_finance\Service\VatCalculator
+  brebo_finance.purchase_invoice_intake_destination:
+    class: Drupal\brebo_finance\Service\PurchaseInvoiceIntakeDestination
+    arguments: ['@database', '@entity_type.manager']
+    tags:
+      - { name: brebo_data_intake.destination }
   brebo_finance.working_budget_importer:
     class: Drupal\brebo_finance\Service\WorkingBudgetImporter
     arguments: ['@database', '@entity_type.manager']
