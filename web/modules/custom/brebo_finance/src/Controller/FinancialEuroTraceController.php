@@ -31,9 +31,18 @@ final class FinancialEuroTraceController extends ControllerBase {
     catch (UnexpectedValueException) {
       throw new NotFoundHttpException('Financial trace source does not exist.');
     }
-    $project = $this->financeEntityTypeManager->getStorage('node')->load((int) $data['project_nid']);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') throw new NotFoundHttpException();
-    if (!$project->access('view', $this->currentUser())) throw new AccessDeniedHttpException();
+
+    $projectNid = (int) ($data['project_nid'] ?? 0);
+    if ($projectNid > 0) {
+      $project = $this->financeEntityTypeManager->getStorage('node')->load($projectNid);
+      if ($project === NULL || $project->bundle() !== 'brebo_project') {
+        throw new NotFoundHttpException();
+      }
+      if (!$project->access('view', $this->currentUser())) {
+        throw new AccessDeniedHttpException();
+      }
+    }
+
     $response = new JsonResponse($data);
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
