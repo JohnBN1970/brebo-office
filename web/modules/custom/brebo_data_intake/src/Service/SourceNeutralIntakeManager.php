@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
+use Drupal\Core\Lock\LockBackendInterface;
 use InvalidArgumentException;
+use RuntimeException;
 
 /** Normalizes all inbound channels before handing off to domain workflows. */
 final class SourceNeutralIntakeManager {
@@ -14,6 +16,7 @@ final class SourceNeutralIntakeManager {
   public function __construct(
     private readonly iterable $destinations,
     private readonly DataIngestManager $ingestManager,
+    private readonly LockBackendInterface $lock,
   ) {}
 
   /**
@@ -82,34 +85,49 @@ final class SourceNeutralIntakeManager {
       'source_neutral_intake',
     );
 
-    $existingRecordId = $this->ingestManager->findRecordBySourceIdentity(
-      $sourceId,
-      'source_neutral_intake',
-      $envelope['source_record_id'],
-      'review_required',
-    );
-    if ($existingRecordId !== NULL) {
-      return ['record_id' => $existingRecordId, 'duplicate' => TRUE];
+    $lockName = 'brebo_data_intake:review:' . hash('sha256', $sourceId . '|' . $envelope['source_record_id']);
+    if (!$this->lock->acquire($lockName, 30.0)) {
+      if (!$this->lock->wait($lockName, 30)) {
+        throw new RuntimeException('BREBO intake review identity is busy; retry the intake.');
+      }
+      if (!$this->lock->acquire($lockName, 30.0)) {
+        throw new RuntimeException('BREBO intake review identity could not be locked.');
+      }
     }
 
-    $runId = $this->ingestManager->startRun(
-      $sourceId,
-      'intake',
-      $envelope['source_record_id'],
-      hash('sha256', $envelope['source'] . '|' . $envelope['source_record_id']),
-      ['classification' => $envelope['classification']],
-    );
-    $recordId = $this->ingestManager->addRecord(
-      $runId,
-      'source_neutral_intake',
-      ['reason' => $reason, 'envelope' => $envelope],
-      $envelope['source_record_id'],
-      $envelope['source_record_id'],
-      $envelope['confidence'],
-      'review_required',
-    );
-    $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
-    return ['record_id' => $recordId, 'duplicate' => FALSE];
+    try {
+      $existingRecordId = $this->ingestManager->findRecordBySourceIdentity(
+        $sourceId,
+        'source_neutral_intake',
+        $envelope['source_record_id'],
+        'review_required',
+      );
+      if ($existingRecordId !== NULL) {
+        return ['record_id' => $existingRecordId, 'duplicate' => TRUE];
+      }
+
+      $runId = $this->ingestManager->startRun(
+        $sourceId,
+        'intake',
+        $envelope['source_record_id'],
+        hash('sha256', $envelope['source'] . '|' . $envelope['source_record_id']),
+        ['classification' => $envelope['classification']],
+      );
+      $recordId = $this->ingestManager->addRecord(
+        $runId,
+        'source_neutral_intake',
+        ['reason' => $reason, 'envelope' => $envelope],
+        $envelope['source_record_id'],
+        $envelope['source_record_id'],
+        $envelope['confidence'],
+        'review_required',
+      );
+      $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
+      return ['record_id' => $recordId, 'duplicate' => FALSE];
+    }
+    finally {
+      $this->lock->release($lockName);
+    }
   }
 
   /** @return array<string, mixed> */
