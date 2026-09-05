@@ -192,28 +192,47 @@
           if (!response.ok) throw new Error('Codeerwerkbank kon niet worden geladen.');
           const data = await response.json();
           const invoice = data.invoice || {};
+          const projects = data.projects || [];
           const lines = data.lines || [];
           const commitmentLines = data.commitment_lines || [];
           const rec = data.reconciliation || {};
           const unmatched = lines.filter(line => line.match_status !== 'matched').length;
+          const nextAction = !invoice.project_nid
+            ? 'Koppel eerst het juiste project.'
+            : lines.length === 0
+              ? 'Controleer de bronfactuur en leg de factuurregels vast.'
+              : !rec.balanced
+                ? 'Maak de factuurregels sluitend met de factuurkop.'
+                : unmatched > 0
+                  ? 'Koppel de regels aan commitments en voer de controle uit.'
+                  : 'De codering is gereed; ga door met prestatie, match en betaalvrijgave.';
 
           app.innerHTML = `
+            <section class="bfpic-action bfpic-next-action">
+              <h2>Wat moet ik nu doen?</h2>
+              <p><strong>${esc(nextAction)}</strong></p>
+            </section>
             <section class="bfpic-summary">
-              <div><small>Project</small><strong>${invoice.project_nid ? `#${esc(invoice.project_nid)}` : 'Niet gecodeerd'}</strong></div>
+              <div><small>Project</small><strong>${invoice.project_nid ? esc((projects.find(project => Number(project.id) === Number(invoice.project_nid)) || {}).label || `#${invoice.project_nid}`) : 'Niet gecodeerd'}</strong></div>
               <div><small>Factuurregels</small><strong>${lines.length}</strong></div>
               <div><small>Nog unmatched</small><strong>${unmatched}</strong></div>
               <div class="${rec.balanced ? 'is-ok' : 'is-warning'}"><small>Regels vs. factuurkop</small><strong>${rec.balanced ? 'In balans' : money(rec.difference_inc_vat)}</strong></div>
             </section>
             ${canManage ? `
               <section class="bfpic-action">
-                <h3>1. Project coderen</h3>
+                <h3>1. Project koppelen</h3>
                 <form data-project-form>
-                  <label>Project-NID <input name="project_nid" type="number" min="1" value="${invoice.project_nid || ''}" required></label>
+                  <label>Project
+                    <select name="project_nid" required>
+                      <option value="">Kies project…</option>
+                      ${projects.map(project => `<option value="${esc(project.id)}" ${Number(project.id) === Number(invoice.project_nid) ? 'selected' : ''}>${esc(project.label)}</option>`).join('')}
+                    </select>
+                  </label>
                   <button type="submit">Project koppelen</button>
                 </form>
               </section>
               <section class="bfpic-action">
-                <h3>2. Factuurregel vastleggen</h3>
+                <h3>2. Factuurregel controleren / vastleggen</h3>
                 <form data-line-form>
                   <label>Regelnummer <input name="line_number" type="number" min="1" required></label>
                   <label>Omschrijving <input name="description" required></label>
@@ -241,7 +260,7 @@
                         ${commitmentLines.map(order => `<option value="${order.id}" ${Number(line.commitment_line_id) === Number(order.id) ? 'selected' : ''}>${esc(order.commitment_number)} · regel ${esc(order.line_number)} · ${esc(order.supplier_name)} · ${esc(order.description)} · ${money(order.amount_ex_vat)}</option>`).join('')}
                       </select>
                       <button type="submit">Koppelen</button>
-                    </form>` : '<small>Codeer eerst het project om een commitmentregel te koppelen.</small>'}
+                    </form>` : '<small>Koppel eerst het project om een commitmentregel te kiezen.</small>'}
                 </article>`).join('') : '<p>Nog geen factuurregels vastgelegd.</p>'}
             </section>
             <section class="bfpic-action" data-finance-actions><p>Financiële acties laden…</p></section>`;
