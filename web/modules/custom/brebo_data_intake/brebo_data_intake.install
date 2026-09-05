@@ -116,10 +116,13 @@ function brebo_data_intake_schema(): array {
   return $schema;
 }
 
-/**
- * Grants manual central-intake submission only to operational staff roles.
- */
-function brebo_data_intake_update_11001(): string {
+/** Implements hook_install(). */
+function brebo_data_intake_install(): void {
+  _brebo_data_intake_grant_submission_permission();
+}
+
+/** Grants manual central-intake submission to operational staff roles. */
+function _brebo_data_intake_grant_submission_permission(): array {
   $permission = 'submit brebo office intake';
   $granted = [];
 
@@ -131,8 +134,17 @@ function brebo_data_intake_update_11001(): string {
     if (!$role->hasPermission($permission)) {
       $role->grantPermission($permission)->save();
     }
-    $granted[] = $role->label();
+    $granted[] = (string) $role->label();
   }
+
+  return $granted;
+}
+
+/**
+ * Grants manual central-intake submission only to operational staff roles.
+ */
+function brebo_data_intake_update_11001(): string {
+  $granted = _brebo_data_intake_grant_submission_permission();
 
   return $granted
     ? 'BREBO Office intake permission granted to: ' . implode(', ', $granted) . '.'
