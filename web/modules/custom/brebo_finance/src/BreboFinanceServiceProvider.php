@@ -10,6 +10,7 @@ use Drupal\brebo_finance\Routing\PaymentCenterRouteSubscriber;
 use Drupal\brebo_finance\Service\MailPurchaseInvoiceRouter;
 use Drupal\brebo_finance\Service\PaymentBatchManager;
 use Drupal\brebo_finance\Service\SepaPain001Generator;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\DependencyInjection\Reference;
 
 /** Registers Finance services that need explicit compatibility wiring. */
@@ -37,13 +38,13 @@ final class BreboFinanceServiceProvider extends ServiceProviderBase {
         ->addTag('event_subscriber');
     }
 
-    // Keep the established mail-intake contract available, but make it only an
-    // adapter: classification happens here and canonical Finance creation is
-    // delegated to the BREBO-wide source-neutral intake pipeline.
+    // Keep the established mail-intake contract available during rolling deploys.
+    // The intake dependency is optional only while brebo_data_intake is not yet
+    // enabled; once enabled, mail delegates to the canonical intake pipeline.
     if (!$container->hasDefinition('brebo_finance.mail_purchase_invoice_router')) {
       $container->register('brebo_finance.mail_purchase_invoice_router', MailPurchaseInvoiceRouter::class)
         ->setArguments([
-          new Reference('brebo_data_intake.source_neutral_intake_manager'),
+          new Reference('brebo_data_intake.source_neutral_intake_manager', ContainerInterface::NULL_ON_INVALID_REFERENCE),
         ]);
     }
   }
