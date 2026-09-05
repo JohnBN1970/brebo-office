@@ -5,3 +5,4 @@ package: BREBO
 core_version_requirement: ^11
 dependencies:
   - drupal:node
+  - brebo_office_core:brebo_office_core
