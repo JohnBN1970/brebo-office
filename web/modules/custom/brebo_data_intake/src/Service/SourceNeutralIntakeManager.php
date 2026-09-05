@@ -11,7 +11,10 @@ use InvalidArgumentException;
 final class SourceNeutralIntakeManager {
 
   /** @param iterable<IntakeDestinationInterface> $destinations */
-  public function __construct(private readonly iterable $destinations) {}
+  public function __construct(
+    private readonly iterable $destinations,
+    private readonly DataIngestManager $ingestManager,
+  ) {}
 
   /**
    * @param array<string, mixed> $input
@@ -27,8 +30,13 @@ final class SourceNeutralIntakeManager {
         continue;
       }
       $result = $destination->route($envelope);
+      $state = (string) ($result['state'] ?? 'routed');
+      if ($state === 'review_required') {
+        $reviewRecordId = $this->persistForReview($envelope, (string) ($result['reason'] ?? 'destination_requires_review'));
+        $result['review_record_id'] = $reviewRecordId;
+      }
       return [
-        'state' => (string) ($result['state'] ?? 'routed'),
+        'state' => $state,
         'source' => $envelope['source'],
         'classification' => $envelope['classification'],
         'source_record_id' => $envelope['source_record_id'],
@@ -37,6 +45,7 @@ final class SourceNeutralIntakeManager {
       ];
     }
 
+    $reviewRecordId = $this->persistForReview($envelope, 'no_destination_for_classification');
     return [
       'state' => 'review_required',
       'reason' => 'no_destination_for_classification',
@@ -44,7 +53,36 @@ final class SourceNeutralIntakeManager {
       'classification' => $envelope['classification'],
       'source_record_id' => $envelope['source_record_id'],
       'canonical' => $envelope['canonical'],
+      'review_record_id' => $reviewRecordId,
     ];
+  }
+
+  /** @param array<string, mixed> $envelope */
+  private function persistForReview(array $envelope, string $reason): int {
+    $sourceId = $this->ingestManager->registerSource(
+      'source-neutral:' . $envelope['source'],
+      'Source-neutral ' . $envelope['source'],
+      $envelope['source'],
+      'source_neutral_intake',
+    );
+    $runId = $this->ingestManager->startRun(
+      $sourceId,
+      'intake',
+      $envelope['source_record_id'],
+      hash('sha256', $envelope['source'] . '|' . $envelope['source_record_id']),
+      ['classification' => $envelope['classification']],
+    );
+    $recordId = $this->ingestManager->addRecord(
+      $runId,
+      'source_neutral_intake',
+      ['reason' => $reason, 'envelope' => $envelope],
+      $envelope['source_record_id'],
+      $envelope['source_record_id'],
+      $envelope['confidence'],
+      'review_required',
+    );
+    $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
+    return $recordId;
   }
 
   /** @return array<string, mixed> */
