@@ -88,8 +88,6 @@ final class SourceNeutralUploadForm extends FormBase {
       return;
     }
 
-    $file->setPermanent();
-    $file->save();
     $uri = $file->getFileUri();
     $realpath = $this->fileSystem->realpath($uri);
     $contentHash = $realpath && is_readable($realpath) ? hash_file('sha256', $realpath) : FALSE;
@@ -135,6 +133,14 @@ final class SourceNeutralUploadForm extends FormBase {
     ]);
 
     $state = (string) ($result['state'] ?? 'review_required');
+    if ($state === 'duplicate') {
+      $this->messenger()->addStatus($this->t('Dit bronbestand was al ontvangen; de bestaande intake is hergebruikt.'));
+      return;
+    }
+
+    $file->setPermanent();
+    $file->save();
+
     if ($state === 'review_required') {
       $this->messenger()->addWarning($this->t('Upload is veilig ontvangen en staat klaar voor beoordeling.'));
     }
