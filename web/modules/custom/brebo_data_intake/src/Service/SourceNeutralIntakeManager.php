@@ -34,17 +34,17 @@ final class SourceNeutralIntakeManager {
       $terminalStates = ['created', 'duplicate', 'routed', 'accepted', 'processed'];
       if (!in_array($destinationState, $terminalStates, TRUE)) {
         $reason = (string) ($result['reason'] ?? 'destination_' . $destinationState);
-        $reviewRecordId = $this->persistForReview($envelope, $reason);
-        $result['review_record_id'] = $reviewRecordId;
+        $review = $this->persistForReview($envelope, $reason);
+        $result['review_record_id'] = $review['record_id'];
         return [
-          'state' => 'review_required',
+          'state' => $review['duplicate'] ? 'duplicate' : 'review_required',
           'reason' => $reason,
           'source' => $envelope['source'],
           'classification' => $envelope['classification'],
           'source_record_id' => $envelope['source_record_id'],
           'canonical' => $envelope['canonical'],
           'destination' => $result,
-          'review_record_id' => $reviewRecordId,
+          'review_record_id' => $review['record_id'],
         ];
       }
       return [
@@ -57,26 +57,41 @@ final class SourceNeutralIntakeManager {
       ];
     }
 
-    $reviewRecordId = $this->persistForReview($envelope, 'no_destination_for_classification');
+    $review = $this->persistForReview($envelope, 'no_destination_for_classification');
     return [
-      'state' => 'review_required',
+      'state' => $review['duplicate'] ? 'duplicate' : 'review_required',
       'reason' => 'no_destination_for_classification',
       'source' => $envelope['source'],
       'classification' => $envelope['classification'],
       'source_record_id' => $envelope['source_record_id'],
       'canonical' => $envelope['canonical'],
-      'review_record_id' => $reviewRecordId,
+      'review_record_id' => $review['record_id'],
     ];
   }
 
-  /** @param array<string, mixed> $envelope */
-  private function persistForReview(array $envelope, string $reason): int {
+  /**
+   * @param array<string, mixed> $envelope
+   *
+   * @return array{record_id:int,duplicate:bool}
+   */
+  private function persistForReview(array $envelope, string $reason): array {
     $sourceId = $this->ingestManager->registerSource(
       'source-neutral:' . $envelope['source'],
       'Source-neutral ' . $envelope['source'],
       $envelope['source'],
       'source_neutral_intake',
     );
+
+    $existingRecordId = $this->ingestManager->findRecordBySourceIdentity(
+      $sourceId,
+      'source_neutral_intake',
+      $envelope['source_record_id'],
+      'review_required',
+    );
+    if ($existingRecordId !== NULL) {
+      return ['record_id' => $existingRecordId, 'duplicate' => TRUE];
+    }
+
     $runId = $this->ingestManager->startRun(
       $sourceId,
       'intake',
@@ -94,7 +109,7 @@ final class SourceNeutralIntakeManager {
       'review_required',
     );
     $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
-    return $recordId;
+    return ['record_id' => $recordId, 'duplicate' => FALSE];
   }
 
   /** @return array<string, mixed> */
