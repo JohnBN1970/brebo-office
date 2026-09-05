@@ -1,0 +1,113 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\node\Entity\NodeType;
+
+/**
+ * Implements hook_requirements().
+ */
+function brebo_project_publication_requirements(string $phase): array {
+  $requirements = [];
+
+  if (in_array($phase, ['install', 'runtime'], TRUE) && !NodeType::load('brebo_project')) {
+    $requirements['brebo_project_publication_project_model'] = [
+      'title' => t('BREBO project publication'),
+      'value' => t('Canonical project model is missing'),
+      'description' => t('BREBO Project Publication requires the existing brebo_project bundle from BREBO Office. Install or update BREBO Office Core so the canonical project model exists before enabling this module.'),
+      'severity' => REQUIREMENT_ERROR,
+    ];
+  }
+
+  return $requirements;
+}
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_project_publication_schema(): array {
+  $schema['brebo_project_publication'] = [
+    'description' => 'Public presentation projection linked one-to-one to a canonical BREBO project.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'uuid' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'public_id' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'public_slug' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'public_title' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'public_intro' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'building_question' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'chosen_approach' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'realized_results' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'lens_roles_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'public_status' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'external_release' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'publication_version' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'review_status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+      'review_notes' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'reviewed_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'reviewed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'approved_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'released_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'released_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'withdrawn_by_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'withdrawn_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'uuid' => ['uuid'],
+      'project' => ['project_nid'],
+      'public_id' => ['public_id'],
+      'public_slug' => ['public_slug'],
+    ],
+    'indexes' => [
+      'external_release' => ['external_release'],
+      'review_status' => ['review_status'],
+      'changed' => ['changed'],
+    ],
+  ];
+
+  $schema['brebo_project_publication_media'] = [
+    'description' => 'Explicitly approved public media belonging to a project publication.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'publication_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'file_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'approved' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'alt_text' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'sort_weight' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => [
+      'publication_file' => ['publication_id', 'file_id'],
+    ],
+    'indexes' => [
+      'publication_approved' => ['publication_id', 'approved'],
+    ],
+  ];
+
+  $schema['brebo_project_publication_audit'] = [
+    'description' => 'Append-oriented audit trail for project publication changes and release transitions.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'publication_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'event_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'actor_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'publication_version' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'details_json' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'publication_id' => ['publication_id'],
+      'event_type' => ['event_type'],
+      'created' => ['created'],
+    ],
+  ];
+
+  return $schema;
+}

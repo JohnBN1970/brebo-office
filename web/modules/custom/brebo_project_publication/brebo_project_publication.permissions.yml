@@ -1,0 +1,16 @@
+view project publication dossiers:
+  title: 'View project publication dossiers'
+
+edit project publication dossiers:
+  title: 'Edit project publication dossiers'
+
+review project publication dossiers:
+  title: 'Review project publication dossiers'
+
+approve project publication dossiers:
+  title: 'Approve project publication dossiers for external publication'
+  restrict access: true
+
+release project publications:
+  title: 'Release or withdraw projects for external publication'
+  restrict access: true

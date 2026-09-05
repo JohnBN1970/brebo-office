@@ -27,10 +27,10 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 
     steps:
-      - name: Checkout develop
+      - name: Checkout exact commit
         uses: actions/checkout@v4
         with:
-          ref: develop
+          ref: ${{ github.sha }}
           fetch-depth: 1
 
       - name: Validate deployment settings
@@ -69,6 +69,7 @@ jobs:
           test -f web/modules/custom/brebo_inzet/brebo_inzet.info.yml
           test -f web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml
           test -f web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml
+          test -f web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml
 
       - name: Configure SSH
         shell: bash
@@ -154,6 +155,7 @@ jobs:
           test -f "$staging/web/modules/custom/brebo_inzet/brebo_inzet.info.yml"
           test -f "$staging/web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml"
           test -f "$staging/web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml"
+          test -f "$staging/web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml"
 
           cp -a "$staging/." "$app/"
           rm -f "$archive"
@@ -171,7 +173,7 @@ jobs:
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset -y
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication -y
           echo "MODULE_ENABLE_OK=1"
 
           "${drush[@]}" updb -y --no-cache-clear
@@ -202,7 +204,7 @@ jobs:
 
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
-            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset"] as $module) {
+            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
             foreach ([
@@ -235,9 +237,13 @@ jobs:
             if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
               throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
             }
+            foreach (["brebo_project_publication", "brebo_project_publication_media", "brebo_project_publication_audit"] as $table) {
+              if (!\Drupal::database()->schema()->tableExists($table)) { throw new \RuntimeException("Publication table missing: " . $table); }
+            }
             print "BREBO_RUNTIME_OK=1\n";
             print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
             print "SANDBOX_RESET_RUNTIME_OK=1\n";
+            print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
