@@ -13,18 +13,30 @@ export async function publicProjects(request: Request, env: Env, publicId?: stri
   const sourcePath = publicId === undefined
     ? "/brebo-internal/public-projects"
     : `/brebo-internal/public-projects/${encodeURIComponent(publicId)}`;
-  const source = await fetchOfficeProjection(env, sourcePath);
+
+  let source: Response;
+  try {
+    source = await fetchOfficeProjection(env, sourcePath);
+  } catch (error) {
+    console.error(JSON.stringify({ event: "public_project_source_transport_failed", category: error instanceof Error ? error.constructor.name : "UnknownError" }));
+    return sourceUnavailable();
+  }
 
   if (source.status === 404) {
     return Response.json({ status: "error", error: { code: "not_found" } }, { status: 404, headers: publicHeaders(60) });
   }
   if (!source.ok) {
     console.error(JSON.stringify({ event: "public_project_source_failed", source_status: source.status }));
-    return Response.json({ status: "error", error: { code: "project_source_unavailable" } }, { status: 502, headers: publicHeaders(0) });
+    return sourceUnavailable();
   }
 
-  const payload = await source.json();
-  return Response.json(payload, { status: 200, headers: publicHeaders(300) });
+  try {
+    const payload = await source.json();
+    return Response.json(payload, { status: 200, headers: publicHeaders(300) });
+  } catch (error) {
+    console.error(JSON.stringify({ event: "public_project_source_invalid_json", category: error instanceof Error ? error.constructor.name : "UnknownError" }));
+    return sourceUnavailable();
+  }
 }
 
 async function fetchOfficeProjection(env: Env, path: string): Promise<Response> {
@@ -50,9 +62,16 @@ async function fetchOfficeProjection(env: Env, path: string): Promise<Response> 
   });
 }
 
+function sourceUnavailable(): Response {
+  return Response.json(
+    { status: "error", error: { code: "project_source_unavailable" } },
+    { status: 502, headers: publicHeaders(0) },
+  );
+}
+
 function publicHeaders(maxAge: number): HeadersInit {
   return {
-    "Cache-Control": maxAge > 0 ? `public, max-age=${maxAge}, stale-while-revalidate=60` : "no-store",
+    "Cache-Control": maxAge > 0 ? `public, max-age=${maxAge}, must-revalidate` : "no-store",
     "Content-Security-Policy": "default-src 'none'; frame-ancestors 'none'",
     "X-Content-Type-Options": "nosniff",
   };
