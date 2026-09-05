@@ -60,13 +60,17 @@ final class DataIngestManager {
   }
 
   /** @param array<string,mixed> $payload */
-  public function addRecord(int $runId, string $recordType, array $payload, ?string $externalKey = NULL, ?string $sourceReference = NULL, ?float $confidence = NULL): int {
+  public function addRecord(int $runId, string $recordType, array $payload, ?string $externalKey = NULL, ?string $sourceReference = NULL, ?float $confidence = NULL, string $status = 'normalized'): int {
     $recordType = trim($recordType);
+    $status = trim($status);
     if ($runId <= 0 || $recordType === '') {
       throw new \InvalidArgumentException('Normalized record requires run and record type.');
     }
     if ($confidence !== NULL && ($confidence < 0 || $confidence > 1)) {
       throw new \InvalidArgumentException('Confidence must be between 0 and 1.');
+    }
+    if (!in_array($status, ['normalized', 'review_required', 'accepted', 'rejected'], TRUE)) {
+      throw new \InvalidArgumentException('Unsupported data record status.');
     }
     $json = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $hash = hash('sha256', $recordType . "\n" . ($externalKey ?? '') . "\n" . $json);
@@ -81,7 +85,7 @@ final class DataIngestManager {
       'source_reference' => $sourceReference !== NULL ? mb_substr($sourceReference, 0, 512) : NULL,
       'content_hash' => $hash,
       'payload' => $json,
-      'status' => 'normalized',
+      'status' => $status,
       'confidence' => $confidence,
       'created' => $this->time->getRequestTime(),
     ])->execute();
