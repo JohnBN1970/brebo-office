@@ -80,3 +80,74 @@ jobs:
             print "DATA_INTAKE_RUNTIME_OK=1\n";
           '
           REMOTE
+
+      - name: Prove source-neutral review and deduplication
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
+            $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
+            $input = [
+              "source" => "upload",
+              "source_record_id" => $sourceRecordId,
+              "classification" => "runtime_acceptance_unknown",
+              "payload" => ["acceptance" => TRUE],
+              "attachments" => [],
+              "actor_uid" => 1,
+            ];
+            $first = $manager->intake($input);
+            if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) {
+              throw new \RuntimeException("First intake did not persist a review-required record.");
+            }
+            $second = $manager->intake($input);
+            if (($second["state"] ?? NULL) !== "duplicate") {
+              throw new \RuntimeException("Second identical intake was not deduplicated.");
+            }
+            if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) {
+              throw new \RuntimeException("Duplicate intake did not reuse the canonical review record.");
+            }
+            print "SOURCE_NEUTRAL_REVIEW_OK=1\n";
+            print "SOURCE_NEUTRAL_DEDUP_OK=1\n";
+          '
+          REMOTE
+
+      - name: Verify upload permission boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.source_neutral_upload");
+            if ($route->getRequirement("_permission") !== "submit brebo office intake") {
+              throw new \RuntimeException("Upload route is not protected by the dedicated intake permission.");
+            }
+            $roles = \Drupal::entityTypeManager()->getStorage("user_role")->loadMultiple();
+            foreach (["brebo_projectleider", "brebo_werkvoorbereider"] as $roleId) {
+              if (!isset($roles[$roleId]) || !$roles[$roleId]->hasPermission("submit brebo office intake")) {
+                throw new \RuntimeException("Required operational role lacks intake permission: " . $roleId);
+              }
+            }
+            foreach (["anonymous", "authenticated"] as $roleId) {
+              if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) {
+                throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId);
+              }
+            }
+            print "SOURCE_NEUTRAL_PERMISSION_OK=1\n";
+          '
+          REMOTE
