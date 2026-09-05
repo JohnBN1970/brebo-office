@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Form\PaymentBatchPrepareForm;
 use Drupal\brebo_finance\Service\PaymentBatchManager;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -19,37 +21,18 @@ final class PaymentCenterController extends ControllerBase {
   public function __construct(
     private readonly Connection $database,
     private readonly PaymentBatchManager $batches,
+    private readonly FormBuilderInterface $formBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
       $container->get('brebo_finance.payment_batch_manager'),
+      $container->get('form_builder'),
     );
   }
 
   public function page(): array {
-    $releaseRows = [];
-    if ($this->database->schema()->tableExists('brebo_finance_payment_release')) {
-      $query = $this->database->select('brebo_finance_payment_release', 'r');
-      $query->leftJoin('brebo_finance_purchase_invoice', 'i', 'i.id = r.invoice_id');
-      $query->fields('r');
-      $query->addField('i', 'invoice_number');
-      $query->addField('i', 'supplier_name');
-      $query->condition('r.status', 'approved');
-      $query->orderBy('r.created', 'DESC');
-      $query->range(0, 100);
-      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $release) {
-        $releaseRows[] = [
-          ['data' => ['#markup' => '<input type="checkbox" name="release_ids[]" value="' . (int) $release['id'] . '">']],
-          (string) ($release['supplier_name'] ?? ''),
-          (string) ($release['invoice_number'] ?? ''),
-          (string) ($release['release_number'] ?? ''),
-          '€ ' . number_format((float) $release['total_amount'], 2, ',', '.'),
-        ];
-      }
-    }
-
     $batchRows = [];
     if ($this->database->schema()->tableExists('brebo_finance_payment_batch')) {
       $query = $this->database->select('brebo_finance_payment_batch', 'b')
@@ -104,9 +87,7 @@ final class PaymentCenterController extends ControllerBase {
       }
     }
 
-    $prepareUrl = Url::fromRoute('brebo_finance.payment_center_prepare')->toString();
-    $prepareToken = $this->csrfToken()->get('prepare');
-    $abnUrl = 'https://www.abnamro.nl/nl/zakelijk/internet-en-mobiel/internet-bankieren/index.html';
+    $abnUrl = 'https://www.abnamro.nl/mijn-abnamro/authenticatie/inloggen/?aabChannel=IBB&aabAuthLevel=low';
 
     return [
       '#type' => 'container',
@@ -120,15 +101,8 @@ final class PaymentCenterController extends ControllerBase {
       'prepare' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['bfcc-section']],
-        'title' => ['#markup' => '<h2>Klaar voor betaalrun</h2><p>Selecteer uitsluitend reeds goedgekeurde betaalvrijgaven.</p>'],
-        'form_open' => ['#markup' => '<form method="post" action="' . $prepareUrl . '"><input type="hidden" name="token" value="' . $prepareToken . '">'],
-        'table' => [
-          '#type' => 'table',
-          '#header' => ['', 'Leverancier', 'Factuur', 'Vrijgave', 'Bedrag'],
-          '#rows' => $releaseRows,
-          '#empty' => $this->t('Geen goedgekeurde betaalvrijgaven beschikbaar.'),
-        ],
-        'form_close' => ['#markup' => '<p><label>Uitvoerdatum <input type="date" name="execution_date" value="' . date('Y-m-d') . '" required></label> <button class="button button--primary" type="submit">Betaalrun voorbereiden</button></p></form>'],
+        'title' => ['#markup' => '<h2>Klaar voor betaalrun</h2><p>Vink één of meerdere regels aan en zet ze daarna gezamenlijk in een betaalbatch.</p>'],
+        'form' => $this->formBuilder->getForm(PaymentBatchPrepareForm::class),
       ],
       'batches' => [
         '#type' => 'container',
