@@ -94,29 +94,36 @@ jobs:
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           "${drush[@]}" php:eval '
-            $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
-            $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
-            $input = [
-              "source" => "upload",
-              "source_record_id" => $sourceRecordId,
-              "classification" => "runtime_acceptance_unknown",
-              "payload" => ["acceptance" => TRUE],
-              "attachments" => [],
-              "actor_uid" => 1,
-            ];
-            $first = $manager->intake($input);
-            if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) {
-              throw new \RuntimeException("First intake did not persist a review-required record.");
+            $database = \Drupal::database();
+            $transaction = $database->startTransaction();
+            try {
+              $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
+              $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
+              $input = [
+                "source" => "upload",
+                "source_record_id" => $sourceRecordId,
+                "classification" => "runtime_acceptance_unknown",
+                "payload" => ["acceptance" => TRUE],
+                "attachments" => [],
+                "actor_uid" => 1,
+              ];
+              $first = $manager->intake($input);
+              if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) {
+                throw new \RuntimeException("First intake did not persist a review-required record.");
+              }
+              $second = $manager->intake($input);
+              if (($second["state"] ?? NULL) !== "duplicate") {
+                throw new \RuntimeException("Second identical intake was not deduplicated.");
+              }
+              if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) {
+                throw new \RuntimeException("Duplicate intake did not reuse the canonical review record.");
+              }
+              print "SOURCE_NEUTRAL_REVIEW_OK=1\n";
+              print "SOURCE_NEUTRAL_DEDUP_OK=1\n";
             }
-            $second = $manager->intake($input);
-            if (($second["state"] ?? NULL) !== "duplicate") {
-              throw new \RuntimeException("Second identical intake was not deduplicated.");
+            finally {
+              $transaction->rollBack();
             }
-            if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) {
-              throw new \RuntimeException("Duplicate intake did not reuse the canonical review record.");
-            }
-            print "SOURCE_NEUTRAL_REVIEW_OK=1\n";
-            print "SOURCE_NEUTRAL_DEDUP_OK=1\n";
           '
           REMOTE
 
@@ -133,7 +140,7 @@ jobs:
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           "${drush[@]}" php:eval '
-            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.source_neutral_upload");
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.upload");
             if ($route->getRequirement("_permission") !== "submit brebo office intake") {
               throw new \RuntimeException("Upload route is not protected by the dedicated intake permission.");
             }
