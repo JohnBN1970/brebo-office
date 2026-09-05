@@ -1,0 +1,82 @@
+name: BREBO data intake bootstrap
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'web/modules/custom/brebo_data_intake/**'
+      - 'web/modules/custom/brebo_finance/**'
+      - '.github/workflows/data-intake-bootstrap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-data-intake-bootstrap
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    name: Enable source-neutral intake on production
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to establish authenticated SSH connection."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Enable intake module and verify canonical services
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" pm:enable brebo_data_intake -y
+          "${drush[@]}" updb -y --no-cache-clear
+          "${drush[@]}" cr
+          "${drush[@]}" php:eval '
+            $mh = \Drupal::moduleHandler();
+            if (!$mh->moduleExists("brebo_data_intake")) {
+              throw new \RuntimeException("brebo_data_intake is not enabled.");
+            }
+            foreach ([
+              "brebo_data_intake.source_neutral_intake_manager",
+              "brebo_finance.purchase_invoice_intake_destination",
+              "brebo_finance.mail_purchase_invoice_router"
+            ] as $service) {
+              \Drupal::service($service);
+            }
+            print "DATA_INTAKE_RUNTIME_OK=1\n";
+          '
+          REMOTE
