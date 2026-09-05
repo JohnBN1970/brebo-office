@@ -1,0 +1,4 @@
+submit brebo office intake:
+  title: 'BREBO Office intake indienen'
+  description: 'Handmatig bronbestanden aan de centrale BREBO-intake aanbieden.'
+  restrict access: true

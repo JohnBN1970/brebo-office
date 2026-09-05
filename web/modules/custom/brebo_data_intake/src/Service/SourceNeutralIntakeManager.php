@@ -5,13 +5,19 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
+use Drupal\Core\Lock\LockBackendInterface;
 use InvalidArgumentException;
+use RuntimeException;
 
 /** Normalizes all inbound channels before handing off to domain workflows. */
 final class SourceNeutralIntakeManager {
 
   /** @param iterable<IntakeDestinationInterface> $destinations */
-  public function __construct(private readonly iterable $destinations) {}
+  public function __construct(
+    private readonly iterable $destinations,
+    private readonly DataIngestManager $ingestManager,
+    private readonly LockBackendInterface $lock,
+  ) {}
 
   /**
    * @param array<string, mixed> $input
@@ -27,8 +33,25 @@ final class SourceNeutralIntakeManager {
         continue;
       }
       $result = $destination->route($envelope);
+      $destinationState = (string) ($result['state'] ?? 'review_required');
+      $terminalStates = ['created', 'duplicate', 'routed', 'accepted', 'processed'];
+      if (!in_array($destinationState, $terminalStates, TRUE)) {
+        $reason = (string) ($result['reason'] ?? 'destination_' . $destinationState);
+        $review = $this->persistForReview($envelope, $reason);
+        $result['review_record_id'] = $review['record_id'];
+        return [
+          'state' => $review['duplicate'] ? 'duplicate' : 'review_required',
+          'reason' => $reason,
+          'source' => $envelope['source'],
+          'classification' => $envelope['classification'],
+          'source_record_id' => $envelope['source_record_id'],
+          'canonical' => $envelope['canonical'],
+          'destination' => $result,
+          'review_record_id' => $review['record_id'],
+        ];
+      }
       return [
-        'state' => (string) ($result['state'] ?? 'routed'),
+        'state' => $destinationState,
         'source' => $envelope['source'],
         'classification' => $envelope['classification'],
         'source_record_id' => $envelope['source_record_id'],
@@ -37,14 +60,74 @@ final class SourceNeutralIntakeManager {
       ];
     }
 
+    $review = $this->persistForReview($envelope, 'no_destination_for_classification');
     return [
-      'state' => 'review_required',
+      'state' => $review['duplicate'] ? 'duplicate' : 'review_required',
       'reason' => 'no_destination_for_classification',
       'source' => $envelope['source'],
       'classification' => $envelope['classification'],
       'source_record_id' => $envelope['source_record_id'],
       'canonical' => $envelope['canonical'],
+      'review_record_id' => $review['record_id'],
     ];
+  }
+
+  /**
+   * @param array<string, mixed> $envelope
+   *
+   * @return array{record_id:int,duplicate:bool}
+   */
+  private function persistForReview(array $envelope, string $reason): array {
+    $sourceId = $this->ingestManager->registerSource(
+      'source-neutral:' . $envelope['source'],
+      'Source-neutral ' . $envelope['source'],
+      $envelope['source'],
+      'source_neutral_intake',
+    );
+
+    $identityHash = hash('sha256', $envelope['source_record_id']);
+    $persistedIdentity = 'sha256:' . $identityHash;
+    $lockName = 'brebo_data_intake:review:' . hash('sha256', $sourceId . '|' . $identityHash);
+    if (!$this->lock->acquire($lockName, 30.0)) {
+      $this->lock->wait($lockName, 30);
+      if (!$this->lock->acquire($lockName, 30.0)) {
+        throw new RuntimeException('BREBO intake review identity could not be locked.');
+      }
+    }
+
+    try {
+      $existingRecordId = $this->ingestManager->findRecordBySourceIdentity(
+        $sourceId,
+        'source_neutral_intake',
+        $persistedIdentity,
+        'review_required',
+      );
+      if ($existingRecordId !== NULL) {
+        return ['record_id' => $existingRecordId, 'duplicate' => TRUE];
+      }
+
+      $runId = $this->ingestManager->startRun(
+        $sourceId,
+        'intake',
+        $envelope['source_record_id'],
+        hash('sha256', $envelope['source'] . '|' . $envelope['source_record_id']),
+        ['classification' => $envelope['classification']],
+      );
+      $recordId = $this->ingestManager->addRecord(
+        $runId,
+        'source_neutral_intake',
+        ['reason' => $reason, 'envelope' => $envelope],
+        $persistedIdentity,
+        $envelope['source_record_id'],
+        $envelope['confidence'],
+        'review_required',
+      );
+      $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
+      return ['record_id' => $recordId, 'duplicate' => FALSE];
+    }
+    finally {
+      $this->lock->release($lockName);
+    }
   }
 
   /** @return array<string, mixed> */

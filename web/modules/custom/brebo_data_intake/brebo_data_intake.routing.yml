@@ -1,0 +1,7 @@
+brebo_data_intake.upload:
+  path: '/brebo-office/intake/upload'
+  defaults:
+    _form: '\Drupal\brebo_data_intake\Form\SourceNeutralUploadForm'
+    _title: 'Nieuwe intake'
+  requirements:
+    _permission: 'submit brebo office intake'

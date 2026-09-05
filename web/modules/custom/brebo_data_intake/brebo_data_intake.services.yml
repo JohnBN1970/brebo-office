@@ -19,3 +19,5 @@ services:
     class: Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager
     arguments:
       - !tagged_iterator brebo_data_intake.destination
+      - '@brebo_data_intake.ingest_manager'
+      - '@lock'
