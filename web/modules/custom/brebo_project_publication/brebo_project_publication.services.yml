@@ -1,0 +1,4 @@
+services:
+  brebo_project_publication.public_projection:
+    class: Drupal\brebo_project_publication\Service\PublicProjectProjection
+    arguments: ['@database', '@file_url_generator']
