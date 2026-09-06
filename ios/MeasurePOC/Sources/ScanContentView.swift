@@ -15,6 +15,8 @@ struct ScanContentView: View {
             .ignoresSafeArea()
 
             VStack(spacing: 10) {
+                Text(ResearchBanner.text)
+                    .font(.caption.bold())
                 Text(scanning ? "Sparing scannen" : "BREBO Measure")
                     .font(.headline)
                 Text("Depth frames: \(depthFrames)  •  Mesh: \(meshAnchors)")
