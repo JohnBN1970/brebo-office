@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Contract;
 
+use Drupal\brebo_data_intake\ValueObject\IntakeDestinationResult;
+
 /** Receives a classified, source-neutral BREBO intake envelope. */
 interface IntakeDestinationInterface {
 
@@ -15,10 +17,7 @@ interface IntakeDestinationInterface {
    *
    * @param array<string, mixed> $envelope
    *   Normalized intake envelope.
-   *
-   * @return array<string, mixed>
-   *   Destination result, including at least a state key.
    */
-  public function route(array $envelope): array;
+  public function route(array $envelope): IntakeDestinationResult;
 
 }
