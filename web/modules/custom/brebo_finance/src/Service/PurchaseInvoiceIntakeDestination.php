@@ -43,6 +43,19 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'purchase_invoice_amounts_not_balanced');
     }
 
+    $lines = $this->normalizeLines($payload['lines'] ?? []);
+    if ($lines === NULL) {
+      return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'purchase_invoice_lines_invalid');
+    }
+    if ($lines !== []) {
+      $lineExVat = array_sum(array_column($lines, 'amount_ex_vat'));
+      $lineVat = array_sum(array_column($lines, 'vat_amount'));
+      $lineIncVat = array_sum(array_column($lines, 'amount_inc_vat'));
+      if (abs($lineExVat - $amountExVat) > 0.03 || abs($lineVat - $vatAmount) > 0.03 || abs($lineIncVat - $amountIncVat) > 0.03) {
+        return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'purchase_invoice_line_totals_not_balanced');
+      }
+    }
+
     $sourceRecordId = trim((string) ($envelope['source_record_id'] ?? ''));
     $sourceHash = $sourceRecordId !== '' ? hash('sha256', ($envelope['source'] ?? 'unknown') . "\n" . $sourceRecordId) : NULL;
     if ($sourceHash !== NULL) {
@@ -72,6 +85,7 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
 
     $projectNid = $this->validProjectNid((int) ($envelope['canonical']['project_nid'] ?? 0));
     $now = time();
+    $transaction = $this->database->startTransaction();
 
     try {
       $invoiceId = (int) $this->database->insert('brebo_finance_purchase_invoice')->fields([
@@ -97,14 +111,33 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
         'changed' => $now,
         'changed_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
       ])->execute();
+
+      if ($lines !== [] && $this->database->schema()->tableExists('brebo_finance_purchase_invoice_line')) {
+        foreach ($lines as $line) {
+          $this->database->insert('brebo_finance_purchase_invoice_line')->fields($line + [
+            'invoice_id' => $invoiceId,
+            'commitment_line_id' => NULL,
+            'match_status' => 'unmatched',
+            'variance_code' => NULL,
+            'variance_amount_ex_vat' => 0,
+            'review_note' => NULL,
+            'created' => $now,
+            'created_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
+            'changed' => $now,
+            'changed_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
+          ])->execute();
+        }
+      }
     }
     catch (\Exception $exception) {
+      $transaction->rollBack();
       $duplicateId = $this->findDuplicate($sourceHash, $supplierRef, $invoiceNumber);
       if ($duplicateId !== NULL) {
         return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => $duplicateId, 'duplicate_reason' => 'concurrent_replay']);
       }
       throw $exception;
     }
+    unset($transaction);
 
     if ($this->database->schema()->tableExists('brebo_finance_audit')) {
       $this->database->insert('brebo_finance_audit')->fields([
@@ -119,6 +152,7 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
           'confidence' => $envelope['confidence'] ?? NULL,
           'canonical' => $envelope['canonical'] ?? [],
           'attachments' => $envelope['attachments'] ?? [],
+          'line_count' => count($lines),
         ], JSON_THROW_ON_ERROR),
         'reason' => 'Classified source-neutral intake routed into the canonical Finance purchase-invoice workflow.',
         'created' => $now,
@@ -126,7 +160,51 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       ])->execute();
     }
 
-    return new IntakeDestinationResult(IntakeDestinationResult::CREATED, context: ['invoice_id' => $invoiceId, 'project_nid' => $projectNid]);
+    return new IntakeDestinationResult(IntakeDestinationResult::CREATED, context: ['invoice_id' => $invoiceId, 'project_nid' => $projectNid, 'line_count' => count($lines)]);
+  }
+
+  private function normalizeLines(mixed $rawLines): ?array {
+    if ($rawLines === NULL || $rawLines === '') {
+      return [];
+    }
+    if (!is_array($rawLines)) {
+      return NULL;
+    }
+    $normalized = [];
+    $seen = [];
+    foreach ($rawLines as $index => $raw) {
+      if (!is_array($raw)) {
+        return NULL;
+      }
+      $lineNumber = (int) ($raw['line_number'] ?? ($index + 1));
+      $description = trim((string) ($raw['description'] ?? ''));
+      $quantity = $this->number($raw['quantity'] ?? NULL);
+      $unitPrice = $this->number($raw['unit_price_ex_vat'] ?? NULL);
+      $lineExVat = $this->number($raw['amount_ex_vat'] ?? NULL);
+      $vatRate = $this->number($raw['vat_rate'] ?? NULL);
+      $lineVat = $this->number($raw['vat_amount'] ?? NULL);
+      $lineIncVat = $this->number($raw['amount_inc_vat'] ?? NULL);
+      if ($lineNumber <= 0 || isset($seen[$lineNumber]) || $description === '' || $quantity === NULL || $unitPrice === NULL || $lineExVat === NULL || $vatRate === NULL || $lineVat === NULL || $lineIncVat === NULL) {
+        return NULL;
+      }
+      if (abs(($lineExVat + $lineVat) - $lineIncVat) > 0.03) {
+        return NULL;
+      }
+      $seen[$lineNumber] = TRUE;
+      $normalized[] = [
+        'line_number' => $lineNumber,
+        'description' => substr($description, 0, 512),
+        'quantity' => $quantity,
+        'unit' => ($unit = trim((string) ($raw['unit'] ?? ''))) !== '' ? substr($unit, 0, 32) : NULL,
+        'unit_price_ex_vat' => $unitPrice,
+        'amount_ex_vat' => $lineExVat,
+        'vat_code' => substr(trim((string) ($raw['vat_code'] ?? 'UNKNOWN')) ?: 'UNKNOWN', 0, 32),
+        'vat_rate' => $vatRate,
+        'vat_amount' => $lineVat,
+        'amount_inc_vat' => $lineIncVat,
+      ];
+    }
+    return $normalized;
   }
 
   private function findDuplicate(?string $sourceHash, string $supplierRef, string $invoiceNumber): ?int {
