@@ -1,0 +1,1 @@
+The scanner tests deliberately cover deterministic state, geometry primitives and fail-closed approval. ARKit sensor behaviour must be validated on the physical LiDAR iPhone through TestFlight and cannot be proven by the simulator build.
