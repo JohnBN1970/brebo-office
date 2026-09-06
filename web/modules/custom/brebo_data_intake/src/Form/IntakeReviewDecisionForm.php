@@ -74,6 +74,16 @@ final class IntakeReviewDecisionForm extends FormBase {
       '#default_value' => isset($canonical['building_nid']) ? (int) $canonical['building_nid'] : NULL,
       '#min' => 1,
     ];
+    $form['relationship_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Relatie-ID'),
+      '#default_value' => (string) ($canonical['relationship_id'] ?? ''),
+    ];
+    $form['contact_id'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Contact-ID'),
+      '#default_value' => (string) ($canonical['contact_id'] ?? ''),
+    ];
     $form['supplier_ref'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Leveranciersreferentie'),
@@ -178,9 +188,11 @@ final class IntakeReviewDecisionForm extends FormBase {
   /** @return array<string,mixed> */
   private function canonicalFromState(FormStateInterface $form_state): array {
     return [
+      'relationship_id' => $form_state->getValue('relationship_id'),
       'project_nid' => $form_state->getValue('project_nid'),
       'building_nid' => $form_state->getValue('building_nid'),
       'supplier_ref' => $form_state->getValue('supplier_ref'),
+      'contact_id' => $form_state->getValue('contact_id'),
     ];
   }
 
