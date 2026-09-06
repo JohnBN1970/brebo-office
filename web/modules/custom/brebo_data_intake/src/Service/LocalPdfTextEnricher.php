@@ -17,6 +17,7 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly FileSystemInterface $fileSystem,
+    private readonly PurchaseInvoiceTextEnricher $invoiceTextEnricher,
   ) {}
 
   public function supports(array $envelope): bool {
@@ -32,6 +33,7 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
   }
 
   public function enrich(array $envelope): array {
+    $originalAttachments = $envelope['attachments'] ?? [];
     $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : [];
     $evidence = is_array($payload['document_text_evidence'] ?? NULL) ? $payload['document_text_evidence'] : [];
     $seen = [];
@@ -49,7 +51,7 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
     }
 
     $storage = $this->entityTypeManager->getStorage('file');
-    foreach ((array) ($envelope['attachments'] ?? []) as $attachment) {
+    foreach ((array) $originalAttachments as $attachment) {
       if (!is_array($attachment) || strtolower((string) ($attachment['mime_type'] ?? '')) !== 'application/pdf') {
         continue;
       }
@@ -101,10 +103,27 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
     if ($evidence !== []) {
       $payload['document_text_evidence'] = $evidence;
       $payload['document_text_extraction_status'] = 'extracted';
+      $envelope['payload'] = $payload;
+
+      // Reuse the one canonical text->invoice normalizer from #612. The
+      // synthetic evidence exists only for this internal call; the final
+      // envelope restores the exact original attachment collection.
+      $working = $envelope;
+      $working['attachments'] = array_values(array_merge((array) $originalAttachments, [[
+        'type' => 'mail_attachment_evidence',
+        'evidence' => [
+          'context_text' => implode("\n\n", array_map(
+            static fn(array $item): string => trim((string) ($item['text'] ?? '')),
+            array_values(array_filter($evidence, 'is_array')),
+          )),
+        ],
+      ]]));
+      $working = $this->invoiceTextEnricher->enrich($working);
+      $working['attachments'] = $originalAttachments;
+      return $working;
     }
-    elseif (!isset($payload['document_text_extraction_status'])) {
-      $payload['document_text_extraction_status'] = 'no_embedded_pdf_text';
-    }
+
+    $payload['document_text_extraction_status'] = 'no_embedded_pdf_text';
     $envelope['payload'] = $payload;
     return $envelope;
   }
