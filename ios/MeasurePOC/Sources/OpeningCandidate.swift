@@ -13,7 +13,8 @@ struct OpeningCandidate {
 
         let width = parallelPlaneSeparationMillimetres(boundaries.left, boundaries.right)
         let height = parallelPlaneSeparationMillimetres(boundaries.top, boundaries.bottom)
-        guard width.isFinite, height.isFinite, width > 0, height > 0 else { return nil }
+        guard width.isFinite, height.isFinite,
+              OpeningSizeSanity.isPlausible(widthMm: width, heightMm: height) else { return nil }
 
         let residuals = [
             boundaries.left.residualMm,
