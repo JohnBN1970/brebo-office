@@ -1,0 +1,6 @@
+brebo_data_intake.review:
+  title: 'Intake'
+  description: 'Controleer binnengekomen items die aandacht nodig hebben.'
+  route_name: brebo_data_intake.review
+  menu_name: main
+  weight: 35
