@@ -4,7 +4,7 @@ import SwiftUI
 struct BreboMeasurePocApp: App {
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ScanContentView()
         }
     }
 }
