@@ -19,6 +19,8 @@ struct ScanContentView: View {
                     .font(.caption.bold())
                 Text(scanning ? "Sparing scannen" : "BREBO Measure")
                     .font(.headline)
+                Text(ScanBuildNotes.display)
+                    .font(.caption2)
                 if scanning {
                     ProgressView(value: ScanCoverage(depthFrames: depthFrames, meshAnchors: meshAnchors).progress(using: qualityGate))
                 }
