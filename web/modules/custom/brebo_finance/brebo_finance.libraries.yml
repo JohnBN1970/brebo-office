@@ -51,8 +51,10 @@ purchase_invoice_coding:
   css:
     component:
       css/purchase-invoice-coding.css: {}
+      css/purchase-invoice-viewer.css: {}
   js:
     js/purchase-invoice-coding.js: {}
+    js/purchase-invoice-viewer.js: {}
   dependencies:
     - core/drupal
     - core/once
