@@ -16,7 +16,7 @@ workflows:
         script: |
           cd ios/MeasurePOC
           xcodegen generate
-      - name: Build simulator proof
+      - name: Build and test simulator proof
         script: |
           xcodebuild \
             -project "$XCODE_PROJECT" \
@@ -24,6 +24,6 @@ workflows:
             -sdk iphonesimulator \
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build test
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
