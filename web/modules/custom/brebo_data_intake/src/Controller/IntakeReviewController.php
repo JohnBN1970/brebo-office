@@ -27,10 +27,21 @@ final class IntakeReviewController extends ControllerBase {
   public function overview(): array {
     $rows = [];
     foreach ($this->reviews->pending() as $record) {
-      $payload = is_array($record['payload']) ? $record['payload'] : [];
-      $classification = trim((string) ($payload['classification'] ?? $payload['document_type'] ?? $payload['type'] ?? ''));
-      $project = trim((string) ($payload['project_label'] ?? $payload['project_name'] ?? ''));
-      $subject = trim((string) ($payload['subject'] ?? $payload['filename'] ?? $payload['original_filename'] ?? $record['external_key'] ?? ''));
+      $storedPayload = is_array($record['payload']) ? $record['payload'] : [];
+      $envelope = is_array($storedPayload['envelope'] ?? NULL) ? $storedPayload['envelope'] : [];
+      $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : $storedPayload;
+      $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
+
+      $classification = trim((string) ($envelope['classification'] ?? $payload['classification'] ?? $payload['document_type'] ?? $payload['type'] ?? ''));
+      $project = trim((string) ($payload['project_label'] ?? $payload['project_name'] ?? $canonical['project_label'] ?? $canonical['project_name'] ?? ''));
+      $subject = trim((string) ($payload['subject'] ?? $payload['filename'] ?? $payload['original_filename'] ?? ''));
+      if ($subject === '') {
+        $sourceReference = trim((string) ($record['source_reference'] ?? ''));
+        if ($sourceReference !== '' && !str_starts_with($sourceReference, 'sha256:')) {
+          $subject = $sourceReference;
+        }
+      }
+
       $rows[] = [
         'data' => [
           $this->dateFormatter->format((int) $record['created'], 'short'),
