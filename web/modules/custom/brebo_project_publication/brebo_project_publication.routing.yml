@@ -1,0 +1,16 @@
+brebo_project_publication.integration_list:
+  path: '/brebo-internal/public-projects'
+  defaults:
+    _controller: '\Drupal\brebo_project_publication\Controller\PublicProjectIntegrationController::list'
+  requirements:
+    _access: 'TRUE'
+  methods: [GET]
+
+brebo_project_publication.integration_detail:
+  path: '/brebo-internal/public-projects/{public_id}'
+  defaults:
+    _controller: '\Drupal\brebo_project_publication\Controller\PublicProjectIntegrationController::detail'
+  requirements:
+    _access: 'TRUE'
+    public_id: '[A-Za-z0-9._-]+'
+  methods: [GET]
