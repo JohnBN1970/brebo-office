@@ -12,7 +12,7 @@ final class IntakeReviewClassificationFallbackTest extends UnitTestCase {
   public function testControllerSupportsGenericClassificationFields(): void {
     $source = file_get_contents(dirname(__DIR__, 3) . '/src/Controller/IntakeReviewController.php');
     self::assertIsString($source);
-    self::assertStringContainsString("payload['classification'] ?? $payload['document_type'] ?? $payload['type']", $source);
+    self::assertStringContainsString("$payload['classification'] ?? $payload['document_type'] ?? $payload['type']", $source);
   }
 
 }
