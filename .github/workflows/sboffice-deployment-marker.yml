@@ -1,0 +1,72 @@
+name: BREBO deployment marker
+
+on:
+  workflow_run:
+    workflows:
+      - Deploy BREBO Office Production
+    types:
+      - completed
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-office-production-marker
+  cancel-in-progress: false
+
+jobs:
+  mark:
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'develop'
+    name: Mark active BREBO Office release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DEPLOYED_SHA: ${{ github.event.workflow_run.head_sha }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          for attempt in 1 2 3 4 5; do
+            if timeout 20 ssh -o BatchMode=yes -o ConnectTimeout=15 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'; then
+              test -s ~/.ssh/known_hosts
+              break
+            fi
+            if [[ "$attempt" -eq 5 ]]; then
+              echo "::error::Unable to establish authenticated SSH connection."
+              exit 1
+            fi
+            sleep $((attempt * 2))
+          done
+
+      - name: Write and verify active release marker
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$DEPLOYED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "DEPLOYED_SHA='$DEPLOYED_SHA' bash -se" <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          [[ -d "$app" && ! -L "$app" ]]
+          tmp="$app/.brebo-deployed-sha.tmp"
+          marker="$app/.brebo-deployed-sha"
+          printf '%s\n' "$DEPLOYED_SHA" > "$tmp"
+          chmod 644 "$tmp"
+          mv -f "$tmp" "$marker"
+          [[ "$(tr -d '\r\n' < "$marker")" == "$DEPLOYED_SHA" ]]
+          echo "DEPLOYMENT_MARKER_OK=$DEPLOYED_SHA"
+          REMOTE
