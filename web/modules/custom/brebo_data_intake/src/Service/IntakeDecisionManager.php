@@ -21,7 +21,7 @@ final class IntakeDecisionManager {
     private readonly iterable $destinations,
   ) {}
 
-  /** @return array<string,mixed>|null */
+  /** @return array<string, mixed>|null */
   public function snapshot(int $recordId): ?array {
     $row = $this->database->select('brebo_data_record', 'record')
       ->fields('record', ['id', 'payload', 'status', 'created'])
@@ -45,56 +45,33 @@ final class IntakeDecisionManager {
   /**
    * Stores human corrections while keeping the item in the review queue.
    *
-   * @param array<string,mixed> $canonical
+   * @param array<string, mixed> $canonical
    */
-  public function correct(
-    int $recordId,
-    string $expectedRevision,
-    string $classification,
-    array $canonical,
-    int $actorUid,
-    string $note = '',
-  ): array {
+  public function correct(int $recordId, string $expectedRevision, string $classification, array $canonical, int $actorUid, string $note = ''): array {
     return $this->withRecordLock($recordId, function () use ($recordId, $expectedRevision, $classification, $canonical, $actorUid, $note): array {
       $current = $this->loadCurrent($recordId, $expectedRevision);
       $stored = $this->decodePayload($current['payload']);
       $envelope = is_array($stored['envelope'] ?? NULL) ? $stored['envelope'] : [];
-
       $previousClassification = trim((string) ($envelope['classification'] ?? ''));
       $previousCanonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
       $classification = strtolower(trim($classification));
       if ($classification === '') {
         throw new RuntimeException('Classificatie mag niet leeg zijn.');
       }
-
       $canonical = $this->normalizeCanonical($canonical);
       $envelope['classification'] = $classification;
       $envelope['canonical'] = $canonical;
       $stored['envelope'] = $envelope;
       $encoded = json_encode($stored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-
       $classificationChanged = $previousClassification !== $classification;
       $canonicalChanged = $previousCanonical != $canonical;
       if (!$classificationChanged && !$canonicalChanged) {
-        return [
-          'state' => 'unchanged',
-          'record_id' => $recordId,
-          'revision' => $expectedRevision,
-        ];
+        return ['state' => 'unchanged', 'record_id' => $recordId, 'revision' => $expectedRevision];
       }
-
-      $action = $classificationChanged && $canonicalChanged
-        ? 'reclassify_relink'
-        : ($classificationChanged ? 'reclassify' : 'relink');
-
+      $action = $classificationChanged && $canonicalChanged ? 'reclassify_relink' : ($classificationChanged ? 'reclassify' : 'relink');
       $transaction = $this->database->startTransaction();
       try {
-        $updated = $this->database->update('brebo_data_record')
-          ->fields(['payload' => $encoded])
-          ->condition('id', $recordId)
-          ->condition('status', 'review_required')
-          ->condition('payload', $current['payload'])
-          ->execute();
+        $updated = $this->database->update('brebo_data_record')->fields(['payload' => $encoded])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
         if ($updated !== 1) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders gewijzigd. Vernieuw de pagina.');
         }
@@ -104,13 +81,7 @@ final class IntakeDecisionManager {
         $transaction->rollBack();
         throw $e;
       }
-
-      return [
-        'state' => 'review_required',
-        'record_id' => $recordId,
-        'revision' => $this->revision('review_required', $encoded),
-        'action' => $action,
-      ];
+      return ['state' => 'review_required', 'record_id' => $recordId, 'revision' => $this->revision('review_required', $encoded), 'action' => $action];
     });
   }
 
@@ -124,34 +95,23 @@ final class IntakeDecisionManager {
       if ($classification === '') {
         throw new RuntimeException('Dit intake-item heeft nog geen geldige classificatie.');
       }
-
       $destinationResult = NULL;
       foreach ($this->destinations as $destination) {
-        if (!$destination->supports($classification)) {
-          continue;
+        if ($destination->supports($classification)) {
+          $destinationResult = $destination->route($envelope);
+          break;
         }
-        $destinationResult = $destination->route($envelope);
-        break;
       }
       if ($destinationResult === NULL) {
         throw new RuntimeException('Er is nog geen destination-contract voor deze classificatie.');
       }
-
-      $destinationState = (string) ($destinationResult['state'] ?? 'review_required');
-      if (!in_array($destinationState, ['created', 'duplicate', 'routed', 'accepted', 'processed'], TRUE)) {
-        $reason = trim((string) ($destinationResult['reason'] ?? $destinationState));
-        throw new RuntimeException('De vakmodule heeft het item niet geaccepteerd: ' . $reason . '.');
+      if (!$destinationResult->isTerminal()) {
+        throw new RuntimeException('De vakmodule heeft het item niet geaccepteerd: ' . $destinationResult->reason . '.');
       }
-
       $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
       $transaction = $this->database->startTransaction();
       try {
-        $updated = $this->database->update('brebo_data_record')
-          ->fields(['status' => 'accepted'])
-          ->condition('id', $recordId)
-          ->condition('status', 'review_required')
-          ->condition('payload', $current['payload'])
-          ->execute();
+        $updated = $this->database->update('brebo_data_record')->fields(['status' => 'accepted'])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
         if ($updated !== 1) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders beoordeeld.');
         }
@@ -161,12 +121,7 @@ final class IntakeDecisionManager {
         $transaction->rollBack();
         throw $e;
       }
-
-      return [
-        'state' => 'accepted',
-        'record_id' => $recordId,
-        'destination' => $destinationResult,
-      ];
+      return ['state' => 'accepted', 'record_id' => $recordId, 'destination' => $destinationResult->toArray()];
     });
   }
 
@@ -177,21 +132,14 @@ final class IntakeDecisionManager {
       if ($note === '') {
         throw new RuntimeException('Geef bij afwijzen kort de reden op.');
       }
-
       $current = $this->loadCurrent($recordId, $expectedRevision);
       $stored = $this->decodePayload($current['payload']);
       $envelope = is_array($stored['envelope'] ?? NULL) ? $stored['envelope'] : [];
       $classification = strtolower(trim((string) ($envelope['classification'] ?? '')));
       $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
-
       $transaction = $this->database->startTransaction();
       try {
-        $updated = $this->database->update('brebo_data_record')
-          ->fields(['status' => 'rejected'])
-          ->condition('id', $recordId)
-          ->condition('status', 'review_required')
-          ->condition('payload', $current['payload'])
-          ->execute();
+        $updated = $this->database->update('brebo_data_record')->fields(['status' => 'rejected'])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
         if ($updated !== 1) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders beoordeeld.');
         }
@@ -201,18 +149,13 @@ final class IntakeDecisionManager {
         $transaction->rollBack();
         throw $e;
       }
-
       return ['state' => 'rejected', 'record_id' => $recordId];
     });
   }
 
   /** @return array{payload:string,status:string} */
   private function loadCurrent(int $recordId, string $expectedRevision): array {
-    $row = $this->database->select('brebo_data_record', 'record')
-      ->fields('record', ['payload', 'status'])
-      ->condition('record.id', $recordId)
-      ->execute()
-      ->fetchAssoc();
+    $row = $this->database->select('brebo_data_record', 'record')->fields('record', ['payload', 'status'])->condition('record.id', $recordId)->execute()->fetchAssoc();
     if (!$row) {
       throw new RuntimeException('Intake-item bestaat niet meer.');
     }
@@ -269,29 +212,18 @@ final class IntakeDecisionManager {
   }
 
   /** @param array<string,mixed> $canonical */
-  private function audit(
-    int $recordId,
-    string $action,
-    string $previousStatus,
-    string $newStatus,
-    int $actorUid,
-    string $classification,
-    array $canonical,
-    string $note,
-  ): void {
-    $this->database->insert('brebo_data_intake_decision')
-      ->fields([
-        'record_id' => $recordId,
-        'action' => $action,
-        'previous_status' => $previousStatus,
-        'new_status' => $newStatus,
-        'classification' => $classification,
-        'canonical' => json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-        'note' => trim($note) !== '' ? trim($note) : NULL,
-        'actor_uid' => max(0, $actorUid),
-        'created' => $this->time->getRequestTime(),
-      ])
-      ->execute();
+  private function audit(int $recordId, string $action, string $previousStatus, string $newStatus, int $actorUid, string $classification, array $canonical, string $note): void {
+    $this->database->insert('brebo_data_intake_decision')->fields([
+      'record_id' => $recordId,
+      'action' => $action,
+      'previous_status' => $previousStatus,
+      'new_status' => $newStatus,
+      'classification' => $classification,
+      'canonical' => json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+      'note' => trim($note) !== '' ? trim($note) : NULL,
+      'actor_uid' => max(0, $actorUid),
+      'created' => $this->time->getRequestTime(),
+    ])->execute();
   }
 
   private function revision(string $status, string $payload): string {
