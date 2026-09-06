@@ -17,6 +17,7 @@ final class SourceNeutralIntakeManager {
     private readonly iterable $destinations,
     private readonly DataIngestManager $ingestManager,
     private readonly LockBackendInterface $lock,
+    private readonly IntakeEnrichmentDispatcher $enrichmentDispatcher,
   ) {}
 
   /**
@@ -26,7 +27,7 @@ final class SourceNeutralIntakeManager {
    * @return array<string, mixed>
    */
   public function intake(array $input): array {
-    $envelope = $this->normalize($input);
+    $envelope = $this->enrichmentDispatcher->enrich($this->normalize($input));
 
     foreach ($this->destinations as $destination) {
       if (!$destination->supports($envelope['classification'])) {
