@@ -6,13 +6,34 @@ namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
 use Drupal\brebo_data_intake\ValueObject\IntakeDestinationResult;
+use IteratorAggregate;
 use RuntimeException;
+use Traversable;
 
 /** Resolves exactly one owning destination for a classified intake envelope. */
-final class IntakeDestinationDispatcher {
+final class IntakeDestinationDispatcher implements IntakeDestinationInterface, IteratorAggregate {
 
   /** @param iterable<IntakeDestinationInterface> $destinations */
   public function __construct(private readonly iterable $destinations) {}
+
+  /** Keeps existing intake consumers on one destination boundary. */
+  public function getIterator(): Traversable {
+    yield $this;
+  }
+
+  public function supports(string $classification): bool {
+    foreach ($this->destinations as $destination) {
+      if ($destination->supports($classification)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
+  }
+
+  /** @param array<string, mixed> $envelope */
+  public function route(array $envelope): IntakeDestinationResult {
+    return $this->dispatch($envelope);
+  }
 
   /** @param array<string, mixed> $envelope */
   public function dispatch(array $envelope): IntakeDestinationResult {
