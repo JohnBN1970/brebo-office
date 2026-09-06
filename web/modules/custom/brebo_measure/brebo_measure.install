@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_measure_schema(): array {
+  $schema = [];
+
+  $schema['brebo_measure_opening'] = [
+    'description' => 'Canonical measurable openings linked to BREBO building objects.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'building_object_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'opening_code' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'active'],
+      'metadata' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['opening_code' => ['building_nid', 'opening_code']],
+    'indexes' => [
+      'building_nid' => ['building_nid'],
+      'building_object_id' => ['building_object_id'],
+      'status' => ['status'],
+    ],
+  ];
+
+  $schema['brebo_measure_assignment'] = [
+    'description' => 'Measurement assignments for a canonical opening.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'opening_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+      'assigned_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'requirements' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['opening_id' => ['opening_id'], 'status' => ['status'], 'assigned_uid' => ['assigned_uid']],
+  ];
+
+  $schema['brebo_measure_capture'] = [
+    'description' => 'Immutable/versioned measurement captures from any supported measurement source.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'assignment_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'opening_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'version' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'draft'],
+      'source_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'device_id' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'device_model' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'software_version' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'operator_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'geometry' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'quality' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'captured_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['assignment_version' => ['assignment_id', 'version']],
+    'indexes' => [
+      'opening_id' => ['opening_id'],
+      'assignment_id' => ['assignment_id'],
+      'status' => ['status'],
+      'source_type' => ['source_type'],
+    ],
+  ];
+
+  $schema['brebo_measure_observation'] = [
+    'description' => 'Traceable measured, detected, selected or calculated observations belonging to a capture.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'capture_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'observation_key' => ['type' => 'varchar', 'length' => 128, 'not null' => TRUE],
+      'provenance' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'method' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'value_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'confidence' => ['type' => 'numeric', 'precision' => 5, 'scale' => 4, 'not null' => FALSE],
+      'uncertainty_mm' => ['type' => 'numeric', 'precision' => 10, 'scale' => 3, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['capture_id' => ['capture_id'], 'observation_key' => ['observation_key'], 'provenance' => ['provenance']],
+  ];
+
+  $schema['brebo_measure_validation'] = [
+    'description' => 'Validation decisions and machine/human checks for measurement captures.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'capture_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'validator_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'validator_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'result' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'ruleset' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'details' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['capture_id' => ['capture_id'], 'result' => ['result'], 'validator_type' => ['validator_type']],
+  ];
+
+  return $schema;
+}
