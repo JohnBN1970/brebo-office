@@ -6,13 +6,14 @@ namespace Drupal\Tests\brebo_data_intake\Unit;
 
 use Drupal\Tests\UnitTestCase;
 
-/** Verifies classification labels tolerate multiple source adapters. */
+/** Verifies classification labels tolerate source-neutral envelopes. */
 final class IntakeReviewClassificationFallbackTest extends UnitTestCase {
 
-  public function testControllerSupportsGenericClassificationFields(): void {
+  public function testControllerReadsEnvelopeClassification(): void {
     $source = file_get_contents(dirname(__DIR__, 3) . '/src/Controller/IntakeReviewController.php');
     self::assertIsString($source);
-    self::assertStringContainsString("$payload['classification'] ?? $payload['document_type'] ?? $payload['type']", $source);
+    self::assertStringContainsString("$envelope", $source);
+    self::assertStringContainsString("'classification'", $source);
   }
 
 }
