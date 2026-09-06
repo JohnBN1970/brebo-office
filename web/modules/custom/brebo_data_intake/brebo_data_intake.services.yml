@@ -15,10 +15,15 @@ services:
     class: Drupal\brebo_data_intake\Service\NlbeSfbProvider
     arguments: ['@brebo_data_intake.ingest_manager', '@brebo_data_intake.classification_repository']
 
+  brebo_data_intake.destination_dispatcher:
+    class: Drupal\brebo_data_intake\Service\IntakeDestinationDispatcher
+    arguments:
+      - !tagged_iterator brebo_data_intake.destination
+
   brebo_data_intake.source_neutral_intake_manager:
     class: Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager
     arguments:
-      - !tagged_iterator brebo_data_intake.destination
+      - '@brebo_data_intake.destination_dispatcher'
       - '@brebo_data_intake.ingest_manager'
       - '@lock'
 
@@ -32,4 +37,4 @@ services:
       - '@database'
       - '@datetime.time'
       - '@lock'
-      - !tagged_iterator brebo_data_intake.destination
+      - '@brebo_data_intake.destination_dispatcher'
