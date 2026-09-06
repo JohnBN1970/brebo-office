@@ -4,6 +4,7 @@ struct ScanContentView: View {
     @State private var scanning = false
     @State private var depthFrames = 0
     @State private var meshAnchors = 0
+    private let qualityGate = ScanQualityGate()
 
     var body: some View {
         ZStack(alignment: .bottom) {
@@ -19,7 +20,7 @@ struct ScanContentView: View {
                 Text("Depth frames: \(depthFrames)  •  Mesh: \(meshAnchors)")
                     .font(.caption)
                     .monospacedDigit()
-                Text(scanning ? "Beweeg rustig rondom de volledige sparing" : "Geen meetpunten aantikken")
+                Text(instruction)
                     .font(.subheadline)
 
                 Button(scanning ? "Scan stoppen" : "Start scan") {
@@ -35,5 +36,11 @@ struct ScanContentView: View {
             .frame(maxWidth: .infinity)
             .background(.ultraThinMaterial)
         }
+    }
+
+    private var instruction: String {
+        guard scanning else { return "Geen meetpunten aantikken" }
+        let verdict = qualityGate.evaluate(depthFrames: depthFrames, meshAnchors: meshAnchors)
+        return ScanStatus(depthFrames: depthFrames, meshAnchors: meshAnchors, verdict: verdict).message
     }
 }
