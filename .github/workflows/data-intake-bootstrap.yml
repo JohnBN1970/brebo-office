@@ -3,7 +3,7 @@ name: BREBO data intake bootstrap
 on:
   workflow_run:
     workflows:
-      - Deploy BREBO Office Production
+      - BREBO deployment marker
     types:
       - completed
   workflow_dispatch:
@@ -66,10 +66,7 @@ jobs:
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           marker="$app/.brebo-deployed-sha"
-          [[ -f "$marker" ]] || {
-            echo "::error::Production has no deployment SHA marker."
-            exit 1
-          }
+          [[ -f "$marker" ]] || { echo "::error::Production has no deployment SHA marker."; exit 1; }
           deployed_sha="$(tr -d '\r\n' < "$marker")"
           [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || {
             echo "::error::Production deployment marker $deployed_sha does not match expected deploy $EXPECTED_DEPLOY_SHA."
