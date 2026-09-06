@@ -20,12 +20,18 @@ services:
     arguments:
       - !tagged_iterator brebo_data_intake.destination
 
+  brebo_data_intake.enrichment_dispatcher:
+    class: Drupal\brebo_data_intake\Service\IntakeEnrichmentDispatcher
+    arguments:
+      - !tagged_iterator brebo_data_intake.enricher
+
   brebo_data_intake.source_neutral_intake_manager:
     class: Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager
     arguments:
       - '@brebo_data_intake.destination_dispatcher'
       - '@brebo_data_intake.ingest_manager'
       - '@lock'
+      - '@brebo_data_intake.enrichment_dispatcher'
 
   brebo_data_intake.review_repository:
     class: Drupal\brebo_data_intake\Service\IntakeReviewRepository
