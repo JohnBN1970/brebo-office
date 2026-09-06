@@ -70,6 +70,7 @@ jobs:
           test -f web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml
           test -f web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml
           test -f web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml
+          test -f web/modules/custom/brebo_data_intake/brebo_data_intake.info.yml
 
       - name: Configure SSH
         shell: bash
@@ -103,6 +104,7 @@ jobs:
             --exclude='.github' \
             --exclude='web/sites/default/files' \
             --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/settings.local.php' \
             --exclude='web/sites/default/services.yml' \
             --exclude='.env' \
             --exclude='.env.*' \
@@ -133,6 +135,7 @@ jobs:
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$webroot/sites/default/settings.php"
+          settings_local="$webroot/sites/default/settings.local.php"
           services="$webroot/sites/default/services.yml"
 
           [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Production application directory missing or invalid: $app"; exit 1; }
@@ -142,7 +145,9 @@ jobs:
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
+          settings_local_before=""
           services_before=""
+          [[ ! -f "$settings_local" ]] || settings_local_before="$(sha256sum "$settings_local" | awk '{print $1}')"
           [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
 
           staging="$(mktemp -d)"
@@ -159,15 +164,30 @@ jobs:
           test -f "$staging/web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml"
           test -f "$staging/web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml"
           test -f "$staging/web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml"
+          test -f "$staging/web/modules/custom/brebo_data_intake/brebo_data_intake.info.yml"
           test -s "$staging/.brebo-deployed-sha"
+          command -v rsync >/dev/null 2>&1 || { echo "::error::rsync is required for authoritative production deployment."; exit 1; }
 
-          cp -a "$staging/." "$app/"
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='web/sites/default/files/' \
+            --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/settings.local.php' \
+            --exclude='web/sites/default/services.yml' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            "$staging/" "$app/"
           rm -f "$archive"
           rm -rf "$staging"
           trap - EXIT
 
           [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
+          if [[ -n "$settings_local_before" ]]; then
+            [[ -f "$settings_local" ]]
+            [[ "$(sha256sum "$settings_local" | awk '{print $1}')" == "$settings_local_before" ]]
+          fi
           if [[ -n "$services_before" ]]; then
+            [[ -f "$services" ]]
             [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]
           fi
 
@@ -177,7 +197,7 @@ jobs:
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication -y
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication brebo_data_intake -y
           echo "MODULE_ENABLE_OK=1"
 
           "${drush[@]}" updb -y --no-cache-clear
@@ -208,7 +228,7 @@ jobs:
 
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
-            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication"] as $module) {
+            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication", "brebo_data_intake"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
             foreach ([
@@ -220,7 +240,8 @@ jobs:
               "brebo_contract_control.management_decision_records",
               "brebo_project_cockpit.project_status_aggregator",
               "brebo_project_cockpit.project_progress_builder",
-              "brebo_project_cockpit.project_milestone_builder"
+              "brebo_project_cockpit.project_milestone_builder",
+              "brebo_data_intake.source_neutral_intake_manager"
             ] as $service) { \Drupal::service($service); }
             $routes = \Drupal::service("router.route_provider");
             foreach ([
@@ -234,7 +255,8 @@ jobs:
               "brebo_contract_control.management_decision_outcome_review",
               "brebo_project_cockpit.overview",
               "brebo_office_core.project_dashboard",
-              "brebo_sandbox_reset.form"
+              "brebo_sandbox_reset.form",
+              "brebo_data_intake.upload"
             ] as $route) { $routes->getRouteByName($route); }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $controller = (string) $projectRoute->getDefault("_controller");
@@ -248,6 +270,7 @@ jobs:
             print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
             print "SANDBOX_RESET_RUNTIME_OK=1\n";
             print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
+            print "DATA_INTAKE_RUNTIME_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
@@ -296,9 +319,6 @@ jobs:
 
           remote_php="/opt/alt/php83/usr/bin/php"
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
-          "${drush[@]}" pm:enable brebo_data_intake -y
-          "${drush[@]}" updb -y --no-cache-clear
-          "${drush[@]}" cr
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
             if (!$mh->moduleExists("brebo_data_intake")) { throw new \RuntimeException("brebo_data_intake is not enabled."); }
