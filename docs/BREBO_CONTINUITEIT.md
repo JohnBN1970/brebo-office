@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele peildatum: 25 augustus 2026.**
+**Actuele peildatum: 6 september 2026.**
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -32,11 +32,59 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - Projectscope selecteert tijdelijk permanente gebouwobjecten.
 - BMS en CIM zijn leidend; Drupal is de technische vertaling.
 - Eén keer vastleggen, overal hergebruiken.
-- Communicatiekanalen zijn aanvoerkanalen, geen tweede dossierwaarheid.
+- Communicatiekanalen en andere bronnen zijn aanvoerkanalen, geen tweede dossierwaarheid.
 - AI en digitale rollen signaleren en bereiden voor; formele materiële besluiten blijven binnen aantoonbaar mandaat.
 - Geen aannames wanneer bewijs nodig is.
 - Belangrijke implementatie geldt pas als duurzaam wanneer zij in GitHub staat.
 - Externe toegang gebruikt uitsluitend expliciet vrijgegeven projecties; BREBO Office blijft de bron.
+
+## Centrale bron- en intakearchitectuur
+
+Sinds september 2026 is de bron-neutrale intake een expliciete kernlaag van BREBO Office. De vaste keten is:
+
+```text
+Bron
+-> Intake
+-> Herkennen
+-> Classificeren
+-> Koppelen
+-> Canoniek object
+-> Vakmodule
+-> Controle
+-> Actie
+-> Terugkoppeling
+```
+
+Bronnen kunnen onder meer e-mail, handmatige upload, API, bank, Moneybird, portaal, website en mobiel zijn. Bronadapters schrijven niet rechtstreeks naar Finance, Projecten of andere vakmodules. Zij leveren aan de centrale `SourceNeutralIntakeManager`; vakmodules blijven eigenaar van hun businessregels.
+
+De intake bewaart herkomst en bronreferentie, normaliseert records, voorkomt identieke dubbele verwerking en kan onzekere items als `review_required` klaarzetten voor menselijke controle. Het oorspronkelijke bronbestand blijft canoniek; de intake maakt geen tweede documentopslag.
+
+Persistente intakefundering:
+
+- `brebo_data_source` — geregistreerde bron;
+- `brebo_data_ingest_run` — auditeerbare bronverwerking;
+- `brebo_data_record` — genormaliseerd bronrecord;
+- `brebo_classification_term` — versieerbare classificatie;
+- `brebo_masterdata_candidate` — voorstel voor gecontroleerde koppeling aan masterdata.
+
+Werkende adapters zijn inmiddels e-mail/factuurrouting en handmatige upload. De centrale reviewwerkbank op `/brebo-office/intake` toont `review_required`-items bron-neutraal, gepagineerd en read-only, inclusief echte brontijd, operatorvriendelijke classificatie en canonieke projectkoppeling.
+
+**Eerstvolgende intake-opgave:** menselijke reviewbesluiten toevoegen: accepteren, afwijzen, herclassificeren en opnieuw koppelen, met audittrail, concurrencybescherming en expliciete destination-contracten. Ook deze stap mag geen directe bronadapter-write naar vakmodules introduceren.
+
+## Recente bewezen mijlpaal — PR #592 t/m #597
+
+De deployment- en intakeketen is op 6 september 2026 opnieuw end-to-end bewezen:
+
+- **#592** maakte `.brebo-deployed-sha` de gezaghebbende productie-release-identiteit en maakte deployment autoritatief via `rsync --delete`; de marker wordt pas gepubliceerd nadat runtime- en configuratiecontroles slagen.
+- **#593** herstelde de archive-markercontrole die door `pipefail`/SIGPIPE kon falen.
+- **#594** herstelde `source_key` bij de insert-tak van bronregistratie; daarna bewezen productieacceptatie `SOURCE_NEUTRAL_RUNTIME_OK=1` en deduplicatie.
+- **#595** is bewust gesloten zonder merge nadat de branch onbedoeld explodeerde naar 196 commits/193 bestanden. Niet heropenen of als basis gebruiken.
+- **#596** leverde de schone centrale read-only intake-reviewwerkbank. Een timingrace in de Codex-review maakte drie P2-bevindingen pas direct na merge zichtbaar.
+- **#597** herstelde die bevindingen: update 11002 verleent uitsluitend reviewrecht, `Ontvangen` gebruikt `envelope.received_at`, classificaties zijn leesbaar en de controller botst niet met `ControllerBase::$entityTypeManager`. De bestaande intake-schemahook bleef volledig behouden.
+
+#597 is gemerged als **`9c95d8d8ae6548e1cb02fd2d713dcf502addbf28`**. Productierun **34020446877** is exact op die SHA geslaagd. Bewezen markers omvatten `CACHE_REBUILD_OK=1`, `DATA_INTAKE_RUNTIME_OK=1`, `SOURCE_NEUTRAL_RUNTIME_OK=1`, `CONFIG_EXPORT_OK=1`, `DEPLOYMENT_MARKER_OK=9c95d8d8ae6548e1cb02fd2d713dcf502addbf28`, `PRODUCTION_DEPLOY_SHA=9c95d8d8ae6548e1cb02fd2d713dcf502addbf28` en `DEPLOY_OK=1`.
+
+Belangrijke reviewregel: merge nooit uitsluitend op het groene Codex-summary. Controleer vóór merge zowel de exacte huidige head, vereiste CI als de actuele reviewthreads; een review geldt pas als schoon wanneer er geen actuele onopgeloste findings op die head zijn.
 
 ## Vaste presentatiearchitectuur
 
@@ -59,9 +107,9 @@ Gebouw levert kennis aan het project. Project bestuurt uitvoering. Na oplevering
 
 ## Totale systeemstand
 
-De actuele roadmap schat BREBO Office op circa **70% richting breed dagelijks bruikbaar** en **55-60% richting de volledige eindvisie**. Het systeem is de prototypefase voorbij. Communicatie, calculatie, projectsturing, inzet en Finance bevatten inmiddels echte operationele ketens.
+BREBO Office is de prototypefase voorbij. Communicatie, calculatie, projectsturing, inzet, Finance, publicatie en centrale bronintake bevatten echte operationele ketens. Oude percentages uit augustus zijn niet langer betrouwbaar genoeg om als actuele waarheid te gebruiken; de roadmap en actuele GitHub-stand bepalen de voortgang.
 
-De hoofdbeweging is nu:
+De hoofdbeweging blijft:
 
 ```text
 consolideren
@@ -93,54 +141,36 @@ Gebouwd/op `develop` aanwezig:
 
 Vast prijsbronprincipe: externe prijzen blijven herleidbaar naar originele document/e-mailbron; extractie is voorstel; menselijke goedkeuring is vereist voordat OA wordt gewijzigd.
 
-**Eerstvolgende calculatiestap:** prijsbronbediening rechtstreeks vanuit calculatieregels, daarna document-/e-mailextractie, review, OA-boeking, bronvergelijking en leveranciersanalyse.
-
 ## Finance en Moneybird
 
-Finance is inmiddels een kernlaag en niet meer alleen een gepland domein.
+Finance is een operationele kernlaag. Werkbegroting, commitments, inkoopfacturen, factuurbediening, projectkoppeling en controle zijn verder uitgebouwd dan de augustus-baseline. Moneybird blijft boekhoudkundige bron waar van toepassing; Office is de operationele controlelaag.
 
-Aanwezig/gebouwd zijn onder meer:
-
-- projectbegroting en financiële projectsturing;
-- inkoop;
-- contracten;
-- facturen;
-- termijnschema's;
-- gemengde btw-/btw-verlegdlogica;
-- stelpostbewaking;
-- verkoopfactuurconcepten en gecontroleerde vrijgave;
-- immutable outbox en queue-afhandeling;
-- HMAC-beveiligde Integration API-keten;
-- Moneybird-providervertaling en terugschrijving naar de BREBO-spiegel;
-- read-only verwerking/spiegeling van Moneybird-inkoopinformatie en verdere leveranciers/masterdatafundering.
-
-De beveiligde verkoopfactuurketen is technisch gesloten. Fail-closed configuratie, idempotency en reconciliation bij onzekere provideruitkomsten blijven vaste veiligheidsprincipes.
-
-**Eerstvolgende Finance-opgave:** leveranciersidentiteit/masterdata, inkoopfacturen, projectkoppeling en financiële control verder tot één gesloten keten brengen en productie-evidence blijven bewaken.
+De factuurwerkbank toont het originele brondocument naast verwerking en gebruikt de centrale intake voor bronrouting. De beveiligde verkoopfactuurketen, fail-closed configuratie, idempotency en reconciliation blijven vaste veiligheidsprincipes.
 
 ## Mail en communicatie
 
-De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-, reader-, compose-, tabs- en linkingbaseline moet behouden blijven.
+De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-, reader-, compose-, tabs- en linkingbaseline moet behouden blijven. Mail is nu tevens een echte adapter op de bron-neutrale intake; nieuwe mailverwerking mag deze centrale route niet omzeilen.
 
-Sinds de oorspronkelijke acceptatie zijn mailboxprojectie en HTML-weergave verder uitgebouwd. Inkomende communicatie blijft gecontroleerde broninformatie; classificatie en relaties worden niet stilzwijgend formele dossierwaarheid.
+De historische Zoho-backfill blijft een afzonderlijke migratieopgave en mag niet worden geforceerd om runtime- of readinessproblemen heen.
 
-**Belangrijk open punt:** de historische Zoho-backfill van circa 19.000 berichten blijft bewust geblokkeerd totdat de canonieke `sboffice`-runtime alle vereiste Mail-runtimeconfiguratie/readiness aantoonbaar groen heeft. Geen bulkimport forceren om een configuratieprobleem heen.
+## Project, publicatie en websitegrens
 
-Daarna: gecontroleerde historie-import, threads/bijlagen, contextverrijking, AI-concepten, retentie en operationele kwaliteitsmetingen.
+`brebo_project` is het canonieke projectobject. Website en andere externe consumers krijgen uitsluitend een begrensde publicatie/projectie; zij worden geen tweede projectwaarheid. De bounded project-publicationketen is gebouwd en productiegeaccepteerd.
+
+Vaste grens:
+
+```text
+BREBO Office interne waarheid
+-> expliciete vrijgave/publicatie
+-> veilige externe projectie
+-> website/portaal
+```
 
 ## Project Cockpit en managementsturing
 
-De Project Cockpit is een persistente operationele stuurlaag en bevat projectcontext voor onder meer:
+De Project Cockpit is een persistente operationele stuurlaag en bevat projectcontext voor onder meer project, planning, geld/cash, inzet, kwaliteit, risico en projectgebonden dossier-/financetabs.
 
-- project;
-- planning;
-- geld/cash;
-- inzet;
-- kwaliteit;
-- risico;
-- projectgebonden dossier-/financetabs.
-
-Hiermee is roadmapfase 8 niet meer uitsluitend toekomstig. Directie-/portfoliosturing, prognoses, faalkosten, organisatiebrede KPI's en leerpatronen blijven de volgende managementlaag.
+Directie-/portfoliosturing, prognoses, faalkosten, organisatiebrede KPI's en leerpatronen blijven de volgende managementlaag.
 
 ## Inzet en personeelssturing
 
@@ -150,9 +180,9 @@ De personeelslaag moet verder worden verbonden met planning, werkbegroting, proj
 
 ## Actie-, signaal- en controlemotor
 
-Roadmapfase 5 is niet meer alleen gepland. Er bestaan meerdere control-services, cockpit-signalen, readiness-/release-gates, contract-/financiële controles en leveranciers-/scorecardbouwstenen.
+Er bestaan meerdere control-services, cockpit-signalen, readiness-/release-gates, contract-/financiële controles en leveranciers-/scorecardbouwstenen. De hoofdopgave is één centrale motor te vormen die bron, eigenaar, termijn, status, risico en afsluitbewijs uniform bewaakt.
 
-De hoofdopgave is nu één centrale motor te vormen die bron, eigenaar, termijn, status, risico en afsluitbewijs uniform bewaakt. Nieuwe module-eigen controlelijstjes zijn ongewenst wanneer dezelfde betekenis centraal kan worden gemodelleerd.
+Nieuwe module-eigen controlelijstjes zijn ongewenst wanneer dezelfde betekenis centraal kan worden gemodelleerd.
 
 ## Bewoners, woningen, toegang en service
 
@@ -167,23 +197,6 @@ ZoneAccessReadiness
 ```
 
 Look-ahead signaleert en wijzigt planning of formele vrijgave niet zelfstandig.
-
-## Klantportaal
-
-`brebo_client_portal` vormt de veilige foundation voor externe projecttoegang.
-
-Vaste grens:
-
-```text
-BREBO Office interne waarheid
--> expliciete vrijgave/publicatie
--> veilige externe projectie
--> klantportaal
-```
-
-Per project wordt toegang bestuurbaar gemaakt. Alleen expliciet vrijgegeven informatie mag extern zichtbaar worden. Interne projectbesturing en projectvoortgangprojectie zijn gebouwd; publieke routes/login worden pas geopend nadat toegang, blokkering, publicatiegrenzen, concurrency en security aantoonbaar gesloten zijn.
-
-Geen interne objecten rechtstreeks extern renderen en geen tweede klantendossier naast Office bouwen.
 
 ## Generieke Outputgenerator
 
@@ -200,22 +213,21 @@ Bronobject(en)
 -> Distributie
 ```
 
-Implementatie moet generiek bruikbaar zijn voor calculatie/offerte, inkoop, project, bewoners/service, KAM/oplevering, gebouw/MJOP en management.
-
 ## Integration API en deployment
 
 - Worker: `brebo-integration-api`.
 - HMAC v1-beveiliging blijft leidend.
 - Deploymentwijzigingen verlopen via GitHub Actions.
 - Externe providercredentials horen niet in Drupal of broncode.
-- `sboffice` moet de enige canonieke productieruntime zijn.
-- Legacy-runtime/resten worden gecontroleerd uitgefaseerd, niet parallel in leven gehouden.
+- `sboffice` is de canonieke productieruntime.
+- De productie-release-identiteit komt uit `.brebo-deployed-sha`; de achtergebleven `.git`-metadata op productie is niet gezaghebbend.
+- De productiecode wordt autoritatief gesynchroniseerd; persistente runtimebestanden/configuratie zijn expliciet uitgesloten.
 
 ## Eerstvolgende technische punten — organisatiebreed
 
-1. `sboffice` runtime/readiness volledig canoniek maken en legacyconfiguratie opruimen.
-2. Mail/Zoho-readiness groen bewijzen en daarna historische migratie gecontroleerd uitvoeren.
-3. Finance/Moneybird leveranciers- en inkoopfactuurketen verder sluiten.
+1. Centrale intake-reviewbesluiten bouwen: accepteren, afwijzen, herclassificeren en opnieuw koppelen, met audit en concurrency.
+2. Destination-contracten tussen centrale intake en vakmodules expliciet maken zonder directe adapter-writes.
+3. Finance/Moneybird leveranciers- en inkoopfactuurketen verder sluiten op dezelfde intake/masterdatafundering.
 4. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
 5. Digitale rollen operationaliseren op betrouwbare dossier- en controldata.
 6. Calculatieprijsbronnen rechtstreeks in de werkbank bedienbaar maken.
@@ -228,10 +240,12 @@ Implementatie moet generiek bruikbaar zijn voor calculatie/offerte, inkoop, proj
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
 
-Voor calculatie geldt expliciet: ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat. Hervat bij prijsbronbediening tenzij GitHub inmiddels een latere stand toont.
+Voor centrale intake geldt expliciet: bronnen leveren uitsluitend via de centrale intake; geen bronadapter schrijft rechtstreeks naar Finance, Projecten of een andere vakmodule. De eerstvolgende slice is de menselijke reviewbeslissing, niet opnieuw de intakefundering ontwerpen.
 
-Voor Mail geldt: behoud de bewezen baseline en forceer geen Zoho-backfill zolang runtime-readiness niet aantoonbaar groen is.
+Voor calculatie geldt: ga niet terug naar het ontwerpen van de spreadsheetbasis; die staat.
 
-Voor het klantportaal geldt: BREBO Office blijft bron en externe zichtbaarheid ontstaat uitsluitend via expliciete veilige publicatie/projectie.
+Voor Mail geldt: behoud de bewezen baseline en gebruik de bron-neutrale intake voor nieuwe routing.
+
+Voor website/klantportaal geldt: BREBO Office blijft bron en externe zichtbaarheid ontstaat uitsluitend via expliciete veilige publicatie/projectie.
 
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
