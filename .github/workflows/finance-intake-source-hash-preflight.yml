@@ -1,0 +1,81 @@
+name: Finance intake source-hash preflight
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: Check production purchase-invoice source hashes
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Check production source-hash uniqueness
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Finance source_hash uniqueness preflight ==="
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $schema = $db->schema();
+            $table = "brebo_finance_purchase_invoice";
+            if (!$schema->tableExists($table)) {
+              fwrite(STDERR, "PURCHASE_INVOICE_TABLE=MISSING\n");
+              exit(2);
+            }
+            $total = (int) $db->select($table, "i")->countQuery()->execute()->fetchField();
+            $withHashQuery = $db->select($table, "i");
+            $withHashQuery->condition("source_hash", NULL, "IS NOT NULL");
+            $withHashQuery->condition("source_hash", "", "<>");
+            $withHash = (int) $withHashQuery->countQuery()->execute()->fetchField();
+
+            $duplicates = $db->query("SELECT source_hash, COUNT(*) AS occurrences, MIN(id) AS first_id, MAX(id) AS last_id FROM {brebo_finance_purchase_invoice} WHERE source_hash IS NOT NULL AND source_hash <> :empty GROUP BY source_hash HAVING COUNT(*) > 1 ORDER BY occurrences DESC, source_hash ASC", [":empty" => ""])->fetchAllAssoc("source_hash");
+
+            print "PURCHASE_INVOICE_TABLE=YES\n";
+            print "TOTAL_INVOICES={$total}\n";
+            print "INVOICES_WITH_SOURCE_HASH={$withHash}\n";
+            print "DUPLICATE_SOURCE_HASH_GROUPS=" . count($duplicates) . "\n";
+            foreach (array_slice($duplicates, 0, 20, TRUE) as $hash => $row) {
+              print "DUPLICATE source_hash={$hash} occurrences={$row->occurrences} first_id={$row->first_id} last_id={$row->last_id}\n";
+            }
+            if ($duplicates !== []) {
+              fwrite(STDERR, "SOURCE_HASH_UNIQUENESS=BLOCKED\n");
+              exit(3);
+            }
+            print "SOURCE_HASH_UNIQUENESS=SAFE_TO_ENFORCE\n";
+          '
+          REMOTE
