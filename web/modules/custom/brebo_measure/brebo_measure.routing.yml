@@ -1,0 +1,43 @@
+brebo_measure.opening:
+  path: '/brebo-office/api/measure/openings/{opening_id}'
+  defaults:
+    _controller: '\Drupal\brebo_measure\Controller\MeasureApiController::opening'
+  requirements:
+    _permission: 'access content'
+    opening_id: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_measure.assignment_create:
+  path: '/brebo-office/api/measure/openings/{opening_id}/assignments'
+  defaults:
+    _controller: '\Drupal\brebo_measure\Controller\MeasureApiController::createAssignment'
+  requirements:
+    _permission: 'access content'
+    opening_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_measure.capture_create:
+  path: '/brebo-office/api/measure/assignments/{assignment_id}/captures'
+  defaults:
+    _controller: '\Drupal\brebo_measure\Controller\MeasureApiController::createCapture'
+  requirements:
+    _permission: 'access content'
+    assignment_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_measure.observation_create:
+  path: '/brebo-office/api/measure/captures/{capture_id}/observations'
+  defaults:
+    _controller: '\Drupal\brebo_measure\Controller\MeasureApiController::addObservation'
+  requirements:
+    _permission: 'access content'
+    capture_id: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
