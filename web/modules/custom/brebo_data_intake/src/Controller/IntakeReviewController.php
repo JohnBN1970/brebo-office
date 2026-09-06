@@ -44,7 +44,8 @@ final class IntakeReviewController extends ControllerBase {
       $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : $storedPayload;
       $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
 
-      $classification = trim((string) ($envelope['classification'] ?? $payload['classification'] ?? $payload['document_type'] ?? $payload['type'] ?? ''));
+      $classificationKey = trim((string) ($envelope['classification'] ?? $payload['classification'] ?? $payload['document_type'] ?? $payload['type'] ?? ''));
+      $classification = $this->classificationLabel($classificationKey);
       $project = trim((string) ($payload['project_label'] ?? $payload['project_name'] ?? $canonical['project_label'] ?? $canonical['project_name'] ?? ''));
       $projectNid = (int) ($canonical['project_nid'] ?? 0);
       if ($project === '' && $projectNid > 0) {
@@ -65,9 +66,10 @@ final class IntakeReviewController extends ControllerBase {
         }
       }
 
+      $receivedAt = $this->receivedTimestamp($envelope['received_at'] ?? NULL, (int) $record['created']);
       $rows[] = [
         'data' => [
-          $this->dateFormatter->format((int) $record['created'], 'short'),
+          $this->dateFormatter->format($receivedAt, 'short'),
           (string) $record['source_label'],
           $subject !== '' ? $subject : $this->t('Zonder omschrijving'),
           $classification !== '' ? $classification : $this->t('Nog te bepalen'),
@@ -104,6 +106,32 @@ final class IntakeReviewController extends ControllerBase {
     }
 
     return $build;
+  }
+
+  /** Returns an operator-facing label while keeping future keys readable. */
+  private function classificationLabel(string $key): string {
+    return match ($key) {
+      'purchase_invoice' => (string) $this->t('Inkoopfactuur'),
+      'project_communication' => (string) $this->t('Projectcommunicatie'),
+      'document' => (string) $this->t('Document'),
+      'request' => (string) $this->t('Aanvraag / offerteaanvraag'),
+      'relationship_message' => (string) $this->t('Relatiebericht'),
+      'other' => (string) $this->t('Overig / eerst beoordelen'),
+      default => $key !== '' ? str_replace(['_', '-'], ' ', $key) : '',
+    };
+  }
+
+  /** Uses the source receipt time when available, with persistence time fallback. */
+  private function receivedTimestamp(mixed $receivedAt, int $fallback): int {
+    if (is_int($receivedAt) || (is_string($receivedAt) && ctype_digit($receivedAt))) {
+      $timestamp = (int) $receivedAt;
+      return $timestamp > 0 ? $timestamp : $fallback;
+    }
+    if (is_string($receivedAt) && trim($receivedAt) !== '') {
+      $timestamp = strtotime($receivedAt);
+      return $timestamp !== FALSE ? $timestamp : $fallback;
+    }
+    return $fallback;
   }
 
 }
