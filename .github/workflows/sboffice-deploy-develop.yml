@@ -70,6 +70,7 @@ jobs:
           test -f web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml
           test -f web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml
           test -f web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml
+          test -f web/modules/custom/brebo_data_intake/brebo_data_intake.info.yml
 
       - name: Configure SSH
         shell: bash
@@ -96,16 +97,20 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          printf '%s\n' "$GITHUB_SHA" > .brebo-deployed-sha
+          [[ "$(tr -d '\r\n' < .brebo-deployed-sha)" == "$GITHUB_SHA" ]]
           tar \
             --exclude='.git' \
             --exclude='.github' \
             --exclude='web/sites/default/files' \
             --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/settings.local.php' \
             --exclude='web/sites/default/services.yml' \
             --exclude='.env' \
             --exclude='.env.*' \
             -czf /tmp/brebo-office-develop.tgz .
           test -s /tmp/brebo-office-develop.tgz
+          tar -tzf /tmp/brebo-office-develop.tgz | grep -Eq '^\./\.brebo-deployed-sha$'
 
       - name: Upload deployment archive
         shell: bash
@@ -130,6 +135,7 @@ jobs:
           archive="/tmp/brebo-office-develop.tgz"
           config_archive="/tmp/brebo-active-config-sync.tgz"
           settings="$webroot/sites/default/settings.php"
+          settings_local="$webroot/sites/default/settings.local.php"
           services="$webroot/sites/default/services.yml"
 
           [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Production application directory missing or invalid: $app"; exit 1; }
@@ -139,7 +145,9 @@ jobs:
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
+          settings_local_before=""
           services_before=""
+          [[ ! -f "$settings_local" ]] || settings_local_before="$(sha256sum "$settings_local" | awk '{print $1}')"
           [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
 
           staging="$(mktemp -d)"
@@ -156,14 +164,34 @@ jobs:
           test -f "$staging/web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.info.yml"
           test -f "$staging/web/modules/custom/brebo_sandbox_reset/brebo_sandbox_reset.info.yml"
           test -f "$staging/web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml"
+          test -f "$staging/web/modules/custom/brebo_data_intake/brebo_data_intake.info.yml"
+          test -s "$staging/.brebo-deployed-sha"
+          release_sha="$(tr -d '\r\n' < "$staging/.brebo-deployed-sha")"
+          [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release SHA in deployment archive."; exit 1; }
+          command -v rsync >/dev/null 2>&1 || { echo "::error::rsync is required for authoritative production deployment."; exit 1; }
 
-          cp -a "$staging/." "$app/"
+          rm -f "$app/.brebo-deployed-sha" "$app/.brebo-deployed-sha.tmp"
+          rsync -a --delete \
+            --exclude='.git/' \
+            --exclude='.brebo-deployed-sha' \
+            --exclude='web/sites/default/files/' \
+            --exclude='web/sites/default/settings.php' \
+            --exclude='web/sites/default/settings.local.php' \
+            --exclude='web/sites/default/services.yml' \
+            --exclude='.env' \
+            --exclude='.env.*' \
+            "$staging/" "$app/"
           rm -f "$archive"
           rm -rf "$staging"
           trap - EXIT
 
           [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
+          if [[ -n "$settings_local_before" ]]; then
+            [[ -f "$settings_local" ]]
+            [[ "$(sha256sum "$settings_local" | awk '{print $1}')" == "$settings_local_before" ]]
+          fi
           if [[ -n "$services_before" ]]; then
+            [[ -f "$services" ]]
             [[ "$(sha256sum "$services" | awk '{print $1}')" == "$services_before" ]]
           fi
 
@@ -173,7 +201,7 @@ jobs:
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication -y
+          "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication brebo_data_intake -y
           echo "MODULE_ENABLE_OK=1"
 
           "${drush[@]}" updb -y --no-cache-clear
@@ -204,7 +232,7 @@ jobs:
 
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
-            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication"] as $module) {
+            foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication", "brebo_data_intake"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
             foreach ([
@@ -216,7 +244,8 @@ jobs:
               "brebo_contract_control.management_decision_records",
               "brebo_project_cockpit.project_status_aggregator",
               "brebo_project_cockpit.project_progress_builder",
-              "brebo_project_cockpit.project_milestone_builder"
+              "brebo_project_cockpit.project_milestone_builder",
+              "brebo_data_intake.source_neutral_intake_manager"
             ] as $service) { \Drupal::service($service); }
             $routes = \Drupal::service("router.route_provider");
             foreach ([
@@ -230,7 +259,8 @@ jobs:
               "brebo_contract_control.management_decision_outcome_review",
               "brebo_project_cockpit.overview",
               "brebo_office_core.project_dashboard",
-              "brebo_sandbox_reset.form"
+              "brebo_sandbox_reset.form",
+              "brebo_data_intake.upload"
             ] as $route) { $routes->getRouteByName($route); }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $controller = (string) $projectRoute->getDefault("_controller");
@@ -244,6 +274,7 @@ jobs:
             print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
             print "SANDBOX_RESET_RUNTIME_OK=1\n";
             print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
+            print "DATA_INTAKE_RUNTIME_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
@@ -266,10 +297,69 @@ jobs:
           test -d config/sync
           tar -czf "$config_archive" config/sync
           echo "CONFIG_EXPORT_OK=1"
+
+          marker_tmp="$app/.brebo-deployed-sha.tmp"
+          marker="$app/.brebo-deployed-sha"
+          printf '%s\n' "$release_sha" > "$marker_tmp"
+          chmod 644 "$marker_tmp"
+          mv -f "$marker_tmp" "$marker"
+          [[ "$(tr -d '\r\n' < "$marker")" == "$release_sha" ]]
+          echo "DEPLOYMENT_MARKER_OK=$release_sha"
+
           echo "DEPLOY_OK=1"
           echo "APP_ROOT=$app"
           echo "DRUPAL_WEBROOT=$webroot"
           echo "RUNTIME_SETTINGS_PRESERVED=1"
+          REMOTE
+
+      - name: Verify source-neutral intake on deployed release
+        shell: bash
+        env:
+          EXPECTED_DEPLOY_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          marker="$app/.brebo-deployed-sha"
+          [[ -f "$marker" ]] || { echo "::error::Production has no deployment SHA marker."; exit 1; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || { echo "::error::Production marker $deployed_sha does not match $EXPECTED_DEPLOY_SHA."; exit 1; }
+          echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
+
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $mh = \Drupal::moduleHandler();
+            if (!$mh->moduleExists("brebo_data_intake")) { throw new \RuntimeException("brebo_data_intake is not enabled."); }
+            foreach (["brebo_data_intake.source_neutral_intake_manager", "brebo_finance.purchase_invoice_intake_destination", "brebo_finance.mail_purchase_invoice_router"] as $service) { \Drupal::service($service); }
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.upload");
+            if ($route->getRequirement("_permission") !== "submit brebo office intake") { throw new \RuntimeException("Upload route permission mismatch."); }
+            $roles = \Drupal::entityTypeManager()->getStorage("user_role")->loadMultiple();
+            foreach (["brebo_projectleider", "brebo_werkvoorbereider"] as $roleId) {
+              if (!isset($roles[$roleId]) || !$roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Required role lacks intake permission: " . $roleId); }
+            }
+            foreach (["anonymous", "authenticated"] as $roleId) {
+              if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId); }
+            }
+            $database = \Drupal::database();
+            $transaction = $database->startTransaction();
+            try {
+              $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
+              $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
+              $input = ["source" => "upload", "source_record_id" => $sourceRecordId, "classification" => "runtime_acceptance_unknown", "payload" => ["acceptance" => TRUE], "attachments" => [], "actor_uid" => 1];
+              $first = $manager->intake($input);
+              if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) { throw new \RuntimeException("First intake did not persist review_required."); }
+              $second = $manager->intake($input);
+              if (($second["state"] ?? NULL) !== "duplicate") { throw new \RuntimeException("Second intake was not deduplicated."); }
+              if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) { throw new \RuntimeException("Duplicate did not reuse review record."); }
+              print "SOURCE_NEUTRAL_RUNTIME_OK=1\n";
+            }
+            finally { $transaction->rollBack(); }
+          '
           REMOTE
 
       - name: Download exported config
