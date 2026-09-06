@@ -9,7 +9,7 @@ struct OpeningCandidate {
     let uncertaintyMm: Double
 
     static func make(from boundaries: OpeningBoundarySet) -> OpeningCandidate? {
-        guard boundaries.hasParallelOpposites else { return nil }
+        guard OpeningCandidateQuality.isUsable(boundaries) else { return nil }
 
         let width = parallelPlaneSeparationMillimetres(boundaries.left, boundaries.right)
         let height = parallelPlaneSeparationMillimetres(boundaries.top, boundaries.bottom)
