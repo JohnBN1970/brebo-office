@@ -6,8 +6,10 @@ namespace Drupal\brebo_finance;
 
 use Drupal\Core\DependencyInjection\ContainerBuilder;
 use Drupal\Core\DependencyInjection\ServiceProviderBase;
+use Drupal\brebo_finance\Routing\OriginalInvoiceRouteSubscriber;
 use Drupal\brebo_finance\Routing\PaymentCenterRouteSubscriber;
 use Drupal\brebo_finance\Service\MailPurchaseInvoiceRouter;
+use Drupal\brebo_finance\Service\OriginalInvoiceSourceResolver;
 use Drupal\brebo_finance\Service\PaymentBatchManager;
 use Drupal\brebo_finance\Service\SepaPain001Generator;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -35,6 +37,15 @@ final class BreboFinanceServiceProvider extends ServiceProviderBase {
 
     if (!$container->hasDefinition('brebo_finance.payment_center_route_subscriber')) {
       $container->register('brebo_finance.payment_center_route_subscriber', PaymentCenterRouteSubscriber::class)
+        ->addTag('event_subscriber');
+    }
+
+    if (!$container->hasDefinition('brebo_finance.original_invoice_source_resolver')) {
+      $container->register('brebo_finance.original_invoice_source_resolver', OriginalInvoiceSourceResolver::class)
+        ->addArgument(new Reference('database'));
+    }
+    if (!$container->hasDefinition('brebo_finance.original_invoice_route_subscriber')) {
+      $container->register('brebo_finance.original_invoice_route_subscriber', OriginalInvoiceRouteSubscriber::class)
         ->addTag('event_subscriber');
     }
 
