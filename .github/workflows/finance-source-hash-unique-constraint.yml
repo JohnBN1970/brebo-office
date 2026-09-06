@@ -1,0 +1,87 @@
+name: Finance source-hash unique constraint
+
+on:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enforce:
+    name: Enforce production purchase-invoice source-hash uniqueness
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Recheck and enforce source-hash uniqueness
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $db = \Drupal::database();
+            $schema = $db->schema();
+            $table = "brebo_finance_purchase_invoice";
+            $key = "source_hash_unique";
+
+            if (!$schema->tableExists($table)) {
+              fwrite(STDERR, "PURCHASE_INVOICE_TABLE=MISSING\n");
+              exit(2);
+            }
+            if (!$schema->fieldExists($table, "source_hash")) {
+              fwrite(STDERR, "SOURCE_HASH_FIELD=MISSING\n");
+              exit(2);
+            }
+
+            $duplicates = $db->query("SELECT source_hash, COUNT(*) AS occurrences FROM {brebo_finance_purchase_invoice} WHERE source_hash IS NOT NULL AND source_hash <> :empty GROUP BY source_hash HAVING COUNT(*) > 1", [":empty" => ""])->fetchAll();
+            print "DUPLICATE_SOURCE_HASH_GROUPS=" . count($duplicates) . "\n";
+            if ($duplicates !== []) {
+              fwrite(STDERR, "SOURCE_HASH_UNIQUENESS=BLOCKED\n");
+              exit(3);
+            }
+
+            if (!$schema->indexExists($table, $key)) {
+              $schema->addUniqueKey($table, $key, ["source_hash"]);
+              print "SOURCE_HASH_UNIQUE_KEY=CREATED\n";
+            }
+            else {
+              print "SOURCE_HASH_UNIQUE_KEY=ALREADY_PRESENT\n";
+            }
+
+            if (!$schema->indexExists($table, $key)) {
+              fwrite(STDERR, "SOURCE_HASH_UNIQUE_KEY=VERIFY_FAILED\n");
+              exit(4);
+            }
+            print "SOURCE_HASH_UNIQUENESS=ENFORCED\n";
+          '
+          REMOTE
