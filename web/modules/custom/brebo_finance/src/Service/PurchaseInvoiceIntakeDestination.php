@@ -43,6 +43,20 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'purchase_invoice_amounts_not_balanced');
     }
 
+    $sourceRecordId = trim((string) ($envelope['source_record_id'] ?? ''));
+    $sourceHash = $sourceRecordId !== '' ? hash('sha256', ($envelope['source'] ?? 'unknown') . "\n" . $sourceRecordId) : NULL;
+    if ($sourceHash !== NULL) {
+      $replayedInvoiceId = $this->database->select('brebo_finance_purchase_invoice', 'i')
+        ->fields('i', ['id'])
+        ->condition('source_hash', $sourceHash)
+        ->range(0, 1)
+        ->execute()
+        ->fetchField();
+      if ($replayedInvoiceId !== FALSE) {
+        return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => (int) $replayedInvoiceId, 'duplicate_reason' => 'source_replay']);
+      }
+    }
+
     $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
       ->fields('i', ['id'])
       ->condition('supplier_ref', $supplierRef)
@@ -50,40 +64,47 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       ->execute()
       ->fetchCol();
     if (count($existing) === 1) {
-      return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => (int) $existing[0]]);
+      return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => (int) $existing[0], 'duplicate_reason' => 'supplier_invoice']);
     }
     if (count($existing) > 1) {
       return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'ambiguous_existing_supplier_invoice');
     }
 
     $projectNid = $this->validProjectNid((int) ($envelope['canonical']['project_nid'] ?? 0));
-    $sourceRecordId = trim((string) ($envelope['source_record_id'] ?? ''));
-    $sourceHash = hash('sha256', ($envelope['source'] ?? 'unknown') . "\n" . $sourceRecordId);
     $now = time();
 
-    $invoiceId = (int) $this->database->insert('brebo_finance_purchase_invoice')->fields([
-      'project_nid' => $projectNid,
-      'commitment_id' => NULL,
-      'moneybird_id' => ($envelope['source'] ?? '') === 'moneybird' ? substr($sourceRecordId, 0, 255) : NULL,
-      'supplier_ref' => substr($supplierRef, 0, 255),
-      'supplier_name' => substr($supplierName !== '' ? $supplierName : $supplierRef, 0, 255),
-      'invoice_number' => substr($invoiceNumber, 0, 128),
-      'invoice_date' => $invoiceDate,
-      'due_date' => $this->dateOrNull($payload['due_date'] ?? NULL),
-      'status' => 'received',
-      'match_status' => 'unmatched',
-      'amount_ex_vat' => $amountExVat,
-      'vat_amount' => $vatAmount,
-      'amount_inc_vat' => $amountIncVat,
-      'g_account_amount' => $this->number($payload['g_account_amount'] ?? 0) ?? 0.0,
-      'regular_account_amount' => $this->number($payload['regular_account_amount'] ?? $amountIncVat) ?? $amountIncVat,
-      'currency' => substr($currency !== '' ? $currency : 'EUR', 0, 3),
-      'source_hash' => substr($sourceHash, 0, 64),
-      'created' => $now,
-      'created_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
-      'changed' => $now,
-      'changed_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
-    ])->execute();
+    try {
+      $invoiceId = (int) $this->database->insert('brebo_finance_purchase_invoice')->fields([
+        'project_nid' => $projectNid,
+        'commitment_id' => NULL,
+        'moneybird_id' => ($envelope['source'] ?? '') === 'moneybird' ? substr($sourceRecordId, 0, 128) : NULL,
+        'supplier_ref' => substr($supplierRef, 0, 255),
+        'supplier_name' => substr($supplierName !== '' ? $supplierName : $supplierRef, 0, 255),
+        'invoice_number' => substr($invoiceNumber, 0, 128),
+        'invoice_date' => $invoiceDate,
+        'due_date' => $this->dateOrNull($payload['due_date'] ?? NULL),
+        'status' => 'received',
+        'match_status' => 'unmatched',
+        'amount_ex_vat' => $amountExVat,
+        'vat_amount' => $vatAmount,
+        'amount_inc_vat' => $amountIncVat,
+        'g_account_amount' => $this->number($payload['g_account_amount'] ?? 0) ?? 0.0,
+        'regular_account_amount' => $this->number($payload['regular_account_amount'] ?? $amountIncVat) ?? $amountIncVat,
+        'currency' => substr($currency !== '' ? $currency : 'EUR', 0, 3),
+        'source_hash' => $sourceHash,
+        'created' => $now,
+        'created_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
+        'changed' => $now,
+        'changed_by' => ($envelope['actor_uid'] ?? 0) > 0 ? (int) $envelope['actor_uid'] : NULL,
+      ])->execute();
+    }
+    catch (\Exception $exception) {
+      $duplicateId = $this->findDuplicate($sourceHash, $supplierRef, $invoiceNumber);
+      if ($duplicateId !== NULL) {
+        return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => $duplicateId, 'duplicate_reason' => 'concurrent_replay']);
+      }
+      throw $exception;
+    }
 
     if ($this->database->schema()->tableExists('brebo_finance_audit')) {
       $this->database->insert('brebo_finance_audit')->fields([
@@ -106,6 +127,17 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
     }
 
     return new IntakeDestinationResult(IntakeDestinationResult::CREATED, context: ['invoice_id' => $invoiceId, 'project_nid' => $projectNid]);
+  }
+
+  private function findDuplicate(?string $sourceHash, string $supplierRef, string $invoiceNumber): ?int {
+    if ($sourceHash !== NULL) {
+      $id = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i', ['id'])->condition('source_hash', $sourceHash)->range(0, 1)->execute()->fetchField();
+      if ($id !== FALSE) {
+        return (int) $id;
+      }
+    }
+    $id = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i', ['id'])->condition('supplier_ref', $supplierRef)->condition('invoice_number', $invoiceNumber)->range(0, 1)->execute()->fetchField();
+    return $id !== FALSE ? (int) $id : NULL;
   }
 
   private function validProjectNid(int $projectNid): int {
