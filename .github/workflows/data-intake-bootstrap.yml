@@ -1,13 +1,11 @@
 name: BREBO data intake bootstrap
 
 on:
-  push:
-    branches:
-      - develop
-    paths:
-      - 'web/modules/custom/brebo_data_intake/**'
-      - 'web/modules/custom/brebo_finance/**'
-      - '.github/workflows/data-intake-bootstrap.yml'
+  workflow_run:
+    workflows:
+      - Deploy BREBO Office Production
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
@@ -19,7 +17,10 @@ concurrency:
 
 jobs:
   bootstrap:
-    name: Enable source-neutral intake on production
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'develop')
+    name: Verify source-neutral intake on production
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -27,6 +28,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      EXPECTED_DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
     steps:
       - name: Configure SSH
@@ -50,21 +52,38 @@ jobs:
             sleep $((attempt * 2))
           done
 
-      - name: Enable intake module and verify canonical services
+      - name: Verify deployed revision and canonical services
         shell: bash
         run: |
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
           set -eEuo pipefail
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           cd "$app"
           remote_php="/opt/alt/php83/usr/bin/php"
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          "${drush[@]}" pm:enable brebo_data_intake -y
-          "${drush[@]}" updb -y --no-cache-clear
-          "${drush[@]}" cr
+          deployed_sha="$(git rev-parse HEAD 2>/dev/null || true)"
+          if [[ -n "$deployed_sha" ]]; then
+            [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || {
+              echo "::error::Production revision $deployed_sha does not match expected deploy $EXPECTED_DEPLOY_SHA."
+              exit 1
+            }
+          else
+            marker="$app/.brebo-deployed-sha"
+            [[ -f "$marker" ]] || {
+              echo "::error::Production has no git metadata or deployment SHA marker."
+              exit 1
+            }
+            [[ "$(tr -d '\r\n' < "$marker")" == "$EXPECTED_DEPLOY_SHA" ]] || {
+              echo "::error::Production deployment marker does not match expected deploy $EXPECTED_DEPLOY_SHA."
+              exit 1
+            }
+          fi
+
+          $remote_php -r 'require "web/autoload.php";'
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
             if (!$mh->moduleExists("brebo_data_intake")) {
@@ -78,5 +97,83 @@ jobs:
               \Drupal::service($service);
             }
             print "DATA_INTAKE_RUNTIME_OK=1\n";
+          '
+          REMOTE
+
+      - name: Prove source-neutral review and deduplication
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $database = \Drupal::database();
+            $transaction = $database->startTransaction();
+            try {
+              $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
+              $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
+              $input = [
+                "source" => "upload",
+                "source_record_id" => $sourceRecordId,
+                "classification" => "runtime_acceptance_unknown",
+                "payload" => ["acceptance" => TRUE],
+                "attachments" => [],
+                "actor_uid" => 1,
+              ];
+              $first = $manager->intake($input);
+              if (($first["state"] ?? NULL) !== "review_required" || empty($first["review_record_id"])) {
+                throw new \RuntimeException("First intake did not persist a review-required record.");
+              }
+              $second = $manager->intake($input);
+              if (($second["state"] ?? NULL) !== "duplicate") {
+                throw new \RuntimeException("Second identical intake was not deduplicated.");
+              }
+              if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) {
+                throw new \RuntimeException("Duplicate intake did not reuse the canonical review record.");
+              }
+              print "SOURCE_NEUTRAL_REVIEW_OK=1\n";
+              print "SOURCE_NEUTRAL_DEDUP_OK=1\n";
+            }
+            finally {
+              $transaction->rollBack();
+            }
+          '
+          REMOTE
+
+      - name: Verify upload permission boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -eEuo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          cd "$app"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          "${drush[@]}" php:eval '
+            $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.upload");
+            if ($route->getRequirement("_permission") !== "submit brebo office intake") {
+              throw new \RuntimeException("Upload route is not protected by the dedicated intake permission.");
+            }
+            $roles = \Drupal::entityTypeManager()->getStorage("user_role")->loadMultiple();
+            foreach (["brebo_projectleider", "brebo_werkvoorbereider"] as $roleId) {
+              if (!isset($roles[$roleId]) || !$roles[$roleId]->hasPermission("submit brebo office intake")) {
+                throw new \RuntimeException("Required operational role lacks intake permission: " . $roleId);
+              }
+            }
+            foreach (["anonymous", "authenticated"] as $roleId) {
+              if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) {
+                throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId);
+              }
+            }
+            print "SOURCE_NEUTRAL_PERMISSION_OK=1\n";
           '
           REMOTE
