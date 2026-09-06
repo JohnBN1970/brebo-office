@@ -113,6 +113,27 @@ function brebo_data_intake_schema(): array {
     'indexes' => ['candidate_status' => ['candidate_type', 'status'], 'match' => ['matched_entity_type', 'matched_entity_id']],
   ];
 
+  $schema['brebo_data_intake_decision'] = [
+    'description' => 'Immutable audit trail of human decisions on source-neutral intake records.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'record_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'action' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'previous_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'new_status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
+      'classification' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
+      'canonical' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'note' => ['type' => 'text', 'size' => 'normal', 'not null' => FALSE],
+      'actor_uid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'created' => $created,
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'record_created' => ['record_id', 'created'],
+      'actor_created' => ['actor_uid', 'created'],
+    ],
+  ];
+
   return $schema;
 }
 
@@ -170,4 +191,16 @@ function brebo_data_intake_update_11002(): string {
   return $granted
     ? 'BREBO Office intake review permission granted to: ' . implode(', ', $granted) . '.'
     : 'No operational BREBO staff roles were present; intake review permission was not broadened.';
+}
+
+/** Adds the immutable audit table for human intake review decisions. */
+function brebo_data_intake_update_11003(): string {
+  $database_schema = \Drupal::database()->schema();
+  if ($database_schema->tableExists('brebo_data_intake_decision')) {
+    return 'BREBO intake decision audit table already exists.';
+  }
+
+  $definition = brebo_data_intake_schema()['brebo_data_intake_decision'];
+  $database_schema->createTable('brebo_data_intake_decision', $definition);
+  return 'BREBO intake decision audit table created.';
 }
