@@ -1,0 +1,23 @@
+# BREBO Measure API v0.1 examples
+# Replace IDs with values from BREBO Office.
+
+GET https://example.invalid/brebo-office/api/measure/openings/1
+Accept: application/json
+
+###
+POST https://example.invalid/brebo-office/api/measure/openings/1/assignments
+Content-Type: application/json
+
+{"requirements":{"reference_side":"inside","control_dimensions_required":true}}
+
+###
+POST https://example.invalid/brebo-office/api/measure/assignments/1/captures
+Content-Type: application/json
+
+{"source_type":"apple_lidar","device_model":"iPhone Pro","software_version":"measure-ios/0.1","geometry":{},"quality":{}}
+
+###
+POST https://example.invalid/brebo-office/api/measure/captures/1/observations
+Content-Type: application/json
+
+{"key":"opening.width.middle","provenance":"measured","method":"lidar","value":{"value":1843,"unit":"mm"},"confidence":0.92,"uncertainty_mm":2.0}
