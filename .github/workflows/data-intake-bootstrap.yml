@@ -65,23 +65,17 @@ jobs:
           remote_php="/opt/alt/php83/usr/bin/php"
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          deployed_sha="$(git rev-parse HEAD 2>/dev/null || true)"
-          if [[ -n "$deployed_sha" ]]; then
-            [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || {
-              echo "::error::Production revision $deployed_sha does not match expected deploy $EXPECTED_DEPLOY_SHA."
-              exit 1
-            }
-          else
-            marker="$app/.brebo-deployed-sha"
-            [[ -f "$marker" ]] || {
-              echo "::error::Production has no git metadata or deployment SHA marker."
-              exit 1
-            }
-            [[ "$(tr -d '\r\n' < "$marker")" == "$EXPECTED_DEPLOY_SHA" ]] || {
-              echo "::error::Production deployment marker does not match expected deploy $EXPECTED_DEPLOY_SHA."
-              exit 1
-            }
-          fi
+          marker="$app/.brebo-deployed-sha"
+          [[ -f "$marker" ]] || {
+            echo "::error::Production has no deployment SHA marker."
+            exit 1
+          }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || {
+            echo "::error::Production deployment marker $deployed_sha does not match expected deploy $EXPECTED_DEPLOY_SHA."
+            exit 1
+          }
+          echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
 
           $remote_php -r 'require "web/autoload.php";'
           "${drush[@]}" php:eval '
