@@ -13,3 +13,12 @@ brebo_data_intake.review:
     _title: 'Intakewerkbank'
   requirements:
     _permission: 'review brebo office intake'
+
+brebo_data_intake.review_decision:
+  path: '/brebo-office/intake/{record}/review'
+  defaults:
+    _form: '\Drupal\brebo_data_intake\Form\IntakeReviewDecisionForm'
+    _title: 'Intake beoordelen'
+  requirements:
+    _permission: 'review brebo office intake'
+    record: '\d+'

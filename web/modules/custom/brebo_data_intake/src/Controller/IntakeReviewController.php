@@ -7,6 +7,7 @@ namespace Drupal\brebo_data_intake\Controller;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Url;
 use Drupal\brebo_data_intake\Service\IntakeReviewRepository;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -74,7 +75,14 @@ final class IntakeReviewController extends ControllerBase {
           $subject !== '' ? $subject : $this->t('Zonder omschrijving'),
           $classification !== '' ? $classification : $this->t('Nog te bepalen'),
           $project !== '' ? $project : $this->t('Nog te koppelen'),
-          $this->t('Controleren'),
+          [
+            'data' => [
+              '#type' => 'link',
+              '#title' => $this->t('Beoordelen'),
+              '#url' => Url::fromRoute('brebo_data_intake.review_decision', ['record' => (int) $record['id']]),
+              '#attributes' => ['class' => ['button', 'button--small']],
+            ],
+          ],
         ],
       ];
     }
@@ -91,7 +99,7 @@ final class IntakeReviewController extends ControllerBase {
           $this->t('Wat is binnengekomen'),
           $this->t('Office denkt'),
           $this->t('Hoort bij'),
-          $this->t('Wat moet ik doen?'),
+          $this->t('Actie'),
         ],
         '#rows' => $rows,
         '#empty' => $this->t('Mooi: er staat niets te wachten op menselijke controle.'),

@@ -25,3 +25,11 @@ services:
   brebo_data_intake.review_repository:
     class: Drupal\brebo_data_intake\Service\IntakeReviewRepository
     arguments: ['@database']
+
+  brebo_data_intake.decision_manager:
+    class: Drupal\brebo_data_intake\Service\IntakeDecisionManager
+    arguments:
+      - '@database'
+      - '@datetime.time'
+      - '@lock'
+      - !tagged_iterator brebo_data_intake.destination
