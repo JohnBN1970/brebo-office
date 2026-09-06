@@ -118,12 +118,12 @@ function brebo_data_intake_schema(): array {
 
 /** Implements hook_install(). */
 function brebo_data_intake_install(): void {
-  _brebo_data_intake_grant_submission_permission();
+  _brebo_data_intake_grant_operational_permissions();
 }
 
-/** Grants manual central-intake submission to operational staff roles. */
-function _brebo_data_intake_grant_submission_permission(): array {
-  $permission = 'submit brebo office intake';
+/** Grants central-intake permissions to operational staff roles. */
+function _brebo_data_intake_grant_operational_permissions(): array {
+  $permissions = ['submit brebo office intake', 'review brebo office intake'];
   $granted = [];
 
   foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
@@ -131,22 +131,32 @@ function _brebo_data_intake_grant_submission_permission(): array {
     if ($role === NULL) {
       continue;
     }
-    if (!$role->hasPermission($permission)) {
-      $role->grantPermission($permission)->save();
+    foreach ($permissions as $permission) {
+      if (!$role->hasPermission($permission)) {
+        $role->grantPermission($permission);
+      }
     }
+    $role->save();
     $granted[] = (string) $role->label();
   }
 
   return $granted;
 }
 
-/**
- * Grants manual central-intake submission only to operational staff roles.
- */
+/** Grants manual central-intake submission only to operational staff roles. */
 function brebo_data_intake_update_11001(): string {
-  $granted = _brebo_data_intake_grant_submission_permission();
+  $granted = _brebo_data_intake_grant_operational_permissions();
 
   return $granted
     ? 'BREBO Office intake permission granted to: ' . implode(', ', $granted) . '.'
     : 'No operational BREBO staff roles were present; intake permission was not broadened.';
+}
+
+/** Grants access to the central intake review workbench. */
+function brebo_data_intake_update_11002(): string {
+  $granted = _brebo_data_intake_grant_operational_permissions();
+
+  return $granted
+    ? 'BREBO Office intake review permission granted to: ' . implode(', ', $granted) . '.'
+    : 'No operational BREBO staff roles were present; intake review permission was not broadened.';
 }
