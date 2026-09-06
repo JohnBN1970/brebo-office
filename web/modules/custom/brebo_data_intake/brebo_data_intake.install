@@ -123,7 +123,14 @@ function brebo_data_intake_install(): void {
 
 /** Grants central-intake permissions to operational staff roles. */
 function _brebo_data_intake_grant_operational_permissions(): array {
-  $permissions = ['submit brebo office intake', 'review brebo office intake'];
+  return _brebo_data_intake_grant_permissions([
+    'submit brebo office intake',
+    'review brebo office intake',
+  ]);
+}
+
+/** Grants only the requested intake permissions to operational staff roles. */
+function _brebo_data_intake_grant_permissions(array $permissions): array {
   $granted = [];
 
   foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
@@ -131,12 +138,16 @@ function _brebo_data_intake_grant_operational_permissions(): array {
     if ($role === NULL) {
       continue;
     }
+    $changed = FALSE;
     foreach ($permissions as $permission) {
       if (!$role->hasPermission($permission)) {
         $role->grantPermission($permission);
+        $changed = TRUE;
       }
     }
-    $role->save();
+    if ($changed) {
+      $role->save();
+    }
     $granted[] = (string) $role->label();
   }
 
@@ -145,7 +156,7 @@ function _brebo_data_intake_grant_operational_permissions(): array {
 
 /** Grants manual central-intake submission only to operational staff roles. */
 function brebo_data_intake_update_11001(): string {
-  $granted = _brebo_data_intake_grant_operational_permissions();
+  $granted = _brebo_data_intake_grant_permissions(['submit brebo office intake']);
 
   return $granted
     ? 'BREBO Office intake permission granted to: ' . implode(', ', $granted) . '.'
@@ -154,7 +165,7 @@ function brebo_data_intake_update_11001(): string {
 
 /** Grants access to the central intake review workbench. */
 function brebo_data_intake_update_11002(): string {
-  $granted = _brebo_data_intake_grant_operational_permissions();
+  $granted = _brebo_data_intake_grant_permissions(['review brebo office intake']);
 
   return $granted
     ? 'BREBO Office intake review permission granted to: ' . implode(', ', $granted) . '.'
