@@ -23,4 +23,12 @@ targets:
         INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
     scheme:
-      testTargets: []
+      testTargets:
+        - BreboMeasurePOCTests
+  BreboMeasurePOCTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - Tests
+    dependencies:
+      - target: BreboMeasurePOC
