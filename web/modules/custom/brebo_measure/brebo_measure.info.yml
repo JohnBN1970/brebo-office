@@ -1,0 +1,8 @@
+name: 'BREBO Measure'
+type: module
+description: 'Canonical opening and measurement domain for BREBO Office.'
+package: BREBO Office
+core_version_requirement: ^11
+dependencies:
+  - brebo_office_core:brebo_office_core
+  - brebo_building_data:brebo_building_data
