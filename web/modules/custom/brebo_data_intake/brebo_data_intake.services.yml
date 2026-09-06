@@ -25,6 +25,14 @@ services:
     arguments:
       - !tagged_iterator brebo_data_intake.enricher
 
+  brebo_data_intake.local_pdf_text_enricher:
+    class: Drupal\brebo_data_intake\Service\LocalPdfTextEnricher
+    arguments:
+      - '@entity_type.manager'
+      - '@file_system'
+    tags:
+      - { name: brebo_data_intake.enricher, priority: 200 }
+
   brebo_data_intake.purchase_invoice_text_enricher:
     class: Drupal\brebo_data_intake\Service\PurchaseInvoiceTextEnricher
     tags:
