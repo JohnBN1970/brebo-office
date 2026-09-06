@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
+use Drupal\brebo_data_intake\ValueObject\IntakeDestinationResult;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 
@@ -20,9 +21,9 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
     return in_array($classification, ['purchase_invoice', 'supplier_invoice'], TRUE);
   }
 
-  public function route(array $envelope): array {
+  public function route(array $envelope): IntakeDestinationResult {
     if (!$this->database->schema()->tableExists('brebo_finance_purchase_invoice')) {
-      return ['state' => 'finance_unavailable'];
+      return new IntakeDestinationResult(IntakeDestinationResult::UNAVAILABLE, 'finance_unavailable');
     }
 
     $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : [];
@@ -36,10 +37,10 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
     $amountIncVat = $this->number($payload['amount_inc_vat'] ?? NULL);
 
     if ($supplierRef === '' || $invoiceNumber === '' || $invoiceDate === '' || $amountExVat === NULL || $vatAmount === NULL || $amountIncVat === NULL) {
-      return ['state' => 'review_required', 'reason' => 'required_purchase_invoice_fields_missing'];
+      return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'required_purchase_invoice_fields_missing');
     }
     if (abs(($amountExVat + $vatAmount) - $amountIncVat) > 0.03) {
-      return ['state' => 'review_required', 'reason' => 'purchase_invoice_amounts_not_balanced'];
+      return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'purchase_invoice_amounts_not_balanced');
     }
 
     $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
@@ -49,10 +50,10 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       ->execute()
       ->fetchCol();
     if (count($existing) === 1) {
-      return ['state' => 'duplicate', 'invoice_id' => (int) $existing[0]];
+      return new IntakeDestinationResult(IntakeDestinationResult::DUPLICATE, context: ['invoice_id' => (int) $existing[0]]);
     }
     if (count($existing) > 1) {
-      return ['state' => 'review_required', 'reason' => 'ambiguous_existing_supplier_invoice'];
+      return new IntakeDestinationResult(IntakeDestinationResult::REVIEW_REQUIRED, 'ambiguous_existing_supplier_invoice');
     }
 
     $projectNid = $this->validProjectNid((int) ($envelope['canonical']['project_nid'] ?? 0));
@@ -104,7 +105,7 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
       ])->execute();
     }
 
-    return ['state' => 'created', 'invoice_id' => $invoiceId, 'project_nid' => $projectNid];
+    return new IntakeDestinationResult(IntakeDestinationResult::CREATED, context: ['invoice_id' => $invoiceId, 'project_nid' => $projectNid]);
   }
 
   private function validProjectNid(int $projectNid): int {
