@@ -1,0 +1,4 @@
+services:
+  brebo_measure.repository:
+    class: Drupal\brebo_measure\Service\MeasureRepository
+    arguments: ['@database', '@brebo_building_data.object_repository', '@datetime.time']
