@@ -4,7 +4,7 @@ import { publicProjects } from "./public-projects";
 const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
 
 export default {
-  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/v1/public/projects") {
@@ -12,11 +12,12 @@ export default {
     }
 
     const detail = PUBLIC_PROJECT_DETAIL.exec(url.pathname);
-    if (detail) {
-      return publicProjects(request, env, decodeURIComponent(detail[1]));
+    const encodedPublicId = detail?.[1];
+    if (encodedPublicId !== undefined) {
+      return publicProjects(request, env, decodeURIComponent(encodedPublicId));
     }
 
-    return core.fetch(request, env, ctx);
+    return core.fetch(request, env);
   },
 } satisfies ExportedHandler<Env>;
 

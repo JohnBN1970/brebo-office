@@ -75,16 +75,20 @@ export async function getBookedActivities(iban: string, env: Env, dateFrom?: str
     const row = entry as Record<string, unknown>;
     const transactionId = String(row.transactionId ?? row.id ?? "").trim();
     if (!transactionId) return [];
+    const bookDate = row.bookDate ? String(row.bookDate) : "";
+    const transactionTimestamp = row.transactionTimestamp ? String(row.transactionTimestamp) : "";
+    const counterpartyAccountNumber = row.counterPartyAccountNumber ? String(row.counterPartyAccountNumber) : "";
+    const counterpartyName = row.counterPartyName ? String(row.counterPartyName) : "";
     return [{
       transaction_id: transactionId,
       account_number: account,
       amount: Number(row.amount ?? 0),
       currency: String(row.currency ?? "EUR"),
       status: String(row.status ?? "UNKNOWN"),
-      book_date: row.bookDate ? String(row.bookDate) : undefined,
-      transaction_timestamp: row.transactionTimestamp ? String(row.transactionTimestamp) : undefined,
-      counterparty_account_number: row.counterPartyAccountNumber ? String(row.counterPartyAccountNumber) : undefined,
-      counterparty_name: row.counterPartyName ? String(row.counterPartyName) : undefined,
+      ...(bookDate ? { book_date: bookDate } : {}),
+      ...(transactionTimestamp ? { transaction_timestamp: transactionTimestamp } : {}),
+      ...(counterpartyAccountNumber ? { counterparty_account_number: counterpartyAccountNumber } : {}),
+      ...(counterpartyName ? { counterparty_name: counterpartyName } : {}),
       description_lines: Array.isArray(row.descriptionLines) ? row.descriptionLines.map(String) : [],
     }];
   });
