@@ -166,10 +166,14 @@ jobs:
           test -f "$staging/web/modules/custom/brebo_project_publication/brebo_project_publication.info.yml"
           test -f "$staging/web/modules/custom/brebo_data_intake/brebo_data_intake.info.yml"
           test -s "$staging/.brebo-deployed-sha"
+          release_sha="$(tr -d '\r\n' < "$staging/.brebo-deployed-sha")"
+          [[ "$release_sha" =~ ^[0-9a-f]{40}$ ]] || { echo "::error::Invalid release SHA in deployment archive."; exit 1; }
           command -v rsync >/dev/null 2>&1 || { echo "::error::rsync is required for authoritative production deployment."; exit 1; }
 
+          rm -f "$app/.brebo-deployed-sha" "$app/.brebo-deployed-sha.tmp"
           rsync -a --delete \
             --exclude='.git/' \
+            --exclude='.brebo-deployed-sha' \
             --exclude='web/sites/default/files/' \
             --exclude='web/sites/default/settings.php' \
             --exclude='web/sites/default/settings.local.php' \
@@ -293,6 +297,15 @@ jobs:
           test -d config/sync
           tar -czf "$config_archive" config/sync
           echo "CONFIG_EXPORT_OK=1"
+
+          marker_tmp="$app/.brebo-deployed-sha.tmp"
+          marker="$app/.brebo-deployed-sha"
+          printf '%s\n' "$release_sha" > "$marker_tmp"
+          chmod 644 "$marker_tmp"
+          mv -f "$marker_tmp" "$marker"
+          [[ "$(tr -d '\r\n' < "$marker")" == "$release_sha" ]]
+          echo "DEPLOYMENT_MARKER_OK=$release_sha"
+
           echo "DEPLOY_OK=1"
           echo "APP_ROOT=$app"
           echo "DRUPAL_WEBROOT=$webroot"
