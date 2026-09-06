@@ -5,3 +5,11 @@ brebo_data_intake.upload:
     _title: 'Nieuwe intake'
   requirements:
     _permission: 'submit brebo office intake'
+
+brebo_data_intake.review:
+  path: '/brebo-office/intake'
+  defaults:
+    _controller: '\Drupal\brebo_data_intake\Controller\IntakeReviewController::overview'
+    _title: 'Intakewerkbank'
+  requirements:
+    _permission: 'review brebo office intake'
