@@ -2,3 +2,8 @@ submit brebo office intake:
   title: 'BREBO Office intake indienen'
   description: 'Handmatig bronbestanden aan de centrale BREBO-intake aanbieden.'
   restrict access: true
+
+review brebo office intake:
+  title: 'BREBO Office intake beoordelen'
+  description: 'Items in de centrale intakewerkbank bekijken en beoordelen.'
+  restrict access: true
