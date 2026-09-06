@@ -4,117 +4,10 @@ declare(strict_types=1);
 
 use Drupal\user\Entity\Role;
 
-/** @file Schema for BREBO-wide data intake and masterdata staging. */
-
-/** Implements hook_schema(). */
-function brebo_data_intake_schema(): array {
-  $created = ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0];
-  $schema = [];
-
-  $schema['brebo_data_source'] = [
-    'description' => 'Registered external or internal source feeding BREBO data intake.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'source_key' => ['type' => 'varchar_ascii', 'length' => 96, 'not null' => TRUE],
-      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
-      'source_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
-      'provider_key' => ['type' => 'varchar_ascii', 'length' => 96, 'not null' => TRUE],
-      'config_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'active' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
-      'created' => $created,
-      'changed' => $created,
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['source_key' => ['source_key']],
-    'indexes' => ['provider_active' => ['provider_key', 'active']],
-  ];
-
-  $schema['brebo_data_ingest_run'] = [
-    'description' => 'Auditable execution of one data-intake source.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'trigger_type' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE],
-      'source_reference' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
-      'source_hash' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
-      'status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'processing'],
-      'started' => $created,
-      'finished' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'record_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'accepted_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'rejected_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'error_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'metadata' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-    ],
-    'primary key' => ['id'],
-    'indexes' => ['source_status' => ['source_id', 'status'], 'source_hash' => ['source_hash']],
-  ];
-
-  $schema['brebo_data_record'] = [
-    'description' => 'Normalized, source-traceable record produced by a provider.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'run_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'record_type' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'external_key' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'source_reference' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
-      'content_hash' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'normalized'],
-      'confidence' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => FALSE],
-      'created' => $created,
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['run_record_hash' => ['run_id', 'content_hash']],
-    'indexes' => ['run_type' => ['run_id', 'record_type'], 'status' => ['status']],
-  ];
-
-  $schema['brebo_classification_term'] = [
-    'description' => 'Versioned classification terms such as NLBE-SfB, independent of consumers.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'system_key' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'source_version' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'label' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
-      'parent_code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-      'level' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-      'valid_from' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
-      'valid_until' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
-      'active' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
-      'source_record_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => $created,
-      'changed' => $created,
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['system_version_code' => ['system_key', 'source_version', 'code']],
-    'indexes' => ['system_active' => ['system_key', 'active'], 'parent' => ['system_key', 'source_version', 'parent_code']],
-  ];
-
-  $schema['brebo_masterdata_candidate'] = [
-    'description' => 'Reviewable proposal to map normalized records to BREBO masterdata.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
-      'record_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'candidate_type' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'fingerprint' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => TRUE],
-      'matched_entity_type' => ['type' => 'varchar_ascii', 'length' => 64, 'not null' => FALSE],
-      'matched_entity_id' => ['type' => 'varchar_ascii', 'length' => 128, 'not null' => FALSE],
-      'confidence' => ['type' => 'numeric', 'precision' => 7, 'scale' => 4, 'not null' => FALSE],
-      'status' => ['type' => 'varchar_ascii', 'length' => 32, 'not null' => TRUE, 'default' => 'proposed'],
-      'payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'reviewed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'reviewed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'created' => $created,
-      'changed' => $created,
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['record_candidate' => ['record_id', 'candidate_type', 'fingerprint']],
-    'indexes' => ['candidate_status' => ['candidate_type', 'status'], 'match' => ['matched_entity_type', 'matched_entity_id']],
-  ];
-
-  return $schema;
-}
+/**
+ * @file
+ * Install and update hooks for BREBO Data Intake.
+ */
 
 /** Implements hook_install(). */
 function brebo_data_intake_install(): void {
@@ -123,7 +16,14 @@ function brebo_data_intake_install(): void {
 
 /** Grants central-intake permissions to operational staff roles. */
 function _brebo_data_intake_grant_operational_permissions(): array {
-  $permissions = ['submit brebo office intake', 'review brebo office intake'];
+  return _brebo_data_intake_grant_permissions([
+    'submit brebo office intake',
+    'review brebo office intake',
+  ]);
+}
+
+/** Grants only the requested intake permissions to operational staff roles. */
+function _brebo_data_intake_grant_permissions(array $permissions): array {
   $granted = [];
 
   foreach (['brebo_projectleider', 'brebo_werkvoorbereider'] as $role_id) {
@@ -131,12 +31,16 @@ function _brebo_data_intake_grant_operational_permissions(): array {
     if ($role === NULL) {
       continue;
     }
+    $changed = FALSE;
     foreach ($permissions as $permission) {
       if (!$role->hasPermission($permission)) {
         $role->grantPermission($permission);
+        $changed = TRUE;
       }
     }
-    $role->save();
+    if ($changed) {
+      $role->save();
+    }
     $granted[] = (string) $role->label();
   }
 
@@ -145,7 +49,7 @@ function _brebo_data_intake_grant_operational_permissions(): array {
 
 /** Grants manual central-intake submission only to operational staff roles. */
 function brebo_data_intake_update_11001(): string {
-  $granted = _brebo_data_intake_grant_operational_permissions();
+  $granted = _brebo_data_intake_grant_permissions(['submit brebo office intake']);
 
   return $granted
     ? 'BREBO Office intake permission granted to: ' . implode(', ', $granted) . '.'
@@ -154,7 +58,7 @@ function brebo_data_intake_update_11001(): string {
 
 /** Grants access to the central intake review workbench. */
 function brebo_data_intake_update_11002(): string {
-  $granted = _brebo_data_intake_grant_operational_permissions();
+  $granted = _brebo_data_intake_grant_permissions(['review brebo office intake']);
 
   return $granted
     ? 'BREBO Office intake review permission granted to: ' . implode(', ', $granted) . '.'
