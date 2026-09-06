@@ -20,7 +20,7 @@ final class IntakeReviewController extends ControllerBase {
     private readonly IntakeReviewRepository $reviews,
     private readonly DateFormatterInterface $dateFormatter,
     private readonly RequestStack $requestStack,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $intakeEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -49,7 +49,7 @@ final class IntakeReviewController extends ControllerBase {
       $project = trim((string) ($payload['project_label'] ?? $payload['project_name'] ?? $canonical['project_label'] ?? $canonical['project_name'] ?? ''));
       $projectNid = (int) ($canonical['project_nid'] ?? 0);
       if ($project === '' && $projectNid > 0) {
-        $node = $this->entityTypeManager->getStorage('node')->load($projectNid);
+        $node = $this->intakeEntityTypeManager->getStorage('node')->load($projectNid);
         if ($node !== NULL && $node->bundle() === 'brebo_project') {
           $project = (string) $node->label();
         }
