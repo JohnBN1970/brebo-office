@@ -21,3 +21,7 @@ services:
       - !tagged_iterator brebo_data_intake.destination
       - '@brebo_data_intake.ingest_manager'
       - '@lock'
+
+  brebo_data_intake.review_repository:
+    class: Drupal\brebo_data_intake\Service\IntakeReviewRepository
+    arguments: ['@database']
