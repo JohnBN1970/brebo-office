@@ -24,6 +24,7 @@ final class DataIngestManager {
       throw new \InvalidArgumentException('Data source requires key, label, type and provider.');
     }
     $now = $this->time->getRequestTime();
+    $sourceKey = mb_substr($sourceKey, 0, 96);
     $fields = [
       'label' => mb_substr($label, 0, 255),
       'source_type' => mb_substr($sourceType, 0, 32),
@@ -33,9 +34,9 @@ final class DataIngestManager {
       'changed' => $now,
     ];
     $this->database->merge('brebo_data_source')
-      ->keys(['source_key' => mb_substr($sourceKey, 0, 96)])
+      ->keys(['source_key' => $sourceKey])
       ->fields($fields)
-      ->insertFields(['created' => $now] + $fields)
+      ->insertFields(['source_key' => $sourceKey, 'created' => $now] + $fields)
       ->execute();
     return (int) $this->database->select('brebo_data_source', 's')->fields('s', ['id'])->condition('source_key', $sourceKey)->execute()->fetchField();
   }
