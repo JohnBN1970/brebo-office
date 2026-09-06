@@ -12,11 +12,14 @@ final class IntakeReviewRepository {
   public function __construct(private readonly Connection $database) {}
 
   /**
-   * Returns pending records with their source provenance.
+   * Returns one page of pending records with their source provenance.
    *
    * @return array<int,array<string,mixed>>
    */
-  public function pending(int $limit = 50): array {
+  public function pending(int $page = 0, int $limit = 50): array {
+    $limit = max(1, min(200, $limit));
+    $page = max(0, $page);
+
     $query = $this->database->select('brebo_data_record', 'record');
     $query->innerJoin('brebo_data_ingest_run', 'run', 'run.id = record.run_id');
     $query->innerJoin('brebo_data_source', 'source', 'source.id = run.source_id');
@@ -26,7 +29,8 @@ final class IntakeReviewRepository {
     $query->addField('source', 'provider_key', 'provider_key');
     $query->condition('record.status', 'review_required');
     $query->orderBy('record.created', 'ASC');
-    $query->range(0, max(1, min(200, $limit)));
+    $query->orderBy('record.id', 'ASC');
+    $query->range($page * $limit, $limit);
 
     return array_map(static function (object $row): array {
       $values = (array) $row;
@@ -38,6 +42,15 @@ final class IntakeReviewRepository {
       }
       return $values;
     }, $query->execute()->fetchAll());
+  }
+
+  /** Returns the number of records still requiring review. */
+  public function pendingCount(): int {
+    return (int) $this->database->select('brebo_data_record', 'record')
+      ->condition('record.status', 'review_required')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
   }
 
 }
