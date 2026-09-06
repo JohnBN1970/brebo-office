@@ -110,7 +110,9 @@ jobs:
             --exclude='.env.*' \
             -czf /tmp/brebo-office-develop.tgz .
           test -s /tmp/brebo-office-develop.tgz
-          tar -tzf /tmp/brebo-office-develop.tgz | grep -Eq '^\./\.brebo-deployed-sha$'
+          tar -tzf /tmp/brebo-office-develop.tgz > /tmp/brebo-office-develop.list
+          grep -Eq '^\./\.brebo-deployed-sha$' /tmp/brebo-office-develop.list
+          rm -f /tmp/brebo-office-develop.list
 
       - name: Upload deployment archive
         shell: bash
