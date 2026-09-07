@@ -12,11 +12,14 @@ const MAX_REQUEST_BYTES = MAX_DOCUMENT_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
 type ExtractionEnv = Env & {
   AI: {
     toMarkdown(
-      input: { name: string; blob: Blob },
+      input: Array<{ name: string; blob: Blob }>,
       options?: Record<string, unknown>,
     ): Promise<unknown>;
   };
   DOCUMENT_EXTRACTION_TOKEN?: string;
+  EXTRACTION_RATE_WINDOW_SECONDS?: string;
+  MAX_EXTRACTIONS_PER_WINDOW?: string;
+  MONTHLY_EXTRACTION_BUDGET?: string;
 };
 
 type ConversionResult = {
@@ -27,12 +30,13 @@ type ConversionResult = {
   error?: string;
 };
 
-function json(body: unknown, status = 200): Response {
+function json(body: unknown, status = 200, headers?: HeadersInit): Response {
   return Response.json(body, {
     status,
     headers: {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
+      ...headers,
     },
   });
 }
@@ -48,6 +52,11 @@ function boundedContentLength(request: Request): number | null {
   if (raw === null || !/^\d+$/.test(raw)) return null;
   const value = Number(raw);
   return Number.isSafeInteger(value) ? value : null;
+}
+
+function positiveIntegerSetting(value: string | undefined, fallback: number): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 }
 
 export async function documentExtraction(request: Request, env: ExtractionEnv): Promise<Response> {
@@ -96,10 +105,28 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "unsupported_mime_type" }, 415);
   }
 
+  const now = Math.floor(Date.now() / 1_000);
+  const rateWindowSeconds = positiveIntegerSetting(env.EXTRACTION_RATE_WINDOW_SECONDS, 60);
+  const usage = env.USAGE_GUARD.getByName("document-extraction");
+  const usageDecision = await usage.reserve(
+    now,
+    rateWindowSeconds,
+    positiveIntegerSetting(env.MAX_EXTRACTIONS_PER_WINDOW, 10),
+    new Date(now * 1_000).toISOString().slice(0, 7),
+    1,
+    positiveIntegerSetting(env.MONTHLY_EXTRACTION_BUDGET, 5_000),
+  );
+  if (usageDecision === "rate_limited") {
+    return json({ status: "rate_limited" }, 429, { "Retry-After": String(rateWindowSeconds) });
+  }
+  if (usageDecision === "budget_exhausted") {
+    return json({ status: "budget_exhausted" }, 429);
+  }
+
   let converted: unknown;
   try {
     converted = await env.AI.toMarkdown(
-      { name: document.name || "document", blob: document },
+      [{ name: document.name || "document", blob: document }],
       {
         conversionOptions: {
           output: { format: "text" },
