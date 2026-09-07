@@ -28,7 +28,7 @@ final class OriginalInvoiceRouteSubscriber extends RouteSubscriberBase {
       ['no_cache' => TRUE],
       '',
       [],
-      ['GET'],
+      ['GET', 'HEAD'],
     ));
   }
 
