@@ -6,6 +6,8 @@ const SUPPORTED_MIME_TYPES = new Set([
 ]);
 
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+const MAX_MULTIPART_OVERHEAD_BYTES = 64 * 1024;
+const MAX_REQUEST_BYTES = MAX_DOCUMENT_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
 
 type ExtractionEnv = Env & {
   AI: {
@@ -41,6 +43,13 @@ function authorized(request: Request, env: ExtractionEnv): boolean {
   return request.headers.get("Authorization") === `Bearer ${token}`;
 }
 
+function boundedContentLength(request: Request): number | null {
+  const raw = request.headers.get("Content-Length");
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const value = Number(raw);
+  return Number.isSafeInteger(value) ? value : null;
+}
+
 export async function documentExtraction(request: Request, env: ExtractionEnv): Promise<Response> {
   if (request.method !== "POST") {
     return json({ status: "method_not_allowed" }, 405);
@@ -52,8 +61,14 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "unsupported_contract" }, 400);
   }
 
-  const contentLength = Number(request.headers.get("Content-Length") ?? "0");
-  if (Number.isFinite(contentLength) && contentLength > MAX_DOCUMENT_BYTES + 64 * 1024) {
+  const contentLength = boundedContentLength(request);
+  if (contentLength === null) {
+    return json({ status: "content_length_required" }, 411);
+  }
+  if (contentLength === 0) {
+    return json({ status: "document_required" }, 400);
+  }
+  if (contentLength > MAX_REQUEST_BYTES) {
     return json({ status: "document_too_large" }, 413);
   }
 
@@ -64,10 +79,14 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "invalid_multipart" }, 400);
   }
 
-  const document = form.get("document");
-  if (!(document instanceof File)) {
+  if ([...form.keys()].some((key) => key !== "document")) {
+    return json({ status: "unexpected_multipart_field" }, 400);
+  }
+  const documents = form.getAll("document");
+  if (documents.length !== 1 || !(documents[0] instanceof File)) {
     return json({ status: "document_required" }, 400);
   }
+  const document = documents[0];
   if (document.size === 0 || document.size > MAX_DOCUMENT_BYTES) {
     return json({ status: document.size === 0 ? "document_empty" : "document_too_large" }, document.size === 0 ? 400 : 413);
   }
@@ -101,8 +120,11 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
   if (first.format === "error" || first.error) {
     return json({ status: "extraction_failed" }, 422);
   }
+  if (first.format !== "text" || typeof first.data !== "string") {
+    return json({ status: "invalid_extraction_result" }, 502);
+  }
 
-  const text = typeof first.data === "string" ? first.data.trim() : "";
+  const text = first.data.trim();
   return json({
     status: text === "" ? "no_text" : "extracted",
     text,
