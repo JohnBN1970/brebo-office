@@ -1,0 +1,104 @@
+name: BREBO Intake Document Runtime Preflight
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office Production'
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-intake-document-runtime-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Verify document extraction runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo '=== BREBO intake document runtime preflight ==='
+          [[ -x "$remote_php" ]] || { echo 'PHP83_MISSING=1'; exit 20; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalPdfTextEnricher.php ]] || { echo 'LOCAL_PDF_ENRICHER_DEPLOYED=0'; exit 21; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalOcrTextEnricher.php ]] || { echo 'LOCAL_OCR_ENRICHER_DEPLOYED=0'; exit 22; }
+          echo 'LOCAL_PDF_ENRICHER_DEPLOYED=1'
+          echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
+
+          echo '=== Runtime binaries ==='
+          for bin in pdftotext pdftoppm tesseract; do
+            path=$(command -v "$bin" || true)
+            if [[ -z "$path" ]]; then
+              echo "${bin^^}_AVAILABLE=0"
+            else
+              echo "${bin^^}_AVAILABLE=1"
+              echo "${bin^^}_PATH=$path"
+            fi
+          done
+
+          pdftotext_path=$(command -v pdftotext || true)
+          pdftoppm_path=$(command -v pdftoppm || true)
+          tesseract_path=$(command -v tesseract || true)
+          [[ -n "$pdftotext_path" ]] || { echo 'Embedded PDF text extraction cannot run on production.'; exit 30; }
+          [[ -n "$tesseract_path" ]] || { echo 'OCR cannot run on production.'; exit 31; }
+          [[ -n "$pdftoppm_path" ]] || { echo 'Image-only PDF OCR cannot run on production.'; exit 32; }
+
+          echo '=== Tesseract languages ==='
+          langs=$("$tesseract_path" --list-langs 2>/dev/null || true)
+          printf '%s\n' "$langs"
+          if printf '%s\n' "$langs" | grep -qx nld; then
+            echo 'TESSERACT_NLD_AVAILABLE=1'
+          else
+            echo 'TESSERACT_NLD_AVAILABLE=0'
+          fi
+          if printf '%s\n' "$langs" | grep -qx eng; then
+            echo 'TESSERACT_ENG_AVAILABLE=1'
+          else
+            echo 'TESSERACT_ENG_AVAILABLE=0'
+          fi
+          if ! printf '%s\n' "$langs" | grep -Eq '^(nld|eng)$'; then
+            echo 'No supported Dutch or English Tesseract language pack is installed.'
+            exit 33
+          fi
+
+          echo '=== Drupal service wiring ==='
+          "${drush[@]}" php:eval '$c=\Drupal::getContainer(); foreach (["brebo_data_intake.local_pdf_text_enricher","brebo_data_intake.local_ocr_text_enricher","brebo_data_intake.purchase_invoice_text_enricher"] as $id) { echo strtoupper(str_replace(["brebo_data_intake.","."],["","_"],$id)) . "=" . ($c->has($id) ? "1" : "0") . "\n"; if (!$c->has($id)) { exit(34); } }'
+
+          echo 'INTAKE_DOCUMENT_RUNTIME_PREFLIGHT=PASS'
+          REMOTE
