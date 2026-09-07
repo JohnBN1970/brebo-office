@@ -32,16 +32,37 @@
         open.target = '_blank';
         open.rel = 'noopener';
         open.textContent = Drupal.t('Origineel openen');
+        open.hidden = true;
         evidenceHeader.appendChild(open);
 
-        const frame = document.createElement('iframe');
-        frame.className = 'brebo-finance-invoice-document';
-        frame.src = open.href;
-        frame.title = Drupal.t('Originele inkoopfactuur');
-        frame.loading = 'eager';
+        const documentBody = document.createElement('div');
+        documentBody.className = 'brebo-finance-invoice-document-unavailable';
+        documentBody.textContent = Drupal.t('Origineel controleren…');
 
         evidence.appendChild(evidenceHeader);
-        evidence.appendChild(frame);
+        evidence.appendChild(documentBody);
+
+        fetch(open.href, {
+          method: 'HEAD',
+          credentials: 'same-origin',
+          cache: 'no-store'
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error('original-unavailable');
+            }
+            const frame = document.createElement('iframe');
+            frame.className = 'brebo-finance-invoice-document';
+            frame.src = open.href;
+            frame.title = Drupal.t('Originele inkoopfactuur');
+            frame.loading = 'eager';
+            documentBody.replaceWith(frame);
+            open.hidden = false;
+          })
+          .catch(() => {
+            documentBody.textContent = Drupal.t('Origineel nog niet beschikbaar voor deze factuur.');
+            open.hidden = true;
+          });
 
         const office = document.createElement('section');
         office.className = 'brebo-finance-invoice-office-panel';
