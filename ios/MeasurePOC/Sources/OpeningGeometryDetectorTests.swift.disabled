@@ -1,0 +1,8 @@
+// Test specification for the next dedicated test target.
+// Kept disabled until the generated project declares that test target.
+//
+// Required cases:
+// - fewer than four planes => insufficientGeometry
+// - four unclassified planes => noOpeningCandidate
+// - only validated classified/intersected boundaries may produce OpeningGeometry
+// - uncertainty above production gate must never yield an approved dimension
