@@ -1,4 +1,5 @@
 import core from "./index";
+import { documentExtraction } from "./document-extraction";
 import { publicProjects } from "./public-projects";
 
 const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
@@ -6,6 +7,10 @@ const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
+
+    if (url.pathname === "/v1/internal/document-extraction") {
+      return documentExtraction(request, env);
+    }
 
     if (url.pathname === "/v1/public/projects") {
       return publicProjects(request, env);
