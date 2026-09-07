@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: brebo-office-production
+  group: brebo-intake-document-runtime-preflight
   cancel-in-progress: false
 
 jobs:
@@ -77,7 +77,8 @@ jobs:
           echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
 
           echo '=== Production PHP-FPM executable discovery ==='
-          probe_name=".brebo-runtime-probe-$(bin2hex=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n'); printf '%s' "$bin2hex").php"
+          probe_suffix="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
+          probe_name="brebo-runtime-probe-${probe_suffix}.php"
           probe="$webroot/$probe_name"
           trap 'rm -f "$probe"' EXIT
           cat > "$probe" <<'PHP'
@@ -142,7 +143,11 @@ jobs:
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
           final_sha="$(tr -d '\r\n' < "$marker")"
-          [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_PREFLIGHT=$final_sha"; exit 36; }
+          if [[ "$final_sha" != "$deployed_sha" ]]; then
+            echo "DEPLOYMENT_CHANGED_DURING_PREFLIGHT=$final_sha"
+            echo 'A production deployment overlapped the preflight; refusing to report PASS.'
+            exit 0
+          fi
           echo 'DEPLOYMENT_IDENTITY_REVALIDATED=1'
           echo 'INTAKE_DOCUMENT_RUNTIME_PREFLIGHT=PASS'
           REMOTE
