@@ -1,0 +1,153 @@
+name: BREBO Intake Document Runtime Preflight
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office Production'
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-intake-document-runtime-preflight
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Verify document extraction runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo '=== BREBO intake document runtime preflight ==='
+          marker="$app/.brebo-deployed-sha"
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 19; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
+          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+            echo 'SUPERSEDED_DEPLOYMENT=1'
+            echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
+            echo 'A newer production release superseded this workflow run; refusing to report PASS for the older release.'
+            exit 0
+          fi
+          echo 'DEPLOYMENT_IDENTITY_OK=1'
+
+          [[ -x "$remote_php" ]] || { echo 'PHP83_MISSING=1'; exit 20; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalPdfTextEnricher.php ]] || { echo 'LOCAL_PDF_ENRICHER_DEPLOYED=0'; exit 21; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalOcrTextEnricher.php ]] || { echo 'LOCAL_OCR_ENRICHER_DEPLOYED=0'; exit 22; }
+          echo 'LOCAL_PDF_ENRICHER_DEPLOYED=1'
+          echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
+
+          echo '=== Production PHP-FPM executable discovery ==='
+          probe_suffix="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
+          probe_name="brebo-runtime-probe-${probe_suffix}.php"
+          probe="$webroot/$probe_name"
+          trap 'rm -f "$probe"' EXIT
+          cat > "$probe" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          require dirname(__DIR__) . '/vendor/autoload.php';
+          use Symfony\Component\Process\ExecutableFinder;
+          use Symfony\Component\Process\Process;
+
+          header('Content-Type: application/json');
+          $finder = new ExecutableFinder();
+          $paths = [];
+          foreach (['pdftotext', 'pdftoppm', 'tesseract'] as $binary) {
+            $paths[$binary] = $finder->find($binary);
+          }
+          $languages = [];
+          $tesseract = $paths['tesseract'] ?? NULL;
+          if (is_string($tesseract) && $tesseract !== '') {
+            $process = new Process([$tesseract, '--list-langs']);
+            $process->setTimeout(5.0);
+            $process->run();
+            if ($process->isSuccessful()) {
+              foreach (preg_split('/\R/u', $process->getOutput()) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '' && !str_starts_with(strtolower($line), 'list of available')) {
+                  $languages[] = $line;
+                }
+              }
+            }
+          }
+          echo json_encode(['paths' => $paths, 'languages' => array_values(array_unique($languages))], JSON_THROW_ON_ERROR);
+          PHP
+          chmod 644 "$probe"
+
+          response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name")"
+          rm -f "$probe"
+          trap - EXIT
+          printf '%s\n' "$response"
+
+          printf '%s' "$response" | "$remote_php" -r '
+            $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+            foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
+              $path = $data["paths"][$binary] ?? null;
+              if (!is_string($path) || $path === "") {
+                fwrite(STDERR, strtoupper($binary) . "_FPM_AVAILABLE=0\n");
+                exit(30);
+              }
+              echo strtoupper($binary) . "_FPM_AVAILABLE=1\n";
+              echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
+            }
+            $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
+            echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
+            echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
+            if (!in_array("nld", $languages, true) && !in_array("eng", $languages, true)) {
+              fwrite(STDERR, "No supported Dutch or English Tesseract language pack is available to PHP-FPM.\n");
+              exit(33);
+            }
+          '
+
+          echo '=== Drupal service wiring ==='
+          "${drush[@]}" php:eval '$c=\Drupal::getContainer(); foreach (["brebo_data_intake.local_pdf_text_enricher","brebo_data_intake.local_ocr_text_enricher","brebo_data_intake.purchase_invoice_text_enricher"] as $id) { echo strtoupper(str_replace(["brebo_data_intake.","."],["","_"],$id)) . "=" . ($c->has($id) ? "1" : "0") . "\n"; if (!$c->has($id)) { exit(34); } }'
+
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
+          final_sha="$(tr -d '\r\n' < "$marker")"
+          if [[ "$final_sha" != "$deployed_sha" ]]; then
+            echo "DEPLOYMENT_CHANGED_DURING_PREFLIGHT=$final_sha"
+            echo 'A production deployment overlapped the preflight; refusing to report PASS.'
+            exit 0
+          fi
+          echo 'DEPLOYMENT_IDENTITY_REVALIDATED=1'
+          echo 'INTAKE_DOCUMENT_RUNTIME_PREFLIGHT=PASS'
+          REMOTE
