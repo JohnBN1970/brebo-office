@@ -34,8 +34,8 @@ services:
     class: Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider
     arguments:
       - '@http_client'
-      - '%env(BREBO_DOCUMENT_EXTRACTION_ENDPOINT)%'
-      - '%env(BREBO_DOCUMENT_EXTRACTION_TOKEN)%'
+      - ''
+      - ''
     tags:
       - { name: brebo_data_intake.document_text_extraction_provider, priority: 100 }
 
