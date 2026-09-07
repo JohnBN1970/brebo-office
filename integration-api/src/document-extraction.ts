@@ -81,6 +81,21 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "document_too_large" }, 413);
   }
 
+  const now = Math.floor(Date.now() / 1_000);
+  const rateWindowSeconds = positiveIntegerSetting(env.EXTRACTION_RATE_WINDOW_SECONDS, 60);
+  const usage = env.USAGE_GUARD.getByName("document-extraction");
+  const requestDecision = await usage.reserve(
+    now,
+    rateWindowSeconds,
+    positiveIntegerSetting(env.MAX_EXTRACTIONS_PER_WINDOW, 10),
+    new Date(now * 1_000).toISOString().slice(0, 7),
+    0,
+    positiveIntegerSetting(env.MONTHLY_EXTRACTION_BUDGET, 5_000),
+  );
+  if (requestDecision === "rate_limited") {
+    return json({ status: "rate_limited" }, 429, { "Retry-After": String(rateWindowSeconds) });
+  }
+
   let form: FormData;
   try {
     form = await request.formData();
@@ -105,21 +120,15 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "unsupported_mime_type" }, 415);
   }
 
-  const now = Math.floor(Date.now() / 1_000);
-  const rateWindowSeconds = positiveIntegerSetting(env.EXTRACTION_RATE_WINDOW_SECONDS, 60);
-  const usage = env.USAGE_GUARD.getByName("document-extraction");
-  const usageDecision = await usage.reserve(
+  const budgetDecision = await usage.reserve(
     now,
     rateWindowSeconds,
-    positiveIntegerSetting(env.MAX_EXTRACTIONS_PER_WINDOW, 10),
+    Number.MAX_SAFE_INTEGER,
     new Date(now * 1_000).toISOString().slice(0, 7),
     1,
     positiveIntegerSetting(env.MONTHLY_EXTRACTION_BUDGET, 5_000),
   );
-  if (usageDecision === "rate_limited") {
-    return json({ status: "rate_limited" }, 429, { "Retry-After": String(rateWindowSeconds) });
-  }
-  if (usageDecision === "budget_exhausted") {
+  if (budgetDecision === "budget_exhausted") {
     return json({ status: "budget_exhausted" }, 429);
   }
 
