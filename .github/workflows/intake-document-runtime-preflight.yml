@@ -25,6 +25,7 @@ jobs:
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
     steps:
       - name: Configure SSH
@@ -45,7 +46,8 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
 
@@ -55,29 +57,36 @@ jobs:
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           echo '=== BREBO intake document runtime preflight ==='
+          marker="$app/.brebo-deployed-sha"
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 19; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
+          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+            echo 'SUPERSEDED_DEPLOYMENT=1'
+            echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
+            echo 'A newer production release superseded this workflow run; refusing to report PASS for the older release.'
+            exit 0
+          fi
+          echo 'DEPLOYMENT_IDENTITY_OK=1'
+
           [[ -x "$remote_php" ]] || { echo 'PHP83_MISSING=1'; exit 20; }
           [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalPdfTextEnricher.php ]] || { echo 'LOCAL_PDF_ENRICHER_DEPLOYED=0'; exit 21; }
           [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalOcrTextEnricher.php ]] || { echo 'LOCAL_OCR_ENRICHER_DEPLOYED=0'; exit 22; }
           echo 'LOCAL_PDF_ENRICHER_DEPLOYED=1'
           echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
 
-          echo '=== Runtime binaries ==='
-          for bin in pdftotext pdftoppm tesseract; do
-            path=$(command -v "$bin" || true)
-            if [[ -z "$path" ]]; then
-              echo "${bin^^}_AVAILABLE=0"
-            else
-              echo "${bin^^}_AVAILABLE=1"
-              echo "${bin^^}_PATH=$path"
-            fi
-          done
-
-          pdftotext_path=$(command -v pdftotext || true)
-          pdftoppm_path=$(command -v pdftoppm || true)
-          tesseract_path=$(command -v tesseract || true)
-          [[ -n "$pdftotext_path" ]] || { echo 'Embedded PDF text extraction cannot run on production.'; exit 30; }
-          [[ -n "$tesseract_path" ]] || { echo 'OCR cannot run on production.'; exit 31; }
-          [[ -n "$pdftoppm_path" ]] || { echo 'Image-only PDF OCR cannot run on production.'; exit 32; }
+          echo '=== Drupal/PHP executable discovery ==='
+          discovery="$("${drush[@]}" php:eval '$finder=new \Symfony\Component\Process\ExecutableFinder(); foreach (["pdftotext","pdftoppm","tesseract"] as $bin) { $path=$finder->find($bin); echo strtoupper($bin) . "_PHP_PATH=" . ($path ?? "") . "\n"; }')"
+          printf '%s\n' "$discovery"
+          pdftotext_path="$(printf '%s\n' "$discovery" | sed -n 's/^PDFTOTEXT_PHP_PATH=//p' | tail -n 1)"
+          pdftoppm_path="$(printf '%s\n' "$discovery" | sed -n 's/^PDFTOPPM_PHP_PATH=//p' | tail -n 1)"
+          tesseract_path="$(printf '%s\n' "$discovery" | sed -n 's/^TESSERACT_PHP_PATH=//p' | tail -n 1)"
+          [[ -n "$pdftotext_path" && -x "$pdftotext_path" ]] || { echo 'PDFTOTEXT_PHP_AVAILABLE=0'; exit 30; }
+          [[ -n "$tesseract_path" && -x "$tesseract_path" ]] || { echo 'TESSERACT_PHP_AVAILABLE=0'; exit 31; }
+          [[ -n "$pdftoppm_path" && -x "$pdftoppm_path" ]] || { echo 'PDFTOPPM_PHP_AVAILABLE=0'; exit 32; }
+          echo 'PDFTOTEXT_PHP_AVAILABLE=1'
+          echo 'PDFTOPPM_PHP_AVAILABLE=1'
+          echo 'TESSERACT_PHP_AVAILABLE=1'
 
           echo '=== Tesseract languages ==='
           langs=$("$tesseract_path" --list-langs 2>/dev/null || true)
