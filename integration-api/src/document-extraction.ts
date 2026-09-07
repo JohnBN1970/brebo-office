@@ -82,15 +82,16 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
   }
 
   const now = Math.floor(Date.now() / 1_000);
+  const month = new Date(now * 1_000).toISOString().slice(0, 7);
   const rateWindowSeconds = positiveIntegerSetting(env.EXTRACTION_RATE_WINDOW_SECONDS, 60);
-  const usage = env.USAGE_GUARD.getByName("document-extraction");
-  const requestDecision = await usage.reserve(
+  const requestUsage = env.USAGE_GUARD.getByName("document-extraction-rate");
+  const requestDecision = await requestUsage.reserve(
     now,
     rateWindowSeconds,
     positiveIntegerSetting(env.MAX_EXTRACTIONS_PER_WINDOW, 10),
-    new Date(now * 1_000).toISOString().slice(0, 7),
+    month,
     0,
-    positiveIntegerSetting(env.MONTHLY_EXTRACTION_BUDGET, 5_000),
+    Number.MAX_SAFE_INTEGER,
   );
   if (requestDecision === "rate_limited") {
     return json({ status: "rate_limited" }, 429, { "Retry-After": String(rateWindowSeconds) });
@@ -120,11 +121,12 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "unsupported_mime_type" }, 415);
   }
 
-  const budgetDecision = await usage.reserve(
+  const budgetUsage = env.USAGE_GUARD.getByName("document-extraction-budget");
+  const budgetDecision = await budgetUsage.reserve(
     now,
     rateWindowSeconds,
     Number.MAX_SAFE_INTEGER,
-    new Date(now * 1_000).toISOString().slice(0, 7),
+    month,
     1,
     positiveIntegerSetting(env.MONTHLY_EXTRACTION_BUDGET, 5_000),
   );
