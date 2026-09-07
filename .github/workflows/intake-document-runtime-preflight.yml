@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: brebo-intake-document-runtime-preflight
+  group: brebo-office-production
   cancel-in-progress: false
 
 jobs:
@@ -52,6 +52,7 @@ jobs:
           export NO_COLOR=1 TERM=dumb
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
           remote_php="/opt/alt/php83/usr/bin/php"
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
@@ -75,39 +76,73 @@ jobs:
           echo 'LOCAL_PDF_ENRICHER_DEPLOYED=1'
           echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
 
-          echo '=== Drupal/PHP executable discovery ==='
-          discovery="$("${drush[@]}" php:eval '$finder=new \Symfony\Component\Process\ExecutableFinder(); foreach (["pdftotext","pdftoppm","tesseract"] as $bin) { $path=$finder->find($bin); echo strtoupper($bin) . "_PHP_PATH=" . ($path ?? "") . "\n"; }')"
-          printf '%s\n' "$discovery"
-          pdftotext_path="$(printf '%s\n' "$discovery" | sed -n 's/^PDFTOTEXT_PHP_PATH=//p' | tail -n 1)"
-          pdftoppm_path="$(printf '%s\n' "$discovery" | sed -n 's/^PDFTOPPM_PHP_PATH=//p' | tail -n 1)"
-          tesseract_path="$(printf '%s\n' "$discovery" | sed -n 's/^TESSERACT_PHP_PATH=//p' | tail -n 1)"
-          [[ -n "$pdftotext_path" && -x "$pdftotext_path" ]] || { echo 'PDFTOTEXT_PHP_AVAILABLE=0'; exit 30; }
-          [[ -n "$tesseract_path" && -x "$tesseract_path" ]] || { echo 'TESSERACT_PHP_AVAILABLE=0'; exit 31; }
-          [[ -n "$pdftoppm_path" && -x "$pdftoppm_path" ]] || { echo 'PDFTOPPM_PHP_AVAILABLE=0'; exit 32; }
-          echo 'PDFTOTEXT_PHP_AVAILABLE=1'
-          echo 'PDFTOPPM_PHP_AVAILABLE=1'
-          echo 'TESSERACT_PHP_AVAILABLE=1'
+          echo '=== Production PHP-FPM executable discovery ==='
+          probe_name=".brebo-runtime-probe-$(bin2hex=$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n'); printf '%s' "$bin2hex").php"
+          probe="$webroot/$probe_name"
+          trap 'rm -f "$probe"' EXIT
+          cat > "$probe" <<'PHP'
+          <?php
+          declare(strict_types=1);
+          require dirname(__DIR__) . '/vendor/autoload.php';
+          use Symfony\Component\Process\ExecutableFinder;
+          use Symfony\Component\Process\Process;
 
-          echo '=== Tesseract languages ==='
-          langs=$("$tesseract_path" --list-langs 2>/dev/null || true)
-          printf '%s\n' "$langs"
-          if printf '%s\n' "$langs" | grep -qx nld; then
-            echo 'TESSERACT_NLD_AVAILABLE=1'
-          else
-            echo 'TESSERACT_NLD_AVAILABLE=0'
-          fi
-          if printf '%s\n' "$langs" | grep -qx eng; then
-            echo 'TESSERACT_ENG_AVAILABLE=1'
-          else
-            echo 'TESSERACT_ENG_AVAILABLE=0'
-          fi
-          if ! printf '%s\n' "$langs" | grep -Eq '^(nld|eng)$'; then
-            echo 'No supported Dutch or English Tesseract language pack is installed.'
-            exit 33
-          fi
+          header('Content-Type: application/json');
+          $finder = new ExecutableFinder();
+          $paths = [];
+          foreach (['pdftotext', 'pdftoppm', 'tesseract'] as $binary) {
+            $paths[$binary] = $finder->find($binary);
+          }
+          $languages = [];
+          $tesseract = $paths['tesseract'] ?? NULL;
+          if (is_string($tesseract) && $tesseract !== '') {
+            $process = new Process([$tesseract, '--list-langs']);
+            $process->setTimeout(5.0);
+            $process->run();
+            if ($process->isSuccessful()) {
+              foreach (preg_split('/\R/u', $process->getOutput()) ?: [] as $line) {
+                $line = trim($line);
+                if ($line !== '' && !str_starts_with(strtolower($line), 'list of available')) {
+                  $languages[] = $line;
+                }
+              }
+            }
+          }
+          echo json_encode(['paths' => $paths, 'languages' => array_values(array_unique($languages))], JSON_THROW_ON_ERROR);
+          PHP
+          chmod 644 "$probe"
+
+          response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name")"
+          rm -f "$probe"
+          trap - EXIT
+          printf '%s\n' "$response"
+
+          printf '%s' "$response" | "$remote_php" -r '
+            $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+            foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
+              $path = $data["paths"][$binary] ?? null;
+              if (!is_string($path) || $path === "") {
+                fwrite(STDERR, strtoupper($binary) . "_FPM_AVAILABLE=0\n");
+                exit(30);
+              }
+              echo strtoupper($binary) . "_FPM_AVAILABLE=1\n";
+              echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
+            }
+            $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
+            echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
+            echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
+            if (!in_array("nld", $languages, true) && !in_array("eng", $languages, true)) {
+              fwrite(STDERR, "No supported Dutch or English Tesseract language pack is available to PHP-FPM.\n");
+              exit(33);
+            }
+          '
 
           echo '=== Drupal service wiring ==='
           "${drush[@]}" php:eval '$c=\Drupal::getContainer(); foreach (["brebo_data_intake.local_pdf_text_enricher","brebo_data_intake.local_ocr_text_enricher","brebo_data_intake.purchase_invoice_text_enricher"] as $id) { echo strtoupper(str_replace(["brebo_data_intake.","."],["","_"],$id)) . "=" . ($c->has($id) ? "1" : "0") . "\n"; if (!$c->has($id)) { exit(34); } }'
 
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
+          final_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_PREFLIGHT=$final_sha"; exit 36; }
+          echo 'DEPLOYMENT_IDENTITY_REVALIDATED=1'
           echo 'INTAKE_DOCUMENT_RUNTIME_PREFLIGHT=PASS'
           REMOTE
