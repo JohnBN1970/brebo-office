@@ -30,6 +30,15 @@ services:
     arguments:
       - !tagged_iterator brebo_data_intake.document_text_extraction_provider
 
+  brebo_data_intake.managed_document_text_extraction_provider:
+    class: Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider
+    arguments:
+      - '@http_client'
+      - '%env(BREBO_DOCUMENT_EXTRACTION_ENDPOINT)%'
+      - '%env(BREBO_DOCUMENT_EXTRACTION_TOKEN)%'
+    tags:
+      - { name: brebo_data_intake.document_text_extraction_provider, priority: 100 }
+
   brebo_data_intake.purchase_invoice_text_enricher:
     class: Drupal\brebo_data_intake\Service\PurchaseInvoiceTextEnricher
     tags:
