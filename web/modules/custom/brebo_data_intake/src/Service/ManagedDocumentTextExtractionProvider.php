@@ -16,7 +16,6 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
     'image/jpeg',
     'image/png',
     'image/webp',
-    'image/tiff',
   ];
 
   public function __construct(
