@@ -6,6 +6,7 @@ struct ScanContentView: View {
     @State private var meshAnchors = 0
     @State private var samples = ScanSampleBuffer()
     @State private var detectedPlanes = 0
+    @State private var openingCandidate: OpeningCandidate?
     private let qualityGate = ScanQualityGate()
 
     var body: some View {
@@ -42,6 +43,14 @@ struct ScanContentView: View {
                     Text("Kandidaatvlakken: \(detectedPlanes)")
                         .font(.caption.bold())
                 }
+                if let candidate = openingCandidate {
+                    VStack(spacing: 4) {
+                        Text(String(format: "Sparing kandidaat %.0f × %.0f mm", candidate.widthMm, candidate.heightMm))
+                            .font(.headline)
+                        Text(String(format: "Betrouwbaarheid %.0f%%  •  onzekerheid %.1f mm", candidate.confidence * 100, candidate.uncertaintyMm))
+                            .font(.caption)
+                    }
+                }
                 Text(instruction)
                     .font(.subheadline)
 
@@ -53,6 +62,7 @@ struct ScanContentView: View {
                         depthFrames = 0
                         meshAnchors = 0
                         detectedPlanes = 0
+                        openingCandidate = nil
                         samples.reset()
                         scanning = true
                     }
@@ -67,8 +77,11 @@ struct ScanContentView: View {
 
     private var instruction: String {
         guard scanning else {
+            if openingCandidate != nil {
+                return "Automatische sparingskandidaat gevonden - proefmeting controleren"
+            }
             return detectedPlanes > 0
-                ? "Scan geanalyseerd - automatische sparingsherkenning volgt"
+                ? "Vlakken gevonden, maar nog geen betrouwbare rechthoekige sparing"
                 : "Geen meetpunten aantikken"
         }
         let verdict = qualityGate.evaluate(depthFrames: depthFrames, meshAnchors: meshAnchors)
@@ -77,6 +90,8 @@ struct ScanContentView: View {
 
     private func analyse() {
         let points = samples.samples.map(\.worldPoint)
-        detectedPlanes = AxisPlaneDetector().detect(from: points).count
+        let planes = AxisPlaneDetector().detect(from: points)
+        detectedPlanes = planes.count
+        openingCandidate = RectangularOpeningSelector().select(from: planes)?.candidate
     }
 }
