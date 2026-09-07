@@ -6,19 +6,20 @@ struct CrewContentView: View {
     var body: some View {
         NavigationStack {
             VStack(spacing: 20) {
-                Image(systemName: "person.2.badge.gearshape")
+                Image(systemName: "mappin.and.ellipse")
                     .font(.system(size: 48))
 
-                Text("BREBO Crew")
+                Text("BREBO OnSite")
                     .font(.largeTitle.bold())
 
-                Text("Aanwezigheid op toegewezen projecten, zonder routehistorie.")
+                Text("Aantoonbare aanwezigheid op toegewezen BREBO-projecten, zonder routehistorie.")
                     .multilineTextAlignment(.center)
 
                 VStack(alignment: .leading, spacing: 8) {
                     Label("Geen continue GPS-route", systemImage: "location.slash")
                     Label("Binnen/buiten projectzone", systemImage: "mappin.and.ellipse")
-                    Label("Gebeurtenissen vormen urenvoorstel", systemImage: "clock.arrow.circlepath")
+                    Label("IN/UIT-waarnemingen direct aantoonbaar", systemImage: "checkmark.seal")
+                    Label("Aanwezigheid is nog geen geboekte werktijd", systemImage: "clock.badge.questionmark")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -32,12 +33,12 @@ struct CrewContentView: View {
 
                 Spacer()
 
-                Text("POC - geen routeopslag, geen automatische Office-upload")
+                Text("POC - aanwezigheidsevidence, geen routeopslag, nog geen automatische Office-upload")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             .padding()
-            .navigationTitle("Crew")
+            .navigationTitle("OnSite")
         }
     }
 
