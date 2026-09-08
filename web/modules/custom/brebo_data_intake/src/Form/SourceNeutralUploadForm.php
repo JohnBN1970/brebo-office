@@ -16,6 +16,8 @@ use Throwable;
 /** Manual upload adapter for the BREBO source-neutral intake pipeline. */
 final class SourceNeutralUploadForm extends FormBase {
 
+  private const AJAX_WRAPPER_ID = 'brebo-source-neutral-upload-wrapper';
+
   public function __construct(
     private readonly SourceNeutralIntakeManager $intakeManager,
     private readonly FileSystemInterface $fileSystem,
@@ -35,6 +37,13 @@ final class SourceNeutralUploadForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
+    $form['#prefix'] = '<div id="' . self::AJAX_WRAPPER_ID . '">';
+    $form['#suffix'] = '</div>';
+
+    $form['messages'] = [
+      '#type' => 'status_messages',
+      '#weight' => -100,
+    ];
     $form['intro'] = [
       '#markup' => '<p><strong>Centrale BREBO-intake.</strong> Upload een bronbestand, geef aan wat het is en koppel het waar mogelijk. De intake routeert daarna naar de eigenaar van het bedrijfsproces.</p>',
     ];
@@ -80,11 +89,26 @@ final class SourceNeutralUploadForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Naar centrale intake'),
       '#button_type' => 'primary',
+      '#ajax' => [
+        'callback' => '::ajaxSubmit',
+        'wrapper' => self::AJAX_WRAPPER_ID,
+        'progress' => [
+          'type' => 'throbber',
+          'message' => $this->t('Intake verwerken...'),
+        ],
+      ],
     ];
     return $form;
   }
 
+  /** Returns the rebuilt form so upload intake never needs a full page reload. */
+  public function ajaxSubmit(array &$form, FormStateInterface $form_state): array {
+    return $form;
+  }
+
   public function submitForm(array &$form, FormStateInterface $form_state): void {
+    $form_state->setRebuild(TRUE);
+
     $fids = array_values(array_filter((array) $form_state->getValue('source_file')));
     $file = $fids ? File::load((int) $fids[0]) : NULL;
     if (!$file) {
@@ -150,6 +174,7 @@ final class SourceNeutralUploadForm extends FormBase {
         // remains untouched.
         $transaction->rollBack();
         $this->messenger()->addStatus($this->t('Dit bronbestand was al ontvangen; de bestaande intake is hergebruikt.'));
+        $this->resetSubmittedValues($form_state);
         return;
       }
 
@@ -171,6 +196,14 @@ final class SourceNeutralUploadForm extends FormBase {
     else {
       $this->messenger()->addStatus($this->t('Upload is via de centrale intake verwerkt: @state.', ['@state' => $state]));
     }
+    $this->resetSubmittedValues($form_state);
+  }
+
+  /** Clears a successfully consumed upload before the AJAX form is rebuilt. */
+  private function resetSubmittedValues(FormStateInterface $form_state): void {
+    $form_state->setUserInput([]);
+    $form_state->setValues([]);
+    $form_state->setRebuild(TRUE);
   }
 
 }
