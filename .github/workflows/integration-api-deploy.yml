@@ -45,6 +45,58 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
 
+      - name: Verify managed document extraction boundary
+        shell: bash
+        env:
+          BREBO_INTEGRATION_API_URL: https://brebo-integration-api.john-boon.workers.dev
+          DOCUMENT_EXTRACTION_TOKEN: ${{ secrets.DOCUMENT_EXTRACTION_TOKEN }}
+        run: |
+          set -euo pipefail
+          base_url="$BREBO_INTEGRATION_API_URL"
+          endpoint="$base_url/v1/internal/document-extraction"
+
+          unauth_status="$(curl --silent --show-error --output /tmp/extraction-unauth.json --write-out '%{http_code}' \
+            --request POST \
+            --header 'X-BREBO-Extraction-Contract: v1' \
+            --form 'document=@package.json;type=application/pdf' \
+            "$endpoint")"
+          [[ "$unauth_status" == '401' ]] || { cat /tmp/extraction-unauth.json; echo "MANAGED_EXTRACTION_FAIL_CLOSED=0 HTTP=$unauth_status"; exit 40; }
+          echo 'MANAGED_EXTRACTION_FAIL_CLOSED=1'
+
+          [[ -n "${DOCUMENT_EXTRACTION_TOKEN:-}" ]] || { echo 'DOCUMENT_EXTRACTION_TOKEN_CONFIGURED=0'; exit 41; }
+          echo 'DOCUMENT_EXTRACTION_TOKEN_CONFIGURED=1'
+
+          cat > /tmp/brebo-extraction-smoke.svg <<'SVG'
+          <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="400">
+            <rect width="100%" height="100%" fill="white"/>
+            <text x="60" y="180" font-family="Arial" font-size="72" fill="black">BREBO EXTRACTION SMOKE 2026</text>
+            <text x="60" y="280" font-family="Arial" font-size="48" fill="black">Invoice total EUR 123.45</text>
+          </svg>
+          SVG
+          convert /tmp/brebo-extraction-smoke.svg /tmp/brebo-extraction-smoke.png
+
+          auth_status="$(curl --silent --show-error --output /tmp/extraction-auth.json --write-out '%{http_code}' \
+            --request POST \
+            --header "Authorization: Bearer $DOCUMENT_EXTRACTION_TOKEN" \
+            --header 'X-BREBO-Extraction-Contract: v1' \
+            --form 'document=@/tmp/brebo-extraction-smoke.png;type=image/png' \
+            "$endpoint")"
+          [[ "$auth_status" == '200' ]] || { cat /tmp/extraction-auth.json; echo "MANAGED_EXTRACTION_HTTP_OK=0 HTTP=$auth_status"; exit 42; }
+
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const payload = JSON.parse(readFileSync('/tmp/extraction-auth.json', 'utf8'));
+          if (!payload || payload.status !== 'extracted' || typeof payload.text !== 'string' || payload.text.trim() === '') {
+            throw new Error(`Managed extraction returned an unexpected result: ${JSON.stringify(payload)}`);
+          }
+          if (payload.extractor !== 'cloudflare_workers_ai_tomarkdown_text_v1') {
+            throw new Error(`Unexpected extractor: ${String(payload.extractor ?? '')}`);
+          }
+          console.log('MANAGED_EXTRACTION_HTTP_OK=1');
+          console.log('MANAGED_EXTRACTION_TEXT_PRESENT=1');
+          console.log(`MANAGED_EXTRACTION_EXTRACTOR=${payload.extractor}`);
+          NODE
+
       - name: Verify Moneybird connection and Finance business health
         shell: bash
         env:
