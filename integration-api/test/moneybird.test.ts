@@ -131,6 +131,7 @@ describe("Moneybird purchase invoice read", () => {
         customer_id: "SUP-77",
         tax_number: "NL123456789B01",
         chamber_of_commerce: "12345678",
+        bank_account: null,
         delivery_method: "Email",
         direct_debit: true,
         sepa_active: true,
@@ -148,6 +149,9 @@ describe("Moneybird purchase invoice read", () => {
       currency: "EUR",
       total_price_excl_tax: "100.00",
       total_price_incl_tax: "121.00",
+      paid_amount: "0.0000",
+      paid_at: null,
+      payments: [],
       version: 12,
       origin: "email",
     }]);
