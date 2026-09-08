@@ -9,7 +9,7 @@ const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 const MAX_MULTIPART_OVERHEAD_BYTES = 64 * 1024;
 const MAX_REQUEST_BYTES = MAX_DOCUMENT_BYTES + MAX_MULTIPART_OVERHEAD_BYTES;
 
-type ExtractionEnv = Env & {
+export type ExtractionEnv = Env & {
   AI: {
     toMarkdown(
       input: Array<{ name: string; blob: Blob }>,
@@ -104,7 +104,11 @@ export async function documentExtraction(request: Request, env: ExtractionEnv): 
     return json({ status: "invalid_multipart" }, 400);
   }
 
-  if ([...form.keys()].some((key) => key !== "document")) {
+  let hasUnexpectedField = false;
+  form.forEach((_value, key) => {
+    if (key !== "document") hasUnexpectedField = true;
+  });
+  if (hasUnexpectedField) {
     return json({ status: "unexpected_multipart_field" }, 400);
   }
   const documents = form.getAll("document");
