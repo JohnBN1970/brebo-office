@@ -11,6 +11,7 @@ use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Throwable;
 
 /** Manual upload adapter for the BREBO source-neutral intake pipeline. */
@@ -22,6 +23,7 @@ final class SourceNeutralUploadForm extends FormBase {
     private readonly SourceNeutralIntakeManager $intakeManager,
     private readonly FileSystemInterface $fileSystem,
     private readonly Connection $database,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -29,6 +31,7 @@ final class SourceNeutralUploadForm extends FormBase {
       $container->get('brebo_data_intake.source_neutral_intake_manager'),
       $container->get('file_system'),
       $container->get('database'),
+      $container->get('request_stack'),
     );
   }
 
@@ -107,7 +110,9 @@ final class SourceNeutralUploadForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $form_state->setRebuild(TRUE);
+    if ($this->isAjaxRequest()) {
+      $form_state->setRebuild(TRUE);
+    }
 
     $fids = array_values(array_filter((array) $form_state->getValue('source_file')));
     $file = $fids ? File::load((int) $fids[0]) : NULL;
@@ -201,9 +206,18 @@ final class SourceNeutralUploadForm extends FormBase {
 
   /** Clears a successfully consumed upload before the AJAX form is rebuilt. */
   private function resetSubmittedValues(FormStateInterface $form_state): void {
+    if (!$this->isAjaxRequest()) {
+      return;
+    }
+
     $form_state->setUserInput([]);
     $form_state->setValues([]);
     $form_state->setRebuild(TRUE);
+  }
+
+  private function isAjaxRequest(): bool {
+    $request = $this->requestStack->getCurrentRequest();
+    return $request !== NULL && $request->isXmlHttpRequest();
   }
 
 }
