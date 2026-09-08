@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\DocumentTextExtractionProviderInterface;
+use Drupal\Core\Site\Settings;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -34,11 +35,14 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
       return $this->result('unavailable');
     }
 
+    $endpoint = $this->configuredEndpoint();
+    $token = $this->configuredToken();
+
     try {
-      $response = $this->httpClient->request('POST', $this->endpoint, [
+      $response = $this->httpClient->request('POST', $endpoint, [
         'headers' => [
           'Accept' => 'application/json',
-          'Authorization' => 'Bearer ' . $this->token,
+          'Authorization' => 'Bearer ' . $token,
           'X-BREBO-Extraction-Contract' => 'v1',
         ],
         'multipart' => [
@@ -91,7 +95,33 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
   }
 
   private function isConfigured(): bool {
-    return str_starts_with($this->endpoint, 'https://') && trim($this->token) !== '';
+    return str_starts_with($this->configuredEndpoint(), 'https://') && $this->configuredToken() !== '';
+  }
+
+  private function configuredEndpoint(): string {
+    if (trim($this->endpoint) !== '') {
+      return trim($this->endpoint);
+    }
+
+    $setting = trim((string) Settings::get('brebo_document_extraction_endpoint', ''));
+    if ($setting !== '') {
+      return $setting;
+    }
+
+    return trim((string) (getenv('BREBO_DOCUMENT_EXTRACTION_ENDPOINT') ?: ''));
+  }
+
+  private function configuredToken(): string {
+    if (trim($this->token) !== '') {
+      return trim($this->token);
+    }
+
+    $setting = trim((string) Settings::get('brebo_document_extraction_token', ''));
+    if ($setting !== '') {
+      return $setting;
+    }
+
+    return trim((string) (getenv('DOCUMENT_EXTRACTION_TOKEN') ?: ''));
   }
 
   /**
