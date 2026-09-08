@@ -12,6 +12,8 @@ use Drupal\file\FileInterface;
 /** Extracts document text through the configured BREBO-managed runtime. */
 final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
 
+  private const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
+
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly FileSystemInterface $fileSystem,
@@ -80,6 +82,14 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
       }
       $realpath = $this->fileSystem->realpath($uri);
       if (!is_string($realpath) || $realpath === '' || !is_file($realpath) || !is_readable($realpath)) {
+        continue;
+      }
+      $size = filesize($realpath);
+      if (!is_int($size) || $size <= 0) {
+        continue;
+      }
+      if ($size > self::MAX_DOCUMENT_BYTES) {
+        $lastStatus = 'document_too_large';
         continue;
       }
       $document = file_get_contents($realpath);
