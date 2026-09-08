@@ -1,11 +1,11 @@
 import core from "./index";
-import { documentExtraction } from "./document-extraction";
+import { documentExtraction, type ExtractionEnv } from "./document-extraction";
 import { publicProjects } from "./public-projects";
 
 const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: ExtractionEnv): Promise<Response> {
     const url = new URL(request.url);
 
     if (url.pathname === "/v1/internal/document-extraction") {
@@ -24,6 +24,6 @@ export default {
 
     return core.fetch(request, env);
   },
-} satisfies ExportedHandler<Env>;
+} satisfies ExportedHandler<ExtractionEnv>;
 
 export { ReplayGuard, UsageGuard, SalesInvoiceDispatchGuard } from "./index";
