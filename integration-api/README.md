@@ -42,9 +42,10 @@ Zet secrets nooit in `wrangler.jsonc`, Git, logs of Drupal-config-export.
 ## Limieten
 
 - `MAX_ANALYSES_PER_WINDOW`: maximaal aantal toegestane analyses per venster.
-- `RATE_WINDOW_SECONDS`: lengte van het venster in seconden.
+- `RATE_WINDOW_SECONDS`: lengte van het analysevenster in seconden.
 - `MONTHLY_TOKEN_BUDGET`: conservatief tokenbudget per UTC-kalendermaand.
 - `MAX_EXTRACTIONS_PER_WINDOW`: maximaal aantal documentextracties per venster.
+- `EXTRACTION_RATE_WINDOW_SECONDS`: lengte van het documentextractievenster in seconden.
 - `MONTHLY_EXTRACTION_BUDGET`: maximaal aantal gereserveerde extracties per maand.
 
 Een overschrijding geeft een generieke `429` terug. Alleen tellers en perioden
