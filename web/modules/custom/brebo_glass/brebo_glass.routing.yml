@@ -14,6 +14,14 @@ brebo_glass.position_add:
   requirements:
     _permission: 'administer brebo glass'
 
+brebo_glass.thickness_calculation:
+  path: '/brebo/glas/toolbox/glasdikte'
+  defaults:
+    _form: '\Drupal\brebo_glass\Form\GlassThicknessCalculationForm'
+    _title: 'Glasdikteberekening'
+  requirements:
+    _permission: 'administer brebo glass'
+
 brebo_glass.position_approve:
   path: '/brebo/glas/{position_id}/vrijgeven'
   defaults:
