@@ -45,9 +45,18 @@
       <span class="brebo-office-nav__icon" aria-hidden="true">✉</span><span class="brebo-office-nav__label">Mail</span>
     </a>
 
-    <a class="brebo-office-nav__item{{ route starts with 'brebo_finance.' ? ' is-active' : '' }}" href="{{ path('brebo_finance.command_center_page') }}" title="Finance"{{ route starts with 'brebo_finance.' ? ' aria-current="page"' : '' }}>
-      <span class="brebo-office-nav__icon" aria-hidden="true">€</span><span class="brebo-office-nav__label">Finance</span>
-    </a>
+    {% set finance_active = route starts with 'brebo_finance.' %}
+    <div class="brebo-office-nav__group{{ finance_active ? ' is-active' : '' }}" data-brebo-nav-group="finance">
+      <button class="brebo-office-nav__item brebo-office-nav__group-toggle" type="button" aria-expanded="{{ finance_active ? 'true' : 'false' }}" data-brebo-nav-group-toggle title="Finance">
+        <span class="brebo-office-nav__icon" aria-hidden="true">€</span><span class="brebo-office-nav__label">Finance</span><span class="brebo-office-nav__chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.command_center_page' ? ' is-active' : '' }}" href="{{ path('brebo_finance.command_center_page') }}"><span>Overzicht</span></a>
+        <a class="brebo-office-nav__subitem{{ route in ['brebo_finance.payables_work_queues', 'brebo_finance.purchase_invoice_list', 'brebo_finance.purchase_invoice_view'] ? ' is-active' : '' }}" href="{{ path('brebo_finance.purchase_invoice_list') }}"><span>Inkoop</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.payment_center' ? ' is-active' : '' }}" href="{{ path('brebo_finance.payment_center') }}"><span>Bank & betalingen</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.financial_decision_page' ? ' is-active' : '' }}" href="{{ path('brebo_finance.financial_decision_page') }}"><span>Besluiten / te doen</span></a>
+      </div>
+    </div>
 
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.quality_dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.quality_dashboard') }}" title="Kwaliteit">
       <span class="brebo-office-nav__icon" aria-hidden="true">◆</span><span class="brebo-office-nav__label">Kwaliteit</span>
