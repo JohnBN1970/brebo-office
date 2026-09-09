@@ -12,6 +12,12 @@ brebo_finance.business_health:
         orange_months:
           type: float
           label: 'Oranje buffergrens in maanden'
+    bank_account_roles:
+      type: sequence
+      label: 'Moneybird-bankrekeningrollen'
+      sequence:
+        type: string
+        label: 'Bankrekeningrol'
     fixed_cost_categories:
       type: sequence
       label: 'Vaste-kostenrubrieken'

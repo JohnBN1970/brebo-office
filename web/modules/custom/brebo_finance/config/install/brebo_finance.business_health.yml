@@ -1,6 +1,7 @@
 liquidity:
   red_months: 1
   orange_months: 2
+bank_account_roles: {}
 fixed_cost_categories:
   huisvesting:
     label: 'Huisvesting'
