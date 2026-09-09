@@ -27,6 +27,7 @@ jobs:
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DOCUMENT_EXTRACTION_TOKEN: ${{ secrets.DOCUMENT_EXTRACTION_TOKEN }}
       DOCUMENT_EXTRACTION_ENDPOINT: https://brebo-integration-api.john-boon.workers.dev/v1/internal/document-extraction
+      BREBO_INTEGRATION_API_URL: https://brebo-integration-api.john-boon.workers.dev
       EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
     steps:
@@ -34,7 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DOCUMENT_EXTRACTION_TOKEN DOCUMENT_EXTRACTION_ENDPOINT; do
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DOCUMENT_EXTRACTION_TOKEN DOCUMENT_EXTRACTION_ENDPOINT BREBO_INTEGRATION_API_URL; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Required runtime value $name is missing."
               exit 1
@@ -60,12 +61,13 @@ jobs:
           set -euo pipefail
           endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
           token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
+          integration_url_b64="$(printf '%s' "$BREBO_INTEGRATION_API_URL" | base64 -w0)"
 
-          # Runtime secrets are written only outside the deploy tree. The
-          # production deploy owns the non-secret settings.php include.
+          # Runtime secrets and non-secret runtime endpoints are written only
+          # outside the deploy tree. Production owns the settings.php include.
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' bash -se" <<'REMOTE'
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' INTEGRATION_URL_B64='$integration_url_b64' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
 
@@ -88,19 +90,21 @@ jobs:
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
           trap 'rm -f "$tmp_settings" >/dev/null 2>&1 || true' EXIT
           umask 077
-          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" > "$tmp_settings" <<'PHP'
+          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" INTEGRATION_URL_B64="$INTEGRATION_URL_B64" "$remote_php" > "$tmp_settings" <<'PHP'
           <?php
           declare(strict_types=1);
 
           $endpoint = base64_decode((string) getenv('ENDPOINT_B64'), true);
           $token = base64_decode((string) getenv('TOKEN_B64'), true);
-          if (!is_string($endpoint) || $endpoint === '' || !is_string($token) || $token === '') {
+          $integrationUrl = base64_decode((string) getenv('INTEGRATION_URL_B64'), true);
+          if (!is_string($endpoint) || $endpoint === '' || !is_string($token) || $token === '' || !is_string($integrationUrl) || $integrationUrl === '') {
             exit(2);
           }
 
           echo "<?php\ndeclare(strict_types=1);\n";
           echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
           echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
+          echo '$settings["brebo_integration_api_url"] = ' . var_export($integrationUrl, true) . ";\n";
           PHP
           chmod 600 "$tmp_settings"
           "$remote_php" -l "$tmp_settings"
@@ -114,13 +118,16 @@ jobs:
             $provider = \Drupal::service("brebo_data_intake.managed_document_text_extraction_provider");
             $pdf = $provider->supports("application/pdf");
             $png = $provider->supports("image/png");
+            $integrationUrl = (string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", "");
             echo "MANAGED_EXTRACTION_PDF_CONFIGURED=" . ($pdf ? "1" : "0") . "\n";
             echo "MANAGED_EXTRACTION_PNG_CONFIGURED=" . ($png ? "1" : "0") . "\n";
-            if (!$pdf || !$png) { exit(23); }
+            echo "BREBO_INTEGRATION_API_URL_CONFIGURED=" . ($integrationUrl !== "" ? "1" : "0") . "\n";
+            if (!$pdf || !$png || $integrationUrl === "") { exit(23); }
           '
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_CONFIG=1'; exit 24; }
           final_sha="$(tr -d '\r\n' < "$marker")"
           [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_CONFIG=$final_sha"; exit 25; }
           echo 'DOCUMENT_EXTRACTION_RUNTIME_CONFIGURED=1'
+          echo 'FINANCE_INTEGRATION_RUNTIME_CONFIGURED=1'
           REMOTE
