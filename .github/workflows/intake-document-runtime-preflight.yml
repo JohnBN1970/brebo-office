@@ -71,12 +71,44 @@ jobs:
           echo 'DEPLOYMENT_IDENTITY_OK=1'
 
           [[ -x "$remote_php" ]] || { echo 'PHP83_MISSING=1'; exit 20; }
-          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalPdfTextEnricher.php ]] || { echo 'LOCAL_PDF_ENRICHER_DEPLOYED=0'; exit 21; }
-          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalOcrTextEnricher.php ]] || { echo 'LOCAL_OCR_ENRICHER_DEPLOYED=0'; exit 22; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/ManagedDocumentTextExtractionProvider.php ]] || { echo 'MANAGED_EXTRACTION_PROVIDER_DEPLOYED=0'; exit 21; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/ManagedDocumentTextEnricher.php ]] || { echo 'MANAGED_EXTRACTION_ENRICHER_DEPLOYED=0'; exit 22; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalPdfTextEnricher.php ]] || { echo 'LOCAL_PDF_ENRICHER_DEPLOYED=0'; exit 23; }
+          [[ -f web/modules/custom/brebo_data_intake/src/Service/LocalOcrTextEnricher.php ]] || { echo 'LOCAL_OCR_ENRICHER_DEPLOYED=0'; exit 24; }
+          echo 'MANAGED_EXTRACTION_PROVIDER_DEPLOYED=1'
+          echo 'MANAGED_EXTRACTION_ENRICHER_DEPLOYED=1'
           echo 'LOCAL_PDF_ENRICHER_DEPLOYED=1'
           echo 'LOCAL_OCR_ENRICHER_DEPLOYED=1'
 
-          echo '=== Production PHP-FPM executable discovery ==='
+          echo '=== Managed extraction configuration and Drupal service wiring ==='
+          "${drush[@]}" php:eval '
+            $c = \Drupal::getContainer();
+            $required = [
+              "brebo_data_intake.managed_document_text_extraction_provider",
+              "brebo_data_intake.managed_document_text_enricher",
+              "brebo_data_intake.local_pdf_text_enricher",
+              "brebo_data_intake.local_ocr_text_enricher",
+              "brebo_data_intake.purchase_invoice_text_enricher",
+            ];
+            foreach ($required as $id) {
+              $ok = $c->has($id);
+              echo strtoupper(str_replace(["brebo_data_intake.", "."], ["", "_"], $id)) . "=" . ($ok ? "1" : "0") . "\n";
+              if (!$ok) {
+                exit(34);
+              }
+            }
+            $provider = $c->get("brebo_data_intake.managed_document_text_extraction_provider");
+            $pdf = $provider->supports("application/pdf");
+            $png = $provider->supports("image/png");
+            echo "MANAGED_EXTRACTION_PDF_CONFIGURED=" . ($pdf ? "1" : "0") . "\n";
+            echo "MANAGED_EXTRACTION_PNG_CONFIGURED=" . ($png ? "1" : "0") . "\n";
+            if (!$pdf || !$png) {
+              fwrite(STDERR, "Managed document extraction is not runtime-configured for production intake.\n");
+              exit(36);
+            }
+          '
+
+          echo '=== Optional local fallback discovery in production PHP-FPM ==='
           probe_suffix="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
           probe_name="brebo-runtime-probe-${probe_suffix}.php"
           probe="$webroot/$probe_name"
@@ -122,24 +154,17 @@ jobs:
             $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
             foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
               $path = $data["paths"][$binary] ?? null;
-              if (!is_string($path) || $path === "") {
-                fwrite(STDERR, strtoupper($binary) . "_FPM_AVAILABLE=0\n");
-                exit(30);
+              $available = is_string($path) && $path !== "";
+              echo strtoupper($binary) . "_FPM_AVAILABLE=" . ($available ? "1" : "0") . "\n";
+              if ($available) {
+                echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
               }
-              echo strtoupper($binary) . "_FPM_AVAILABLE=1\n";
-              echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
             }
             $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
             echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
             echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
-            if (!in_array("nld", $languages, true) && !in_array("eng", $languages, true)) {
-              fwrite(STDERR, "No supported Dutch or English Tesseract language pack is available to PHP-FPM.\n");
-              exit(33);
-            }
+            echo "LOCAL_DOCUMENT_EXTRACTION_FALLBACK_OPTIONAL=1\n";
           '
-
-          echo '=== Drupal service wiring ==='
-          "${drush[@]}" php:eval '$c=\Drupal::getContainer(); foreach (["brebo_data_intake.local_pdf_text_enricher","brebo_data_intake.local_ocr_text_enricher","brebo_data_intake.purchase_invoice_text_enricher"] as $id) { echo strtoupper(str_replace(["brebo_data_intake.","."],["","_"],$id)) . "=" . ($c->has($id) ? "1" : "0") . "\n"; if (!$c->has($id)) { exit(34); } }'
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
           final_sha="$(tr -d '\r\n' < "$marker")"
