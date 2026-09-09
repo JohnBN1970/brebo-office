@@ -129,42 +129,58 @@ jobs:
           $languages = [];
           $tesseract = $paths['tesseract'] ?? NULL;
           if (is_string($tesseract) && $tesseract !== '') {
-            $process = new Process([$tesseract, '--list-langs']);
-            $process->setTimeout(5.0);
-            $process->run();
-            if ($process->isSuccessful()) {
-              foreach (preg_split('/\R/u', $process->getOutput()) ?: [] as $line) {
-                $line = trim($line);
-                if ($line !== '' && !str_starts_with(strtolower($line), 'list of available')) {
-                  $languages[] = $line;
+            try {
+              $process = new Process([$tesseract, '--list-langs']);
+              $process->setTimeout(5.0);
+              $process->run();
+              if ($process->isSuccessful()) {
+                foreach (preg_split('/\R/u', $process->getOutput()) ?: [] as $line) {
+                  $line = trim($line);
+                  if ($line !== '' && !str_starts_with(strtolower($line), 'list of available')) {
+                    $languages[] = $line;
+                  }
                 }
               }
+            }
+            catch (Throwable) {
+              // Optional diagnostic only; never fail managed-extraction acceptance.
             }
           }
           echo json_encode(['paths' => $paths, 'languages' => array_values(array_unique($languages))], JSON_THROW_ON_ERROR);
           PHP
           chmod 644 "$probe"
 
-          response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name")"
+          response=''
+          if response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name" 2>/dev/null)"; then
+            printf '%s\n' "$response"
+            if ! printf '%s' "$response" | "$remote_php" -r '
+              try {
+                $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+                foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
+                  $path = $data["paths"][$binary] ?? null;
+                  $available = is_string($path) && $path !== "";
+                  echo strtoupper($binary) . "_FPM_AVAILABLE=" . ($available ? "1" : "0") . "\n";
+                  if ($available) {
+                    echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
+                  }
+                }
+                $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
+                echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
+                echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
+              }
+              catch (Throwable) {
+                fwrite(STDERR, "OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1\n");
+                exit(1);
+              }
+            '; then
+              echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1'
+            fi
+          else
+            echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_UNAVAILABLE=1'
+          fi
+          echo 'LOCAL_DOCUMENT_EXTRACTION_FALLBACK_OPTIONAL=1'
           rm -f "$probe"
           trap - EXIT
-          printf '%s\n' "$response"
-
-          printf '%s' "$response" | "$remote_php" -r '
-            $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
-            foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
-              $path = $data["paths"][$binary] ?? null;
-              $available = is_string($path) && $path !== "";
-              echo strtoupper($binary) . "_FPM_AVAILABLE=" . ($available ? "1" : "0") . "\n";
-              if ($available) {
-                echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
-              }
-            }
-            $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
-            echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
-            echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
-            echo "LOCAL_DOCUMENT_EXTRACTION_FALLBACK_OPTIONAL=1\n";
-          '
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
           final_sha="$(tr -d '\r\n' < "$marker")"
