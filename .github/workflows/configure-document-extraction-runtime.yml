@@ -61,6 +61,9 @@ jobs:
           endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
           token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
 
+          # No secret-bearing upload file is created. Values enter one SSH
+          # process, are decoded into a mode-0600 temp file outside the deploy
+          # tree, and are atomically renamed into the persistent runtime file.
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' bash -se" <<'REMOTE'
@@ -71,31 +74,9 @@ jobs:
           webroot="$app/web"
           settings="$webroot/sites/default/settings.php"
           marker="$app/.brebo-deployed-sha"
-          # Persist outside the rsync --delete deployment tree.
           runtime_dir="$HOME/.brebo-office-runtime"
           runtime_settings="$runtime_dir/document-extraction.settings.php"
-          lock_dir="$HOME/.brebo-office-production.lock"
           remote_php="/opt/alt/php83/usr/bin/php"
-
-          # Serialize remote mutation against deployments without competing in
-          # GitHub Actions' concurrency pending slot. Production deploys use the
-          # same server-side lock directory.
-          acquire_lock() {
-            local attempts=0
-            until mkdir "$lock_dir" 2>/dev/null; do
-              attempts=$((attempts + 1))
-              if (( attempts >= 120 )); then
-                echo 'PRODUCTION_LOCK_TIMEOUT=1'
-                exit 26
-              fi
-              sleep 1
-            done
-          }
-          release_lock() {
-            rmdir "$lock_dir" >/dev/null 2>&1 || true
-          }
-          trap release_lock EXIT
-          acquire_lock
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 20; }
           deployed_sha="$(tr -d '\r\n' < "$marker")"
@@ -109,8 +90,7 @@ jobs:
 
           install -d -m 700 "$runtime_dir"
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
-          cleanup_tmp() { rm -f "$tmp_settings" >/dev/null 2>&1 || true; }
-          trap 'cleanup_tmp; release_lock' EXIT
+          trap 'rm -f "$tmp_settings" >/dev/null 2>&1 || true' EXIT
           umask 077
           ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" -r '
             $endpoint = base64_decode((string) getenv("ENDPOINT_B64"), true);
@@ -125,21 +105,26 @@ jobs:
           mv -f "$tmp_settings" "$runtime_settings"
           chmod 440 "$runtime_settings"
 
+          # settings.php is explicitly preserved by production rsync. Install
+          # this include once; subsequent deploys neither replace it nor the
+          # runtime file, which lives outside the application tree.
           include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
           if ! grep -q "$include_marker" "$settings"; then
             cat >> "$settings" <<'PHP'
 
           // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
-          $breboDocumentExtractionRuntimeSettings = getenv('HOME') . '/.brebo-office-runtime/document-extraction.settings.php';
+          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 7) . '/.brebo-office-runtime/document-extraction.settings.php';
           if (is_readable($breboDocumentExtractionRuntimeSettings)) {
             require $breboDocumentExtractionRuntimeSettings;
           }
           PHP
           fi
 
+          # Do not rebuild Drupal caches here: Settings is read on every Drupal
+          # bootstrap and the provider resolves these Settings lazily. Avoiding
+          # cache mutation also avoids colliding with a newer production deploy.
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
-          "${drush[@]}" cr
           "${drush[@]}" php:eval '
             $provider = \Drupal::service("brebo_data_intake.managed_document_text_extraction_provider");
             $pdf = $provider->supports("application/pdf");
