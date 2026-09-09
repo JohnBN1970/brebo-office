@@ -14,6 +14,7 @@ final class SalesInvoiceReceivablesReconciler {
     private readonly SalesInvoiceReceivablesIntegrationClient $client,
     private readonly BillingControlManager $billingControlManager,
     private readonly ReceivablesReconciliationMonitor $monitor,
+    private readonly VatCalculator $decimal,
   ) {}
 
   /** @return array{received:int,updated:int,unchanged:int,unmatched:int} */
@@ -33,10 +34,10 @@ final class SalesInvoiceReceivablesReconciler {
           continue;
         }
 
-        $totalInc = $this->decimal((string) ($source['total_price_incl_tax'] ?? $existing['amount_inc_vat']));
-        $totalEx = $this->decimal((string) ($source['total_price_excl_tax'] ?? $existing['amount_ex_vat']));
-        $paid = $this->decimal((string) ($source['paid_amount'] ?? '0'));
-        $vat = number_format((float) $totalInc - (float) $totalEx, 4, '.', '');
+        $totalInc = $this->money((string) ($source['total_price_incl_tax'] ?? $existing['amount_inc_vat']));
+        $totalEx = $this->money((string) ($source['total_price_excl_tax'] ?? $existing['amount_ex_vat']));
+        $paid = $this->money((string) ($source['paid_amount'] ?? '0'));
+        $vat = $this->decimal->subtract($totalInc, $totalEx);
         $status = $this->status((string) ($source['state'] ?? ''), $paid, $totalInc, (string) ($source['due_date'] ?? $existing['due_date']));
         $sourceHash = hash('sha256', json_encode([
           'moneybird_id' => $moneybirdId,
@@ -102,14 +103,15 @@ final class SalesInvoiceReceivablesReconciler {
     if (in_array($state, ['cancelled', 'canceled'], TRUE)) return 'cancelled';
     if (in_array($state, ['credited', 'credit_invoice'], TRUE)) return 'credited';
     if (in_array($state, ['disputed'], TRUE)) return 'disputed';
-    if ((float) $total > 0 && (float) $paid >= (float) $total) return 'paid';
-    if ($state === 'late' || $state === 'overdue' || ($dueDate !== '' && $dueDate < date('Y-m-d') && (float) $paid < (float) $total)) return 'overdue';
+    if ($this->decimal->compare($total, '0') > 0 && $this->decimal->compare($paid, $total) >= 0) return 'paid';
+    if ($state === 'late' || $state === 'overdue' || ($dueDate !== '' && $dueDate < date('Y-m-d') && $this->decimal->compare($paid, $total) < 0)) return 'overdue';
     if (in_array($state, ['draft', 'new'], TRUE)) return 'draft';
     return 'sent';
   }
 
-  private function decimal(string $value): string {
-    return number_format(is_numeric($value) ? (float) $value : 0.0, 4, '.', '');
+  /** Normalizes a provider money value to the Finance four-decimal format. */
+  private function money(string $value): string {
+    return $this->decimal->add('0', trim($value));
   }
 
   private function date(mixed $value): ?string {
