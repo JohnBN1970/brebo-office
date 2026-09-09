@@ -58,6 +58,30 @@ brebo_project_cockpit.invoices:
       node:
         type: entity:node
 
+brebo_project_cockpit.quality:
+  path: '/projecten/{node}/kwaliteit'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectSectionController::quality'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectSectionController::qualityTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_project_cockpit.completion:
+  path: '/projecten/{node}/oplevering'
+  defaults:
+    _controller: '\Drupal\brebo_project_cockpit\Controller\ProjectSectionController::completion'
+    _title_callback: '\Drupal\brebo_project_cockpit\Controller\ProjectSectionController::completionTitle'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_project_cockpit.instalment_schedule:
   path: '/projecten/{node}/facturen/termijnschema'
   defaults:
