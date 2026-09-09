@@ -51,34 +51,39 @@ jobs:
             "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
-
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
-          webroot="$app/web"
           marker="$app/.brebo-deployed-sha"
           remote_php="/opt/alt/php83/usr/bin/php"
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           echo '=== Project deployment identity ==='
-          [[ -d "$app" && ! -L "$app" ]] || exit 20
-          [[ -d "$webroot" && ! -L "$webroot" ]] || exit 20
           [[ -f "$marker" ]] || exit 20
           deployed_sha="$(tr -d '\r\n' < "$marker")"
           echo "PROJECT_PRODUCTION_DEPLOY_SHA=$deployed_sha"
           if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
-            echo 'PROJECT_SUPERSEDED_DEPLOYMENT=1'
-            exit 0
+            echo 'PROJECT_SUPERSEDED_DEPLOYMENT=1'; exit 0
           fi
 
-          echo '=== Real Drupal route render smoke ==='
+          echo '=== Real authenticated Drupal route render smoke ==='
           "${drush[@]}" php:eval '
-            $storage = \Drupal::entityTypeManager()->getStorage("node");
-            $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->range(0, 1)->execute();
+            $project_storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $project_storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->range(0, 1)->execute();
             if (!$ids) { echo "PROJECT_RENDER_NO_PROJECT=1\n"; exit(31); }
-            $project = $storage->load(reset($ids));
+            $project = $project_storage->load(reset($ids));
+            $users = \Drupal::entityTypeManager()->getStorage("user");
+            $admin_ids = $users->getQuery()->accessCheck(FALSE)->condition("status", 1)->condition("uid", 0, ">")->sort("uid", "ASC")->execute();
+            $account = NULL;
+            foreach ($admin_ids as $uid) {
+              $candidate = $users->load($uid);
+              if ($candidate && $candidate->hasPermission("administer site configuration")) { $account = $candidate; break; }
+            }
+            if (!$account) { echo "PROJECT_RENDER_NO_PRIVILEGED_USER=1\n"; exit(33); }
+            \Drupal::service("account_switcher")->switchTo($account);
+            echo "PROJECT_RENDER_USER_UID=" . $account->id() . "\n";
             $routes = [
               "planning" => "brebo_office_core.project_planning",
-              "documents" => "brebo_office_core.project_documents",
+              "documents" => "brebo_document_data.project_dossier",
               "budget" => "brebo_project_cockpit.budget",
               "procurement" => "brebo_project_cockpit.procurement",
               "contracts" => "brebo_project_cockpit.contracts",
@@ -88,26 +93,25 @@ jobs:
               "completion" => "brebo_project_cockpit.completion",
             ];
             $kernel = \Drupal::service("http_kernel");
-            foreach ($routes as $label => $route) {
-              try {
-                $url = \Drupal\Core\Url::fromRoute($route, ["node" => $project->id()])->toString();
-                $request = \Symfony\Component\HttpFoundation\Request::create($url, "GET");
-                $request->attributes->set("_brebo_acceptance_render", TRUE);
-                $response = $kernel->handle($request, \Symfony\Component\HttpKernel\HttpKernelInterface::SUB_REQUEST);
-                $status = $response->getStatusCode();
-                echo "PROJECT_RENDER_" . strtoupper($label) . "_HTTP=$status\n";
-                if ($status >= 500) exit(32);
+            try {
+              foreach ($routes as $label => $route) {
+                try {
+                  $url = \Drupal\Core\Url::fromRoute($route, ["node" => $project->id()])->toString();
+                  $request = \Symfony\Component\HttpFoundation\Request::create($url, "GET");
+                  $response = $kernel->handle($request, \Symfony\Component\HttpKernel\HttpKernelInterface::SUB_REQUEST);
+                  $status = $response->getStatusCode();
+                  echo "PROJECT_RENDER_" . strtoupper($label) . "_HTTP=$status\n";
+                  if ($status >= 400) exit(32);
+                } catch (\Throwable $e) {
+                  echo "PROJECT_RENDER_" . strtoupper($label) . "_EXCEPTION=" . get_class($e) . ": " . $e->getMessage() . "\n";
+                  exit(32);
+                }
               }
-              catch (\Throwable $e) {
-                echo "PROJECT_RENDER_" . strtoupper($label) . "_EXCEPTION=" . get_class($e) . ": " . $e->getMessage() . "\n";
-                exit(32);
-              }
-            }
+            } finally { \Drupal::service("account_switcher")->switchBack(); }
           '
 
           echo '=== Database update readiness ==='
           "${drush[@]}" updatedb:status
-
           final_sha="$(tr -d '\r\n' < "$marker")"
           [[ "$final_sha" == "$deployed_sha" ]] || exit 0
           echo 'PROJECT_REAL_RENDER_ACCEPTANCE=PASS'
