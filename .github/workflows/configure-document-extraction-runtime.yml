@@ -88,14 +88,19 @@ jobs:
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
           trap 'rm -f "$tmp_settings" >/dev/null 2>&1 || true' EXIT
           umask 077
-          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" -r '
-            $endpoint = base64_decode((string) getenv("ENDPOINT_B64"), true);
-            $token = base64_decode((string) getenv("TOKEN_B64"), true);
-            if (!is_string($endpoint) || $endpoint === "" || !is_string($token) || $token === "") { exit(2); }
-            echo "<?php\ndeclare(strict_types=1);\n";
-            echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
-            echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
-          ' > "$tmp_settings"
+          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" > "$tmp_settings" <<'PHP'
+          <?php
+          declare(strict_types=1);
+
+          $endpoint = base64_decode((string) getenv('ENDPOINT_B64'), true);
+          $token = base64_decode((string) getenv('TOKEN_B64'), true);
+          if (!is_string($endpoint) || $endpoint === '' || !is_string($token) || $token === '') {
+            exit(2);
+          }
+
+          echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
+          echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
+          PHP
           chmod 600 "$tmp_settings"
           "$remote_php" -l "$tmp_settings"
           mv -f "$tmp_settings" "$runtime_settings"
