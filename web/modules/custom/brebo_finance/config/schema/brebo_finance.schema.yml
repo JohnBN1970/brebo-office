@@ -1,0 +1,33 @@
+brebo_finance.business_health:
+  type: config_object
+  label: 'BREBO Finance bedrijfsgezondheid'
+  mapping:
+    liquidity:
+      type: mapping
+      label: 'Liquiditeitswaarschuwingen'
+      mapping:
+        red_months:
+          type: float
+          label: 'Rode buffergrens in maanden'
+        orange_months:
+          type: float
+          label: 'Oranje buffergrens in maanden'
+    fixed_cost_categories:
+      type: sequence
+      label: 'Vaste-kostenrubrieken'
+      sequence:
+        type: mapping
+        label: 'Vaste-kostenrubriek'
+        mapping:
+          label:
+            type: label
+            label: 'Rubrieknaam'
+          monthly_budget:
+            type: float
+            label: 'Maandbudget excl. btw'
+          ledger_account_ids:
+            type: sequence
+            label: 'Moneybird-grootboekrekeningen'
+            sequence:
+              type: string
+              label: 'Moneybird grootboek-ID'
