@@ -39,6 +39,16 @@ services:
     tags:
       - { name: brebo_data_intake.document_text_extraction_provider, priority: 100 }
 
+  brebo_data_intake.managed_document_text_enricher:
+    class: Drupal\brebo_data_intake\Service\ManagedDocumentTextEnricher
+    arguments:
+      - '@entity_type.manager'
+      - '@file_system'
+      - '@brebo_data_intake.document_text_extraction_provider_registry'
+      - '@brebo_data_intake.purchase_invoice_text_enricher'
+    tags:
+      - { name: brebo_data_intake.enricher, priority: 300 }
+
   brebo_data_intake.purchase_invoice_text_enricher:
     class: Drupal\brebo_data_intake\Service\PurchaseInvoiceTextEnricher
     tags:

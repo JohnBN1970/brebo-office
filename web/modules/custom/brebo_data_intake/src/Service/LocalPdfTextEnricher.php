@@ -45,12 +45,15 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
 
     $binary = (new ExecutableFinder())->find('pdftotext');
     if ($binary === NULL) {
-      $payload['document_text_extraction_status'] = 'pdftotext_unavailable';
+      if (($payload['document_text_extraction_status'] ?? '') !== 'extracted') {
+        $payload['document_text_extraction_status'] = 'pdftotext_unavailable';
+      }
       $envelope['payload'] = $payload;
       return $envelope;
     }
 
     $storage = $this->entityTypeManager->getStorage('file');
+    $added = 0;
     foreach ((array) $originalAttachments as $attachment) {
       if (!is_array($attachment) || strtolower((string) ($attachment['mime_type'] ?? '')) !== 'application/pdf') {
         continue;
@@ -98,9 +101,10 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
       if ($hash !== '') {
         $seen[$hash] = TRUE;
       }
+      $added++;
     }
 
-    if ($evidence !== []) {
+    if ($added > 0) {
       $payload['document_text_evidence'] = $evidence;
       $payload['document_text_extraction_status'] = 'extracted';
       $envelope['payload'] = $payload;
@@ -123,7 +127,9 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
       return $working;
     }
 
-    $payload['document_text_extraction_status'] = 'no_embedded_pdf_text';
+    if (($payload['document_text_extraction_status'] ?? '') !== 'extracted') {
+      $payload['document_text_extraction_status'] = 'no_embedded_pdf_text';
+    }
     $envelope['payload'] = $payload;
     return $envelope;
   }

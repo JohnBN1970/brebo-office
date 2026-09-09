@@ -54,7 +54,9 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
 
     $tesseract = (new ExecutableFinder())->find('tesseract');
     if ($tesseract === NULL) {
-      $payload['document_ocr_status'] = 'tesseract_unavailable';
+      if (($payload['document_text_extraction_status'] ?? '') !== 'extracted') {
+        $payload['document_ocr_status'] = 'tesseract_unavailable';
+      }
       $envelope['payload'] = $payload;
       return $envelope;
     }
@@ -129,7 +131,7 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
     }
 
     if ($added === 0) {
-      if (!isset($payload['document_ocr_status'])) {
+      if (($payload['document_text_extraction_status'] ?? '') !== 'extracted' && !isset($payload['document_ocr_status'])) {
         $payload['document_ocr_status'] = $pdftoppm === NULL ? 'no_ocr_text_or_pdf_renderer_unavailable' : 'no_ocr_text';
       }
       $envelope['payload'] = $payload;
@@ -138,6 +140,7 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
 
     $payload['document_text_evidence'] = $evidence;
     $payload['document_ocr_status'] = 'extracted';
+    $payload['document_text_extraction_status'] = 'extracted';
     $envelope['payload'] = $payload;
 
     // Reuse the canonical text->invoice normalizer while preserving the exact
