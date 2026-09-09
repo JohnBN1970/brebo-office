@@ -236,7 +236,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
       return array_values(array_unique(array_filter(array_map(
         static fn(mixed $value): string => trim((string) $value),
         $values['ledger_account_ids'],
-      ), static fn(string $value): bool => $value !== '' && $value !== '0'))));
+      ), static fn(string $value): bool => $value !== '' && $value !== '0')));
     }
 
     $manual = trim((string) ($values['ledger_account_ids_manual'] ?? ''));
