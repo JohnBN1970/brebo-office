@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Form\BusinessHealthSettingsForm;
 use Drupal\brebo_finance\Service\BusinessHealthBuilder;
 use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
@@ -47,8 +48,21 @@ final class FinancialCommandCenterController extends ControllerBase {
       : '';
     $decisionUrl = Url::fromRoute('brebo_finance.financial_decision_page');
     $canOpenDecisionInbox = $decisionUrl->access($this->currentUser());
+    $canManageBusinessHealth = $this->currentUser()->hasPermission('manage brebo finance');
 
-    return [
+    $navigationItems = [
+      Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
+      Link::fromTextAndUrl($this->t('Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues')),
+      Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
+      Link::fromTextAndUrl($this->t('Betaalcentrum'), Url::fromRoute('brebo_finance.payment_center')),
+      ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
+      ['#markup' => '<a href="#bfcc-business-health">' . $this->t('Bedrijfsgezondheid') . '</a>'],
+    ];
+    if ($canManageBusinessHealth) {
+      $navigationItems[] = ['#markup' => '<a href="#bfcc-business-health-settings">' . $this->t('Vaste kosten instellen') . '</a>'];
+    }
+
+    $build = [
       '#type' => 'container',
       '#attributes' => [
         'id' => 'brebo-finance-command-center',
@@ -66,14 +80,7 @@ final class FinancialCommandCenterController extends ControllerBase {
         '#attributes' => ['class' => ['bfcc-section']],
         'links' => [
           '#theme' => 'item_list',
-          '#items' => [
-            Link::fromTextAndUrl($this->t('Dashboard'), Url::fromRoute('brebo_finance.command_center_page')),
-            Link::fromTextAndUrl($this->t('Te doen · Inkoop & betaling'), Url::fromRoute('brebo_finance.payables_work_queues')),
-            Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
-            Link::fromTextAndUrl($this->t('Betaalcentrum'), Url::fromRoute('brebo_finance.payment_center')),
-            ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
-            ['#markup' => '<a href="#bfcc-business-health">' . $this->t('Bedrijfsgezondheid') . '</a>'],
-          ],
+          '#items' => $navigationItems,
           '#attributes' => ['class' => ['bfcc-finance-nav']],
         ],
       ],
@@ -94,6 +101,18 @@ final class FinancialCommandCenterController extends ControllerBase {
       '#attached' => ['library' => ['brebo_finance/command_center']],
       '#cache' => ['max-age' => 0],
     ];
+
+    if ($canManageBusinessHealth) {
+      $build['business_health_settings'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Vaste kosten en liquiditeitsgrenzen instellen'),
+        '#open' => FALSE,
+        '#attributes' => ['id' => 'bfcc-business-health-settings', 'class' => ['bfcc-section']],
+        'form' => $this->formBuilder()->getForm(BusinessHealthSettingsForm::class),
+      ];
+    }
+
+    return $build;
   }
 
   public function api(): JsonResponse {
