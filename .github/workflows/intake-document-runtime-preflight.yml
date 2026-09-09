@@ -3,7 +3,7 @@ name: BREBO Intake Document Runtime Preflight
 on:
   workflow_run:
     workflows:
-      - 'Deploy BREBO Office Production'
+      - 'Configure BREBO Document Extraction Runtime'
     types:
       - completed
   workflow_dispatch:
