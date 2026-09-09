@@ -11,8 +11,10 @@ on:
 permissions:
   contents: read
 
+# Share the exact production deployment lock so runtime mutation can never
+# overlap rsync/cache rebuild from Deploy BREBO Office Production.
 concurrency:
-  group: brebo-document-extraction-runtime-config
+  group: brebo-office-production
   cancel-in-progress: false
 
 jobs:
@@ -26,7 +28,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DOCUMENT_EXTRACTION_TOKEN: ${{ secrets.DOCUMENT_EXTRACTION_TOKEN }}
-      DOCUMENT_EXTRACTION_ENDPOINT: https://brebo-integration-api.john-boon.workers.dev/api/document-extraction
+      DOCUMENT_EXTRACTION_ENDPOINT: https://brebo-integration-api.john-boon.workers.dev/v1/internal/document-extraction
       EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
     steps:
@@ -74,11 +76,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          trap 'rm -f /tmp/brebo-document-extraction.settings.php' EXIT
           scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
             -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
             /tmp/brebo-document-extraction.settings.php \
             "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-document-extraction.settings.php"
-          rm -f /tmp/brebo-document-extraction.settings.php
 
       - name: Install and verify Drupal runtime settings
         shell: bash
@@ -89,6 +91,9 @@ jobs:
             "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
+
+          upload=/tmp/brebo-document-extraction.settings.php
+          trap 'rm -f "$upload" >/dev/null 2>&1 || true' EXIT
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           webroot="$app/web"
@@ -104,16 +109,15 @@ jobs:
           if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
             echo 'SUPERSEDED_DEPLOYMENT=1'
             echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
-            rm -f /tmp/brebo-document-extraction.settings.php
             exit 0
           fi
 
           [[ -f "$settings" ]] || { echo 'PRODUCTION_SETTINGS_MISSING=1'; exit 21; }
-          [[ -f /tmp/brebo-document-extraction.settings.php ]] || { echo 'RUNTIME_SETTINGS_UPLOAD_MISSING=1'; exit 22; }
+          [[ -f "$upload" ]] || { echo 'RUNTIME_SETTINGS_UPLOAD_MISSING=1'; exit 22; }
 
           install -d -m 700 "$runtime_dir"
-          install -m 600 /tmp/brebo-document-extraction.settings.php "$runtime_settings"
-          rm -f /tmp/brebo-document-extraction.settings.php
+          install -m 600 "$upload" "$runtime_settings"
+          rm -f "$upload"
 
           include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
           if ! grep -q "$include_marker" "$settings"; then
