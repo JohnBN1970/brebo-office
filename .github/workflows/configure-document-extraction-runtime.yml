@@ -98,6 +98,7 @@ jobs:
             exit(2);
           }
 
+          echo "<?php\ndeclare(strict_types=1);\n";
           echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
           echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
           PHP
