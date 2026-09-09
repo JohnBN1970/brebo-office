@@ -17,6 +17,15 @@ services:
     arguments:
       - '@database'
 
+  brebo_office_core.tender_lead_scorer:
+    class: Drupal\brebo_office_core\Service\TenderLeadScorer
+
+  brebo_office_core.tender_lead_importer:
+    class: Drupal\brebo_office_core\Service\TenderLeadImporter
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_office_core.tender_lead_scorer'
+
   brebo_office_core.appearance_route_subscriber:
     class: Drupal\brebo_office_core\Routing\AppearanceRouteSubscriber
     tags:
