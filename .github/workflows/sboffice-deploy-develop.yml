@@ -146,11 +146,22 @@ jobs:
           [[ -f "$webroot/index.php" ]] || { echo "::error::Drupal index.php missing in $webroot"; exit 1; }
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
-          # Production owns this non-secret include. Install it before taking
-          # the preserved-settings checksum so follow-up runtime configuration
-          # never needs to mutate settings.php.
+          # Production owns this non-secret include. settings.php is normally
+          # intentionally read-only on production, so temporarily add owner
+          # write permission, validate the resulting PHP, and always restore
+          # the exact original mode. A backup is restored on any early error.
           include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
           if ! grep -q "$include_marker" "$settings"; then
+            settings_mode="$(stat -c '%a' "$settings")"
+            settings_backup="$(mktemp "$app/.settings.php.runtime-include.XXXXXX")"
+            cp -p "$settings" "$settings_backup"
+            chmod u+w "$settings"
+            restore_settings() {
+              cp -p "$settings_backup" "$settings" >/dev/null 2>&1 || true
+              chmod "$settings_mode" "$settings" >/dev/null 2>&1 || true
+              rm -f "$settings_backup" >/dev/null 2>&1 || true
+            }
+            trap restore_settings ERR INT TERM EXIT
             cat >> "$settings" <<'PHP'
 
           // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
@@ -159,6 +170,11 @@ jobs:
             require $breboDocumentExtractionRuntimeSettings;
           }
           PHP
+            /opt/alt/php83/usr/bin/php -l "$settings"
+            chmod "$settings_mode" "$settings"
+            rm -f "$settings_backup"
+            trap - ERR INT TERM EXIT
+            echo "DOCUMENT_EXTRACTION_SETTINGS_INCLUDE_OK=1"
           fi
 
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
