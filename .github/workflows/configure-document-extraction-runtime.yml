@@ -61,9 +61,8 @@ jobs:
           endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
           token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
 
-          # No secret-bearing upload file is created. Values enter one SSH
-          # process, are decoded into a mode-0600 temp file outside the deploy
-          # tree, and are atomically renamed into the persistent runtime file.
+          # Runtime secrets are written only outside the deploy tree. The
+          # production deploy owns the non-secret settings.php include.
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
             "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' bash -se" <<'REMOTE'
@@ -71,8 +70,6 @@ jobs:
           export NO_COLOR=1 TERM=dumb
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
-          webroot="$app/web"
-          settings="$webroot/sites/default/settings.php"
           marker="$app/.brebo-deployed-sha"
           runtime_dir="$HOME/.brebo-office-runtime"
           runtime_settings="$runtime_dir/document-extraction.settings.php"
@@ -86,7 +83,6 @@ jobs:
             echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
             exit 0
           fi
-          [[ -f "$settings" ]] || { echo 'PRODUCTION_SETTINGS_MISSING=1'; exit 21; }
 
           install -d -m 700 "$runtime_dir"
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
@@ -97,32 +93,15 @@ jobs:
             $token = base64_decode((string) getenv("TOKEN_B64"), true);
             if (!is_string($endpoint) || $endpoint === "" || !is_string($token) || $token === "") { exit(2); }
             echo "<?php\ndeclare(strict_types=1);\n";
-            echo "\\$settings[\"brebo_document_extraction_endpoint\"] = " . var_export($endpoint, true) . ";\n";
-            echo "\\$settings[\"brebo_document_extraction_token\"] = " . var_export($token, true) . ";\n";
+            echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
+            echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
           ' > "$tmp_settings"
           chmod 600 "$tmp_settings"
           "$remote_php" -l "$tmp_settings"
           mv -f "$tmp_settings" "$runtime_settings"
           chmod 440 "$runtime_settings"
+          trap - EXIT
 
-          # settings.php is explicitly preserved by production rsync. Install
-          # this include once; subsequent deploys neither replace it nor the
-          # runtime file, which lives outside the application tree.
-          include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
-          if ! grep -q "$include_marker" "$settings"; then
-            cat >> "$settings" <<'PHP'
-
-          // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
-          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 7) . '/.brebo-office-runtime/document-extraction.settings.php';
-          if (is_readable($breboDocumentExtractionRuntimeSettings)) {
-            require $breboDocumentExtractionRuntimeSettings;
-          }
-          PHP
-          fi
-
-          # Do not rebuild Drupal caches here: Settings is read on every Drupal
-          # bootstrap and the provider resolves these Settings lazily. Avoiding
-          # cache mutation also avoids colliding with a newer production deploy.
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
           "${drush[@]}" php:eval '
