@@ -11,10 +11,8 @@ on:
 permissions:
   contents: read
 
-# Share the exact production deployment lock so runtime mutation can never
-# overlap rsync/cache rebuild from Deploy BREBO Office Production.
 concurrency:
-  group: brebo-office-production
+  group: brebo-document-extraction-runtime-config
   cancel-in-progress: false
 
 jobs:
@@ -56,52 +54,48 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Build protected Drupal runtime settings
+      - name: Configure and verify Drupal runtime settings
         shell: bash
         run: |
           set -euo pipefail
           endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
           token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
-          umask 077
-          cat > /tmp/brebo-document-extraction.settings.php <<PHP
-          <?php
-          declare(strict_types=1);
-          \$settings['brebo_document_extraction_endpoint'] = (string) base64_decode('$endpoint_b64', true);
-          \$settings['brebo_document_extraction_token'] = (string) base64_decode('$token_b64', true);
-          PHP
-          chmod 600 /tmp/brebo-document-extraction.settings.php
-          test -s /tmp/brebo-document-extraction.settings.php
 
-      - name: Upload protected runtime settings
-        shell: bash
-        run: |
-          set -euo pipefail
-          trap 'rm -f /tmp/brebo-document-extraction.settings.php' EXIT
-          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
-            /tmp/brebo-document-extraction.settings.php \
-            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-document-extraction.settings.php"
-
-      - name: Install and verify Drupal runtime settings
-        shell: bash
-        run: |
-          set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
-
-          upload=/tmp/brebo-document-extraction.settings.php
-          trap 'rm -f "$upload" >/dev/null 2>&1 || true' EXIT
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           webroot="$app/web"
           settings="$webroot/sites/default/settings.php"
           marker="$app/.brebo-deployed-sha"
-          runtime_dir="$app/.brebo-runtime"
+          # Persist outside the rsync --delete deployment tree.
+          runtime_dir="$HOME/.brebo-office-runtime"
           runtime_settings="$runtime_dir/document-extraction.settings.php"
+          lock_dir="$HOME/.brebo-office-production.lock"
           remote_php="/opt/alt/php83/usr/bin/php"
+
+          # Serialize remote mutation against deployments without competing in
+          # GitHub Actions' concurrency pending slot. Production deploys use the
+          # same server-side lock directory.
+          acquire_lock() {
+            local attempts=0
+            until mkdir "$lock_dir" 2>/dev/null; do
+              attempts=$((attempts + 1))
+              if (( attempts >= 120 )); then
+                echo 'PRODUCTION_LOCK_TIMEOUT=1'
+                exit 26
+              fi
+              sleep 1
+            done
+          }
+          release_lock() {
+            rmdir "$lock_dir" >/dev/null 2>&1 || true
+          }
+          trap release_lock EXIT
+          acquire_lock
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 20; }
           deployed_sha="$(tr -d '\r\n' < "$marker")"
@@ -111,28 +105,37 @@ jobs:
             echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
             exit 0
           fi
-
           [[ -f "$settings" ]] || { echo 'PRODUCTION_SETTINGS_MISSING=1'; exit 21; }
-          [[ -f "$upload" ]] || { echo 'RUNTIME_SETTINGS_UPLOAD_MISSING=1'; exit 22; }
 
           install -d -m 700 "$runtime_dir"
-          install -m 600 "$upload" "$runtime_settings"
-          rm -f "$upload"
+          tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
+          cleanup_tmp() { rm -f "$tmp_settings" >/dev/null 2>&1 || true; }
+          trap 'cleanup_tmp; release_lock' EXIT
+          umask 077
+          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" -r '
+            $endpoint = base64_decode((string) getenv("ENDPOINT_B64"), true);
+            $token = base64_decode((string) getenv("TOKEN_B64"), true);
+            if (!is_string($endpoint) || $endpoint === "" || !is_string($token) || $token === "") { exit(2); }
+            echo "<?php\ndeclare(strict_types=1);\n";
+            echo "\\$settings[\"brebo_document_extraction_endpoint\"] = " . var_export($endpoint, true) . ";\n";
+            echo "\\$settings[\"brebo_document_extraction_token\"] = " . var_export($token, true) . ";\n";
+          ' > "$tmp_settings"
+          chmod 600 "$tmp_settings"
+          "$remote_php" -l "$tmp_settings"
+          mv -f "$tmp_settings" "$runtime_settings"
+          chmod 440 "$runtime_settings"
 
           include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
           if ! grep -q "$include_marker" "$settings"; then
             cat >> "$settings" <<'PHP'
 
           // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
-          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 3) . '/.brebo-runtime/document-extraction.settings.php';
+          $breboDocumentExtractionRuntimeSettings = getenv('HOME') . '/.brebo-office-runtime/document-extraction.settings.php';
           if (is_readable($breboDocumentExtractionRuntimeSettings)) {
             require $breboDocumentExtractionRuntimeSettings;
           }
           PHP
           fi
-
-          chmod 440 "$runtime_settings"
-          "$remote_php" -l "$runtime_settings"
 
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
