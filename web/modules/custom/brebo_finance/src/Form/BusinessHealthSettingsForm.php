@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
-use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\Core\Cache\CacheTagsInvalidatorInterface;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -19,7 +19,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
   public function __construct(
     ConfigFactoryInterface $configFactory,
     private readonly BusinessHealthIntegrationClient $integrationClient,
-    private readonly CacheBackendInterface $cache,
+    private readonly CacheTagsInvalidatorInterface $cacheTagsInvalidator,
   ) {
     parent::__construct($configFactory);
   }
@@ -28,7 +28,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
     return new static(
       $container->get('config.factory'),
       new BusinessHealthIntegrationClient($container->get('http_client')),
-      $container->get('cache.default'),
+      $container->get('cache_tags.invalidator'),
     );
   }
 
@@ -132,7 +132,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     parent::validateForm($form, $form_state);
-    $liquidity = $form_state->getValue('liquidity');
+    $liquidity = (array) $form_state->getValue('liquidity');
     $red = (float) ($liquidity['red_months'] ?? 0);
     $orange = (float) ($liquidity['orange_months'] ?? 0);
     if ($orange < $red) {
@@ -182,7 +182,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
       ->set('fixed_cost_categories', $existing)
       ->save();
 
-    $this->cache->invalidateTags(['brebo_finance_business_health']);
+    $this->cacheTagsInvalidator->invalidateTags(['brebo_finance_business_health']);
     parent::submitForm($form, $form_state);
     $this->messenger()->addStatus($this->t('Bedrijfsgezondheid en vaste-kostenrubrieken zijn bijgewerkt.'));
   }
