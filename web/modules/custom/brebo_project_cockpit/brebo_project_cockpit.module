@@ -68,6 +68,11 @@ function _brebo_project_cockpit_route_project(): ?NodeInterface {
 
 /**
  * Build deterministic project navigation using real server-side routes.
+ *
+ * Optional project modules are allowed to be absent. Check the route provider
+ * before constructing a Url: Url::fromRoute() is lazy and may not resolve the
+ * route until render time, which would otherwise turn one unavailable tab into
+ * a 500 for every Project subpage.
  */
 function _brebo_project_cockpit_tabs(int $project_id, string $active_route): array {
   $definitions = [
@@ -84,10 +89,11 @@ function _brebo_project_cockpit_tabs(int $project_id, string $active_route): arr
     ['Klantportaal', 'brebo_client_portal.project_control', ['node' => $project_id]],
   ];
 
+  $route_provider = \Drupal::service('router.route_provider');
   $items = [];
   foreach ($definitions as [$label, $route, $parameters]) {
     try {
-      $url = Url::fromRoute($route, $parameters);
+      $route_provider->getRouteByName($route);
     }
     catch (\Throwable $exception) {
       \Drupal::logger('brebo_project_cockpit')->warning(
@@ -101,6 +107,7 @@ function _brebo_project_cockpit_tabs(int $project_id, string $active_route): arr
       continue;
     }
 
+    $url = Url::fromRoute($route, $parameters);
     $active = $route === $active_route;
     $attributes = ['class' => $active ? ['is-active'] : []];
     if ($active) {
