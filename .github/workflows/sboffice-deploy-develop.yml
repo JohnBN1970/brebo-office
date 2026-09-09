@@ -146,6 +146,21 @@ jobs:
           [[ -f "$webroot/index.php" ]] || { echo "::error::Drupal index.php missing in $webroot"; exit 1; }
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
+          # Production owns this non-secret include. Install it before taking
+          # the preserved-settings checksum so follow-up runtime configuration
+          # never needs to mutate settings.php.
+          include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
+          if ! grep -q "$include_marker" "$settings"; then
+            cat >> "$settings" <<'PHP'
+
+          // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
+          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 7) . '/.brebo-office-runtime/document-extraction.settings.php';
+          if (is_readable($breboDocumentExtractionRuntimeSettings)) {
+            require $breboDocumentExtractionRuntimeSettings;
+          }
+          PHP
+          fi
+
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
           settings_local_before=""
           services_before=""
