@@ -139,6 +139,15 @@ jobs:
           settings="$webroot/sites/default/settings.php"
           settings_local="$webroot/sites/default/settings.local.php"
           services="$webroot/sites/default/services.yml"
+          lock_dir="$HOME/.brebo-office-production.lock"
+
+          acquired=0
+          for attempt in $(seq 1 120); do
+            if mkdir "$lock_dir" 2>/dev/null; then acquired=1; break; fi
+            sleep 2
+          done
+          [[ "$acquired" == 1 ]] || { echo "::error::Production server lock timed out."; exit 1; }
+          trap 'rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
 
           [[ -d "$app" && ! -L "$app" ]] || { echo "::error::Production application directory missing or invalid: $app"; exit 1; }
           [[ -d "$webroot" && ! -L "$webroot" ]] || { echo "::error::Drupal webroot missing or invalid: $webroot"; exit 1; }
@@ -146,9 +155,6 @@ jobs:
           [[ -f "$webroot/index.php" ]] || { echo "::error::Drupal index.php missing in $webroot"; exit 1; }
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
-          # Production owns this non-secret include. Install it before taking
-          # the preserved-settings checksum so follow-up runtime configuration
-          # never needs to mutate settings.php.
           include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
           if ! grep -q "$include_marker" "$settings"; then
             cat >> "$settings" <<'PHP'
@@ -168,7 +174,7 @@ jobs:
           [[ ! -f "$services" ]] || services_before="$(sha256sum "$services" | awk '{print $1}')"
 
           staging="$(mktemp -d)"
-          trap 'rm -rf "$staging"' EXIT
+          trap 'rm -rf "$staging"; rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
           tar -xzf "$archive" -C "$staging"
           test -f "$staging/web/modules/custom/brebo_finance/brebo_finance.info.yml"
           test -f "$staging/web/modules/custom/brebo_building_data/brebo_building_data.info.yml"
@@ -200,7 +206,7 @@ jobs:
             "$staging/" "$app/"
           rm -f "$archive"
           rm -rf "$staging"
-          trap - EXIT
+          trap 'rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
 
           [[ "$(sha256sum "$settings" | awk '{print $1}')" == "$settings_before" ]]
           if [[ -n "$settings_local_before" ]]; then
@@ -220,7 +226,6 @@ jobs:
 
           "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication brebo_data_intake -y
           echo "MODULE_ENABLE_OK=1"
-
           "${drush[@]}" updb -y --no-cache-clear
           echo "DATABASE_UPDATES_OK=1"
 
@@ -229,15 +234,12 @@ jobs:
           euro_trace_controller="$webroot/modules/custom/brebo_finance/src/Controller/FinancialEuroTraceController.php"
           cockpit_controller="$webroot/modules/custom/brebo_project_cockpit/src/Controller/ProjectCockpitController.php"
           cockpit_route_subscriber="$webroot/modules/custom/brebo_project_cockpit/src/Routing/ProjectCockpitRouteSubscriber.php"
-
           for controller in "$page_controller" "$ledger_controller" "$euro_trace_controller" "$cockpit_controller" "$cockpit_route_subscriber"; do
             [[ -f "$controller" ]] || { echo "::error::Required controller/runtime file missing on production: $controller"; exit 1; }
             "$remote_php" -l "$controller"
           done
-
           if grep -nE 'private readonly EntityTypeManagerInterface[[:space:]]+\$entityTypeManager' "$page_controller" "$ledger_controller" "$euro_trace_controller"; then
-            echo "::error::Stale readonly entityTypeManager property still exists in production finance controller."
-            exit 1
+            echo "::error::Stale readonly entityTypeManager property still exists in production finance controller."; exit 1
           fi
           grep -n 'financeEntityTypeManager' "$page_controller" || { echo "::error::FinancialProjectPageController does not contain financeEntityTypeManager."; exit 1; }
           grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
@@ -246,66 +248,30 @@ jobs:
 
           "${drush[@]}" cr -vvv
           echo "CACHE_REBUILD_OK=1"
-
           "${drush[@]}" php:eval '
             $mh = \Drupal::moduleHandler();
             foreach (["brebo_building_data", "brebo_finance", "brebo_glass", "brebo_calculation", "brebo_control", "brebo_procurement_control", "brebo_contract_control", "brebo_inzet", "brebo_project_cockpit", "brebo_sandbox_reset", "brebo_project_publication", "brebo_data_intake"] as $module) {
               if (!$mh->moduleExists($module)) { throw new \RuntimeException("Module not enabled: " . $module); }
             }
-            foreach ([
-              "brebo_building_data.project_building_repository",
-              "brebo_building_data.object_repository",
-              "brebo_finance.performance_location_manager",
-              "brebo_finance.performance_receipt_manager",
-              "brebo_contract_control.management_control_center",
-              "brebo_contract_control.management_decision_records",
-              "brebo_project_cockpit.project_status_aggregator",
-              "brebo_project_cockpit.project_progress_builder",
-              "brebo_project_cockpit.project_milestone_builder",
-              "brebo_data_intake.source_neutral_intake_manager"
-            ] as $service) { \Drupal::service($service); }
+            foreach (["brebo_building_data.project_building_repository", "brebo_building_data.object_repository", "brebo_finance.performance_location_manager", "brebo_finance.performance_receipt_manager", "brebo_contract_control.management_control_center", "brebo_contract_control.management_decision_records", "brebo_project_cockpit.project_status_aggregator", "brebo_project_cockpit.project_progress_builder", "brebo_project_cockpit.project_milestone_builder", "brebo_data_intake.source_neutral_intake_manager"] as $service) { \Drupal::service($service); }
             $routes = \Drupal::service("router.route_provider");
-            foreach ([
-              "brebo_finance.project_finance_page",
-              "brebo_finance.performance_receipt_submit",
-              "brebo_finance.performance_evidence_upload",
-              "brebo_building_data.object_tree",
-              "brebo_contract_control.management_control_center",
-              "brebo_contract_control.management_recommendation_accept",
-              "brebo_contract_control.management_recommendation_reject",
-              "brebo_contract_control.management_decision_outcome_review",
-              "brebo_project_cockpit.overview",
-              "brebo_office_core.project_dashboard",
-              "brebo_sandbox_reset.form",
-              "brebo_data_intake.upload"
-            ] as $route) { $routes->getRouteByName($route); }
+            foreach (["brebo_finance.project_finance_page", "brebo_finance.performance_receipt_submit", "brebo_finance.performance_evidence_upload", "brebo_building_data.object_tree", "brebo_contract_control.management_control_center", "brebo_contract_control.management_recommendation_accept", "brebo_contract_control.management_recommendation_reject", "brebo_contract_control.management_decision_outcome_review", "brebo_project_cockpit.overview", "brebo_office_core.project_dashboard", "brebo_sandbox_reset.form", "brebo_data_intake.upload"] as $route) { $routes->getRouteByName($route); }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $controller = (string) $projectRoute->getDefault("_controller");
-            if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
-              throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
-            }
-            foreach (["brebo_project_publication", "brebo_project_publication_media", "brebo_project_publication_audit"] as $table) {
-              if (!\Drupal::database()->schema()->tableExists($table)) { throw new \RuntimeException("Publication table missing: " . $table); }
-            }
-            print "BREBO_RUNTIME_OK=1\n";
-            print "PROJECT_COCKPIT_RUNTIME_OK=1\n";
-            print "SANDBOX_RESET_RUNTIME_OK=1\n";
-            print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
-            print "DATA_INTAKE_RUNTIME_OK=1\n";
+            if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") { throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller); }
+            foreach (["brebo_project_publication", "brebo_project_publication_media", "brebo_project_publication_audit"] as $table) { if (!\Drupal::database()->schema()->tableExists($table)) { throw new \RuntimeException("Publication table missing: " . $table); } }
+            print "BREBO_RUNTIME_OK=1\n"; print "PROJECT_COCKPIT_RUNTIME_OK=1\n"; print "SANDBOX_RESET_RUNTIME_OK=1\n"; print "PROJECT_PUBLICATION_RUNTIME_OK=1\n"; print "DATA_INTAKE_RUNTIME_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
           [[ "$login_status" == "200" ]]
           echo "PUBLIC_LOGIN_OK=1"
-
           finance_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/brebo-office/finance)"
           [[ "$finance_status" != "500" && "$finance_status" != "000" && "$finance_status" != "404" ]]
           echo "FINANCE_HTTP_SMOKE_OK=$finance_status"
-
           control_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/brebo/control-center)"
           [[ "$control_status" != "500" && "$control_status" != "000" && "$control_status" != "404" ]]
           echo "CONTROL_CENTER_HTTP_SMOKE_OK=$control_status"
-
           sandbox_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/admin/brebo/sandbox-reset)"
           [[ "$sandbox_status" != "500" && "$sandbox_status" != "000" && "$sandbox_status" != "404" ]]
           echo "SANDBOX_RESET_HTTP_SMOKE_OK=$sandbox_status"
@@ -314,7 +280,6 @@ jobs:
           test -d config/sync
           tar -czf "$config_archive" config/sync
           echo "CONFIG_EXPORT_OK=1"
-
           marker_tmp="$app/.brebo-deployed-sha.tmp"
           marker="$app/.brebo-deployed-sha"
           printf '%s\n' "$release_sha" > "$marker_tmp"
@@ -322,7 +287,6 @@ jobs:
           mv -f "$marker_tmp" "$marker"
           [[ "$(tr -d '\r\n' < "$marker")" == "$release_sha" ]]
           echo "DEPLOYMENT_MARKER_OK=$release_sha"
-
           echo "DEPLOY_OK=1"
           echo "APP_ROOT=$app"
           echo "DRUPAL_WEBROOT=$webroot"
@@ -346,7 +310,6 @@ jobs:
           deployed_sha="$(tr -d '\r\n' < "$marker")"
           [[ "$deployed_sha" == "$EXPECTED_DEPLOY_SHA" ]] || { echo "::error::Production marker $deployed_sha does not match $EXPECTED_DEPLOY_SHA."; exit 1; }
           echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
-
           remote_php="/opt/alt/php83/usr/bin/php"
           drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
           "${drush[@]}" php:eval '
@@ -356,14 +319,9 @@ jobs:
             $route = \Drupal::service("router.route_provider")->getRouteByName("brebo_data_intake.upload");
             if ($route->getRequirement("_permission") !== "submit brebo office intake") { throw new \RuntimeException("Upload route permission mismatch."); }
             $roles = \Drupal::entityTypeManager()->getStorage("user_role")->loadMultiple();
-            foreach (["brebo_projectleider", "brebo_werkvoorbereider"] as $roleId) {
-              if (!isset($roles[$roleId]) || !$roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Required role lacks intake permission: " . $roleId); }
-            }
-            foreach (["anonymous", "authenticated"] as $roleId) {
-              if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId); }
-            }
-            $database = \Drupal::database();
-            $transaction = $database->startTransaction();
+            foreach (["brebo_projectleider", "brebo_werkvoorbereider"] as $roleId) { if (!isset($roles[$roleId]) || !$roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Required role lacks intake permission: " . $roleId); } }
+            foreach (["anonymous", "authenticated"] as $roleId) { if (isset($roles[$roleId]) && $roles[$roleId]->hasPermission("submit brebo office intake")) { throw new \RuntimeException("Broad role unexpectedly has intake permission: " . $roleId); } }
+            $database = \Drupal::database(); $transaction = $database->startTransaction();
             try {
               $manager = \Drupal::service("brebo_data_intake.source_neutral_intake_manager");
               $sourceRecordId = "acceptance:" . bin2hex(random_bytes(16));
@@ -374,8 +332,7 @@ jobs:
               if (($second["state"] ?? NULL) !== "duplicate") { throw new \RuntimeException("Second intake was not deduplicated."); }
               if ((int) ($second["review_record_id"] ?? 0) !== (int) $first["review_record_id"]) { throw new \RuntimeException("Duplicate did not reuse review record."); }
               print "SOURCE_NEUTRAL_RUNTIME_OK=1\n";
-            }
-            finally { $transaction->rollBack(); }
+            } finally { $transaction->rollBack(); }
           '
           REMOTE
 
