@@ -1,0 +1,154 @@
+name: BREBO Project Operational Acceptance
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office Production'
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-project-operational-acceptance
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Verify Project operational production state
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Verify Project production without changing it
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
+          marker="$app/.brebo-deployed-sha"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo '=== Project deployment identity ==='
+          [[ -d "$app" && ! -L "$app" ]] || { echo 'PROJECT_APP_DIR_VALID=0'; exit 20; }
+          [[ -d "$webroot" && ! -L "$webroot" ]] || { echo 'PROJECT_WEBROOT_VALID=0'; exit 20; }
+          [[ -f "$marker" ]] || { echo 'PROJECT_DEPLOYMENT_MARKER_PRESENT=0'; exit 20; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          echo "PROJECT_PRODUCTION_DEPLOY_SHA=$deployed_sha"
+          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+            echo 'PROJECT_SUPERSEDED_DEPLOYMENT=1'
+            echo "PROJECT_EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
+            exit 0
+          fi
+          echo 'PROJECT_DEPLOYMENT_IDENTITY_OK=1'
+
+          echo '=== Required modules ==='
+          enabled="$("${drush[@]}" pm:list --type=module --status=enabled --format=list)"
+          for module in brebo_project_cockpit brebo_inzet brebo_finance; do
+            grep -qx "$module" <<<"$enabled" || { echo "PROJECT_MODULE_${module^^}=0"; exit 21; }
+            echo "PROJECT_MODULE_${module^^}=1"
+          done
+
+          echo '=== Project cockpit routes ==='
+          "${drush[@]}" php:eval '
+            $provider = \Drupal::service("router.route_provider");
+            $required = [
+              "brebo_project_cockpit.overview",
+              "brebo_project_cockpit.budget",
+              "brebo_project_cockpit.procurement",
+              "brebo_project_cockpit.contracts",
+              "brebo_project_cockpit.invoices",
+              "brebo_project_cockpit.instalment_schedule",
+              "brebo_project_cockpit.instalment_billable_approve",
+              "brebo_project_cockpit.instalment_templates",
+              "brebo_project_cockpit.provisional_sum_add",
+              "brebo_project_cockpit.sales_invoice_draft_add",
+              "brebo_project_cockpit.sales_invoice_release",
+            ];
+            foreach ($required as $name) {
+              try {
+                $provider->getRouteByName($name);
+                echo "PROJECT_ROUTE_" . strtoupper(str_replace(".", "_", $name)) . "=1\n";
+              }
+              catch (\Throwable) {
+                echo "PROJECT_ROUTE_" . strtoupper(str_replace(".", "_", $name)) . "=0\n";
+                exit(22);
+              }
+            }
+          '
+
+          echo '=== Project services ==='
+          "${drush[@]}" php:eval '
+            $container = \Drupal::getContainer();
+            $required = [
+              "brebo_project_cockpit.project_status_aggregator",
+              "brebo_project_cockpit.project_progress_builder",
+              "brebo_project_cockpit.project_milestone_builder",
+              "brebo_inzet.personnel_assignment_comparison",
+              "brebo_finance.project_financial_closure_manager",
+            ];
+            foreach ($required as $id) {
+              $ok = $container->has($id);
+              echo "PROJECT_SERVICE_" . strtoupper(str_replace([".", "-"], "_", $id)) . "=" . ($ok ? "1" : "0") . "\n";
+              if (!$ok) exit(23);
+            }
+          '
+
+          echo '=== Canonical project data model ==='
+          "${drush[@]}" php:eval '
+            $entityTypes = \Drupal::entityTypeManager();
+            $projectType = $entityTypes->getStorage("node_type")->load("brebo_project");
+            $assignmentType = $entityTypes->getStorage("node_type")->load("brebo_personnel_assignment");
+            echo "PROJECT_BUNDLE_BREBO_PROJECT=" . ($projectType ? "1" : "0") . "\n";
+            echo "PROJECT_BUNDLE_PERSONNEL_ASSIGNMENT=" . ($assignmentType ? "1" : "0") . "\n";
+            if (!$projectType || !$assignmentType) exit(24);
+            $fields = \Drupal::service("entity_field.manager")->getFieldDefinitions("node", "brebo_personnel_assignment");
+            foreach (["field_brebo_project_ref", "field_brebo_plan_user", "field_brebo_plan_date", "field_brebo_assignment_start", "field_brebo_assignment_end", "field_brebo_planned_hours", "field_brebo_assignment_status"] as $field) {
+              $ok = isset($fields[$field]);
+              echo "PROJECT_ASSIGNMENT_FIELD_" . strtoupper($field) . "=" . ($ok ? "1" : "0") . "\n";
+              if (!$ok) exit(24);
+            }
+            $projectIds = $entityTypes->getStorage("node")->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->range(0, 1)->execute();
+            echo "PROJECT_DATA_PRESENT=" . ($projectIds ? "1" : "0") . "\n";
+          '
+
+          echo '=== Database update readiness ==='
+          "${drush[@]}" updatedb:status
+          echo 'PROJECT_UPDATEDB_STATUS_OK=1'
+
+          echo '=== Deployment revalidation ==='
+          final_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$final_sha" == "$deployed_sha" ]] || { echo "PROJECT_DEPLOYMENT_CHANGED_DURING_ACCEPTANCE=$final_sha"; exit 0; }
+          echo 'PROJECT_DEPLOYMENT_IDENTITY_REVALIDATED=1'
+          echo 'PROJECT_OPERATIONAL_ACCEPTANCE=PASS'
+          REMOTE
