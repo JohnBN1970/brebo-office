@@ -29,58 +29,36 @@
       return;
     }
 
+    const tabs = {
+      Overzicht: `/projecten/${projectId}/cockpit`,
+      Planning: `/projecten/${projectId}/planning`,
+      Documenten: `/projecten/${projectId}/documenten`,
+      Calculatie: `/projecten/${projectId}/begroting`,
+      Begroting: `/projecten/${projectId}/begroting`,
+      Inkoop: `/projecten/${projectId}/inkoop`,
+      Contracten: `/projecten/${projectId}/contracten`,
+      Facturen: `/projecten/${projectId}/facturen`,
+      Inzet: `/projecten/${projectId}/inzet`,
+      Kwaliteit: `/projecten/${projectId}/kwaliteit`,
+      Oplevering: `/projecten/${projectId}/oplevering`,
+    };
+
     document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
-      const label = link.textContent.trim();
-      if (label === 'Documenten') {
-        link.href = `/projecten/${projectId}/documenten`;
-        const active = window.location.pathname === `/projecten/${projectId}/documenten` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/documenten/`) ||
-          window.location.pathname === `/node/${projectId}/documents` ||
-          window.location.pathname.startsWith(`/node/${projectId}/documents/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Calculatie' || label === 'Begroting') {
+      let label = link.textContent.trim();
+      if (label === 'Calculatie') {
         link.textContent = 'Begroting';
-        link.href = `/projecten/${projectId}/begroting`;
-        const active = window.location.pathname === `/projecten/${projectId}/begroting` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/begroting/`);
-        if (active) {
-          activateTab(link);
-        }
+        label = 'Begroting';
+      }
+      const target = tabs[label];
+      if (!target) {
         return;
       }
 
-      if (label === 'Inkoop') {
-        link.href = `/projecten/${projectId}/inkoop`;
-        const active = window.location.pathname === `/projecten/${projectId}/inkoop` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/inkoop/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Contracten') {
-        link.href = `/projecten/${projectId}/contracten`;
-        const active = window.location.pathname === `/projecten/${projectId}/contracten` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/contracten/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Facturen') {
-        link.href = `/projecten/${projectId}/facturen`;
-        const active = window.location.pathname === `/projecten/${projectId}/facturen` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/facturen/`);
-        if (active) {
-          activateTab(link);
-        }
+      link.href = target;
+      const current = window.location.pathname.replace(/\/$/, '');
+      const normalizedTarget = target.replace(/\/$/, '');
+      if (current === normalizedTarget || current.startsWith(`${normalizedTarget}/`)) {
+        activateTab(link);
       }
     });
   }
