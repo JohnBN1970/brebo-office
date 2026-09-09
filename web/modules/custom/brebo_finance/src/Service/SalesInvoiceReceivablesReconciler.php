@@ -9,13 +9,17 @@ use Drupal\Core\Database\Connection;
 /** Reconciles Moneybird receivable state into existing BREBO sales invoices. */
 final class SalesInvoiceReceivablesReconciler {
 
+  private readonly VatCalculator $decimal;
+
   public function __construct(
     private readonly Connection $database,
     private readonly SalesInvoiceReceivablesIntegrationClient $client,
     private readonly BillingControlManager $billingControlManager,
     private readonly ReceivablesReconciliationMonitor $monitor,
-    private readonly VatCalculator $decimal,
-  ) {}
+    ?VatCalculator $decimal = NULL,
+  ) {
+    $this->decimal = $decimal ?? new VatCalculator();
+  }
 
   /** @return array{received:int,updated:int,unchanged:int,unmatched:int} */
   public function sync(): array {
