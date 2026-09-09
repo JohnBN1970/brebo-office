@@ -4,10 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Form\BankAccountRolesForm;
 use Drupal\brebo_finance\Form\BusinessHealthSettingsForm;
 use Drupal\brebo_finance\Service\BusinessHealthBuilder;
 use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
+use Drupal\brebo_finance\Service\PortfolioLiquidityProjection;
+use Drupal\brebo_finance\Service\VatCalculator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
@@ -22,6 +25,7 @@ final class FinancialCommandCenterController extends ControllerBase {
     private readonly FinancialCommandCenter $commandCenter,
     private readonly DateFormatterInterface $dateFormatter,
     private readonly BusinessHealthBuilder $businessHealth,
+    private readonly PortfolioLiquidityProjection $portfolioLiquidity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,6 +36,12 @@ final class FinancialCommandCenterController extends ControllerBase {
         new BusinessHealthIntegrationClient($container->get('http_client')),
         $container->get('config.factory'),
         $container->get('cache.default'),
+      ),
+      new PortfolioLiquidityProjection(
+        $container->get('database'),
+        $container->get('entity_type.manager'),
+        $container->get('config.factory'),
+        new VatCalculator(),
       ),
     );
   }
@@ -56,10 +66,11 @@ final class FinancialCommandCenterController extends ControllerBase {
       Link::fromTextAndUrl($this->t('Inkoopfacturen'), Url::fromRoute('brebo_finance.purchase_invoice_list')),
       Link::fromTextAndUrl($this->t('Betaalcentrum'), Url::fromRoute('brebo_finance.payment_center')),
       ['#markup' => '<a href="#bfcc-sales">' . $this->t('Verkoop & debiteuren') . '</a>'],
+      ['#markup' => '<a href="#bfcc-liquidity-horizons">' . $this->t('Liquiditeit 30/60/90') . '</a>'],
       ['#markup' => '<a href="#bfcc-business-health">' . $this->t('Bedrijfsgezondheid') . '</a>'],
     ];
     if ($canManageBusinessHealth) {
-      $navigationItems[] = ['#markup' => '<a href="#bfcc-business-health-settings">' . $this->t('Vaste kosten instellen') . '</a>'];
+      $navigationItems[] = ['#markup' => '<a href="#bfcc-business-health-settings">' . $this->t('Finance-instellingen') . '</a>'];
     }
 
     $build = [
@@ -105,10 +116,12 @@ final class FinancialCommandCenterController extends ControllerBase {
     if ($canManageBusinessHealth) {
       $build['business_health_settings'] = [
         '#type' => 'details',
-        '#title' => $this->t('Vaste kosten en liquiditeitsgrenzen instellen'),
+        '#title' => $this->t('Finance-instellingen · vaste kosten, liquiditeitsgrenzen en bankrollen'),
         '#open' => FALSE,
         '#attributes' => ['id' => 'bfcc-business-health-settings', 'class' => ['bfcc-section']],
-        'form' => $this->formBuilder()->getForm(BusinessHealthSettingsForm::class),
+        'fixed_costs' => $this->formBuilder()->getForm(BusinessHealthSettingsForm::class),
+        'bank_roles_title' => ['#markup' => '<hr><h3>' . $this->t('Bankrekeningrollen') . '</h3>'],
+        'bank_roles' => $this->formBuilder()->getForm(BankAccountRolesForm::class),
       ];
     }
 
@@ -117,7 +130,9 @@ final class FinancialCommandCenterController extends ControllerBase {
 
   public function api(): JsonResponse {
     $data = $this->commandCenter->dashboard($this->currentUser());
-    $data['business_health'] = $this->businessHealth->build();
+    $health = $this->businessHealth->build();
+    $data['business_health'] = $health;
+    $data['liquidity_horizons'] = $this->portfolioLiquidity->build($this->currentUser(), $health);
     $response = new JsonResponse($data);
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
