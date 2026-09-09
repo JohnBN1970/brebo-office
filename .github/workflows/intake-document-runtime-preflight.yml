@@ -109,11 +109,14 @@ jobs:
           '
 
           echo '=== Optional local fallback discovery in production PHP-FPM ==='
-          probe_suffix="$(od -An -N12 -tx1 /dev/urandom | tr -d ' \n')"
-          probe_name="brebo-runtime-probe-${probe_suffix}.php"
-          probe="$webroot/$probe_name"
-          trap 'rm -f "$probe"' EXIT
-          cat > "$probe" <<'PHP'
+          probe=''
+          probe_name=''
+          probe_ready=0
+          if probe_suffix="$(od -An -N12 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')" && [[ -n "$probe_suffix" ]]; then
+            probe_name="brebo-runtime-probe-${probe_suffix}.php"
+            probe="$webroot/$probe_name"
+            trap '[[ -z "$probe" ]] || rm -f "$probe" >/dev/null 2>&1 || true' EXIT
+            if cat > "$probe" <<'PHP'
           <?php
           declare(strict_types=1);
           require dirname(__DIR__) . '/vendor/autoload.php';
@@ -148,38 +151,55 @@ jobs:
           }
           echo json_encode(['paths' => $paths, 'languages' => array_values(array_unique($languages))], JSON_THROW_ON_ERROR);
           PHP
-          chmod 644 "$probe"
-
-          response=''
-          if response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name" 2>/dev/null)"; then
-            printf '%s\n' "$response"
-            if ! printf '%s' "$response" | "$remote_php" -r '
-              try {
-                $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
-                foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
-                  $path = $data["paths"][$binary] ?? null;
-                  $available = is_string($path) && $path !== "";
-                  echo strtoupper($binary) . "_FPM_AVAILABLE=" . ($available ? "1" : "0") . "\n";
-                  if ($available) {
-                    echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
-                  }
-                }
-                $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
-                echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
-                echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
-              }
-              catch (Throwable) {
-                fwrite(STDERR, "OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1\n");
-                exit(1);
-              }
-            '; then
-              echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1'
+            then
+              if chmod 644 "$probe" 2>/dev/null; then
+                probe_ready=1
+              else
+                echo 'OPTIONAL_LOCAL_FALLBACK_PROBE_CHMOD_FAILED=1'
+                rm -f "$probe" >/dev/null 2>&1 || true
+              fi
+            else
+              echo 'OPTIONAL_LOCAL_FALLBACK_PROBE_CREATE_FAILED=1'
+              rm -f "$probe" >/dev/null 2>&1 || true
             fi
           else
-            echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_UNAVAILABLE=1'
+            echo 'OPTIONAL_LOCAL_FALLBACK_PROBE_NAME_FAILED=1'
+          fi
+
+          if [[ "$probe_ready" == '1' ]]; then
+            response=''
+            if response="$(curl --fail --silent --show-error --max-time 20 "https://sboffice.brebobv.nl/$probe_name" 2>/dev/null)"; then
+              printf '%s\n' "$response"
+              if ! printf '%s' "$response" | "$remote_php" -r '
+                try {
+                  $data = json_decode(stream_get_contents(STDIN), true, flags: JSON_THROW_ON_ERROR);
+                  foreach (["pdftotext", "pdftoppm", "tesseract"] as $binary) {
+                    $path = $data["paths"][$binary] ?? null;
+                    $available = is_string($path) && $path !== "";
+                    echo strtoupper($binary) . "_FPM_AVAILABLE=" . ($available ? "1" : "0") . "\n";
+                    if ($available) {
+                      echo strtoupper($binary) . "_FPM_PATH=" . $path . "\n";
+                    }
+                  }
+                  $languages = array_values(array_filter($data["languages"] ?? [], "is_string"));
+                  echo "TESSERACT_NLD_AVAILABLE=" . (in_array("nld", $languages, true) ? "1" : "0") . "\n";
+                  echo "TESSERACT_ENG_AVAILABLE=" . (in_array("eng", $languages, true) ? "1" : "0") . "\n";
+                }
+                catch (Throwable) {
+                  fwrite(STDERR, "OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1\n");
+                  exit(1);
+                }
+              '; then
+                echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_PARSE_FAILED=1'
+              fi
+            else
+              echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_UNAVAILABLE=1'
+            fi
+          else
+            echo 'OPTIONAL_LOCAL_FALLBACK_DIAGNOSTIC_SKIPPED=1'
           fi
           echo 'LOCAL_DOCUMENT_EXTRACTION_FALLBACK_OPTIONAL=1'
-          rm -f "$probe"
+          [[ -z "$probe" ]] || rm -f "$probe" >/dev/null 2>&1 || true
           trap - EXIT
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_PREFLIGHT=1'; exit 35; }
