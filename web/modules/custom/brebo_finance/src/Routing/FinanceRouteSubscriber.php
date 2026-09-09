@@ -8,7 +8,7 @@ use Drupal\Core\Routing\RouteSubscriberBase;
 use Symfony\Component\Routing\Route;
 use Symfony\Component\Routing\RouteCollection;
 
-/** Keeps Finance entry points independently renderable. */
+/** Keeps the Finance entry route independently renderable. */
 final class FinanceRouteSubscriber extends RouteSubscriberBase {
 
   protected function alterRoutes(RouteCollection $collection): void {
@@ -20,9 +20,15 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
     if ($collection->get('brebo_finance.sales_workspace') === NULL) {
       $collection->add('brebo_finance.sales_workspace', new Route(
         '/brebo-office/finance/sales',
-        ['_controller' => '\\Drupal\\brebo_finance\\Controller\\SalesWorkspaceController::page', '_title' => 'Verkoop'],
+        [
+          '_controller' => '\\Drupal\\brebo_finance\\Controller\\SalesWorkspaceController::page',
+          '_title' => 'Verkoop',
+        ],
         ['_permission' => 'access brebo finance'],
         ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET'],
       ));
     }
   }
