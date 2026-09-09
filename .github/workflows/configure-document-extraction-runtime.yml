@@ -61,24 +61,43 @@ jobs:
           endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
           token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
 
-          # Runtime secrets are written only outside the deploy tree. The
-          # production deploy owns the non-secret settings.php include.
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' bash -se" <<'REMOTE'
-          set -euo pipefail
+          # Send derived secret material only over SSH stdin. It is never put
+          # in a remote command line or a predictable remote temporary file.
+          {
+            printf '%s\n' "$endpoint_b64"
+            printf '%s\n' "$token_b64"
+            cat <<'REMOTE'
+          set -eEuo pipefail
           export NO_COLOR=1 TERM=dumb
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           marker="$app/.brebo-deployed-sha"
           runtime_dir="$HOME/.brebo-office-runtime"
           runtime_settings="$runtime_dir/document-extraction.settings.php"
+          lock_dir="$HOME/.brebo-office-production.lock"
           remote_php="/opt/alt/php83/usr/bin/php"
+
+          IFS= read -r ENDPOINT_B64
+          IFS= read -r TOKEN_B64
+          [[ -n "$ENDPOINT_B64" && -n "$TOKEN_B64" ]] || { echo 'RUNTIME_SECRET_PAYLOAD_MISSING=1'; exit 19; }
+
+          # Serialize the entire remote mutation with production deployment.
+          # mkdir is atomic and needs no optional host package such as flock.
+          acquired=0
+          for attempt in $(seq 1 120); do
+            if mkdir "$lock_dir" 2>/dev/null; then
+              acquired=1
+              break
+            fi
+            sleep 2
+          done
+          [[ "$acquired" == 1 ]] || { echo 'PRODUCTION_LOCK_TIMEOUT=1'; exit 26; }
+          trap 'rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 20; }
           deployed_sha="$(tr -d '\r\n' < "$marker")"
           echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
-          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+          if [[ -n "${EXPECTED_DEPLOY_SHA:-}" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
             echo 'SUPERSEDED_DEPLOYMENT=1'
             echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
             exit 0
@@ -86,7 +105,8 @@ jobs:
 
           install -d -m 700 "$runtime_dir"
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
-          trap 'rm -f "$tmp_settings" >/dev/null 2>&1 || true' EXIT
+          cleanup_tmp() { rm -f "$tmp_settings" >/dev/null 2>&1 || true; }
+          trap 'cleanup_tmp; rmdir "$lock_dir" >/dev/null 2>&1 || true' EXIT
           umask 077
           ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" "$remote_php" -r '
             $endpoint = base64_decode((string) getenv("ENDPOINT_B64"), true);
@@ -100,10 +120,10 @@ jobs:
           "$remote_php" -l "$tmp_settings"
           mv -f "$tmp_settings" "$runtime_settings"
           chmod 440 "$runtime_settings"
-          trap - EXIT
 
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" cr
           "${drush[@]}" php:eval '
             $provider = \Drupal::service("brebo_data_intake.managed_document_text_extraction_provider");
             $pdf = $provider->supports("application/pdf");
@@ -118,3 +138,6 @@ jobs:
           [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_CONFIG=$final_sha"; exit 25; }
           echo 'DOCUMENT_EXTRACTION_RUNTIME_CONFIGURED=1'
           REMOTE
+          } | ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se"
