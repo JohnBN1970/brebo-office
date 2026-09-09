@@ -1,0 +1,149 @@
+name: Configure BREBO Document Extraction Runtime
+
+on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office Production'
+    types:
+      - completed
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brebo-document-extraction-runtime-config
+  cancel-in-progress: false
+
+jobs:
+  configure:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      DOCUMENT_EXTRACTION_TOKEN: ${{ secrets.DOCUMENT_EXTRACTION_TOKEN }}
+      DOCUMENT_EXTRACTION_ENDPOINT: https://brebo-integration-api.john-boon.workers.dev/api/document-extraction
+      EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
+
+    steps:
+      - name: Validate runtime secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DOCUMENT_EXTRACTION_TOKEN DOCUMENT_EXTRACTION_ENDPOINT; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error::Required runtime value $name is missing."
+              exit 1
+            fi
+          done
+
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Build protected Drupal runtime settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
+          token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
+          umask 077
+          cat > /tmp/brebo-document-extraction.settings.php <<PHP
+          <?php
+          declare(strict_types=1);
+          \$settings['brebo_document_extraction_endpoint'] = (string) base64_decode('$endpoint_b64', true);
+          \$settings['brebo_document_extraction_token'] = (string) base64_decode('$token_b64', true);
+          PHP
+          chmod 600 /tmp/brebo-document-extraction.settings.php
+          test -s /tmp/brebo-document-extraction.settings.php
+
+      - name: Upload protected runtime settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -P "$DEPLOY_PORT" \
+            /tmp/brebo-document-extraction.settings.php \
+            "$DEPLOY_USER@$DEPLOY_HOST:/tmp/brebo-document-extraction.settings.php"
+          rm -f /tmp/brebo-document-extraction.settings.php
+
+      - name: Install and verify Drupal runtime settings
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          webroot="$app/web"
+          settings="$webroot/sites/default/settings.php"
+          marker="$app/.brebo-deployed-sha"
+          runtime_dir="$app/.brebo-runtime"
+          runtime_settings="$runtime_dir/document-extraction.settings.php"
+          remote_php="/opt/alt/php83/usr/bin/php"
+
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 20; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
+          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+            echo 'SUPERSEDED_DEPLOYMENT=1'
+            echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
+            rm -f /tmp/brebo-document-extraction.settings.php
+            exit 0
+          fi
+
+          [[ -f "$settings" ]] || { echo 'PRODUCTION_SETTINGS_MISSING=1'; exit 21; }
+          [[ -f /tmp/brebo-document-extraction.settings.php ]] || { echo 'RUNTIME_SETTINGS_UPLOAD_MISSING=1'; exit 22; }
+
+          install -d -m 700 "$runtime_dir"
+          install -m 600 /tmp/brebo-document-extraction.settings.php "$runtime_settings"
+          rm -f /tmp/brebo-document-extraction.settings.php
+
+          include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
+          if ! grep -q "$include_marker" "$settings"; then
+            cat >> "$settings" <<'PHP'
+
+          // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
+          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 3) . '/.brebo-runtime/document-extraction.settings.php';
+          if (is_readable($breboDocumentExtractionRuntimeSettings)) {
+            require $breboDocumentExtractionRuntimeSettings;
+          }
+          PHP
+          fi
+
+          chmod 440 "$runtime_settings"
+          "$remote_php" -l "$runtime_settings"
+
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" cr
+          "${drush[@]}" php:eval '
+            $provider = \Drupal::service("brebo_data_intake.managed_document_text_extraction_provider");
+            $pdf = $provider->supports("application/pdf");
+            $png = $provider->supports("image/png");
+            echo "MANAGED_EXTRACTION_PDF_CONFIGURED=" . ($pdf ? "1" : "0") . "\n";
+            echo "MANAGED_EXTRACTION_PNG_CONFIGURED=" . ($png ? "1" : "0") . "\n";
+            if (!$pdf || !$png) { exit(23); }
+          '
+
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_CONFIG=1'; exit 24; }
+          final_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_CONFIG=$final_sha"; exit 25; }
+          echo 'DOCUMENT_EXTRACTION_RUNTIME_CONFIGURED=1'
+          REMOTE
