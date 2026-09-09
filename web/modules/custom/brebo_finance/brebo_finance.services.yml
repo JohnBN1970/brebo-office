@@ -157,3 +157,7 @@ services:
   brebo_finance.finance_operating_layer:
     class: Drupal\brebo_finance\Service\FinanceOperatingLayer
     arguments: ['@database']
+  brebo_finance.route_subscriber:
+    class: Drupal\brebo_finance\Routing\FinanceRouteSubscriber
+    tags:
+      - { name: event_subscriber }
