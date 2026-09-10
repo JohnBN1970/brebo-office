@@ -35,7 +35,7 @@ final class SalesWorkspaceController extends ControllerBase {
           : $this->t('Los');
         $draftLabel = (string) $draft['draft_number'];
         $draftCell = $projectId === 0 && (string) $draft['status'] === 'draft'
-          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id'])]]]
+          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
           : $draftLabel;
         $rows[] = [
           $draftCell,
