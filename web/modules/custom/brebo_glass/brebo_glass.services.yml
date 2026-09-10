@@ -57,3 +57,6 @@ services:
 
   brebo_glass.reference_case_validator:
     class: Drupal\brebo_glass\Service\GlassReferenceCaseValidator
+
+  brebo_glass.plate_solver_v1:
+    class: Drupal\brebo_glass\Service\GlassPlateSolverV1
