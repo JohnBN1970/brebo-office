@@ -35,6 +35,13 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       }
     }
 
+    $lineIndexes = $form_state->get('line_indexes');
+    if (!is_array($lineIndexes) || $lineIndexes === []) {
+      $lineIndexes = [1];
+      $form_state->set('line_indexes', $lineIndexes);
+      $form_state->set('next_line_index', 2);
+    }
+
     $today = date('Y-m-d');
     $due = date('Y-m-d', strtotime('+30 days'));
     $form['intro'] = ['#markup' => '<p>' . $this->t('Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
@@ -47,20 +54,60 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     $form['invoice']['due_date'] = ['#type' => 'date', '#title' => $this->t('Vervaldatum'), '#required' => TRUE, '#default_value' => $due];
     $form['invoice']['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#required' => TRUE];
 
-    $form['lines'] = ['#type' => 'fieldset', '#title' => $this->t('Factuurregels')];
-    $form['lines']['help'] = ['#markup' => '<p>' . $this->t('Vul minimaal één regel in. Bedragen worden bij opslaan berekend en als concept vastgelegd.') . '</p>'];
-    for ($i = 1; $i <= 5; $i++) {
-      $form['lines']['line_' . $i] = ['#type' => 'details', '#title' => $this->t('Regel @n', ['@n' => $i]), '#open' => $i === 1];
+    $form['lines'] = ['#type' => 'fieldset', '#title' => $this->t('Factuurregels'), '#prefix' => '<div id="standalone-sales-invoice-lines">', '#suffix' => '</div>'];
+    $form['lines']['help'] = ['#markup' => '<p>' . $this->t('Vul minimaal één regel in. Voeg zoveel regels toe als nodig; bedragen worden bij opslaan berekend en als concept vastgelegd.') . '</p>'];
+
+    foreach ($lineIndexes as $position => $i) {
+      $form['lines']['line_' . $i] = ['#type' => 'details', '#title' => $this->t('Regel @n', ['@n' => $position + 1]), '#open' => TRUE];
       $form['lines']['line_' . $i]['description_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255];
       $form['lines']['line_' . $i]['quantity_' . $i] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#step' => 0.0001, '#default_value' => 1];
       $form['lines']['line_' . $i]['unit_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Eenheid'), '#maxlength' => 32];
       $form['lines']['line_' . $i]['unit_price_' . $i] = ['#type' => 'number', '#title' => $this->t('Prijs excl. btw'), '#step' => 0.01];
       $form['lines']['line_' . $i]['vat_rate_' . $i] = ['#type' => 'select', '#title' => $this->t('Btw'), '#options' => ['21' => '21%', '9' => '9%', '0' => '0%'], '#default_value' => '21'];
+      if (count($lineIndexes) > 1) {
+        $form['lines']['line_' . $i]['remove_' . $i] = [
+          '#type' => 'submit',
+          '#value' => $this->t('Regel verwijderen'),
+          '#submit' => ['::removeLine'],
+          '#limit_validation_errors' => [],
+          '#line_index' => $i,
+          '#ajax' => ['callback' => '::linesAjax', 'wrapper' => 'standalone-sales-invoice-lines'],
+        ];
+      }
     }
+
+    $form['lines']['add_line'] = [
+      '#type' => 'submit',
+      '#value' => $this->t('+ Regel toevoegen'),
+      '#submit' => ['::addLine'],
+      '#limit_validation_errors' => [],
+      '#ajax' => ['callback' => '::linesAjax', 'wrapper' => 'standalone-sales-invoice-lines'],
+    ];
 
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Concept opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_finance.sales_workspace'), '#attributes' => ['class' => ['button']]];
     return $form;
+  }
+
+  public function linesAjax(array &$form, FormStateInterface $form_state): array {
+    return $form['lines'];
+  }
+
+  public function addLine(array &$form, FormStateInterface $form_state): void {
+    $indexes = $form_state->get('line_indexes') ?? [1];
+    $next = (int) ($form_state->get('next_line_index') ?? 2);
+    $indexes[] = $next;
+    $form_state->set('line_indexes', $indexes);
+    $form_state->set('next_line_index', $next + 1);
+    $form_state->setRebuild(TRUE);
+  }
+
+  public function removeLine(array &$form, FormStateInterface $form_state): void {
+    $trigger = $form_state->getTriggeringElement();
+    $remove = (int) ($trigger['#line_index'] ?? 0);
+    $indexes = array_values(array_filter($form_state->get('line_indexes') ?? [1], static fn($index): bool => (int) $index !== $remove));
+    $form_state->set('line_indexes', $indexes === [] ? [1] : $indexes);
+    $form_state->setRebuild(TRUE);
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
@@ -68,7 +115,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       $form_state->setErrorByName('due_date', $this->t('De vervaldatum kan niet vóór de factuurdatum liggen.'));
     }
     $hasLine = FALSE;
-    for ($i = 1; $i <= 5; $i++) {
+    foreach ($form_state->get('line_indexes') ?? [1] as $i) {
       $description = trim((string) $form_state->getValue('description_' . $i));
       $price = (float) ($form_state->getValue('unit_price_' . $i) ?? 0);
       if ($description !== '' && abs($price) > 0.00001) {
@@ -84,7 +131,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $lines = [];
     $totals = ['ex' => 0.0, 'vat' => 0.0, 'inc' => 0.0];
-    for ($i = 1; $i <= 5; $i++) {
+    foreach ($form_state->get('line_indexes') ?? [1] as $i) {
       $description = trim((string) $form_state->getValue('description_' . $i));
       $unitPrice = (float) ($form_state->getValue('unit_price_' . $i) ?? 0);
       if ($description === '' || abs($unitPrice) < 0.00001) {
