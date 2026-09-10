@@ -1,0 +1,23 @@
+#brebo-finance-standalone-sales-invoice-form [id^="edit-line-"] > .details-wrapper {
+  display: grid;
+  grid-template-columns: minmax(260px, 3fr) minmax(90px, .7fr) minmax(90px, .8fr) minmax(130px, 1fr) minmax(90px, .7fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+#brebo-finance-standalone-sales-invoice-form [id^="edit-line-"] .form-item,
+#brebo-finance-standalone-sales-invoice-form [id^="edit-line-"] .button {
+  margin-block: 0;
+}
+
+@media (max-width: 1100px) {
+  #brebo-finance-standalone-sales-invoice-form [id^="edit-line-"] > .details-wrapper {
+    grid-template-columns: minmax(220px, 2fr) repeat(2, minmax(100px, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  #brebo-finance-standalone-sales-invoice-form [id^="edit-line-"] > .details-wrapper {
+    grid-template-columns: 1fr;
+  }
+}

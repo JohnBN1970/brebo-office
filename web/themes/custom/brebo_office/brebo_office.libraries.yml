@@ -1,5 +1,5 @@
 global:
-  version: 1.7.7
+  version: 1.7.8
   css:
     base:
       css/base.css: {}
@@ -25,6 +25,7 @@ global:
       css/night-compat.css: {}
       css/pager-shell-fixes.css: {}
       css/mail-compact-three-pane.css: {}
+      css/finance-invoice-editor.css: {}
   js:
     js/theme-preference.js: {}
     js/office-sidebar.js: {}
