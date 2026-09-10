@@ -51,3 +51,6 @@ services:
 
   brebo_glass.calculation_route_resolver:
     class: Drupal\brebo_glass\Service\GlassCalculationRouteResolver
+
+  brebo_glass.engine_v1:
+    class: Drupal\brebo_glass\Service\GlassEngineV1
