@@ -46,6 +46,24 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
         ['GET', 'POST'],
       ));
     }
+
+    if ($collection->get('brebo_finance.sales_standalone_edit') === NULL) {
+      $collection->add('brebo_finance.sales_standalone_edit', new Route(
+        '/brebo-office/finance/sales/drafts/{draft}/edit',
+        [
+          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceForm',
+          '_title' => 'Los factuurconcept bewerken',
+        ],
+        [
+          '_permission' => 'access brebo finance',
+          'draft' => '\\d+',
+        ],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET', 'POST'],
+      ));
+    }
   }
 
 }
