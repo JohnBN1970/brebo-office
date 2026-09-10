@@ -20,6 +20,31 @@ final class SalesWorkspaceController extends ControllerBase {
 
   public function page(): array {
     $rows = [];
+
+    if ($this->database->schema()->tableExists('brebo_finance_sales_invoice_draft')) {
+      $drafts = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
+        ->fields('d', ['draft_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat'])
+        ->orderBy('created', 'DESC')
+        ->range(0, 50)
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+      foreach ($drafts as $draft) {
+        $projectId = (int) $draft['project_nid'];
+        $projectLink = $projectId > 0
+          ? ['data' => ['#type' => 'link', '#title' => (string) $projectId, '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId])]]
+          : $this->t('Los');
+        $rows[] = [
+          $draft['draft_number'],
+          $projectLink,
+          $draft['invoice_date'],
+          $draft['due_date'],
+          $this->t('Concept'),
+          '€ ' . number_format((float) $draft['amount_inc_vat'], 2, ',', '.'),
+          '—',
+        ];
+      }
+    }
+
     if ($this->database->schema()->tableExists('brebo_finance_sales_invoice')) {
       $query = $this->database->select('brebo_finance_sales_invoice', 'i')
         ->fields('i', ['invoice_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat', 'paid_amount_inc_vat'])
@@ -73,27 +98,7 @@ final class SalesWorkspaceController extends ControllerBase {
         '#empty' => $this->t('Nog geen verkoopfacturen beschikbaar.'),
       ],
       '#attached' => ['library' => ['brebo_finance/command_center']],
-      '#cache' => ['contexts' => ['user.permissions'], 'max-age' => 60],
-    ];
-  }
-
-  /** Starts the exceptional non-project invoice flow without inventing a project. */
-  public function standaloneStart(): array {
-    return [
-      '#type' => 'container',
-      '#attributes' => ['class' => ['brebo-finance-sales-workspace']],
-      'header' => ['#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Nieuwe losse factuur</h1><p>Voor verkoop die niet bij een project hoort.</p></div></header>'],
-      'message' => [
-        '#markup' => '<p>Deze route is bewust los van Project. De factuur krijgt pas bij definitief verzenden een factuurnummer. De invoer van debiteur en factuurregels wordt hierop aangesloten zonder een fictief project aan te maken.</p>',
-      ],
-      'back' => [
-        '#type' => 'link',
-        '#title' => $this->t('Terug naar Verkoop'),
-        '#url' => Url::fromRoute('brebo_finance.sales_workspace'),
-        '#attributes' => ['class' => ['button']],
-      ],
-      '#attached' => ['library' => ['brebo_finance/command_center']],
-      '#cache' => ['contexts' => ['user.permissions'], 'max-age' => 60],
+      '#cache' => ['contexts' => ['user.permissions'], 'max-age' => 0],
     ];
   }
 
