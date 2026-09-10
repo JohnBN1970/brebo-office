@@ -31,6 +31,21 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
         ['GET'],
       ));
     }
+
+    if ($collection->get('brebo_finance.sales_standalone_start') === NULL) {
+      $collection->add('brebo_finance.sales_standalone_start', new Route(
+        '/brebo-office/finance/sales/new',
+        [
+          '_controller' => '\\Drupal\\brebo_finance\\Controller\\SalesWorkspaceController::standaloneStart',
+          '_title' => 'Nieuwe losse factuur',
+        ],
+        ['_permission' => 'access brebo finance'],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET'],
+      ));
+    }
   }
 
 }
