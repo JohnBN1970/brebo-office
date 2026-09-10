@@ -33,6 +33,12 @@ command_center:
     - core/drupal
     - core/once
 
+standalone_sales_invoice:
+  version: 1.x
+  css:
+    component:
+      css/standalone-sales-invoice.css: {}
+
 project_finance_detail:
   version: 1.x
   css:
