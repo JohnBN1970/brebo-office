@@ -54,3 +54,6 @@ services:
 
   brebo_glass.engine_v1:
     class: Drupal\brebo_glass\Service\GlassEngineV1
+
+  brebo_glass.reference_case_validator:
+    class: Drupal\brebo_glass\Service\GlassReferenceCaseValidator
