@@ -48,3 +48,6 @@ services:
   brebo_glass.procurement_adapter:
     class: Drupal\brebo_glass\Service\GlassProcurementAdapter
     arguments: ['@brebo_glass.availability', '@brebo_procurement_control.fulfilment_decision', '@brebo_office_core.project_planning']
+
+  brebo_glass.calculation_route_resolver:
+    class: Drupal\brebo_glass\Service\GlassCalculationRouteResolver
