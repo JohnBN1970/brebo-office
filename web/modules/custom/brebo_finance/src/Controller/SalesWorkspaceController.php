@@ -39,7 +39,7 @@ final class SalesWorkspaceController extends ControllerBase {
           ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
           : $draftLabel;
         $reviewCell = $editableStandalone
-          ? ['data' => ['#type' => 'link', '#title' => $this->t('Ter beoordeling'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id'])]]
+          ? ['data' => ['#type' => 'link', '#title' => $this->t('Ter beoordeling'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']])]]
           : '—';
         $rows[] = [
           $draftCell,
