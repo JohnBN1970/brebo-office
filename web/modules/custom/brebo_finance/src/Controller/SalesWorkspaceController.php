@@ -34,9 +34,13 @@ final class SalesWorkspaceController extends ControllerBase {
           ? ['data' => ['#type' => 'link', '#title' => (string) $projectId, '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId])]]
           : $this->t('Los');
         $draftLabel = (string) $draft['draft_number'];
-        $draftCell = $projectId === 0 && (string) $draft['status'] === 'draft'
+        $editableStandalone = $projectId === 0 && (string) $draft['status'] === 'draft';
+        $draftCell = $editableStandalone
           ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
           : $draftLabel;
+        $reviewCell = $editableStandalone
+          ? ['data' => ['#type' => 'link', '#title' => $this->t('Ter beoordeling'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']])]]
+          : '—';
         $rows[] = [
           $draftCell,
           $projectLink,
@@ -45,6 +49,7 @@ final class SalesWorkspaceController extends ControllerBase {
           $this->t('Concept'),
           '€ ' . number_format((float) $draft['amount_inc_vat'], 2, ',', '.'),
           '—',
+          $reviewCell,
         ];
       }
     }
@@ -67,6 +72,7 @@ final class SalesWorkspaceController extends ControllerBase {
           $invoice['status'],
           '€ ' . number_format((float) $invoice['amount_inc_vat'], 2, ',', '.'),
           '€ ' . number_format(max(0.0, (float) $invoice['amount_inc_vat'] - (float) $invoice['paid_amount_inc_vat']), 2, ',', '.'),
+          '—',
         ];
       }
     }
@@ -93,11 +99,11 @@ final class SalesWorkspaceController extends ControllerBase {
         ],
       ],
       'explanation' => [
-        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je vanuit deze lijst openen en bijwerken.</p>',
+        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je openen, bijwerken en afzonderlijk ter beoordeling naar de klant sturen zonder ze definitief te maken.</p>',
       ],
       'invoices' => [
         '#type' => 'table',
-        '#header' => [$this->t('Factuur'), $this->t('Project'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Bedrag'), $this->t('Openstaand')],
+        '#header' => [$this->t('Factuur'), $this->t('Project'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Bedrag'), $this->t('Openstaand'), $this->t('Actie')],
         '#rows' => $rows,
         '#empty' => $this->t('Nog geen verkoopfacturen beschikbaar.'),
       ],
