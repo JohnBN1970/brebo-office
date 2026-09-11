@@ -32,6 +32,21 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
       ));
     }
 
+    if ($collection->get('brebo_finance.sales_settings') === NULL) {
+      $collection->add('brebo_finance.sales_settings', new Route(
+        '/brebo-office/finance/sales/settings',
+        [
+          '_form' => '\\Drupal\\brebo_finance\\Form\\SalesSettingsForm',
+          '_title' => 'Verkoopinstellingen',
+        ],
+        ['_permission' => 'approve brebo finance'],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET', 'POST'],
+      ));
+    }
+
     if ($collection->get('brebo_finance.sales_standalone_start') === NULL) {
       $collection->add('brebo_finance.sales_standalone_start', new Route(
         '/brebo-office/finance/sales/new',
