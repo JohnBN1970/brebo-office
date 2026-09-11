@@ -64,6 +64,24 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
         ['GET', 'POST'],
       ));
     }
+
+    if ($collection->get('brebo_finance.sales_standalone_review') === NULL) {
+      $collection->add('brebo_finance.sales_standalone_review', new Route(
+        '/brebo-office/finance/sales/drafts/{draft}/review',
+        [
+          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReviewForm',
+          '_title' => 'Conceptfactuur ter beoordeling',
+        ],
+        [
+          '_permission' => 'access brebo finance',
+          'draft' => '\\d+',
+        ],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET', 'POST'],
+      ));
+    }
   }
 
 }
