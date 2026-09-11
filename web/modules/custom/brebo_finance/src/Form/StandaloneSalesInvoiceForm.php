@@ -11,7 +11,7 @@ use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-/** Creates a non-project sales invoice draft in the existing sales draft flow. */
+/** Creates or edits a non-project sales invoice draft. */
 final class StandaloneSalesInvoiceForm extends FormBase {
 
   public function __construct(
@@ -27,7 +27,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     return 'brebo_finance_standalone_sales_invoice_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state): array {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $draft = NULL): array {
     foreach (['brebo_finance_sales_invoice_draft', 'brebo_finance_sales_invoice_draft_line'] as $table) {
       if (!$this->database->schema()->tableExists($table)) {
         $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Factuurconcept-opslag ontbreekt. Voer eerst database-updates uit.') . '</strong></p>'];
@@ -35,39 +35,61 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       }
     }
 
+    $draftId = (int) ($draft ?? $form_state->get('draft_id') ?? 0);
+    $existing = NULL;
+    $context = [];
+    $storedLines = [];
+    if ($draftId > 0) {
+      $existing = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
+        ->fields('d')
+        ->condition('id', $draftId)
+        ->condition('project_nid', 0)
+        ->condition('status', 'draft')
+        ->execute()
+        ->fetchAssoc();
+      if ($existing === FALSE) {
+        throw new \InvalidArgumentException('Editable standalone invoice draft not found.');
+      }
+      $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
+      $storedLines = is_array($context['lines'] ?? NULL) ? array_values($context['lines']) : [];
+      $form_state->set('draft_id', $draftId);
+    }
+
     $lineIndexes = $form_state->get('line_indexes');
     if (!is_array($lineIndexes) || $lineIndexes === []) {
-      $lineIndexes = [1];
+      $count = max(1, count($storedLines));
+      $lineIndexes = range(1, $count);
       $form_state->set('line_indexes', $lineIndexes);
-      $form_state->set('next_line_index', 2);
+      $form_state->set('next_line_index', $count + 1);
     }
 
     $today = date('Y-m-d');
     $due = date('Y-m-d', strtotime('+30 days'));
-    $form['intro'] = ['#markup' => '<p>' . $this->t('Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
+    $form['intro'] = ['#markup' => '<p>' . $this->t($draftId > 0 ? 'Bewerk dit losse factuurconcept. Zolang het concept niet is vrijgegeven blijft het wijzigbaar en heeft het nog geen definitief factuurnummer.' : 'Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
     $form['customer'] = ['#type' => 'fieldset', '#title' => $this->t('Debiteur')];
-    $form['customer']['customer_name'] = ['#type' => 'textfield', '#title' => $this->t('Organisatie / debiteur'), '#required' => TRUE, '#maxlength' => 255];
-    $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Relatie- of klantreferentie'), '#maxlength' => 255, '#description' => $this->t('Optioneel. Later koppelen we dit rechtstreeks aan de centrale Relaties-administratie.')];
+    $form['customer']['customer_name'] = ['#type' => 'textfield', '#title' => $this->t('Organisatie / debiteur'), '#required' => TRUE, '#maxlength' => 255, '#default_value' => (string) ($context['customer_name'] ?? '')];
+    $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Relatie- of klantreferentie'), '#maxlength' => 255, '#default_value' => (string) ($context['customer_ref'] ?? ''), '#description' => $this->t('Optioneel. Later koppelen we dit rechtstreeks aan de centrale Relaties-administratie.')];
 
     $form['invoice'] = ['#type' => 'fieldset', '#title' => $this->t('Factuur')];
-    $form['invoice']['invoice_date'] = ['#type' => 'date', '#title' => $this->t('Factuurdatum'), '#required' => TRUE, '#default_value' => $today];
-    $form['invoice']['due_date'] = ['#type' => 'date', '#title' => $this->t('Vervaldatum'), '#required' => TRUE, '#default_value' => $due];
-    $form['invoice']['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#required' => TRUE];
+    $form['invoice']['invoice_date'] = ['#type' => 'date', '#title' => $this->t('Factuurdatum'), '#required' => TRUE, '#default_value' => (string) ($existing['invoice_date'] ?? $today)];
+    $form['invoice']['due_date'] = ['#type' => 'date', '#title' => $this->t('Vervaldatum'), '#required' => TRUE, '#default_value' => (string) ($existing['due_date'] ?? $due)];
+    $form['invoice']['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#required' => TRUE, '#default_value' => (string) ($existing['description'] ?? '')];
 
     $form['lines'] = ['#type' => 'fieldset', '#title' => $this->t('Factuurregels'), '#prefix' => '<div id="standalone-sales-invoice-lines">', '#suffix' => '</div>'];
     $form['lines']['help'] = ['#markup' => '<p>' . $this->t('Vul minimaal één regel in. Voeg zoveel regels toe als nodig; bedragen worden bij opslaan berekend en als concept vastgelegd.') . '</p>'];
 
     foreach ($lineIndexes as $position => $i) {
-      $form['lines']['line_' . $i] = ['#type' => 'details', '#title' => $this->t('Regel @n', ['@n' => $position + 1]), '#open' => TRUE];
-      $form['lines']['line_' . $i]['description_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255];
-      $form['lines']['line_' . $i]['quantity_' . $i] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#step' => 0.0001, '#default_value' => 1];
-      $form['lines']['line_' . $i]['unit_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Eenheid'), '#maxlength' => 32];
-      $form['lines']['line_' . $i]['unit_price_' . $i] = ['#type' => 'number', '#title' => $this->t('Prijs excl. btw'), '#step' => 0.01];
-      $form['lines']['line_' . $i]['vat_rate_' . $i] = ['#type' => 'select', '#title' => $this->t('Btw'), '#options' => ['21' => '21%', '9' => '9%', '0' => '0%'], '#default_value' => '21'];
+      $stored = $storedLines[$position] ?? [];
+      $form['lines']['line_' . $i] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-invoice-line']]];
+      $form['lines']['line_' . $i]['description_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#default_value' => (string) ($stored['description'] ?? '')];
+      $form['lines']['line_' . $i]['quantity_' . $i] = ['#type' => 'number', '#title' => $this->t('Aantal'), '#step' => 0.0001, '#default_value' => $stored['quantity'] ?? 1];
+      $form['lines']['line_' . $i]['unit_' . $i] = ['#type' => 'textfield', '#title' => $this->t('Eenheid'), '#maxlength' => 32, '#default_value' => (string) ($stored['unit'] ?? '')];
+      $form['lines']['line_' . $i]['unit_price_' . $i] = ['#type' => 'number', '#title' => $this->t('Prijs excl. btw'), '#step' => 0.01, '#default_value' => $stored['unit_price_ex_vat'] ?? NULL];
+      $form['lines']['line_' . $i]['vat_rate_' . $i] = ['#type' => 'select', '#title' => $this->t('Btw'), '#options' => ['21' => '21%', '9' => '9%', '0' => '0%'], '#default_value' => (string) (int) ($stored['vat_rate'] ?? 21)];
       if (count($lineIndexes) > 1) {
         $form['lines']['line_' . $i]['remove_' . $i] = [
           '#type' => 'submit',
-          '#value' => $this->t('Regel verwijderen'),
+          '#value' => $this->t('Verwijderen'),
           '#submit' => ['::removeLine'],
           '#limit_validation_errors' => [],
           '#line_index' => $i,
@@ -82,10 +104,12 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       '#submit' => ['::addLine'],
       '#limit_validation_errors' => [],
       '#ajax' => ['callback' => '::linesAjax', 'wrapper' => 'standalone-sales-invoice-lines'],
+      '#attributes' => ['class' => ['brebo-invoice-lines__add']],
     ];
 
-    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Concept opslaan'), '#button_type' => 'primary'];
+    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t($draftId > 0 ? 'Concept bijwerken' : 'Concept opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_finance.sales_workspace'), '#attributes' => ['class' => ['button']]];
+    $form['#attached']['library'][] = 'brebo_finance/standalone_sales_invoice';
     return $form;
   }
 
@@ -159,12 +183,15 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
     $actor = (int) $this->currentUser()->id();
     $now = time();
-    $draftNumber = 'CON-LOS-' . date('Ymd-His');
+    $draftId = (int) ($form_state->get('draft_id') ?? 0);
+    $draftNumber = $draftId > 0
+      ? (string) $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d', ['draft_number'])->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute()->fetchField()
+      : 'CON-LOS-' . date('Ymd-His');
+
     $transaction = $this->database->startTransaction();
     try {
-      $draftId = (int) $this->database->insert('brebo_finance_sales_invoice_draft')->fields([
+      $draftFields = [
         'project_nid' => 0,
-        'draft_number' => $draftNumber,
         'status' => 'draft',
         'invoice_date' => (string) $form_state->getValue('invoice_date'),
         'due_date' => (string) $form_state->getValue('due_date'),
@@ -172,11 +199,23 @@ final class StandaloneSalesInvoiceForm extends FormBase {
         'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''),
         'vat_amount' => number_format($totals['vat'], 4, '.', ''),
         'amount_inc_vat' => number_format($totals['inc'], 4, '.', ''),
-        'created' => $now,
-        'created_by' => $actor,
         'changed' => $now,
         'changed_by' => $actor,
-      ])->execute();
+      ];
+
+      if ($draftId > 0) {
+        $updated = $this->database->update('brebo_finance_sales_invoice_draft')->fields($draftFields)->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute();
+        if ($updated === 0) {
+          throw new \RuntimeException('Standalone invoice draft is no longer editable.');
+        }
+        $this->database->delete('brebo_finance_sales_invoice_draft_line')->condition('draft_id', $draftId)->execute();
+      }
+      else {
+        $draftFields['draft_number'] = $draftNumber;
+        $draftFields['created'] = $now;
+        $draftFields['created_by'] = $actor;
+        $draftId = (int) $this->database->insert('brebo_finance_sales_invoice_draft')->fields($draftFields)->execute();
+      }
 
       foreach ($lines as $delta => $line) {
         $this->database->insert('brebo_finance_sales_invoice_draft_line')->fields([

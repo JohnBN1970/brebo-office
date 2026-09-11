@@ -23,7 +23,7 @@ final class SalesWorkspaceController extends ControllerBase {
 
     if ($this->database->schema()->tableExists('brebo_finance_sales_invoice_draft')) {
       $drafts = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
-        ->fields('d', ['draft_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat'])
+        ->fields('d', ['id', 'draft_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat'])
         ->orderBy('created', 'DESC')
         ->range(0, 50)
         ->execute()
@@ -33,8 +33,12 @@ final class SalesWorkspaceController extends ControllerBase {
         $projectLink = $projectId > 0
           ? ['data' => ['#type' => 'link', '#title' => (string) $projectId, '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId])]]
           : $this->t('Los');
+        $draftLabel = (string) $draft['draft_number'];
+        $draftCell = $projectId === 0 && (string) $draft['status'] === 'draft'
+          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
+          : $draftLabel;
         $rows[] = [
-          $draft['draft_number'],
+          $draftCell,
           $projectLink,
           $draft['invoice_date'],
           $draft['due_date'],
@@ -89,7 +93,7 @@ final class SalesWorkspaceController extends ControllerBase {
         ],
       ],
       'explanation' => [
-        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Alleen wanneer er geen project is, gebruik je Nieuwe losse factuur.</p>',
+        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je vanuit deze lijst openen en bijwerken.</p>',
       ],
       'invoices' => [
         '#type' => 'table',
