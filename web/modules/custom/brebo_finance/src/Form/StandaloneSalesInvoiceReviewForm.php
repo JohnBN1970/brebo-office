@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
+use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -24,6 +25,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly MailManagerInterface $mailManager,
     private readonly SalesInvoiceOutputBuilder $outputBuilder,
+    private readonly OutboundAttachmentService $attachmentService,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -38,6 +40,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
         $container->get('entity_type.manager'),
         $container->get('brebo_office_core.simple_pdf_renderer'),
       ),
+      $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }
 
@@ -99,6 +102,16 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       '#rows' => 6,
       '#default_value' => "Geachte heer/mevrouw,\n\nBijgaand ontvangt u onze conceptfactuur ter beoordeling. Wilt u de gegevens en referentie controleren en eventuele opmerkingen aan ons doorgeven?\n\nDit document is uitsluitend een concept en nog geen definitieve factuur.",
     ];
+    $options = $this->attachmentService->documentOptions();
+    if ($options !== []) {
+      $form['document_attachments'] = [
+        '#type' => 'checkboxes',
+        '#title' => $this->t('Aanvullende bijlagen'),
+        '#options' => $options,
+        '#default_value' => array_map('intval', (array) ($context['review_attachment_document_ids'] ?? [])),
+        '#description' => $this->t('De conceptfactuur-PDF gaat altijd mee. Selecteer hier extra BREBO-documenten die samen met het concept naar de klant moeten.'),
+      ];
+    }
     $form['actions']['submit'] = [
       '#type' => 'submit',
       '#value' => $this->t('Concept ter beoordeling versturen'),
@@ -124,6 +137,13 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     $intro = trim((string) $form_state->getValue('message'));
     $lines = is_array($context['lines'] ?? NULL) ? $context['lines'] : [];
     $pdf = $this->outputBuilder->conceptPdf($draftId);
+    $selected = array_values(array_filter(array_map('intval', (array) $form_state->getValue('document_attachments', []))));
+    $extraAttachments = $this->attachmentService->resolveDocumentIds($selected);
+    $attachments = [[
+      'filecontent' => $pdf['content'],
+      'filename' => $pdf['filename'],
+      'filemime' => 'application/pdf',
+    ], ...$extraAttachments];
 
     $body = [$intro, '', 'CONCEPT / TER BEOORDELING', 'Conceptnummer: ' . (string) $invoice['draft_number']];
     if (trim((string) ($context['customer_ref'] ?? '')) !== '') {
@@ -132,6 +152,9 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     $body[] = 'Omschrijving: ' . (string) $invoice['description'];
     $body[] = '';
     $body[] = 'De conceptfactuur is als PDF bijgevoegd.';
+    if ($extraAttachments !== []) {
+      $body[] = 'Daarnaast zijn ' . count($extraAttachments) . ' aanvullende bijlage(n) toegevoegd.';
+    }
     $body[] = 'Dit is geen definitieve factuur en hieraan is nog geen factuurnummer toegekend.';
 
     $result = $this->mailManager->mail(
@@ -143,11 +166,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
         'subject' => $subject,
         'body' => implode("\n", $body),
         'body_html' => '',
-        'attachments' => [[
-          'filecontent' => $pdf['content'],
-          'filename' => $pdf['filename'],
-          'filemime' => 'application/pdf',
-        ]],
+        'attachments' => $attachments,
       ],
     );
     if (empty($result['result'])) {
@@ -156,6 +175,10 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     }
 
     $now = time();
+    $attachmentAudit = array_map(static fn(array $attachment): array => [
+      'filename' => (string) $attachment['filename'],
+      'hash' => hash('sha256', (string) $attachment['filecontent']),
+    ], $attachments);
     $history = is_array($context['review_history'] ?? NULL) ? $context['review_history'] : [];
     $history[] = [
       'sent_at' => $now,
@@ -171,15 +194,19 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
       'pdf_hash' => $pdf['hash'],
       'pdf_filename' => $pdf['filename'],
+      'attachment_document_ids' => $selected,
+      'attachments' => $attachmentAudit,
     ];
     $context['review_status'] = 'sent_for_review';
     $context['review_last_sent_at'] = $now;
     $context['review_last_recipient'] = $recipient;
+    $context['review_attachment_document_ids'] = $selected;
     $context['review_history'] = $history;
     $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, $context);
 
-    $this->messenger()->addStatus($this->t('Concept @number is als PDF ter beoordeling verzonden naar @recipient. Het blijft een wijzigbaar concept zonder definitief factuurnummer.', [
+    $this->messenger()->addStatus($this->t('Concept @number is als PDF met @count aanvullende bijlage(n) ter beoordeling verzonden naar @recipient. Het blijft een wijzigbaar concept zonder definitief factuurnummer.', [
       '@number' => (string) $invoice['draft_number'],
+      '@count' => count($extraAttachments),
       '@recipient' => $recipient,
     ]));
     $form_state->setRedirect('brebo_finance.sales_workspace');
