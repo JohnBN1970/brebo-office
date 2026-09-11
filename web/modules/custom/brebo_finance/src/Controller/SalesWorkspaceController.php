@@ -105,6 +105,13 @@ final class SalesWorkspaceController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_finance.sales_standalone_start'),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
+        'settings' => [
+          '#type' => 'link',
+          '#title' => $this->t('Verkoopinstellingen'),
+          '#url' => Url::fromRoute('brebo_finance.sales_settings'),
+          '#attributes' => ['class' => ['button']],
+          '#access' => $this->currentUser()->hasPermission('approve brebo finance'),
+        ],
         'decisions' => [
           '#type' => 'link',
           '#title' => $this->t('Besluiten / te doen'),
