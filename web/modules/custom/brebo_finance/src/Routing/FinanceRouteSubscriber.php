@@ -83,6 +83,24 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
       ));
     }
 
+    if ($collection->get('brebo_finance.sales_standalone_release') === NULL) {
+      $collection->add('brebo_finance.sales_standalone_release', new Route(
+        '/brebo-office/finance/sales/drafts/{draft}/release',
+        [
+          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReleaseForm',
+          '_title' => 'Factuur definitief vrijgeven',
+        ],
+        [
+          '_permission' => 'access brebo finance',
+          'draft' => '\\d+',
+        ],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET', 'POST'],
+      ));
+    }
+
     if ($collection->get('brebo_finance.sales_standalone_pdf_preview') === NULL) {
       $collection->add('brebo_finance.sales_standalone_pdf_preview', new Route(
         '/brebo-office/finance/sales/drafts/{draft}/preview.pdf',
