@@ -38,18 +38,33 @@ final class SalesWorkspaceController extends ControllerBase {
         $draftCell = $editableStandalone
           ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
           : $draftLabel;
-        $reviewCell = $editableStandalone
-          ? ['data' => ['#type' => 'link', '#title' => $this->t('Ter beoordeling'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']])]]
-          : '—';
+        $actionCell = '—';
+        if ($editableStandalone) {
+          $actionCell = ['data' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-finance-sales-actions']],
+            'review' => [
+              '#type' => 'link',
+              '#title' => $this->t('Ter beoordeling'),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']]),
+            ],
+            'separator' => ['#markup' => ' · '],
+            'release' => [
+              '#type' => 'link',
+              '#title' => $this->t('Vrijgeven & verzenden'),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_release', ['draft' => (int) $draft['id']]),
+            ],
+          ]];
+        }
         $rows[] = [
           $draftCell,
           $projectLink,
           $draft['invoice_date'],
           $draft['due_date'],
-          $this->t('Concept'),
+          $draft['status'] === 'draft' ? $this->t('Concept') : $draft['status'],
           '€ ' . number_format((float) $draft['amount_inc_vat'], 2, ',', '.'),
           '—',
-          $reviewCell,
+          $actionCell,
         ];
       }
     }
@@ -99,7 +114,7 @@ final class SalesWorkspaceController extends ControllerBase {
         ],
       ],
       'explanation' => [
-        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je openen, bijwerken en afzonderlijk ter beoordeling naar de klant sturen zonder ze definitief te maken.</p>',
+        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je openen, bijwerken, ter beoordeling versturen of definitief vrijgeven.</p>',
       ],
       'invoices' => [
         '#type' => 'table',
