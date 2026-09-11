@@ -22,3 +22,11 @@ brebo_data_intake.review_decision:
   requirements:
     _permission: 'review brebo office intake'
     record: '\d+'
+
+brebo_data_intake.website_europakozijn:
+  path: '/brebo-internal/intake/europakozijn'
+  defaults:
+    _controller: '\Drupal\brebo_data_intake\Controller\WebsiteEuropakozijnIntakeController::ingest'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
