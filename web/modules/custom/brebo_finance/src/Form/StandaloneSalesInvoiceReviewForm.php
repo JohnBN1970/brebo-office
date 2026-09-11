@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Form;
 
+use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -22,6 +23,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly MailManagerInterface $mailManager,
+    private readonly SalesInvoiceOutputBuilder $outputBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -30,6 +32,12 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       $container->get('keyvalue'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.mail'),
+      new SalesInvoiceOutputBuilder(
+        $container->get('database'),
+        $container->get('keyvalue'),
+        $container->get('entity_type.manager'),
+        $container->get('brebo_office_core.simple_pdf_renderer'),
+      ),
     );
   }
 
@@ -65,6 +73,12 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
         [$this->t('Aantal regels'), (string) count($lines)],
       ],
     ];
+    $form['pdf_preview'] = [
+      '#type' => 'link',
+      '#title' => $this->t('PDF-preview openen'),
+      '#url' => Url::fromRoute('brebo_finance.sales_standalone_pdf_preview', ['draft' => $draftId]),
+      '#attributes' => ['class' => ['button'], 'target' => '_blank'],
+    ];
     $form['recipient'] = [
       '#type' => 'email',
       '#title' => $this->t('Naar'),
@@ -83,7 +97,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       '#type' => 'textarea',
       '#title' => $this->t('Bericht'),
       '#rows' => 6,
-      '#default_value' => "Geachte heer/mevrouw,\n\nBijgaand/onderstaand ontvangt u onze conceptfactuur ter beoordeling. Wilt u de gegevens en referentie controleren en eventuele opmerkingen aan ons doorgeven?\n\nDit document is uitsluitend een concept en nog geen definitieve factuur.",
+      '#default_value' => "Geachte heer/mevrouw,\n\nBijgaand ontvangt u onze conceptfactuur ter beoordeling. Wilt u de gegevens en referentie controleren en eventuele opmerkingen aan ons doorgeven?\n\nDit document is uitsluitend een concept en nog geen definitieve factuur.",
     ];
     $form['actions']['submit'] = [
       '#type' => 'submit',
@@ -109,6 +123,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     $subject = trim((string) $form_state->getValue('subject'));
     $intro = trim((string) $form_state->getValue('message'));
     $lines = is_array($context['lines'] ?? NULL) ? $context['lines'] : [];
+    $pdf = $this->outputBuilder->conceptPdf($draftId);
 
     $body = [$intro, '', 'CONCEPT / TER BEOORDELING', 'Conceptnummer: ' . (string) $invoice['draft_number']];
     if (trim((string) ($context['customer_ref'] ?? '')) !== '') {
@@ -116,18 +131,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     }
     $body[] = 'Omschrijving: ' . (string) $invoice['description'];
     $body[] = '';
-    foreach ($lines as $line) {
-      $body[] = sprintf(
-        '%s x %s %s - EUR %s excl. btw',
-        rtrim(rtrim(number_format((float) ($line['quantity'] ?? 1), 4, '.', ''), '0'), '.'),
-        (string) ($line['unit'] ?? ''),
-        (string) ($line['description'] ?? ''),
-        number_format((float) ($line['amount_ex_vat'] ?? 0), 2, ',', '.'),
-      );
-    }
-    $body[] = '';
-    $body[] = 'Totaal incl. btw: EUR ' . number_format((float) $invoice['amount_inc_vat'], 2, ',', '.');
-    $body[] = '';
+    $body[] = 'De conceptfactuur is als PDF bijgevoegd.';
     $body[] = 'Dit is geen definitieve factuur en hieraan is nog geen factuurnummer toegekend.';
 
     $result = $this->mailManager->mail(
@@ -139,7 +143,11 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
         'subject' => $subject,
         'body' => implode("\n", $body),
         'body_html' => '',
-        'attachments' => [],
+        'attachments' => [[
+          'filecontent' => $pdf['content'],
+          'filename' => $pdf['filename'],
+          'filemime' => 'application/pdf',
+        ]],
       ],
     );
     if (empty($result['result'])) {
@@ -161,6 +169,8 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
         'customer_ref' => (string) ($context['customer_ref'] ?? ''),
         'lines' => $lines,
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
+      'pdf_hash' => $pdf['hash'],
+      'pdf_filename' => $pdf['filename'],
     ];
     $context['review_status'] = 'sent_for_review';
     $context['review_last_sent_at'] = $now;
@@ -168,7 +178,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     $context['review_history'] = $history;
     $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, $context);
 
-    $this->messenger()->addStatus($this->t('Concept @number is ter beoordeling verzonden naar @recipient. Het blijft een wijzigbaar concept zonder definitief factuurnummer.', [
+    $this->messenger()->addStatus($this->t('Concept @number is als PDF ter beoordeling verzonden naar @recipient. Het blijft een wijzigbaar concept zonder definitief factuurnummer.', [
       '@number' => (string) $invoice['draft_number'],
       '@recipient' => $recipient,
     ]));
