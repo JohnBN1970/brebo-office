@@ -15,7 +15,12 @@ final class StandaloneSalesInvoicePdfController extends ControllerBase {
   public function __construct(private readonly SalesInvoiceOutputBuilder $outputBuilder) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_finance.sales_invoice_output_builder'));
+    return new static(new SalesInvoiceOutputBuilder(
+      $container->get('database'),
+      $container->get('keyvalue'),
+      $container->get('entity_type.manager'),
+      $container->get('brebo_office_core.simple_pdf_renderer'),
+    ));
   }
 
   public function preview(int $draft): Response {
