@@ -25,7 +25,11 @@ final class SalesSettingsForm extends ConfigFormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('config.factory'),
-      $container->get('brebo_finance.sales_invoice_number_manager'),
+      new SalesInvoiceNumberManager(
+        $container->get('config.factory'),
+        $container->get('keyvalue'),
+        $container->get('lock'),
+      ),
     );
   }
 
