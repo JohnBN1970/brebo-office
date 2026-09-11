@@ -5,10 +5,12 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Form;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Url;
+use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Creates or edits a non-project sales invoice draft. */
@@ -17,10 +19,15 @@ final class StandaloneSalesInvoiceForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'), $container->get('keyvalue'));
+    return new static(
+      $container->get('database'),
+      $container->get('keyvalue'),
+      $container->get('entity_type.manager'),
+    );
   }
 
   public function getFormId(): string {
@@ -67,8 +74,16 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     $due = date('Y-m-d', strtotime('+30 days'));
     $form['intro'] = ['#markup' => '<p>' . $this->t($draftId > 0 ? 'Bewerk dit losse factuurconcept. Zolang het concept niet is vrijgegeven blijft het wijzigbaar en heeft het nog geen definitief factuurnummer.' : 'Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
     $form['customer'] = ['#type' => 'fieldset', '#title' => $this->t('Debiteur')];
-    $form['customer']['customer_name'] = ['#type' => 'textfield', '#title' => $this->t('Organisatie / debiteur'), '#required' => TRUE, '#maxlength' => 255, '#default_value' => (string) ($context['customer_name'] ?? '')];
-    $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Relatie- of klantreferentie'), '#maxlength' => 255, '#default_value' => (string) ($context['customer_ref'] ?? ''), '#description' => $this->t('Optioneel. Later koppelen we dit rechtstreeks aan de centrale Relaties-administratie.')];
+    $form['customer']['customer_organization'] = [
+      '#type' => 'entity_autocomplete',
+      '#title' => $this->t('Organisatie / debiteur'),
+      '#target_type' => 'node',
+      '#selection_settings' => ['target_bundles' => ['brebo_organization']],
+      '#required' => TRUE,
+      '#default_value' => !empty($context['customer_organization_nid']) ? $this->entityTypeManager->getStorage('node')->load((int) $context['customer_organization_nid']) : NULL,
+      '#description' => $this->t('Kies de centrale BREBO-relatie. De Moneybird-koppeling wordt bij vrijgave vanuit deze organisatie gecontroleerd.'),
+    ];
+    $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Klantreferentie / inkooporder'), '#maxlength' => 255, '#default_value' => (string) ($context['customer_ref'] ?? ''), '#description' => $this->t('Bijvoorbeeld PO-nummer, inkoopordernummer of andere referentie die de klant op de factuur verlangt.')];
 
     $form['invoice'] = ['#type' => 'fieldset', '#title' => $this->t('Factuur')];
     $form['invoice']['invoice_date'] = ['#type' => 'date', '#title' => $this->t('Factuurdatum'), '#required' => TRUE, '#default_value' => (string) ($existing['invoice_date'] ?? $today)];
@@ -138,6 +153,13 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     if ((string) $form_state->getValue('due_date') < (string) $form_state->getValue('invoice_date')) {
       $form_state->setErrorByName('due_date', $this->t('De vervaldatum kan niet vóór de factuurdatum liggen.'));
     }
+
+    $organizationId = (int) ($form_state->getValue('customer_organization') ?? 0);
+    $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL;
+    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') {
+      $form_state->setErrorByName('customer_organization', $this->t('Kies een geldige organisatie uit de centrale Relaties-administratie.'));
+    }
+
     $hasLine = FALSE;
     foreach ($form_state->get('line_indexes') ?? [1] as $i) {
       $description = trim((string) $form_state->getValue('description_' . $i));
@@ -181,6 +203,12 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       ];
     }
 
+    $organizationId = (int) $form_state->getValue('customer_organization');
+    $organization = $this->entityTypeManager->getStorage('node')->load($organizationId);
+    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') {
+      throw new \RuntimeException('Canonical debtor organisation is unavailable.');
+    }
+
     $actor = (int) $this->currentUser()->id();
     $now = time();
     $draftId = (int) ($form_state->get('draft_id') ?? 0);
@@ -204,8 +232,9 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       ];
 
       if ($draftId > 0) {
-        $updated = $this->database->update('brebo_finance_sales_invoice_draft')->fields($draftFields)->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute();
-        if ($updated === 0) {
+        $this->database->update('brebo_finance_sales_invoice_draft')->fields($draftFields)->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute();
+        $stillEditable = (bool) $this->database->select('brebo_finance_sales_invoice_draft', 'd')->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->countQuery()->execute()->fetchField();
+        if (!$stillEditable) {
           throw new \RuntimeException('Standalone invoice draft is no longer editable.');
         }
         $this->database->delete('brebo_finance_sales_invoice_draft_line')->condition('draft_id', $draftId)->execute();
@@ -237,7 +266,8 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
       $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, [
         'origin' => 'standalone',
-        'customer_name' => trim((string) $form_state->getValue('customer_name')),
+        'customer_organization_nid' => $organizationId,
+        'customer_name' => $organization->label(),
         'customer_ref' => trim((string) $form_state->getValue('customer_ref')),
         'lines' => $lines,
       ]);
