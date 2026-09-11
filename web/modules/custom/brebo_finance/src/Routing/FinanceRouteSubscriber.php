@@ -82,6 +82,23 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
         ['GET', 'POST'],
       ));
     }
+
+    if ($collection->get('brebo_finance.sales_standalone_pdf_preview') === NULL) {
+      $collection->add('brebo_finance.sales_standalone_pdf_preview', new Route(
+        '/brebo-office/finance/sales/drafts/{draft}/preview.pdf',
+        [
+          '_controller' => '\\Drupal\\brebo_finance\\Controller\\StandaloneSalesInvoicePdfController::preview',
+        ],
+        [
+          '_permission' => 'access brebo finance',
+          'draft' => '\\d+',
+        ],
+        ['no_cache' => TRUE],
+        '',
+        [],
+        ['GET'],
+      ));
+    }
   }
 
 }
