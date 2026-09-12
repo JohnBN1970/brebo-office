@@ -46,8 +46,7 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
     $projectId = (int) $node->id();
     $sources = $this->sourceOptions($projectId);
     $today = date('Y-m-d');
-    $paymentDays = $this->projectPaymentTermDays($projectId);
-    $due = date('Y-m-d', strtotime('+' . $paymentDays . ' days'));
+    $projectDays = $this->projectPaymentTermDays($projectId);
 
     $form['intro'] = ['#markup' => '<p>' . $this->t('Maak een factuurconcept op basis van factureerbare termijnen, goedgekeurd meerwerk en goedgekeurde stelpostverrekening. BREBO Office blijft eigenaar van concept, factuurnummer, PDF en verzending.') . '</p>'];
     $form['customer'] = ['#type' => 'fieldset', '#title' => $this->t('Debiteur')];
@@ -57,7 +56,7 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
       '#target_type' => 'node',
       '#selection_settings' => ['target_bundles' => ['brebo_organization']],
       '#required' => TRUE,
-      '#description' => $this->t('Kies de centrale BREBO-relatie die deze projectfactuur ontvangt. Hiermee gebruiken Project en Finance exact dezelfde debiteurwaarheid.'),
+      '#description' => $this->t('Kies de centrale BREBO-relatie die deze projectfactuur ontvangt. De klantstandaard voor betaaltermijn wordt gebruikt als er geen projectspecifieke of termijnspecifieke afspraak geldt.'),
     ];
     $form['customer']['customer_ref'] = [
       '#type' => 'textfield',
@@ -65,9 +64,36 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
       '#maxlength' => 255,
       '#default_value' => $this->projectClientReference($projectId),
     ];
-    $form['invoice_date'] = ['#type' => 'date', '#title' => $this->t('Factuurdatum'), '#required' => TRUE, '#default_value' => $today];
-    $form['due_date'] = ['#type' => 'date', '#title' => $this->t('Vervaldatum'), '#required' => TRUE, '#default_value' => $due];
-    $form['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#default_value' => $this->t('Projectfactuur @project', ['@project' => $node->label()])];
+    $form['invoice'] = ['#type' => 'fieldset', '#title' => $this->t('Factuur')];
+    $form['invoice']['invoice_date'] = ['#type' => 'date', '#title' => $this->t('Factuurdatum'), '#required' => TRUE, '#default_value' => $today];
+    $form['invoice']['payment_term'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Betaaltermijn'),
+      '#options' => [
+        'inherit' => $this->t('Overnemen uit termijn / project / klant'),
+        '0' => $this->t('Per omgaande'),
+        '5' => $this->t('5 dagen'),
+        '8' => $this->t('8 dagen'),
+        '14' => $this->t('14 dagen'),
+        '30' => $this->t('30 dagen'),
+        'custom' => $this->t('Afwijkend aantal dagen'),
+      ],
+      '#default_value' => 'inherit',
+      '#description' => $this->t('Projectstandaard: @days dagen. Bij Overnemen krijgt een geselecteerde termijn voorrang; daarna projectcontract, klantprofiel en tenslotte BREBO-standaard 14 dagen.', ['@days' => $projectDays]),
+    ];
+    $form['invoice']['custom_payment_term_days'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Afwijkend aantal dagen'),
+      '#min' => 0,
+      '#max' => 365,
+      '#states' => ['visible' => [':input[name="payment_term"]' => ['value' => 'custom']]],
+    ];
+    $form['invoice']['due_date_info'] = [
+      '#type' => 'item',
+      '#title' => $this->t('Vervaldatum'),
+      '#markup' => $this->t('Wordt door Office automatisch berekend vanaf de factuurdatum. Hierdoor kan de vervaldatum niet los van de betaaltermijn verkeerd worden ingevoerd.'),
+    ];
+    $form['invoice']['description'] = ['#type' => 'textfield', '#title' => $this->t('Omschrijving'), '#maxlength' => 255, '#default_value' => $this->t('Projectfactuur @project', ['@project' => $node->label()])];
     $form['sources'] = [
       '#type' => 'checkboxes',
       '#title' => $this->t('Opnemen in factuurconcept'),
@@ -86,8 +112,8 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
     if ($selected === []) {
       $form_state->setErrorByName('sources', $this->t('Selecteer minimaal één factureerbare bron.'));
     }
-    if ((string) $form_state->getValue('due_date') < (string) $form_state->getValue('invoice_date')) {
-      $form_state->setErrorByName('due_date', $this->t('De vervaldatum kan niet vóór de factuurdatum liggen.'));
+    if ((string) $form_state->getValue('payment_term') === 'custom' && $form_state->getValue('custom_payment_term_days') === '') {
+      $form_state->setErrorByName('custom_payment_term_days', $this->t('Vul het afwijkende aantal betalingsdagen in.'));
     }
     $organizationId = (int) ($form_state->getValue('customer_organization') ?? 0);
     $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL;
@@ -115,6 +141,18 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
       throw new \RuntimeException('Canonical debtor organisation is unavailable.');
     }
 
+    [$paymentDays, $paymentSource] = $this->resolvePaymentTerm(
+      $projectId,
+      $organization,
+      $selected,
+      (string) $form_state->getValue('payment_term'),
+      $form_state->getValue('custom_payment_term_days'),
+    );
+    $invoiceDate = (string) $form_state->getValue('invoice_date');
+    $invoiceDateObject = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate);
+    if ($invoiceDateObject === FALSE) throw new \RuntimeException('Ongeldige factuurdatum.');
+    $dueDate = $invoiceDateObject->modify('+' . $paymentDays . ' days')->format('Y-m-d');
+
     $totals = ['ex' => 0.0, 'vat' => 0.0, 'inc' => 0.0];
     foreach ($lines as $line) {
       $totals['ex'] += (float) $line['amount_ex_vat'];
@@ -130,8 +168,8 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
         'project_nid' => $projectId,
         'draft_number' => $draftNumber,
         'status' => 'draft',
-        'invoice_date' => (string) $form_state->getValue('invoice_date'),
-        'due_date' => (string) $form_state->getValue('due_date'),
+        'invoice_date' => $invoiceDate,
+        'due_date' => $dueDate,
         'description' => trim((string) $form_state->getValue('description')),
         'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''),
         'vat_amount' => number_format($totals['vat'], 4, '.', ''),
@@ -166,6 +204,9 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
         'customer_organization_nid' => $organizationId,
         'customer_name' => (string) $organization->label(),
         'customer_ref' => trim((string) $form_state->getValue('customer_ref')),
+        'payment_term_days' => $paymentDays,
+        'payment_term_source' => $paymentSource,
+        'due_date_calculated' => TRUE,
         'lines' => array_map(static fn(array $line): array => [
           'description' => (string) $line['description'],
           'quantity' => 1,
@@ -185,14 +226,51 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
       throw $exception;
     }
 
-    $this->messenger()->addStatus($this->t('Factuurconcept @number is aangemaakt voor @customer. Er is nog geen definitief factuurnummer uitgegeven.', ['@number' => $draftNumber, '@customer' => $organization->label()]));
+    $this->messenger()->addStatus($this->t('Factuurconcept @number is aangemaakt voor @customer met @days dagen betaaltermijn (vervaldatum @due). Er is nog geen definitief factuurnummer uitgegeven.', ['@number' => $draftNumber, '@customer' => $organization->label(), '@days' => $paymentDays, '@due' => $dueDate]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
   }
 
   private function projectPaymentTermDays(int $projectId): int {
-    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) return 30;
-    $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField();
-    return is_numeric($value) ? max(0, (int) $value) : 30;
+    if ($this->database->schema()->tableExists('brebo_finance_project_contract')) {
+      $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField();
+      if (is_numeric($value)) return max(0, (int) $value);
+    }
+    return $this->globalPaymentTermDays();
+  }
+
+  private function globalPaymentTermDays(): int {
+    $value = \Drupal::config('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    return is_numeric($value) ? max(0, (int) $value) : 14;
+  }
+
+  /** @return array{0:int,1:string} */
+  private function resolvePaymentTerm(int $projectId, NodeInterface $organization, array $selected, string $choice, mixed $custom): array {
+    if ($choice === 'custom') return [max(0, (int) $custom), 'invoice'];
+    if ($choice !== 'inherit' && is_numeric($choice)) return [max(0, (int) $choice), 'invoice'];
+
+    $instalmentTerms = [];
+    foreach ($selected as $sourceKey) {
+      [$type, $id] = array_pad(explode(':', (string) $sourceKey, 2), 2, NULL);
+      if ($type !== 'instalment' || !is_numeric($id)) continue;
+      $payload = $this->database->select('brebo_finance_billing_instalment', 'i')->fields('i', ['evidence_payload'])->condition('id', (int) $id)->condition('project_nid', $projectId)->execute()->fetchField();
+      if (!is_string($payload) || $payload === '') continue;
+      $decoded = json_decode($payload, TRUE);
+      if (is_array($decoded) && isset($decoded['payment_term_days']) && is_numeric($decoded['payment_term_days'])) {
+        $instalmentTerms[(int) $decoded['payment_term_days']] = TRUE;
+      }
+    }
+    if (count($instalmentTerms) === 1) return [(int) array_key_first($instalmentTerms), 'instalment'];
+
+    if ($this->database->schema()->tableExists('brebo_finance_project_contract')) {
+      $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField();
+      if (is_numeric($value)) return [max(0, (int) $value), 'project_contract'];
+    }
+
+    if ($organization->hasField('field_brebo_payment_term_days')) {
+      $value = $organization->get('field_brebo_payment_term_days')->value;
+      if (is_numeric($value)) return [max(0, (int) $value), 'customer'];
+    }
+    return [$this->globalPaymentTermDays(), 'brebo_default'];
   }
 
   private function projectClientReference(int $projectId): string {
@@ -205,7 +283,10 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
     $options = [];
     if ($this->database->schema()->tableExists('brebo_finance_billing_instalment')) {
       $rows = $this->database->select('brebo_finance_billing_instalment', 'i')->fields('i')->condition('project_nid', $projectId)->condition('status', 'billable')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-      foreach ($rows as $row) $options['instalment:' . $row['id']] = $this->t('Termijn @nr · @desc · € @amount excl.', ['@nr' => $row['instalment_number'], '@desc' => $row['description'], '@amount' => number_format((float) $row['amount_ex_vat'], 2, ',', '.')]);
+      foreach ($rows as $row) {
+        $term = $this->instalmentPaymentTerm($row);
+        $options['instalment:' . $row['id']] = $this->t('Termijn @nr · @desc · € @amount excl. · @days', ['@nr' => $row['instalment_number'], '@desc' => $row['description'], '@amount' => number_format((float) $row['amount_ex_vat'], 2, ',', '.'), '@days' => $term === 0 ? 'per omgaande' : $term . ' dagen']);
+      }
     }
     if ($this->database->schema()->tableExists('brebo_finance_change_order')) {
       $rows = $this->database->select('brebo_finance_change_order', 'c')->fields('c')->condition('project_nid', $projectId)->condition('status', ['client_approved', 'executed'], 'IN')->isNull('invoice_ref')->execute()->fetchAll(\PDO::FETCH_ASSOC);
@@ -222,6 +303,12 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
       }
     }
     return $options;
+  }
+
+  private function instalmentPaymentTerm(array $row): int {
+    $payload = json_decode((string) ($row['evidence_payload'] ?? ''), TRUE);
+    if (is_array($payload) && isset($payload['payment_term_days']) && is_numeric($payload['payment_term_days'])) return max(0, (int) $payload['payment_term_days']);
+    return $this->projectPaymentTermDays((int) ($row['project_nid'] ?? 0));
   }
 
   /** @return list<array<string, mixed>> */
