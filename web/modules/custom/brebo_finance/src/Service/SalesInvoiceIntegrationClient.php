@@ -7,16 +7,14 @@ namespace Drupal\brebo_finance\Service;
 use Drupal\Core\Site\Settings;
 use GuzzleHttp\ClientInterface;
 
-/** Sends authenticated sales-invoice commands to the BREBO integration API. */
+/** Sends authenticated sales-invoice registration commands to the integration API. */
 final class SalesInvoiceIntegrationClient {
 
   private const PATH = '/v1/accounting/sales-invoices';
 
   public function __construct(private readonly ClientInterface $httpClient) {}
 
-  /**
-   * @return array<string, mixed>
-   */
+  /** @return array<string, mixed> */
   public function dispatch(string $idempotencyKey, array $salesInvoice): array {
     $baseUrl = rtrim((string) Settings::get('brebo_integration_api_url', ''), '/');
     $secret = (string) Settings::get('brebo_integration_shared_secret', '');
@@ -27,6 +25,9 @@ final class SalesInvoiceIntegrationClient {
     $body = json_encode([
       'idempotency_key' => $idempotencyKey,
       'sales_invoice' => $salesInvoice,
+      // BREBO Office already sent the definitive invoice to the customer.
+      // Moneybird must only register it as sent/open, never send another email.
+      'sending' => ['delivery_method' => 'Manual'],
     ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
 
     $requestId = $this->uuidV4();
