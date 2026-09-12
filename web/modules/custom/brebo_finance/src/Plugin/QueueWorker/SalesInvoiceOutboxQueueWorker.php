@@ -55,8 +55,9 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     $invoice = $payload['invoice'] ?? NULL;
     if (!is_array($invoice)) throw new \RuntimeException('Sales invoice outbox payload has no invoice object.');
 
+    $registerOnly = (string) ($row['command_type'] ?? '') === 'sales_invoice.register';
     $breboInvoiceNumber = trim((string) ($invoice['invoice_id'] ?? ''));
-    if ((string) ($row['command_type'] ?? '') === 'sales_invoice.register' && $breboInvoiceNumber === '') {
+    if ($registerOnly && $breboInvoiceNumber === '') {
       throw new \RuntimeException('BREBO registration command has no BREBO invoice number.');
     }
 
@@ -70,7 +71,7 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     ])->condition('id', $outboxId)->execute();
 
     try {
-      $result = $this->client->dispatch((string) $row['idempotency_key'], $invoice);
+      $result = $this->client->dispatch((string) $row['idempotency_key'], $invoice, $registerOnly);
       $providerInvoice = $result['sales_invoice'] ?? NULL;
       if (!is_array($providerInvoice) || empty($providerInvoice['id'])) {
         throw new \RuntimeException('Integration API response has no Moneybird sales invoice identity.');
