@@ -22,7 +22,43 @@ final class SalesInvoiceOutputBuilder {
 
   /** @return array{content:string,filename:string,hash:string} */
   public function conceptPdf(int $draftId): array {
-    $draft = $this->loadDraft($draftId);
+    $draft = $this->loadDraft($draftId, TRUE);
+    [$context, $organization] = $this->contextAndOrganization($draftId);
+    $lines = $this->invoiceLines($draft, $context, $organization, 'Conceptnummer', (string) $draft['draft_number']);
+    array_unshift($lines, 'CONCEPT / TER BEOORDELING', '');
+    $lines[] = '';
+    $lines[] = 'Dit document is uitsluitend een concept ter beoordeling en is geen definitieve factuur.';
+
+    $content = $this->pdfRenderer->render('BREBO - Conceptfactuur', $lines, 'CONCEPT');
+    return [
+      'content' => $content,
+      'filename' => preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) $draft['draft_number']) . '-concept.pdf',
+      'hash' => hash('sha256', $content),
+    ];
+  }
+
+  /** @return array{content:string,filename:string,hash:string} */
+  public function finalPdf(int $draftId, string $invoiceNumber): array {
+    $invoiceNumber = trim($invoiceNumber);
+    if ($invoiceNumber === '') {
+      throw new \InvalidArgumentException('Definitief factuurnummer ontbreekt.');
+    }
+    $draft = $this->loadDraft($draftId, FALSE);
+    [$context, $organization] = $this->contextAndOrganization($draftId);
+    $lines = $this->invoiceLines($draft, $context, $organization, 'Factuurnummer', $invoiceNumber);
+    $lines[] = '';
+    $lines[] = 'Deze factuur is definitief uitgegeven door BREBO Office.';
+
+    $content = $this->pdfRenderer->render('BREBO - Factuur ' . $invoiceNumber, $lines);
+    return [
+      'content' => $content,
+      'filename' => preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoiceNumber) . '.pdf',
+      'hash' => hash('sha256', $content),
+    ];
+  }
+
+  /** @return array{0:array<string,mixed>,1:NodeInterface} */
+  private function contextAndOrganization(int $draftId): array {
     $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
     if (!is_array($context) || empty($context['customer_organization_nid'])) {
       throw new \RuntimeException('Factuurconcept heeft geen canonieke debiteur.');
@@ -31,11 +67,13 @@ final class SalesInvoiceOutputBuilder {
     if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') {
       throw new \RuntimeException('Canonieke debiteur is niet beschikbaar.');
     }
+    return [$context, $organization];
+  }
 
+  /** @return string[] */
+  private function invoiceLines(array $draft, array $context, NodeInterface $organization, string $numberLabel, string $number): array {
     $lines = [
-      'CONCEPT / TER BEOORDELING',
-      '',
-      'Conceptnummer: ' . (string) $draft['draft_number'],
+      $numberLabel . ': ' . $number,
       'Debiteur: ' . (string) $organization->label(),
       'Factuurdatum: ' . (string) $draft['invoice_date'],
       'Vervaldatum: ' . (string) $draft['due_date'],
@@ -56,25 +94,18 @@ final class SalesInvoiceOutputBuilder {
     $lines[] = 'Totaal excl. btw: EUR ' . number_format((float) $draft['amount_ex_vat'], 2, ',', '.');
     $lines[] = 'Btw: EUR ' . number_format((float) $draft['vat_amount'], 2, ',', '.');
     $lines[] = 'Totaal incl. btw: EUR ' . number_format((float) $draft['amount_inc_vat'], 2, ',', '.');
-    $lines[] = '';
-    $lines[] = 'Dit document is uitsluitend een concept ter beoordeling en is geen definitieve factuur.';
-
-    $content = $this->pdfRenderer->render('BREBO - Conceptfactuur', $lines, 'CONCEPT');
-    return [
-      'content' => $content,
-      'filename' => preg_replace('/[^A-Za-z0-9._-]+/', '-', (string) $draft['draft_number']) . '-concept.pdf',
-      'hash' => hash('sha256', $content),
-    ];
+    return $lines;
   }
 
   /** @return array<string,mixed> */
-  private function loadDraft(int $draftId): array {
-    $draft = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
+  private function loadDraft(int $draftId, bool $mustBeDraft): array {
+    $query = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
       ->fields('d')
-      ->condition('id', $draftId)
-      ->condition('status', 'draft')
-      ->execute()
-      ->fetchAssoc();
+      ->condition('id', $draftId);
+    if ($mustBeDraft) {
+      $query->condition('status', 'draft');
+    }
+    $draft = $query->execute()->fetchAssoc();
     if ($draft === FALSE) {
       throw new \InvalidArgumentException('Factuurconcept niet gevonden.');
     }
