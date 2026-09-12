@@ -95,6 +95,20 @@ brebo_project_cockpit.instalment_schedule:
       node:
         type: entity:node
 
+brebo_project_cockpit.instalment_payment_term:
+  path: '/projecten/{node}/facturen/termijnen/{instalment}/betaaltermijn'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectInstalmentPaymentTermForm'
+    _title: 'Betaaltermijn termijn aanpassen'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+    instalment: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_project_cockpit.instalment_billable_approve:
   path: '/projecten/{node}/facturen/termijnen/{instalment}/factureerbaar'
   defaults:
@@ -143,6 +157,20 @@ brebo_project_cockpit.sales_invoice_draft_add:
   requirements:
     _entity_access: 'node.view'
     _permission: 'access brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_project_cockpit.sales_invoice_review:
+  path: '/projecten/{node}/facturen/concept/{draft}/beoordeling'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectSalesInvoiceReviewForm'
+    _title: 'Conceptfactuur ter beoordeling'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+    draft: '\d+'
   options:
     parameters:
       node:

@@ -94,10 +94,11 @@ final class SalesSettingsForm extends ConfigFormBase {
     $form['numbering']['default_payment_term_days'] = [
       '#type' => 'number',
       '#title' => $this->t('Standaard betaaltermijn in dagen'),
-      '#default_value' => (int) ($config->get('numbering.default_payment_term_days') ?? 30),
+      '#default_value' => (int) ($config->get('numbering.default_payment_term_days') ?? 14),
       '#min' => 0,
       '#max' => 365,
       '#required' => TRUE,
+      '#description' => $this->t('BREBO-standaard is 14 dagen. Klant, project, termijn of factuur kan deze waarde gecontroleerd overschrijven.'),
     ];
 
     $year = (int) date('Y');
@@ -137,7 +138,7 @@ final class SalesSettingsForm extends ConfigFormBase {
       ->set('numbering.digits', (int) ($values['digits'] ?? 4))
       ->set('numbering.start_number', (int) ($values['start_number'] ?? 1))
       ->set('numbering.reset_yearly', (bool) ($values['reset_yearly'] ?? FALSE))
-      ->set('numbering.default_payment_term_days', (int) ($values['default_payment_term_days'] ?? 30))
+      ->set('numbering.default_payment_term_days', (int) ($values['default_payment_term_days'] ?? 14))
       ->save();
     parent::submitForm($form, $form_state);
   }

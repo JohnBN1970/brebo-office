@@ -72,10 +72,36 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       $options[$id] = (string) $template['name'] . ' · ' . implode(' / ', array_map(static fn(float $v): string => rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . '%', $template['percentages']));
     }
 
-    $form['project'] = ['#markup' => '<p><strong>' . $this->t('Project:') . '</strong> ' . $node->label() . '<br><strong>' . $this->t('Contractsom excl. btw:') . '</strong> € ' . number_format((float) ($contract['amount_ex_vat'] ?? 0), 2, ',', '.') . '</p>'];
+    $defaultDays = isset($contract['payment_term_days']) && is_numeric($contract['payment_term_days'])
+      ? max(0, (int) $contract['payment_term_days'])
+      : $this->globalPaymentTermDays();
+
+    $form['project'] = ['#markup' => '<p><strong>' . $this->t('Project:') . '</strong> ' . $node->label() . '<br><strong>' . $this->t('Contractsom excl. btw:') . '</strong> € ' . number_format((float) ($contract['amount_ex_vat'] ?? 0), 2, ',', '.') . '<br><strong>' . $this->t('Standaard betaaltermijn:') . '</strong> ' . ($defaultDays === 0 ? $this->t('Per omgaande') : $this->t('@days dagen', ['@days' => $defaultDays])) . '</p>'];
     $form['template'] = ['#type' => 'select', '#title' => $this->t('Termijnsjabloon'), '#options' => $options, '#required' => TRUE];
     $form['first_date'] = ['#type' => 'date', '#title' => $this->t('Datum eerste termijn'), '#required' => TRUE, '#default_value' => date('Y-m-d')];
     $form['interval_months'] = ['#type' => 'number', '#title' => $this->t('Tussenruimte in maanden'), '#required' => TRUE, '#min' => 0, '#max' => 24, '#default_value' => 1, '#description' => $this->t('Gebruik 0 wanneer alle termijnen dezelfde geplande datum krijgen; data blijven later per termijn aanpasbaar.')];
+    $form['payment_term'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Betaaltermijn voor nieuwe termijnen'),
+      '#options' => [
+        'default' => $this->t('Overnemen uit projectcontract (@days dagen)', ['@days' => $defaultDays]),
+        '0' => $this->t('Per omgaande'),
+        '5' => $this->t('5 dagen'),
+        '8' => $this->t('8 dagen'),
+        '14' => $this->t('14 dagen'),
+        '30' => $this->t('30 dagen'),
+        'custom' => $this->t('Afwijkend aantal dagen'),
+      ],
+      '#default_value' => 'default',
+      '#description' => $this->t('Deze waarde wordt in iedere termijn opgeslagen. Afwijkende termijnen kunnen daarna afzonderlijk in de termijnstaat worden aangepast.'),
+    ];
+    $form['custom_payment_term_days'] = [
+      '#type' => 'number',
+      '#title' => $this->t('Afwijkend aantal dagen'),
+      '#min' => 0,
+      '#max' => 365,
+      '#states' => ['visible' => [':input[name="payment_term"]' => ['value' => 'custom']]],
+    ];
     $form['vat_rate'] = [
       '#type' => 'select',
       '#title' => $this->t('Tijdelijk btw-regime op termijnkop'),
@@ -91,7 +117,14 @@ final class ProjectInstalmentScheduleForm extends FormBase {
     $form_state->set('project_id', $projectId);
     $form_state->set('contract', $contract);
     $form_state->set('templates', $templates);
+    $form_state->set('default_payment_term_days', $defaultDays);
     return $form;
+  }
+
+  public function validateForm(array &$form, FormStateInterface $form_state): void {
+    if ((string) $form_state->getValue('payment_term') === 'custom' && $form_state->getValue('custom_payment_term_days') === '') {
+      $form_state->setErrorByName('custom_payment_term_days', $this->t('Vul het afwijkende aantal betalingsdagen in.'));
+    }
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
@@ -103,6 +136,13 @@ final class ProjectInstalmentScheduleForm extends FormBase {
     if (!is_array($contract) || !is_array($template)) {
       throw new \RuntimeException('Contract or instalment template unavailable.');
     }
+
+    $choice = (string) $form_state->getValue('payment_term');
+    $paymentDays = match ($choice) {
+      'custom' => max(0, (int) $form_state->getValue('custom_payment_term_days')),
+      'default' => max(0, (int) $form_state->get('default_payment_term_days')),
+      default => is_numeric($choice) ? max(0, (int) $choice) : max(0, (int) $form_state->get('default_payment_term_days')),
+    };
 
     $percentages = array_values(array_map('floatval', $template['percentages'] ?? []));
     $labels = array_values(array_map('strval', $template['labels'] ?? []));
@@ -138,6 +178,8 @@ final class ProjectInstalmentScheduleForm extends FormBase {
             'template_id' => $templateId,
             'template_name' => (string) $template['name'],
             'percentage' => $percentage,
+            'payment_term_days' => $paymentDays,
+            'payment_term_source' => $choice === 'default' ? 'project_contract' : 'instalment_schedule',
           ],
         ], $actor);
       }
@@ -147,8 +189,17 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       throw $exception;
     }
 
-    $this->messenger()->addStatus($this->t('@count termijnen zijn aangemaakt vanuit sjabloon “@name”.', ['@count' => count($percentages), '@name' => $template['name']]));
+    $this->messenger()->addStatus($this->t('@count termijnen zijn aangemaakt vanuit sjabloon “@name” met @term als betaaltermijn. Afwijkingen kunnen per termijn in de termijnstaat worden aangepast.', [
+      '@count' => count($percentages),
+      '@name' => $template['name'],
+      '@term' => $paymentDays === 0 ? 'per omgaande' : $paymentDays . ' dagen',
+    ]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
+  }
+
+  private function globalPaymentTermDays(): int {
+    $value = $this->templateConfigFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    return is_numeric($value) ? max(0, (int) $value) : 14;
   }
 
   /**
