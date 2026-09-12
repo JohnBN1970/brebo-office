@@ -4,17 +4,21 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Form;
 
+use Drupal\brebo_finance\Service\SalesInvoiceNumberManager;
+use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
+use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
-/** Releases a standalone sales invoice draft through the shared outbox. */
+/** Finalizes, sends and registers a standalone BREBO sales invoice. */
 final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
 
   private ?array $draft = NULL;
@@ -24,6 +28,10 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     private readonly QueueFactory $queueFactory,
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly MailManagerInterface $mailManager,
+    private readonly SalesInvoiceNumberManager $numberManager,
+    private readonly SalesInvoiceOutputBuilder $outputBuilder,
+    private readonly OutboundAttachmentService $attachmentService,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,6 +40,19 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
       $container->get('queue'),
       $container->get('keyvalue'),
       $container->get('entity_type.manager'),
+      $container->get('plugin.manager.mail'),
+      new SalesInvoiceNumberManager(
+        $container->get('config.factory'),
+        $container->get('keyvalue'),
+        $container->get('lock'),
+      ),
+      new SalesInvoiceOutputBuilder(
+        $container->get('database'),
+        $container->get('keyvalue'),
+        $container->get('entity_type.manager'),
+        $container->get('brebo_office_core.simple_pdf_renderer'),
+      ),
+      $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }
 
@@ -44,7 +65,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
   }
 
   public function getConfirmText(): string {
-    return (string) $this->t('Vrijgeven & verzenden');
+    return (string) $this->t('Definitief vrijgeven & verzenden');
   }
 
   public function getCancelUrl(): Url {
@@ -70,7 +91,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     }
     $this->draft = $row;
     if (($row['status'] ?? '') !== 'draft') {
-      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Dit factuurconcept is al vrijgegeven of verwerkt en kan niet opnieuw worden vrijgegeven.') . '</strong></p>'];
+      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Dit factuurconcept is al definitief vrijgegeven of verwerkt en kan niet opnieuw worden vrijgegeven.') . '</strong></p>'];
       return $form;
     }
 
@@ -82,6 +103,9 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     if ($moneybirdContactId === '') {
       throw new \RuntimeException('De gekozen debiteur heeft nog geen Moneybird contact-ID. Koppel de relatie eerst voordat deze factuur definitief wordt vrijgegeven.');
     }
+    $recipient = $organization->hasField('field_brebo_org_email')
+      ? trim((string) $organization->get('field_brebo_org_email')->value)
+      : '';
 
     $lines = $this->loadLines($draftId);
     if ($lines === []) {
@@ -93,8 +117,38 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
         . '<br><strong>' . $this->t('Klantreferentie:') . '</strong> ' . htmlspecialchars((string) ($context['customer_ref'] ?? '—'))
         . '<br><strong>' . $this->t('Bedrag incl. btw:') . '</strong> € ' . number_format((float) $row['amount_inc_vat'], 2, ',', '.')
         . '<br><strong>' . $this->t('Regels:') . '</strong> ' . count($lines)
-        . '</p><p>' . $this->t('Na vrijgave wordt het concept bevroren en zet BREBO Office exact één idempotente opdracht klaar voor de bestaande sales-invoice outbox. Moneybird maakt en verzendt daarna de officiële factuur.') . '</p>',
+        . '</p><p>' . $this->t('BREBO Office kent nu zelf het definitieve factuurnummer toe, bevriest de inhoud, maakt de definitieve PDF en verstuurt deze naar de klant. Daarna wordt dezelfde factuur administratief naar Moneybird gesynchroniseerd.') . '</p>',
     ];
+    $form['recipient'] = [
+      '#type' => 'email',
+      '#title' => $this->t('Verzenden naar'),
+      '#required' => TRUE,
+      '#default_value' => $recipient,
+    ];
+    $form['subject'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Onderwerp'),
+      '#required' => TRUE,
+      '#maxlength' => 255,
+      '#default_value' => 'Factuur BREBO',
+      '#description' => $this->t('Het definitieve factuurnummer wordt bij vrijgave automatisch aan het onderwerp toegevoegd.'),
+    ];
+    $form['message'] = [
+      '#type' => 'textarea',
+      '#title' => $this->t('Bericht'),
+      '#rows' => 5,
+      '#default_value' => "Geachte heer/mevrouw,\n\nBijgaand ontvangt u onze factuur.\n\nMet kleurrijke groet,\nBREBO Bouw en Advies BV",
+    ];
+    $options = $this->attachmentService->documentOptions();
+    if ($options !== []) {
+      $form['document_attachments'] = [
+        '#type' => 'checkboxes',
+        '#title' => $this->t('Aanvullende bijlagen'),
+        '#options' => $options,
+        '#default_value' => array_map('intval', (array) ($context['review_attachment_document_ids'] ?? [])),
+        '#description' => $this->t('De definitieve factuur-PDF gaat altijd mee. Selecteer hier aanvullende BREBO-documenten voor de klant.'),
+      ];
+    }
 
     $form_state->set('draft_id', $draftId);
     $form_state->set('moneybird_contact_id', $moneybirdContactId);
@@ -115,12 +169,68 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
 
     $context = $this->context($draftId);
     $lines = $this->loadLines($draftId);
-    $payload = $this->buildPayload($draft, $lines, (string) $form_state->get('moneybird_contact_id'), $context);
+    if ($lines === []) {
+      throw new \RuntimeException('Invoice draft contains no lines.');
+    }
+
+    $invoiceNumber = trim((string) ($context['final_invoice_number'] ?? ''));
+    if ($invoiceNumber === '') {
+      $invoiceYear = (int) substr((string) $draft['invoice_date'], 0, 4);
+      $invoiceNumber = $this->numberManager->reserveNextAutomatic($invoiceYear > 0 ? $invoiceYear : NULL);
+      $context['final_invoice_number'] = $invoiceNumber;
+      $context['final_number_reserved_at'] = time();
+      $this->saveContext($draftId, $context);
+    }
+
+    $pdf = $this->outputBuilder->finalPdf($draftId, $invoiceNumber);
+    $selected = array_values(array_filter(array_map('intval', (array) $form_state->getValue('document_attachments', []))));
+    $extraAttachments = $this->attachmentService->resolveDocumentIds($selected);
+    $attachments = [[
+      'filecontent' => $pdf['content'],
+      'filename' => $pdf['filename'],
+      'filemime' => 'application/pdf',
+    ], ...$extraAttachments];
+
+    $recipient = trim((string) $form_state->getValue('recipient'));
+    $subjectBase = trim((string) $form_state->getValue('subject'));
+    $subject = trim($subjectBase . ' ' . $invoiceNumber);
+    $message = trim((string) $form_state->getValue('message'));
+    $mail = $this->mailManager->mail(
+      'brebo_mail_intake',
+      'outbound',
+      $recipient,
+      'nl',
+      [
+        'subject' => $subject,
+        'body' => $message,
+        'body_html' => '',
+        'attachments' => $attachments,
+      ],
+    );
+    if (empty($mail['result'])) {
+      $this->messenger()->addError($this->t('De definitieve factuur kon niet worden verzonden. Nummer @number blijft voor dit concept gereserveerd; probeer de vrijgave opnieuw.', ['@number' => $invoiceNumber]));
+      return;
+    }
+
+    $this->numberManager->markUsed($invoiceNumber);
+    $now = time();
+    $context['final_invoice_number'] = $invoiceNumber;
+    $context['final_pdf_hash'] = $pdf['hash'];
+    $context['final_pdf_filename'] = $pdf['filename'];
+    $context['final_sent_at'] = $now;
+    $context['final_recipient'] = $recipient;
+    $context['final_attachment_document_ids'] = $selected;
+    $context['final_attachments'] = array_map(static fn(array $attachment): array => [
+      'filename' => (string) $attachment['filename'],
+      'hash' => hash('sha256', (string) $attachment['filecontent']),
+    ], $attachments);
+    $this->saveContext($draftId, $context);
+
+    $payload = $this->buildPayload($draft, $lines, (string) $form_state->get('moneybird_contact_id'), $context, $invoiceNumber);
     $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
     $hash = hash('sha256', $json);
-    $idempotencyKey = 'sales-invoice:' . $draftId . ':' . $hash;
+    $idempotencyKey = 'sales-invoice:' . $invoiceNumber . ':' . $hash;
     $actor = (int) $this->currentUser()->id();
-    $now = time();
     $outboxId = 0;
 
     $transaction = $this->database->startTransaction();
@@ -128,17 +238,16 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
       $existing = $this->database->select('brebo_finance_sales_invoice_outbox', 'o')
         ->fields('o', ['id'])
         ->condition('draft_id', $draftId)
-        ->condition('command_type', 'sales_invoice.create_and_send')
         ->execute()
         ->fetchField();
       if ($existing !== FALSE) {
-        throw new \RuntimeException('This invoice draft already has a release command.');
+        throw new \RuntimeException('This invoice draft already has a registration command.');
       }
 
       $outboxId = (int) $this->database->insert('brebo_finance_sales_invoice_outbox')->fields([
         'draft_id' => $draftId,
         'project_nid' => 0,
-        'command_type' => 'sales_invoice.create_and_send',
+        'command_type' => 'sales_invoice.register',
         'status' => 'queued',
         'idempotency_key' => $idempotencyKey,
         'payload_hash' => $hash,
@@ -153,7 +262,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
       ])->execute();
 
       $this->database->update('brebo_finance_sales_invoice_draft')->fields([
-        'status' => 'released',
+        'status' => 'sent',
         'changed' => $now,
         'changed_by' => $actor,
       ])->condition('id', $draftId)->condition('status', 'draft')->execute();
@@ -164,7 +273,10 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     }
 
     $this->queueFactory->get('brebo_finance_sales_invoice_outbox')->createItem(['outbox_id' => $outboxId]);
-    $this->messenger()->addStatus($this->t('Factuurconcept @number is definitief vrijgegeven en staat in de verzendwachtrij.', ['@number' => $draft['draft_number']]));
+    $this->messenger()->addStatus($this->t('Factuur @number is definitief door BREBO uitgegeven en naar @recipient verzonden. De Moneybird-registratie staat in de wachtrij.', [
+      '@number' => $invoiceNumber,
+      '@recipient' => $recipient,
+    ]));
     $form_state->setRedirect('brebo_finance.sales_workspace');
   }
 
@@ -175,6 +287,10 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
       throw new \RuntimeException('Standalone invoice draft has no canonical debtor context.');
     }
     return $context;
+  }
+
+  private function saveContext(int $draftId, array $context): void {
+    $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, $context);
   }
 
   private function loadOrganization(int $organizationId): NodeInterface {
@@ -199,16 +315,18 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
    *  @param array<string,mixed> $context
    *  @return array<string,mixed>
    */
-  private function buildPayload(array $draft, array $lines, string $moneybirdContactId, array $context): array {
+  private function buildPayload(array $draft, array $lines, string $moneybirdContactId, array $context, string $invoiceNumber): array {
     return [
-      'schema' => 'brebo.sales_invoice.create_and_send.v1',
+      'schema' => 'brebo.sales_invoice.register.v1',
       'source' => [
         'system' => 'brebo-office',
         'draft_id' => (int) $draft['id'],
         'draft_number' => (string) $draft['draft_number'],
+        'invoice_number' => $invoiceNumber,
         'project_nid' => 0,
       ],
       'invoice' => [
+        'invoice_id' => $invoiceNumber,
         'contact_id' => $moneybirdContactId,
         'reference' => trim((string) ($context['customer_ref'] ?? '')),
         'invoice_date' => (string) $draft['invoice_date'],

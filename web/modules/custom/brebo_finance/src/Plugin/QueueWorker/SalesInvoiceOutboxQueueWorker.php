@@ -55,6 +55,12 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     $invoice = $payload['invoice'] ?? NULL;
     if (!is_array($invoice)) throw new \RuntimeException('Sales invoice outbox payload has no invoice object.');
 
+    $registerOnly = (string) ($row['command_type'] ?? '') === 'sales_invoice.register';
+    $breboInvoiceNumber = trim((string) ($invoice['invoice_id'] ?? ''));
+    if ($registerOnly && $breboInvoiceNumber === '') {
+      throw new \RuntimeException('BREBO registration command has no BREBO invoice number.');
+    }
+
     $now = time();
     $this->database->update('brebo_finance_sales_invoice_outbox')->fields([
       'status' => 'processing',
@@ -65,14 +71,22 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
     ])->condition('id', $outboxId)->execute();
 
     try {
-      $result = $this->client->dispatch((string) $row['idempotency_key'], $invoice);
+      $result = $this->client->dispatch((string) $row['idempotency_key'], $invoice, $registerOnly);
       $providerInvoice = $result['sales_invoice'] ?? NULL;
-      if (!is_array($providerInvoice) || empty($providerInvoice['id']) || empty($providerInvoice['invoice_id'])) {
-        throw new \RuntimeException('Integration API response has no complete Moneybird sales invoice identity.');
+      if (!is_array($providerInvoice) || empty($providerInvoice['id'])) {
+        throw new \RuntimeException('Integration API response has no Moneybird sales invoice identity.');
       }
 
       $moneybirdId = (string) $providerInvoice['id'];
-      $invoiceNumber = (string) $providerInvoice['invoice_id'];
+      $providerInvoiceNumber = trim((string) ($providerInvoice['invoice_id'] ?? ''));
+      if ($breboInvoiceNumber !== '' && $providerInvoiceNumber !== '' && $providerInvoiceNumber !== $breboInvoiceNumber) {
+        throw new \RuntimeException(sprintf('Moneybird returned invoice number %s, expected BREBO invoice number %s.', $providerInvoiceNumber, $breboInvoiceNumber));
+      }
+      $invoiceNumber = $breboInvoiceNumber !== '' ? $breboInvoiceNumber : $providerInvoiceNumber;
+      if ($invoiceNumber === '') {
+        throw new \RuntimeException('Sales invoice has no definitive invoice number after registration.');
+      }
+
       $requestId = (string) ($result['request_id'] ?? '');
       $completed = time();
       $mirrorLines = [];
@@ -87,6 +101,7 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
         ];
       }
       $sourceHash = hash('sha256', json_encode([
+        'brebo_invoice_number' => $invoiceNumber,
         'moneybird' => $providerInvoice,
         'payload_hash' => (string) $row['payload_hash'],
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
@@ -104,8 +119,8 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
           'project_nid' => (int) $row['project_nid'],
           'moneybird_id' => $moneybirdId,
           'invoice_number' => $invoiceNumber,
-          'invoice_date' => (string) ($providerInvoice['invoice_date'] ?? $invoice['invoice_date'] ?? ''),
-          'due_date' => (string) ($providerInvoice['due_date'] ?? $invoice['due_date'] ?? ''),
+          'invoice_date' => (string) ($invoice['invoice_date'] ?? $providerInvoice['invoice_date'] ?? ''),
+          'due_date' => (string) ($invoice['due_date'] ?? $providerInvoice['due_date'] ?? ''),
           'status' => $mirrorStatus,
           'amount_ex_vat' => (string) ($invoice['amount_ex_vat'] ?? '0'),
           'vat_amount' => (string) ($invoice['vat_amount'] ?? '0'),

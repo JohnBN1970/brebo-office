@@ -14,20 +14,24 @@ final class SalesInvoiceIntegrationClient {
 
   public function __construct(private readonly ClientInterface $httpClient) {}
 
-  /**
-   * @return array<string, mixed>
-   */
-  public function dispatch(string $idempotencyKey, array $salesInvoice): array {
+  /** @return array<string, mixed> */
+  public function dispatch(string $idempotencyKey, array $salesInvoice, bool $registerOnly = FALSE): array {
     $baseUrl = rtrim((string) Settings::get('brebo_integration_api_url', ''), '/');
     $secret = (string) Settings::get('brebo_integration_shared_secret', '');
     if ($baseUrl === '' || $secret === '') {
       throw new \RuntimeException('BREBO integration API configuration is incomplete.');
     }
 
-    $body = json_encode([
+    $command = [
       'idempotency_key' => $idempotencyKey,
       'sales_invoice' => $salesInvoice,
-    ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
+    ];
+    if ($registerOnly) {
+      // BREBO Office already sent the definitive invoice to the customer.
+      // Moneybird only registers it as sent/open and must not email it again.
+      $command['sending'] = ['delivery_method' => 'Manual'];
+    }
+    $body = json_encode($command, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR);
 
     $requestId = $this->uuidV4();
     $timestamp = (string) time();
