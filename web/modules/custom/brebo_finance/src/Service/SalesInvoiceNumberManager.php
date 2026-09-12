@@ -21,6 +21,12 @@ final class SalesInvoiceNumberManager {
   ) {}
 
   public function nextAutomatic(?int $year = NULL): string {
+    $invoiceNumber = $this->reserveNextAutomatic($year);
+    $this->markUsed($invoiceNumber);
+    return $invoiceNumber;
+  }
+
+  public function reserveNextAutomatic(?int $year = NULL): string {
     $year ??= (int) date('Y');
     if (!$this->lock->acquire(self::LOCK, 10.0)) {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
@@ -35,7 +41,7 @@ final class SalesInvoiceNumberManager {
       } while ($store->has($this->numberKey($candidate)));
 
       $store->set($cursorKey, $cursor);
-      $store->set($this->numberKey($candidate), ['status' => 'used', 'year' => $year]);
+      $store->set($this->numberKey($candidate), ['status' => 'reserved', 'year' => $year]);
       return $candidate;
     }
     finally {
@@ -69,12 +75,20 @@ final class SalesInvoiceNumberManager {
     if ($invoiceNumber === '') {
       throw new \InvalidArgumentException('Factuurnummer is verplicht.');
     }
-    $store = $this->keyValueFactory->get(self::COLLECTION);
-    $existing = $store->get($this->numberKey($invoiceNumber));
-    if (is_array($existing) && ($existing['status'] ?? '') === 'used') {
-      return;
+    if (!$this->lock->acquire(self::LOCK, 10.0)) {
+      throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
-    $store->set($this->numberKey($invoiceNumber), ['status' => 'used']);
+    try {
+      $store = $this->keyValueFactory->get(self::COLLECTION);
+      $existing = $store->get($this->numberKey($invoiceNumber));
+      if (is_array($existing) && ($existing['status'] ?? '') === 'used') {
+        return;
+      }
+      $store->set($this->numberKey($invoiceNumber), ['status' => 'used']);
+    }
+    finally {
+      $this->lock->release(self::LOCK);
+    }
   }
 
   public function isOccupied(string $invoiceNumber): bool {
