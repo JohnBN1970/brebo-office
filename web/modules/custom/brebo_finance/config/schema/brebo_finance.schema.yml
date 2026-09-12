@@ -37,3 +37,33 @@ brebo_finance.business_health:
             sequence:
               type: string
               label: 'Moneybird grootboek-ID'
+
+brebo_finance.sales:
+  type: config_object
+  label: 'BREBO Finance verkoopinstellingen'
+  mapping:
+    numbering:
+      type: mapping
+      label: 'Factuurnummering'
+      mapping:
+        prefix:
+          type: string
+          label: 'Factuurnummer prefix'
+        include_year:
+          type: boolean
+          label: 'Jaar opnemen'
+        separator:
+          type: string
+          label: 'Scheidingsteken'
+        digits:
+          type: integer
+          label: 'Aantal cijfers volgnummer'
+        start_number:
+          type: integer
+          label: 'Startnummer'
+        reset_yearly:
+          type: boolean
+          label: 'Jaarlijks herstarten'
+        default_payment_term_days:
+          type: integer
+          label: 'Standaard betaaltermijn in dagen'

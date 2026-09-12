@@ -1,0 +1,8 @@
+numbering:
+  prefix: 'VF-'
+  include_year: true
+  separator: '-'
+  digits: 4
+  start_number: 1
+  reset_yearly: true
+  default_payment_term_days: 30
