@@ -148,6 +148,20 @@ brebo_project_cockpit.sales_invoice_draft_add:
       node:
         type: entity:node
 
+brebo_project_cockpit.sales_invoice_review:
+  path: '/projecten/{node}/facturen/concept/{draft}/beoordeling'
+  defaults:
+    _form: '\Drupal\brebo_project_cockpit\Form\ProjectSalesInvoiceReviewForm'
+    _title: 'Conceptfactuur ter beoordeling'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'access brebo finance'
+    draft: '\d+'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_project_cockpit.sales_invoice_release:
   path: '/projecten/{node}/facturen/concept/{draft}/vrijgeven'
   defaults:
