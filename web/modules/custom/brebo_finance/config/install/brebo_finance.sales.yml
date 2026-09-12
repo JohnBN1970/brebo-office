@@ -6,3 +6,24 @@ numbering:
   start_number: 1
   reset_yearly: true
   default_payment_term_days: 14
+vat_rates:
+  NL_21:
+    label: '21%'
+    rate: 21.0000
+    treatment: normal
+    active: true
+  NL_9:
+    label: '9%'
+    rate: 9.0000
+    treatment: normal
+    active: true
+  NL_REVERSE:
+    label: 'Btw verlegd'
+    rate: 0.0000
+    treatment: reverse_charge
+    active: true
+g_account:
+  enabled: false
+  default_percentage: 0.00
+  regular_iban: ''
+  g_iban: ''
