@@ -67,3 +67,38 @@ brebo_finance.sales:
         default_payment_term_days:
           type: integer
           label: 'Standaard betaaltermijn in dagen'
+    vat_rates:
+      type: sequence
+      label: 'Btw-tarieven voor verkoop'
+      sequence:
+        type: mapping
+        label: 'Btw-tarief'
+        mapping:
+          label:
+            type: label
+            label: 'Weergavenaam'
+          rate:
+            type: float
+            label: 'Percentage'
+          treatment:
+            type: string
+            label: 'Fiscale behandeling'
+          active:
+            type: boolean
+            label: 'Actief'
+    g_account:
+      type: mapping
+      label: 'G-rekening verkoop'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'G-rekening beschikbaar'
+        default_percentage:
+          type: float
+          label: 'Standaardpercentage'
+        regular_iban:
+          type: string
+          label: 'Regulier IBAN'
+        g_iban:
+          type: string
+          label: 'G-rekening IBAN'
