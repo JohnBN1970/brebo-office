@@ -80,6 +80,12 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     foreach ($pending as $proposal) {
       $objectId = isset($proposal['object_id']) && $proposal['object_id'] !== NULL ? (int) $proposal['object_id'] : NULL;
       $scope = $objectId === NULL ? 'Gebouw' : ($objectMap[$objectId] ?? ('Object #' . $objectId));
+      $review = $canEdit
+        ? Link::fromTextAndUrl($this->t('Beoordelen'), Url::fromRoute('brebo_building_data.truth_proposal_review', [
+          'node' => $buildingNid,
+          'proposal' => (int) $proposal['id'],
+        ]))->toRenderable()
+        : ['#markup' => '—'];
       $proposalRows[] = [
         '#' . (int) $proposal['id'],
         $scope,
@@ -88,6 +94,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
         $this->source($proposal),
         $this->date((int) ($proposal['proposed_at'] ?? 0)),
         trim((string) ($proposal['reason'] ?? '')) ?: '—',
+        ['data' => $review],
       ];
     }
 
@@ -132,7 +139,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
       'pending' => [
         '#type' => 'table',
         '#caption' => $this->t('Openstaande revisievoorstellen'),
-        '#header' => [$this->t('ID'), $this->t('Scope'), $this->t('Feit'), $this->t('Voorgestelde waarde'), $this->t('Bron'), $this->t('Voorgesteld'), $this->t('Reden')],
+        '#header' => [$this->t('ID'), $this->t('Scope'), $this->t('Feit'), $this->t('Voorgestelde waarde'), $this->t('Bron'), $this->t('Voorgesteld'), $this->t('Reden'), $this->t('Actie')],
         '#rows' => $proposalRows,
         '#empty' => $this->t('Er staan geen wijzigingen te wachten op verificatie.'),
       ],
