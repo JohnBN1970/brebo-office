@@ -36,3 +36,19 @@ brebo_building_data.truth_workbench:
       node:
         type: entity:node
     no_cache: TRUE
+
+brebo_building_data.truth_proposal_review:
+  path: '/brebo-office/buildings/{node}/truth/proposals/{proposal}/review'
+  defaults:
+    _form: '\Drupal\brebo_building_data\Form\BuildingTruthProposalReviewForm'
+    _title: 'Revisievoorstel verifieren'
+  requirements:
+    _entity_access: 'node.update'
+    node: '\d+'
+    proposal: '\d+'
+  methods: [GET, POST]
+  options:
+    parameters:
+      node:
+        type: entity:node
+    no_cache: TRUE
