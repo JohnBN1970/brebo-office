@@ -88,6 +88,13 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       'field_brebo_opp_next_action' => 'Projectstukken en automatisch herkende gegevens beoordelen.',
       'field_brebo_opp_owner' => ['target_id' => $ownerUid],
     ];
+
+    $scope = is_array($payload['preliminary_scope'] ?? NULL) ? $payload['preliminary_scope'] : [];
+    $scopeText = $this->scopeText($scope);
+    if ($scopeText !== '') {
+      $values['field_brebo_opp_requirement'] = $scopeText;
+    }
+
     foreach ($values as $fieldName => $value) {
       if ($lead->hasField($fieldName)) {
         $lead->set($fieldName, $value);
@@ -104,8 +111,58 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       [
         'opportunity_id' => (int) $lead->id(),
         'lead_duplicate' => FALSE,
+        'preliminary_scope_available' => $scopeText !== '',
       ],
     );
+  }
+
+  /** @param array<string,mixed> $scope */
+  private function scopeText(array $scope): string {
+    $summary = trim((string) ($scope['summary'] ?? ''));
+    $items = is_array($scope['items'] ?? NULL) ? $scope['items'] : [];
+    if ($summary === '' && $items === []) {
+      return '';
+    }
+
+    $lines = ['VOORLOPIGE MACHINESCOPE - nog controleren'];
+    if ($summary !== '') {
+      $lines[] = $summary;
+    }
+    foreach (array_slice($items, 0, 50) as $item) {
+      if (!is_array($item)) {
+        continue;
+      }
+      $reference = trim((string) ($item['reference'] ?? ''));
+      if ($reference === '') {
+        continue;
+      }
+      $parts = [$reference];
+      $quantity = $item['quantity']['value'] ?? NULL;
+      if (is_int($quantity) || ctype_digit((string) $quantity)) {
+        $parts[] = 'aantal ' . (int) $quantity;
+      }
+      $dimensions = $item['dimensions']['value'] ?? NULL;
+      if (is_array($dimensions) && isset($dimensions['width_mm'], $dimensions['height_mm'])) {
+        $parts[] = (int) $dimensions['width_mm'] . ' x ' . (int) $dimensions['height_mm'] . ' mm';
+      }
+      foreach (['material' => 'materiaal', 'glass' => 'glas', 'state' => 'status'] as $field => $fieldLabel) {
+        $value = $item[$field]['value'] ?? NULL;
+        if (is_scalar($value) && trim((string) $value) !== '') {
+          $parts[] = $fieldLabel . ' ' . trim((string) $value);
+        }
+      }
+      $missing = is_array($item['missing_fields'] ?? NULL) ? $item['missing_fields'] : [];
+      if ($missing !== []) {
+        $parts[] = 'open: ' . implode(', ', array_map('strval', $missing));
+      }
+      $lines[] = '- ' . implode(' | ', $parts);
+    }
+
+    $conflicts = is_array($scope['conflicts'] ?? NULL) ? $scope['conflicts'] : [];
+    if ($conflicts !== []) {
+      $lines[] = 'Open conflicten: ' . count($conflicts) . '.';
+    }
+    return mb_substr(implode("\n", $lines), 0, 10000);
   }
 
 }
