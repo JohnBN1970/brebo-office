@@ -25,6 +25,11 @@ services:
     arguments:
       - '@config.factory'
 
+  brebo_office_core.administration_document_identity:
+    class: Drupal\brebo_office_core\Service\AdministrationDocumentIdentity
+    arguments:
+      - '@brebo_office_core.administration_registry'
+
   brebo_office_core.administration_context_resolver:
     class: Drupal\brebo_office_core\Service\AdministrationContextResolver
     arguments:
