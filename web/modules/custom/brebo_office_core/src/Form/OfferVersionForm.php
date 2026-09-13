@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver;
+use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
-use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -23,6 +25,8 @@ final class OfferVersionForm extends FormBase {
 
   public function __construct(
     EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectDocumentNumberIssuer $documentNumbers,
+    private readonly ProjectDocumentIdentityResolver $documentIdentity,
   ) {
     $this->entityTypeManager = $entityTypeManager;
   }
@@ -30,6 +34,8 @@ final class OfferVersionForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('entity_type.manager'),
+      $container->get('brebo_office_core.project_document_number_issuer'),
+      $container->get('brebo_office_core.project_document_identity_resolver'),
     );
   }
 
@@ -46,8 +52,6 @@ final class OfferVersionForm extends FormBase {
     }
 
     $this->calculation = $node;
-    // The form object itself is recreated for cached POST requests. Persist the
-    // calculation ID in form state so callbacks can restore their context.
     $form_state->set('brebo_calculation_id', (int) $node->id());
     $storage = $this->entityTypeManager->getStorage('node');
     $existing_ids = $storage->getQuery()
@@ -62,7 +66,6 @@ final class OfferVersionForm extends FormBase {
       }
     }
 
-    $calculation_code = (string) ($node->get('field_brebo_calc_code')->value ?? ('CALC-' . $node->id()));
     $submitted_input = $form_state->getUserInput();
     $preserved_values = (array) ($form_state->get('offer_form_values') ?? []);
     if ($form_state->isRebuilding()) {
@@ -81,28 +84,29 @@ final class OfferVersionForm extends FormBase {
       );
     }
     $form_value = static function (string $key, mixed $default = NULL) use ($submitted_input, $preserved_values): mixed {
-      // During a generator rebuild, the preserved state contains the complete
-      // submitted form plus the newly generated texts. It must take precedence
-      // over the original POST payload, which still contains the old defaults.
       if (array_key_exists($key, $preserved_values)) {
         return $preserved_values[$key];
       }
       return $submitted_input[$key] ?? $default;
     };
 
+    $identity = $this->documentIdentity->forNode($node);
     $form['intro'] = [
-      '#markup' => '<p>' . $this->t('Maak een vaste commerciële offerteversie. Na opslaan blijven layout, teksten en fiscale instellingen gekoppeld aan deze versie.') . '</p>',
+      '#markup' => '<p>' . $this->t('Maak een vaste commerciële offerteversie. Na opslaan blijven layout, teksten, fiscale instellingen en administratie-identiteit gekoppeld aan deze versie.') . '</p>',
     ];
     $form['identity'] = [
       '#type' => 'fieldset',
       '#title' => $this->t('Offerteversie'),
     ];
-    $form['identity']['offer_number'] = [
-      '#type' => 'textfield',
+    $form['identity']['administration'] = [
+      '#type' => 'item',
+      '#title' => $this->t('Administratie'),
+      '#markup' => '<strong>' . htmlspecialchars((string) ($identity['trade_name'] ?: $identity['legal_name'] ?: $identity['administration_code']), ENT_QUOTES, 'UTF-8') . '</strong>',
+    ];
+    $form['identity']['offer_number_info'] = [
+      '#type' => 'item',
       '#title' => $this->t('Offertenummer'),
-      '#required' => TRUE,
-      '#default_value' => $form_value('offer_number', $calculation_code . '-OFF-' . str_pad((string) $next_version, 2, '0', STR_PAD_LEFT)),
-      '#maxlength' => 64,
+      '#markup' => $this->t('Wordt bij opslaan automatisch en definitief uitgegeven uit de nummerreeks van deze administratie.'),
     ];
     $form['identity']['offer_version'] = [
       '#type' => 'number',
@@ -260,15 +264,9 @@ final class OfferVersionForm extends FormBase {
         ],
       ];
       foreach ($offer_lines as $line_id => $line) {
-        $form['post_structure']['lines'][$line_id]['description'] = [
-          '#plain_text' => $line['description'],
-        ];
-        $form['post_structure']['lines'][$line_id]['quantity'] = [
-          '#plain_text' => $line['quantity'],
-        ];
-        $form['post_structure']['lines'][$line_id]['unit'] = [
-          '#plain_text' => $line['unit'],
-        ];
+        $form['post_structure']['lines'][$line_id]['description'] = ['#plain_text' => $line['description']];
+        $form['post_structure']['lines'][$line_id]['quantity'] = ['#plain_text' => $line['quantity']];
+        $form['post_structure']['lines'][$line_id]['unit'] = ['#plain_text' => $line['unit']];
         $form['post_structure']['lines'][$line_id]['post_type'] = [
           '#type' => 'select',
           '#title' => $this->t('Postsoort voor @line', ['@line' => $line['description']]),
@@ -362,16 +360,9 @@ final class OfferVersionForm extends FormBase {
     return $form;
   }
 
-  /**
-   * Generates editable commercial texts without changing calculation data.
-   */
   public function generateConceptTexts(array &$form, FormStateInterface $form_state): void {
     $this->restoreCalculation($form_state);
-    // This button deliberately skips validation. Read and preserve the complete
-    // raw input so a rebuild cannot reset identity, presentation or tax values.
     $input = $form_state->getUserInput();
-    // Do not preserve a clicked button as form data. Each action has its own
-    // name so the next request can only trigger the button actually clicked.
     unset($input['op'], $input['generate_offer_texts'], $input['save_offer_version']);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
       'Generator handler reached: version=@version, fields=@fields, incoming lengths scope=@scope exclusions=@exclusions terms=@terms.',
@@ -390,14 +381,11 @@ final class OfferVersionForm extends FormBase {
       (string) ($input['offer_layout'] ?? 'Zakelijk'),
       (string) ($input['price_detail'] ?? 'Halfopen'),
     );
-
     foreach ($texts as $key => $text) {
       $input[$key] = $text;
       $form_state->setValue($key, $text);
     }
     $form_state->set('offer_form_values', $input);
-    // Replace the raw POST payload as well: Drupal uses user input as the active
-    // value source during rebuild, ahead of element default values.
     $form_state->setUserInput($input);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
       'Generator values stored: version=@version, generated lengths scope=@scope exclusions=@exclusions terms=@terms.',
@@ -412,12 +400,6 @@ final class OfferVersionForm extends FormBase {
     $this->messenger()->addStatus($this->t('De conceptteksten zijn gegenereerd. Controleer en bewerk ze vóór het opslaan.'));
   }
 
-  /**
-   * Builds conservative offer copy from user-selected parameters.
-   *
-   * @return array{scope: string, exclusions: string, work_terms: string}
-   *   The three editable commercial text sections.
-   */
   private function buildConceptTexts(
     string $client_type,
     string $work_type,
@@ -425,10 +407,7 @@ final class OfferVersionForm extends FormBase {
     string $offer_layout,
     string $price_detail,
   ): array {
-    $project = $this->calculation instanceof NodeInterface
-      ? (string) $this->calculation->label()
-      : (string) $this->t('het project');
-
+    $project = $this->calculation instanceof NodeInterface ? (string) $this->calculation->label() : (string) $this->t('het project');
     $audience = match ($client_type) {
       'Woningcorporatie' => 'de woningcorporatie en haar bewoners',
       'VvE' => 'de VvE, haar bestuur en bewoners',
@@ -448,114 +427,52 @@ final class OfferVersionForm extends FormBase {
       'Maatwerk' => 'de specifiek in de calculatie en werkomschrijving vastgelegde werkzaamheden',
       default => 'de in de calculatie en werkomschrijving vastgelegde onderhoudswerkzaamheden',
     };
-
     $scope = [
       'Deze aanbieding voor ' . $project . ' betreft ' . $work_focus . '.',
       'De scope wordt bepaald door de bij deze offerte behorende calculatie, werkomschrijving, hoeveelheden, tekeningen en schriftelijk vastgelegde uitgangspunten. Alleen uitdrukkelijk opgenomen werkzaamheden en leveringen maken deel uit van de aanbieding.',
     ];
-    if ($writing_style === 'Technisch') {
-      $scope[] = 'Uitvoering vindt plaats volgens de overeengekomen technische specificaties, verwerkingsvoorschriften van fabrikanten en vastgelegde keurings- en vrijgavemomenten. Afwijkingen worden vóór uitvoering schriftelijk gemeld.';
-    }
-    elseif ($writing_style === 'Bewonersvriendelijk' || $offer_layout === 'VvE') {
-      $scope[] = 'Bij de uitvoering houden wij rekening met ' . $audience . '. Bereikbaarheid, hinder en noodzakelijke toegang worden tijdig afgestemd.';
-    }
-    elseif ($writing_style !== 'Compact') {
-      $scope[] = 'Werkvolgorde, bereikbaarheid en afstemming met ' . $audience . ' worden vóór aanvang praktisch vastgelegd.';
-    }
+    if ($writing_style === 'Technisch') $scope[] = 'Uitvoering vindt plaats volgens de overeengekomen technische specificaties, verwerkingsvoorschriften van fabrikanten en vastgelegde keurings- en vrijgavemomenten. Afwijkingen worden vóór uitvoering schriftelijk gemeld.';
+    elseif ($writing_style === 'Bewonersvriendelijk' || $offer_layout === 'VvE') $scope[] = 'Bij de uitvoering houden wij rekening met ' . $audience . '. Bereikbaarheid, hinder en noodzakelijke toegang worden tijdig afgestemd.';
+    elseif ($writing_style !== 'Compact') $scope[] = 'Werkvolgorde, bereikbaarheid en afstemming met ' . $audience . ' worden vóór aanvang praktisch vastgelegd.';
 
     $exclusions = [
       'Niet opgenomen zijn werkzaamheden, leveringen en hoeveelheden die niet uitdrukkelijk in deze aanbieding of de bijbehorende calculatie zijn beschreven.',
       'Eveneens uitgesloten zijn niet-zichtbare gebreken, asbest of andere schadelijke stoffen, constructieve gebreken en aanvullende eisen van bevoegd gezag of nutsbedrijven, tenzij deze expliciet als onderdeel of stelpost zijn opgenomen.',
       'Herstel als gevolg van werkzaamheden door derden en wijzigingen na vaststelling van de offerte worden afzonderlijk beoordeeld en, na akkoord, als meer- of minderwerk verwerkt.',
     ];
-    if ($writing_style === 'Compact') {
-      $exclusions = [
-        'Niet inbegrepen zijn niet expliciet omschreven werkzaamheden, verborgen gebreken, schadelijke stoffen, vergunningen en werkzaamheden door derden. Wijzigingen worden alleen na schriftelijk akkoord als meer- of minderwerk uitgevoerd.',
-      ];
-    }
-
+    if ($writing_style === 'Compact') $exclusions = ['Niet inbegrepen zijn niet expliciet omschreven werkzaamheden, verborgen gebreken, schadelijke stoffen, vergunningen en werkzaamheden door derden. Wijzigingen worden alleen na schriftelijk akkoord als meer- of minderwerk uitgevoerd.'];
     $terms = [
       'Deze aanbieding is gebaseerd op de op offertedatum beschikbare projectinformatie en blijft geldig tot de in deze offerte vermelde geldigheidsdatum.',
       'Uitvoering is mogelijk nadat opdracht, planning, bereikbaarheid, werkterrein en noodzakelijke voorzieningen schriftelijk zijn afgestemd.',
       'Afwijkende omstandigheden, gewijzigde hoeveelheden en aanvullende wensen worden vóór uitvoering gemeld en uitsluitend na schriftelijk akkoord verrekend.',
       'Op deze aanbieding zijn de vermelde projectspecifieke voorwaarden en toepasselijke algemene voorwaarden van toepassing. Bij tegenstrijdigheid prevaleren de specifiek in deze offerte vastgelegde afspraken.',
     ];
-    if ($price_detail === 'Open' || $price_detail === 'Regie') {
-      $terms[] = 'Verrekenbare hoeveelheden, uren en eenheidsprijzen worden geregistreerd en afgerekend volgens de in de aanbieding opgenomen meet- en verrekenafspraken.';
-    }
-    elseif ($price_detail === 'Gesloten') {
-      $terms[] = 'De gesloten aanneemsom geldt uitsluitend voor de omschreven scope en de vastgelegde uitgangspunten.';
-    }
-    if ($writing_style === 'Technisch') {
-      $terms[] = 'Keuringen, vrijgaven en eventuele afwijkingen worden aantoonbaar in het projectdossier vastgelegd.';
-    }
-
-    return [
-      'scope' => implode("\n\n", $scope),
-      'exclusions' => implode("\n\n", $exclusions),
-      'work_terms' => implode("\n\n", $terms),
-    ];
+    if ($price_detail === 'Open' || $price_detail === 'Regie') $terms[] = 'Verrekenbare hoeveelheden, uren en eenheidsprijzen worden geregistreerd en afgerekend volgens de in de aanbieding opgenomen meet- en verrekenafspraken.';
+    elseif ($price_detail === 'Gesloten') $terms[] = 'De gesloten aanneemsom geldt uitsluitend voor de omschreven scope en de vastgelegde uitgangspunten.';
+    if ($writing_style === 'Technisch') $terms[] = 'Keuringen, vrijgaven en eventuele afwijkingen worden aantoonbaar in het projectdossier vastgelegd.';
+    return ['scope' => implode("\n\n", $scope), 'exclusions' => implode("\n\n", $exclusions), 'work_terms' => implode("\n\n", $terms)];
   }
 
-  /**
-   * Loads financial calculation lines that may be shown externally.
-   *
-   * @return array<int, array{description: string, quantity: string, unit: string, suggested_type: string, unit_price: float, amount: float}>
-   *   Offerable lines keyed by calculation-line node ID.
-   */
   private function loadOfferableCalculationLines(): array {
-    if (!$this->calculation instanceof NodeInterface) {
-      return [];
-    }
-
+    if (!$this->calculation instanceof NodeInterface) return [];
     $storage = $this->entityTypeManager->getStorage('node');
-    $element_ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_calc_element')
-      ->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())
-      ->sort('field_brebo_element_sequence', 'ASC')
-      ->execute();
-    if (!$element_ids) {
-      return [];
-    }
-
-    $line_ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_calc_line')
-      ->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')
-      ->condition('field_brebo_line_type', 'Calculatieregel')
-      ->sort('nid', 'ASC')
-      ->execute();
-
+    $element_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_element')->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())->sort('field_brebo_element_sequence', 'ASC')->execute();
+    if (!$element_ids) return [];
+    $line_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_line')->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')->condition('field_brebo_line_type', 'Calculatieregel')->sort('nid', 'ASC')->execute();
     $source_lines = $storage->loadMultiple($line_ids);
     $direct_total = 0.0;
-    foreach ($source_lines as $source_line) {
-      if ($source_line instanceof NodeInterface) {
-        $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value
-          ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
-      }
-    }
+    foreach ($source_lines as $source_line) if ($source_line instanceof NodeInterface) $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
     $tail_pct = 0.0;
-    foreach (['field_brebo_general_cost_pct', 'field_brebo_risk_pct', 'field_brebo_profit_pct'] as $field_name) {
-      if ($this->calculation->hasField($field_name)) {
-        $tail_pct += (float) ($this->calculation->get($field_name)->value ?? 0);
-      }
-    }
-    $commercial_adjustment = $this->calculation->hasField('field_brebo_com_adjustment')
-      ? (float) ($this->calculation->get('field_brebo_com_adjustment')->value ?? 0)
-      : 0.0;
+    foreach (['field_brebo_general_cost_pct', 'field_brebo_risk_pct', 'field_brebo_profit_pct'] as $field_name) if ($this->calculation->hasField($field_name)) $tail_pct += (float) ($this->calculation->get($field_name)->value ?? 0);
+    $commercial_adjustment = $this->calculation->hasField('field_brebo_com_adjustment') ? (float) ($this->calculation->get('field_brebo_com_adjustment')->value ?? 0) : 0.0;
     $sales_total = max(0.0, $direct_total * (1 + ($tail_pct / 100)) + $commercial_adjustment);
     $factor = $direct_total > 0.0 ? $sales_total / $direct_total : 0.0;
-
     $lines = [];
     foreach ($source_lines as $line) {
-      if (!$line instanceof NodeInterface) {
-        continue;
-      }
+      if (!$line instanceof NodeInterface) continue;
       $source_type = (string) ($line->get('field_brebo_line_post_type')->value ?? 'Vaste post');
       $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
-      $direct_cost = (float) ($line->get('field_brebo_direct_cost')->value
-        ?? ($quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0)));
+      $direct_cost = (float) ($line->get('field_brebo_direct_cost')->value ?? ($quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0)));
       $amount = round($direct_cost * $factor, 2);
       $lines[(int) $line->id()] = [
         'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
@@ -569,38 +486,22 @@ final class OfferVersionForm extends FormBase {
     return $lines;
   }
 
-  /**
-   * Maps an internal calculation post type to an external offer post type.
-   */
   private function mapOfferPostType(string $source_type): string {
     $normalized = mb_strtolower(trim($source_type));
     return match (TRUE) {
-      str_contains($normalized, 'optie'),
-      str_contains($normalized, 'alternatief') => 'Optie',
+      str_contains($normalized, 'optie'), str_contains($normalized, 'alternatief') => 'Optie',
       str_contains($normalized, 'stelpost') => 'Stelpost',
       str_contains($normalized, 'verreken') => 'Verrekenpost',
       default => 'Basisaanbieding',
     };
   }
 
-  /**
-   * Restores the calculation context for callbacks on a cached form POST.
-   */
   private function restoreCalculation(FormStateInterface $form_state): ?NodeInterface {
-    if ($this->calculation instanceof NodeInterface) {
-      return $this->calculation;
-    }
-
+    if ($this->calculation instanceof NodeInterface) return $this->calculation;
     $calculation_id = (int) $form_state->get('brebo_calculation_id');
-    if ($calculation_id <= 0) {
-      return NULL;
-    }
-
+    if ($calculation_id <= 0) return NULL;
     $calculation = $this->entityTypeManager->getStorage('node')->load($calculation_id);
-    if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') {
-      return NULL;
-    }
-
+    if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') return NULL;
     $this->calculation = $calculation;
     return $calculation;
   }
@@ -608,10 +509,9 @@ final class OfferVersionForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $this->restoreCalculation($form_state);
     \Drupal::logger('brebo_offer_form_diagnostic')->notice(
-      'Final validation reached: version=@version, offer=@offer, trigger=@trigger, scope_length=@scope.',
+      'Final validation reached: version=@version, trigger=@trigger, scope_length=@scope.',
       [
         '@version' => (string) $form_state->getValue('offer_version'),
-        '@offer' => (string) $form_state->getValue('offer_number'),
         '@trigger' => (string) ($form_state->getTriggeringElement()['#value'] ?? '[missing]'),
         '@scope' => strlen((string) $form_state->getValue('scope')),
       ],
@@ -620,51 +520,36 @@ final class OfferVersionForm extends FormBase {
       $duplicate = $this->entityTypeManager->getStorage('node')->getQuery()
         ->accessCheck(FALSE)
         ->condition('type', 'brebo_offer_version')
-        ->condition('field_brebo_offer_number', trim((string) $form_state->getValue('offer_number')))
+        ->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())
         ->condition('field_brebo_offer_version', (int) $form_state->getValue('offer_version'))
         ->execute();
-      if ($duplicate) {
-        $form_state->setErrorByName('offer_number', $this->t('Deze combinatie van offertenummer en versienummer bestaat al.'));
-      }
+      if ($duplicate) $form_state->setErrorByName('offer_version', $this->t('Deze offerteversie bestaat al voor deze calculatie.'));
     }
-
     if ($form_state->getValue('g_account_on')) {
       $percentage = (float) $form_state->getValue('g_account_pct');
-      if ($percentage <= 0 || $percentage > 100) {
-        $form_state->setErrorByName('g_account_pct', $this->t('Vul een G-rekeningpercentage groter dan 0 en maximaal 100 in.'));
-      }
+      if ($percentage <= 0 || $percentage > 100) $form_state->setErrorByName('g_account_pct', $this->t('Vul een G-rekeningpercentage groter dan 0 en maximaal 100 in.'));
       $iban = strtoupper(str_replace(' ', '', (string) $form_state->getValue('g_account_iban')));
-      if (!preg_match('/^[A-Z]{2}[0-9A-Z]{13,32}$/', $iban)) {
-        $form_state->setErrorByName('g_account_iban', $this->t('Vul een geldig IBAN-formaat in.'));
-      }
+      if (!preg_match('/^[A-Z]{2}[0-9A-Z]{13,32}$/', $iban)) $form_state->setErrorByName('g_account_iban', $this->t('Vul een geldig IBAN-formaat in.'));
     }
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $this->restoreCalculation($form_state);
-    \Drupal::logger('brebo_offer_form_diagnostic')->notice(
-      'Final submit reached: version=@version, offer=@offer, errors=@errors, scope_length=@scope.',
-      [
-        '@version' => (string) $form_state->getValue('offer_version'),
-        '@offer' => (string) $form_state->getValue('offer_number'),
-        '@errors' => implode(' | ', array_map('strval', $form_state->getErrors())),
-        '@scope' => strlen((string) $form_state->getValue('scope')),
-      ],
-    );
     $calculation = $this->calculation;
-    if (!$calculation instanceof NodeInterface) {
-      return;
-    }
+    if (!$calculation instanceof NodeInterface) return;
 
     $storage = $this->entityTypeManager->getStorage('node');
-    $offer_number = trim((string) $form_state->getValue('offer_number'));
     $version = (int) $form_state->getValue('offer_version');
+    $numberReceipt = $this->documentNumbers->issueQuotation($calculation, $version);
+    $offer_number = (string) $numberReceipt['number'];
     $g_account_on = (bool) $form_state->getValue('g_account_on');
     $snapshot = json_encode([
       'calculation_id' => (int) $calculation->id(),
       'calculation_label' => (string) $calculation->label(),
       'calculation_version' => (string) ($calculation->get('field_brebo_calc_version')->value ?? ''),
       'calculation_changed' => (int) $calculation->getChangedTime(),
+      'document_number' => $numberReceipt,
+      'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
       'created_at' => gmdate(DATE_ATOM),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -698,9 +583,7 @@ final class OfferVersionForm extends FormBase {
     $sequence = 10;
     foreach ($offer_lines as $line_id => $line) {
       $selected = (string) ($selected_types[$line_id]['post_type'] ?? $line['suggested_type']);
-      if (!in_array($selected, ['Basisaanbieding', 'Optie', 'Stelpost', 'Verrekenpost'], TRUE)) {
-        $selected = $line['suggested_type'];
-      }
+      if (!in_array($selected, ['Basisaanbieding', 'Optie', 'Stelpost', 'Verrekenpost'], TRUE)) $selected = $line['suggested_type'];
       $post = $storage->create([
         'type' => 'brebo_offer_post',
         'title' => $offer_number . ' — ' . $sequence . ' — ' . $line['description'],
