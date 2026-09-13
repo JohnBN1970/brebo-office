@@ -42,3 +42,14 @@ status-list-kanban:
   css:
     component:
       css/status-list-kanban.css: {}
+
+guided-tour:
+  version: 1.x
+  js:
+    js/guided-tour.js: {}
+  css:
+    component:
+      css/guided-tour.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
