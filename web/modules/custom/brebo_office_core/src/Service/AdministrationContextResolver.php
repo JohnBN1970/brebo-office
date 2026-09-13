@@ -45,6 +45,13 @@ final class AdministrationContextResolver {
     $this->keyValueFactory->get(self::COLLECTION)->set((string) $project->id(), $code);
   }
 
+  public function unassignProject(NodeInterface $project): void {
+    if ($project->bundle() !== 'brebo_project' || !$project->id()) {
+      return;
+    }
+    $this->keyValueFactory->get(self::COLLECTION)->delete((string) $project->id());
+  }
+
   /** @return array<string, mixed> */
   public function forProject(NodeInterface $project): array {
     return $this->registry->get($this->projectCode($project));
@@ -65,7 +72,6 @@ final class AdministrationContextResolver {
       return $node;
     }
 
-    // Most project-derived entities point directly at the project.
     if ($node->hasField('field_brebo_project_ref')) {
       $project = $node->get('field_brebo_project_ref')->entity;
       if ($project instanceof NodeInterface && $project->bundle() === 'brebo_project') {
@@ -73,7 +79,6 @@ final class AdministrationContextResolver {
       }
     }
 
-    // Calculations typically inherit their project via the work package.
     if ($node->hasField('field_brebo_package_ref')) {
       $package = $node->get('field_brebo_package_ref')->entity;
       if ($package instanceof NodeInterface) {
@@ -84,7 +89,6 @@ final class AdministrationContextResolver {
       }
     }
 
-    // Offers and other derived records can point back to their calculation.
     if ($node->hasField('field_brebo_calculation_ref')) {
       $calculation = $node->get('field_brebo_calculation_ref')->entity;
       if ($calculation instanceof NodeInterface) {

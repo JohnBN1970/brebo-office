@@ -7,12 +7,11 @@ namespace Drupal\brebo_office_core\Form;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
+use Drupal\user\UserInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/**
- * Converts one won opportunity into one traceable project.
- */
+/** Converts one won opportunity into one traceable, administration-owned project. */
 final class OpportunityProjectForm extends FormBase {
 
   private ?NodeInterface $opportunity = NULL;
@@ -34,31 +33,43 @@ final class OpportunityProjectForm extends FormBase {
     if (!$node->get('field_brebo_opp_project_ref')->isEmpty()) {
       throw new AccessDeniedHttpException('Deze kans is al omgezet naar een project.');
     }
+
     $this->opportunity = $node;
     $organization = $node->get('field_brebo_opp_org_ref')->entity;
     $contact = $node->get('field_brebo_opp_contact_ref')->entity;
     $calculation = $node->get('field_brebo_opp_calc_ref')->entity;
     $offer = $node->get('field_brebo_opp_offer_ref')->entity;
+
+    $user = \Drupal::entityTypeManager()->getStorage('user')->load((int) $this->currentUser()->id());
+    $availableAdministrations = $user instanceof UserInterface
+      ? \Drupal::service('brebo_office_core.administration_access_manager')->availableAdministrations($user)
+      : [];
+    $administrationOptions = [];
+    foreach ($availableAdministrations as $code => $administration) {
+      $administrationOptions[(string) $code] = (string) ($administration['trade_name'] ?? $administration['legal_name'] ?? $code);
+    }
+
     $handoverReady = $organization instanceof NodeInterface
       && $contact instanceof NodeInterface
-      && $offer instanceof NodeInterface;
+      && $offer instanceof NodeInterface
+      && $administrationOptions !== [];
 
     $location = '';
     if ($organization instanceof NodeInterface) {
       $storage = \Drupal::entityTypeManager()->getStorage('node');
-      $location_ids = $storage->getQuery()
+      $locationIds = $storage->getQuery()
         ->accessCheck(TRUE)
         ->condition('type', 'brebo_organization_location')
         ->condition('field_brebo_loc_org_ref.target_id', $organization->id())
         ->sort('field_brebo_loc_primary', 'DESC')
         ->range(0, 1)
         ->execute();
-      $location_node = $location_ids !== [] ? $storage->load(reset($location_ids)) : NULL;
-      if ($location_node instanceof NodeInterface) {
+      $locationNode = $locationIds !== [] ? $storage->load(reset($locationIds)) : NULL;
+      if ($locationNode instanceof NodeInterface) {
         $location = implode(', ', array_filter([
-          (string) $location_node->get('field_brebo_loc_address')->value,
-          (string) $location_node->get('field_brebo_loc_postal_code')->value,
-          (string) $location_node->get('field_brebo_loc_city')->value,
+          (string) $locationNode->get('field_brebo_loc_address')->value,
+          (string) $locationNode->get('field_brebo_loc_postal_code')->value,
+          (string) $locationNode->get('field_brebo_loc_city')->value,
         ]));
       }
     }
@@ -66,7 +77,7 @@ final class OpportunityProjectForm extends FormBase {
     $form['warning'] = [
       '#type' => 'container',
       '#attributes' => ['class' => ['messages', 'messages--warning']],
-      'text' => ['#markup' => '<strong>Gecontroleerde overdracht</strong><br>Deze actie maakt één project aan en legt wederzijdse verwijzingen vast. De commerciële kans blijft als bronhistorie behouden.'],
+      'text' => ['#markup' => '<strong>Gecontroleerde overdracht</strong><br>Deze actie maakt één project aan, legt de administratie vóór nummeruitgifte vast en behoudt de commerciële kans als bronhistorie.'],
     ];
     $form['checklist'] = [
       '#type' => 'table',
@@ -76,15 +87,26 @@ final class OpportunityProjectForm extends FormBase {
         [$this->t('Primaire contactpersoon gekoppeld'), $contact instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
         [$this->t('Calculatie gekoppeld (optioneel)'), $calculation instanceof NodeInterface ? $this->t('Aanwezig') : $this->t('Niet van toepassing / niet gekoppeld')],
         [$this->t('Actuele offerteversie gekoppeld'), $offer instanceof NodeInterface ? $this->t('Gereed') : $this->t('Ontbreekt')],
+        [$this->t('Vrijgegeven administratie beschikbaar'), $administrationOptions !== [] ? $this->t('Gereed') : $this->t('Ontbreekt')],
       ],
     ];
     if (!$handoverReady) {
       $form['blocked'] = [
         '#type' => 'container',
         '#attributes' => ['class' => ['messages', 'messages--error']],
-        'text' => ['#markup' => $this->t('De overdracht is nog niet compleet. Vul de ontbrekende onderdelen aan via Kans bewerken.')],
+        'text' => ['#markup' => $this->t('De overdracht is nog niet compleet of u heeft geen vrijgegeven administratie. Rond eerst de ontbrekende onderdelen of administratietoegang af.')],
       ];
     }
+
+    $form['administration_code'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Administratie'),
+      '#options' => $administrationOptions,
+      '#empty_option' => count($administrationOptions) > 1 ? $this->t('- Kies administratie -') : NULL,
+      '#default_value' => count($administrationOptions) === 1 ? (string) array_key_first($administrationOptions) : NULL,
+      '#required' => TRUE,
+      '#description' => $this->t('Deze keuze bepaalt de projectnummerreeks en alle volgende administratiegebonden documenten.'),
+    ];
     $form['project_name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Projectnaam'),
@@ -92,12 +114,10 @@ final class OpportunityProjectForm extends FormBase {
       '#maxlength' => 255,
       '#required' => TRUE,
     ];
-    $form['project_code'] = [
-      '#type' => 'textfield',
+    $form['project_code_info'] = [
+      '#type' => 'item',
       '#title' => $this->t('Projectcode'),
-      '#default_value' => 'BREBO-' . date('Y') . '-' . $node->id(),
-      '#maxlength' => 32,
-      '#required' => TRUE,
+      '#markup' => $this->t('Wordt automatisch en eenmalig uitgegeven uit de projectnummerreeks van de gekozen administratie.'),
     ];
     $form['location'] = [
       '#type' => 'textfield',
@@ -116,7 +136,7 @@ final class OpportunityProjectForm extends FormBase {
     ];
     $form['confirm'] = [
       '#type' => 'checkbox',
-      '#title' => $this->t('Ik bevestig dat deze gewonnen kans als project mag worden gestart.'),
+      '#title' => $this->t('Ik bevestig dat deze gewonnen kans als project mag worden gestart binnen de gekozen administratie.'),
       '#required' => TRUE,
     ];
     $form['submit'] = [
@@ -140,15 +160,11 @@ final class OpportunityProjectForm extends FormBase {
         }
       }
     }
-    $code = trim((string) $form_state->getValue('project_code'));
-    $existing = \Drupal::entityQuery('node')
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_project')
-      ->condition('field_brebo_project_code', $code)
-      ->range(0, 1)
-      ->execute();
-    if ($existing !== []) {
-      $form_state->setErrorByName('project_code', $this->t('Deze projectcode bestaat al.'));
+
+    $administrationCode = trim((string) $form_state->getValue('administration_code'));
+    $user = \Drupal::entityTypeManager()->getStorage('user')->load((int) $this->currentUser()->id());
+    if (!$user instanceof UserInterface || !\Drupal::service('brebo_office_core.administration_access_manager')->hasAccess($user, $administrationCode)) {
+      $form_state->setErrorByName('administration_code', $this->t('U heeft geen vrijgegeven toegang tot deze administratie.'));
     }
   }
 
@@ -156,11 +172,14 @@ final class OpportunityProjectForm extends FormBase {
     if (!$this->opportunity instanceof NodeInterface) {
       return;
     }
+
+    $administrationCode = trim((string) $form_state->getValue('administration_code'));
     $organization = $this->opportunity->get('field_brebo_opp_org_ref')->entity;
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
     $values = [
       'type' => 'brebo_project',
       'title' => trim((string) $form_state->getValue('project_name')),
-      'field_brebo_project_code' => trim((string) $form_state->getValue('project_code')),
+      'field_brebo_project_code' => 'PENDING-OPP-' . $this->opportunity->id(),
       'field_brebo_client' => $organization instanceof NodeInterface ? $organization->label() : 'Onbekend',
       'field_brebo_location' => trim((string) $form_state->getValue('location')),
       'field_brebo_status' => 'Concept',
@@ -172,15 +191,42 @@ final class OpportunityProjectForm extends FormBase {
       $values['field_brebo_client_org_ref'] = ['target_id' => $organization->id()];
     }
 
-    $project = \Drupal::entityTypeManager()->getStorage('node')->create($values);
-    $project->save();
+    $project = $storage->create($values);
+    $contextResolver = \Drupal::service('brebo_office_core.administration_context_resolver');
+    try {
+      $project->save();
+      $contextResolver->assignProject($project, $administrationCode);
+      $receipt = \Drupal::service('brebo_office_core.project_document_number_issuer')->issueForNode(
+        $project,
+        'project',
+        'project',
+        (string) $project->id(),
+        (int) gmdate('Y'),
+      );
+      $projectCode = (string) ($receipt['number'] ?? '');
+      if ($projectCode === '') {
+        throw new \RuntimeException('De centrale projectnummering gaf geen projectcode terug.');
+      }
+      $project->set('field_brebo_project_code', $projectCode);
+      $project->setNewRevision(TRUE);
+      $project->setRevisionLogMessage('Projectcode centraal uitgegeven voor administratie ' . $administrationCode . '.');
+      $project->save();
+      \Drupal::keyValue('brebo_office_core.project_number_receipts')->set((string) $project->id(), $receipt);
+    }
+    catch (\Throwable $exception) {
+      if (!$project->isNew() && $project->id()) {
+        $contextResolver->unassignProject($project);
+        $project->delete();
+      }
+      throw $exception;
+    }
 
     $this->opportunity->set('field_brebo_opp_project_ref', ['target_id' => $project->id()]);
     $this->opportunity->setNewRevision(TRUE);
-    $this->opportunity->setRevisionLogMessage('Gewonnen kans gecontroleerd omgezet naar project ' . $project->id() . '.');
+    $this->opportunity->setRevisionLogMessage('Gewonnen kans gecontroleerd omgezet naar project ' . $project->id() . ' binnen administratie ' . $administrationCode . '.');
     $this->opportunity->save();
 
-    \Drupal::entityTypeManager()->getStorage('node')->create([
+    $storage->create([
       'type' => 'brebo_opportunity_event',
       'title' => $this->opportunity->label() . ': project aangemaakt',
       'field_brebo_event_opp_ref' => ['target_id' => $this->opportunity->id()],
@@ -188,11 +234,15 @@ final class OpportunityProjectForm extends FormBase {
       'field_brebo_event_to_stage' => 'Gewonnen',
       'field_brebo_event_user' => ['target_id' => (int) $this->currentUser()->id()],
       'field_brebo_event_datetime' => gmdate('Y-m-d\\TH:i:s'),
-      'field_brebo_event_note' => 'Project ' . $project->label() . ' (' . $project->id() . ') aangemaakt.',
+      'field_brebo_event_note' => 'Project ' . $project->label() . ' (' . $project->get('field_brebo_project_code')->value . ') aangemaakt binnen administratie ' . $administrationCode . '.',
       'status' => 1,
     ])->save();
 
-    $this->messenger()->addStatus($this->t('Project @project is aangemaakt en gekoppeld aan de gewonnen kans.', ['@project' => $project->label()]));
+    $this->messenger()->addStatus($this->t('Project @project is aangemaakt met projectcode @code binnen administratie @administration.', [
+      '@project' => $project->label(),
+      '@code' => (string) $project->get('field_brebo_project_code')->value,
+      '@administration' => $administrationCode,
+    ]));
     $form_state->setRedirect('brebo_office_core.project_dashboard', ['node' => $project->id()]);
   }
 
