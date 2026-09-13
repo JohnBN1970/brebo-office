@@ -1,0 +1,18 @@
+view marketing publication dossiers:
+  title: 'View marketing publication dossiers'
+
+create marketing publication drafts:
+  title: 'Create marketing publication drafts'
+
+edit marketing publication dossiers:
+  title: 'Edit marketing publication dossiers'
+
+review marketing publication dossiers:
+  title: 'Review marketing publication dossiers as Digital Marketeer'
+
+approve marketing publication dossiers:
+  title: 'Approve marketing publication dossiers for external communication'
+  restrict access: true
+
+manage marketing publication channels:
+  title: 'Manage marketing publication channel proposals'
