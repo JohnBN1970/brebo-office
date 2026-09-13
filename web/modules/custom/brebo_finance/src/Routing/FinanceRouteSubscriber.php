@@ -25,6 +25,7 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
       'brebo_finance.sales_standalone_pdf_preview' => new Route('/brebo-office/finance/sales/drafts/{draft}/preview.pdf', ['_controller' => '\\Drupal\\brebo_finance\\Controller\\StandaloneSalesInvoicePdfController::preview'], ['_permission' => 'access brebo finance', 'draft' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET']),
       'brebo_finance.receivables_action' => new Route('/brebo-office/finance/sales/invoices/{invoice}/receivables', ['_form' => '\\Drupal\\brebo_finance\\Form\\ReceivablesActionForm', '_title' => 'Debiteurenactie'], ['_permission' => 'manage brebo finance', 'invoice' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST']),
       'brebo_finance.receivables_bulk' => new Route('/brebo-office/finance/sales/receivables/bulk', ['_form' => '\\Drupal\\brebo_finance\\Form\\ReceivablesBulkActionForm', '_title' => 'Debiteuren bulkwerkbak'], ['_permission' => 'manage brebo finance'], ['no_cache' => TRUE], '', [], ['GET', 'POST']),
+      'brebo_finance.collection_debtor_profile' => new Route('/brebo-office/finance/sales/invoices/{invoice}/collection-profile', ['_form' => '\\Drupal\\brebo_finance\\Form\\CollectionDebtorProfileForm', '_title' => 'Incassogegevens debiteur'], ['_permission' => 'manage brebo finance', 'invoice' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST']),
     ];
     foreach ($routes as $name => $candidate) if ($collection->get($name) === NULL) $collection->add($name, $candidate);
   }
