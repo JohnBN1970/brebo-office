@@ -11,6 +11,12 @@ services:
     class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
 
+  brebo_data_intake.website_project_request_destination:
+    class: Drupal\brebo_data_intake\Service\WebsiteProjectRequestIntakeDestination
+    arguments: ['@entity_type.manager']
+    tags:
+      - { name: brebo_data_intake.destination, priority: 200 }
+
   brebo_data_intake.nlbe_sfb_provider:
     class: Drupal\brebo_data_intake\Service\NlbeSfbProvider
     arguments: ['@brebo_data_intake.ingest_manager', '@brebo_data_intake.classification_repository']
