@@ -44,7 +44,7 @@ final class SalesWorkspaceController extends ControllerBase {
         $draftLabel = (string) $draft['draft_number'];
         $editableStandalone = $projectId === 0 && (string) $draft['status'] === 'draft';
         $draftCell = $editableStandalone
-          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id'])]]
+          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
           : $draftLabel;
         $actionCell = '—';
         if ($editableStandalone) {
