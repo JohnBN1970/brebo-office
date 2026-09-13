@@ -1,0 +1,20 @@
+brebo_finance.receivables:
+  type: config_object
+  label: 'BREBO Finance receivables settings'
+  mapping:
+    dunning:
+      type: mapping
+      label: 'Dunning schedule'
+      mapping:
+        reminder_after_days:
+          type: integer
+          label: 'Reminder after overdue days'
+        demand_after_days:
+          type: integer
+          label: 'Demand after overdue days'
+        final_notice_after_days:
+          type: integer
+          label: 'Final notice after overdue days'
+        collection_ready_after_days:
+          type: integer
+          label: 'Collection-ready after overdue days'
