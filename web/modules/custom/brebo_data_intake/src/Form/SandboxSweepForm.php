@@ -43,11 +43,9 @@ final class SandboxSweepForm extends FormBase {
     }
 
     $preview = $this->inventory();
-
     $form['warning'] = [
       '#markup' => '<div class="messages messages--warning"><strong>Sandbox testdata opruimen.</strong> Alleen website/Europakozijn testintakes en de daardoor aangemaakte leads worden verwijderd. Configuratie, gebruikers, rollen, bronnen en classificaties blijven behouden.</div>',
     ];
-
     $form['preview'] = [
       '#type' => 'table',
       '#header' => ['Onderdeel', 'Aantal'],
@@ -59,9 +57,7 @@ final class SandboxSweepForm extends FormBase {
         ['Bestanden', $preview['files']],
         ['Website - Europakozijn leads', $preview['leads']],
       ],
-      '#empty' => 'Geen sweepbare testdata gevonden.',
     ];
-
     $form['confirmation'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Bevestiging'),
@@ -69,7 +65,6 @@ final class SandboxSweepForm extends FormBase {
       '#required' => TRUE,
       '#maxlength' => 16,
     ];
-
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['refresh'] = [
       '#type' => 'submit',
@@ -81,9 +76,7 @@ final class SandboxSweepForm extends FormBase {
       '#type' => 'submit',
       '#value' => $this->t('Sweep sandbox'),
       '#button_type' => 'danger',
-      '#submit' => ['::submitForm'],
     ];
-
     return $form;
   }
 
@@ -108,15 +101,15 @@ final class SandboxSweepForm extends FormBase {
 
     $targets = $this->targets();
     $transaction = $this->database->startTransaction();
-
     try {
       if ($targets['record_ids'] !== []) {
-        $this->database->delete('brebo_data_intake_decision')
-          ->condition('record_id', $targets['record_ids'], 'IN')
-          ->execute();
-        $this->database->delete('brebo_masterdata_candidate')
-          ->condition('record_id', $targets['record_ids'], 'IN')
-          ->execute();
+        foreach (['brebo_data_intake_decision', 'brebo_masterdata_candidate'] as $table) {
+          if ($this->database->schema()->tableExists($table)) {
+            $this->database->delete($table)
+              ->condition('record_id', $targets['record_ids'], 'IN')
+              ->execute();
+          }
+        }
         $this->database->delete('brebo_data_record')
           ->condition('id', $targets['record_ids'], 'IN')
           ->execute();
@@ -197,14 +190,13 @@ final class SandboxSweepForm extends FormBase {
 
     $leadIds = [];
     $storage = $this->entityTypeManager->getStorage('node');
-    $query = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_opportunity');
-    $definition = $this->entityTypeManager->getStorage('field_config')
-      ->load('node.brebo_opportunity.field_brebo_opp_source');
-    if ($definition !== NULL) {
-      $query->condition('field_brebo_opp_source', 'Website - Europakozijn');
-      $leadIds = array_map('intval', array_values($query->execute()));
+    $fieldStorage = $this->entityTypeManager->getStorage('field_config');
+    if ($fieldStorage->load('node.brebo_opportunity.field_brebo_opp_source') !== NULL) {
+      $leadIds = array_map('intval', array_values($storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_opportunity')
+        ->condition('field_brebo_opp_source', 'Website - Europakozijn')
+        ->execute()));
     }
 
     return [
