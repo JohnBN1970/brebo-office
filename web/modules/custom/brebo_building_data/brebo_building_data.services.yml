@@ -19,3 +19,9 @@ services:
       - '@datetime.time'
       - '@lock'
       - '@brebo_building_data.object_repository'
+
+  brebo_building_data.pdok_enricher:
+    class: Drupal\brebo_building_data\Service\PdokBuildingEnricher
+    arguments:
+      - '@http_client'
+      - '@brebo_building_data.repository'
