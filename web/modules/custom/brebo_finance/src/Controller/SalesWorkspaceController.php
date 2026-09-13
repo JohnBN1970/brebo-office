@@ -51,10 +51,16 @@ final class SalesWorkspaceController extends ControllerBase {
           $actionCell = ['data' => [
             '#type' => 'container',
             '#attributes' => ['class' => ['brebo-finance-sales-actions']],
-            'review' => ['#type' => 'link', '#title' => $this->t('Ter beoordeling'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id'])],
+            'review' => [
+              '#type' => 'link',
+              '#title' => $this->t('Ter beoordeling'),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']]),
             ],
             'separator' => ['#markup' => ' · '],
-            'release' => ['#type' => 'link', '#title' => $this->t('Vrijgeven & verzenden'), '#url' => Url::fromRoute('brebo_finance.sales_standalone_release', ['draft' => (int) $draft['id'])],
+            'release' => [
+              '#type' => 'link',
+              '#title' => $this->t('Vrijgeven & verzenden'),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_release', ['draft' => (int) $draft['id']]),
             ],
           ]];
         }
