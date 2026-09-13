@@ -55,9 +55,16 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     $bagIdentities = array_values($this->relations->bagIdentitiesForBuilding($buildingNid));
 
     $pandIds = [];
+    $identityBySourceRef = [];
     foreach ($bagIdentities as $identity) {
-      if (($identity['bag_type'] ?? '') === 'pand' && !empty($identity['bag_id'])) {
-        $pandIds[] = (string) $identity['bag_id'];
+      $bagType = (string) ($identity['bag_type'] ?? '');
+      $bagId = trim((string) ($identity['bag_id'] ?? ''));
+      if ($bagType === 'pand' && $bagId !== '') {
+        $pandIds[] = $bagId;
+      }
+      $sourceRef = trim((string) ($identity['source_ref'] ?? ''));
+      if ($sourceRef !== '' && $bagId !== '' && in_array($bagType, ['verblijfsobject', 'adresseerbaarobject', 'nummeraanduiding'], TRUE)) {
+        $identityBySourceRef[$sourceRef][$bagType] = $bagId;
       }
     }
     $pandIds = array_values(array_unique($pandIds));
@@ -80,11 +87,17 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
         (string) ($address['house_letter'] ?? ''),
         (string) ($address['addition'] ?? ''),
       ]));
+      $sourceRef = trim((string) ($address['source_ref'] ?? ''));
+      $unitIdentity = $identityBySourceRef[$sourceRef] ?? [];
+      $vboId = trim((string) ($unitIdentity['verblijfsobject'] ?? $unitIdentity['adresseerbaarobject'] ?? ''));
+      $numberDesignationId = trim((string) ($unitIdentity['nummeraanduiding'] ?? ''));
       $addressRows[] = [
         trim((string) ($address['street'] ?? '')) ?: '—',
         $number ?: '—',
         trim((string) ($address['postal_code'] ?? '')) ?: '—',
         trim((string) ($address['city'] ?? '')) ?: '—',
+        $vboId ?: '—',
+        $numberDesignationId ?: '—',
         !empty($address['is_primary']) ? $this->t('Hoofdadres') : $this->t('Eenheid'),
         trim((string) ($address['source'] ?? '')) ?: '—',
       ];
@@ -178,6 +191,8 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
           $this->t('Huis-/woningnummer'),
           $this->t('Postcode'),
           $this->t('Plaats'),
+          $this->t('BAG-verblijfsobject'),
+          $this->t('BAG-nummeraanduiding'),
           $this->t('Relatie'),
           $this->t('Bron'),
         ],
