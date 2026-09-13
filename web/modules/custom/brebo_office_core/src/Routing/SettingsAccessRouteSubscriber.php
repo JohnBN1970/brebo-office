@@ -16,13 +16,11 @@ final class SettingsAccessRouteSubscriber extends RouteSubscriberBase {
       return;
     }
 
-    // Drupal's permission access check treats comma-separated permissions as OR.
-    // The settings centre remains restricted to technical site administrators or
-    // BREBO users with explicit executive financial procuration.
     $route->setRequirement(
-      '_permission',
-      'administer site configuration,approve brebo finance executive',
+      '_custom_access',
+      '\\Drupal\\brebo_office_core\\Access\\SettingsAccess::access',
     );
+    $route->setRequirement('_permission', NULL);
   }
 
 }
