@@ -7,6 +7,7 @@ on:
     paths:
       - 'composer.json'
       - 'composer.lock'
+      - 'scripts/test-pdok-building-scope.php'
       - 'web/modules/custom/**/*.php'
       - '.github/workflows/php-quality.yml'
   workflow_dispatch:
@@ -52,3 +53,6 @@ jobs:
           for file in "${files[@]}"; do
             php -l "$file"
           done
+
+      - name: Verify PDOK building scope contract
+        run: php scripts/test-pdok-building-scope.php
