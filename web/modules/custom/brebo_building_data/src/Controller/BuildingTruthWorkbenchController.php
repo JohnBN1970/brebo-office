@@ -113,7 +113,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
         'base_edit' => [
           '#type' => 'link',
           '#title' => $this->t('Basisgegevens bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $buildingNid]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $buildingNid], ['query' => ['brebo_base_edit' => 1]]),
           '#attributes' => ['class' => ['button']],
           '#access' => $canEdit,
         ],
