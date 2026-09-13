@@ -40,7 +40,10 @@ final class SalesInvoiceReceivablesReconciler {
 
         $totalInc = $this->money((string) ($source['total_price_incl_tax'] ?? $existing['amount_inc_vat']));
         $totalEx = $this->money((string) ($source['total_price_excl_tax'] ?? $existing['amount_ex_vat']));
-        $paid = $this->money((string) ($source['paid_amount'] ?? '0'));
+        $sourcePaid = $this->money((string) ($source['paid_amount'] ?? '0'));
+        $existingPaid = $this->money((string) ($existing['paid_amount_inc_vat'] ?? '0'));
+        $paid = $this->decimal->compare($sourcePaid, $existingPaid) >= 0 ? $sourcePaid : $existingPaid;
+        if ($this->decimal->compare($paid, $totalInc) > 0) $paid = $totalInc;
         $vat = $this->decimal->subtract($totalInc, $totalEx);
         $status = $this->status((string) ($source['state'] ?? ''), $paid, $totalInc, (string) ($source['due_date'] ?? $existing['due_date']));
         $sourceHash = hash('sha256', json_encode([
@@ -51,7 +54,8 @@ final class SalesInvoiceReceivablesReconciler {
           'due_date' => $source['due_date'] ?? NULL,
           'amount_ex_vat' => $totalEx,
           'amount_inc_vat' => $totalInc,
-          'paid_amount' => $paid,
+          'source_paid_amount' => $sourcePaid,
+          'effective_paid_amount' => $paid,
           'version' => $source['version'] ?? NULL,
         ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR));
 
