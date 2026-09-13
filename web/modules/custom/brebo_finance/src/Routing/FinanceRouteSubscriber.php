@@ -20,118 +20,65 @@ final class FinanceRouteSubscriber extends RouteSubscriberBase {
     if ($collection->get('brebo_finance.sales_workspace') === NULL) {
       $collection->add('brebo_finance.sales_workspace', new Route(
         '/brebo-office/finance/sales',
-        [
-          '_controller' => '\\Drupal\\brebo_finance\\Controller\\SalesWorkspaceController::page',
-          '_title' => 'Verkoop',
-        ],
-        ['_permission' => 'access brebo finance'],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET'],
+        ['_controller' => '\\Drupal\\brebo_finance\\Controller\\SalesWorkspaceController::page', '_title' => 'Verkoop'],
+        ['_permission' => 'access brebo finance'], ['no_cache' => TRUE], '', [], ['GET'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_settings') === NULL) {
       $collection->add('brebo_finance.sales_settings', new Route(
         '/brebo-office/finance/sales/settings',
-        [
-          '_form' => '\\Drupal\\brebo_finance\\Form\\SalesSettingsForm',
-          '_title' => 'Verkoopinstellingen',
-        ],
-        ['_permission' => 'approve brebo finance'],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET', 'POST'],
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\SalesSettingsForm', '_title' => 'Verkoopinstellingen'],
+        ['_permission' => 'approve brebo finance'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_standalone_start') === NULL) {
       $collection->add('brebo_finance.sales_standalone_start', new Route(
         '/brebo-office/finance/sales/new',
-        [
-          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceForm',
-          '_title' => 'Nieuwe losse factuur',
-        ],
-        ['_permission' => 'access brebo finance'],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET', 'POST'],
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceForm', '_title' => 'Nieuwe losse factuur'],
+        ['_permission' => 'access brebo finance'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_standalone_edit') === NULL) {
       $collection->add('brebo_finance.sales_standalone_edit', new Route(
         '/brebo-office/finance/sales/drafts/{draft}/edit',
-        [
-          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceForm',
-          '_title' => 'Los factuurconcept bewerken',
-        ],
-        [
-          '_permission' => 'access brebo finance',
-          'draft' => '\\d+',
-        ],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET', 'POST'],
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceForm', '_title' => 'Los factuurconcept bewerken'],
+        ['_permission' => 'access brebo finance', 'draft' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_standalone_review') === NULL) {
       $collection->add('brebo_finance.sales_standalone_review', new Route(
         '/brebo-office/finance/sales/drafts/{draft}/review',
-        [
-          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReviewForm',
-          '_title' => 'Conceptfactuur ter beoordeling',
-        ],
-        [
-          '_permission' => 'access brebo finance',
-          'draft' => '\\d+',
-        ],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET', 'POST'],
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReviewForm', '_title' => 'Conceptfactuur ter beoordeling'],
+        ['_permission' => 'access brebo finance', 'draft' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_standalone_release') === NULL) {
       $collection->add('brebo_finance.sales_standalone_release', new Route(
         '/brebo-office/finance/sales/drafts/{draft}/release',
-        [
-          '_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReleaseForm',
-          '_title' => 'Factuur definitief vrijgeven',
-        ],
-        [
-          '_permission' => 'access brebo finance',
-          'draft' => '\\d+',
-        ],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET', 'POST'],
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\StandaloneSalesInvoiceReleaseForm', '_title' => 'Factuur definitief vrijgeven'],
+        ['_permission' => 'access brebo finance', 'draft' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
 
     if ($collection->get('brebo_finance.sales_standalone_pdf_preview') === NULL) {
       $collection->add('brebo_finance.sales_standalone_pdf_preview', new Route(
         '/brebo-office/finance/sales/drafts/{draft}/preview.pdf',
-        [
-          '_controller' => '\\Drupal\\brebo_finance\\Controller\\StandaloneSalesInvoicePdfController::preview',
-        ],
-        [
-          '_permission' => 'access brebo finance',
-          'draft' => '\\d+',
-        ],
-        ['no_cache' => TRUE],
-        '',
-        [],
-        ['GET'],
+        ['_controller' => '\\Drupal\\brebo_finance\\Controller\\StandaloneSalesInvoicePdfController::preview'],
+        ['_permission' => 'access brebo finance', 'draft' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET'],
+      ));
+    }
+
+    if ($collection->get('brebo_finance.receivables_action') === NULL) {
+      $collection->add('brebo_finance.receivables_action', new Route(
+        '/brebo-office/finance/sales/invoices/{invoice}/receivables',
+        ['_form' => '\\Drupal\\brebo_finance\\Form\\ReceivablesActionForm', '_title' => 'Debiteurenactie'],
+        ['_permission' => 'manage brebo finance', 'invoice' => '\\d+'], ['no_cache' => TRUE], '', [], ['GET', 'POST'],
       ));
     }
   }
-
 }
