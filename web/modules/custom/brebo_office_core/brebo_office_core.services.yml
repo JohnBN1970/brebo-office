@@ -20,6 +20,11 @@ services:
   brebo_office_core.simple_pdf_renderer:
     class: Drupal\brebo_office_core\Service\SimplePdfRenderer
 
+  brebo_office_core.administration_registry:
+    class: Drupal\brebo_office_core\Service\AdministrationRegistry
+    arguments:
+      - '@config.factory'
+
   brebo_office_core.appearance_route_subscriber:
     class: Drupal\brebo_office_core\Routing\AppearanceRouteSubscriber
     tags:
