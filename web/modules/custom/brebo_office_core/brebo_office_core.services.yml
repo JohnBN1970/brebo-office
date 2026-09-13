@@ -31,6 +31,30 @@ services:
       - '@brebo_office_core.administration_registry'
       - '@keyvalue'
 
+  brebo_office_core.administration_access_manager:
+    class: Drupal\brebo_office_core\Service\AdministrationAccessManager
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+
+  brebo_office_core.onboarding_tour_manager:
+    class: Drupal\brebo_office_core\Service\OnboardingTourManager
+    arguments:
+      - '@keyvalue'
+
+  brebo_office_core.onboarding_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\OnboardingRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  brebo_office_core.onboarding_redirect_subscriber:
+    class: Drupal\brebo_office_core\EventSubscriber\OnboardingRedirectSubscriber
+    arguments:
+      - '@current_user'
+      - '@brebo_office_core.administration_access_manager'
+    tags:
+      - { name: event_subscriber }
+
   brebo_office_core.project_administration_route_subscriber:
     class: Drupal\brebo_office_core\Routing\ProjectAdministrationRouteSubscriber
     tags:
