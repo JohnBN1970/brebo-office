@@ -6,6 +6,7 @@ namespace Drupal\brebo_office_core\Controller;
 
 use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\brebo_office_core\Service\AdministrationAccessManager;
 use Drupal\brebo_office_core\Service\OnboardingTourManager;
 use Drupal\user\Entity\User;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -18,12 +19,14 @@ final class OnboardingTourController extends ControllerBase {
 
   public function __construct(
     private readonly OnboardingTourManager $tours,
+    private readonly AdministrationAccessManager $access,
     private readonly CsrfTokenGenerator $csrf,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_office_core.onboarding_tour_manager'),
+      $container->get('brebo_office_core.administration_access_manager'),
       $container->get('csrf_token'),
     );
   }
@@ -61,7 +64,15 @@ final class OnboardingTourController extends ControllerBase {
       default => NULL,
     };
 
-    return new JsonResponse(['ok' => TRUE, 'status' => $this->tours->status($user, $tourId)]);
+    if ($tourId === 'welcome_core' && $action === 'complete') {
+      $this->access->completeOnboarding($user, (int) $this->currentUser()->id());
+    }
+
+    return new JsonResponse([
+      'ok' => TRUE,
+      'status' => $this->tours->status($user, $tourId),
+      'onboarding_completed' => $tourId === 'welcome_core' && $action === 'complete',
+    ]);
   }
 
 }
