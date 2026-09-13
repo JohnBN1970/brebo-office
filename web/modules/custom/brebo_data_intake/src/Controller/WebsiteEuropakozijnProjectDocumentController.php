@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Controller;
 
 use Drupal\brebo_data_intake\Service\DocumentTextExtractionProviderRegistry;
+use Drupal\brebo_data_intake\Service\ProjectScopeInferenceEngine;
 use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\File\FileExists;
@@ -44,6 +45,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
   public function __construct(
     private readonly SourceNeutralIntakeManager $intakeManager,
     private readonly DocumentTextExtractionProviderRegistry $providerRegistry,
+    private readonly ProjectScopeInferenceEngine $scopeInference,
     private readonly FileRepositoryInterface $fileRepository,
     private readonly FileSystemInterface $fileSystem,
   ) {}
@@ -52,6 +54,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
     return new static(
       $container->get('brebo_data_intake.source_neutral_intake_manager'),
       $container->get('brebo_data_intake.document_text_extraction_provider_registry'),
+      $container->get('brebo_data_intake.project_scope_inference_engine'),
       $container->get('file.repository'),
       $container->get('file_system'),
     );
@@ -126,6 +129,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
     $analysis = $extension === 'zip'
       ? $this->analyzeZip($uploaded->getPathname())
       : [$this->analyzeDocument($bytes, self::MIME_BY_EXTENSION[$extension], $originalName)];
+    $preliminaryScope = $this->scopeInference->infer($analysis);
 
     $intake = $this->intakeManager->intake([
       'source' => 'website',
@@ -143,6 +147,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
         'content_sha256' => $actualSha,
         'metadata' => $metadata,
         'documents' => $analysis,
+        'preliminary_scope' => $preliminaryScope,
       ],
       'attachments' => [[
         'file_id' => (int) $file->id(),
@@ -168,6 +173,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
         'documents' => $publicDocuments,
         'document_count' => count($publicDocuments),
         'extracted_count' => count(array_filter($publicDocuments, static fn(array $document): bool => ($document['status'] ?? '') === 'extracted')),
+        'preliminary_scope' => $preliminaryScope,
       ],
     ], 202);
   }

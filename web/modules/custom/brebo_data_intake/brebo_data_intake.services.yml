@@ -17,6 +17,9 @@ services:
     tags:
       - { name: brebo_data_intake.destination, priority: 200 }
 
+  brebo_data_intake.project_scope_inference_engine:
+    class: Drupal\brebo_data_intake\Service\ProjectScopeInferenceEngine
+
   brebo_data_intake.nlbe_sfb_provider:
     class: Drupal\brebo_data_intake\Service\NlbeSfbProvider
     arguments: ['@brebo_data_intake.ingest_manager', '@brebo_data_intake.classification_repository']
