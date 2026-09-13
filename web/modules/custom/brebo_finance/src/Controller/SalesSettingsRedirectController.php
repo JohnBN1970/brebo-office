@@ -11,7 +11,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 /** Redirects legacy module settings to the central Office settings page. */
 final class SalesSettingsRedirectController extends ControllerBase {
 
-  public function redirect(): RedirectResponse {
+  public function salesSettings(): RedirectResponse {
     $url = Url::fromRoute('brebo_office_core.settings', [], ['fragment' => 'sales-settings'])->toString();
     return new RedirectResponse($url);
   }
