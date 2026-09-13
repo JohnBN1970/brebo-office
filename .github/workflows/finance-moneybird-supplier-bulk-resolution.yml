@@ -1,0 +1,124 @@
+name: BREBO Finance Moneybird Supplier Bulk Resolution
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    name: Resolve Moneybird suppliers to BREBO organizations
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          : > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new \
+            -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Run controlled supplier resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          export NO_COLOR=1 TERM=dumb
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+
+          echo "=== BREBO Finance Moneybird supplier resolution preflight ==="
+          "${drush[@]}" status --fields=bootstrap,db-status,drupal-version
+          "${drush[@]}" php:eval '
+            $container = \Drupal::getContainer();
+            foreach (["brebo_finance.moneybird_supplier_diagnosis", "brebo_finance.moneybird_supplier_resolver"] as $service) {
+              print $service . "=" . ($container->has($service) ? "yes" : "no") . "\n";
+              if (!$container->has($service)) { throw new \RuntimeException("Missing required service: " . $service); }
+            }
+            $field = \Drupal\field\Entity\FieldConfig::loadByName("node", "brebo_organization", "field_brebo_moneybird_contact_id");
+            if (!$field) { throw new \RuntimeException("Missing Moneybird organization identity field"); }
+            print "MONEYBIRD_ORG_FIELD=yes\n";
+          '
+
+          echo "=== Controlled Moneybird supplier resolution ==="
+          "${drush[@]}" php:eval '
+            $diagnosisService = \Drupal::service("brebo_finance.moneybird_supplier_diagnosis");
+            $resolver = \Drupal::service("brebo_finance.moneybird_supplier_resolver");
+            $before = $diagnosisService->diagnose();
+
+            if ((int) ($before["ambiguous_count"] ?? 0) !== 0 || (int) ($before["invalid_count"] ?? 0) !== 0) {
+              throw new \RuntimeException("Supplier resolution blocked: ambiguous or invalid source records exist.");
+            }
+
+            $created = 0;
+            $adopted = 0;
+            $skipped = [];
+            $failed = [];
+
+            foreach (["by_exact_name" => false, "new" => true] as $bucket => $isNew) {
+              foreach (($before[$bucket] ?? []) as $item) {
+                $contactId = trim((string) ($item["contact_id"] ?? ""));
+                $name = trim((string) ($item["name"] ?? ""));
+
+                // A master-data name must begin with a letter or number. This
+                // deliberately keeps malformed labels such as ". Turnhout"
+                // out of the central organization register for manual review.
+                if ($name === "" || preg_match("/^[\\p{L}\\p{N}]/u", $name) !== 1) {
+                  $skipped[] = ["contact_id" => $contactId, "name" => $name, "reason" => "suspicious_name"];
+                  continue;
+                }
+
+                $organization = $resolver->resolve($contactId, $name, true);
+                if (!$organization) {
+                  $failed[] = ["contact_id" => $contactId, "name" => $name, "reason" => "resolver_refused"];
+                  continue;
+                }
+
+                if ($isNew) { $created++; } else { $adopted++; }
+              }
+            }
+
+            print "CREATED=" . $created . "\n";
+            print "ADOPTED=" . $adopted . "\n";
+            print "SKIPPED=" . count($skipped) . "\n";
+            print "FAILED=" . count($failed) . "\n";
+            foreach ($skipped as $item) { print "SKIP=" . json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n"; }
+            foreach ($failed as $item) { print "FAIL=" . json_encode($item, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n"; }
+
+            if ($failed !== []) {
+              throw new \RuntimeException("One or more suppliers could not be resolved safely.");
+            }
+
+            $after = $diagnosisService->diagnose();
+            print "AFTER_BY_MONEYBIRD_ID=" . (int) ($after["by_moneybird_id_count"] ?? 0) . "\n";
+            print "AFTER_BY_EXACT_NAME=" . (int) ($after["by_exact_name_count"] ?? 0) . "\n";
+            print "AFTER_NEW=" . (int) ($after["new_count"] ?? 0) . "\n";
+            print "AFTER_AMBIGUOUS=" . (int) ($after["ambiguous_count"] ?? 0) . "\n";
+            print "AFTER_INVALID=" . (int) ($after["invalid_count"] ?? 0) . "\n";
+
+            if ((int) ($after["ambiguous_count"] ?? 0) !== 0 || (int) ($after["invalid_count"] ?? 0) !== 0) {
+              throw new \RuntimeException("Postcondition failed: ambiguity or invalid records introduced.");
+            }
+            if ((int) ($after["new_count"] ?? 0) !== count($skipped)) {
+              throw new \RuntimeException("Postcondition failed: unresolved supplier count differs from deliberate skips.");
+            }
+            print "MONEYBIRD_SUPPLIER_RESOLUTION=PASS\n";
+          '
+          REMOTE
