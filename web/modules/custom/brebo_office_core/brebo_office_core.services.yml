@@ -31,6 +31,12 @@ services:
       - '@brebo_office_core.administration_registry'
       - '@keyvalue'
 
+  brebo_office_core.administration_access_manager:
+    class: Drupal\brebo_office_core\Service\AdministrationAccessManager
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+
   brebo_office_core.project_administration_route_subscriber:
     class: Drupal\brebo_office_core\Routing\ProjectAdministrationRouteSubscriber
     tags:
