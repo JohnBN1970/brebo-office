@@ -7,68 +7,6 @@ use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
 /**
- * Implements hook_entity_insert().
- */
-function brebo_building_data_entity_insert(EntityInterface $entity): void {
-  if ($entity instanceof NodeInterface && $entity->bundle() === 'brebo_building') {
-    brebo_building_data_pdok_enrich($entity);
-  }
-}
-
-/**
- * Implements hook_entity_update().
- */
-function brebo_building_data_entity_update(EntityInterface $entity): void {
-  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_building') {
-    return;
-  }
-
-  $original = $entity->original ?? NULL;
-  if (!$original instanceof NodeInterface || brebo_building_data_address_fingerprint($entity) !== brebo_building_data_address_fingerprint($original)) {
-    brebo_building_data_pdok_enrich($entity);
-  }
-}
-
-/**
- * Best-effort PDOK enrichment; an external outage never blocks a building save.
- */
-function brebo_building_data_pdok_enrich(NodeInterface $building): void {
-  $country = $building->hasField('field_brebo_country') && !$building->get('field_brebo_country')->isEmpty()
-    ? strtolower(trim((string) $building->get('field_brebo_country')->value))
-    : 'nederland';
-  if (!in_array($country, ['', 'nederland', 'netherlands', 'nl'], TRUE)) {
-    return;
-  }
-
-  try {
-    $result = \Drupal::service('brebo_building_data.pdok_enricher')->enrich($building);
-    \Drupal::logger('brebo_building_data')->notice('PDOK BAG enrichment building @building: @state, pand @pand, @count addresses.', [
-      '@building' => (int) $building->id(),
-      '@state' => (string) ($result['state'] ?? 'unknown'),
-      '@pand' => (string) ($result['pand_id'] ?? '-'),
-      '@count' => (int) ($result['address_count'] ?? 0),
-    ]);
-  }
-  catch (\Throwable $e) {
-    \Drupal::logger('brebo_building_data')->warning('PDOK BAG enrichment failed for building @building: @message', [
-      '@building' => (int) $building->id(),
-      '@message' => $e->getMessage(),
-    ]);
-  }
-}
-
-function brebo_building_data_address_fingerprint(NodeInterface $building): string {
-  $fields = ['field_brebo_address', 'field_brebo_postal_code', 'field_brebo_city', 'field_brebo_country'];
-  $values = [];
-  foreach ($fields as $field) {
-    $values[] = $building->hasField($field) && !$building->get($field)->isEmpty()
-      ? trim((string) ($building->get($field)->value ?? ''))
-      : '';
-  }
-  return strtolower(implode('|', $values));
-}
-
-/**
  * Implements hook_entity_delete().
  */
 function brebo_building_data_entity_delete(EntityInterface $entity): void {
