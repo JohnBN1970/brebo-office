@@ -29,6 +29,10 @@ final class BuildingTruthProposalReviewForm extends FormBase {
     return 'brebo_building_truth_proposal_review_form';
   }
 
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
+    // Intentionally empty: the accept/reject buttons use dedicated handlers.
+  }
+
   public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $proposal = NULL): array {
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_building') {
       throw new NotFoundHttpException();
