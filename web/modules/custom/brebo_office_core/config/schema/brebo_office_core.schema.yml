@@ -2,16 +2,66 @@ brebo_office_core.settings:
   type: config_object
   label: 'BREBO Office instellingen'
   mapping:
+    primary_administration: { type: string, label: 'Primaire administratiecode' }
+    administrations:
+      type: sequence
+      label: 'Administraties'
+      sequence:
+        type: mapping
+        mapping:
+          code: { type: string, label: 'Administratiecode' }
+          active: { type: boolean, label: 'Actief' }
+          trade_name: { type: string, label: 'Handelsnaam' }
+          legal_name: { type: string, label: 'Statutaire naam' }
+          registration_number: { type: string, label: 'Registratienummer' }
+          vat_number: { type: string, label: 'Btw-nummer' }
+          address: { type: string, label: 'Adres' }
+          postal_code: { type: string, label: 'Postcode' }
+          city: { type: string, label: 'Plaats' }
+          country: { type: string, label: 'Landcode' }
+          general_email: { type: string, label: 'Algemeen e-mailadres' }
+          general_phone: { type: string, label: 'Algemeen telefoonnummer' }
+          website: { type: string, label: 'Website' }
+          logo_uri: { type: string, label: 'Logo URI' }
+          logo_compact_uri: { type: string, label: 'Compact logo URI' }
+          currency: { type: string, label: 'Valuta' }
+          timezone: { type: string, label: 'Tijdzone' }
+          default_iban: { type: string, label: 'Standaard IBAN' }
+          bic: { type: string, label: 'BIC' }
+          moneybird_administration_id: { type: string, label: 'Moneybird administratie-ID' }
+          numbering:
+            type: sequence
+            label: 'Documentnummerreeksen'
+            sequence:
+              type: mapping
+              mapping:
+                prefix: { type: string, label: 'Prefix' }
+                include_year: { type: boolean, label: 'Jaar opnemen' }
+                separator: { type: string, label: 'Scheidingsteken' }
+                digits: { type: integer, label: 'Aantal cijfers' }
+                start_number: { type: integer, label: 'Startnummer' }
+                reset_yearly: { type: boolean, label: 'Jaarlijks resetten' }
     organization:
       type: mapping
-      label: 'Bedrijfsidentiteit'
+      label: 'Bedrijfsidentiteit (legacy / primaire administratie)'
       mapping:
         trade_name: { type: string, label: 'Handelsnaam' }
         legal_name: { type: string, label: 'Statutaire naam' }
         registration_number: { type: string, label: 'KVK-nummer' }
+        vat_number: { type: string, label: 'Btw-nummer' }
         general_email: { type: string, label: 'Algemeen e-mailadres' }
         general_phone: { type: string, label: 'Algemeen telefoonnummer' }
+        website: { type: string, label: 'Website' }
         address: { type: string, label: 'Vestigingsadres' }
+        postal_code: { type: string, label: 'Postcode' }
+        city: { type: string, label: 'Plaats' }
+        country: { type: string, label: 'Landcode' }
+        logo_uri: { type: string, label: 'Logo URI' }
+        logo_compact_uri: { type: string, label: 'Compact logo URI' }
+        currency: { type: string, label: 'Valuta' }
+        default_iban: { type: string, label: 'Standaard IBAN' }
+        bic: { type: string, label: 'BIC' }
+        moneybird_administration_id: { type: string, label: 'Moneybird administratie-ID' }
     project:
       type: mapping
       label: 'Projectstandaarden'

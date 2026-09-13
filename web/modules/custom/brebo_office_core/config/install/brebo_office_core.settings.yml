@@ -1,10 +1,22 @@
+primary_administration: 'primary'
 organization:
   trade_name: 'BREBO'
   legal_name: 'BREBO Bouw en Advies B.V.'
   registration_number: ''
+  vat_number: ''
   general_email: ''
   general_phone: ''
+  website: ''
   address: ''
+  postal_code: ''
+  city: ''
+  country: 'NL'
+  logo_uri: ''
+  logo_compact_uri: ''
+  currency: 'EUR'
+  default_iban: ''
+  bic: ''
+  moneybird_administration_id: ''
 project:
   default_project_status: 'Concept'
   response_days: 5
