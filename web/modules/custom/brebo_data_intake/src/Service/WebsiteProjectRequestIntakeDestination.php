@@ -25,7 +25,8 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
    * @param array<string, mixed> $envelope
    */
   public function route(array $envelope): IntakeDestinationResult {
-    $requestId = trim((string) ($envelope['source_record_id'] ?? ''));
+    $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : [];
+    $requestId = trim((string) ($payload['request_id'] ?? ''));
     if (!preg_match('/^[0-9a-f-]{36}$/i', $requestId)) {
       return new IntakeDestinationResult(
         IntakeDestinationResult::REVIEW_REQUIRED,
@@ -44,7 +45,6 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       );
     }
 
-    $payload = is_array($envelope['payload'] ?? NULL) ? $envelope['payload'] : [];
     $metadata = is_array($payload['metadata'] ?? NULL) ? $payload['metadata'] : [];
     $filename = trim((string) ($payload['filename'] ?? ''));
     $label = trim((string) ($metadata['project_name'] ?? $metadata['address'] ?? ''));
@@ -96,8 +96,8 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
 
     $lead->save();
 
-    // The lead is created immediately, while the source envelope remains in the
-    // central intake workbench until the machine result has been reviewed.
+    // The lead is created immediately, while each source attachment remains in
+    // the central intake workbench until the machine result has been reviewed.
     return new IntakeDestinationResult(
       IntakeDestinationResult::REVIEW_REQUIRED,
       'website_project_request_requires_review',
