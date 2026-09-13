@@ -25,11 +25,29 @@ services:
     arguments:
       - '@config.factory'
 
+  brebo_office_core.administration_document_identity:
+    class: Drupal\brebo_office_core\Service\AdministrationDocumentIdentity
+    arguments:
+      - '@brebo_office_core.administration_registry'
+
+  brebo_office_core.administration_number_issuer:
+    class: Drupal\brebo_office_core\Service\AdministrationNumberIssuer
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+      - '@lock'
+
   brebo_office_core.administration_context_resolver:
     class: Drupal\brebo_office_core\Service\AdministrationContextResolver
     arguments:
       - '@brebo_office_core.administration_registry'
       - '@keyvalue'
+
+  brebo_office_core.project_document_identity_resolver:
+    class: Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver
+    arguments:
+      - '@brebo_office_core.administration_context_resolver'
+      - '@brebo_office_core.administration_document_identity'
 
   brebo_office_core.administration_access_manager:
     class: Drupal\brebo_office_core\Service\AdministrationAccessManager
