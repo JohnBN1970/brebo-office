@@ -36,6 +36,12 @@ services:
       - '@brebo_office_core.administration_registry'
       - '@keyvalue'
 
+  brebo_office_core.project_document_identity_resolver:
+    class: Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver
+    arguments:
+      - '@brebo_office_core.administration_context_resolver'
+      - '@brebo_office_core.administration_document_identity'
+
   brebo_office_core.administration_access_manager:
     class: Drupal\brebo_office_core\Service\AdministrationAccessManager
     arguments:
