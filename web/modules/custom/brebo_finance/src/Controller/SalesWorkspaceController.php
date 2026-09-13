@@ -37,6 +37,7 @@ final class SalesWorkspaceController extends ControllerBase {
         ->fields('d', ['id', 'draft_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat'])
         ->orderBy('created', 'DESC')->range(0, 50)->execute()->fetchAll(\PDO::FETCH_ASSOC);
       foreach ($drafts as $draft) {
+        $draftId = (int) $draft['id'];
         $projectId = (int) $draft['project_nid'];
         $projectLink = $projectId > 0
           ? ['data' => ['#type' => 'link', '#title' => (string) $projectId, '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId])]]
@@ -44,7 +45,7 @@ final class SalesWorkspaceController extends ControllerBase {
         $draftLabel = (string) $draft['draft_number'];
         $editableStandalone = $projectId === 0 && (string) $draft['status'] === 'draft';
         $draftCell = $editableStandalone
-          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => (int) $draft['id']])]]
+          ? ['data' => ['#type' => 'link', '#title' => $draftLabel, '#url' => Url::fromRoute('brebo_finance.sales_standalone_edit', ['draft' => $draftId])]]
           : $draftLabel;
         $actionCell = '—';
         if ($editableStandalone) {
@@ -54,13 +55,13 @@ final class SalesWorkspaceController extends ControllerBase {
             'review' => [
               '#type' => 'link',
               '#title' => $this->t('Ter beoordeling'),
-              '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => (int) $draft['id']]),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_review', ['draft' => $draftId]),
             ],
             'separator' => ['#markup' => ' · '],
             'release' => [
               '#type' => 'link',
               '#title' => $this->t('Vrijgeven & verzenden'),
-              '#url' => Url::fromRoute('brebo_finance.sales_standalone_release', ['draft' => (int) $draft['id']]),
+              '#url' => Url::fromRoute('brebo_finance.sales_standalone_release', ['draft' => $draftId]),
             ],
           ]];
         }
