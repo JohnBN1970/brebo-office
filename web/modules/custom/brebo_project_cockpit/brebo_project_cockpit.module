@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
@@ -38,6 +39,68 @@ function brebo_project_cockpit_preprocess_page(array &$variables): void {
     (int) $project->id(),
     $route_name,
   );
+}
+
+/**
+ * Inject administration-aware numbering before the legacy release submit.
+ */
+function brebo_project_cockpit_form_brebo_project_cockpit_sales_invoice_release_form_alter(array &$form, FormStateInterface $form_state, string $form_id): void {
+  $form['#validate'][] = 'brebo_project_cockpit_sales_invoice_administration_number_validate';
+}
+
+/**
+ * Pre-issue the final invoice number from the project's administration.
+ *
+ * The existing release form remains responsible for PDF generation, email,
+ * Moneybird registration and retry behaviour. By writing the immutable final
+ * number into the canonical draft context before submit, its legacy number
+ * manager is bypassed without changing the transaction chain.
+ */
+function brebo_project_cockpit_sales_invoice_administration_number_validate(array &$form, FormStateInterface $form_state): void {
+  $draft_id = (int) $form_state->get('draft_id');
+  $project_id = (int) $form_state->get('project_id');
+  if ($draft_id <= 0 || $project_id <= 0) {
+    return;
+  }
+
+  $project = \Drupal::entityTypeManager()->getStorage('node')->load($project_id);
+  if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+    throw new \RuntimeException('Projectcontext voor factuurnummering ontbreekt.');
+  }
+
+  $context_store = \Drupal::keyValue('brebo_finance.sales_invoice_draft_context');
+  $context = $context_store->get((string) $draft_id, []);
+  if (!is_array($context) || (int) ($context['project_nid'] ?? 0) !== $project_id) {
+    throw new \RuntimeException('Canonieke projectfactuurcontext ontbreekt.');
+  }
+
+  if (empty($context['administration_identity_snapshot'])) {
+    $context['administration_identity_snapshot'] = \Drupal::service('brebo_office_core.project_document_identity_resolver')->snapshotForNode($project);
+  }
+
+  if (trim((string) ($context['final_invoice_number'] ?? '')) === '') {
+    $draft = \Drupal::database()->select('brebo_finance_sales_invoice_draft', 'd')
+      ->fields('d', ['invoice_date'])
+      ->condition('id', $draft_id)
+      ->condition('project_nid', $project_id)
+      ->execute()
+      ->fetchAssoc();
+    if ($draft === FALSE) {
+      throw new \RuntimeException('Factuurconcept voor nummeruitgifte ontbreekt.');
+    }
+
+    $invoice_year = (int) substr((string) ($draft['invoice_date'] ?? ''), 0, 4);
+    $receipt = \Drupal::service('brebo_office_core.project_document_number_issuer')->issueSalesInvoice(
+      $project,
+      $draft_id,
+      $invoice_year > 0 ? $invoice_year : NULL,
+    );
+    $context['final_invoice_number'] = (string) $receipt['number'];
+    $context['final_number_receipt'] = $receipt;
+    $context['final_number_reserved_at'] = time();
+  }
+
+  $context_store->set((string) $draft_id, $context);
 }
 
 /**
