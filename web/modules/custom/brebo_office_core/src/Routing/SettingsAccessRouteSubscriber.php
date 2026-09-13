@@ -16,11 +16,10 @@ final class SettingsAccessRouteSubscriber extends RouteSubscriberBase {
       return;
     }
 
-    $route->setRequirement(
-      '_custom_access',
-      '\\Drupal\\brebo_office_core\\Access\\SettingsAccess::access',
-    );
-    $route->setRequirement('_permission', NULL);
+    $requirements = $route->getRequirements();
+    unset($requirements['_permission']);
+    $requirements['_custom_access'] = '\\Drupal\\brebo_office_core\\Access\\SettingsAccess::access';
+    $route->setRequirements($requirements);
   }
 
 }
