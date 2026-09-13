@@ -88,11 +88,11 @@ jobs:
           echo '=== Direct Drupal kernel bootstrap probe ==='
           "$remote_php" -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -r '
             chdir("web");
-            require_once "../vendor/autoload.php";
-            $request = Symfony\\Component\\HttpFoundation\\Request::create("https://sboffice.brebobv.nl/");
-            $kernel = Drupal\\Core\\DrupalKernel::createFromRequest($request, $GLOBALS["autoloader"], "prod");
+            $autoloader = require_once "../vendor/autoload.php";
+            $request = Symfony\Component\HttpFoundation\Request::create("https://sboffice.brebobv.nl/");
+            $kernel = Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, "prod");
             $kernel->boot();
-            echo "DIRECT_DRUPAL_BOOTSTRAP_OK=1\\n";
+            echo "DIRECT_DRUPAL_BOOTSTRAP_OK=1\n";
           ' 2>&1
           kernel_status=$?
           echo "DIRECT_DRUPAL_BOOTSTRAP_EXIT_CODE=$kernel_status"
