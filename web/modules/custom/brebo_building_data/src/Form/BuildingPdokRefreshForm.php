@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Drupal\brebo_building_data\Form;
 
 use Drupal\brebo_building_data\Service\PdokBuildingEnricher;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -15,11 +17,13 @@ final class BuildingPdokRefreshForm extends FormBase {
 
   public function __construct(
     private readonly PdokBuildingEnricher $enricher,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_building_data.pdok_enricher'),
+      $container->get('entity_type.manager'),
     );
   }
 
@@ -46,7 +50,7 @@ final class BuildingPdokRefreshForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Annuleren'),
-      '#url' => \Drupal\Core\Url::fromRoute('brebo_building_data.truth_workbench', ['node' => (int) $node->id()]),
+      '#url' => Url::fromRoute('brebo_building_data.truth_workbench', ['node' => (int) $node->id()]),
       '#attributes' => ['class' => ['button']],
     ];
 
@@ -55,7 +59,7 @@ final class BuildingPdokRefreshForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $buildingNid = (int) $form_state->get('building_nid');
-    $building = $this->entityTypeManager()->getStorage('node')->load($buildingNid);
+    $building = $this->entityTypeManager->getStorage('node')->load($buildingNid);
     if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
       throw new NotFoundHttpException();
     }
