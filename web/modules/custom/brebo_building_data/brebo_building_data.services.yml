@@ -10,3 +10,12 @@ services:
   brebo_building_data.project_building_repository:
     class: Drupal\brebo_building_data\Service\ProjectBuildingRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time']
+
+  brebo_building_data.truth_repository:
+    class: Drupal\brebo_building_data\Service\BuildingTruthRepository
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@datetime.time'
+      - '@lock'
+      - '@brebo_building_data.object_repository'
