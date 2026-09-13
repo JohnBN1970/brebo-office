@@ -25,6 +25,17 @@ services:
     arguments:
       - '@config.factory'
 
+  brebo_office_core.administration_context_resolver:
+    class: Drupal\brebo_office_core\Service\AdministrationContextResolver
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+
+  brebo_office_core.project_administration_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\ProjectAdministrationRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
   brebo_office_core.appearance_route_subscriber:
     class: Drupal\brebo_office_core\Routing\AppearanceRouteSubscriber
     tags:
