@@ -23,14 +23,6 @@ brebo_data_intake.review_decision:
     _permission: 'review brebo office intake'
     record: '\d+'
 
-brebo_data_intake.sandbox_sweep:
-  path: '/brebo-office/sandbox/sweep'
-  defaults:
-    _form: '\Drupal\brebo_data_intake\Form\SandboxSweepForm'
-    _title: 'Sandbox sweep'
-  requirements:
-    _permission: 'administer site configuration'
-
 brebo_data_intake.website_europakozijn:
   path: '/brebo-internal/intake/europakozijn'
   defaults:
