@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\CollectionDebtorProfileRepository;
 use Drupal\brebo_finance\Service\CollectionDossierBuilder;
+use Drupal\brebo_finance\Service\CollectionReceivablesReconciler;
 use Drupal\brebo_finance\Service\CollectionTransferManager;
 use Drupal\brebo_finance\Service\NlLegalCollectionProvider;
 use Drupal\brebo_finance\Service\ReceivablesDunningManager;
@@ -13,12 +14,16 @@ use Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Bulk workbench for controlled receivables actions and collection handoff. */
 final class ReceivablesBulkActionForm extends FormBase {
+
+  private const STATUS_SYNC_STORE = 'brebo_finance.collection_status_sync';
+  private const STATUS_SYNC_INTERVAL = 900;
 
   public function __construct(
     private readonly Connection $database,
@@ -27,6 +32,8 @@ final class ReceivablesBulkActionForm extends FormBase {
     private readonly SalesInvoiceDebtorResolver $debtorResolver,
     private readonly CollectionDebtorProfileRepository $profiles,
     private readonly CollectionTransferManager $transferManager,
+    private readonly CollectionReceivablesReconciler $collectionReconciler,
+    private readonly KeyValueFactoryInterface $keyValueFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -36,13 +43,15 @@ final class ReceivablesBulkActionForm extends FormBase {
     $builder = new CollectionDossierBuilder($container->get('database'), $dunning);
     $provider = new NlLegalCollectionProvider($container->get('http_client'), $container->get('config.factory'));
     $transfer = new CollectionTransferManager($resolver, $profiles, $builder, $provider, $container->get('keyvalue'));
-    return new static($container->get('database'), $dunning, $container->get('plugin.manager.mail'), $resolver, $profiles, $transfer);
+    $reconciler = new CollectionReceivablesReconciler($container->get('database'), $transfer, $container->get('keyvalue'));
+    return new static($container->get('database'), $dunning, $container->get('plugin.manager.mail'), $resolver, $profiles, $transfer, $reconciler, $container->get('keyvalue'));
   }
 
   public function getFormId(): string { return 'brebo_finance_receivables_bulk_action_form'; }
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
-    $options = []; $profileRows = [];
+    $syncMessage = $this->refreshCollectionStatusIfDue();
+    $options = []; $profileRows = []; $collectionRows = [];
     if ($this->database->schema()->tableExists('brebo_finance_sales_invoice')) {
       $rows = $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i', ['id'])->orderBy('due_date')->range(0, 250)->execute()->fetchCol();
       foreach ($rows as $id) {
@@ -51,6 +60,20 @@ final class ReceivablesBulkActionForm extends FormBase {
         if ($state['blocked_reason'] !== NULL) continue;
         $step = $this->dunningManager->nextStep($invoiceId);
         $collectionReady = (string) $state['status'] === 'gereed_voor_incasso';
+        $transferState = $this->transferManager->state($invoiceId);
+        $transferred = trim((string) ($transferState['external_id'] ?? '')) !== '';
+
+        if ($transferred) {
+          $collectionRows[] = [
+            (string) $state['invoice_number'],
+            (string) ($transferState['external_id'] ?? ''),
+            (string) ($transferState['status'] ?? 'onbekend'),
+            isset($transferState['paid_amount']) && $transferState['paid_amount'] !== NULL ? '€ ' . number_format((float) $transferState['paid_amount'], 2, ',', '.') : '—',
+            !empty($transferState['last_checked']) ? date('d-m-Y H:i', (int) $transferState['last_checked']) : '—',
+          ];
+          continue;
+        }
+
         if ($step === NULL && !$collectionReady) continue;
         $label = $collectionReady ? 'Overdragen aan incasso' : $this->stepLabel((string) $step);
         $options[$invoiceId] = sprintf('%s · %s · € %s · %s', $state['invoice_number'], $label, number_format((float) $state['outstanding_amount_inc_vat'], 2, ',', '.'), $state['due_date']);
@@ -66,7 +89,10 @@ final class ReceivablesBulkActionForm extends FormBase {
         }
       }
     }
-    $form['intro'] = ['#markup' => '<p><strong>Bulk debiteurenwerkbak.</strong> Office controleert iedere factuur opnieuw vlak vóór uitvoering. Herinneringen gaan alleen naar het centrale relatie-e-mailadres. Incasso-overdracht vereist een compleet gestructureerd debiteurprofiel en een beschikbare provider.</p>'];
+
+    $form['intro'] = ['#markup' => '<p><strong>Bulk debiteurenwerkbak.</strong> Office controleert iedere factuur opnieuw vlak vóór uitvoering. Incassodossiers worden bij openen van deze werkbak periodiek met de provider ververst; bevestigde betalingen worden in dezelfde verkoopfactuurspiegel verwerkt.</p>'];
+    if ($syncMessage !== '') $form['sync'] = ['#markup' => '<p><em>' . htmlspecialchars($syncMessage) . '</em></p>'];
+    if ($collectionRows !== []) $form['collection_status'] = ['#type' => 'table', '#caption' => $this->t('Overgedragen incassodossiers'), '#header' => [$this->t('Factuur'), $this->t('Extern dossier'), $this->t('Providerstatus'), $this->t('Provider betaald'), $this->t('Laatst gecontroleerd')], '#rows' => $collectionRows];
     if ($profileRows !== []) $form['profiles'] = ['#type' => 'table', '#caption' => $this->t('Incassodossiers met ontbrekende gestructureerde NAW'), '#header' => [$this->t('Factuur'), $this->t('Actie')], '#rows' => $profileRows];
     $form['invoices'] = ['#type' => 'checkboxes', '#title' => $this->t('Beschikbare dossiers'), '#options' => $options, '#required' => TRUE];
     $form['note'] = ['#type' => 'textarea', '#title' => $this->t('Aanvullende notitie'), '#rows' => 3, '#description' => $this->t('Wordt alleen toegevoegd aan herinnering/aanmaning/sommatie, niet aan incasso-overdracht.')];
@@ -114,6 +140,21 @@ final class ReceivablesBulkActionForm extends FormBase {
       $executed++;
     }
     $this->messenger()->addStatus($this->t('Bulkcontrole: @ready gereed, @blocked geblokkeerd, @executed uitgevoerd, @failed fouten.', ['@ready' => $ready, '@blocked' => $blocked, '@executed' => $executed, '@failed' => $failed]));
+  }
+
+  private function refreshCollectionStatusIfDue(): string {
+    $store = $this->keyValueFactory->get(self::STATUS_SYNC_STORE);
+    $last = (int) $store->get('last_attempt', 0);
+    if ($last > 0 && time() - $last < self::STATUS_SYNC_INTERVAL) return '';
+    $store->set('last_attempt', time());
+    try {
+      $result = $this->collectionReconciler->sync();
+      $store->set('last_success', time());
+      return sprintf('Incassostatus ververst: %d gecontroleerd, %d bijgewerkt, %d ongewijzigd, %d fouten.', $result['checked'], $result['updated'], $result['unchanged'], $result['failed']);
+    }
+    catch (\Throwable $error) {
+      return 'Incassostatus kon niet worden ververst: ' . $error->getMessage();
+    }
   }
 
   /** @param array<string,mixed> $state */
