@@ -96,6 +96,12 @@ final class BuildingTruthProposalReviewForm extends FormBase {
     return $form;
   }
 
+  public function submitForm(array &$form, FormStateInterface $form_state): void {
+    // Intentionally empty: submit handling is delegated to the explicit
+    // accept/reject button handlers above. FormBase still requires this
+    // method because it implements FormInterface.
+  }
+
   public function accept(array &$form, FormStateInterface $form_state): void {
     $proposalId = (int) ($this->proposal['id'] ?? 0);
     $note = trim((string) $form_state->getValue('verification_note'));
