@@ -29,11 +29,7 @@ final class ReceivablesDunningManager {
     private readonly ConfigFactoryInterface $configFactory,
   ) {}
 
-  /**
-   * Returns the canonical current receivables state for one mirrored invoice.
-   *
-   * @return array<string,mixed>
-   */
+  /** @return array<string,mixed> */
   public function state(int $salesInvoiceId, ?\DateTimeImmutable $today = NULL): array {
     $invoice = $this->invoice($salesInvoiceId);
     $stored = $this->stored($salesInvoiceId);
@@ -88,7 +84,6 @@ final class ReceivablesDunningManager {
     ];
   }
 
-  /** Places or clears a manual escalation hold with an auditable reason. */
   public function setHold(int $salesInvoiceId, bool $hold, string $reason, int $actorUid): void {
     if ($hold && trim($reason) === '') {
       throw new \InvalidArgumentException('Een reden is verplicht bij een debiteuren-hold.');
@@ -100,7 +95,6 @@ final class ReceivablesDunningManager {
     $this->save($salesInvoiceId, $stored);
   }
 
-  /** Records or clears a payment arrangement; active arrangements block escalation. */
   public function setPaymentArrangement(int $salesInvoiceId, ?array $arrangement, int $actorUid): void {
     $stored = $this->stored($salesInvoiceId);
     if ($arrangement === NULL) {
@@ -119,9 +113,6 @@ final class ReceivablesDunningManager {
     $this->save($salesInvoiceId, $stored);
   }
 
-  /**
-   * Returns the next allowed escalation step, or NULL when nothing may happen.
-   */
   public function nextStep(int $salesInvoiceId, ?\DateTimeImmutable $today = NULL): ?string {
     $today ??= new \DateTimeImmutable('today');
     $state = $this->state($salesInvoiceId, $today);
@@ -148,11 +139,6 @@ final class ReceivablesDunningManager {
     return NULL;
   }
 
-  /**
-   * Records an executed dunning step exactly once.
-   *
-   * The actual sender/provider can call this only after its delivery succeeded.
-   */
   public function recordStep(int $salesInvoiceId, string $step, array $snapshot, int $actorUid): void {
     if (!isset(self::STEPS[$step])) {
       throw new \InvalidArgumentException('Onbekende debiteurenstap: ' . $step);
@@ -178,7 +164,7 @@ final class ReceivablesDunningManager {
 
   /** @return array{reminder:int,demand:int,final_notice:int,collection_ready:int} */
   public function schedule(): array {
-    $config = $this->configFactory->get('brebo_finance.sales');
+    $config = $this->configFactory->get('brebo_finance.receivables');
     $read = static function (mixed $value, int $fallback): int {
       return is_numeric($value) ? max(0, (int) $value) : $fallback;
     };
