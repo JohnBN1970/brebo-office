@@ -46,4 +46,26 @@ final class ProjectDocumentNumberIssuer {
     );
   }
 
+  /** Issues one immutable sales-invoice number for a project invoice draft. */
+  public function issueSalesInvoice(NodeInterface $project, int|string $draftId, ?int $year = NULL): array {
+    if ($project->bundle() !== 'brebo_project') {
+      throw new \InvalidArgumentException('Sales invoice numbering requires a BREBO project context.');
+    }
+    return $this->issueForNode(
+      $project,
+      'sales_invoice',
+      'sales_invoice_draft',
+      (string) $draftId,
+      $year,
+    );
+  }
+
+  /** Issues one immutable assignment/order number in project context. */
+  public function issueAssignment(NodeInterface $project, string $ownerId, ?int $year = NULL): array {
+    if ($project->bundle() !== 'brebo_project') {
+      throw new \InvalidArgumentException('Assignment numbering requires a BREBO project context.');
+    }
+    return $this->issueForNode($project, 'assignment', 'assignment', $ownerId, $year);
+  }
+
 }
