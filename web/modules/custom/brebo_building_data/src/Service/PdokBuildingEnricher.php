@@ -113,7 +113,7 @@ final class PdokBuildingEnricher {
         return $doc;
       }
     }
-    return $docs[0] ?? NULL;
+    return NULL;
   }
 
   /** @return array<int, array<string, mixed>> */
@@ -171,7 +171,7 @@ final class PdokBuildingEnricher {
         $postcode = strtoupper(preg_replace('/\s+/u', '', (string) ($doc['postcode'] ?? '')) ?? '');
         // A range can cross postcode boundaries; only use postcode as a search
         // hint, not as a hard filter for every unit in the range.
-        if ($postcode === '' && $expectedPostcode !== '') {
+        if ($postcode === '') {
           return FALSE;
         }
       }
@@ -220,7 +220,7 @@ final class PdokBuildingEnricher {
       return $empty;
     }
 
-    if (preg_match('/^(.*?)\s+(\d+)\s*(?:t\s*\/\s*m|tm|tot)\s*(\d+)$/iu', $line, $rangeMatches)) {
+    if (preg_match('/^(.+)\s+(\d+)\s*(?:t\s*\/\s*m|tm|tot)\s*(\d+)$/iu', $line, $rangeMatches)) {
       $street = trim((string) ($rangeMatches[1] ?? ''));
       $start = trim((string) ($rangeMatches[2] ?? ''));
       $end = trim((string) ($rangeMatches[3] ?? ''));
@@ -235,7 +235,7 @@ final class PdokBuildingEnricher {
       }
     }
 
-    if (!preg_match('/^(.*?)\s+(\d+)\s*([A-Za-z]?)\s*(?:[-\/]?\s*([A-Za-z0-9.-]+))?$/u', $line, $matches)) {
+    if (!preg_match('/^(.+)\s+(\d+)\s*([A-Za-z]?)\s*(?:[-\/]\s*([A-Za-z0-9.-]+))?$/u', $line, $matches)) {
       return $empty;
     }
 
@@ -264,6 +264,16 @@ final class PdokBuildingEnricher {
   }
 
   private function matchesExpected(array $doc, array $expected): bool {
+    $expectedStreet = mb_strtolower(trim((string) ($expected['street'] ?? '')));
+    if ($expectedStreet !== '' && mb_strtolower(trim((string) ($doc['straatnaam'] ?? ''))) !== $expectedStreet) {
+      return FALSE;
+    }
+
+    $expectedCity = mb_strtolower(trim((string) ($expected['city'] ?? '')));
+    if ($expectedCity !== '' && mb_strtolower(trim((string) ($doc['woonplaatsnaam'] ?? ''))) !== $expectedCity) {
+      return FALSE;
+    }
+
     $postcode = strtoupper(preg_replace('/\s+/', '', (string) ($doc['postcode'] ?? '')) ?? '');
     $expectedPostcode = strtoupper(preg_replace('/\s+/', '', (string) ($expected['postal_code'] ?? '')) ?? '');
     if ($expectedPostcode !== '' && $postcode !== $expectedPostcode) {
