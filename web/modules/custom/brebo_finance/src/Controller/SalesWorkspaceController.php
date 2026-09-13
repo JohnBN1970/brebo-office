@@ -4,18 +4,33 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
+use Drupal\brebo_finance\Service\ReceivablesDunningManager;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Organisation-wide sales and receivables workspace. */
 final class SalesWorkspaceController extends ControllerBase {
 
-  public function __construct(private readonly Connection $database) {}
+  private readonly ReceivablesDunningManager $dunningManager;
+
+  public function __construct(
+    private readonly Connection $database,
+    KeyValueFactoryInterface $keyValueFactory,
+    ConfigFactoryInterface $configFactory,
+  ) {
+    $this->dunningManager = new ReceivablesDunningManager($database, $keyValueFactory, $configFactory);
+  }
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static(
+      $container->get('database'),
+      $container->get('keyvalue'),
+      $container->get('config.factory'),
+    );
   }
 
   public function page(): array {
@@ -71,7 +86,7 @@ final class SalesWorkspaceController extends ControllerBase {
 
     if ($this->database->schema()->tableExists('brebo_finance_sales_invoice')) {
       $query = $this->database->select('brebo_finance_sales_invoice', 'i')
-        ->fields('i', ['invoice_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat', 'paid_amount_inc_vat'])
+        ->fields('i', ['id', 'invoice_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat', 'paid_amount_inc_vat'])
         ->orderBy('due_date', 'ASC')
         ->range(0, 50);
       foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $invoice) {
@@ -79,15 +94,20 @@ final class SalesWorkspaceController extends ControllerBase {
         $projectLink = $projectId > 0
           ? ['data' => ['#type' => 'link', '#title' => (string) $projectId, '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId])]]
           : $this->t('Los');
+
+        $receivables = $this->dunningManager->state((int) $invoice['id']);
+        $nextStep = $this->dunningManager->nextStep((int) $invoice['id']);
+        $action = $this->receivablesActionLabel($receivables, $nextStep);
+
         $rows[] = [
           $invoice['invoice_number'] !== '' ? $invoice['invoice_number'] : $this->t('Concept'),
           $projectLink,
           $invoice['invoice_date'],
           $invoice['due_date'],
-          $invoice['status'],
+          $this->receivablesStatusLabel((string) $receivables['status']),
           '€ ' . number_format((float) $invoice['amount_inc_vat'], 2, ',', '.'),
-          '€ ' . number_format(max(0.0, (float) $invoice['amount_inc_vat'] - (float) $invoice['paid_amount_inc_vat']), 2, ',', '.'),
-          '—',
+          '€ ' . number_format((float) $receivables['outstanding_amount_inc_vat'], 2, ',', '.'),
+          $action,
         ];
       }
     }
@@ -95,7 +115,7 @@ final class SalesWorkspaceController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-finance-sales-workspace']],
-      'header' => ['#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Verkoop</h1><p>Conceptfacturen, verzending, openstaande posten en ontvangsten.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>'],
+      'header' => ['#markup' => '<header class="bfcc-header"><div><span class="bfcc-kicker">BREBO OFFICE · FINANCE</span><h1>Verkoop</h1><p>Conceptfacturen, verzending, openstaande posten en debiteurenbewaking.</p></div><div class="bfcc-live">LIVE CONTROL</div></header>'],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['bfcc-actions']],
@@ -121,11 +141,11 @@ final class SalesWorkspaceController extends ControllerBase {
         ],
       ],
       'explanation' => [
-        '#markup' => '<p><strong>Projectfacturen ontstaan vanuit het vastgestelde termijnschema.</strong> Finance toont dezelfde conceptfacturen centraal. Losse concepten kun je openen, bijwerken, ter beoordeling versturen of definitief vrijgeven.</p>',
+        '#markup' => '<p><strong>Office bewaakt nu ook de debiteurenstatus.</strong> Betwiste facturen, betalingsregelingen en holds worden niet automatisch geëscaleerd. Betaalde, gecrediteerde en geannuleerde facturen stoppen de keten direct.</p>',
       ],
       'invoices' => [
         '#type' => 'table',
-        '#header' => [$this->t('Factuur'), $this->t('Project'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Bedrag'), $this->t('Openstaand'), $this->t('Actie')],
+        '#header' => [$this->t('Factuur'), $this->t('Project'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Debiteurenstatus'), $this->t('Bedrag'), $this->t('Openstaand'), $this->t('Volgende actie')],
         '#rows' => $rows,
         '#empty' => $this->t('Nog geen verkoopfacturen beschikbaar.'),
       ],
@@ -134,4 +154,43 @@ final class SalesWorkspaceController extends ControllerBase {
     ];
   }
 
+  private function receivablesStatusLabel(string $status): string {
+    return match ($status) {
+      'open' => (string) $this->t('Open'),
+      'vervallen' => (string) $this->t('Vervallen'),
+      'herinnerd' => (string) $this->t('Herinnerd'),
+      'aangemaand' => (string) $this->t('Aangemaand'),
+      'laatste_sommatie' => (string) $this->t('Laatste sommatie'),
+      'gereed_voor_incasso' => (string) $this->t('Gereed voor incasso'),
+      'regeling' => (string) $this->t('Betalingsregeling'),
+      'betwist' => (string) $this->t('Betwist'),
+      'hold' => (string) $this->t('Hold'),
+      'betaald' => (string) $this->t('Betaald'),
+      'gecrediteerd' => (string) $this->t('Gecrediteerd'),
+      'gesloten' => (string) $this->t('Gesloten'),
+      default => $status,
+    };
+  }
+
+  /** @param array<string,mixed> $state */
+  private function receivablesActionLabel(array $state, ?string $nextStep): string {
+    if ($state['blocked_reason'] !== NULL) {
+      return match ($state['blocked_reason']) {
+        'disputed' => (string) $this->t('Geblokkeerd: betwist'),
+        'payment_arrangement' => (string) $this->t('Geblokkeerd: regeling'),
+        'manual_hold' => (string) $this->t('Geblokkeerd: hold'),
+        default => (string) $this->t('Geblokkeerd'),
+      };
+    }
+    if ($nextStep === NULL) {
+      return '—';
+    }
+    return match ($nextStep) {
+      'reminder' => (string) $this->t('Herinnering klaarzetten'),
+      'demand' => (string) $this->t('Aanmaning klaarzetten'),
+      'final_notice' => (string) $this->t('Laatste sommatie klaarzetten'),
+      'collection_ready' => (string) $this->t('Dossier gereed voor incasso'),
+      default => $nextStep,
+    };
+  }
 }
