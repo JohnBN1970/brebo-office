@@ -117,6 +117,13 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
           '#attributes' => ['class' => ['button']],
           '#access' => $canEdit,
         ],
+        'pdok_refresh' => [
+          '#type' => 'link',
+          '#title' => $this->t('PDOK/BAG verversen'),
+          '#url' => Url::fromRoute('brebo_building_data.pdok_refresh', ['node' => $buildingNid]),
+          '#attributes' => ['class' => ['button']],
+          '#access' => $canEdit,
+        ],
       ],
       'summary' => [
         '#type' => 'table',
