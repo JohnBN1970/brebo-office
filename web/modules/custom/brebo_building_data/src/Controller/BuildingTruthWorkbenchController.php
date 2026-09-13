@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_building_data\Controller;
 
 use Drupal\brebo_building_data\Service\BuildingObjectRepository;
+use Drupal\brebo_building_data\Service\BuildingRelationRepository;
 use Drupal\brebo_building_data\Service\BuildingTruthRepository;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
@@ -21,6 +22,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
   public function __construct(
     private readonly BuildingTruthRepository $truth,
     private readonly BuildingObjectRepository $objects,
+    private readonly BuildingRelationRepository $relations,
     private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
@@ -28,6 +30,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     return new static(
       $container->get('brebo_building_data.truth_repository'),
       $container->get('brebo_building_data.object_repository'),
+      $container->get('brebo_building_data.repository'),
       $container->get('date.formatter'),
     );
   }
@@ -49,6 +52,57 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     $facts = $this->truth->currentFacts($buildingNid);
     $pending = $this->truth->pendingProposals($buildingNid);
     $objectMap = $this->objectMap($this->objects->tree($buildingNid));
+    $addresses = array_values($this->relations->addressesForBuilding($buildingNid));
+    $bagIdentities = array_values($this->relations->bagIdentitiesForBuilding($buildingNid));
+
+    $pandIds = [];
+    $identityBySourceRef = [];
+    foreach ($bagIdentities as $identity) {
+      $bagType = (string) ($identity['bag_type'] ?? '');
+      $bagId = trim((string) ($identity['bag_id'] ?? ''));
+      if ($bagType === 'pand' && $bagId !== '') {
+        $pandIds[] = $bagId;
+      }
+      $sourceRef = trim((string) ($identity['source_ref'] ?? ''));
+      if ($sourceRef !== '' && $bagId !== '' && in_array($bagType, ['verblijfsobject', 'adresseerbaarobject', 'nummeraanduiding'], TRUE)) {
+        $identityBySourceRef[$sourceRef][$bagType] = $bagId;
+      }
+    }
+    $pandIds = array_values(array_unique($pandIds));
+
+    usort($addresses, static function (array $a, array $b): int {
+      $streetCompare = strnatcasecmp((string) ($a['street'] ?? ''), (string) ($b['street'] ?? ''));
+      if ($streetCompare !== 0) {
+        return $streetCompare;
+      }
+      return strnatcasecmp(
+        trim((string) ($a['house_number'] ?? '') . (string) ($a['house_letter'] ?? '') . (string) ($a['addition'] ?? '')),
+        trim((string) ($b['house_number'] ?? '') . (string) ($b['house_letter'] ?? '') . (string) ($b['addition'] ?? '')),
+      );
+    });
+
+    $addressRows = [];
+    foreach ($addresses as $address) {
+      $number = trim(implode('', [
+        (string) ($address['house_number'] ?? ''),
+        (string) ($address['house_letter'] ?? ''),
+        (string) ($address['addition'] ?? ''),
+      ]));
+      $sourceRef = trim((string) ($address['source_ref'] ?? ''));
+      $unitIdentity = $identityBySourceRef[$sourceRef] ?? [];
+      $vboId = trim((string) ($unitIdentity['verblijfsobject'] ?? $unitIdentity['adresseerbaarobject'] ?? ''));
+      $numberDesignationId = trim((string) ($unitIdentity['nummeraanduiding'] ?? ''));
+      $addressRows[] = [
+        trim((string) ($address['street'] ?? '')) ?: '—',
+        $number ?: '—',
+        trim((string) ($address['postal_code'] ?? '')) ?: '—',
+        trim((string) ($address['city'] ?? '')) ?: '—',
+        $vboId ?: '—',
+        $numberDesignationId ?: '—',
+        !empty($address['is_primary']) ? $this->t('Hoofdadres') : $this->t('Eenheid'),
+        trim((string) ($address['source'] ?? '')) ?: '—',
+      ];
+    }
 
     $factRows = [];
     $historyRows = [];
@@ -131,10 +185,27 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
         '#header' => [$this->t('Onderdeel'), $this->t('Waarde')],
         '#rows' => [
           [$this->t('Naam'), $node->label()],
-          [$this->t('Node-ID'), (string) $buildingNid],
+          [$this->t('BAG-pand'), $pandIds === [] ? '—' : implode(', ', $pandIds)],
+          [$this->t('Adressen / eenheden'), (string) count($addresses)],
           [$this->t('Actuele feiten'), (string) count($facts)],
           [$this->t('Open revisievoorstellen'), (string) count($pending)],
         ],
+      ],
+      'bag_units' => [
+        '#type' => 'table',
+        '#caption' => $this->t('BAG-adressen en woningnummers'),
+        '#header' => [
+          $this->t('Straat'),
+          $this->t('Huis-/woningnummer'),
+          $this->t('Postcode'),
+          $this->t('Plaats'),
+          $this->t('BAG-verblijfsobject'),
+          $this->t('BAG-nummeraanduiding'),
+          $this->t('Relatie'),
+          $this->t('Bron'),
+        ],
+        '#rows' => $addressRows,
+        '#empty' => $this->t('Nog geen BAG-adressen of woningnummers gekoppeld. Gebruik PDOK/BAG verversen zodra het gebouwadres compleet is.'),
       ],
       'truth' => [
         '#type' => 'table',
@@ -164,12 +235,14 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
   /** @param array<int, array<string, mixed>> $tree */
   private function objectMap(array $tree): array {
     $map = [];
-    $walk = function(array $nodes, string $prefix = '') use (&$walk, &$map): void {
+    $walk = function (array $nodes, string $prefix = '') use (&$walk, &$map): void {
       foreach ($nodes as $node) {
         $id = (int) ($node['id'] ?? 0);
         $label = trim((string) ($node['label'] ?? 'Object #' . $id));
         $path = $prefix === '' ? $label : $prefix . ' / ' . $label;
-        if ($id > 0) $map[$id] = $path;
+        if ($id > 0) {
+          $map[$id] = $path;
+        }
         $walk((array) ($node['children'] ?? []), $path);
       }
     };
@@ -178,8 +251,12 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
   }
 
   private function renderValue(mixed $value): string {
-    if (is_bool($value)) return $value ? 'Ja' : 'Nee';
-    if (is_scalar($value) || $value === NULL) return $value === NULL ? '—' : (string) $value;
+    if (is_bool($value)) {
+      return $value ? 'Ja' : 'Nee';
+    }
+    if (is_scalar($value) || $value === NULL) {
+      return $value === NULL ? '—' : (string) $value;
+    }
     return json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '—';
   }
 
