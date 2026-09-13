@@ -40,7 +40,7 @@ services:
     arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_phase_gate_manager']
   brebo_finance.commitment_manager:
     class: Drupal\brebo_finance\Service\CommitmentManager
-    arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+    arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer', '@entity_type.manager', '@brebo_office_core.project_document_number_issuer']
   brebo_finance.performance_evidence_requirement_resolver:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceRequirementResolver
   brebo_finance.performance_evidence_review_manager:
