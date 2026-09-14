@@ -10,7 +10,8 @@ use Drupal\node\NodeInterface;
  * Implements hook_preprocess_HOOK() for html.html.twig.
  */
 function brebo_building_data_preprocess_html(array &$variables): void {
-  if (\Drupal::routeMatch()->getRouteName() === 'brebo_building_data.truth_workbench') {
+  $routeName = \Drupal::routeMatch()->getRouteName();
+  if (in_array($routeName, ['brebo_building_data.truth_workbench', 'brebo_office_core.building_dashboard'], TRUE)) {
     $variables['attributes']['class'][] = 'route-brebo-building-data-truth-workbench';
   }
 }
@@ -20,7 +21,7 @@ function brebo_building_data_preprocess_html(array &$variables): void {
  */
 function brebo_building_data_page_attachments(array &$attachments): void {
   $routeName = \Drupal::routeMatch()->getRouteName();
-  if ($routeName === 'brebo_building_data.truth_workbench') {
+  if (in_array($routeName, ['brebo_building_data.truth_workbench', 'brebo_office_core.building_dashboard'], TRUE)) {
     $attachments['#attached']['library'][] = 'brebo_building_data/truth_workbench';
   }
 }
@@ -52,8 +53,8 @@ function brebo_building_data_entity_delete(EntityInterface $entity): void {
  * Implements hook_link_alter().
  *
  * Generic edit links for BREBO buildings lead to the canonical building-truth
- * workbench. The explicit base-edit action on that workbench opts out through
- * the brebo_base_edit query flag.
+ * route. The explicit base-edit action on that workbench opts out through the
+ * brebo_base_edit query flag.
  */
 function brebo_building_data_link_alter(array &$variables): void {
   $url = $variables['url'] ?? NULL;
@@ -76,5 +77,5 @@ function brebo_building_data_link_alter(array &$variables): void {
     return;
   }
 
-  $variables['url'] = Url::fromRoute('brebo_building_data.truth_workbench', ['node' => $nodeId]);
+  $variables['url'] = Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $nodeId]);
 }
