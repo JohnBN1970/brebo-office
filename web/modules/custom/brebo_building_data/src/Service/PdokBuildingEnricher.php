@@ -69,6 +69,7 @@ final class PdokBuildingEnricher {
     $now = gmdate(DATE_ATOM);
     $identityCount = 0;
     foreach ($addresses as $candidate) {
+      $coordinates = $this->coordinatesFromDoc($candidate);
       $this->relations->upsertAddress($buildingNid, [
         'straatnaam' => $candidate['straatnaam'] ?? NULL,
         'huisnummer' => $candidate['huisnummer'] ?? NULL,
@@ -77,6 +78,8 @@ final class PdokBuildingEnricher {
         'postcode' => $candidate['postcode'] ?? NULL,
         'woonplaatsnaam' => $candidate['woonplaatsnaam'] ?? NULL,
         'country' => 'Nederland',
+        'latitude' => $coordinates['latitude'],
+        'longitude' => $coordinates['longitude'],
         'is_primary' => $this->isSameAddress($candidate, $primary) ? 1 : 0,
         'source' => 'PDOK BAG',
         'source_ref' => 'locatieserver:' . (string) ($candidate['id'] ?? ''),
@@ -105,7 +108,7 @@ final class PdokBuildingEnricher {
       'q' => $query,
       'rows' => 10,
       'fq' => ['bron:BAG', 'type:adres'],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id',
+      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
     ]);
 
     foreach ($docs as $doc) {
@@ -122,7 +125,7 @@ final class PdokBuildingEnricher {
       'q' => '*',
       'rows' => 1000,
       'fq' => ['bron:BAG', 'type:adres', 'pand_id:' . $pandId],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id',
+      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
     ]);
   }
 
@@ -143,7 +146,7 @@ final class PdokBuildingEnricher {
       'q' => $query !== '' ? $query : '*',
       'rows' => 1000,
       'fq' => ['bron:BAG', 'type:adres'],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id',
+      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
     ]);
 
     $start = (int) $scope['house_number'];
@@ -313,6 +316,20 @@ final class PdokBuildingEnricher {
       'verblijfsobject' => trim((string) ($doc['adresseerbaarobject_id'] ?? '')),
       'nummeraanduiding' => trim((string) ($doc['nummeraanduiding_id'] ?? '')),
     ];
+  }
+
+  /** @return array{latitude:?float,longitude:?float} */
+  private function coordinatesFromDoc(array $doc): array {
+    $point = trim((string) ($doc['centroide_ll'] ?? ''));
+    if (!preg_match('/^POINT\s*\(\s*(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s*\)$/i', $point, $matches)) {
+      return ['latitude' => NULL, 'longitude' => NULL];
+    }
+    $longitude = (float) $matches[1];
+    $latitude = (float) $matches[2];
+    if ($latitude < -90 || $latitude > 90 || $longitude < -180 || $longitude > 180) {
+      return ['latitude' => NULL, 'longitude' => NULL];
+    }
+    return ['latitude' => $latitude, 'longitude' => $longitude];
   }
 
 }
