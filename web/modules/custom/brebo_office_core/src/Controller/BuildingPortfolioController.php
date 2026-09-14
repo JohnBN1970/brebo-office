@@ -58,7 +58,7 @@ final class BuildingPortfolioController extends ControllerBase {
       if (!$building instanceof NodeInterface) continue;
       $buildingId = (int) $building->id();
       $dashboardUrl = Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $buildingId]);
-      $truthUrl = Url::fromRoute('brebo_building_data.truth_workbench', ['node' => $buildingId]);
+      $truthUrl = $dashboardUrl;
       $changed = \Drupal::service('date.formatter')->format($building->getChangedTime(), 'short');
       $address = $this->value($building, 'field_brebo_address');
       $city = $this->value($building, 'field_brebo_city');
