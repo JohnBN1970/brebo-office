@@ -1,0 +1,160 @@
+.route-brebo-building-data-truth-workbench .layout-content {
+  min-width: 0;
+}
+
+.route-brebo-building-data-truth-workbench .messages--status,
+.route-brebo-building-data-truth-workbench .brebo-list-actions,
+.route-brebo-building-data-truth-workbench table {
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--brebo-bg-surface, var(--brebo-surface, #fff));
+  color: var(--brebo-text-primary, inherit);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .06);
+}
+
+.route-brebo-building-data-truth-workbench .messages--status {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border-left: 4px solid var(--brebo-accent, #0b57d0);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 20px;
+  padding: 14px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-list-actions a {
+  margin: 0;
+}
+
+.route-brebo-building-data-truth-workbench table {
+  width: 100%;
+  margin: 0 0 24px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.route-brebo-building-data-truth-workbench caption {
+  padding: 16px 18px 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+  caption-side: top;
+}
+
+.route-brebo-building-data-truth-workbench thead th {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .07));
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.route-brebo-building-data-truth-workbench tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--brebo-border, #7f7f7f) 65%, transparent);
+  vertical-align: top;
+}
+
+.route-brebo-building-data-truth-workbench tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.route-brebo-building-data-truth-workbench tbody tr:hover td {
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .045));
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) tbody {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) thead {
+  display: none;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) tr {
+  display: block;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .15));
+  border-radius: 12px;
+  background: var(--brebo-bg-elevated, rgba(127, 127, 127, .035));
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) td {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) td:first-child {
+  margin-bottom: 7px;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  opacity: .7;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(1) td:last-child {
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(2) {
+  font-size: .9rem;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(2) td:nth-child(2) {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(2) td:nth-child(5),
+.route-brebo-building-data-truth-workbench table:nth-of-type(2) td:nth-child(6) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+}
+
+.route-brebo-building-data-truth-workbench table:nth-of-type(2) td:nth-child(7) {
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .route-brebo-building-data-truth-workbench table:nth-of-type(1) tbody {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .route-brebo-building-data-truth-workbench table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .route-brebo-building-data-truth-workbench table:nth-of-type(1) tbody {
+    grid-template-columns: 1fr;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-list-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-list-actions a {
+    width: 100%;
+    text-align: center;
+  }
+}
