@@ -5,17 +5,18 @@
 .route-brebo-building-data-truth-workbench .messages--status,
 .route-brebo-building-data-truth-workbench .brebo-list-actions,
 .route-brebo-building-data-truth-workbench table {
-  border: 1px solid rgba(127, 127, 127, .22);
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
   border-radius: 14px;
   overflow: hidden;
-  background: var(--gin-bg-layer, #fff);
+  background: var(--brebo-bg-surface, var(--brebo-surface, #fff));
+  color: var(--brebo-text-primary, inherit);
   box-shadow: 0 10px 28px rgba(0, 0, 0, .06);
 }
 
 .route-brebo-building-data-truth-workbench .messages--status {
   margin: 0 0 18px;
   padding: 18px 20px;
-  border-left: 4px solid var(--gin-color-primary, #0b57d0);
+  border-left: 4px solid var(--brebo-accent, #0b57d0);
 }
 
 .route-brebo-building-data-truth-workbench .brebo-list-actions {
@@ -48,8 +49,8 @@
 
 .route-brebo-building-data-truth-workbench thead th {
   padding: 11px 14px;
-  border-bottom: 1px solid rgba(127, 127, 127, .22);
-  background: rgba(127, 127, 127, .07);
+  border-bottom: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .07));
   font-size: .78rem;
   font-weight: 700;
   letter-spacing: .02em;
@@ -59,7 +60,7 @@
 
 .route-brebo-building-data-truth-workbench tbody td {
   padding: 12px 14px;
-  border-bottom: 1px solid rgba(127, 127, 127, .14);
+  border-bottom: 1px solid color-mix(in srgb, var(--brebo-border, #7f7f7f) 65%, transparent);
   vertical-align: top;
 }
 
@@ -68,7 +69,7 @@
 }
 
 .route-brebo-building-data-truth-workbench tbody tr:hover td {
-  background: rgba(127, 127, 127, .045);
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .045));
 }
 
 .route-brebo-building-data-truth-workbench table:nth-of-type(1) tbody {
@@ -86,9 +87,9 @@
   display: block;
   min-width: 0;
   padding: 14px;
-  border: 1px solid rgba(127, 127, 127, .15);
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .15));
   border-radius: 12px;
-  background: rgba(127, 127, 127, .035);
+  background: var(--brebo-bg-elevated, rgba(127, 127, 127, .035));
 }
 
 .route-brebo-building-data-truth-workbench table:nth-of-type(1) td {
