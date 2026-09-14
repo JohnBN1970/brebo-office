@@ -50,7 +50,7 @@ final class BuildingPdokRefreshForm extends FormBase {
     $form['actions']['cancel'] = [
       '#type' => 'link',
       '#title' => $this->t('Annuleren'),
-      '#url' => Url::fromRoute('brebo_building_data.truth_workbench', ['node' => (int) $node->id()]),
+      '#url' => Url::fromRoute('brebo_office_core.building_dashboard', ['node' => (int) $node->id()]),
       '#attributes' => ['class' => ['button']],
     ];
 
@@ -87,7 +87,7 @@ final class BuildingPdokRefreshForm extends FormBase {
       $this->messenger()->addError($this->t('PDOK/BAG is tijdelijk niet beschikbaar. De gebouwpagina en bestaande gegevens blijven gewoon beschikbaar.'));
     }
 
-    $form_state->setRedirect('brebo_building_data.truth_workbench', ['node' => $buildingNid]);
+    $form_state->setRedirect('brebo_office_core.building_dashboard', ['node' => $buildingNid]);
   }
 
 }
