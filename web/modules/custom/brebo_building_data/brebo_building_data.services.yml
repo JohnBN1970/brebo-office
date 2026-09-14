@@ -25,3 +25,8 @@ services:
     arguments:
       - '@http_client'
       - '@brebo_building_data.repository'
+
+  brebo_building_data.canonical_route_subscriber:
+    class: Drupal\brebo_building_data\Routing\BuildingCanonicalRouteSubscriber
+    tags:
+      - { name: event_subscriber }
