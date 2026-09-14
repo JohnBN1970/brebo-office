@@ -134,6 +134,34 @@ final class BuildingRelationRepository {
     return ['state' => 'created', 'id' => $id, 'conflict_building_ids' => $conflictIds];
   }
 
+  /**
+   * Removes relations owned by one external source before a successful refresh.
+   *
+   * Manual and other-source relations are deliberately preserved. Callers must
+   * only invoke this after the replacement source data has been resolved
+   * successfully, so a temporary upstream failure can never erase known data.
+   *
+   * @return array{addresses:int,identities:int}
+   */
+  public function clearSourceRelations(int $buildingNid, string $source): array {
+    $this->assertBuilding($buildingNid);
+    $source = $this->clean($source);
+    if ($source === '') {
+      throw new \InvalidArgumentException('Bron is verplicht bij het opschonen van gebouwrelaties.');
+    }
+
+    $addresses = $this->database->delete('brebo_building_address')
+      ->condition('building_nid', $buildingNid)
+      ->condition('source', $source)
+      ->execute();
+    $identities = $this->database->delete('brebo_building_bag_identity')
+      ->condition('building_nid', $buildingNid)
+      ->condition('source', $source)
+      ->execute();
+
+    return ['addresses' => (int) $addresses, 'identities' => (int) $identities];
+  }
+
   /** @return int[] */
   public function findBuildingIdsByAddress(array $address): array {
     $normalizedKey = $this->normalizeAddressKey($address);
