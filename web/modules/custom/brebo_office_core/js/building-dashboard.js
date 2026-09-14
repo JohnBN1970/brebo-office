@@ -14,9 +14,7 @@
   }
 
   function chooseZoom(markers) {
-    if (markers.length < 2) {
-      return 13;
-    }
+    if (markers.length < 2) return 13;
     const lats = markers.map((m) => Number(m.lat));
     const lons = markers.map((m) => Number(m.lon));
     const span = Math.max(Math.max(...lats) - Math.min(...lats), Math.max(...lons) - Math.min(...lons));
@@ -42,24 +40,19 @@
       lat: markers.reduce((sum, marker) => sum + Number(marker.lat), 0) / markers.length,
       lon: markers.reduce((sum, marker) => sum + Number(marker.lon), 0) / markers.length,
     };
-
     const canvas = document.createElement('div');
     canvas.className = 'brebo-buildings-map__canvas';
     element.replaceChildren(canvas);
-
     const tiles = document.createElement('div');
     tiles.className = 'brebo-buildings-map__tiles';
     canvas.appendChild(tiles);
-
     const markersLayer = document.createElement('div');
     markersLayer.className = 'brebo-buildings-map__markers';
     canvas.appendChild(markersLayer);
-
     const controls = document.createElement('div');
     controls.className = 'brebo-buildings-map__controls';
     controls.innerHTML = '<button type="button" data-map-zoom-in aria-label="Inzoomen">+</button><button type="button" data-map-zoom-out aria-label="Uitzoomen">−</button>';
     canvas.appendChild(controls);
-
     const attribution = document.createElement('a');
     attribution.className = 'brebo-buildings-map__attribution';
     attribution.href = 'https://www.openstreetmap.org/copyright';
@@ -129,7 +122,11 @@
     });
 
     draw();
-    window.addEventListener('resize', Drupal.debounce(draw, 120));
+    let resizeTimer;
+    window.addEventListener('resize', () => {
+      window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(draw, 120);
+    });
   }
 
   Drupal.behaviors.breboBuildingsDashboardMap = {
@@ -143,9 +140,7 @@
           markers = [];
         }
         markers = markers.filter((marker) => Number.isFinite(Number(marker.lat)) && Number.isFinite(Number(marker.lon)));
-        if (markers.length > 0) {
-          renderMap(element, markers);
-        }
+        if (markers.length > 0) renderMap(element, markers);
       });
     },
   };
