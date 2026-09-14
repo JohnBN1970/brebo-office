@@ -1,0 +1,5 @@
+truth_workbench:
+  version: 1.x
+  css:
+    theme:
+      css/truth-workbench.css: {}
