@@ -80,6 +80,11 @@ final class PdokBuildingEnricher {
       }
     }
 
+    // PDOK refresh is a synchronization, not an append operation. Only after
+    // every upstream request and lookup has succeeded do we replace the prior
+    // PDOK-owned snapshot. Manual and other-source relations remain untouched.
+    $this->relations->clearSourceRelations($buildingNid, 'PDOK BAG');
+
     $now = gmdate(DATE_ATOM);
     $identityCount = 0;
     foreach ($addresses as $candidate) {
