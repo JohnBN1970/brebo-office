@@ -101,34 +101,45 @@ namespace {
     return [new PdokBuildingEnricher($client, $relations), $relations];
   }
 
+  $dam1 = doc('Dam', '1', '1012JS', 'Amsterdam', 'PAND-1', 'VBO-1', 'NA-1');
+  $dam2 = doc('Dam', '2', '1012JS', 'Amsterdam', 'PAND-1', 'VBO-2', 'NA-2');
   [$single, $singleRelations] = enricher([
-    [doc('Dam', '1', '1012JS', 'Amsterdam', 'PAND-1', 'VBO-1', 'NA-1')],
-    [
-      doc('Dam', '1', '1012JS', 'Amsterdam', 'PAND-1', 'VBO-1', 'NA-1'),
-      doc('Dam', '2', '1012JS', 'Amsterdam', 'PAND-1', 'VBO-2', 'NA-2'),
-    ],
+    [$dam1],
+    [$dam1],
+    [$dam1, $dam2],
+    [$dam1],
+    [$dam2],
   ]);
   $singleResult = $single->enrich(building('Dam 1', '1012JS', 'Amsterdam'));
   assertSameValue('enriched', $singleResult['state'], 'Single-address enrichment must succeed.');
   assertSameValue(2, $singleResult['address_count'], 'Single-address enrichment must expand all addresses in the matched pand.');
   assertSameValue(2, count($singleRelations->addresses), 'Two pand addresses must be stored.');
 
+  $plein = doc('Plein 1944', '1', '6511JC', 'Nijmegen', 'PAND-1944', 'VBO-1944', 'NA-1944');
   [$numbered] = enricher([
-    [doc('Plein 1944', '1', '6511JC', 'Nijmegen', 'PAND-1944', 'VBO-1944', 'NA-1944')],
-    [doc('Plein 1944', '1', '6511JC', 'Nijmegen', 'PAND-1944', 'VBO-1944', 'NA-1944')],
+    [$plein],
+    [$plein],
+    [$plein],
+    [$plein],
   ]);
   $numberedResult = $numbered->enrich(building('Plein 1944 1', '6511JC', 'Nijmegen'));
   assertSameValue('PAND-1944', $numberedResult['pand_id'], 'Trailing house number must not consume numeric street-name tokens.');
 
+  $b87 = doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-A', 'VBO-87', 'NA-87');
+  $b90 = doc('Bilderdijkstraat', '90', '1053KN', 'Amsterdam', 'PAND-B', 'VBO-90', 'NA-90');
+  $b97 = doc('Bilderdijkstraat', '97', '1053KP', 'Amsterdam', 'PAND-C', 'VBO-97', 'NA-97');
   [$range, $rangeRelations] = enricher([
-    [
-      doc('Bilderdijkstraat', '86', '1053KM', 'Amsterdam', 'PAND-X', 'VBO-86', 'NA-86'),
-      doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-A', 'VBO-87', 'NA-87'),
-      doc('Bilderdijkstraat', '90', '1053KN', 'Amsterdam', 'PAND-B', 'VBO-90', 'NA-90'),
-      doc('Bilderdijkstraat', '97', '1053KP', 'Amsterdam', 'PAND-C', 'VBO-97', 'NA-97'),
-      doc('Bilderdijkstraat', '98', '1053KP', 'Amsterdam', 'PAND-Y', 'VBO-98', 'NA-98'),
-      doc('Andere straat', '90', '1053KM', 'Amsterdam', 'PAND-Z', 'VBO-Z', 'NA-Z'),
-    ],
+    [$b87], [$b87],
+    [],
+    [],
+    [$b90], [$b90],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [$b97], [$b97],
   ]);
   $rangeResult = $range->enrich(building('Bilderdijkstraat 87 t/m 97', '1053KM', 'Amsterdam'));
   assertSameValue('enriched', $rangeResult['state'], 'Explicit dossier range must enrich without first requiring one primary pand.');
