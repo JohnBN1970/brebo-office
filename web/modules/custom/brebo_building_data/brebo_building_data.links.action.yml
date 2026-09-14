@@ -1,0 +1,5 @@
+brebo_building_data.pdok_bulk_refresh_action:
+  route_name: brebo_building_data.pdok_bulk_refresh
+  title: 'Kaartposities aanvullen'
+  appears_on:
+    - brebo_office_core.buildings
