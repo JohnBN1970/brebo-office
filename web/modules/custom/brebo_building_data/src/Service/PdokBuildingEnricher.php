@@ -48,22 +48,33 @@ final class PdokBuildingEnricher {
       return ['state' => 'skipped_no_address', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
     }
 
-    $primary = $this->findPrimaryAddress($query, $address);
-    if ($primary === NULL) {
-      return ['state' => 'not_found', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
+    $primary = NULL;
+    $primaryPandId = NULL;
+    if ($address['range_end'] !== '') {
+      // An explicit dossier range is authoritative. It may legitimately span
+      // multiple BAG pand identities, so do not require one primary pand first.
+      $addresses = $this->findAddressesForScope($address);
+      if ($addresses === []) {
+        return ['state' => 'not_found_scope', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
+      }
+      $primary = $this->primaryForRange($addresses, $address);
+      $primaryPandId = trim((string) ($primary['pand_id'] ?? '')) ?: NULL;
     }
+    else {
+      $primary = $this->findPrimaryAddress($query, $address);
+      if ($primary === NULL) {
+        return ['state' => 'not_found', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
+      }
 
-    $primaryPandId = trim((string) ($primary['pand_id'] ?? ''));
-    if ($primaryPandId === '') {
-      return ['state' => 'not_found_pand', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
-    }
+      $primaryPandId = trim((string) ($primary['pand_id'] ?? ''));
+      if ($primaryPandId === '') {
+        return ['state' => 'not_found_pand', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
+      }
 
-    $addresses = $address['range_end'] !== ''
-      ? $this->findAddressesForScope($address)
-      : $this->findAddressesForPand($primaryPandId);
-
-    if ($addresses === []) {
-      return ['state' => 'not_found_scope', 'pand_id' => $primaryPandId, 'address_count' => 0, 'identity_count' => 0];
+      $addresses = $this->findAddressesForPand($primaryPandId);
+      if ($addresses === []) {
+        return ['state' => 'not_found_scope', 'pand_id' => $primaryPandId, 'address_count' => 0, 'identity_count' => 0];
+      }
     }
 
     $now = gmdate(DATE_ATOM);
@@ -80,7 +91,7 @@ final class PdokBuildingEnricher {
         'country' => 'Nederland',
         'latitude' => $coordinates['latitude'],
         'longitude' => $coordinates['longitude'],
-        'is_primary' => $this->isSameAddress($candidate, $primary) ? 1 : 0,
+        'is_primary' => $primary !== NULL && $this->isSameAddress($candidate, $primary) ? 1 : 0,
         'source' => 'PDOK BAG',
         'source_ref' => 'locatieserver:' . (string) ($candidate['id'] ?? ''),
       ]);
@@ -90,7 +101,7 @@ final class PdokBuildingEnricher {
         }
         $this->relations->upsertBagIdentity($buildingNid, $type, $id, [
           'status' => (string) ($candidate['status'] ?? ''),
-          'is_primary' => $type === 'pand' && $id === $primaryPandId ? 1 : 0,
+          'is_primary' => $type === 'pand' && $primaryPandId !== NULL && $id === $primaryPandId ? 1 : 0,
           'source' => 'PDOK BAG',
           'source_ref' => 'locatieserver:' . (string) ($candidate['id'] ?? ''),
           'retrieved_at' => $now,
@@ -180,6 +191,17 @@ final class PdokBuildingEnricher {
       }
       return TRUE;
     }));
+  }
+
+  /** @return array<string, mixed> */
+  private function primaryForRange(array $addresses, array $scope): array {
+    $start = (int) ($scope['house_number'] ?? 0);
+    foreach ($addresses as $candidate) {
+      if ((int) ($candidate['huisnummer'] ?? 0) === $start) {
+        return $candidate;
+      }
+    }
+    return $addresses[0];
   }
 
   /** @return array<int, array<string, mixed>> */
