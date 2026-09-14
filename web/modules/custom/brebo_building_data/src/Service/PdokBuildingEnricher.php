@@ -12,6 +12,8 @@ use GuzzleHttp\Exception\GuzzleException;
 final class PdokBuildingEnricher {
 
   private const FREE_URL = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/free';
+  private const LOOKUP_URL = 'https://api.pdok.nl/bzk/locatieserver/search/v3_1/lookup';
+  private const ADDRESS_FIELDS = 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll';
 
   public function __construct(
     private readonly ClientInterface $httpClient,
@@ -51,8 +53,8 @@ final class PdokBuildingEnricher {
     $primary = NULL;
     $primaryPandId = NULL;
     if ($address['range_end'] !== '') {
-      // An explicit dossier range is authoritative. It may legitimately span
-      // multiple BAG pand identities, so do not require one primary pand first.
+      // The range is authoritative. Query every house number explicitly so a
+      // long street cannot hide in-range addresses behind the Free API row cap.
       $addresses = $this->findAddressesForScope($address);
       if ($addresses === []) {
         return ['state' => 'not_found_scope', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
@@ -119,12 +121,12 @@ final class PdokBuildingEnricher {
       'q' => $query,
       'rows' => 10,
       'fq' => ['bron:BAG', 'type:adres'],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
+      'fl' => self::ADDRESS_FIELDS,
     ]);
 
     foreach ($docs as $doc) {
       if ($this->matchesExpected($doc, $expected)) {
-        return $doc;
+        return $this->lookupAddressDetails($doc);
       }
     }
     return NULL;
@@ -132,34 +134,27 @@ final class PdokBuildingEnricher {
 
   /** @return array<int, array<string, mixed>> */
   private function findAddressesForPand(string $pandId): array {
-    return $this->request([
+    $docs = $this->request([
       'q' => '*',
       'rows' => 100,
       'fq' => ['bron:BAG', 'type:adres', 'pand_id:' . $pandId],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
+      'fl' => self::ADDRESS_FIELDS,
     ]);
+
+    return array_map(fn(array $doc): array => $this->lookupAddressDetails($doc), $docs);
   }
 
   /**
    * Finds official BAG addresses inside the explicit BREBO house-number scope.
    *
    * The numeric range is inclusive and deliberately has no even/odd filter.
+   * Each number is queried separately so result ranking on a long street cannot
+   * truncate the range. All letters/additions belonging to an in-range number
+   * remain in scope.
    *
    * @return array<int, array<string, mixed>>
    */
   private function findAddressesForScope(array $scope): array {
-    $query = trim(implode(' ', array_filter([
-      $scope['street'],
-      $scope['postal_code'],
-      $scope['city'],
-    ])));
-    $docs = $this->request([
-      'q' => $query !== '' ? $query : '*',
-      'rows' => 100,
-      'fq' => ['bron:BAG', 'type:adres'],
-      'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
-    ]);
-
     $start = (int) $scope['house_number'];
     $end = (int) $scope['range_end'];
     if ($start > $end) {
@@ -168,29 +163,87 @@ final class PdokBuildingEnricher {
 
     $expectedStreet = mb_strtolower(trim((string) $scope['street']));
     $expectedCity = mb_strtolower(trim((string) $scope['city']));
-    $expectedPostcode = strtoupper(preg_replace('/\s+/u', '', (string) $scope['postal_code']) ?? '');
+    $addresses = [];
 
-    return array_values(array_filter($docs, static function (array $doc) use ($start, $end, $expectedStreet, $expectedCity, $expectedPostcode): bool {
-      $number = (int) ($doc['huisnummer'] ?? 0);
-      if ($number < $start || $number > $end) {
-        return FALSE;
-      }
-      if ($expectedStreet !== '' && mb_strtolower(trim((string) ($doc['straatnaam'] ?? ''))) !== $expectedStreet) {
-        return FALSE;
-      }
-      if ($expectedCity !== '' && mb_strtolower(trim((string) ($doc['woonplaatsnaam'] ?? ''))) !== $expectedCity) {
-        return FALSE;
-      }
-      if ($expectedPostcode !== '') {
-        $postcode = strtoupper(preg_replace('/\s+/u', '', (string) ($doc['postcode'] ?? '')) ?? '');
-        // A range can cross postcode boundaries; only use postcode as a search
-        // hint, not as a hard filter for every unit in the range.
-        if ($postcode === '') {
-          return FALSE;
+    for ($number = $start; $number <= $end; $number++) {
+      $query = trim(implode(' ', array_filter([
+        $scope['street'],
+        (string) $number,
+        $scope['postal_code'],
+        $scope['city'],
+      ])));
+      $docs = $this->request([
+        'q' => $query,
+        'rows' => 100,
+        'fq' => ['bron:BAG', 'type:adres'],
+        'fl' => self::ADDRESS_FIELDS,
+      ]);
+
+      foreach ($docs as $doc) {
+        if ((int) ($doc['huisnummer'] ?? 0) !== $number) {
+          continue;
         }
+        if ($expectedStreet !== '' && mb_strtolower(trim((string) ($doc['straatnaam'] ?? ''))) !== $expectedStreet) {
+          continue;
+        }
+        if ($expectedCity !== '' && mb_strtolower(trim((string) ($doc['woonplaatsnaam'] ?? ''))) !== $expectedCity) {
+          continue;
+        }
+
+        $doc = $this->lookupAddressDetails($doc);
+        $key = trim((string) ($doc['id'] ?? ''));
+        if ($key === '') {
+          $key = implode('|', [
+            mb_strtolower(trim((string) ($doc['straatnaam'] ?? ''))),
+            (string) ($doc['huisnummer'] ?? ''),
+            strtoupper(trim((string) ($doc['huisletter'] ?? ''))),
+            strtoupper(trim((string) ($doc['huisnummertoevoeging'] ?? ''))),
+            strtoupper(preg_replace('/\s+/u', '', (string) ($doc['postcode'] ?? '')) ?? ''),
+          ]);
+        }
+        $addresses[$key] = $doc;
       }
-      return TRUE;
-    }));
+    }
+
+    $addresses = array_values($addresses);
+    usort($addresses, static function (array $a, array $b): int {
+      $numberCompare = ((int) ($a['huisnummer'] ?? 0)) <=> ((int) ($b['huisnummer'] ?? 0));
+      if ($numberCompare !== 0) {
+        return $numberCompare;
+      }
+      $aSuffix = strtoupper(trim((string) ($a['huisletter'] ?? '')) . '-' . trim((string) ($a['huisnummertoevoeging'] ?? '')));
+      $bSuffix = strtoupper(trim((string) ($b['huisletter'] ?? '')) . '-' . trim((string) ($b['huisnummertoevoeging'] ?? '')));
+      return $aSuffix <=> $bSuffix;
+    });
+
+    return $addresses;
+  }
+
+  /**
+   * Enrich a Free API hit through Lookup because identifiers such as pand_id
+   * are not guaranteed to be populated on every free-search document.
+   *
+   * @param array<string, mixed> $doc
+   *
+   * @return array<string, mixed>
+   */
+  private function lookupAddressDetails(array $doc): array {
+    $id = trim((string) ($doc['id'] ?? ''));
+    if ($id === '') {
+      return $doc;
+    }
+
+    $details = $this->request([
+      'id' => $id,
+      'fl' => self::ADDRESS_FIELDS,
+    ], self::LOOKUP_URL);
+    if ($details === []) {
+      return $doc;
+    }
+
+    // Lookup is authoritative for full BAG identifiers; retain Free fields only
+    // when Lookup did not return them.
+    return array_replace($doc, $details[0]);
   }
 
   /** @return array<string, mixed> */
@@ -205,9 +258,9 @@ final class PdokBuildingEnricher {
   }
 
   /** @return array<int, array<string, mixed>> */
-  private function request(array $query): array {
+  private function request(array $query, string $url = self::FREE_URL): array {
     try {
-      $response = $this->httpClient->request('GET', self::FREE_URL, [
+      $response = $this->httpClient->request('GET', $url, [
         // PDOK expects repeated fq parameters (fq=a&fq=b). Passing an array
         // directly to Guzzle produces fq[0]=a&fq[1]=b, which PDOK rejects.
         'query' => $this->queryString($query),
@@ -225,9 +278,7 @@ final class PdokBuildingEnricher {
     }
   }
 
-  /**
-   * Builds an RFC 3986 query string while preserving repeated parameters.
-   */
+  /** Builds an RFC 3986 query string while preserving repeated parameters. */
   private function queryString(array $query): string {
     $pairs = [];
     foreach ($query as $key => $value) {
