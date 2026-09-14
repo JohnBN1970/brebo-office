@@ -134,7 +134,7 @@ final class PdokBuildingEnricher {
   private function findAddressesForPand(string $pandId): array {
     return $this->request([
       'q' => '*',
-      'rows' => 1000,
+      'rows' => 100,
       'fq' => ['bron:BAG', 'type:adres', 'pand_id:' . $pandId],
       'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
     ]);
@@ -155,7 +155,7 @@ final class PdokBuildingEnricher {
     ])));
     $docs = $this->request([
       'q' => $query !== '' ? $query : '*',
-      'rows' => 1000,
+      'rows' => 100,
       'fq' => ['bron:BAG', 'type:adres'],
       'fl' => 'id,weergavenaam,type,status,straatnaam,huisnummer,huisletter,huisnummertoevoeging,postcode,woonplaatsnaam,pand_id,adresseerbaarobject_id,nummeraanduiding_id,centroide_ll',
     ]);
