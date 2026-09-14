@@ -186,7 +186,9 @@ final class PdokBuildingEnricher {
   private function request(array $query): array {
     try {
       $response = $this->httpClient->request('GET', self::FREE_URL, [
-        'query' => $query,
+        // PDOK expects repeated fq parameters (fq=a&fq=b). Passing an array
+        // directly to Guzzle produces fq[0]=a&fq[1]=b, which PDOK rejects.
+        'query' => $this->queryString($query),
         'headers' => [
           'Accept' => 'application/json',
           'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
@@ -199,6 +201,19 @@ final class PdokBuildingEnricher {
     catch (GuzzleException | \JsonException $e) {
       throw new \RuntimeException('PDOK BAG enrichment failed: ' . $e->getMessage(), 0, $e);
     }
+  }
+
+  /**
+   * Builds an RFC 3986 query string while preserving repeated parameters.
+   */
+  private function queryString(array $query): string {
+    $pairs = [];
+    foreach ($query as $key => $value) {
+      foreach (is_array($value) ? $value : [$value] as $item) {
+        $pairs[] = rawurlencode((string) $key) . '=' . rawurlencode((string) $item);
+      }
+    }
+    return implode('&', $pairs);
   }
 
   /** @return array{street:string,house_number:string,house_letter:string,addition:string,range_end:string,postal_code:string,city:string} */
