@@ -37,6 +37,17 @@ building-kanban:
     - core/drupal
     - core/once
 
+building-dashboard:
+  version: 1.x
+  js:
+    js/building-dashboard.js: {}
+  css:
+    component:
+      css/building-dashboard.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
+
 status-list-kanban:
   version: 1.x
   css:
