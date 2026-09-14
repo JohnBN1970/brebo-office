@@ -7,6 +7,16 @@ use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
 /**
+ * Implements hook_page_attachments().
+ */
+function brebo_building_data_page_attachments(array &$attachments): void {
+  $routeName = \Drupal::routeMatch()->getRouteName();
+  if ($routeName === 'brebo_building_data.truth_workbench') {
+    $attachments['#attached']['library'][] = 'brebo_building_data/truth_workbench';
+  }
+}
+
+/**
  * Implements hook_entity_delete().
  */
 function brebo_building_data_entity_delete(EntityInterface $entity): void {
