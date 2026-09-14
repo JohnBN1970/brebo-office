@@ -125,34 +125,32 @@ namespace {
   $numberedResult = $numbered->enrich(building('Plein 1944 1', '6511JC', 'Nijmegen'));
   assertSameValue('PAND-1944', $numberedResult['pand_id'], 'Trailing house number must not consume numeric street-name tokens.');
 
-  $b87 = doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-A', 'VBO-87', 'NA-87');
-  $b90 = doc('Bilderdijkstraat', '90', '1053KN', 'Amsterdam', 'PAND-B', 'VBO-90', 'NA-90');
-  $b97 = doc('Bilderdijkstraat', '97', '1053KP', 'Amsterdam', 'PAND-C', 'VBO-97', 'NA-97');
+  $b87 = doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-87', 'VBO-87', 'NA-87');
+  $b89 = doc('Bilderdijkstraat', '89', '1053KM', 'Amsterdam', 'PAND-89', 'VBO-89', 'NA-89');
+  $b91 = doc('Bilderdijkstraat', '91', '1053KN', 'Amsterdam', 'PAND-91', 'VBO-91', 'NA-91');
+  $b93 = doc('Bilderdijkstraat', '93', '1053KN', 'Amsterdam', 'PAND-93', 'VBO-93', 'NA-93');
+  $b95 = doc('Bilderdijkstraat', '95', '1053KP', 'Amsterdam', 'PAND-95', 'VBO-95', 'NA-95');
+  $b97 = doc('Bilderdijkstraat', '97', '1053KP', 'Amsterdam', 'PAND-97', 'VBO-97', 'NA-97');
   [$range, $rangeRelations] = enricher([
     [$b87], [$b87],
-    [],
-    [],
-    [$b90], [$b90],
-    [],
-    [],
-    [],
-    [],
-    [],
-    [],
+    [$b89], [$b89],
+    [$b91], [$b91],
+    [$b93], [$b93],
+    [$b95], [$b95],
     [$b97], [$b97],
   ]);
   $rangeResult = $range->enrich(building('Bilderdijkstraat 87 t/m 97', '1053KM', 'Amsterdam'));
   assertSameValue('enriched', $rangeResult['state'], 'Explicit dossier range must enrich without first requiring one primary pand.');
-  assertSameValue('PAND-A', $rangeResult['pand_id'], 'Range start address may provide the primary map anchor without constraining the dossier to one pand.');
-  assertSameValue(3, $rangeResult['address_count'], 'Range must be inclusive and exclude addresses outside scope.');
-  assertSameValue(['87', '90', '97'], array_column($rangeRelations->addresses, 'huisnummer'), 'Range must not apply an even/odd filter.');
+  assertSameValue('PAND-87', $rangeResult['pand_id'], 'Range start address may provide the primary map anchor without constraining the dossier to one pand.');
+  assertSameValue(6, $rangeResult['address_count'], 'Odd-to-odd range must include the odd sequence only.');
+  assertSameValue(['87', '89', '91', '93', '95', '97'], array_column($rangeRelations->addresses, 'huisnummer'), '87 t/m 97 must preserve odd-number parity.');
   $pandIds = array_values(array_unique(array_map(
     static fn(array $identity): string => $identity['type'] === 'pand' ? $identity['bag_id'] : '',
     $rangeRelations->identities,
   )));
   $pandIds = array_values(array_filter($pandIds));
   sort($pandIds);
-  assertSameValue(['PAND-A', 'PAND-B', 'PAND-C'], $pandIds, 'One dossier range may span multiple BAG pand identities.');
+  assertSameValue(['PAND-87', 'PAND-89', 'PAND-91', 'PAND-93', 'PAND-95', 'PAND-97'], $pandIds, 'One dossier range may span multiple BAG pand identities.');
 
   [$strict, $strictRelations] = enricher([
     [doc('Dam', '2', '1012JS', 'Amsterdam', 'PAND-WRONG', 'VBO-WRONG', 'NA-WRONG')],

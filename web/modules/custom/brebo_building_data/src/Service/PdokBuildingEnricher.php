@@ -53,8 +53,9 @@ final class PdokBuildingEnricher {
     $primary = NULL;
     $primaryPandId = NULL;
     if ($address['range_end'] !== '') {
-      // The range is authoritative. Query every house number explicitly so a
-      // long street cannot hide in-range addresses behind the Free API row cap.
+      // The range is authoritative. Query every applicable house number
+      // explicitly so a long street cannot hide in-range addresses behind the
+      // Free API row cap.
       $addresses = $this->findAddressesForScope($address);
       if ($addresses === []) {
         return ['state' => 'not_found_scope', 'pand_id' => NULL, 'address_count' => 0, 'identity_count' => 0];
@@ -147,10 +148,10 @@ final class PdokBuildingEnricher {
   /**
    * Finds official BAG addresses inside the explicit BREBO house-number scope.
    *
-   * The numeric range is inclusive and deliberately has no even/odd filter.
-   * Each number is queried separately so result ranking on a long street cannot
-   * truncate the range. All letters/additions belonging to an in-range number
-   * remain in scope.
+   * The numeric range is inclusive. When both range bounds have the same parity
+   * (for example 87 t/m 97 or 88 t/m 98), that parity defines the sequence.
+   * Mixed-parity bounds remain a continuous range. Letters and additions for
+   * each selected base house number remain in scope.
    *
    * @return array<int, array<string, mixed>>
    */
@@ -161,11 +162,12 @@ final class PdokBuildingEnricher {
       [$start, $end] = [$end, $start];
     }
 
+    $step = ($start % 2) === ($end % 2) ? 2 : 1;
     $expectedStreet = mb_strtolower(trim((string) $scope['street']));
     $expectedCity = mb_strtolower(trim((string) $scope['city']));
     $addresses = [];
 
-    for ($number = $start; $number <= $end; $number++) {
+    for ($number = $start; $number <= $end; $number += $step) {
       $query = trim(implode(' ', array_filter([
         $scope['street'],
         (string) $number,
@@ -191,6 +193,12 @@ final class PdokBuildingEnricher {
         }
 
         $doc = $this->lookupAddressDetails($doc);
+        // Lookup may normalize details, but it must never be allowed to move a
+        // result outside the selected base house number.
+        if ((int) ($doc['huisnummer'] ?? 0) !== $number) {
+          continue;
+        }
+
         $key = trim((string) ($doc['id'] ?? ''));
         if ($key === '') {
           $key = implode('|', [
