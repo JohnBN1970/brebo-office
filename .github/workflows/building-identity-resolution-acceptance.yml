@@ -61,7 +61,7 @@ jobs:
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          cd public_html/sboffice_app
+          cd "$HOME/domains/brebobv.nl/public_html/sboffice"
           DRUSH='vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl'
           $DRUSH cr
           $DRUSH php:eval '
