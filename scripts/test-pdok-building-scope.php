@@ -121,7 +121,6 @@ namespace {
   assertSameValue('PAND-1944', $numberedResult['pand_id'], 'Trailing house number must not consume numeric street-name tokens.');
 
   [$range, $rangeRelations] = enricher([
-    [doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-A', 'VBO-87', 'NA-87')],
     [
       doc('Bilderdijkstraat', '86', '1053KM', 'Amsterdam', 'PAND-X', 'VBO-86', 'NA-86'),
       doc('Bilderdijkstraat', '87', '1053KM', 'Amsterdam', 'PAND-A', 'VBO-87', 'NA-87'),
@@ -132,7 +131,8 @@ namespace {
     ],
   ]);
   $rangeResult = $range->enrich(building('Bilderdijkstraat 87 t/m 97', '1053KM', 'Amsterdam'));
-  assertSameValue('enriched', $rangeResult['state'], 'Explicit dossier range must enrich.');
+  assertSameValue('enriched', $rangeResult['state'], 'Explicit dossier range must enrich without first requiring one primary pand.');
+  assertSameValue('PAND-A', $rangeResult['pand_id'], 'Range start address may provide the primary map anchor without constraining the dossier to one pand.');
   assertSameValue(3, $rangeResult['address_count'], 'Range must be inclusive and exclude addresses outside scope.');
   assertSameValue(['87', '90', '97'], array_column($rangeRelations->addresses, 'huisnummer'), 'Range must not apply an even/odd filter.');
   $pandIds = array_values(array_unique(array_map(
