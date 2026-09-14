@@ -54,6 +54,9 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     $objectMap = $this->objectMap($this->objects->tree($buildingNid));
     $addresses = array_values($this->relations->addressesForBuilding($buildingNid));
     $bagIdentities = array_values($this->relations->bagIdentitiesForBuilding($buildingNid));
+    $dossierScope = $node->hasField('field_brebo_address')
+      ? trim((string) $node->get('field_brebo_address')->value)
+      : '';
 
     $pandIds = [];
     $identityBySourceRef = [];
@@ -82,18 +85,31 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     });
 
     $addressRows = [];
+    $unitNumbers = [];
+    $streets = [];
     foreach ($addresses as $address) {
+      $street = trim((string) ($address['street'] ?? ''));
       $number = trim(implode('', [
         (string) ($address['house_number'] ?? ''),
         (string) ($address['house_letter'] ?? ''),
         (string) ($address['addition'] ?? ''),
       ]));
+      if ($street !== '') {
+        $streets[$street] = TRUE;
+      }
+      if ($number !== '') {
+        $unitNumbers[] = [
+          'street' => $street,
+          'number' => $number,
+          'primary' => !empty($address['is_primary']),
+        ];
+      }
       $sourceRef = trim((string) ($address['source_ref'] ?? ''));
       $unitIdentity = $identityBySourceRef[$sourceRef] ?? [];
       $vboId = trim((string) ($unitIdentity['verblijfsobject'] ?? $unitIdentity['adresseerbaarobject'] ?? ''));
       $numberDesignationId = trim((string) ($unitIdentity['nummeraanduiding'] ?? ''));
       $addressRows[] = [
-        trim((string) ($address['street'] ?? '')) ?: '—',
+        $street ?: '—',
         $number ?: '—',
         trim((string) ($address['postal_code'] ?? '')) ?: '—',
         trim((string) ($address['city'] ?? '')) ?: '—',
@@ -152,6 +168,29 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
       ];
     }
 
+    $numberChips = [];
+    $multipleStreets = count($streets) > 1;
+    foreach ($unitNumbers as $index => $unitNumber) {
+      $label = $multipleStreets && $unitNumber['street'] !== ''
+        ? $unitNumber['street'] . ' ' . $unitNumber['number']
+        : $unitNumber['number'];
+      $numberChips['unit_' . $index] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => array_filter([
+          'brebo-bag-unit-chip',
+          $unitNumber['primary'] ? 'is-primary' : NULL,
+        ])],
+        'label' => ['#plain_text' => $label],
+      ];
+    }
+    if ($numberChips === []) {
+      $numberChips['empty'] = [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-bag-unit-empty']],
+        '#plain_text' => $this->t('Nog geen BAG-adressen of woningnummers gekoppeld.'),
+      ];
+    }
+
     return [
       'principle' => [
         '#type' => 'container',
@@ -181,31 +220,75 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
       ],
       'summary' => [
         '#type' => 'table',
+        '#attributes' => ['class' => ['brebo-truth-summary']],
         '#caption' => $this->t('Gebouw'),
         '#header' => [$this->t('Onderdeel'), $this->t('Waarde')],
         '#rows' => [
           [$this->t('Naam'), $node->label()],
-          [$this->t('BAG-pand'), $pandIds === [] ? '—' : implode(', ', $pandIds)],
-          [$this->t('Adressen / eenheden'), (string) count($addresses)],
           [$this->t('Actuele feiten'), (string) count($facts)],
           [$this->t('Open revisievoorstellen'), (string) count($pending)],
         ],
       ],
-      'bag_units' => [
-        '#type' => 'table',
-        '#caption' => $this->t('BAG-adressen en woningnummers'),
-        '#header' => [
-          $this->t('Straat'),
-          $this->t('Huis-/woningnummer'),
-          $this->t('Postcode'),
-          $this->t('Plaats'),
-          $this->t('BAG-verblijfsobject'),
-          $this->t('BAG-nummeraanduiding'),
-          $this->t('Relatie'),
-          $this->t('Bron'),
+      'bag_overview' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-bag-overview']],
+        'header' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-bag-overview__header']],
+          'title' => ['#markup' => '<h2>BAG-adressen en woningnummers</h2>'],
+          'description' => [
+            '#markup' => '<p>Officiële BAG-eenheden binnen het vastgelegde dossierkader. Het dossierkader is leidend; BAG levert de officiële adressen en registraties.</p>',
+          ],
         ],
-        '#rows' => $addressRows,
-        '#empty' => $this->t('Nog geen BAG-adressen of woningnummers gekoppeld. Gebruik PDOK/BAG verversen zodra het gebouwadres compleet is.'),
+        'facts' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-bag-overview__facts']],
+          'scope' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-bag-fact', 'brebo-bag-fact--scope']],
+            'label' => ['#markup' => '<span class="brebo-bag-fact__label">Dossierkader</span>'],
+            'value' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-bag-fact__value']], '#plain_text' => $dossierScope ?: $this->t('Nog niet vastgelegd')],
+          ],
+          'units' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-bag-fact']],
+            'label' => ['#markup' => '<span class="brebo-bag-fact__label">Adressen / eenheden</span>'],
+            'value' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-bag-fact__value']], '#plain_text' => (string) count($addresses)],
+          ],
+          'pands' => [
+            '#type' => 'container',
+            '#attributes' => ['class' => ['brebo-bag-fact']],
+            'label' => ['#markup' => '<span class="brebo-bag-fact__label">BAG-panden</span>'],
+            'value' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-bag-fact__value']], '#plain_text' => (string) count($pandIds)],
+          ],
+        ],
+        'unit_heading' => ['#markup' => '<h3 class="brebo-bag-overview__unit-title">Woning- en huisnummers</h3>'],
+        'unit_numbers' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-bag-unit-chips']],
+        ] + $numberChips,
+        'technical' => [
+          '#type' => 'details',
+          '#title' => $this->t('Technische BAG-details (@count eenheden)', ['@count' => count($addresses)]),
+          '#open' => FALSE,
+          '#attributes' => ['class' => ['brebo-bag-details']],
+          'units' => [
+            '#type' => 'table',
+            '#attributes' => ['class' => ['brebo-bag-technical-table']],
+            '#header' => [
+              $this->t('Straat'),
+              $this->t('Huis-/woningnummer'),
+              $this->t('Postcode'),
+              $this->t('Plaats'),
+              $this->t('BAG-verblijfsobject'),
+              $this->t('BAG-nummeraanduiding'),
+              $this->t('Relatie'),
+              $this->t('Bron'),
+            ],
+            '#rows' => $addressRows,
+            '#empty' => $this->t('Nog geen BAG-adressen of woningnummers gekoppeld. Gebruik PDOK/BAG verversen zodra het gebouwadres compleet is.'),
+          ],
+        ],
       ],
       'truth' => [
         '#type' => 'table',
