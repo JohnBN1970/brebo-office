@@ -79,8 +79,8 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
         return $streetCompare;
       }
       return strnatcasecmp(
-        trim((string) ($a['house_number'] ?? '') . (string) ($a['house_letter'] ?? '') . (string) ($a['addition'] ?? '')),
-        trim((string) ($b['house_number'] ?? '') . (string) ($b['house_letter'] ?? '') . (string) ($b['addition'] ?? '')),
+        self::formatHouseNumber($a),
+        self::formatHouseNumber($b),
       );
     });
 
@@ -89,11 +89,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
     $streets = [];
     foreach ($addresses as $address) {
       $street = trim((string) ($address['street'] ?? ''));
-      $number = trim(implode('', [
-        (string) ($address['house_number'] ?? ''),
-        (string) ($address['house_letter'] ?? ''),
-        (string) ($address['addition'] ?? ''),
-      ]));
+      $number = self::formatHouseNumber($address);
       if ($street !== '') {
         $streets[$street] = TRUE;
       }
@@ -313,6 +309,19 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
       ],
       '#cache' => ['max-age' => 0],
     ];
+  }
+
+  /** @param array<string, mixed> $address */
+  private static function formatHouseNumber(array $address): string {
+    $number = trim((string) ($address['house_number'] ?? ''));
+    $letter = trim((string) ($address['house_letter'] ?? ''));
+    $addition = trim((string) ($address['addition'] ?? ''));
+
+    $formatted = $number . $letter;
+    if ($addition !== '') {
+      $formatted .= '-' . ltrim($addition, '-');
+    }
+    return $formatted;
   }
 
   /** @param array<int, array<string, mixed>> $tree */
