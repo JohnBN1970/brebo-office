@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Controller;
 
+use Drupal\brebo_project_cockpit\Form\ProjectInvoiceFilterForm;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Url;
@@ -143,24 +144,7 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
           '#attributes' => ['class' => ['button']],
         ],
       ],
-      'filters' => [
-        '#type' => 'form',
-        '#method' => 'get',
-        '#attributes' => ['class' => ['brebo-filter-bar']],
-        'direction' => [
-          '#type' => 'select', '#title' => $this->t('Richting'), '#default_value' => $direction,
-          '#options' => ['all' => $this->t('Alle'), 'incoming' => $this->t('Inkomend'), 'outgoing' => $this->t('Uitgaand')],
-        ],
-        'state' => [
-          '#type' => 'select', '#title' => $this->t('Status'), '#default_value' => $state,
-          '#options' => ['all' => $this->t('Alle'), 'open' => $this->t('Open'), 'overdue' => $this->t('Vervallen'), 'paid' => $this->t('Betaald'), 'partial' => $this->t('Deels betaald'), 'disputed' => $this->t('In geschil')],
-        ],
-        'sort' => [
-          '#type' => 'select', '#title' => $this->t('Sorteren'), '#default_value' => $sort,
-          '#options' => ['date_desc' => $this->t('Nieuwste eerst'), 'date_asc' => $this->t('Oudste eerst'), 'due_asc' => $this->t('Vervaldatum'), 'amount_desc' => $this->t('Bedrag hoog-laag'), 'relation_asc' => $this->t('Relatie A-Z')],
-        ],
-        'submit' => ['#type' => 'submit', '#value' => $this->t('Toepassen')],
-      ],
+      'filters' => $this->formBuilder()->getForm(ProjectInvoiceFilterForm::class, $node, $direction, $state, $sort),
       'register' => [
         '#type' => 'table',
         '#header' => [$this->t('Richting'), $this->t('Relatie'), $this->t('Factuur'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Incl. btw'), $this->t('Betaald'), $this->t('Open'), $this->t('Controle')],
