@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\brebo_office_core\Project\ProjectLifecycle;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use InvalidArgumentException;
@@ -18,11 +19,11 @@ final class ProjectPhaseTransitionManager {
   private const TRANSITIONS = [
     'start_execution' => [
       'gate' => 'execution_start',
-      'target' => 'execution',
+      'target' => ProjectLifecycle::EXECUTION,
     ],
     'close_project' => [
       'gate' => 'project_closeout',
-      'target' => 'closed',
+      'target' => ProjectLifecycle::CLOSED,
     ],
   ];
 
@@ -54,7 +55,7 @@ final class ProjectPhaseTransitionManager {
     $statusField = $this->resolveStatusField($project);
     $before = (string) $project->get($statusField)->value;
     $target = $definition['target'];
-    if ($before === $target) {
+    if (ProjectLifecycle::normalize($before) === $target) {
       return;
     }
 
@@ -115,7 +116,7 @@ final class ProjectPhaseTransitionManager {
 
   /**
    * Keeps the transition authority compatible with the project model while the
-   * canonical project status field is still being consolidated.
+   * canonical project status field is being consolidated.
    */
   private function resolveStatusField(object $project): string {
     foreach (['field_brebo_project_status', 'field_brebo_status'] as $fieldName) {
