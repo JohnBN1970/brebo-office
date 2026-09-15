@@ -50,9 +50,14 @@ building-dashboard:
 
 status-list-kanban:
   version: 1.x
+  js:
+    js/project-portfolio.js: {}
   css:
     component:
       css/status-list-kanban.css: {}
+  dependencies:
+    - core/drupal
+    - core/once
 
 guided-tour:
   version: 1.x
