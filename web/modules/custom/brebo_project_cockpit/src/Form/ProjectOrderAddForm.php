@@ -14,8 +14,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Creates a controlled outgoing project order against the working budget. */
 final class ProjectOrderAddForm extends FormBase {
 
-  private ?NodeInterface $project = NULL;
-
   public function __construct(
     private readonly CommitmentManager $commitmentManager,
     private readonly Connection $database,
@@ -36,9 +34,10 @@ final class ProjectOrderAddForm extends FormBase {
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_project') {
       throw new \InvalidArgumentException('Een BREBO-project is verplicht.');
     }
-    $this->project = $node;
+    $projectId = (int) $node->id();
+    $form_state->set('project_id', $projectId);
 
-    $budgetLines = $this->workingBudgetLines((int) $node->id());
+    $budgetLines = $this->workingBudgetLines($projectId);
     $options = [];
     foreach ($budgetLines as $line) {
       $options[(int) $line['id']] = sprintf(
@@ -122,11 +121,11 @@ final class ProjectOrderAddForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    if (!$this->project instanceof NodeInterface) {
+    $projectId = (int) $form_state->get('project_id');
+    if ($projectId <= 0) {
       throw new \RuntimeException('Projectcontext ontbreekt.');
     }
 
-    $projectId = (int) $this->project->id();
     $userId = (int) $this->currentUser()->id();
     $commitmentId = $this->commitmentManager->createDraft(
       $projectId,
