@@ -37,11 +37,11 @@ final class ProjectLifecycle {
   public static function normalize(string $value): string {
     $value = mb_strtolower(trim($value));
     return match ($value) {
-      '', 'concept' => self::CONCEPT,
+      '', 'concept', 'intake' => self::CONCEPT,
       'actief', 'active', 'voorbereiding', 'werkvoorbereiding', 'preparation' => self::PREPARATION,
       'uitvoering', 'in uitvoering', 'execution' => self::EXECUTION,
       'oplevering', 'opgeleverd', 'closeout', 'delivery' => self::CLOSEOUT,
-      'afgesloten', 'gesloten', 'gereed', 'closed' => self::CLOSED,
+      'afgerond', 'afgesloten', 'gesloten', 'gereed', 'vervallen', 'closed', 'cancelled', 'canceled' => self::CLOSED,
       default => $value,
     };
   }
