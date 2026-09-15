@@ -14,8 +14,12 @@ use Drupal\node\NodeInterface;
  *
  * Project subpages must remain independently renderable. The heavy project
  * cockpit belongs to the cockpit route itself and must never be able to take
- * Planning, Documents, Budget, Procurement, Finance or other project sections
+ * Planning, Documents, Budget, Orders, Finance or other project sections
  * down during page preprocessing.
+ *
+ * Legacy route ids brebo_project_cockpit.procurement and
+ * brebo_project_cockpit.quality intentionally remain in routing.yml as
+ * compatibility aliases for old /inkoop and /kwaliteit bookmarks.
  */
 
 /**
@@ -203,11 +207,11 @@ function _brebo_project_cockpit_tabs(int $project_id, string $active_route): arr
     ['Planning', 'brebo_office_core.project_planning', ['node' => $project_id]],
     ['Documenten', 'brebo_document_data.project_dossier', ['node' => $project_id]],
     ['Begroting', 'brebo_project_cockpit.budget', ['node' => $project_id]],
-    ['Inkoop', 'brebo_project_cockpit.procurement', ['node' => $project_id]],
+    ['Orders', 'brebo_project_cockpit.orders', ['node' => $project_id]],
     ['Contracten', 'brebo_project_cockpit.contracts', ['node' => $project_id]],
     ['Facturen', 'brebo_project_cockpit.invoices', ['node' => $project_id]],
     ['Inzet', 'brebo_inzet.project_dashboard', ['node' => $project_id]],
-    ['Kwaliteit', 'brebo_project_cockpit.quality', ['node' => $project_id]],
+    ['Tekortkomingen', 'brebo_project_cockpit.shortcomings', ['node' => $project_id]],
     ['Oplevering', 'brebo_project_cockpit.completion', ['node' => $project_id]],
     ['Klantportaal', 'brebo_client_portal.project_control', ['node' => $project_id]],
   ];

@@ -14,7 +14,7 @@ use Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder;
 use Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator;
 
 /**
- * Project-scoped quality and completion pages.
+ * Project-scoped shortcomings and completion pages.
  */
 final class ProjectSectionController extends ControllerBase {
 
@@ -32,7 +32,7 @@ final class ProjectSectionController extends ControllerBase {
 
   public function qualityTitle(NodeInterface $node): string {
     $this->assertProject($node);
-    return 'Kwaliteit · ' . $node->label();
+    return 'Tekortkomingen · ' . $node->label();
   }
 
   /** @return array<string, mixed> */
@@ -72,15 +72,15 @@ final class ProjectSectionController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-project-section-summary']],
         'status' => ['#markup' => '<strong>Status:</strong> ' . $this->t('@status', ['@status' => (string) ($quality['status'] ?? 'grijs')])],
-        'message' => ['#markup' => '<div>' . $this->t('@message', ['@message' => (string) ($quality['message'] ?? 'Nog geen kwaliteitsinformatie.')]) . '</div>'],
+        'message' => ['#markup' => '<div>' . $this->t('@message', ['@message' => (string) ($quality['message'] ?? 'Nog geen tekortkomingsinformatie.')]) . '</div>'],
       ],
       'deviations' => [
         '#type' => 'table',
-        '#header' => [$this->t('Afwijking'), $this->t('Status'), $this->t('Gewijzigd')],
+        '#header' => [$this->t('Tekortkoming'), $this->t('Status'), $this->t('Gewijzigd')],
         '#rows' => $rows,
-        '#empty' => $this->t('Geen kwaliteitsafwijkingen voor dit project.'),
+        '#empty' => $this->t('Geen tekortkomingen voor dit project.'),
       ],
-      'all' => Link::fromTextAndUrl($this->t('Alle afwijkingen openen'), Url::fromRoute('brebo_office_core.deviations'))->toRenderable(),
+      'all' => Link::fromTextAndUrl($this->t('Alle tekortkomingen openen'), Url::fromRoute('brebo_office_core.deviations'))->toRenderable(),
       '#cache' => ['tags' => ['node:' . $projectId, 'node_list'], 'contexts' => ['user.permissions']],
     ];
   }
