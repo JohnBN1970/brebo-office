@@ -22,196 +22,71 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
   public function status(): array {
     $checkedAt = gmdate('c');
     $configuration = $this->getConfiguration();
-
     if ($configuration === NULL) {
-      return [
-        'state' => 'not_configured',
-        'http_status' => NULL,
-        'response_time_ms' => NULL,
-        'checked_at' => $checkedAt,
-      ];
+      return ['state' => 'not_configured', 'http_status' => NULL, 'response_time_ms' => NULL, 'checked_at' => $checkedAt];
     }
-
     $started = microtime(TRUE);
-
     try {
-      $response = $this->httpClient->request(
-        'GET',
-        $configuration['base_url'] . '/health/status',
-        [
-          'headers' => $this->authenticatedHeaders(
-            'GET',
-            '/health/status',
-            '',
-            $configuration['shared_secret'],
-          ),
-          'allow_redirects' => FALSE,
-          'connect_timeout' => 2.0,
-          'timeout' => 4.0,
-          'http_errors' => FALSE,
-        ],
-      );
-
+      $response = $this->httpClient->request('GET', $configuration['base_url'] . '/health/status', [
+        'headers' => $this->authenticatedHeaders('GET', '/health/status', '', $configuration['shared_secret']),
+        'allow_redirects' => FALSE,
+        'connect_timeout' => 2.0,
+        'timeout' => 4.0,
+        'http_errors' => FALSE,
+      ]);
       $elapsed = (int) round((microtime(TRUE) - $started) * 1000);
       $status = $response->getStatusCode();
-
-      return [
-        'state' => $status >= 200 && $status < 300
-          ? 'healthy'
-          : 'degraded',
-        'http_status' => $status,
-        'response_time_ms' => $elapsed,
-        'checked_at' => $checkedAt,
-      ];
+      return ['state' => $status >= 200 && $status < 300 ? 'healthy' : 'degraded', 'http_status' => $status, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt];
     }
     catch (\Throwable $exception) {
-      $this->logger->warning(
-        'BREBO Integration API-statuscontrole mislukt ({exception_class}).',
-        ['exception_class' => $exception::class],
-      );
-
-      return [
-        'state' => 'unreachable',
-        'http_status' => NULL,
-        'response_time_ms' => (int) round(
-          (microtime(TRUE) - $started) * 1000,
-        ),
-        'checked_at' => $checkedAt,
-      ];
+      $this->logger->warning('BREBO Integration API-statuscontrole mislukt ({exception_class}).', ['exception_class' => $exception::class]);
+      return ['state' => 'unreachable', 'http_status' => NULL, 'response_time_ms' => (int) round((microtime(TRUE) - $started) * 1000), 'checked_at' => $checkedAt];
     }
   }
 
   public function analyzeTestCommunication(array $communication): array {
     $checkedAt = gmdate('c');
     $configuration = $this->getConfiguration();
-
     if ($configuration === NULL) {
-      return [
-        'state' => 'not_configured',
-        'http_status' => NULL,
-        'response_time_ms' => NULL,
-        'checked_at' => $checkedAt,
-        'analysis' => NULL,
-      ];
+      return ['state' => 'not_configured', 'http_status' => NULL, 'response_time_ms' => NULL, 'checked_at' => $checkedAt, 'analysis' => NULL];
     }
-
     $channel = trim((string) ($communication['channel'] ?? ''));
     $subject = trim((string) ($communication['subject'] ?? ''));
     $message = trim((string) ($communication['message'] ?? ''));
-
-    if (
-      $channel === '' ||
-      $subject === '' ||
-      $message === '' ||
-      mb_strlen($channel) > 50 ||
-      mb_strlen($subject) > 200 ||
-      mb_strlen($message) > 4000
-    ) {
-      return [
-        'state' => 'invalid_input',
-        'http_status' => NULL,
-        'response_time_ms' => NULL,
-        'checked_at' => $checkedAt,
-        'analysis' => NULL,
-      ];
+    if ($channel === '' || $subject === '' || $message === '' || mb_strlen($channel) > 50 || mb_strlen($subject) > 200 || mb_strlen($message) > 4000) {
+      return ['state' => 'invalid_input', 'http_status' => NULL, 'response_time_ms' => NULL, 'checked_at' => $checkedAt, 'analysis' => NULL];
     }
-
     $started = microtime(TRUE);
-
     try {
       $body = $this->encodeJson([
         'test_mode' => TRUE,
         'contains_real_data' => FALSE,
-        'communication' => [
-          'channel' => $channel,
-          'subject' => $subject,
-          'message' => $message,
-        ],
+        'human_review_required' => TRUE,
+        'communication' => ['channel' => $channel, 'subject' => $subject, 'message' => $message],
       ]);
-      $response = $this->httpClient->request(
-        'POST',
-        $configuration['base_url'] . '/v1/communications/analyze',
-        [
-          'headers' => $this->authenticatedHeaders(
-            'POST',
-            '/v1/communications/analyze',
-            $body,
-            $configuration['shared_secret'],
-            TRUE,
-          ),
-          'body' => $body,
-          'allow_redirects' => FALSE,
-          'connect_timeout' => 5.0,
-          'timeout' => 45.0,
-          'http_errors' => FALSE,
-        ],
-      );
-
+      $response = $this->httpClient->request('POST', $configuration['base_url'] . '/v1/communications/analyze', [
+        'headers' => $this->authenticatedHeaders('POST', '/v1/communications/analyze', $body, $configuration['shared_secret'], TRUE),
+        'body' => $body,
+        'allow_redirects' => FALSE,
+        'connect_timeout' => 5.0,
+        'timeout' => 45.0,
+        'http_errors' => FALSE,
+      ]);
       $elapsed = (int) round((microtime(TRUE) - $started) * 1000);
       $httpStatus = $response->getStatusCode();
-
       if ($httpStatus < 200 || $httpStatus >= 300) {
-        return [
-          'state' => 'rejected',
-          'http_status' => $httpStatus,
-          'response_time_ms' => $elapsed,
-          'checked_at' => $checkedAt,
-          'analysis' => NULL,
-        ];
+        return ['state' => 'rejected', 'http_status' => $httpStatus, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt, 'analysis' => NULL];
       }
-
-      $result = json_decode(
-        (string) $response->getBody(),
-        TRUE,
-        512,
-        JSON_THROW_ON_ERROR,
-      );
-
-      if (
-        !is_array($result) ||
-        ($result['status'] ?? NULL) !== 'ok' ||
-        ($result['mode'] ?? NULL) !== 'test' ||
-        ($result['stored'] ?? NULL) !== FALSE ||
-        ($result['sent'] ?? NULL) !== FALSE ||
-        !is_array($result['analysis'] ?? NULL) ||
-        ($result['analysis']['human_review_required'] ?? NULL) !== TRUE
-      ) {
-        $this->logger->warning(
-          'BREBO Integration API gaf een ongeldige testanalyse-respons.',
-        );
-
-        return [
-          'state' => 'invalid_response',
-          'http_status' => $httpStatus,
-          'response_time_ms' => $elapsed,
-          'checked_at' => $checkedAt,
-          'analysis' => NULL,
-        ];
+      $result = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
+      if (!is_array($result) || ($result['status'] ?? NULL) !== 'ok' || ($result['mode'] ?? NULL) !== 'test' || ($result['stored'] ?? NULL) !== FALSE || ($result['sent'] ?? NULL) !== FALSE || !is_array($result['analysis'] ?? NULL) || ($result['analysis']['human_review_required'] ?? NULL) !== TRUE) {
+        $this->logger->warning('BREBO Integration API gaf een ongeldige testanalyse-respons.');
+        return ['state' => 'invalid_response', 'http_status' => $httpStatus, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt, 'analysis' => NULL];
       }
-
-      return [
-        'state' => 'completed',
-        'http_status' => $httpStatus,
-        'response_time_ms' => $elapsed,
-        'checked_at' => $checkedAt,
-        'analysis' => $result['analysis'],
-      ];
+      return ['state' => 'completed', 'http_status' => $httpStatus, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt, 'analysis' => $result['analysis']];
     }
     catch (\Throwable $exception) {
-      $this->logger->warning(
-        'BREBO testcommunicatie-analyse mislukt ({exception_class}).',
-        ['exception_class' => $exception::class],
-      );
-
-      return [
-        'state' => 'unreachable',
-        'http_status' => NULL,
-        'response_time_ms' => (int) round(
-          (microtime(TRUE) - $started) * 1000,
-        ),
-        'checked_at' => $checkedAt,
-        'analysis' => NULL,
-      ];
+      $this->logger->warning('BREBO testcommunicatie-analyse mislukt ({exception_class}).', ['exception_class' => $exception::class]);
+      return ['state' => 'unreachable', 'http_status' => NULL, 'response_time_ms' => (int) round((microtime(TRUE) - $started) * 1000), 'checked_at' => $checkedAt, 'analysis' => NULL];
     }
   }
 
@@ -221,163 +96,125 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
     if ($configuration === NULL) {
       return $this->analysisFailure('not_configured', $checkedAt);
     }
-
     $communicationId = (int) ($communication['communication_id'] ?? 0);
-    $projectId = isset($communication['project_id'])
-      ? (int) $communication['project_id']
-      : NULL;
+    $projectId = isset($communication['project_id']) ? (int) $communication['project_id'] : NULL;
     $channel = trim((string) ($communication['channel'] ?? ''));
     $subject = trim((string) ($communication['subject'] ?? ''));
     $message = trim((string) ($communication['message'] ?? ''));
-    if (
-      $communicationId <= 0 || $channel === '' || $subject === '' || $message === '' ||
-      mb_strlen($channel) > 50 || mb_strlen($subject) > 200 ||
-      mb_strlen($message) > 12000
-    ) {
+    if ($communicationId <= 0 || $channel === '' || $subject === '' || $message === '' || mb_strlen($channel) > 50 || mb_strlen($subject) > 200 || mb_strlen($message) > 12000) {
       return $this->analysisFailure('invalid_input', $checkedAt);
     }
-
     $started = microtime(TRUE);
     try {
       $body = $this->encodeJson([
         'test_mode' => FALSE,
         'contains_real_data' => TRUE,
         'human_review_required' => TRUE,
-        'communication' => [
-          'id' => $communicationId,
-          'project_id' => $projectId,
-          'channel' => $channel,
-          'subject' => $subject,
-          'message' => $message,
-        ],
+        'communication' => ['id' => $communicationId, 'project_id' => $projectId, 'channel' => $channel, 'subject' => $subject, 'message' => $message],
       ]);
-      $response = $this->httpClient->request(
-        'POST',
-        $configuration['base_url'] . '/v1/communications/analyze',
-        [
-          'headers' => $this->authenticatedHeaders(
-            'POST',
-            '/v1/communications/analyze',
-            $body,
-            $configuration['shared_secret'],
-            TRUE,
-          ),
-          'body' => $body,
-          'allow_redirects' => FALSE,
-          'connect_timeout' => 5.0,
-          'timeout' => 45.0,
-          'http_errors' => FALSE,
-        ],
-      );
+      $response = $this->httpClient->request('POST', $configuration['base_url'] . '/v1/communications/analyze', [
+        'headers' => $this->authenticatedHeaders('POST', '/v1/communications/analyze', $body, $configuration['shared_secret'], TRUE),
+        'body' => $body,
+        'allow_redirects' => FALSE,
+        'connect_timeout' => 5.0,
+        'timeout' => 45.0,
+        'http_errors' => FALSE,
+      ]);
       $elapsed = (int) round((microtime(TRUE) - $started) * 1000);
       $httpStatus = $response->getStatusCode();
       if ($httpStatus < 200 || $httpStatus >= 300) {
         return $this->analysisFailure('rejected', $checkedAt, $httpStatus, $elapsed);
       }
-
       $result = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
-      if (
-        !is_array($result) || ($result['status'] ?? NULL) !== 'ok' ||
-        ($result['stored'] ?? NULL) !== FALSE || ($result['sent'] ?? NULL) !== FALSE ||
-        !is_array($result['analysis'] ?? NULL) ||
-        ($result['analysis']['human_review_required'] ?? NULL) !== TRUE
-      ) {
+      if (!is_array($result) || ($result['status'] ?? NULL) !== 'ok' || ($result['stored'] ?? NULL) !== FALSE || ($result['sent'] ?? NULL) !== FALSE || !is_array($result['analysis'] ?? NULL) || ($result['analysis']['human_review_required'] ?? NULL) !== TRUE) {
         $this->logger->warning('BREBO Integration API gaf een ongeldige communicatieanalyse-respons.');
         return $this->analysisFailure('invalid_response', $checkedAt, $httpStatus, $elapsed);
       }
-
-      return [
-        'state' => 'completed',
-        'http_status' => $httpStatus,
-        'response_time_ms' => $elapsed,
-        'checked_at' => $checkedAt,
-        'analysis' => $result['analysis'],
-      ];
+      return ['state' => 'completed', 'http_status' => $httpStatus, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt, 'analysis' => $result['analysis']];
     }
     catch (\Throwable $exception) {
-      $this->logger->warning(
-        'BREBO communicatieanalyse mislukt ({exception_class}).',
-        ['exception_class' => $exception::class],
-      );
-      return $this->analysisFailure(
-        'unreachable',
-        $checkedAt,
-        NULL,
-        (int) round((microtime(TRUE) - $started) * 1000),
-      );
+      $this->logger->warning('BREBO communicatieanalyse mislukt ({exception_class}).', ['exception_class' => $exception::class]);
+      return $this->analysisFailure('unreachable', $checkedAt, NULL, (int) round((microtime(TRUE) - $started) * 1000));
     }
   }
 
-  /**
-   * Builds a consistent failed-analysis result.
-   */
-  private function analysisFailure(
-    string $state,
-    string $checkedAt,
-    ?int $httpStatus = NULL,
-    ?int $responseTime = NULL,
-  ): array {
-    return [
-      'state' => $state,
-      'http_status' => $httpStatus,
-      'response_time_ms' => $responseTime,
-      'checked_at' => $checkedAt,
-      'analysis' => NULL,
-    ];
+  public function draftOrder(array $context): array {
+    $checkedAt = gmdate('c');
+    $configuration = $this->getConfiguration();
+    if ($configuration === NULL) {
+      return $this->orderDraftFailure('not_configured', $checkedAt);
+    }
+    $projectId = (int) ($context['project_id'] ?? 0);
+    $sourceText = trim((string) ($context['source_text'] ?? ''));
+    $budgetLines = is_array($context['budget_lines'] ?? NULL) ? $context['budget_lines'] : [];
+    if ($projectId <= 0 || $sourceText === '' || mb_strlen($sourceText) > 16000 || $budgetLines === []) {
+      return $this->orderDraftFailure('invalid_input', $checkedAt);
+    }
+    $started = microtime(TRUE);
+    try {
+      $body = $this->encodeJson([
+        'contains_real_data' => TRUE,
+        'human_review_required' => TRUE,
+        'project_id' => $projectId,
+        'source_text' => $sourceText,
+        'supplier_hint' => trim((string) ($context['supplier_hint'] ?? '')),
+        'budget_lines' => $budgetLines,
+      ]);
+      $response = $this->httpClient->request('POST', $configuration['base_url'] . '/v1/orders/draft', [
+        'headers' => $this->authenticatedHeaders('POST', '/v1/orders/draft', $body, $configuration['shared_secret'], TRUE),
+        'body' => $body,
+        'allow_redirects' => FALSE,
+        'connect_timeout' => 5.0,
+        'timeout' => 45.0,
+        'http_errors' => FALSE,
+      ]);
+      $elapsed = (int) round((microtime(TRUE) - $started) * 1000);
+      $httpStatus = $response->getStatusCode();
+      if ($httpStatus < 200 || $httpStatus >= 300) {
+        return $this->orderDraftFailure('rejected', $checkedAt, $httpStatus, $elapsed);
+      }
+      $result = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
+      if (!is_array($result) || ($result['status'] ?? NULL) !== 'ok' || ($result['stored'] ?? NULL) !== FALSE || ($result['sent'] ?? NULL) !== FALSE || !is_array($result['draft'] ?? NULL) || ($result['draft']['human_review_required'] ?? NULL) !== TRUE) {
+        $this->logger->warning('BREBO Integration API gaf een ongeldige orderconcept-respons.');
+        return $this->orderDraftFailure('invalid_response', $checkedAt, $httpStatus, $elapsed);
+      }
+      return ['state' => 'completed', 'http_status' => $httpStatus, 'response_time_ms' => $elapsed, 'checked_at' => $checkedAt, 'draft' => $result['draft']];
+    }
+    catch (\Throwable $exception) {
+      $this->logger->warning('BREBO AI-orderconcept mislukt ({exception_class}).', ['exception_class' => $exception::class]);
+      return $this->orderDraftFailure('unreachable', $checkedAt, NULL, (int) round((microtime(TRUE) - $started) * 1000));
+    }
   }
 
-  /**
-   * @return array<string, string>
-   */
-  private function authenticatedHeaders(
-    string $method,
-    string $path,
-    string $body,
-    string $sharedSecret,
-    bool $json = FALSE,
-  ): array {
-    $headers = [
-      'Accept' => 'application/json',
-      ...$this->requestSigner->sign($method, $path, $body, $sharedSecret),
-    ];
+  private function analysisFailure(string $state, string $checkedAt, ?int $httpStatus = NULL, ?int $responseTime = NULL): array {
+    return ['state' => $state, 'http_status' => $httpStatus, 'response_time_ms' => $responseTime, 'checked_at' => $checkedAt, 'analysis' => NULL];
+  }
+
+  private function orderDraftFailure(string $state, string $checkedAt, ?int $httpStatus = NULL, ?int $responseTime = NULL): array {
+    return ['state' => $state, 'http_status' => $httpStatus, 'response_time_ms' => $responseTime, 'checked_at' => $checkedAt, 'draft' => NULL];
+  }
+
+  /** @return array<string, string> */
+  private function authenticatedHeaders(string $method, string $path, string $body, string $sharedSecret, bool $json = FALSE): array {
+    $headers = ['Accept' => 'application/json', ...$this->requestSigner->sign($method, $path, $body, $sharedSecret)];
     if ($json) {
       $headers['Content-Type'] = 'application/json';
     }
-
     return $headers;
   }
 
   private function encodeJson(array $data): string {
-    return json_encode(
-      $data,
-      JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-    );
+    return json_encode($data, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
   }
 
-  /**
-   * Leest de API-configuratie zonder waarden te loggen of terug te geven.
-   *
-   * @return array{base_url: string, shared_secret: string}|null
-   */
+  /** @return array{base_url: string, shared_secret: string}|null */
   private function getConfiguration(): ?array {
-    $baseUrl = rtrim(trim((string) Settings::get(
-      'brebo_integration_api_url',
-      getenv('BREBO_INTEGRATION_API_URL') ?: '',
-    )), '/');
-
-    $sharedSecret = trim((string) Settings::get(
-      'brebo_shared_secret',
-      getenv('BREBO_SHARED_SECRET') ?: '',
-    ));
-
+    $baseUrl = rtrim(trim((string) Settings::get('brebo_integration_api_url', getenv('BREBO_INTEGRATION_API_URL') ?: '')), '/');
+    $sharedSecret = trim((string) Settings::get('brebo_shared_secret', getenv('BREBO_SHARED_SECRET') ?: ''));
     if ($baseUrl === '' || $sharedSecret === '') {
       return NULL;
     }
-
-    return [
-      'base_url' => $baseUrl,
-      'shared_secret' => $sharedSecret,
-    ];
+    return ['base_url' => $baseUrl, 'shared_secret' => $sharedSecret];
   }
 
 }

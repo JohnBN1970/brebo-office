@@ -67,4 +67,20 @@ interface IntegrationApiClientInterface {
    */
   public function analyzeCommunication(array $communication): array;
 
+  /**
+   * Laat de Integration API een uitsluitend adviserend orderconcept maken.
+   *
+   * Het resultaat mag nooit rechtstreeks een definitieve order of verzending
+   * veroorzaken. Menselijke beoordeling en expliciete bevestiging zijn verplicht.
+   *
+   * @return array{
+   *   state: string,
+   *   http_status: int|null,
+   *   response_time_ms: int|null,
+   *   checked_at: string,
+   *   draft: array<string, mixed>|null
+   * }
+   */
+  public function draftOrder(array $context): array;
+
 }
