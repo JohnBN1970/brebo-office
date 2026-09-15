@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_office_core\Project\ProjectLifecycle;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
@@ -182,7 +183,7 @@ final class OpportunityProjectForm extends FormBase {
       'field_brebo_project_code' => 'PENDING-OPP-' . $this->opportunity->id(),
       'field_brebo_client' => $organization instanceof NodeInterface ? $organization->label() : 'Onbekend',
       'field_brebo_location' => trim((string) $form_state->getValue('location')),
-      'field_brebo_status' => 'Concept',
+      'field_brebo_status' => ProjectLifecycle::CONCEPT,
       'field_brebo_project_kind' => (string) $form_state->getValue('project_kind'),
       'field_brebo_project_opp_ref' => ['target_id' => $this->opportunity->id()],
       'status' => 1,

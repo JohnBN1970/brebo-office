@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Drupal\brebo_office_core\Project\ProjectLifecycle;
+use Drupal\Core\Entity\EntityInterface;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
@@ -39,6 +41,64 @@ function brebo_project_cockpit_preprocess_page(array &$variables): void {
     (int) $project->id(),
     $route_name,
   );
+}
+
+/**
+ * Keep the editable project status on the canonical lifecycle machine values.
+ *
+ * brebo_office_core exposes a generic human-label status selector for several
+ * bundles. Project Cockpit runs after that module and deliberately replaces the
+ * project variant with the canonical project lifecycle only.
+ */
+function brebo_project_cockpit_form_node_form_alter(array &$form, FormStateInterface $form_state): void {
+  $entity = $form_state->getFormObject()->getEntity();
+  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_project') {
+    return;
+  }
+
+  if (!isset($form['field_brebo_status']['widget'][0]['value'])) {
+    return;
+  }
+
+  $raw = (string) ($form['field_brebo_status']['widget'][0]['value']['#default_value'] ?? ProjectLifecycle::CONCEPT);
+  $current = ProjectLifecycle::normalize($raw);
+  if (!ProjectLifecycle::isKnown($current)) {
+    $current = ProjectLifecycle::CONCEPT;
+  }
+
+  $form['field_brebo_status']['widget'][0]['value'] = [
+    '#type' => 'select',
+    '#title' => $form['field_brebo_status']['widget']['#title'] ?? 'Projectstatus',
+    '#default_value' => $current,
+    '#options' => ProjectLifecycle::options(),
+    '#required' => TRUE,
+  ];
+}
+
+/**
+ * Implements hook_entity_presave().
+ *
+ * This is the final write-boundary guard. Known legacy labels are normalized
+ * to canonical machine values, while unknown project statuses are rejected so
+ * no writer can silently reintroduce a second project-lifecycle truth.
+ */
+function brebo_project_cockpit_entity_presave(EntityInterface $entity): void {
+  if (!$entity instanceof NodeInterface || $entity->bundle() !== 'brebo_project' || !$entity->hasField('field_brebo_status')) {
+    return;
+  }
+
+  $raw = trim((string) $entity->get('field_brebo_status')->value);
+  $canonical = ProjectLifecycle::normalize($raw);
+  if (!ProjectLifecycle::isKnown($canonical)) {
+    throw new \UnexpectedValueException(sprintf(
+      'Onbekende projectstatus "%s". Gebruik een canonieke projectstatus.',
+      $raw,
+    ));
+  }
+
+  if ($raw !== $canonical) {
+    $entity->set('field_brebo_status', $canonical);
+  }
 }
 
 /**
