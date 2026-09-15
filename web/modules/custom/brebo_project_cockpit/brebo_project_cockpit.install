@@ -1,0 +1,111 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\NodeInterface;
+
+/**
+ * Adds canonical CRM relationships to projects without removing legacy text.
+ */
+function brebo_project_cockpit_update_11001(): string {
+  $definitions = [
+    'field_brebo_project_org_ref' => [
+      'label' => 'Opdrachtgever',
+      'cardinality' => 1,
+      'target_bundles' => ['brebo_organization' => 'brebo_organization'],
+      'description' => 'Canonieke CRM-organisatie die opdrachtgever is voor dit project.',
+      'weight' => 4,
+    ],
+    'field_brebo_project_contact_refs' => [
+      'label' => 'Projectcontactpersonen',
+      'cardinality' => -1,
+      'target_bundles' => ['brebo_contact' => 'brebo_contact'],
+      'description' => 'Contactpersonen die voor dit project relevant zijn. De organisatiecontext blijft in CRM vastgelegd.',
+      'weight' => 5,
+    ],
+  ];
+
+  foreach ($definitions as $field_name => $definition) {
+    $storage = FieldStorageConfig::loadByName('node', $field_name);
+    if (!$storage) {
+      $storage = FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => 'entity_reference',
+        'cardinality' => $definition['cardinality'],
+        'settings' => ['target_type' => 'node'],
+      ]);
+      $storage->save();
+    }
+
+    $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
+    if (!$field) {
+      $field = FieldConfig::create([
+        'field_storage' => $storage,
+        'bundle' => 'brebo_project',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => FALSE,
+        'settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => $definition['target_bundles']],
+        ],
+      ]);
+      $field->save();
+    }
+
+    $display = EntityFormDisplay::load('node.brebo_project.default');
+    if ($display instanceof EntityFormDisplayInterface) {
+      $display->setComponent($field_name, [
+        'type' => 'entity_reference_autocomplete',
+        'weight' => $definition['weight'],
+        'settings' => ['match_operator' => 'CONTAINS', 'match_limit' => 10, 'size' => 60, 'placeholder' => ''],
+      ])->save();
+    }
+  }
+
+  // Only materialize a legacy client string when it matches exactly one CRM
+  // organization. Ambiguous or missing values are deliberately left for review.
+  $node_storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $node_storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $linked = 0;
+  $unresolved = 0;
+
+  foreach ($node_storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof NodeInterface
+      || !$project->hasField('field_brebo_project_org_ref')
+      || !$project->get('field_brebo_project_org_ref')->isEmpty()) {
+      continue;
+    }
+    $legacy = $project->hasField('field_brebo_client') && !$project->get('field_brebo_client')->isEmpty()
+      ? trim((string) $project->get('field_brebo_client')->value)
+      : '';
+    if ($legacy === '') {
+      continue;
+    }
+    $organization_ids = array_values($node_storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_organization')
+      ->condition('title', $legacy)
+      ->range(0, 2)
+      ->execute());
+    if (count($organization_ids) !== 1) {
+      $unresolved++;
+      continue;
+    }
+    $project->set('field_brebo_project_org_ref', ['target_id' => $organization_ids[0]]);
+    $project->setNewRevision(TRUE);
+    $project->setRevisionLogMessage('Unieke bestaande opdrachtgever gekoppeld aan canonieke CRM-organisatie.');
+    $project->save();
+    $linked++;
+  }
+
+  return sprintf('Canonieke projectrelaties ingericht; %d opdrachtgever(s) veilig gekoppeld, %d legacy opdrachtgever(s) vragen beoordeling.', $linked, $unresolved);
+}
