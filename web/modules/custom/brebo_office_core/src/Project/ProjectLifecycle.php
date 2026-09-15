@@ -37,7 +37,7 @@ final class ProjectLifecycle {
   public static function normalize(string $value): string {
     $value = mb_strtolower(trim($value));
     return match ($value) {
-      '', 'concept', 'intake' => self::CONCEPT,
+      '', 'concept', 'intake', 'mogelijk nieuw - te beoordelen' => self::CONCEPT,
       'actief', 'active', 'voorbereiding', 'werkvoorbereiding', 'preparation' => self::PREPARATION,
       'uitvoering', 'in uitvoering', 'execution' => self::EXECUTION,
       'oplevering', 'opgeleverd', 'closeout', 'delivery' => self::CLOSEOUT,
