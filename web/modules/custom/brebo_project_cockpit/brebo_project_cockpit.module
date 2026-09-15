@@ -16,6 +16,10 @@ use Drupal\node\NodeInterface;
  * cockpit belongs to the cockpit route itself and must never be able to take
  * Planning, Documents, Budget, Orders, Finance or other project sections
  * down during page preprocessing.
+ *
+ * Legacy route ids brebo_project_cockpit.procurement and
+ * brebo_project_cockpit.quality intentionally remain in routing.yml as
+ * compatibility aliases for old /inkoop and /kwaliteit bookmarks.
  */
 
 /**
