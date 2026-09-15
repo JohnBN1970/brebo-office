@@ -29,25 +29,29 @@
       return;
     }
 
+    const aliases = {
+      Calculatie: 'Begroting',
+      Inkoop: 'Orders',
+      Kwaliteit: 'Tekortkomingen',
+    };
     const tabs = {
       Overzicht: `/projecten/${projectId}/cockpit`,
       Planning: `/projecten/${projectId}/planning`,
       Documenten: `/projecten/${projectId}/documenten`,
-      Calculatie: `/projecten/${projectId}/begroting`,
       Begroting: `/projecten/${projectId}/begroting`,
-      Inkoop: `/projecten/${projectId}/inkoop`,
+      Orders: `/projecten/${projectId}/orders`,
       Contracten: `/projecten/${projectId}/contracten`,
       Facturen: `/projecten/${projectId}/facturen`,
       Inzet: `/projecten/${projectId}/inzet`,
-      Kwaliteit: `/projecten/${projectId}/kwaliteit`,
+      Tekortkomingen: `/projecten/${projectId}/tekortkomingen`,
       Oplevering: `/projecten/${projectId}/oplevering`,
     };
 
     document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
       let label = link.textContent.trim();
-      if (label === 'Calculatie') {
-        link.textContent = 'Begroting';
-        label = 'Begroting';
+      if (aliases[label]) {
+        label = aliases[label];
+        link.textContent = label;
       }
       const target = tabs[label];
       if (!target) {
