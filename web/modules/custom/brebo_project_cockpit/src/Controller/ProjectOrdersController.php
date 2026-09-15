@@ -84,6 +84,12 @@ final class ProjectOrdersController extends ControllerBase {
           '#url' => Url::fromRoute('brebo_project_cockpit.order_add', ['node' => $projectId]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
+        'ai_outgoing' => [
+          '#type' => 'link',
+          '#title' => $this->t('AI order voorbereiden'),
+          '#url' => Url::fromRoute('brebo_project_cockpit.order_ai_draft', ['node' => $projectId]),
+          '#attributes' => ['class' => ['button']],
+        ],
         'contracts' => [
           '#type' => 'link',
           '#title' => $this->t('Opdrachtbasis / contracten'),
