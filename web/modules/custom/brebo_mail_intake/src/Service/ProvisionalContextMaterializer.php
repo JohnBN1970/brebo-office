@@ -9,13 +9,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\NodeInterface;
 
-/**
- * Creates unpublished project/building proposals from unresolved mail context.
- *
- * Provisional objects are review artifacts only. They are deliberately
- * unpublished and may never be treated as canonical truth before a human has
- * reviewed and promoted them.
- */
+/** Creates unpublished review artifacts only for evidenced candidates. */
 final class ProvisionalContextMaterializer {
 
   public function __construct(
@@ -24,11 +18,7 @@ final class ProvisionalContextMaterializer {
     private readonly ?BuildingRelationRepository $buildingRelations = NULL,
   ) {}
 
-  /**
-   * @param array<string, mixed> $resolution
-   *
-   * @return array{project_id:?int,building_id:?int}
-   */
+  /** @param array<string, mixed> $resolution */
   public function materialize(NodeInterface $communication, array $resolution): array {
     if ($communication->bundle() !== 'brebo_communication') {
       throw new \InvalidArgumentException('Voorlopige context mag alleen uit BREBO Communication ontstaan.');
@@ -37,18 +27,17 @@ final class ProvisionalContextMaterializer {
     $projectId = isset($resolution['project_id']) ? (int) $resolution['project_id'] : 0;
     $buildingId = isset($resolution['building_id']) ? (int) $resolution['building_id'] : 0;
 
-    if ($projectId <= 0 && ($resolution['project_state'] ?? NULL) === 'provisional_required') {
+    // Absence of a project match is not evidence for a new project. Only the
+    // resolver's explicit candidate state may create a provisional artifact.
+    if ($projectId <= 0 && ($resolution['project_state'] ?? NULL) === 'candidate') {
       $projectId = $this->createProject($communication, $resolution);
     }
 
-    if ($buildingId <= 0 && ($resolution['building_state'] ?? NULL) === 'provisional_required') {
+    if ($buildingId <= 0 && ($resolution['building_state'] ?? NULL) === 'candidate') {
       $buildingId = $this->createBuilding($communication, $resolution);
     }
 
-    return [
-      'project_id' => $projectId > 0 ? $projectId : NULL,
-      'building_id' => $buildingId > 0 ? $buildingId : NULL,
-    ];
+    return ['project_id' => $projectId > 0 ? $projectId : NULL, 'building_id' => $buildingId > 0 ? $buildingId : NULL];
   }
 
   /** @param array<string, mixed> $resolution */
@@ -56,25 +45,22 @@ final class ProvisionalContextMaterializer {
     $storage = $this->entityTypeManager->getStorage('node');
     $seed = (int) $communication->id();
     $location = $this->candidateDisplayName($resolution) ?: 'Locatie nog te bepalen';
-    $title = 'MOGELIJK NIEUW PROJECT - ' . $location;
-
     $node = $storage->create([
       'type' => 'brebo_project',
-      'title' => $title,
+      'title' => 'MOGELIJK NIEUW PROJECT - ' . $location,
       'uid' => (int) $this->currentUser->id(),
       'status' => 0,
       'field_brebo_project_code' => 'MAIL-' . $seed,
       'field_brebo_client' => 'Te beoordelen',
       'field_brebo_location' => $location,
-      'field_brebo_status' => 'Mogelijk nieuw - te beoordelen',
+      'field_brebo_status' => 'concept',
       'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'project'),
     ]);
     if (!$node instanceof NodeInterface) {
       throw new \RuntimeException('Voorlopig project kon niet worden aangemaakt.');
     }
-
     $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage('Mogelijk nieuw project uit Mail Intake; bronmail en reden zichtbaar voor beoordeling.');
+    $node->setRevisionLogMessage('Projectkandidaat uit Mail Intake; bewijs en bron zichtbaar voor beoordeling.');
     $node->save();
     return (int) $node->id();
   }
@@ -85,7 +71,6 @@ final class ProvisionalContextMaterializer {
     $seed = (int) $communication->id();
     $candidate = $this->firstCandidate($resolution);
     $properties = is_array($candidate['properties'] ?? NULL) ? $candidate['properties'] : [];
-
     $street = trim((string) ($properties['straatnaam'] ?? ''));
     $houseNumber = trim((string) ($properties['huisnummer'] ?? ''));
     $houseLetter = trim((string) ($properties['huisletter'] ?? ''));
@@ -95,15 +80,12 @@ final class ProvisionalContextMaterializer {
     $number = trim($houseNumber . $houseLetter . ($addition !== '' ? '-' . $addition : ''));
     $address = trim($street . ($number !== '' ? ' ' . $number : ''));
     $display = $this->candidateDisplayName($resolution);
-
     if ($address === '') {
       $address = $display !== '' ? $display : 'Adres te beoordelen';
     }
-
-    $title = 'MOGELIJK NIEUW GEBOUW - ' . ($display !== '' ? $display : $address);
     $node = $storage->create([
       'type' => 'brebo_building',
-      'title' => $title,
+      'title' => 'MOGELIJK NIEUW GEBOUW - ' . ($display !== '' ? $display : $address),
       'uid' => (int) $this->currentUser->id(),
       'status' => 0,
       'field_brebo_building_code' => 'MAIL-BLD-' . $seed,
@@ -117,30 +99,21 @@ final class ProvisionalContextMaterializer {
     if (!$node instanceof NodeInterface) {
       throw new \RuntimeException('Voorlopig gebouw kon niet worden aangemaakt.');
     }
-
     $node->setNewRevision(TRUE);
     $node->setRevisionLogMessage('Mogelijk nieuw gebouw uit Mail Intake/PDOK; bronmail en reden zichtbaar voor beoordeling.');
     $node->save();
-
     $this->persistBuildingRelations((int) $node->id(), $candidate, $properties, $communication);
     return (int) $node->id();
   }
 
-  /**
-   * Persists scalable address and BAG relations next to the provisional node.
-   *
-   * @param array<string, mixed> $candidate
-   * @param array<string, mixed> $properties
-   */
+  /** @param array<string, mixed> $candidate @param array<string, mixed> $properties */
   private function persistBuildingRelations(int $buildingId, array $candidate, array $properties, NodeInterface $communication): void {
     if (!$this->buildingRelations instanceof BuildingRelationRepository) {
       return;
     }
-
     $source = trim((string) ($candidate['source'] ?? 'PDOK Locatieserver'));
     $sourceRef = trim((string) ($candidate['feature_id'] ?? ''));
     $retrievedAt = trim((string) ($candidate['retrieved_at'] ?? ''));
-
     $address = [
       'street' => $properties['straatnaam'] ?? NULL,
       'house_number' => $properties['huisnummer'] ?? NULL,
@@ -153,27 +126,16 @@ final class ProvisionalContextMaterializer {
       'source' => $source,
       'source_ref' => $sourceRef !== '' ? $sourceRef : ('communication:' . (int) $communication->id()),
     ];
-
     if ($this->hasAddressIdentity($address)) {
       $this->buildingRelations->upsertAddress($buildingId, $address);
     }
-
-    $bagKeys = [
-      'pand_id' => 'pand',
-      'adresseerbaarobject_id' => 'adresseerbaarobject',
-      'verblijfsobject_id' => 'verblijfsobject',
-      'nummeraanduiding_id' => 'nummeraanduiding',
-    ];
-    foreach ($bagKeys as $propertyKey => $bagType) {
+    foreach (['pand_id' => 'pand', 'adresseerbaarobject_id' => 'adresseerbaarobject', 'verblijfsobject_id' => 'verblijfsobject', 'nummeraanduiding_id' => 'nummeraanduiding'] as $propertyKey => $bagType) {
       $bagId = trim((string) ($properties[$propertyKey] ?? ''));
       if ($bagId === '') {
         continue;
       }
       $this->buildingRelations->upsertBagIdentity($buildingId, $bagType, $bagId, [
-        'is_primary' => $bagType === 'pand',
-        'source' => $source,
-        'source_ref' => $sourceRef,
-        'retrieved_at' => $retrievedAt,
+        'is_primary' => $bagType === 'pand', 'source' => $source, 'source_ref' => $sourceRef, 'retrieved_at' => $retrievedAt,
       ]);
     }
   }
@@ -182,10 +144,7 @@ final class ProvisionalContextMaterializer {
   private function hasAddressIdentity(array $address): bool {
     $postcode = trim((string) ($address['postal_code'] ?? ''));
     $houseNumber = trim((string) ($address['house_number'] ?? ''));
-    if ($postcode !== '' && $houseNumber !== '') {
-      return TRUE;
-    }
-    return trim((string) ($address['street'] ?? '')) !== '' && trim((string) ($address['city'] ?? '')) !== '';
+    return ($postcode !== '' && $houseNumber !== '') || (trim((string) ($address['street'] ?? '')) !== '' && trim((string) ($address['city'] ?? '')) !== '');
   }
 
   /** @param array<string, mixed> $resolution */
@@ -196,8 +155,7 @@ final class ProvisionalContextMaterializer {
 
   /** @param array<string, mixed> $resolution */
   private function candidateDisplayName(array $resolution): string {
-    $candidate = $this->firstCandidate($resolution);
-    return trim((string) ($candidate['display_name'] ?? ''));
+    return trim((string) ($this->firstCandidate($resolution)['display_name'] ?? ''));
   }
 
   /** @param array<string, mixed> $resolution */
@@ -210,38 +168,24 @@ final class ProvisionalContextMaterializer {
     $subject = $this->fieldValue($communication, 'field_brebo_comm_subject');
     $from = $this->fieldValue($communication, 'field_brebo_mail_from');
     $receivedAt = $this->fieldValue($communication, 'field_brebo_comm_datetime');
-
     $parts = [
       'STATUS: MOGELIJK NIEUW ' . mb_strtoupper($kind) . ' - nog niet bevestigd.',
-      'BEOORDELING NODIG: koppel aan een bestaand ' . $kind . ' of bevestig dat dit een nieuw ' . $kind . ' is.',
+      'BEOORDELING NODIG: koppel aan bestaand of bevestig nieuw.',
       'Broncommunicatie: #' . (int) $communication->id() . ' (/node/' . (int) $communication->id() . ').',
     ];
-    if ($subject !== '') {
-      $parts[] = 'E-mail onderwerp: ' . $subject . '.';
-    }
-    if ($from !== '') {
-      $parts[] = 'E-mail van: ' . $from . '.';
-    }
-    if ($receivedAt !== '') {
-      $parts[] = 'E-mail datum/tijd: ' . $receivedAt . '.';
-    }
-    $parts[] = 'Waarom voorgesteld: ' . ($basis !== '' ? $basis : 'Geen bestaande canonieke match gevonden.');
+    if ($subject !== '') { $parts[] = 'E-mail onderwerp: ' . $subject . '.'; }
+    if ($from !== '') { $parts[] = 'E-mail van: ' . $from . '.'; }
+    if ($receivedAt !== '') { $parts[] = 'E-mail datum/tijd: ' . $receivedAt . '.'; }
+    $parts[] = 'Waarom voorgesteld: ' . ($basis !== '' ? $basis : 'Voldoende concrete aanwijzingen voor menselijke beoordeling.');
     $parts[] = 'Externe bron: ' . ($source !== '' ? $source : 'Mail Intake') . '.';
-    if ($retrievedAt !== '') {
-      $parts[] = 'Externe gegevens opgehaald: ' . $retrievedAt . '.';
-    }
-    if ($featureId !== '') {
-      $parts[] = 'Externe feature-id: ' . $featureId . '.';
-    }
+    if ($retrievedAt !== '') { $parts[] = 'Externe gegevens opgehaald: ' . $retrievedAt . '.'; }
+    if ($featureId !== '') { $parts[] = 'Externe feature-id: ' . $featureId . '.'; }
     $parts[] = 'Dit voorstel mag pas na menselijke bevestiging gepubliceerd of als canonieke waarheid gebruikt worden.';
     return implode("\n", $parts);
   }
 
   private function fieldValue(NodeInterface $node, string $fieldName): string {
-    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
-      return '';
-    }
+    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) { return ''; }
     return trim((string) $node->get($fieldName)->value);
   }
-
 }
