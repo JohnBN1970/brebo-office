@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\brebo_office_core\Project\ProjectLifecycleStatus;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
@@ -33,7 +34,7 @@ final class ProjectPortfolioController extends ControllerBase {
     $relatedCounts = $this->relatedCounts(array_map('intval', $projectIds));
     $planning = $this->planningSummary(array_map('intval', $projectIds));
 
-    $statusOptions = [];
+    $statusOptions = ProjectLifecycleStatus::options();
     $items = [];
     $today = new \DateTimeImmutable('today');
     $recentBoundary = $today->modify('-7 days')->getTimestamp();
@@ -43,11 +44,8 @@ final class ProjectPortfolioController extends ControllerBase {
         continue;
       }
       $projectId = (int) $project->id();
-      $status = $this->value($project, 'field_brebo_status');
-      if ($status === '—' || $status === '') {
-        $status = (string) $this->t('Geen status');
-      }
-      $statusOptions[$status] = $status;
+      $statusValue = ProjectLifecycleStatus::value($project);
+      $status = ProjectLifecycleStatus::label($project);
 
       $buildings = $project->hasField('field_brebo_building_refs')
         ? $project->get('field_brebo_building_refs')->referencedEntities()
@@ -90,7 +88,7 @@ final class ProjectPortfolioController extends ControllerBase {
       if ($search !== '' && !str_contains($searchText, mb_strtolower($search))) {
         continue;
       }
-      if ($statusFilter !== '' && $status !== $statusFilter) {
+      if ($statusFilter !== '' && $statusValue !== $statusFilter) {
         continue;
       }
       if ($attentionFilter !== '' && $plan['signal'] !== $attentionFilter) {
@@ -101,6 +99,9 @@ final class ProjectPortfolioController extends ControllerBase {
         'project' => $project,
         'id' => $projectId,
         'status' => $status,
+        'status_value' => $statusValue,
+        'active' => ProjectLifecycleStatus::isActive($project),
+        'execution' => ProjectLifecycleStatus::isExecution($project),
         'buildings' => $buildingLabels,
         'building_links' => $buildingLinks,
         'counts' => $counts,
@@ -120,15 +121,12 @@ final class ProjectPortfolioController extends ControllerBase {
       'recent' => 0,
     ];
     foreach ($items as $item) {
-      $statusLower = mb_strtolower((string) $item['status']);
-      $finished = str_contains($statusLower, 'gereed') || str_contains($statusLower, 'afgerond') || str_contains($statusLower, 'gesloten');
-      $kpis['active'] += $finished ? 0 : 1;
-      $kpis['execution'] += str_contains($statusLower, 'uitvoer') ? 1 : 0;
+      $kpis['active'] += $item['active'] ? 1 : 0;
+      $kpis['execution'] += $item['execution'] ? 1 : 0;
       $kpis['attention'] += $item['attention'] ? 1 : 0;
       $kpis['recent'] += $item['changed'] >= $recentBoundary ? 1 : 0;
     }
 
-    ksort($statusOptions, SORT_NATURAL | SORT_FLAG_CASE);
     $baseQuery = array_filter([
       'q' => $search,
       'status' => $statusFilter,
@@ -162,14 +160,14 @@ final class ProjectPortfolioController extends ControllerBase {
           '#template' => '<form method="get" class="brebo-project-controls__form">'
             . '<input type="hidden" name="view" value="{{ view }}">'
             . '<label><span>Zoeken</span><input type="search" name="q" value="{{ q }}" placeholder="Project, code, opdrachtgever of gebouw"></label>'
-            . '<label><span>Status</span><select name="status"><option value="">Alle statussen</option>{% for option in statuses %}<option value="{{ option }}"{% if option == status %} selected{% endif %}>{{ option }}</option>{% endfor %}</select></label>'
+            . '<label><span>Status</span><select name="status"><option value="">Alle statussen</option>{% for value, label in statuses %}<option value="{{ value }}"{% if value == status %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>'
             . '<label><span>Stoplicht</span><select name="attention"><option value="">Alles</option><option value="red"{% if attention == "red" %} selected{% endif %}>Rood</option><option value="orange"{% if attention == "orange" %} selected{% endif %}>Oranje</option><option value="green"{% if attention == "green" %} selected{% endif %}>Groen</option></select></label>'
             . '<label><span>Sorteren</span><select name="sort"><option value="changed_desc"{% if sort == "changed_desc" %} selected{% endif %}>Laatst gewijzigd</option><option value="name_asc"{% if sort == "name_asc" %} selected{% endif %}>Projectnaam</option><option value="code_asc"{% if sort == "code_asc" %} selected{% endif %}>Projectnummer</option><option value="start_asc"{% if sort == "start_asc" %} selected{% endif %}>Startdatum</option><option value="end_asc"{% if sort == "end_asc" %} selected{% endif %}>Einddatum</option><option value="progress_desc"{% if sort == "progress_desc" %} selected{% endif %}>Voortgang</option><option value="attention"{% if sort == "attention" %} selected{% endif %}>Urgentie</option></select></label>'
             . '<button type="submit" class="button">Toepassen</button><a href="{{ reset }}" class="button">Wissen</a></form>',
           '#context' => [
             'view' => $view,
             'q' => $search,
-            'statuses' => array_values($statusOptions),
+            'statuses' => $statusOptions,
             'status' => $statusFilter,
             'attention' => $attentionFilter,
             'sort' => $sort,
