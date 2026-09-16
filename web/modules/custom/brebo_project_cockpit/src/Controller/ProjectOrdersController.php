@@ -59,7 +59,7 @@ final class ProjectOrdersController extends ControllerBase {
     if ($contract !== []) {
       $assignmentRows[] = [
         (string) ($contract['contract_number'] ?? '—'),
-        (string) ($contract['client_ref'] ?? 'Opdrachtgever'),
+        (string) ($contract['client_ref'] ?? '—'),
         (string) ($contract['status'] ?? '—'),
         $this->money($contract['amount_ex_vat'] ?? NULL),
         $this->money($contract['amount_inc_vat'] ?? NULL),
@@ -102,7 +102,7 @@ final class ProjectOrdersController extends ControllerBase {
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Opdrachtnummer'), $this->t('Opdrachtgever'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
+          '#header' => [$this->t('Opdrachtnummer'), $this->t('Referentie opdrachtgever'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
           '#rows' => $assignmentRows,
           '#empty' => $this->t('Voor dit project is nog geen opdracht van de opdrachtgever geregistreerd.'),
         ],
