@@ -12,11 +12,13 @@ final class ProjectDossierNavigationContractTest extends TestCase {
   public function testCanonicalProjectDossierNavigation(): void {
     $root = dirname(__DIR__);
     $module = file_get_contents($root . '/brebo_project_cockpit.module');
-    $controller = file_get_contents($root . '/src/Controller/ProjectCockpitController.php');
+    $controller = file_get_contents($root . '/src/Controller/CanonicalProjectCockpitController.php');
+    $subscriber = file_get_contents($root . '/src/Routing/ProjectCockpitRouteSubscriber.php');
     $routing = file_get_contents($root . '/brebo_project_cockpit.routing.yml');
 
     self::assertIsString($module);
     self::assertIsString($controller);
+    self::assertIsString($subscriber);
     self::assertIsString($routing);
 
     $canonical = [
@@ -42,14 +44,12 @@ final class ProjectDossierNavigationContractTest extends TestCase {
       self::assertStringContainsString($route . ':', $routing, "Route {$route} ontbreekt uit routing.yml.");
     }
 
-    self::assertStringNotContainsString("['Calculatie',", $module, 'Calculatie mag niet meer als zichtbare projecttab bestaan.');
-    self::assertStringNotContainsString("['Inkoop',", $module, 'Inkoop mag niet meer als zichtbare projecttab bestaan.');
-    self::assertStringNotContainsString("['Kwaliteit',", $module, 'Kwaliteit mag niet meer als zichtbare projecttab bestaan.');
-
-    foreach ($canonical as $label => $route) {
-      $needle = "['{$label}', '{$route}'";
-      self::assertStringContainsString($needle, $controller, "Het projectoverzicht gebruikt voor {$label} nog niet dezelfde canonieke route.");
-    }
+    self::assertStringNotContainsString("['Calculatie',", $module);
+    self::assertStringNotContainsString("['Inkoop',", $module);
+    self::assertStringNotContainsString("['Kwaliteit',", $module);
+    self::assertStringContainsString('_brebo_project_cockpit_tabs(', $controller);
+    self::assertStringContainsString('CanonicalProjectCockpitController::overview', $subscriber);
+    self::assertStringContainsString('CanonicalProjectCockpitController::title', $subscriber);
   }
 
 }
