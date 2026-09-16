@@ -12,9 +12,7 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/**
- * Shows the execution budget and its commercial source for a project.
- */
+/** Shows the work budget and its source calculation for a project. */
 final class ProjectBudgetController extends ControllerBase {
 
   public function __construct(
@@ -93,34 +91,34 @@ final class ProjectBudgetController extends ControllerBase {
         $this->value($calculation, 'field_brebo_calc_code'),
         $package instanceof NodeInterface ? $package->label() : '—',
         $this->value($calculation, 'field_brebo_calc_status'),
-        ['data' => Link::fromTextAndUrl($this->t('Open calculatiewerkbank'), Url::fromRoute('brebo_calculation.workbench', ['node' => $calculation->id()]))->toRenderable()],
+        ['data' => Link::fromTextAndUrl($this->t('Calculatie openen'), Url::fromRoute('brebo_calculation.workbench', ['node' => $calculation->id()]))->toRenderable()],
       ];
     }
 
     return [
-      'principle' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-budget-principle']],
-        'title' => ['#markup' => '<h2>' . $this->t('Werkbegroting is leidend') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('De werkbegroting is de uitvoeringswaarheid van het project. De broncalculatie en offerte blijven beschikbaar als onveranderlijke commerciële herkomst voor herleiding, vergelijking en nacalculatie.') . '</p>'],
-      ],
       'budgets' => [
         '#type' => 'table',
-        '#caption' => $this->t('Werkbegroting — leidend voor uitvoering'),
-        '#header' => [$this->t('Werkbegroting'), $this->t('Werkpakket'), $this->t('Status'), $this->t('Broncalculatie'), $this->t('Gewijzigd')],
+        '#caption' => $this->t('Werkbegroting'),
+        '#header' => [$this->t('Werkbegroting'), $this->t('Werkpakket'), $this->t('Status'), $this->t('Calculatie'), $this->t('Gewijzigd')],
         '#rows' => $budget_rows,
         '#empty' => $this->t('Voor dit project is nog geen werkbegroting vastgesteld.'),
       ],
       'sources' => [
         '#type' => 'details',
-        '#title' => $this->t('Broncalculatie / offerte — referentie en herleiding'),
-        '#open' => TRUE,
+        '#title' => $this->t('Calculatie en offerte'),
+        '#open' => FALSE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Calculatie'), $this->t('Code'), $this->t('Werkpakket'), $this->t('Status'), $this->t('Herleiding')],
+          '#header' => [$this->t('Calculatie'), $this->t('Code'), $this->t('Werkpakket'), $this->t('Status'), $this->t('Openen')],
           '#rows' => $calculation_rows,
-          '#empty' => $this->t('Voor dit project is nog geen broncalculatie gekoppeld.'),
+          '#empty' => $this->t('Voor dit project is nog geen calculatie gekoppeld.'),
         ],
+      ],
+      'explanation' => [
+        '#type' => 'details',
+        '#title' => $this->t('Toelichting'),
+        '#open' => FALSE,
+        'text' => ['#markup' => '<p>' . $this->t('De werkbegroting is de begroting voor de uitvoering. De oorspronkelijke calculatie en offerte blijven beschikbaar voor vergelijking en nacalculatie.') . '</p>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],

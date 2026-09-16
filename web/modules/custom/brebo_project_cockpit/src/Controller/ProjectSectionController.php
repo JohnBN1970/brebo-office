@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Controller;
 
+use Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder;
+use Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder;
-use Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator;
 
-/**
- * Project-scoped shortcomings and completion pages.
- */
+/** Project-scoped shortcomings and completion pages. */
 final class ProjectSectionController extends ControllerBase {
 
   public function __construct(
@@ -71,16 +69,22 @@ final class ProjectSectionController extends ControllerBase {
       'summary' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-project-section-summary']],
-        'status' => ['#markup' => '<strong>Status:</strong> ' . $this->t('@status', ['@status' => (string) ($quality['status'] ?? 'grijs')])],
+        'status' => ['#markup' => '<strong>' . $this->t('Status') . ':</strong> ' . $this->t('@status', ['@status' => (string) ($quality['status'] ?? 'grijs')])],
         'message' => ['#markup' => '<div>' . $this->t('@message', ['@message' => (string) ($quality['message'] ?? 'Nog geen tekortkomingsinformatie.')]) . '</div>'],
       ],
       'deviations' => [
         '#type' => 'table',
-        '#header' => [$this->t('Tekortkoming'), $this->t('Status'), $this->t('Gewijzigd')],
+        '#caption' => $this->t('Tekortkomingen'),
+        '#header' => [$this->t('Tekortkoming'), $this->t('Status'), $this->t('Laatst gewijzigd')],
         '#rows' => $rows,
         '#empty' => $this->t('Geen tekortkomingen voor dit project.'),
       ],
-      'all' => Link::fromTextAndUrl($this->t('Alle tekortkomingen openen'), Url::fromRoute('brebo_office_core.deviations'))->toRenderable(),
+      'all' => [
+        '#type' => 'link',
+        '#title' => $this->t('Alle tekortkomingen'),
+        '#url' => Url::fromRoute('brebo_office_core.deviations'),
+        '#attributes' => ['class' => ['button']],
+      ],
       '#cache' => ['tags' => ['node:' . $projectId, 'node_list'], 'contexts' => ['user.permissions']],
     ];
   }
@@ -109,20 +113,23 @@ final class ProjectSectionController extends ControllerBase {
     }
 
     return [
-      'intro' => [
-        '#markup' => '<p>' . $this->t('Projectoplevering wordt hier projectgebonden voorbereid en gevolgd. De pagina gebruikt de bestaande projectmijlpalen als bron en maakt geen losse schaduwregistratie.') . '</p>',
-      ],
       'phase' => [
-        '#markup' => '<p><strong>' . $this->t('Huidige fase:') . '</strong> ' . $this->t('@phase', ['@phase' => (string) ($milestones['current_phase'] ?? '—')]) . '</p>',
+        '#markup' => '<p><strong>' . $this->t('Fase:') . '</strong> ' . $this->t('@phase', ['@phase' => (string) ($milestones['current_phase'] ?? '—')]) . '</p>',
       ],
       'next' => [
         '#markup' => '<p><strong>' . $this->t('Volgende mijlpaal:') . '</strong> ' . $this->t('@next', ['@next' => (string) ($next['label'] ?? '—')]) . '</p>',
       ],
       'milestones' => [
         '#theme' => 'item_list',
-        '#title' => $this->t('Oplevermijlpalen'),
+        '#title' => $this->t('Mijlpalen oplevering'),
         '#items' => $items,
-        '#empty' => $this->t('Nog geen oplevermijlpalen beschikbaar.'),
+        '#empty' => $this->t('Nog geen mijlpalen voor de oplevering beschikbaar.'),
+      ],
+      'explanation' => [
+        '#type' => 'details',
+        '#title' => $this->t('Toelichting'),
+        '#open' => FALSE,
+        'text' => ['#markup' => '<p>' . $this->t('De oplevering volgt de planning en de vastgelegde projectmijlpalen. Restpunten en tekortkomingen worden in het projectdossier apart bijgehouden.') . '</p>'],
       ],
       '#cache' => ['tags' => ['node:' . $projectId, 'node_list'], 'contexts' => ['user.permissions']],
     ];

@@ -12,7 +12,7 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Unified incoming/outgoing project invoice register with filters and sorting. */
+/** Unified project invoice register with filters and sorting. */
 final class ProjectInvoiceRegisterController extends ControllerBase {
 
   public function __construct(private readonly Connection $database) {}
@@ -47,7 +47,7 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
       $counts[$invoiceState] = ($counts[$invoiceState] ?? 0) + 1;
       $rows[] = [
         'direction' => 'incoming',
-        'direction_label' => 'Inkomend',
+        'direction_label' => 'Inkoopfactuur',
         'relation' => (string) ($invoice['supplier_name'] ?? '—'),
         'number' => (string) ($invoice['invoice_number'] ?? '—'),
         'date' => (string) ($invoice['invoice_date'] ?? ''),
@@ -70,7 +70,7 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
       $counts[$invoiceState] = ($counts[$invoiceState] ?? 0) + 1;
       $rows[] = [
         'direction' => 'outgoing',
-        'direction_label' => 'Uitgaand',
+        'direction_label' => 'Verkoopfactuur',
         'relation' => (string) ($invoice['customer_name'] ?? $invoice['customer_ref'] ?? 'Opdrachtgever'),
         'number' => (string) ($invoice['invoice_number'] ?? '—'),
         'date' => (string) ($invoice['invoice_date'] ?? ''),
@@ -80,7 +80,7 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
         'gross' => $gross,
         'paid' => $paid,
         'open' => $open,
-        'control' => trim((string) ($invoice['dispute_reason'] ?? '')) !== '' ? 'Geschil' : '—',
+        'control' => trim((string) ($invoice['dispute_reason'] ?? '')) !== '' ? 'In geschil' : '—',
       ];
     }
 
@@ -107,50 +107,50 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
     }, $rows);
 
     return [
-      'principle' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-invoices-principle']],
-        'title' => ['#markup' => '<h2>' . $this->t('Alle projectfacturen') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Inkomende en uitgaande facturen staan in één projectregister. Een order of contract is geen verplichte voorwaarde: losse facturen blijven via Finance classificeerbaar en fiatteerbaar.') . '</p>'],
-      ],
-      'kpis' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-procurement-kpis']],
-        'incoming' => ['#markup' => $this->countKpi('Inkomend', $counts['incoming'])],
-        'outgoing' => ['#markup' => $this->countKpi('Uitgaand', $counts['outgoing'])],
-        'open' => ['#markup' => $this->countKpi('Open', $counts['open'])],
-        'overdue' => ['#markup' => $this->countKpi('Vervallen', $counts['overdue'])],
-        'paid' => ['#markup' => $this->countKpi('Betaald', $counts['paid'])],
-      ],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
         'new_sales' => [
           '#type' => 'link',
-          '#title' => $this->t('Nieuwe uitgaande factuur'),
+          '#title' => $this->t('Verkoopfactuur aanmaken'),
           '#url' => Url::fromRoute('brebo_project_cockpit.sales_invoice_draft_add', ['node' => $projectId]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
         'sales_management' => [
           '#type' => 'link',
-          '#title' => $this->t('Termijnen & verkoopfacturatie'),
+          '#title' => $this->t('Termijnfacturatie'),
           '#url' => Url::fromRoute('brebo_project_cockpit.sales_invoices', ['node' => $projectId]),
           '#attributes' => ['class' => ['button']],
         ],
         'finance' => [
           '#type' => 'link',
-          '#title' => $this->t('Open in Finance'),
+          '#title' => $this->t('Projectadministratie'),
           '#url' => Url::fromRoute('brebo_finance.project_finance_page', ['project_nid' => $projectId]),
           '#attributes' => ['class' => ['button']],
         ],
       ],
+      'kpis' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-procurement-kpis']],
+        'incoming' => ['#markup' => $this->countKpi('Inkoopfacturen', $counts['incoming'])],
+        'outgoing' => ['#markup' => $this->countKpi('Verkoopfacturen', $counts['outgoing'])],
+        'open' => ['#markup' => $this->countKpi('Openstaand', $counts['open'])],
+        'overdue' => ['#markup' => $this->countKpi('Vervallen', $counts['overdue'])],
+        'paid' => ['#markup' => $this->countKpi('Betaald', $counts['paid'])],
+      ],
       'filters' => $this->formBuilder()->getForm(ProjectInvoiceFilterForm::class, $node, $direction, $state, $sort),
       'register' => [
         '#type' => 'table',
-        '#header' => [$this->t('Richting'), $this->t('Relatie'), $this->t('Factuur'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Incl. btw'), $this->t('Betaald'), $this->t('Open'), $this->t('Controle')],
+        '#header' => [$this->t('Soort'), $this->t('Relatie'), $this->t('Factuurnummer'), $this->t('Factuurdatum'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Bedrag incl. btw'), $this->t('Betaald'), $this->t('Openstaand'), $this->t('Controle')],
         '#rows' => $tableRows,
         '#empty' => $this->t('Geen facturen gevonden voor de gekozen filters.'),
         '#sticky' => TRUE,
+      ],
+      'explanation' => [
+        '#type' => 'details',
+        '#title' => $this->t('Toelichting'),
+        '#open' => FALSE,
+        'text' => ['#markup' => '<p>' . $this->t('Dit register toont alle inkoop- en verkoopfacturen van het project. Een factuur kan ook zonder gekoppelde order of contract in Finance worden verwerkt en gefiatteerd.') . '</p>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions', 'url.query_args:direction', 'url.query_args:state', 'url.query_args:sort'],
@@ -195,7 +195,7 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
       'partial' => (string) $this->t('Deels betaald'),
       'overdue' => (string) $this->t('Vervallen'),
       'disputed' => (string) $this->t('In geschil'),
-      default => (string) $this->t('Open'),
+      default => (string) $this->t('Openstaand'),
     };
   }
 
