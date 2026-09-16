@@ -125,14 +125,19 @@ final class ProjectOrderAddForm extends FormBase {
       foreach ($this->workingBudgetLines($projectId) as $line) {
         $allowed[(int) $line['id']] = (float) $line['remaining_ex_vat'];
       }
+      $aggregated = [];
       foreach ((array) (((array) $form_state->getValue('proposal'))['lines'] ?? []) as $key => $line) {
         $budgetLineId = (int) ($line['budget_line_id'] ?? 0);
         $amount = (float) ($line['quantity'] ?? 0) * (float) ($line['unit_price_ex_vat'] ?? 0);
         if (!isset($allowed[$budgetLineId])) {
           $form_state->setErrorByName("proposal][lines][$key][budget_line_id", $this->t('Ongeldige werkbegrotingsregel.'));
+          continue;
         }
-        elseif ($amount > $allowed[$budgetLineId] + 0.005) {
-          $form_state->setErrorByName("proposal][lines][$key][unit_price_ex_vat", $this->t('Deze orderregel overschrijdt het resterende werkbegrotingsbedrag.'));
+        $aggregated[$budgetLineId] = ($aggregated[$budgetLineId] ?? 0.0) + $amount;
+      }
+      foreach ($aggregated as $budgetLineId => $amount) {
+        if ($amount > $allowed[$budgetLineId] + 0.005) {
+          $form_state->setErrorByName('proposal][lines', $this->t('De gezamenlijke orderregels op werkbegrotingsregel @id overschrijden het resterende werkbegrotingsbedrag.', ['@id' => $budgetLineId]));
         }
       }
     }
@@ -155,7 +160,7 @@ final class ProjectOrderAddForm extends FormBase {
         'project_id' => $projectId,
         'source_text' => (string) $form_state->getValue('source_text'),
         'supplier_hint' => (string) $form_state->getValue('supplier_hint'),
-        'budget_lines' => $this->workingBudgetLines($projectId),
+        'budget_lines' => $this->aiBudgetLines($this->workingBudgetLines($projectId)),
       ]);
       if (($result['state'] ?? NULL) !== 'completed' || !is_array($result['draft'] ?? NULL)) {
         $this->messenger()->addWarning($this->t('AI-orderconcept kon niet worden gemaakt. Status: @state.', ['@state' => (string) ($result['state'] ?? 'onbekend')]));
@@ -169,9 +174,16 @@ final class ProjectOrderAddForm extends FormBase {
     $userId = (int) $this->currentUser()->id();
     if ($trigger === 'ai_create') {
       $proposal = (array) $form_state->getValue('proposal');
-      $commitmentId = $this->commitmentManager->createDraft($projectId, (string) ($proposal['supplier_name'] ?? ''), trim((string) ($proposal['supplier_ref'] ?? '')) ?: NULL, $userId);
-      foreach ((array) ($proposal['lines'] ?? []) as $line) {
-        $this->commitmentManager->addLine($commitmentId, (int) ($line['budget_line_id'] ?? 0), (string) ($line['description'] ?? ''), (string) ($line['quantity'] ?? ''), (string) ($line['unit'] ?? ''), (string) ($line['unit_price_ex_vat'] ?? ''), (string) ($line['vat_rate'] ?? '21'), !empty($line['vat_reverse_charge']), '0', $userId);
+      $transaction = $this->database->startTransaction();
+      try {
+        $commitmentId = $this->commitmentManager->createDraft($projectId, (string) ($proposal['supplier_name'] ?? ''), trim((string) ($proposal['supplier_ref'] ?? '')) ?: NULL, $userId);
+        foreach ((array) ($proposal['lines'] ?? []) as $line) {
+          $this->commitmentManager->addLine($commitmentId, (int) ($line['budget_line_id'] ?? 0), (string) ($line['description'] ?? ''), (string) ($line['quantity'] ?? ''), (string) ($line['unit'] ?? ''), (string) ($line['unit_price_ex_vat'] ?? ''), (string) ($line['vat_rate'] ?? '21'), !empty($line['vat_reverse_charge']), '0', $userId);
+        }
+      }
+      catch (\Throwable $exception) {
+        $transaction->rollBack();
+        throw $exception;
       }
       $this->messenger()->addStatus($this->t('Gecontroleerd AI-conceptorder @id is aangemaakt. De order is nog niet verzonden.', ['@id' => $commitmentId]));
       $form_state->setRedirect('brebo_project_cockpit.orders', ['node' => $projectId]);
@@ -193,10 +205,20 @@ final class ProjectOrderAddForm extends FormBase {
     $rows = $this->database->select('brebo_finance_budget_line', 'l')->fields('l')->condition('budget_id', (int) $budget)->orderBy('sort_order', 'ASC')->orderBy('id', 'ASC')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     foreach ($rows as &$row) {
       $row['code'] = (string) ($row['cost_code'] ?? $row['line_number'] ?? $row['id']);
-      $row['remaining_ex_vat'] = max(0.0, (float) ($row['amount_ex_vat'] ?? 0) - $this->committedForBudgetLine((int) $row['id']));
+      $row['remaining_ex_vat'] = max(0.0, (float) ($row['amount_ex_vat'] ?? 0) + $this->approvedMutationForBudgetLine((int) $row['id']) - $this->committedForBudgetLine((int) $row['id']));
     }
     unset($row);
     return $rows;
+  }
+
+  /** @param array<int, array<string, mixed>> $budgetLines */
+  private function aiBudgetLines(array $budgetLines): array {
+    return array_map(static fn(array $line): array => [
+      'id' => (int) $line['id'],
+      'code' => (string) ($line['code'] ?? $line['id']),
+      'description' => (string) ($line['description'] ?? ''),
+      'remaining_ex_vat' => (float) ($line['remaining_ex_vat'] ?? 0),
+    ], $budgetLines);
   }
 
   /** @param array<int, array<string, mixed>> $budgetLines */
@@ -215,6 +237,16 @@ final class ProjectOrderAddForm extends FormBase {
     $query = $this->database->select('brebo_finance_commitment_line', 'l');
     $query->join('brebo_finance_commitment', 'c', 'c.id = l.commitment_id');
     $query->condition('l.budget_line_id', $budgetLineId)->condition('c.status', ['cancelled'], 'NOT IN')->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)', 'committed_total');
+    return (float) $query->execute()->fetchField();
+  }
+
+  private function approvedMutationForBudgetLine(int $budgetLineId): float {
+    if (!$this->database->schema()->tableExists('brebo_finance_budget_mutation_line') || !$this->database->schema()->tableExists('brebo_finance_budget_mutation')) {
+      return 0.0;
+    }
+    $query = $this->database->select('brebo_finance_budget_mutation_line', 'ml');
+    $query->join('brebo_finance_budget_mutation', 'm', 'm.id = ml.mutation_id');
+    $query->condition('ml.budget_line_id', $budgetLineId)->condition('m.status', 'approved')->addExpression('COALESCE(SUM(ml.adjustment_ex_vat), 0)', 'approved_adjustment');
     return (float) $query->execute()->fetchField();
   }
 
