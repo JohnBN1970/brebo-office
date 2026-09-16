@@ -50,7 +50,7 @@
   background: var(--brebo-bg-surface);
 }
 
-/* BREBO orange is an orientation color, not wallpaper. Use it for the active
+/* BREBO purple is an orientation color, not wallpaper. Use it for the active
  * route and the one primary action; keep working surfaces neutral. */
 .brebo-shell--authenticated :is(.button--primary,.brebo-button--primary) {
   border-color: var(--brebo-accent-primary);
@@ -165,7 +165,7 @@
   box-shadow: none;
 }
 
-/* Status colors keep their semantic meaning. BREBO orange must never replace
+/* Status colors keep their semantic meaning. Brand purple must never replace
  * green/red/warning colors for actual status information. */
 .brebo-shell--authenticated :is(.brebo-project-cockpit__attention,.messages--warning) {
   border-left-color: var(--brebo-status-warning);
