@@ -7,6 +7,11 @@
     night: Drupal.t('Nacht'),
     system: Drupal.t('Systeem'),
   };
+  const ICONS = {
+    day: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.93 4.93l1.42 1.42M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.42-1.42M17.66 6.34l1.41-1.41"></path></svg>',
+    night: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5 8.5 8.5 0 1 0 20.5 14.2Z"></path></svg>',
+    system: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8M12 16v4"></path></svg>',
+  };
 
   function settings() {
     return drupalSettings.breboOfficeAppearance || {};
@@ -22,7 +27,6 @@
     if (MODES.includes(serverMode)) {
       return serverMode;
     }
-
     try {
       const stored = window.localStorage.getItem(storageKey());
       return MODES.includes(stored) ? stored : 'system';
@@ -33,65 +37,38 @@
   }
 
   function saveLocalMode(mode) {
-    if (!MODES.includes(mode)) {
-      return;
-    }
-    try {
-      window.localStorage.setItem(storageKey(), mode);
-    }
-    catch (error) {
-      // Storage can be unavailable in privacy-restricted browser contexts.
-    }
+    if (!MODES.includes(mode)) return;
+    try { window.localStorage.setItem(storageKey(), mode); }
+    catch (error) {}
   }
 
   async function persistMode(mode) {
     const persistUrl = settings().persistUrl;
-    if (!persistUrl || !MODES.includes(mode)) {
-      return;
-    }
-
+    if (!persistUrl || !MODES.includes(mode)) return;
     try {
-      const tokenResponse = await fetch(Drupal.url('session/token'), {
-        credentials: 'same-origin',
-      });
-      if (!tokenResponse.ok) {
-        return;
-      }
-
+      const tokenResponse = await fetch(Drupal.url('session/token'), {credentials: 'same-origin'});
+      if (!tokenResponse.ok) return;
       const token = await tokenResponse.text();
       const response = await fetch(persistUrl, {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRF-Token': token,
-        },
+        method: 'POST', credentials: 'same-origin',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': token},
         body: JSON.stringify({mode}),
       });
-
       if (response.ok) {
         settings().defaultMode = mode;
-        try {
-          window.localStorage.removeItem(storageKey());
-        }
-        catch (error) {
-          // Local fallback cleanup is optional.
-        }
+        try { window.localStorage.removeItem(storageKey()); }
+        catch (error) {}
       }
     }
-    catch (error) {
-      // The local preference remains active if server persistence is unavailable.
-    }
+    catch (error) {}
   }
 
   function applyMode(mode) {
     const safeMode = MODES.includes(mode) ? mode : 'system';
     document.documentElement.dataset.breboTheme = safeMode;
     document.documentElement.dataset.breboThemePreference = safeMode;
-
     document.querySelectorAll('[data-brebo-theme-mode]').forEach((button) => {
-      const active = button.dataset.breboThemeMode === safeMode;
-      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+      button.setAttribute('aria-pressed', button.dataset.breboThemeMode === safeMode ? 'true' : 'false');
     });
   }
 
@@ -106,7 +83,8 @@
       button.type = 'button';
       button.className = 'brebo-theme-switcher__button';
       button.dataset.breboThemeMode = mode;
-      button.textContent = LABELS[mode];
+      button.innerHTML = `<span class="brebo-theme-switcher__icon">${ICONS[mode]}</span><span class="visually-hidden">${LABELS[mode]}</span>`;
+      button.setAttribute('aria-label', LABELS[mode]);
       button.title = Drupal.t('Weergave: @mode', {'@mode': LABELS[mode]});
       button.addEventListener('click', () => {
         saveLocalMode(mode);
@@ -115,13 +93,10 @@
       });
       wrapper.appendChild(button);
     });
-
     return wrapper;
   }
 
-  // Apply the server preference as soon as this asset executes.
   applyMode(readMode());
-
   Drupal.behaviors.breboOfficeThemePreference = {
     attach(context) {
       once('brebo-theme-switcher', '.brebo-office-nav__footer', context).forEach((footer) => {
