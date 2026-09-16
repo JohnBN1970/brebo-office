@@ -71,7 +71,7 @@ html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text
 .brebo-theme-switcher__icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
 .brebo-theme-switcher__button[aria-pressed='true'] { color:var(--brebo-accent-text); box-shadow:inset 0 -2px 0 var(--brebo-accent-primary); }
 
-@media (max-width: 72rem) {
+@media (max-width: 73.75rem) {
   .brebo-shell--authenticated .brebo-project-controls__form { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .brebo-shell--authenticated .brebo-project-controls__form > button,
   .brebo-shell--authenticated .brebo-project-controls__form > .button { width:100%; }
