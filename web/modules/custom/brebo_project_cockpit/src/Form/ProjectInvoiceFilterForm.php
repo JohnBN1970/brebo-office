@@ -31,12 +31,12 @@ final class ProjectInvoiceFilterForm extends FormBase {
     $form['#attributes']['class'][] = 'brebo-filter-bar';
     $form['direction'] = [
       '#type' => 'select',
-      '#title' => $this->t('Richting'),
+      '#title' => $this->t('Soort factuur'),
       '#default_value' => $direction,
       '#options' => [
-        'all' => $this->t('Alle'),
-        'incoming' => $this->t('Inkomend'),
-        'outgoing' => $this->t('Uitgaand'),
+        'all' => $this->t('Alle facturen'),
+        'incoming' => $this->t('Inkoopfacturen'),
+        'outgoing' => $this->t('Verkoopfacturen'),
       ],
     ];
     $form['state'] = [
@@ -44,8 +44,8 @@ final class ProjectInvoiceFilterForm extends FormBase {
       '#title' => $this->t('Status'),
       '#default_value' => $state,
       '#options' => [
-        'all' => $this->t('Alle'),
-        'open' => $this->t('Open'),
+        'all' => $this->t('Alle statussen'),
+        'open' => $this->t('Openstaand'),
         'overdue' => $this->t('Vervallen'),
         'paid' => $this->t('Betaald'),
         'partial' => $this->t('Deels betaald'),
