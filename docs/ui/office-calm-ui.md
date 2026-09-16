@@ -30,6 +30,22 @@ Een scherm heeft één primaire taak. De gebruiker ziet eerst wat nodig is om te
 - Een leeg scherm geeft één duidelijke vervolgstap, geen reeks losse knoppen.
 - Desktop en mobiel volgen dezelfde informatievolgorde.
 
+## Terminologie
+
+BREBO Office gebruikt in de gebruikersinterface zoveel mogelijk de gangbare Nederlandse bouw- en administratietermen. We verzinnen geen eigen managementtaal wanneer er al een herkenbare vakterm bestaat.
+
+Voorbeelden:
+
+- planning, voortgang en gereedmelding;
+- begroting, werkbegroting, kosten, opbrengsten, resultaat en marge;
+- inkooporder en verkooporder;
+- contract, termijn, factuur, betaling en openstaand bedrag;
+- meerwerk en minderwerk;
+- tekortkoming, oplevering en restpunt;
+- opdrachtgever, opdrachtnemer, leverancier en onderaannemer.
+
+Interne technische begrippen mogen in code blijven bestaan, maar worden niet zonder noodzaak als schermtitel, knoptekst, tabelkop of statuslabel aan gebruikers getoond. Als een term vakinhoudelijk meerdere betekenissen kan hebben, wordt de betekenis eerst binnen BREBO vastgesteld voordat de UI-benaming wordt gewijzigd.
+
 ## Dichtheid
 
 BREBO Office is een operationeel systeem, geen marketingwebsite. De UI is compact maar niet druk:
@@ -74,5 +90,5 @@ Een scherm is pas klaar wanneer:
 - de primaire actie ondubbelzinnig is;
 - er geen dubbele of concurrerende actieknoppen zijn;
 - detailinformatie de hoofdtaak niet verdringt;
-- terminologie overeenkomt met de rest van Office;
+- terminologie overeenkomt met de rest van Office en gangbaar is in de Nederlandse bouw-/bedrijfsadministratie;
 - dag/nacht en mobiel dezelfde hiërarchie behouden.
