@@ -52,9 +52,10 @@
 
 /* BREBO purple is an orientation color, not wallpaper. Use it for the active
  * route and the one primary action; keep working surfaces neutral. */
-.brebo-shell--authenticated :is(.button--primary,.brebo-button--primary) {
+.brebo-shell--authenticated :is(.button--primary,.brebo-button--primary,input[type="submit"]) {
   border-color: var(--brebo-accent-primary);
   background: var(--brebo-accent-primary);
+  color: var(--brebo-accent-foreground);
 }
 
 .brebo-shell--authenticated .brebo-context-tabs {
