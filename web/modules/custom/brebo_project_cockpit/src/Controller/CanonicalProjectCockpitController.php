@@ -70,6 +70,15 @@ final class CanonicalProjectCockpitController extends ControllerBase {
           unset($build['quick_actions'][$key]);
         }
       }
+
+      // project-cockpit.js deliberately removes the old brebo-list-actions
+      // menu. This is now the canonical action group, so drop that legacy
+      // marker before the behavior runs.
+      $classes = $build['quick_actions']['#attributes']['class'] ?? [];
+      $build['quick_actions']['#attributes']['class'] = array_values(array_filter(
+        $classes,
+        static fn(string $class): bool => $class !== 'brebo-list-actions',
+      ));
       $build['quick_actions']['#attributes']['class'][] = 'brebo-project-cockpit__primary-actions';
       $build['quick_actions']['#weight'] = 40;
     }
