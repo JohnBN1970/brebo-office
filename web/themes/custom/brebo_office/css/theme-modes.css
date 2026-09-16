@@ -1,6 +1,8 @@
 :root {
   color-scheme: light dark;
-  --brebo-accent-primary: #f47b20;
+  /* BREBO brand purple. Blue remains a secondary logo colour; status colours
+   * stay semantic and are never replaced by the brand accent. */
+  --brebo-accent-primary: #7b3fbb;
   --brebo-status-success: #237a45;
   --brebo-status-warning: #a45b00;
   --brebo-status-danger: #b42318;
