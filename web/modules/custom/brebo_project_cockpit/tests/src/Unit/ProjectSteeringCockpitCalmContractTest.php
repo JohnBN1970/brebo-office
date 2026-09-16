@@ -14,9 +14,9 @@ final class ProjectSteeringCockpitCalmContractTest extends TestCase {
     $controller = file_get_contents($root . '/src/Controller/CanonicalProjectCockpitController.php');
 
     self::assertIsString($controller);
-    self::assertStringContainsString("unset($build['money'], $build['revenue'], $build['steering']);", $controller);
-    self::assertStringContainsString("$build['attention']['#title'] = $this->t('Aandacht');", $controller);
-    self::assertStringContainsString("$build['progress']['#caption'] = $this->t('Kernvoortgang');", $controller);
+    self::assertStringContainsString("unset(\$build['money'], \$build['revenue'], \$build['steering']);", $controller);
+    self::assertStringContainsString("\$build['attention']['#title'] = \$this->t('Aandacht');", $controller);
+    self::assertStringContainsString("\$build['progress']['#caption'] = \$this->t('Kernvoortgang');", $controller);
     self::assertStringContainsString("['planning', 'finance', 'edit']", $controller);
     self::assertStringNotContainsString("['clock', 'workforce']", $controller);
   }
