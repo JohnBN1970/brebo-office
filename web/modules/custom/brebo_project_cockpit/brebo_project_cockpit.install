@@ -9,67 +9,71 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\NodeInterface;
 
 /**
- * Adds canonical CRM relationships to projects without removing legacy text.
+ * Ensure project CRM relationships exist on a fresh installation as well.
+ */
+function brebo_project_cockpit_install(): void {
+  _brebo_project_cockpit_ensure_project_relationships();
+}
+
+/**
+ * Adds the project contact relation and backfills the existing canonical client relation.
  */
 function brebo_project_cockpit_update_11001(): string {
-  $definitions = [
-    'field_brebo_project_org_ref' => [
-      'label' => 'Opdrachtgever',
-      'cardinality' => 1,
-      'target_bundles' => ['brebo_organization' => 'brebo_organization'],
-      'description' => 'Canonieke CRM-organisatie die opdrachtgever is voor dit project.',
-      'weight' => 4,
-    ],
-    'field_brebo_project_contact_refs' => [
-      'label' => 'Projectcontactpersonen',
+  return _brebo_project_cockpit_ensure_project_relationships();
+}
+
+/**
+ * Shared install/update setup for canonical project CRM relationships.
+ */
+function _brebo_project_cockpit_ensure_project_relationships(): string {
+  $field_name = 'field_brebo_project_contact_refs';
+  $storage = FieldStorageConfig::loadByName('node', $field_name);
+  if (!$storage) {
+    $storage = FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
       'cardinality' => -1,
-      'target_bundles' => ['brebo_contact' => 'brebo_contact'],
-      'description' => 'Contactpersonen die voor dit project relevant zijn. De organisatiecontext blijft in CRM vastgelegd.',
-      'weight' => 5,
-    ],
-  ];
-
-  foreach ($definitions as $field_name => $definition) {
-    $storage = FieldStorageConfig::loadByName('node', $field_name);
-    if (!$storage) {
-      $storage = FieldStorageConfig::create([
-        'field_name' => $field_name,
-        'entity_type' => 'node',
-        'type' => 'entity_reference',
-        'cardinality' => $definition['cardinality'],
-        'settings' => ['target_type' => 'node'],
-      ]);
-      $storage->save();
-    }
-
-    $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
-    if (!$field) {
-      $field = FieldConfig::create([
-        'field_storage' => $storage,
-        'bundle' => 'brebo_project',
-        'label' => $definition['label'],
-        'description' => $definition['description'],
-        'required' => FALSE,
-        'settings' => [
-          'handler' => 'default:node',
-          'handler_settings' => ['target_bundles' => $definition['target_bundles']],
-        ],
-      ]);
-      $field->save();
-    }
-
-    $display = EntityFormDisplay::load('node.brebo_project.default');
-    if ($display instanceof EntityFormDisplayInterface) {
-      $display->setComponent($field_name, [
-        'type' => 'entity_reference_autocomplete',
-        'weight' => $definition['weight'],
-        'settings' => ['match_operator' => 'CONTAINS', 'match_limit' => 10, 'size' => 60, 'placeholder' => ''],
-      ])->save();
-    }
+      'settings' => ['target_type' => 'node'],
+    ]);
+    $storage->save();
   }
 
-  // Only materialize a legacy client string when it matches exactly one CRM
-  // organization. Ambiguous or missing values are deliberately left for review.
+  $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
+  if (!$field) {
+    $field = FieldConfig::create([
+      'field_storage' => $storage,
+      'bundle' => 'brebo_project',
+      'label' => 'Projectcontactpersonen',
+      'description' => 'Contactpersonen die voor dit project relevant zijn. De organisatiecontext blijft in CRM vastgelegd.',
+      'required' => FALSE,
+      'settings' => [
+        'handler' => 'default:node',
+        'handler_settings' => [
+          'target_bundles' => ['brebo_contact' => 'brebo_contact'],
+        ],
+      ],
+    ]);
+    $field->save();
+  }
+
+  $display = EntityFormDisplay::load('node.brebo_project.default');
+  if ($display instanceof EntityFormDisplayInterface) {
+    $display->setComponent($field_name, [
+      'type' => 'entity_reference_autocomplete',
+      'weight' => 5,
+      'settings' => [
+        'match_operator' => 'CONTAINS',
+        'match_limit' => 10,
+        'size' => 60,
+        'placeholder' => '',
+      ],
+    ])->save();
+  }
+
+  // field_brebo_client_org_ref already is the canonical opdrachtgever relation.
+  // Only backfill it when the legacy client string matches exactly one CRM
+  // organization. Ambiguous or missing values deliberately remain for review.
   $node_storage = \Drupal::entityTypeManager()->getStorage('node');
   $project_ids = $node_storage->getQuery()
     ->accessCheck(FALSE)
@@ -80,16 +84,18 @@ function brebo_project_cockpit_update_11001(): string {
 
   foreach ($node_storage->loadMultiple($project_ids) as $project) {
     if (!$project instanceof NodeInterface
-      || !$project->hasField('field_brebo_project_org_ref')
-      || !$project->get('field_brebo_project_org_ref')->isEmpty()) {
+      || !$project->hasField('field_brebo_client_org_ref')
+      || !$project->get('field_brebo_client_org_ref')->isEmpty()) {
       continue;
     }
+
     $legacy = $project->hasField('field_brebo_client') && !$project->get('field_brebo_client')->isEmpty()
       ? trim((string) $project->get('field_brebo_client')->value)
       : '';
     if ($legacy === '') {
       continue;
     }
+
     $organization_ids = array_values($node_storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'brebo_organization')
@@ -100,12 +106,17 @@ function brebo_project_cockpit_update_11001(): string {
       $unresolved++;
       continue;
     }
-    $project->set('field_brebo_project_org_ref', ['target_id' => $organization_ids[0]]);
+
+    $project->set('field_brebo_client_org_ref', ['target_id' => $organization_ids[0]]);
     $project->setNewRevision(TRUE);
     $project->setRevisionLogMessage('Unieke bestaande opdrachtgever gekoppeld aan canonieke CRM-organisatie.');
     $project->save();
     $linked++;
   }
 
-  return sprintf('Canonieke projectrelaties ingericht; %d opdrachtgever(s) veilig gekoppeld, %d legacy opdrachtgever(s) vragen beoordeling.', $linked, $unresolved);
+  return sprintf(
+    'Projectrelaties ingericht; projectcontacten beschikbaar, %d opdrachtgever(s) veilig gekoppeld en %d legacy opdrachtgever(s) vragen beoordeling.',
+    $linked,
+    $unresolved,
+  );
 }
