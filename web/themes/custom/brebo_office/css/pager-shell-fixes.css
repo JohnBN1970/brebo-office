@@ -56,7 +56,7 @@
 .brebo-shell--authenticated .pager__item a[aria-current='page'] {
   border-color: var(--brebo-accent);
   background: var(--brebo-accent);
-  color: #1d160c;
+  color: var(--brebo-accent-foreground);
 }
 
 .brebo-shell--authenticated .pager__item--first a,

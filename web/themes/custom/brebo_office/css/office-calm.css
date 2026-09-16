@@ -8,6 +8,37 @@
   --brebo-calm-section-gap: 20px;
   --brebo-calm-row-y: 9px;
   --brebo-calm-row-x: 12px;
+  --brebo-calm-accent-soft: color-mix(in srgb, var(--brebo-accent-primary) 10%, var(--brebo-bg-surface));
+  --brebo-calm-accent-line: color-mix(in srgb, var(--brebo-accent-primary) 38%, var(--brebo-border));
+  --brebo-accent-text: var(--brebo-accent-primary);
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated {
+  --brebo-accent-text: #c9a7f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-brebo-theme='system'] .brebo-shell--authenticated {
+    --brebo-accent-text: #c9a7f5;
+  }
+}
+
+.brebo-shell--authenticated :focus-visible {
+  outline-color: var(--brebo-focus-color);
+}
+
+/* Links and switch labels use a separate foreground accent so the BREBO
+ * fill purple can remain brand-accurate while dark-mode text stays readable. */
+.brebo-shell--authenticated :is(
+  .brebo-section-heading > a:hover,
+  .brebo-dashboard-panel__action a:hover,
+  .brebo-dashboard-kpi__link:hover,
+  .brebo-view-switcher .is-active,
+  .brebo-workspace-switcher .is-active,
+  .brebo-view-switcher [aria-current='true'],
+  .brebo-workspace-switcher [aria-current='true']
+) {
+  color: var(--brebo-accent-text);
 }
 
 /* Keep page rhythm predictable and avoid stacks of equally loud blocks. */
@@ -48,6 +79,44 @@
   background: var(--brebo-bg-surface);
 }
 
+/* BREBO purple is an orientation color, not wallpaper. Use it for the active
+ * route and the one primary action; keep working surfaces neutral. */
+.brebo-shell--authenticated :is(.button--primary,.brebo-button--primary,input[type="submit"]) {
+  border-color: var(--brebo-accent-primary);
+  background: var(--brebo-accent-primary);
+  color: var(--brebo-accent-foreground);
+}
+
+.brebo-shell--authenticated .brebo-context-tabs {
+  border-bottom: 1px solid var(--brebo-border);
+}
+
+.brebo-shell--authenticated .brebo-context-tabs__items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.brebo-shell--authenticated .brebo-context-tabs__items > a {
+  padding: 8px 10px;
+  border-radius: var(--brebo-radius-sm) var(--brebo-radius-sm) 0 0;
+  color: var(--brebo-text-secondary);
+  text-decoration: none;
+}
+
+.brebo-shell--authenticated .brebo-context-tabs__items > a:hover,
+.brebo-shell--authenticated .brebo-context-tabs__items > a:focus-visible {
+  color: var(--brebo-text-primary);
+  background: var(--brebo-bg-muted);
+}
+
+.brebo-shell--authenticated .brebo-context-tabs__items > a.is-active {
+  color: var(--brebo-text-primary);
+  background: var(--brebo-calm-accent-soft);
+  box-shadow: inset 0 -3px 0 var(--brebo-accent-primary);
+  font-weight: 750;
+}
+
 /* Tables are operational: compact, calm and scan-first. */
 .brebo-shell--authenticated table caption {
   padding: 0 0 8px;
@@ -62,6 +131,12 @@
   padding: var(--brebo-calm-row-y) var(--brebo-calm-row-x);
 }
 
+.brebo-shell--authenticated table th {
+  background: var(--brebo-bg-muted);
+  color: var(--brebo-text-primary);
+  border-bottom-color: var(--brebo-calm-accent-line);
+}
+
 .brebo-shell--authenticated table td {
   font-size: .92rem;
 }
@@ -71,6 +146,10 @@
   padding: 11px 14px;
   cursor: pointer;
   list-style-position: inside;
+}
+
+.brebo-shell--authenticated details[open] {
+  border-color: var(--brebo-calm-accent-line);
 }
 
 .brebo-shell--authenticated details[open] > summary {
@@ -96,6 +175,12 @@
   max-width: 52rem;
 }
 
+.brebo-shell--authenticated :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea):focus {
+  border-color: var(--brebo-focus-color);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brebo-focus-color) 68%, transparent);
+}
+
 /* KPI blocks support decisions; they should not look like advertising tiles. */
 .brebo-shell--authenticated .brebo-dashboard-kpi {
   min-height: 128px;
@@ -116,6 +201,12 @@
   box-shadow: none;
 }
 
+/* Status colors keep their semantic meaning. Brand purple must never replace
+ * green/red/warning colors for actual status information. */
+.brebo-shell--authenticated :is(.brebo-project-cockpit__attention,.messages--warning) {
+  border-left-color: var(--brebo-status-warning);
+}
+
 /* Mobile keeps the exact same information order and reduces chrome further. */
 @media (max-width: 48rem) {
   .brebo-shell--authenticated {
@@ -126,6 +217,16 @@
 
   .brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions,.form-actions) {
     gap: 6px;
+  }
+
+  .brebo-shell--authenticated .brebo-context-tabs__items {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .brebo-shell--authenticated .brebo-context-tabs__items > a {
+    flex: 0 0 auto;
   }
 
   .brebo-shell--authenticated table td,
