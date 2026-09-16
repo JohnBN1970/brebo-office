@@ -13,7 +13,7 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Shows incoming and outgoing project orders in one register. */
+/** Shows the client assignment and BREBO purchase orders for one project. */
 final class ProjectOrdersController extends ControllerBase {
 
   public function __construct(
@@ -43,10 +43,9 @@ final class ProjectOrdersController extends ControllerBase {
     $pipeline = is_array($finance['procurement_pipeline'] ?? NULL) ? $finance['procurement_pipeline'] : [];
     $commitments = is_array($ledger['commitments'] ?? NULL) ? $ledger['commitments'] : [];
 
-    $outgoingRows = [];
+    $purchaseOrderRows = [];
     foreach ($commitments as $row) {
-      $outgoingRows[] = [
-        $this->t('Uitgaand'),
+      $purchaseOrderRows[] = [
         (string) ($row['commitment_number'] ?? '—'),
         (string) ($row['supplier_name'] ?? '—'),
         (string) ($row['status'] ?? '—'),
@@ -55,11 +54,10 @@ final class ProjectOrdersController extends ControllerBase {
       ];
     }
 
-    $incomingRows = [];
+    $assignmentRows = [];
     $contract = $this->loadLatestContract($projectId);
     if ($contract !== []) {
-      $incomingRows[] = [
-        $this->t('Inkomend'),
+      $assignmentRows[] = [
         (string) ($contract['contract_number'] ?? '—'),
         (string) ($contract['client_ref'] ?? 'Opdrachtgever'),
         (string) ($contract['status'] ?? '—'),
@@ -69,30 +67,24 @@ final class ProjectOrdersController extends ControllerBase {
     }
 
     return [
-      'principle' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-procurement-principle']],
-        'title' => ['#markup' => '<h2>' . $this->t('Orders van het project') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Inkomend = opdracht van opdrachtgever aan BREBO. Uitgaand = opdracht van BREBO aan leverancier of onderaannemer. Orders ondersteunen de controleketen, maar zijn geen verplichte voorwaarde voor de losse-factuurroute in Finance.') . '</p>'],
-      ],
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-list-actions']],
         'new_outgoing' => [
           '#type' => 'link',
-          '#title' => $this->t('Uitgaande order aanmaken'),
+          '#title' => $this->t('Inkooporder aanmaken'),
           '#url' => Url::fromRoute('brebo_project_cockpit.order_add', ['node' => $projectId]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
         'ai_outgoing' => [
           '#type' => 'link',
-          '#title' => $this->t('AI order voorbereiden'),
+          '#title' => $this->t('Inkooporder met AI voorbereiden'),
           '#url' => Url::fromRoute('brebo_project_cockpit.order_add', ['node' => $projectId], ['query' => ['mode' => 'ai']]),
           '#attributes' => ['class' => ['button']],
         ],
         'contracts' => [
           '#type' => 'link',
-          '#title' => $this->t('Opdrachtbasis / contracten'),
+          '#title' => $this->t('Contracten'),
           '#url' => Url::fromRoute('brebo_project_cockpit.contracts', ['node' => $projectId]),
           '#attributes' => ['class' => ['button']],
         ],
@@ -100,31 +92,37 @@ final class ProjectOrdersController extends ControllerBase {
       'kpis' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],
-        'incoming' => ['#markup' => $this->kpi('Inkomende opdrachtwaarde', $contract['amount_ex_vat'] ?? NULL, 'excl. btw')],
-        'outgoing' => ['#markup' => $this->kpi('Uitgaand besteld', $pipeline['committed_ex_vat'] ?? NULL, 'excl. btw')],
+        'assignment' => ['#markup' => $this->kpi('Opdrachtsom', $contract['amount_ex_vat'] ?? NULL, 'excl. btw')],
+        'purchase_orders' => ['#markup' => $this->kpi('Inkooporders', $pipeline['committed_ex_vat'] ?? NULL, 'excl. btw')],
         'budget' => ['#markup' => $this->kpi('Werkbegroting', $pipeline['budget_ex_vat'] ?? $pipeline['current_budget_ex_vat'] ?? NULL, 'excl. btw')],
       ],
-      'incoming' => [
+      'assignment' => [
         '#type' => 'details',
-        '#title' => $this->t('Inkomende orders (@count)', ['@count' => count($incomingRows)]),
+        '#title' => $this->t('Opdracht opdrachtgever (@count)', ['@count' => count($assignmentRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Richting'), $this->t('Order / opdracht'), $this->t('Relatie'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
-          '#rows' => $incomingRows,
-          '#empty' => $this->t('Voor dit project is nog geen inkomende opdrachtbasis geregistreerd.'),
+          '#header' => [$this->t('Opdrachtnummer'), $this->t('Opdrachtgever'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
+          '#rows' => $assignmentRows,
+          '#empty' => $this->t('Voor dit project is nog geen opdracht van de opdrachtgever geregistreerd.'),
         ],
       ],
-      'outgoing' => [
+      'purchase_orders' => [
         '#type' => 'details',
-        '#title' => $this->t('Uitgaande orders (@count)', ['@count' => count($outgoingRows)]),
+        '#title' => $this->t('Inkooporders (@count)', ['@count' => count($purchaseOrderRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Richting'), $this->t('Order'), $this->t('Relatie'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
-          '#rows' => $outgoingRows,
-          '#empty' => $this->t('Voor dit project zijn nog geen uitgaande orders geregistreerd.'),
+          '#header' => [$this->t('Ordernummer'), $this->t('Leverancier / onderaannemer'), $this->t('Status'), $this->t('Excl. btw'), $this->t('Incl. btw')],
+          '#rows' => $purchaseOrderRows,
+          '#empty' => $this->t('Voor dit project zijn nog geen inkooporders geregistreerd.'),
         ],
+      ],
+      'explanation' => [
+        '#type' => 'details',
+        '#title' => $this->t('Toelichting'),
+        '#open' => FALSE,
+        'text' => ['#markup' => '<p>' . $this->t('De opdracht van de opdrachtgever legt de commerciële projectbasis vast. Inkooporders zijn opdrachten van BREBO aan leveranciers of onderaannemers en worden tegen de werkbegroting bewaakt.') . '</p>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],
