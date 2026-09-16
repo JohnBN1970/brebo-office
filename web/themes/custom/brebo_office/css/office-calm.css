@@ -19,7 +19,8 @@
   fieldset,
   table,
   .brebo-list-actions,
-  .brebo-action-bar
+  .brebo-action-bar,
+  .brebo-project-cockpit__primary-actions
 ) + :is(
   .brebo-card,
   .brebo-dashboard-panel,
@@ -28,17 +29,21 @@
   fieldset,
   table,
   .brebo-list-actions,
-  .brebo-action-bar
+  .brebo-action-bar,
+  .brebo-project-cockpit__primary-actions
 ) {
   margin-top: var(--brebo-calm-section-gap);
 }
 
 /* Actions remain easy to find, but secondary action rows stop dominating. */
-.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.form-actions) {
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions,.form-actions) {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 
-.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar) .button:not(.button--primary):not(.brebo-button--primary) {
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions) .button:not(.button--primary):not(.brebo-button--primary) {
   color: var(--brebo-text-secondary);
   background: var(--brebo-bg-surface);
 }
@@ -119,7 +124,7 @@
     --brebo-calm-row-x: 10px;
   }
 
-  .brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.form-actions) {
+  .brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions,.form-actions) {
     gap: 6px;
   }
 
