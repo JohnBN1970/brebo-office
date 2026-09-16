@@ -80,6 +80,11 @@ final class CanonicalProjectCockpitController extends ControllerBase {
         static fn(string $class): bool => $class !== 'brebo-list-actions',
       ));
       $build['quick_actions']['#attributes']['class'][] = 'brebo-project-cockpit__primary-actions';
+
+      // One primary action: continue the operational project flow in Planning.
+      if (isset($build['quick_actions']['planning']['#attributes']['class'])) {
+        $build['quick_actions']['planning']['#attributes']['class'][] = 'button--primary';
+      }
       $build['quick_actions']['#weight'] = 40;
     }
 
