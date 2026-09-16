@@ -12,6 +12,10 @@
   --brebo-calm-accent-line: color-mix(in srgb, var(--brebo-accent-primary) 38%, var(--brebo-border));
 }
 
+.brebo-shell--authenticated :focus-visible {
+  outline-color: var(--brebo-focus-color);
+}
+
 /* Keep page rhythm predictable and avoid stacks of equally loud blocks. */
 .brebo-shell--authenticated .brebo-app-layout__content > :is(
   .brebo-card,
