@@ -21,6 +21,8 @@ final class ProjectSteeringCockpitCalmContractTest extends TestCase {
     self::assertStringContainsString("'Voor of achter op planning'", $controller);
     self::assertStringContainsString("'Verwachte marge bij oplevering'", $controller);
     self::assertStringContainsString("['planning', 'finance', 'edit']", $controller);
+    self::assertStringContainsString("\$class !== 'brebo-list-actions'", $controller);
+    self::assertStringContainsString("'brebo-project-cockpit__primary-actions'", $controller);
     self::assertStringNotContainsString("['clock', 'workforce']", $controller);
   }
 
