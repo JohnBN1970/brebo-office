@@ -10,10 +10,35 @@
   --brebo-calm-row-x: 12px;
   --brebo-calm-accent-soft: color-mix(in srgb, var(--brebo-accent-primary) 10%, var(--brebo-bg-surface));
   --brebo-calm-accent-line: color-mix(in srgb, var(--brebo-accent-primary) 38%, var(--brebo-border));
+  --brebo-accent-text: var(--brebo-accent-primary);
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated {
+  --brebo-accent-text: #c9a7f5;
+}
+
+@media (prefers-color-scheme: dark) {
+  html[data-brebo-theme='system'] .brebo-shell--authenticated {
+    --brebo-accent-text: #c9a7f5;
+  }
 }
 
 .brebo-shell--authenticated :focus-visible {
   outline-color: var(--brebo-focus-color);
+}
+
+/* Links and switch labels use a separate foreground accent so the BREBO
+ * fill purple can remain brand-accurate while dark-mode text stays readable. */
+.brebo-shell--authenticated :is(
+  .brebo-section-heading > a:hover,
+  .brebo-dashboard-panel__action a:hover,
+  .brebo-dashboard-kpi__link:hover,
+  .brebo-view-switcher .is-active,
+  .brebo-workspace-switcher .is-active,
+  .brebo-view-switcher [aria-current='true'],
+  .brebo-workspace-switcher [aria-current='true']
+) {
+  color: var(--brebo-accent-text);
 }
 
 /* Keep page rhythm predictable and avoid stacks of equally loud blocks. */
@@ -148,6 +173,12 @@
 
 .brebo-shell--authenticated .form-item :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea) {
   max-width: 52rem;
+}
+
+.brebo-shell--authenticated :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea):focus {
+  border-color: var(--brebo-focus-color);
+  outline: 0;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--brebo-focus-color) 68%, transparent);
 }
 
 /* KPI blocks support decisions; they should not look like advertising tiles. */
