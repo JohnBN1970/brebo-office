@@ -1,0 +1,130 @@
+/* BREBO Office calm UI layer.
+ * Loaded last so every Office module gets the same visual hierarchy without
+ * replacing module-specific behavior. Keep this layer conservative: structure
+ * belongs to modules; rhythm, density and visual priority belong here.
+ */
+
+.brebo-shell--authenticated {
+  --brebo-calm-section-gap: 20px;
+  --brebo-calm-row-y: 9px;
+  --brebo-calm-row-x: 12px;
+}
+
+/* Keep page rhythm predictable and avoid stacks of equally loud blocks. */
+.brebo-shell--authenticated .brebo-app-layout__content > :is(
+  .brebo-card,
+  .brebo-dashboard-panel,
+  .brebo-section,
+  details,
+  fieldset,
+  table,
+  .brebo-list-actions,
+  .brebo-action-bar
+) + :is(
+  .brebo-card,
+  .brebo-dashboard-panel,
+  .brebo-section,
+  details,
+  fieldset,
+  table,
+  .brebo-list-actions,
+  .brebo-action-bar
+) {
+  margin-top: var(--brebo-calm-section-gap);
+}
+
+/* Actions remain easy to find, but secondary action rows stop dominating. */
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.form-actions) {
+  gap: 8px;
+}
+
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar) .button:not(.button--primary):not(.brebo-button--primary) {
+  color: var(--brebo-text-secondary);
+  background: var(--brebo-bg-surface);
+}
+
+/* Tables are operational: compact, calm and scan-first. */
+.brebo-shell--authenticated table caption {
+  padding: 0 0 8px;
+  color: var(--brebo-text-primary);
+  font-size: .92rem;
+  font-weight: 750;
+  text-align: left;
+}
+
+.brebo-shell--authenticated table th,
+.brebo-shell--authenticated table td {
+  padding: var(--brebo-calm-row-y) var(--brebo-calm-row-x);
+}
+
+.brebo-shell--authenticated table td {
+  font-size: .92rem;
+}
+
+/* Details are the standard home for secondary/technical information. */
+.brebo-shell--authenticated details > summary {
+  padding: 11px 14px;
+  cursor: pointer;
+  list-style-position: inside;
+}
+
+.brebo-shell--authenticated details[open] > summary {
+  border-bottom: 1px solid var(--brebo-border);
+  background: var(--brebo-bg-muted);
+}
+
+.brebo-shell--authenticated details > :not(summary) {
+  margin-left: 14px;
+  margin-right: 14px;
+}
+
+.brebo-shell--authenticated details > :last-child {
+  margin-bottom: 14px;
+}
+
+/* Forms: one readable column by default; wide controls only where needed. */
+.brebo-shell--authenticated .form-item {
+  margin-block: 0 14px;
+}
+
+.brebo-shell--authenticated .form-item :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea) {
+  max-width: 52rem;
+}
+
+/* KPI blocks support decisions; they should not look like advertising tiles. */
+.brebo-shell--authenticated .brebo-dashboard-kpi {
+  min-height: 128px;
+  padding: 16px;
+  box-shadow: none;
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi > strong {
+  font-size: clamp(1.55rem, 2.1vw, 2rem);
+}
+
+.brebo-shell--authenticated .brebo-dashboard-kpi:hover {
+  transform: none;
+}
+
+/* Prefer whitespace and hierarchy over repeated heavy card shadows. */
+.brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section) {
+  box-shadow: none;
+}
+
+/* Mobile keeps the exact same information order and reduces chrome further. */
+@media (max-width: 48rem) {
+  .brebo-shell--authenticated {
+    --brebo-calm-section-gap: 16px;
+    --brebo-calm-row-y: 8px;
+    --brebo-calm-row-x: 10px;
+  }
+
+  .brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.form-actions) {
+    gap: 6px;
+  }
+
+  .brebo-shell--authenticated table td,
+  .brebo-shell--authenticated table th {
+    font-size: .86rem;
+  }
+}
