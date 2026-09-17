@@ -9,6 +9,14 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\NodeInterface;
 
 /**
+ * Ensures fresh installations receive the same canonical project relations.
+ */
+function brebo_project_cockpit_install(): void {
+  brebo_project_cockpit_update_11001();
+  brebo_project_cockpit_update_11002();
+}
+
+/**
  * Adds canonical CRM relationships to projects without removing legacy text.
  */
 function brebo_project_cockpit_update_11001(): string {
