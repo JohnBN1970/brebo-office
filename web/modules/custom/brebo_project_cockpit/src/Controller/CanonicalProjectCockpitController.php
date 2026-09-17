@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
@@ -100,7 +99,8 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       'team' => $this->projectTeamPanel($node),
     ];
 
-    if ($this->routeProvider()->getRoutesByNames(['brebo_document_data.project_dossier'])) {
+    $documentRoutes = $this->routeProvider()->getRoutesByNames(['brebo_document_data.project_dossier']);
+    if ($documentRoutes->count() > 0) {
       $dashboard['grid']['documents'] = $this->panel(
         $this->t('Documenten'),
         $this->t('Projectgebonden stukken horen in één dossier. Open het dossier voor de volledige inhoud en historie.'),
