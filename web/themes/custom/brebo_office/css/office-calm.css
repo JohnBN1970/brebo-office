@@ -65,6 +65,16 @@ html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text
 .brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section) { box-shadow:none; }
 .brebo-shell--authenticated :is(.brebo-project-cockpit__attention,.messages--warning) { border-left-color:var(--brebo-status-warning); }
 
+/* Project invoices: exactly two quiet summary blocks, one for creditors and
+ * one for debtors, each with the same status rhythm. */
+.brebo-shell--authenticated .brebo-invoice-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:0 0 18px; }
+.brebo-shell--authenticated .brebo-invoice-summary__block { min-width:0; padding:16px; border:1px solid var(--brebo-border); border-radius:var(--brebo-radius-md); background:var(--brebo-bg-surface); }
+.brebo-shell--authenticated .brebo-invoice-summary__block h2 { margin:0 0 12px; font-size:1rem; line-height:1.3; }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses > div { display:grid; gap:2px; min-width:0; padding:9px 10px; border-radius:var(--brebo-radius-sm); background:var(--brebo-bg-muted); }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses strong { font-size:1.1rem; color:var(--brebo-text-primary); }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses span { color:var(--brebo-text-secondary); font-size:.78rem; line-height:1.25; }
+
 /* Icon-only appearance selector: sun, moon, computer. */
 .brebo-theme-switcher__button { display:grid; place-items:center; min-height:38px; }
 .brebo-theme-switcher__icon { display:grid; place-items:center; width:20px; height:20px; }
@@ -86,4 +96,6 @@ html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text
   .brebo-shell--authenticated .brebo-context-tabs__items { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; }
   .brebo-shell--authenticated .brebo-context-tabs__items > a { flex:0 0 auto; }
   .brebo-shell--authenticated table td,.brebo-shell--authenticated table th { font-size:.86rem; }
+  .brebo-shell--authenticated .brebo-invoice-summary { grid-template-columns:1fr; }
+  .brebo-shell--authenticated .brebo-invoice-summary__statuses { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
