@@ -149,12 +149,15 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
   /** @param array<string, int> $states */
   private function invoiceSummary(string $label, array $states): string {
     $status = [
-      $this->t('Totaal') => (int) $states['total'], $this->t('Openstaand') => (int) $states['open'],
-      $this->t('Vervallen') => (int) $states['overdue'], $this->t('Betaald') => (int) $states['paid'],
-      $this->t('Deels betaald') => (int) $states['partial'], $this->t('In geschil') => (int) $states['disputed'],
+      ['label' => (string) $this->t('Totaal'), 'value' => (int) $states['total']],
+      ['label' => (string) $this->t('Openstaand'), 'value' => (int) $states['open']],
+      ['label' => (string) $this->t('Vervallen'), 'value' => (int) $states['overdue']],
+      ['label' => (string) $this->t('Betaald'), 'value' => (int) $states['paid']],
+      ['label' => (string) $this->t('Deels betaald'), 'value' => (int) $states['partial']],
+      ['label' => (string) $this->t('In geschil'), 'value' => (int) $states['disputed']],
     ];
     $html = '<section class="brebo-invoice-summary__block"><h2>' . $this->t($label) . '</h2><div class="brebo-invoice-summary__statuses">';
-    foreach ($status as $name => $value) $html .= '<div><strong>' . $value . '</strong><span>' . $name . '</span></div>';
+    foreach ($status as $item) $html .= '<div><strong>' . $item['value'] . '</strong><span>' . $item['label'] . '</span></div>';
     return $html . '</div></section>';
   }
 
