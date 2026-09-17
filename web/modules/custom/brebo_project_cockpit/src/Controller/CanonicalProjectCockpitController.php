@@ -33,6 +33,9 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       $progressRows[(string) ($row[0] ?? '')] = $row;
     }
 
+    $build['project_card'] = $this->projectCard($node);
+    $build['project_card']['#weight'] = 15;
+
     $dashboard = [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-dashboard']],
@@ -118,6 +121,57 @@ final class CanonicalProjectCockpitController extends ControllerBase {
     $build['tabs']['#weight'] = 10;
 
     return $build;
+  }
+
+  private function projectCard(NodeInterface $project): array {
+    $manager = $project->hasField('field_brebo_project_manager') ? $project->get('field_brebo_project_manager')->entity : NULL;
+    $organization = $project->hasField('field_brebo_project_org_ref') ? $project->get('field_brebo_project_org_ref')->entity : NULL;
+    $client = $organization instanceof NodeInterface ? $organization->label() : $this->scalar($project, 'field_brebo_client');
+
+    $facts = [
+      $this->fact($this->t('Projectnummer'), $this->scalar($project, 'field_brebo_project_code')),
+      $this->fact($this->t('Status'), $this->scalar($project, 'field_brebo_status')),
+      $this->fact($this->t('Projectleider'), $manager ? $manager->label() : $this->t('Nog niet toegewezen')),
+      $this->fact($this->t('Opdrachtgever'), $client),
+      $this->fact($this->t('Locatie'), $this->scalar($project, 'field_brebo_location')),
+    ];
+
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-identity']],
+      'heading' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-project-identity__heading']],
+        'eyebrow' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $this->t('Projectoverzicht'), '#attributes' => ['class' => ['brebo-project-dashboard__eyebrow']]],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h1', '#value' => $project->label()],
+      ],
+      'facts' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-project-identity__facts']],
+      ] + $facts,
+      'edit' => [
+        '#type' => 'link',
+        '#title' => $this->t('Project bewerken'),
+        '#url' => Url::fromRoute('entity.node.edit_form', ['node' => (int) $project->id()]),
+        '#attributes' => ['class' => ['button']],
+      ],
+    ];
+  }
+
+  private function fact($label, $value): array {
+    return [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-project-identity__fact']],
+      'label' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $label],
+      'value' => ['#type' => 'html_tag', '#tag' => 'strong', '#value' => $value ?: '—'],
+    ];
+  }
+
+  private function scalar(NodeInterface $project, string $field): string {
+    if (!$project->hasField($field) || $project->get($field)->isEmpty()) {
+      return '—';
+    }
+    return trim((string) $project->get($field)->value) ?: '—';
   }
 
   private function metricCard($label, string $value, $meaning, string $route, array $parameters): array {
