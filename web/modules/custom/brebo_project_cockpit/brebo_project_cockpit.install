@@ -9,6 +9,14 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\NodeInterface;
 
 /**
+ * Ensures fresh installations receive the same canonical project relations.
+ */
+function brebo_project_cockpit_install(): void {
+  brebo_project_cockpit_update_11001();
+  brebo_project_cockpit_update_11002();
+}
+
+/**
  * Adds canonical CRM relationships to projects without removing legacy text.
  */
 function brebo_project_cockpit_update_11001(): string {
@@ -108,4 +116,57 @@ function brebo_project_cockpit_update_11001(): string {
   }
 
   return sprintf('Canonieke projectrelaties ingericht; %d opdrachtgever(s) veilig gekoppeld, %d legacy opdrachtgever(s) vragen beoordeling.', $linked, $unresolved);
+}
+
+/**
+ * Adds one canonical internal project manager relation.
+ */
+function brebo_project_cockpit_update_11002(): string {
+  $field_name = 'field_brebo_project_manager';
+  $storage = FieldStorageConfig::loadByName('node', $field_name);
+  if (!$storage) {
+    $storage = FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'cardinality' => 1,
+      'settings' => ['target_type' => 'user'],
+    ]);
+    $storage->save();
+  }
+
+  $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
+  if (!$field) {
+    $field = FieldConfig::create([
+      'field_storage' => $storage,
+      'bundle' => 'brebo_project',
+      'label' => 'Projectleider',
+      'description' => 'Interne Office-gebruiker die canoniek verantwoordelijk is voor dit project.',
+      'required' => FALSE,
+      'settings' => [
+        'handler' => 'default:user',
+        'handler_settings' => [
+          'include_anonymous' => FALSE,
+          'filter' => ['type' => '_none'],
+        ],
+      ],
+    ]);
+    $field->save();
+  }
+
+  $display = EntityFormDisplay::load('node.brebo_project.default');
+  if ($display instanceof EntityFormDisplayInterface) {
+    $display->setComponent($field_name, [
+      'type' => 'entity_reference_autocomplete',
+      'weight' => 3,
+      'settings' => [
+        'match_operator' => 'CONTAINS',
+        'match_limit' => 10,
+        'size' => 60,
+        'placeholder' => '',
+      ],
+    ])->save();
+  }
+
+  return 'Canonieke Projectleider-relatie naar een interne Office-gebruiker ingericht.';
 }
