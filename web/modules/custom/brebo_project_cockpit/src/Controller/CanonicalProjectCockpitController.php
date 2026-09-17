@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 
@@ -44,28 +45,28 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       '#attributes' => ['class' => ['brebo-project-dashboard__steering']],
       'progress' => $this->metricCard(
         $this->t('Voortgang'),
-        $this->rowValue($progressRows, 'Uitgevoerde voortgang'),
-        $this->rowMeaning($progressRows, 'Voortgang t.o.v. tijd'),
+        $this->rowValue($progressRows, ['Uitgevoerde voortgang', 'Werk gereed']),
+        $this->rowMeaning($progressRows, ['Voortgang t.o.v. tijd', 'Voor/achter planning']),
         'brebo_office_core.project_planning',
         ['node' => $projectId],
       ),
       'planning' => $this->metricCard(
         $this->t('Tijdpad'),
-        $this->rowValue($progressRows, 'Projecttijd verstreken'),
-        $this->rowMeaning($progressRows, 'Geplande periode'),
+        $this->rowValue($progressRows, ['Projecttijd verstreken', 'Tijd verstreken']),
+        $this->rowMeaning($progressRows, ['Geplande periode']),
         'brebo_office_core.project_planning',
         ['node' => $projectId],
       ),
       'costs' => $this->metricCard(
         $this->t('Uitgevoerde kosten'),
-        $this->rowValue($progressRows, 'Kosten gerealiseerd'),
+        $this->rowValue($progressRows, ['Kosten gerealiseerd', 'Uitgevoerde kosten']),
         $this->t('Geverifieerde prestatie excl. btw'),
         'brebo_project_cockpit.budget',
         ['node' => $projectId],
       ),
       'result' => $this->metricCard(
         $this->t('Verwacht resultaat'),
-        $this->rowValue($progressRows, 'Prognose eindmarge'),
+        $this->rowValue($progressRows, ['Prognose eindmarge', 'Verwachte marge']),
         $this->t('Actuele prognose bij oplevering'),
         'brebo_project_cockpit.budget',
         ['node' => $projectId],
@@ -76,7 +77,7 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-dashboard__grid']],
       'planning' => $this->panel(
-        $this->t('Planning & kritisch pad'),
+        $this->t('Planning & voortgang'),
         $this->t('Zie direct of het project op koers ligt en open de projectroute, mijlpalen en uitvoeringsplanning.'),
         'brebo_office_core.project_planning',
         ['node' => $projectId],
@@ -89,13 +90,6 @@ final class CanonicalProjectCockpitController extends ControllerBase {
         ['node' => $projectId],
         $this->t('Open facturen'),
       ),
-      'documents' => $this->panel(
-        $this->t('Documenten'),
-        $this->t('Projectgebonden stukken horen in één dossier. Open het dossier voor de volledige inhoud en historie.'),
-        'brebo_document_data.project_dossier',
-        ['node' => $projectId],
-        $this->t('Open documenten'),
-      ),
       'quality' => $this->panel(
         $this->t('Tekortkomingen & oplevering'),
         $this->t('Open tekortkomingen en opleverpunten blijven in hun eigen werkruimte; het overzicht signaleert alleen wat aandacht vraagt.'),
@@ -106,21 +100,33 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       'team' => $this->projectTeamPanel($node),
     ];
 
+    if ($this->routeProvider()->getRoutesByNames(['brebo_document_data.project_dossier'])) {
+      $dashboard['grid']['documents'] = $this->panel(
+        $this->t('Documenten'),
+        $this->t('Projectgebonden stukken horen in één dossier. Open het dossier voor de volledige inhoud en historie.'),
+        'brebo_document_data.project_dossier',
+        ['node' => $projectId],
+        $this->t('Open documenten'),
+      );
+    }
+
     $build['dashboard'] = $dashboard;
     unset($build['progress']);
-    $build['cockpit']['#weight'] = 0;
+    if (isset($build['cockpit']) && is_array($build['cockpit'])) {
+      $build['cockpit']['#weight'] = 0;
+    }
     $build['tabs']['#weight'] = 10;
 
     return $build;
   }
 
-  private function metricCard($label, $value, $meaning, string $route, array $parameters): array {
+  private function metricCard($label, string $value, $meaning, string $route, array $parameters): array {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-dashboard__metric']],
-      'label' => ['#markup' => '<span class="brebo-project-dashboard__eyebrow">' . $label . '</span>'],
-      'value' => ['#markup' => '<strong>' . ($value ?: '—') . '</strong>'],
-      'meaning' => ['#markup' => '<span>' . ($meaning ?: '—') . '</span>'],
+      'label' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $label, '#attributes' => ['class' => ['brebo-project-dashboard__eyebrow']]],
+      'value' => ['#type' => 'html_tag', '#tag' => 'strong', '#value' => $value !== '' ? $value : '—'],
+      'meaning' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $meaning ?: '—'],
       'link' => ['#type' => 'link', '#title' => $this->t('Openen'), '#url' => Url::fromRoute($route, $parameters), '#attributes' => ['class' => ['brebo-project-dashboard__link']]],
     ];
   }
@@ -129,43 +135,82 @@ final class CanonicalProjectCockpitController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-dashboard__panel']],
-      'title' => ['#markup' => '<h2>' . $title . '</h2>'],
-      'body' => ['#markup' => '<p>' . $body . '</p>'],
+      'title' => ['#type' => 'html_tag', '#tag' => 'h2', '#value' => $title],
+      'body' => ['#type' => 'html_tag', '#tag' => 'p', '#value' => $body],
       'link' => ['#type' => 'link', '#title' => $linkTitle, '#url' => Url::fromRoute($route, $parameters), '#attributes' => ['class' => ['brebo-project-dashboard__link']]],
     ];
   }
 
   private function projectTeamPanel(NodeInterface $project): array {
     $organization = $project->hasField('field_brebo_project_org_ref') ? $project->get('field_brebo_project_org_ref')->entity : NULL;
+    $manager = $project->hasField('field_brebo_project_manager') ? $project->get('field_brebo_project_manager')->entity : NULL;
     $contacts = $project->hasField('field_brebo_project_contact_refs') ? $project->get('field_brebo_project_contact_refs')->referencedEntities() : [];
     $items = [];
+
+    $items[] = [
+      '#type' => 'inline_template',
+      '#template' => '<strong>{{ label }}:</strong> {{ value }}',
+      '#context' => [
+        'label' => $this->t('Projectleider'),
+        'value' => $manager ? $manager->label() : $this->t('Nog niet toegewezen'),
+      ],
+    ];
+
     if ($organization instanceof NodeInterface) {
-      $items[] = '<strong>' . $this->t('Opdrachtgever') . ':</strong> ' . $organization->label();
+      $items[] = [
+        '#type' => 'inline_template',
+        '#template' => '<strong>{{ label }}:</strong> {{ value }}',
+        '#context' => ['label' => $this->t('Opdrachtgever'), 'value' => $organization->label()],
+      ];
     }
+
     foreach (array_slice($contacts, 0, 3) as $contact) {
-      if (!$contact instanceof NodeInterface) continue;
+      if (!$contact instanceof NodeInterface) {
+        continue;
+      }
       $role = $contact->hasField('field_brebo_contact_role') ? trim((string) $contact->get('field_brebo_contact_role')->value) : '';
-      $items[] = '<strong>' . $contact->label() . '</strong>' . ($role !== '' ? ' · ' . $role : '');
+      $items[] = [
+        '#type' => 'inline_template',
+        '#template' => '<strong>{{ name }}</strong>{% if role %} · {{ role }}{% endif %}',
+        '#context' => ['name' => $contact->label(), 'role' => $role],
+      ];
     }
-    if ($items === []) $items[] = (string) $this->t('Nog geen canonieke opdrachtgever of projectcontactpersonen gekoppeld.');
+
+    if (!$organization instanceof NodeInterface && $contacts === []) {
+      $items[] = ['#plain_text' => $this->t('Nog geen canonieke opdrachtgever of projectcontactpersonen gekoppeld.')];
+    }
 
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-dashboard__panel']],
-      'title' => ['#markup' => '<h2>' . $this->t('Projectorganisatie') . '</h2>'],
+      'title' => ['#type' => 'html_tag', '#tag' => 'h2', '#value' => $this->t('Projectorganisatie')],
       'items' => ['#theme' => 'item_list', '#items' => $items],
       'link' => ['#type' => 'link', '#title' => $this->t('Project bewerken'), '#url' => Url::fromRoute('entity.node.edit_form', ['node' => (int) $project->id()]), '#attributes' => ['class' => ['brebo-project-dashboard__link']]],
     ];
   }
 
-  private function rowValue(array $rows, string $label): string {
-    return isset($rows[$label][1]) ? (string) $rows[$label][1] : '—';
+  private function rowValue(array $rows, array $labels): string {
+    foreach ($labels as $label) {
+      if (isset($rows[$label][1])) {
+        return (string) $rows[$label][1];
+      }
+    }
+    return '—';
   }
 
-  private function rowMeaning(array $rows, string $label): string {
-    if (!isset($rows[$label])) return '—';
-    $row = $rows[$label];
-    return trim(implode(' · ', array_filter([(string) ($row[1] ?? ''), (string) ($row[2] ?? '')])));
+  private function rowMeaning(array $rows, array $labels): string {
+    foreach ($labels as $label) {
+      if (!isset($rows[$label])) {
+        continue;
+      }
+      $row = $rows[$label];
+      return trim(implode(' · ', array_filter([(string) ($row[1] ?? ''), (string) ($row[2] ?? '')])));
+    }
+    return '—';
+  }
+
+  private function routeProvider() {
+    return \Drupal::service('router.route_provider');
   }
 
   private function legacyController(): ProjectCockpitController {
