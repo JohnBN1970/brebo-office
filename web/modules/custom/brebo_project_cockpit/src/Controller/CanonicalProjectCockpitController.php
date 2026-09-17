@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Controller;
 
+use Drupal\brebo_office_core\Project\ProjectLifecycleStatus;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
@@ -130,7 +131,7 @@ final class CanonicalProjectCockpitController extends ControllerBase {
 
     $facts = [
       $this->fact($this->t('Projectnummer'), $this->scalar($project, 'field_brebo_project_code')),
-      $this->fact($this->t('Status'), $this->scalar($project, 'field_brebo_status')),
+      $this->fact($this->t('Status'), ProjectLifecycleStatus::label($project)),
       $this->fact($this->t('Projectleider'), $manager ? $manager->label() : $this->t('Nog niet toegewezen')),
       $this->fact($this->t('Opdrachtgever'), $client),
       $this->fact($this->t('Locatie'), $this->scalar($project, 'field_brebo_location')),
@@ -142,8 +143,8 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       'heading' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-project-identity__heading']],
-        'eyebrow' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $this->t('Projectoverzicht'), '#attributes' => ['class' => ['brebo-project-dashboard__eyebrow']]],
-        'title' => ['#type' => 'html_tag', '#tag' => 'h1', '#value' => $project->label()],
+        'eyebrow' => ['#type' => 'html_tag', '#tag' => 'span', 'text' => ['#plain_text' => (string) $this->t('Projectoverzicht')], '#attributes' => ['class' => ['brebo-project-dashboard__eyebrow']]],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h1', 'text' => ['#plain_text' => (string) $project->label()]],
       ],
       'facts' => [
         '#type' => 'container',
@@ -162,8 +163,8 @@ final class CanonicalProjectCockpitController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-project-identity__fact']],
-      'label' => ['#type' => 'html_tag', '#tag' => 'span', '#value' => $label],
-      'value' => ['#type' => 'html_tag', '#tag' => 'strong', '#value' => $value ?: '—'],
+      'label' => ['#type' => 'html_tag', '#tag' => 'span', 'text' => ['#plain_text' => (string) $label]],
+      'value' => ['#type' => 'html_tag', '#tag' => 'strong', 'text' => ['#plain_text' => (string) ($value ?: '—')]],
     ];
   }
 
