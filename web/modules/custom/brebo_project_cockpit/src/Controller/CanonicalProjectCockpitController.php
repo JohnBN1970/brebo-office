@@ -144,7 +144,7 @@ final class CanonicalProjectCockpitController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-project-identity__heading']],
         'eyebrow' => ['#type' => 'html_tag', '#tag' => 'span', 'text' => ['#plain_text' => (string) $this->t('Projectoverzicht')], '#attributes' => ['class' => ['brebo-project-dashboard__eyebrow']]],
-        'title' => ['#type' => 'html_tag', '#tag' => 'h1', 'text' => ['#plain_text' => (string) $project->label()]],
+        'title' => ['#type' => 'html_tag', '#tag' => 'h2', 'text' => ['#plain_text' => (string) $project->label()]],
       ],
       'facts' => [
         '#type' => 'container',
