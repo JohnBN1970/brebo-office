@@ -42,7 +42,7 @@ brebo_data_intake.website_europakozijn_project_document:
 brebo_data_intake.website_document:
   path: '/brebo-internal/intake/website/document'
   defaults:
-    _controller: '\\Drupal\\brebo_data_intake\\Controller\\WebsiteDocumentIntakeController::upload'
+    _controller: '\Drupal\brebo_data_intake\Controller\WebsiteDocumentIntakeController::upload'
   requirements:
     _access: 'TRUE'
   methods: [POST]
