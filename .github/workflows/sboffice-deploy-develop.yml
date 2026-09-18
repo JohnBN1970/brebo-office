@@ -294,6 +294,7 @@ jobs:
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $projectController = (string) $projectRoute->getDefault("_controller");
             $allowedProjectControllers = [
+              "\\Drupal\\brebo_office_core\\Controller\\OfficeController::projectDashboard",
               "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview",
               "\\Drupal\\brebo_project_cockpit\\Controller\\CanonicalProjectCockpitController::overview",
             ];
