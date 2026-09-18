@@ -82,6 +82,8 @@ jobs:
             \Drupal::service("account_switcher")->switchTo($account);
             echo "PROJECT_RENDER_USER_UID=" . $account->id() . "\n";
             $routes = [
+              "overview" => "brebo_office_core.project_dashboard",
+              "cockpit" => "brebo_project_cockpit.overview",
               "planning" => "brebo_office_core.project_planning",
               "documents" => "brebo_document_data.project_dossier",
               "budget" => "brebo_project_cockpit.budget",
