@@ -265,9 +265,10 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
       }
       $documents[] = $this->analyzeDocument($entry, self::MIME_BY_EXTENSION[$extension], basename($name));
     }
+    $entryCount = $zip->numFiles;
     $zip->close();
 
-    if ($zip->numFiles > self::MAX_ZIP_ENTRIES) {
+    if ($entryCount > self::MAX_ZIP_ENTRIES) {
       $documents[] = [
         'filename' => '__package__',
         'mime_type' => 'application/zip',
