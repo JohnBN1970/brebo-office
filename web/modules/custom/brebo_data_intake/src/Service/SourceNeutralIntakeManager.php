@@ -128,7 +128,7 @@ final class SourceNeutralIntakeManager {
         $sourceId,
         'source_neutral_intake',
         $persistedIdentity,
-        'review_required',
+        NULL,
       );
       if ($existingRecordId !== NULL) {
         return ['record_id' => $existingRecordId, 'duplicate' => TRUE];
