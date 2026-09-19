@@ -295,7 +295,17 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
   private function safeFilename(string $filename): string {
     $filename = basename(str_replace('\\', '/', trim($filename)));
     $filename = preg_replace('/[^A-Za-z0-9._ -]+/', '_', $filename) ?: 'document';
-    return mb_substr($filename, 0, 180);
+    if (mb_strlen($filename) <= 180) {
+      return $filename;
+    }
+
+    $extension = pathinfo($filename, PATHINFO_EXTENSION);
+    if ($extension === '') {
+      return mb_substr($filename, 0, 180);
+    }
+    $suffix = '.' . $extension;
+    $stem = pathinfo($filename, PATHINFO_FILENAME);
+    return mb_substr($stem, 0, max(1, 180 - mb_strlen($suffix))) . $suffix;
   }
 
   /** @param array<string,mixed> $payload */
