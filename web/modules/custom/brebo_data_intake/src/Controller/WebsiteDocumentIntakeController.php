@@ -263,7 +263,7 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
       if (!is_string($entry) || $entry === '') {
         continue;
       }
-      $documents[] = $this->analyzeDocument($entry, self::MIME_BY_EXTENSION[$extension], basename($name));
+      $documents[] = [\n        'filename' => basename($name),\n        'mime_type' => self::MIME_BY_EXTENSION[$extension],\n        'status' => 'zip_entry_detected',\n        'confidence' => 0.0,\n        'text' => '',\n        'excerpt' => '',\n      ];
     }
     $entryCount = $zip->numFiles;
     $zip->close();
