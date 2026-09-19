@@ -92,6 +92,20 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
       return $this->error(401, 'invalid_signature');
     }
 
+    $existingRecordId = $this->intakeManager->existingReviewRecordId('website', $requestId);
+    if ($existingRecordId !== NULL) {
+      return $this->response([
+        'request_id' => $requestId,
+        'intake' => [
+          'state' => 'duplicate',
+          'source' => 'website',
+          'classification' => 'website_contact_document',
+          'source_record_id' => $requestId,
+          'review_record_id' => $existingRecordId,
+        ],
+      ], 202);
+    }
+
     $metadataRaw = trim((string) $request->request->get('metadata', ''));
     $metadata = [];
     if ($metadataRaw !== '') {
