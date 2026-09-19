@@ -67,6 +67,10 @@ html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text
 
 /* Project invoices: exactly two quiet summary blocks, one for creditors and
  * one for debtors, each with the same status rhythm. */
+/* Drupal local actions: keep compact project actions horizontal instead of stacked. */
+.brebo-shell--authenticated .block-local-actions-block ul.action-links { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; padding:0; list-style:none; }
+.brebo-shell--authenticated .block-local-actions-block ul.action-links > li { margin:0; padding:0; }
+
 /* Project invoices: keep the three filters and submit action on one calm row. */
 .brebo-shell--authenticated form.brebo-filter-bar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; margin:0 0 14px; }
 .brebo-shell--authenticated form.brebo-filter-bar > .form-item { min-width:0; margin:0; }
