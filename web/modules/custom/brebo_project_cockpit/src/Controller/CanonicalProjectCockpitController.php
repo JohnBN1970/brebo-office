@@ -104,7 +104,7 @@ final class CanonicalProjectCockpitController extends ControllerBase {
     ];
 
     $documentRoutes = $this->routeProvider()->getRoutesByNames(['brebo_document_data.project_dossier']);
-    if ($documentRoutes->count() > 0) {
+    if (!empty($documentRoutes)) {
       $dashboard['grid']['documents'] = $this->panel(
         $this->t('Documenten'),
         $this->t('Projectgebonden stukken horen in één dossier. Open het dossier voor de volledige inhoud en historie.'),
