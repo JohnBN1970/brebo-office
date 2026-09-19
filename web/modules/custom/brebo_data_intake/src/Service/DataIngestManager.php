@@ -44,7 +44,7 @@ final class DataIngestManager {
   /**
    * Finds an existing normalized record for one source and source identity.
    */
-  public function findRecordBySourceIdentity(int $sourceId, string $recordType, string $externalKey, string $status = 'review_required'): ?int {
+  public function findRecordBySourceIdentity(int $sourceId, string $recordType, string $externalKey, ?string $status = 'review_required'): ?int {
     if ($sourceId <= 0 || trim($recordType) === '' || trim($externalKey) === '') {
       return NULL;
     }
@@ -55,8 +55,11 @@ final class DataIngestManager {
       ->fields('r', ['id'])
       ->condition('run.source_id', $sourceId)
       ->condition('r.record_type', mb_substr(trim($recordType), 0, 64))
-      ->condition('r.external_key', mb_substr(trim($externalKey), 0, 255))
-      ->condition('r.status', mb_substr(trim($status), 0, 32))
+      ->condition('r.external_key', mb_substr(trim($externalKey), 0, 255));
+    if ($status !== NULL && trim($status) !== '') {
+      $query->condition('r.status', mb_substr(trim($status), 0, 32));
+    }
+    $recordId = $query
       ->range(0, 1)
       ->execute()
       ->fetchField();
