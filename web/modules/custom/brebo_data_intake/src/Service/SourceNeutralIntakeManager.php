@@ -96,7 +96,7 @@ final class SourceNeutralIntakeManager {
       $sourceId,
       'source_neutral_intake',
       $persistedIdentity,
-      'review_required',
+      NULL,
     );
   }
 
