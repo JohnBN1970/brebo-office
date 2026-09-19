@@ -11,8 +11,8 @@ services:
     class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
 
-  brebo_data_intake.website_project_request_destination:
-    class: Drupal\brebo_data_intake\Service\WebsiteProjectRequestIntakeDestination
+  brebo_data_intake.external_project_request_destination:
+    class: Drupal\brebo_data_intake\Service\ExternalProjectRequestIntakeDestination
     arguments: ['@entity_type.manager']
     tags:
       - { name: brebo_data_intake.destination, priority: 200 }
