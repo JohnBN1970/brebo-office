@@ -73,6 +73,34 @@ final class SourceNeutralIntakeManager {
   }
 
   /**
+   * Returns an existing review record for a source identity, if present.
+   *
+   * This lightweight lookup lets authenticated transports short-circuit
+   * retries before writing permanent files or invoking enrichment.
+   */
+  public function existingReviewRecordId(string $source, string $sourceRecordId): ?int {
+    $source = strtolower(trim($source));
+    $sourceRecordId = trim($sourceRecordId);
+    if ($source === '' || $sourceRecordId === '') {
+      return NULL;
+    }
+
+    $sourceId = $this->ingestManager->registerSource(
+      'source-neutral:' . $source,
+      'Source-neutral ' . $source,
+      $source,
+      'source_neutral_intake',
+    );
+    $persistedIdentity = 'sha256:' . hash('sha256', $sourceRecordId);
+    return $this->ingestManager->findRecordBySourceIdentity(
+      $sourceId,
+      'source_neutral_intake',
+      $persistedIdentity,
+      'review_required',
+    );
+  }
+
+  /**
    * @param array<string, mixed> $envelope
    *
    * @return array{record_id:int,duplicate:bool}
