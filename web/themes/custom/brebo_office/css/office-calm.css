@@ -67,6 +67,16 @@ html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text
 
 /* Project invoices: exactly two quiet summary blocks, one for creditors and
  * one for debtors, each with the same status rhythm. */
+/* Project invoices: keep the three filters and submit action on one calm row. */
+.brebo-shell--authenticated form.brebo-filter-bar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; margin:0 0 14px; }
+.brebo-shell--authenticated form.brebo-filter-bar > .form-item { min-width:0; margin:0; }
+.brebo-shell--authenticated form.brebo-filter-bar .form-actions { margin:0; }
+.brebo-shell--authenticated form.brebo-filter-bar .form-actions .button { margin:0; white-space:nowrap; }
+@media (max-width: 900px) {
+  .brebo-shell--authenticated form.brebo-filter-bar { grid-template-columns:1fr; }
+  .brebo-shell--authenticated form.brebo-filter-bar .form-actions .button { width:100%; }
+}
+
 .brebo-shell--authenticated .brebo-invoice-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:0 0 18px; }
 .brebo-shell--authenticated .brebo-invoice-summary__block { min-width:0; padding:16px; border:1px solid var(--brebo-border); border-radius:var(--brebo-radius-md); background:var(--brebo-bg-surface); }
 .brebo-shell--authenticated .brebo-invoice-summary__block h2 { margin:0 0 12px; font-size:1rem; line-height:1.3; }
