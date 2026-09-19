@@ -248,7 +248,7 @@ final class ProjectPortfolioController extends ControllerBase {
     }
     return [
       '#type' => 'table',
-      '#header' => [$this->t('Project'), $this->t('Code'), $this->t('Opdrachtgever'), $this->t('Gebouw'), $this->t('Soort'), $this->t('Status'), $this->t('Voortgang'), $this->t('Stoplicht'), $this->t('Gewijzigd'), $this->t('Acties')],
+      '#header' => [$this->t('Project'), $this->t('Code'), $this->t('Opdrachtgever'), $this->t('Gebouw'), $this->t('Soort'), $this->t('Status'), $this->t('Voortgang'), $this->t('Voortgangssignaal'), $this->t('Gewijzigd'), $this->t('Acties')],
       '#rows' => $rows,
       '#empty' => $this->t('Geen projecten binnen deze selectie.'),
       '#sticky' => TRUE,
