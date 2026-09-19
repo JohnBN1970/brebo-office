@@ -293,8 +293,8 @@ jobs:
             ] as $route) { $routes->getRouteByName($route); }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $projectController = (string) $projectRoute->getDefault("_controller");
-            if ($projectController !== "\\Drupal\\brebo_office_core\\Controller\\OfficeController::projectDashboard") {
-              throw new \RuntimeException("Stable project route is not controlled by OfficeController::projectDashboard: " . $projectController);
+            if ($projectController !== "\\Drupal\\brebo_project_cockpit\\Controller\\CanonicalProjectCockpitController::overview") {
+              throw new \RuntimeException("Canonical project route is not controlled by CanonicalProjectCockpitController::overview: " . $projectController);
             }
             $cockpitRoute = $routes->getRouteByName("brebo_project_cockpit.overview");
             $cockpitController = (string) $cockpitRoute->getDefault("_controller");
