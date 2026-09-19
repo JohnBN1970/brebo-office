@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Controller;
 
-use Drupal\brebo_data_intake\Service\DocumentTextExtractionProviderRegistry;
 use Drupal\brebo_data_intake\Service\ProjectScopeInferenceEngine;
 use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
 use Drupal\Core\Controller\ControllerBase;
@@ -44,7 +43,6 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
 
   public function __construct(
     private readonly SourceNeutralIntakeManager $intakeManager,
-    private readonly DocumentTextExtractionProviderRegistry $providerRegistry,
     private readonly ProjectScopeInferenceEngine $scopeInference,
     private readonly FileRepositoryInterface $fileRepository,
     private readonly FileSystemInterface $fileSystem,
@@ -53,7 +51,6 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_data_intake.source_neutral_intake_manager'),
-      $container->get('brebo_data_intake.document_text_extraction_provider_registry'),
       $container->get('brebo_data_intake.project_scope_inference_engine'),
       $container->get('file.repository'),
       $container->get('file_system'),
@@ -128,7 +125,14 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
 
     $analysis = $extension === 'zip'
       ? $this->analyzeZip($uploaded->getPathname())
-      : [$this->analyzeDocument($bytes, self::MIME_BY_EXTENSION[$extension], $originalName)];
+      : [[
+        'filename' => $originalName,
+        'mime_type' => self::MIME_BY_EXTENSION[$extension],
+        'status' => 'queued_for_managed_extraction',
+        'confidence' => 0.0,
+        'text' => '',
+        'excerpt' => '',
+      ]];
     $preliminaryScope = $this->scopeInference->infer($analysis);
 
     $intake = $this->intakeManager->intake([
@@ -176,33 +180,6 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
         'preliminary_scope' => $preliminaryScope,
       ],
     ], 202);
-  }
-
-  /** @return array<string,mixed> */
-  private function analyzeDocument(string $bytes, string $mimeType, string $filename): array {
-    $provider = $this->providerRegistry->providerFor($mimeType);
-    if ($provider === NULL) {
-      return [
-        'filename' => $filename,
-        'mime_type' => $mimeType,
-        'status' => 'extraction_provider_unavailable',
-        'confidence' => 0.0,
-        'text' => '',
-        'excerpt' => '',
-      ];
-    }
-
-    $result = $provider->extract($bytes, $mimeType, $filename);
-    $text = trim((string) ($result['text'] ?? ''));
-    return [
-      'filename' => $filename,
-      'mime_type' => $mimeType,
-      'status' => (string) ($result['status'] ?? 'unknown'),
-      'confidence' => isset($result['confidence']) ? (float) $result['confidence'] : 0.0,
-      'extractor' => (string) ($result['extractor'] ?? ''),
-      'text' => mb_substr($text, 0, 20000),
-      'excerpt' => mb_substr($text, 0, 1200),
-    ];
   }
 
   /** @return list<array<string,mixed>> */
@@ -263,7 +240,14 @@ final class WebsiteDocumentIntakeController extends ControllerBase {
       if (!is_string($entry) || $entry === '') {
         continue;
       }
-      $documents[] = [\n        'filename' => basename($name),\n        'mime_type' => self::MIME_BY_EXTENSION[$extension],\n        'status' => 'zip_entry_detected',\n        'confidence' => 0.0,\n        'text' => '',\n        'excerpt' => '',\n      ];
+      $documents[] = [
+        'filename' => basename($name),
+        'mime_type' => self::MIME_BY_EXTENSION[$extension],
+        'status' => 'zip_entry_detected',
+        'confidence' => 0.0,
+        'text' => '',
+        'excerpt' => '',
+      ];
     }
     $entryCount = $zip->numFiles;
     $zip->close();
