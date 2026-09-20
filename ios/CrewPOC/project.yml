@@ -12,6 +12,8 @@ targets:
     platform: iOS
     sources:
       - Sources
+      - path: Resources
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.brebo.onsite
@@ -21,6 +23,8 @@ targets:
         SUPPORTS_MACCATALYST: NO
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_CFBundleDisplayName: "BREBO OnSite"
+        INFOPLIST_KEY_CFBundleIconName: AppIcon
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "BREBO OnSite gebruikt je locatie om aanwezigheid op het toegewezen project te herkennen."
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "BREBO OnSite gebruikt geofencing om binnenkomst en vertrek bij toegewezen projecten aantoonbaar te registreren. Er wordt geen routehistorie opgeslagen."
         INFOPLIST_KEY_UIBackgroundModes: location
