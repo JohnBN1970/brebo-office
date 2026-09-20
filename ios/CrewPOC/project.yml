@@ -25,6 +25,7 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: "BREBO OnSite"
         INFOPLIST_KEY_CFBundleIconName: AppIcon
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        INFOPLIST_KEY_OnSiteAPIBaseURL: "https://sboffice.brebobv.nl"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "BREBO OnSite gebruikt je locatie om aanwezigheid op het toegewezen project te herkennen."
         INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "BREBO OnSite gebruikt geofencing om binnenkomst en vertrek bij toegewezen projecten aantoonbaar te registreren. Er wordt geen routehistorie opgeslagen."
