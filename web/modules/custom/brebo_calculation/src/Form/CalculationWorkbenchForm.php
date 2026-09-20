@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Domain\CalculationParameters;
+use Drupal\brebo_calculation\Service\CommercialCalculator;
 use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\brebo_calculation\Service\RecipeManager;
@@ -26,6 +28,7 @@ final class CalculationWorkbenchForm extends FormBase {
     private readonly CalculationStructureManager $structureManager,
     private readonly RecipeManager $recipeManager,
     private readonly RecipePriceHealthInspector $recipePriceHealthInspector,
+    private readonly CommercialCalculator $commercialCalculator,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -36,6 +39,7 @@ final class CalculationWorkbenchForm extends FormBase {
       $container->get('brebo_calculation.structure_manager'),
       $container->get('brebo_calculation.recipe_manager'),
       $container->get('brebo_calculation.recipe_price_health_inspector'),
+      $container->get('brebo_calculation.commercial_calculator'),
     );
   }
 
@@ -212,7 +216,28 @@ final class CalculationWorkbenchForm extends FormBase {
       }
     }
 
-    $form['workbench']['total'] = ['#markup' => '<div class="brebo-calc-workbench__total"><span><small>Directe kostprijs</small><strong>€ ' . number_format($this->directTotal($rows, $lineEntities) + $this->recipeInstancesTotal($recipeLinesByInstance), 2, ',', '.') . '</strong></span></div>'];
+    $directCost = $this->directTotal($rows, $lineEntities) + $this->recipeInstancesTotal($recipeLinesByInstance);
+    $parameters = new CalculationParameters(
+      pricingMode: (string) $version['pricing_mode'],
+      commercialMethod: (string) $version['commercial_method'],
+      generalCostPct: (float) $version['general_cost_pct'],
+      riskPct: (float) $version['risk_pct'],
+      profitPct: (float) $version['profit_pct'],
+      singleMarginPct: (float) $version['single_margin_pct'],
+      commercialAdjustment: (float) $version['commercial_adjustment'],
+      priceDate: $version['price_date'] ?: NULL,
+      priceLevel: $version['price_level'] ?: NULL,
+    );
+    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
+    $margin = $parameters->commercialMethod === 'single_margin' ? $commercial->singleMargin : $commercial->profit;
+    $form['workbench']['total'] = ['#markup' => '<div class="brebo-calc-workbench__total">'
+      . '<span><small>Directe kostprijs</small><strong data-total-kind="direct">€ ' . number_format($commercial->directCost, 2, ',', '.') . '</strong></span>'
+      . '<span><small>AK</small><strong data-total-kind="general-cost">€ ' . number_format($commercial->generalCost, 2, ',', '.') . '</strong></span>'
+      . '<span><small>Risico</small><strong data-total-kind="risk">€ ' . number_format($commercial->risk, 2, ',', '.') . '</strong></span>'
+      . '<span><small>' . ($parameters->commercialMethod === 'single_margin' ? 'Marge' : 'Winst') . '</small><strong data-total-kind="margin">€ ' . number_format($margin, 2, ',', '.') . '</strong></span>'
+      . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ ' . number_format($commercial->commercialAdjustment, 2, ',', '.') . '</strong></span>'
+      . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ ' . number_format($commercial->salesPrice, 2, ',', '.') . '</strong></span>'
+      . '</div>'];
     return $form;
   }
 
