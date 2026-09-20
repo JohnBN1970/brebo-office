@@ -89,9 +89,16 @@ final class CanonicalProjectCockpitController extends ControllerBase {
       'finance' => $this->panel(
         $this->t('Financieel'),
         $this->t('Verkoop, inkoop, nog te verwachten kosten en resultaat blijven gebaseerd op de bestaande financiële projectwaarheid.'),
-        'brebo_project_cockpit.invoices',
+        'brebo_finance.project_finance_page',
+        ['project_nid' => $projectId],
+        $this->t('Open financiën'),
+      ),
+      'procurement' => $this->panel(
+        $this->t('Inkoop & orders'),
+        $this->t('Open de projectspecifieke orders en inkooppositie; geen omweg via het algemene projectoverzicht.'),
+        'brebo_project_cockpit.orders',
         ['node' => $projectId],
-        $this->t('Open facturen'),
+        $this->t('Open orders'),
       ),
       'quality' => $this->panel(
         $this->t('Tekortkomingen & oplevering'),
