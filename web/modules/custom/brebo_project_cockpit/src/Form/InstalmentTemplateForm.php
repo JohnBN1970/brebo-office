@@ -7,7 +7,6 @@ namespace Drupal\brebo_project_cockpit\Form;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Manages reusable billing instalment templates. */
@@ -27,11 +26,7 @@ final class InstalmentTemplateForm extends FormBase {
     return 'brebo_project_cockpit_instalment_template_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if ($node !== NULL && $node->bundle() !== 'brebo_project') {
-      throw new \InvalidArgumentException('BREBO project required.');
-    }
-
+  public function buildForm(array $form, FormStateInterface $form_state): array {
     $custom = $this->templateConfigFactory->get(self::CONFIG_NAME)->get('templates') ?? [];
 
     $form['intro'] = [
@@ -100,15 +95,6 @@ final class InstalmentTemplateForm extends FormBase {
       '#value' => $this->t('Sjabloon opslaan'),
       '#button_type' => 'primary',
     ];
-
-    if ($node !== NULL) {
-      $form['actions']['back'] = [
-        '#type' => 'link',
-        '#title' => $this->t('Terug naar Facturen'),
-        '#url' => \Drupal\Core\Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $node->id()]),
-        '#attributes' => ['class' => ['button']],
-      ];
-    }
 
     return $form;
   }
