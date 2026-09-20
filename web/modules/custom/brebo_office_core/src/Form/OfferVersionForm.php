@@ -680,14 +680,42 @@ final class OfferVersionForm extends FormBase {
       priceLevel: $version['price_level'] ?: NULL,
     );
 
-    $offerable = $this->loadOfferableCalculationLines();
     $directCost = 0.0;
-    foreach ($offerable as $line) {
-      if (($line['suggested_type'] ?? '') === 'Optie') continue;
-      $directCost += (float) ($line['amount'] ?? 0.0) / max(1.0, $this->commercialFactorForSnapshot($version, $offerable));
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r')
+      ->condition('calculation_id', (int) $calculation->id())
+      ->condition('version', (string) $version['version'])
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
+    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    foreach ($rows as $row) {
+      if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) continue;
+      $line = $lineEntities[(int) $row['calc_line_id']] ?? NULL;
+      if (!$line instanceof NodeInterface) continue;
+      $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
+      $directCost += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']);
     }
-    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
 
+    $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')
+      ->fields('i', ['id'])
+      ->condition('calculation_id', (int) $calculation->id())
+      ->condition('calculation_version', (string) $version['version'])
+      ->execute()
+      ->fetchCol();
+    if ($recipeInstances) {
+      $recipeLines = $this->database->select('brebo_calculation_recipe_instance_line', 'l')
+        ->fields('l')
+        ->condition('recipe_instance_id', $recipeInstances, 'IN')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+      foreach ($recipeLines as $line) {
+        $quantity = $line['manual_quantity'] !== NULL && $line['manual_quantity'] !== '' ? (float) $line['manual_quantity'] : (float) ($line['calculated_quantity'] ?? 0);
+        $directCost += $quantity * (float) ($line['unit_cost'] ?? 0);
+      }
+    }
+
+    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
     return [
       'version' => (string) $version['version'],
       'content_hash' => (string) ($version['content_hash'] ?? ''),
@@ -706,19 +734,6 @@ final class OfferVersionForm extends FormBase {
       ],
       'commercial_result' => $commercial->toArray(),
     ];
-  }
-
-  /** @param array<int, array<string, mixed>> $offerable */
-  private function commercialFactorForSnapshot(array $version, array $offerable): float {
-    $sales = 0.0;
-    $direct = 0.0;
-    foreach ($offerable as $line) {
-      if (($line['suggested_type'] ?? '') === 'Optie') continue;
-      $sales += (float) ($line['amount'] ?? 0.0);
-      $quantity = (float) ($line['quantity'] ?? 0.0);
-      $direct += $quantity > 0.0 ? ((float) ($line['unit_price'] ?? 0.0) * $quantity) : (float) ($line['amount'] ?? 0.0);
-    }
-    return $direct > 0.0 ? max($sales / $direct, 0.000001) : 1.0;
   }
 
   /**
