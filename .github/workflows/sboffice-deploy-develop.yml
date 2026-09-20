@@ -200,8 +200,12 @@ jobs:
           command -v rsync >/dev/null 2>&1 || { echo "::error::rsync is required for authoritative production deployment."; exit 1; }
 
           rm -f "$app/.brebo-deployed-sha" "$app/.brebo-deployed-sha.tmp"
+          # Historical deployment backups can live below the application root.
+          # They are not part of the active release and must never make rsync's
+          # --delete fail while replacing the real application tree.
           rsync -a --delete \
             --exclude='.git/' \
+            --exclude='.deploy-backup-*' \
             --exclude='.brebo-deployed-sha' \
             --exclude='web/sites/default/files/' \
             --exclude='web/sites/default/settings.php' \
