@@ -155,3 +155,12 @@ brebo_inzet.onsite_install:
     _title: 'BREBO OnSite'
   requirements:
     _access: 'TRUE'
+
+
+brebo_inzet.onsite_activate:
+  path: '/api/onsite/v1/activate'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteActivationController::activate'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
