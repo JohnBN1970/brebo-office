@@ -72,3 +72,20 @@
     },
   };
 })(Drupal, once);
+
+(function (Drupal, once) {
+  Drupal.behaviors.breboProjectRowActionDirection = {
+    attach(context) {
+      once('brebo-project-row-action-direction', '.brebo-project-row-actions__more', context).forEach((details) => {
+        details.addEventListener('toggle', () => {
+          if (!details.open) return;
+          const rect = details.getBoundingClientRect();
+          const menuHeight = details.querySelector('.details-wrapper')?.scrollHeight || 150;
+          const spaceBelow = window.innerHeight - rect.bottom;
+          const spaceAbove = rect.top;
+          details.classList.toggle('is-up', spaceBelow < menuHeight && spaceAbove > spaceBelow);
+        });
+      });
+    },
+  };
+})(Drupal, once);
