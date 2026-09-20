@@ -91,7 +91,16 @@ final class ProjectContractForm extends FormBase {
       'changed_by' => $uid,
     ];
     if ($current !== []) {
-      $this->database->update('brebo_finance_project_contract')->fields($values)->condition('project_nid', $projectId)->execute();
+      $updated = $this->database->update('brebo_finance_project_contract')
+        ->fields($values)
+        ->condition('project_nid', $projectId)
+        ->condition('status', 'draft')
+        ->execute();
+      if ($updated === 0) {
+        $this->messenger()->addError($this->t('Het projectcontract is intussen goedgekeurd of gewijzigd. Uw conceptwijzigingen zijn niet opgeslagen.'));
+        $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
+        return;
+      }
     }
     else {
       $this->database->insert('brebo_finance_project_contract')->fields($values + ['project_nid' => $projectId, 'created' => $now, 'created_by' => $uid])->execute();
