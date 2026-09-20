@@ -62,3 +62,8 @@ services:
       - '@keyvalue.expirable'
       - '@private_key'
       - '@flood'
+
+
+  brebo_inzet.onsite_device_registry:
+    class: Drupal\brebo_inzet\Service\OnSiteDeviceRegistry
+    arguments: ['@keyvalue']
