@@ -5,67 +5,6 @@
     document.querySelectorAll('.brebo-list-actions').forEach((menu) => menu.remove());
   }
 
-  function projectIdFromPath() {
-    const projectMatch = window.location.pathname.match(/^\/projecten\/(\d+)(?:\/|$)/);
-    if (projectMatch) {
-      return projectMatch[1];
-    }
-    const legacyDocumentMatch = window.location.pathname.match(/^\/node\/(\d+)\/documents(?:\/|$)/);
-    return legacyDocumentMatch ? legacyDocumentMatch[1] : null;
-  }
-
-  function activateTab(link) {
-    document.querySelectorAll('.brebo-context-tabs a.is-active').forEach((activeLink) => {
-      activeLink.classList.remove('is-active');
-      activeLink.removeAttribute('aria-current');
-    });
-    link.classList.add('is-active');
-    link.setAttribute('aria-current', 'page');
-  }
-
-  function wireProjectTabs() {
-    const projectId = projectIdFromPath();
-    if (!projectId) {
-      return;
-    }
-
-    const aliases = {
-      Calculatie: 'Begroting',
-      Inkoop: 'Orders',
-      Kwaliteit: 'Tekortkomingen',
-    };
-    const tabs = {
-      Overzicht: `/projecten/${projectId}/cockpit`,
-      Planning: `/projecten/${projectId}/planning`,
-      Documenten: `/projecten/${projectId}/documenten`,
-      Begroting: `/projecten/${projectId}/begroting`,
-      Orders: `/projecten/${projectId}/orders`,
-      Contracten: `/projecten/${projectId}/contracten`,
-      Facturen: `/projecten/${projectId}/facturen`,
-      Inzet: `/projecten/${projectId}/inzet`,
-      Tekortkomingen: `/projecten/${projectId}/tekortkomingen`,
-      Oplevering: `/projecten/${projectId}/oplevering`,
-    };
-
-    document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
-      let label = link.textContent.trim();
-      if (aliases[label]) {
-        label = aliases[label];
-        link.textContent = label;
-      }
-      const target = tabs[label];
-      if (!target) {
-        return;
-      }
-
-      link.href = target;
-      const current = window.location.pathname.replace(/\/$/, '');
-      const normalizedTarget = target.replace(/\/$/, '');
-      if (current === normalizedTarget || current.startsWith(`${normalizedTarget}/`)) {
-        activateTab(link);
-      }
-    });
-  }
 
   function enrichRichCards() {
     const data = drupalSettings.breboProjectCockpit && drupalSettings.breboProjectCockpit.richCards;
@@ -121,8 +60,6 @@
   }
 
   function initializeCockpit() {
-    removeLegacyProjectMenu();
-    wireProjectTabs();
     if (!enrichRichCards()) {
       window.setTimeout(enrichRichCards, 50);
     }
