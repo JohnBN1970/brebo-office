@@ -40,9 +40,8 @@ final class OnSiteInviteController extends ControllerBase {
         '#markup' => '<p>' . $this->t('OnSite-uitnodiging kan niet worden gemaakt: gebruik een Nederlands mobiel nummer als 06xxxxxxxx of +316xxxxxxxx.') . '</p>',
       ];
     }
-    $message = $this->t('BREBO OnSite: open deze persoonlijke link op je iPhone om OnSite eenmalig aan Office te koppelen: @url', [
-      '@url' => $invitation['install_url'],
-    ]);
+    $message = (string) $this->t('BREBO OnSite: open deze persoonlijke link op je iPhone om OnSite eenmalig aan Office te koppelen:');
+    $message .= ' ' . $invitation['install_url'];
     $whatsAppUrl = 'https://wa.me/' . $digits . '?text=' . rawurlencode((string) $message);
 
     return [
