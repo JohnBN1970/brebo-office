@@ -38,6 +38,20 @@ final class OnSiteIdentityStore: ObservableObject {
 
     private let apiClient = OnSiteAPIClient()
 
+    func activate(activationToken: String) async {
+        let token = activationToken.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !token.isEmpty else { return }
+
+        errorMessage = nil
+        do {
+            let activated = try await apiClient.activate(activationToken: token)
+            OnSiteSecureStore.saveDeviceToken(activated.deviceToken)
+            await refreshBootstrap()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func requestCode(phoneNumber: String) async {
         let normalized = phoneNumber.filter { $0.isNumber || $0 == "+" }
         guard normalized.count >= 8 else {
