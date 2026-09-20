@@ -55,11 +55,21 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         states[region.identifier] = .present
-        events.append(CrewPresenceEvent(projectId: region.identifier, kind: .enteredProject))
+        guard let zone = zonesByIdentifier[region.identifier] else { return }
+        events.append(CrewPresenceEvent(
+            projectId: zone.projectId,
+            zoneId: zone.id,
+            kind: .enteredProject
+        ))
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         states[region.identifier] = .outside
-        events.append(CrewPresenceEvent(projectId: region.identifier, kind: .leftProject))
+        guard let zone = zonesByIdentifier[region.identifier] else { return }
+        events.append(CrewPresenceEvent(
+            projectId: zone.projectId,
+            zoneId: zone.id,
+            kind: .leftProject
+        ))
     }
 }
