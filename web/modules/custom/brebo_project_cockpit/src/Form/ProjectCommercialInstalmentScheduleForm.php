@@ -52,6 +52,11 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     foreach ($templates as $id => $template) {
       $options[$id] = $template['name'] . ' · ' . implode(' / ', array_map(static fn(float $v): string => rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . '%', $template['percentages']));
     }
+    $storedTemplateId = (string) ($existing['source_template_id'] ?? '');
+    if ($storedTemplateId !== '' && !isset($options[$storedTemplateId])) {
+      $storedTemplateName = (string) ($existing['source_template_name'] ?? $storedTemplateId);
+      $options[$storedTemplateId] = $storedTemplateName . ' · ' . $this->t('gearchiveerd projectsjabloon');
+    }
 
     $payload = $existing ? json_decode((string) $existing['schedule_payload'], TRUE) : [];
     $percentages = is_array($payload['percentages'] ?? NULL) ? $payload['percentages'] : [];
