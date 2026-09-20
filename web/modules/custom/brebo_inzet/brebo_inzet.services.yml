@@ -44,3 +44,8 @@ services:
   brebo_inzet.personnel_assignment_comparison:
     class: Drupal\brebo_inzet\Service\PersonnelAssignmentComparison
     arguments: ['@entity_type.manager', '@config.factory', '@datetime.time']
+
+
+  brebo_inzet.onsite_identity_resolver:
+    class: Drupal\brebo_inzet\Service\OnSiteIdentityResolver
+    arguments: ['@entity_type.manager']
