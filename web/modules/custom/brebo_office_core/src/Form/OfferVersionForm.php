@@ -462,58 +462,117 @@ final class OfferVersionForm extends FormBase {
 
   private function loadOfferableCalculationLines(): array {
     if (!$this->calculation instanceof NodeInterface) return [];
-    $storage = $this->entityTypeManager->getStorage('node');
-    $element_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_element')->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())->sort('field_brebo_element_sequence', 'ASC')->execute();
-    if (!$element_ids) return [];
-    $line_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_line')->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')->condition('field_brebo_line_type', 'Calculatieregel')->sort('nid', 'ASC')->execute();
-    $source_lines = $storage->loadMultiple($line_ids);
-    $domainVersion = $this->database->select('brebo_calculation_version', 'v')
+
+    $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v')
       ->condition('calculation_id', (int) $this->calculation->id())
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
       ->fetchAssoc();
-    if (!is_array($domainVersion)) {
+    if (!is_array($version)) {
       throw new \RuntimeException('Offerte kan niet worden gemaakt zonder calculatiedomeinversie.');
     }
 
-    $direct_total = 0.0;
-    foreach ($source_lines as $source_line) {
-      if (!$source_line instanceof NodeInterface) continue;
-      $sourceType = mb_strtolower((string) ($source_line->get('field_brebo_line_post_type')->value ?? ''));
-      if (str_contains($sourceType, 'optie') || str_contains($sourceType, 'alternatief') || str_contains($sourceType, 'notitie')) continue;
-      $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
-    }
     $parameters = new CalculationParameters(
-      pricingMode: (string) $domainVersion['pricing_mode'],
-      commercialMethod: (string) $domainVersion['commercial_method'],
-      generalCostPct: (float) $domainVersion['general_cost_pct'],
-      riskPct: (float) $domainVersion['risk_pct'],
-      profitPct: (float) $domainVersion['profit_pct'],
-      singleMarginPct: (float) $domainVersion['single_margin_pct'],
-      commercialAdjustment: (float) $domainVersion['commercial_adjustment'],
-      priceDate: $domainVersion['price_date'] ?: NULL,
-      priceLevel: $domainVersion['price_level'] ?: NULL,
+      pricingMode: (string) $version['pricing_mode'],
+      commercialMethod: (string) $version['commercial_method'],
+      generalCostPct: (float) $version['general_cost_pct'],
+      riskPct: (float) $version['risk_pct'],
+      profitPct: (float) $version['profit_pct'],
+      singleMarginPct: (float) $version['single_margin_pct'],
+      commercialAdjustment: (float) $version['commercial_adjustment'],
+      priceDate: $version['price_date'] ?: NULL,
+      priceLevel: $version['price_level'] ?: NULL,
     );
-    $commercial = $this->commercialCalculator->calculate($direct_total, $parameters);
-    $factor = $direct_total > 0.0 ? $commercial->salesPrice / $direct_total : 0.0;
+
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->condition('version', (string) $version['version'])
+      ->orderBy('calc_line_id')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
+    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+
+    $directTotal = 0.0;
+    $directByKey = [];
     $lines = [];
-    foreach ($source_lines as $line) {
+    foreach ($rows as $row) {
+      $lineId = (int) $row['calc_line_id'];
+      $line = $lineEntities[$lineId] ?? NULL;
       if (!$line instanceof NodeInterface) continue;
-      $source_type = (string) ($line->get('field_brebo_line_post_type')->value ?? 'Vaste post');
+      $ruleType = (string) ($row['rule_type'] ?? 'normal');
+      if ($ruleType === 'note') continue;
       $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
-      $direct_cost = (float) ($line->get('field_brebo_direct_cost')->value ?? ($quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0)));
-      $amount = round($direct_cost * $factor, 2);
-      $lines[(int) $line->id()] = [
+      $unitDirect = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
+      $direct = $quantity * $unitDirect;
+      $key = 'line_' . $lineId;
+      $directByKey[$key] = $direct;
+      if ($ruleType !== 'option') $directTotal += $direct;
+      $lines[$key] = [
         'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
         'quantity' => (string) ($line->get('field_brebo_contract_quantity')->value ?? ''),
         'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
-        'suggested_type' => $this->mapOfferPostType($source_type),
-        'unit_price' => $quantity > 0.0 ? round($amount / $quantity, 4) : $amount,
-        'amount' => $amount,
+        'suggested_type' => match ($ruleType) {
+          'option' => 'Optie',
+          'allowance' => 'Stelpost',
+          'adjustable' => 'Verrekenpost',
+          default => 'Basisaanbieding',
+        },
       ];
     }
+
+    $instances = $this->database->select('brebo_calculation_recipe_instance', 'i')
+      ->fields('i')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->condition('calculation_version', (string) $version['version'])
+      ->orderBy('sort_order')
+      ->orderBy('id')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    if ($instances) {
+      $instanceIds = array_map(static fn (array $instance): int => (int) $instance['id'], $instances);
+      $recipeRows = $this->database->select('brebo_calculation_recipe_instance_line', 'l')
+        ->fields('l')
+        ->condition('recipe_instance_id', $instanceIds, 'IN')
+        ->orderBy('recipe_instance_id')
+        ->orderBy('sort_order')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+      $recipeByInstance = [];
+      foreach ($recipeRows as $recipeRow) $recipeByInstance[(int) $recipeRow['recipe_instance_id']][] = $recipeRow;
+      foreach ($instances as $instance) {
+        $instanceId = (int) $instance['id'];
+        $direct = 0.0;
+        foreach ($recipeByInstance[$instanceId] ?? [] as $recipeRow) {
+          $quantity = $recipeRow['manual_quantity'] !== NULL && $recipeRow['manual_quantity'] !== '' ? (float) $recipeRow['manual_quantity'] : (float) ($recipeRow['calculated_quantity'] ?? 0);
+          $quantity *= 1 + ((float) ($recipeRow['waste_pct'] ?? 0) / 100);
+          $direct += $quantity * (float) ($recipeRow['unit_cost'] ?? 0);
+        }
+        $key = 'recipe_' . $instanceId;
+        $directByKey[$key] = $direct;
+        $directTotal += $direct;
+        $lines[$key] = [
+          'description' => (string) ($instance['name'] ?? ('Recept ' . $instanceId)),
+          'quantity' => (string) ($instance['quantity'] ?? '1'),
+          'unit' => (string) ($instance['unit'] ?? ''),
+          'suggested_type' => 'Basisaanbieding',
+        ];
+      }
+    }
+
+    $commercial = $this->commercialCalculator->calculate($directTotal, $parameters);
+    $factor = $directTotal > 0.0 ? $commercial->salesPrice / $directTotal : 0.0;
+    foreach ($lines as $key => &$line) {
+      $direct = $directByKey[$key] ?? 0.0;
+      $amount = round($direct * $factor, 2);
+      $quantity = (float) ($line['quantity'] ?: 0);
+      $line['unit_price'] = $quantity > 0.0 ? round($amount / $quantity, 4) : $amount;
+      $line['amount'] = $amount;
+    }
+    unset($line);
     return $lines;
   }
 
@@ -711,6 +770,7 @@ final class OfferVersionForm extends FormBase {
         ->fetchAll(\PDO::FETCH_ASSOC);
       foreach ($recipeLines as $line) {
         $quantity = $line['manual_quantity'] !== NULL && $line['manual_quantity'] !== '' ? (float) $line['manual_quantity'] : (float) ($line['calculated_quantity'] ?? 0);
+        $quantity *= 1 + ((float) ($line['waste_pct'] ?? 0) / 100);
         $directCost += $quantity * (float) ($line['unit_cost'] ?? 0);
       }
     }
