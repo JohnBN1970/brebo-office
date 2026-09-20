@@ -14,7 +14,7 @@ final class OnSiteInvitationManager {
 
   public function __construct(
     private readonly OnSiteIdentityResolver $identityResolver,
-    private readonly OnSiteSmsSenderInterface $smsSender,
+    private readonly OnSiteActivationManager $activationManager,
   ) {}
 
   public function invite(UserInterface $user): void {
@@ -31,12 +31,17 @@ final class OnSiteInvitationManager {
     }
 
     $language = $this->identityResolver->languageFor($user);
+    $activationToken = $this->activationManager->issue((int) $user->id());
     $installUrl = Url::fromRoute('brebo_inzet.onsite_install', [], [
       'absolute' => TRUE,
-      'query' => ['lang' => $language],
+      'query' => [
+        'lang' => $language,
+        'activation' => $activationToken,
+      ],
     ])->toString();
 
-    $this->smsSender->sendInstallInvite($mobile, $installUrl, $language);
+    // The Office UI can present this personal URL for sharing via WhatsApp.
+    // No SMS provider is required for installation or activation.
   }
 
 }
