@@ -13,10 +13,11 @@ struct CrewContentView: View {
                     permissionView
                 } else {
                     switch identityStore.state {
-                    case .unlinked:
+                    case .unlinked, .requestingCode:
                         linkView
-                    case .codeSent(let phoneNumber):
-                        verificationView(phoneNumber: phoneNumber)
+                    case .codeSent(let phoneNumber, let challengeId),
+                         .verifying(let phoneNumber, let challengeId):
+                        verificationView(phoneNumber: phoneNumber, challengeId: challengeId)
                     case .linked(let employeeId, let displayName, _):
                         operationalView(employeeId: employeeId, displayName: displayName)
                     }
@@ -60,7 +61,7 @@ struct CrewContentView: View {
             Label("Eenmalig koppelen", systemImage: "iphone.gen3")
                 .font(.title2.bold())
 
-            Text("Vul het mobiele nummer in dat bij je medewerkerprofiel hoort. Daarna werkt OnSite zonder dagelijkse instellingen.")
+            Text("Vul het mobiele nummer in dat bij je medewerkerprofiel in Office staat. Daarna werkt OnSite zonder dagelijkse instellingen.")
                 .foregroundStyle(.secondary)
 
             TextField("Mobiel nummer", text: $phoneNumber)
@@ -68,17 +69,29 @@ struct CrewContentView: View {
                 .textContentType(.telephoneNumber)
                 .textFieldStyle(.roundedBorder)
 
-            Button("Stuur verificatiecode") {
-                identityStore.beginLink(phoneNumber: phoneNumber)
+            Button {
+                Task { await identityStore.requestCode(phoneNumber: phoneNumber) }
+            } label: {
+                if case .requestingCode = identityStore.state {
+                    ProgressView()
+                } else {
+                    Text("Stuur verificatiecode")
+                }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(phoneNumber.filter { $0.isNumber }.count < 8)
+            .disabled(phoneNumber.filter { $0.isNumber }.count < 8 || isRequesting)
+
+            if let errorMessage = identityStore.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
 
             Spacer()
         }
     }
 
-    private func verificationView(phoneNumber: String) -> some View {
+    private func verificationView(phoneNumber: String, challengeId: String) -> some View {
         VStack(alignment: .leading, spacing: 20) {
             Label("Controleer je sms", systemImage: "message.badge")
                 .font(.title2.bold())
@@ -91,15 +104,29 @@ struct CrewContentView: View {
                 .textContentType(.oneTimeCode)
                 .textFieldStyle(.roundedBorder)
 
-            Button("Koppel deze iPhone") {
-                // Deliberately disabled until the Office OTP endpoint is wired.
+            Button {
+                Task {
+                    await identityStore.verifyCode(
+                        phoneNumber: phoneNumber,
+                        challengeId: challengeId,
+                        code: verificationCode
+                    )
+                }
+            } label: {
+                if case .verifying = identityStore.state {
+                    ProgressView()
+                } else {
+                    Text("Koppel deze iPhone")
+                }
             }
             .buttonStyle(.borderedProminent)
-            .disabled(true)
+            .disabled(verificationCode.filter { $0.isNumber }.count != 6 || isVerifying)
 
-            Text("De SMS-verificatie wordt actief zodra de beveiligde Office-koppeling beschikbaar is. OnSite koppelt nooit lokaal een medewerker op basis van alleen een telefoonnummer.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            if let errorMessage = identityStore.errorMessage {
+                Text(errorMessage)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+            }
 
             Button("Ander nummer") {
                 verificationCode = ""
@@ -131,7 +158,7 @@ struct CrewContentView: View {
 
                 GroupBox("Toegewezen projecten") {
                     VStack(alignment: .leading, spacing: 8) {
-                        Label("Projecten worden door Office bepaald", systemImage: "building.2")
+                        Label("Projecten worden automatisch door Office bepaald", systemImage: "building.2")
                         Text("OnSite kiest geen projecten en bevat geen handmatige projectinstellingen.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -155,6 +182,16 @@ struct CrewContentView: View {
                 }
             }
         }
+    }
+
+    private var isRequesting: Bool {
+        if case .requestingCode = identityStore.state { return true }
+        return false
+    }
+
+    private var isVerifying: Bool {
+        if case .verifying = identityStore.state { return true }
+        return false
     }
 
     private var authorizationText: String {
