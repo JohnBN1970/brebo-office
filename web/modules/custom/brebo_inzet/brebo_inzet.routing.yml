@@ -146,3 +146,12 @@ brebo_inzet.onsite_presence_record:
   methods: [POST]
   requirements:
     _access: 'TRUE'
+
+
+brebo_inzet.onsite_install:
+  path: '/onsite/install'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteInstallController::page'
+    _title: 'BREBO OnSite'
+  requirements:
+    _access: 'TRUE'
