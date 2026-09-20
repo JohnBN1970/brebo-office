@@ -34,6 +34,7 @@ final class OnSiteIdentityStore: ObservableObject {
     @Published private(set) var state: OnSiteLinkState = .unlinked
     @Published private(set) var language: OnSiteLanguage = .bootstrap()
     @Published private(set) var errorMessage: String?
+    @Published private(set) var assignedProjects: [OnSiteBootstrapProject] = []
 
     private let apiClient = OnSiteAPIClient()
 
@@ -75,14 +76,53 @@ final class OnSiteIdentityStore: ObservableObject {
                 displayName: verified.displayName,
                 language: officeLanguage
             )
+            await refreshBootstrap()
         } catch {
             state = .codeSent(phoneNumber: phoneNumber, challengeId: challengeId)
             errorMessage = error.localizedDescription
         }
     }
 
+    func restoreLinkedDevice() async {
+        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        do {
+            let bootstrap = try await apiClient.bootstrap(deviceToken: token)
+            let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
+            language = officeLanguage
+            assignedProjects = bootstrap.projects
+            state = .linked(
+                employeeId: bootstrap.employee.id,
+                displayName: bootstrap.employee.displayName,
+                language: officeLanguage
+            )
+        } catch {
+            OnSiteSecureStore.clear()
+            assignedProjects = []
+            state = .unlinked
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func refreshBootstrap() async {
+        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        do {
+            let bootstrap = try await apiClient.bootstrap(deviceToken: token)
+            let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
+            language = officeLanguage
+            assignedProjects = bootstrap.projects
+            state = .linked(
+                employeeId: bootstrap.employee.id,
+                displayName: bootstrap.employee.displayName,
+                language: officeLanguage
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func reset() {
         OnSiteSecureStore.clear()
+        assignedProjects = []
         state = .unlinked
         language = .bootstrap()
         errorMessage = nil
