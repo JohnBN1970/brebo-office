@@ -6,6 +6,7 @@ namespace Drupal\brebo_office_core\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /** Manages visible BREBO Office policy and operating defaults. */
 final class OfficeSettingsForm extends ConfigFormBase {
@@ -82,6 +83,15 @@ final class OfficeSettingsForm extends ConfigFormBase {
     $form['sales']['start_number'] = ['#type' => 'number', '#title' => $this->t('Startnummer'), '#default_value' => (int) ($sales->get('numbering.start_number') ?? 1), '#min' => 1, '#required' => TRUE, '#description' => $this->t('Wijzigt niet automatisch de actuele cursor van een reeds lopende reeks.')];
     $form['sales']['reset_yearly'] = ['#type' => 'checkbox', '#title' => $this->t('Volgnummer jaarlijks opnieuw starten'), '#default_value' => (bool) ($sales->get('numbering.reset_yearly') ?? TRUE)];
     $form['sales']['default_payment_term_days'] = ['#type' => 'number', '#title' => $this->t('Standaard betaaltermijn'), '#field_suffix' => $this->t('dagen'), '#default_value' => (int) ($sales->get('numbering.default_payment_term_days') ?? 14), '#min' => 0, '#max' => 365, '#required' => TRUE, '#description' => $this->t('BREBO-standaard is 14 dagen. Klant, project, termijn of factuur kan gecontroleerd afwijken.')];
+    if ($this->currentUser()->hasPermission('manage brebo instalment templates')) {
+      $form['sales']['instalment_templates'] = [
+        '#type' => 'link',
+        '#title' => $this->t('Termijnschemasjablonen beheren'),
+        '#url' => Url::fromRoute('brebo_project_cockpit.instalment_templates'),
+        '#attributes' => ['class' => ['button']],
+        '#description' => $this->t('Beheer herbruikbare termijnverdelingen voor projecten, offertes en contracten.'),
+      ];
+    }
     $form['sales']['vat_rates'] = ['#type' => 'textarea', '#title' => $this->t('Btw-codes'), '#default_value' => implode("\n", $vatRows), '#rows' => 6, '#required' => TRUE, '#description' => $this->t('Eén tarief per regel: CODE|Naam|Percentage|behandeling|actief. Bijvoorbeeld NL_21|21%|21|normal|1. Historische facturen behouden hun btw-snapshot.')];
     $form['sales']['g_enabled'] = ['#type' => 'checkbox', '#title' => $this->t('G-rekening beschikbaar maken op verkoopfacturen'), '#default_value' => (bool) ($sales->get('g_account.enabled') ?? FALSE)];
     $form['sales']['g_default_percentage'] = ['#type' => 'number', '#title' => $this->t('Standaard percentage naar G-rekening'), '#default_value' => (float) ($sales->get('g_account.default_percentage') ?? 0), '#min' => 0, '#max' => 100, '#step' => 0.01];
