@@ -11,4 +11,9 @@ interface OnSiteSmsSenderInterface {
    */
   public function sendVerificationCode(string $mobile, string $code, string $languageTag): void;
 
+  /**
+   * Sends the initial OnSite installation invitation.
+   */
+  public function sendInstallInvite(string $mobile, string $installUrl, string $languageTag): void;
+
 }
