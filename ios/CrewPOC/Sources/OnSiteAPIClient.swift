@@ -65,6 +65,14 @@ struct OnSiteBootstrapZone: Decodable, Identifiable, Equatable {
     }
 }
 
+struct OnSiteActivationResponse: Decodable {
+    let deviceToken: String
+
+    enum CodingKeys: String, CodingKey {
+        case deviceToken = "device_token"
+    }
+}
+
 struct OnSitePresenceResponse: Decodable {
     let ok: Bool
 }
@@ -100,6 +108,10 @@ struct OnSiteAPIClient {
     init(baseURL: URL = OnSiteConfiguration.apiBaseURL, session: URLSession = .shared) {
         self.baseURL = baseURL
         self.session = session
+    }
+
+    func activate(activationToken: String) async throws -> OnSiteActivationResponse {
+        try await post(path: "/api/onsite/v1/activate", body: ["activation_token": activationToken])
     }
 
     func requestCode(mobile: String) async throws -> OnSiteChallenge {
