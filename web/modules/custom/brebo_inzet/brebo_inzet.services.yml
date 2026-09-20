@@ -74,3 +74,10 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@brebo_inzet.project_clock_zone_manager'
+
+
+  brebo_inzet.onsite_presence_evidence_writer:
+    class: Drupal\brebo_inzet\Service\OnSitePresenceEvidenceWriter
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_inzet.onsite_assignment_provider'
