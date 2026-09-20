@@ -66,10 +66,11 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       return $form;
     }
 
-    $templates = $this->availableTemplates();
-    $options = [];
-    foreach ($templates as $id => $template) {
-      $options[$id] = (string) $template['name'] . ' · ' . implode(' / ', array_map(static fn(float $v): string => rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . '%', $template['percentages']));
+    $commercial = $this->commercialScheduleForProject($node);
+    if ($commercial === NULL) {
+      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Er is geen commercieel termijnschema gevonden in een geaccepteerde offerte of projectsnapshot. Leg dit eerst commercieel vast; Finance mag hier geen nieuwe verdeling bedenken.') . '</strong></p>'];
+      $form['back'] = ['#type' => 'link', '#title' => $this->t('Terug naar Facturen'), '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
+      return $form;
     }
 
     $defaultDays = isset($contract['payment_term_days']) && is_numeric($contract['payment_term_days'])
@@ -77,7 +78,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       : $this->globalPaymentTermDays();
 
     $form['project'] = ['#markup' => '<p><strong>' . $this->t('Project:') . '</strong> ' . $node->label() . '<br><strong>' . $this->t('Contractsom excl. btw:') . '</strong> € ' . number_format((float) ($contract['amount_ex_vat'] ?? 0), 2, ',', '.') . '<br><strong>' . $this->t('Standaard betaaltermijn:') . '</strong> ' . ($defaultDays === 0 ? $this->t('Per omgaande') : $this->t('@days dagen', ['@days' => $defaultDays])) . '</p>'];
-    $form['template'] = ['#type' => 'select', '#title' => $this->t('Termijnsjabloon'), '#options' => $options, '#required' => TRUE];
+    $form['commercial_source'] = ['#type' => 'item', '#title' => $this->t('Commerciële bron'), '#markup' => '<strong>' . htmlspecialchars((string) $commercial['source_label'], ENT_QUOTES, 'UTF-8') . '</strong><br><small>' . htmlspecialchars(implode(' / ', array_map(static fn(float $v): string => rtrim(rtrim(number_format($v, 2, '.', ''), '0'), '.') . '%', $commercial['percentages'])), ENT_QUOTES, 'UTF-8') . '</small>'];
     $form['first_date'] = ['#type' => 'date', '#title' => $this->t('Datum eerste termijn'), '#required' => TRUE, '#default_value' => date('Y-m-d')];
     $form['interval_months'] = ['#type' => 'number', '#title' => $this->t('Tussenruimte in maanden'), '#required' => TRUE, '#min' => 0, '#max' => 24, '#default_value' => 1, '#description' => $this->t('Gebruik 0 wanneer alle termijnen dezelfde geplande datum krijgen; data blijven later per termijn aanpasbaar.')];
     $form['payment_term'] = [
@@ -115,7 +116,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
 
     $form_state->set('project_id', $projectId);
     $form_state->set('contract', $contract);
-    $form_state->set('templates', $templates);
+    $form_state->set('commercial_schedule', $commercial);
     $form_state->set('default_payment_term_days', $defaultDays);
     return $form;
   }
@@ -129,11 +130,9 @@ final class ProjectInstalmentScheduleForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $projectId = (int) $form_state->get('project_id');
     $contract = $form_state->get('contract');
-    $templates = $form_state->get('templates');
-    $templateId = (string) $form_state->getValue('template');
-    $template = $templates[$templateId] ?? NULL;
-    if (!is_array($contract) || !is_array($template)) {
-      throw new \RuntimeException('Contract or instalment template unavailable.');
+    $commercial = $form_state->get('commercial_schedule');
+    if (!is_array($contract) || !is_array($commercial)) {
+      throw new \RuntimeException('Contract or commercial instalment schedule unavailable.');
     }
 
     $choice = (string) $form_state->getValue('payment_term');
@@ -143,8 +142,8 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       default => is_numeric($choice) ? max(0, (int) $choice) : max(0, (int) $form_state->get('default_payment_term_days')),
     };
 
-    $percentages = array_values(array_map('floatval', $template['percentages'] ?? []));
-    $labels = array_values(array_map('strval', $template['labels'] ?? []));
+    $percentages = array_values(array_map('floatval', $commercial['percentages'] ?? []));
+    $labels = array_values(array_map('strval', $commercial['labels'] ?? []));
     $contractAmount = round((float) $contract['amount_ex_vat'], 4);
     $firstDate = new \DateTimeImmutable((string) $form_state->getValue('first_date'));
     $interval = max(0, (int) $form_state->getValue('interval_months'));
@@ -173,9 +172,10 @@ final class ProjectInstalmentScheduleForm extends FormBase {
           'vat_code' => 'NL_' . $vatRate,
           'planned_invoice_date' => $date->format('Y-m-d'),
           'evidence' => [
-            'source' => 'instalment_template',
-            'template_id' => $templateId,
-            'template_name' => (string) $template['name'],
+            'source' => (string) $commercial['source'],
+            'source_ref' => (string) $commercial['source_ref'],
+            'source_label' => (string) $commercial['source_label'],
+            'content_hash' => (string) $commercial['content_hash'],
             'percentage' => $percentage,
             'payment_term_days' => $paymentDays,
             'payment_term_source' => $choice === 'default' ? 'project_contract' : 'instalment_schedule',
@@ -190,7 +190,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
 
     $this->messenger()->addStatus($this->t('@count termijnen zijn aangemaakt vanuit sjabloon “@name” met @term als betaaltermijn. Afwijkingen kunnen per termijn in de termijnstaat worden aangepast.', [
       '@count' => count($percentages),
-      '@name' => $template['name'],
+      '@name' => $commercial['source_label'],
       '@term' => $paymentDays === 0 ? 'per omgaande' : $paymentDays . ' dagen',
     ]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
@@ -202,25 +202,67 @@ final class ProjectInstalmentScheduleForm extends FormBase {
   }
 
   /**
-   * @return array<string, array{name: string, percentages: list<float>, labels: list<string>}>
+   * Resolves the immutable commercial schedule: accepted offer first, project snapshot second.
+   *
+   * @return array{source:string,source_ref:string,source_label:string,content_hash:string,percentages:list<float>,labels:list<string>}|null
    */
-  private function availableTemplates(): array {
-    $templates = InstalmentTemplateForm::standardTemplates();
-    $custom = $this->templateConfigFactory->get(self::TEMPLATE_CONFIG)->get('templates') ?? [];
-    if (!is_array($custom)) {
-      return $templates;
-    }
-    foreach ($custom as $id => $template) {
-      if (!is_array($template) || empty($template['active'])) {
-        continue;
+  private function commercialScheduleForProject(NodeInterface $project): ?array {
+    if ($project->hasField('field_brebo_project_opp_ref') && !$project->get('field_brebo_project_opp_ref')->isEmpty()) {
+      $opportunity = $project->get('field_brebo_project_opp_ref')->entity;
+      if ($opportunity instanceof NodeInterface && $opportunity->hasField('field_brebo_opp_offer_ref')) {
+        $offer = $opportunity->get('field_brebo_opp_offer_ref')->entity;
+        if ($offer instanceof NodeInterface
+          && (string) ($offer->get('field_brebo_offer_status')->value ?? '') === 'Geaccepteerd') {
+          $snapshot = json_decode((string) ($offer->get('field_brebo_offer_snapshot')->value ?? ''), TRUE);
+          $schedule = is_array($snapshot) ? ($snapshot['commercial_instalment_schedule'] ?? NULL) : NULL;
+          if (is_array($schedule) && is_array($schedule['schedule'] ?? NULL)) {
+            return $this->normalizeCommercialSchedule(
+              (array) $schedule['schedule'],
+              'accepted_offer',
+              (string) $offer->id(),
+              (string) $offer->label(),
+              (string) ($schedule['content_hash'] ?? ''),
+            );
+          }
+        }
       }
-      $templates[(string) $id] = [
-        'name' => (string) ($template['name'] ?? $id),
-        'percentages' => array_values(array_map('floatval', $template['percentages'] ?? [])),
-        'labels' => array_values(array_map('strval', $template['labels'] ?? [])),
-      ];
     }
-    return $templates;
+
+    if (!$this->database->schema()->tableExists('brebo_project_commercial_instalment_schedule')) {
+      return NULL;
+    }
+    $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
+      ->fields('s', ['schedule_payload', 'content_hash'])
+      ->condition('project_nid', (int) $project->id())
+      ->execute()->fetchAssoc();
+    if (!is_array($row)) {
+      return NULL;
+    }
+    $payload = json_decode((string) $row['schedule_payload'], TRUE);
+    return is_array($payload)
+      ? $this->normalizeCommercialSchedule($payload, 'project_commercial_schedule', (string) $project->id(), 'Commercieel projecttermijnschema', (string) $row['content_hash'])
+      : NULL;
+  }
+
+  /**
+   * @param array<string, mixed> $payload
+   *
+   * @return array{source:string,source_ref:string,source_label:string,content_hash:string,percentages:list<float>,labels:list<string>}|null
+   */
+  private function normalizeCommercialSchedule(array $payload, string $source, string $sourceRef, string $sourceLabel, string $contentHash): ?array {
+    $percentages = array_values(array_map('floatval', $payload['percentages'] ?? []));
+    $labels = array_values(array_map('strval', $payload['labels'] ?? []));
+    if ($percentages === [] || abs(array_sum($percentages) - 100.0) > 0.001 || $contentHash === '') {
+      return NULL;
+    }
+    return [
+      'source' => $source,
+      'source_ref' => $sourceRef,
+      'source_label' => $sourceLabel,
+      'content_hash' => $contentHash,
+      'percentages' => $percentages,
+      'labels' => $labels,
+    ];
   }
 
 }
