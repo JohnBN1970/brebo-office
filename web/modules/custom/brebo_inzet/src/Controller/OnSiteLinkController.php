@@ -17,7 +17,7 @@ final class OnSiteLinkController extends ControllerBase {
   public function __construct(
     private readonly OnSiteOtpManager $otpManager,
     private readonly OnSiteDeviceRegistry $deviceRegistry,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $userEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -59,7 +59,7 @@ final class OnSiteLinkController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'invalid_or_expired_code'], 400);
     }
 
-    $user = $this->entityTypeManager->getStorage('user')->load($verified['uid']);
+    $user = $this->userEntityTypeManager->getStorage('user')->load($verified['uid']);
     if ($user === NULL || !$user->isActive()) {
       return new JsonResponse(['ok' => FALSE, 'error' => 'user_unavailable'], 403);
     }

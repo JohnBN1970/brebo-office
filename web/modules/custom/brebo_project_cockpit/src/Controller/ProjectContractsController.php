@@ -6,6 +6,7 @@ namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -67,7 +68,27 @@ final class ProjectContractsController extends ControllerBase {
       ];
     }
 
+    $canManage = $this->currentUser()->hasPermission('manage brebo finance');
+    $canApprove = $this->currentUser()->hasPermission('approve brebo finance');
+
     return [
+      'actions' => [
+        '#type' => 'actions',
+        'edit' => [
+          '#type' => 'link',
+          '#title' => $contract === [] ? $this->t('Projectcontract registreren') : $this->t('Conceptcontract bewerken'),
+          '#url' => Url::fromRoute('brebo_project_cockpit.contract_edit', ['node' => $projectId]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+          '#access' => $canManage && (($contract['status'] ?? '') !== 'approved'),
+        ],
+        'approve' => [
+          '#type' => 'link',
+          '#title' => $this->t('Contract goedkeuren'),
+          '#url' => Url::fromRoute('brebo_project_cockpit.contract_approve', ['node' => $projectId]),
+          '#attributes' => ['class' => ['button']],
+          '#access' => $canApprove && $contract !== [] && (($contract['status'] ?? '') !== 'approved'),
+        ],
+      ],
       'kpis' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],

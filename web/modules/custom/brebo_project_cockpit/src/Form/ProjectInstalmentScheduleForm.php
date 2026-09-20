@@ -66,9 +66,9 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       return $form;
     }
 
-    $commercial = $this->commercialScheduleForProject($node);
+    $commercial = $this->contractSchedule($contract);
     if ($commercial === NULL) {
-      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Er is geen commercieel termijnschema gevonden in een geaccepteerde offerte of projectsnapshot. Leg dit eerst commercieel vast; Finance mag hier geen nieuwe verdeling bedenken.') . '</strong></p>'];
+      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Het goedgekeurde projectcontract bevat geen bevroren commercieel termijnschema. Finance maakt daarom geen termijnen aan.') . '</strong></p>'];
       $form['back'] = ['#type' => 'link', '#title' => $this->t('Terug naar Facturen'), '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
       return $form;
     }
@@ -135,6 +135,24 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       throw new \RuntimeException('Contract or commercial instalment schedule unavailable.');
     }
 
+    // Re-read the approved contract immediately before writing. Finance must
+    // materialise only from the immutable schedule bound to that contract.
+    $currentContract = $this->database->select('brebo_finance_project_contract', 'c')
+      ->fields('c')
+      ->condition('id', (int) $contract['id'])
+      ->condition('project_nid', $projectId)
+      ->execute()->fetchAssoc();
+    $currentCommercial = is_array($currentContract) ? $this->contractSchedule($currentContract) : NULL;
+    if (!is_array($currentContract) || ($currentContract['status'] ?? '') !== 'approved'
+      || $currentCommercial === NULL
+      || !hash_equals((string) $commercial['content_hash'], (string) $currentCommercial['content_hash'])) {
+      $this->messenger()->addError($this->t('De goedgekeurde contractwaarheid is niet meer gelijk aan dit scherm. Er zijn geen Finance-termijnen aangemaakt; open het termijnschema opnieuw.'));
+      $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
+      return;
+    }
+    $contract = $currentContract;
+    $commercial = $currentCommercial;
+
     $choice = (string) $form_state->getValue('payment_term');
     $paymentDays = match ($choice) {
       'custom' => max(0, (int) $form_state->getValue('custom_payment_term_days')),
@@ -194,6 +212,28 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       '@term' => $paymentDays === 0 ? 'per omgaande' : $paymentDays . ' dagen',
     ]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
+  }
+
+  /**
+   * Resolves only the immutable commercial schedule frozen into the contract.
+   *
+   * @param array<string, mixed> $contract
+   *
+   * @return array{source:string,source_ref:string,source_label:string,content_hash:string,percentages:list<float>,labels:list<string>}|null
+   */
+  private function contractSchedule(array $contract): ?array {
+    $payload = json_decode((string) ($contract['instalment_schedule_payload'] ?? ''), TRUE);
+    $contentHash = (string) ($contract['instalment_schedule_content_hash'] ?? '');
+    if (!is_array($payload) || $contentHash === '') {
+      return NULL;
+    }
+    return $this->normalizeCommercialSchedule(
+      $payload,
+      'approved_contract',
+      (string) ($contract['id'] ?? ''),
+      'Goedgekeurd projectcontract ' . (string) ($contract['contract_number'] ?? ''),
+      $contentHash,
+    );
   }
 
   private function globalPaymentTermDays(): int {

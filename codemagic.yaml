@@ -53,6 +53,10 @@ workflows:
         script: |
           cd ios/CrewPOC
           xcodegen generate
+      - name: Set OnSite build number
+        script: |
+          cd ios/CrewPOC
+          xcrun agvtool new-version -all "$BUILD_NUMBER"
       - name: Build and test OnSite simulator proof
         script: |
           set -euo pipefail

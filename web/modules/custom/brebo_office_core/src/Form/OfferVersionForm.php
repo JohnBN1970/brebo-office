@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_calculation\Domain\CalculationParameters;
+use Drupal\brebo_calculation\Service\CommercialCalculator;
 use Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver;
 use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
 use Drupal\Core\Database\Connection;
@@ -29,6 +31,7 @@ final class OfferVersionForm extends FormBase {
     private readonly ProjectDocumentNumberIssuer $documentNumbers,
     private readonly ProjectDocumentIdentityResolver $documentIdentity,
     private readonly Connection $database,
+    private readonly CommercialCalculator $commercialCalculator,
   ) {
     $this->entityTypeManager = $entityTypeManager;
   }
@@ -39,6 +42,7 @@ final class OfferVersionForm extends FormBase {
       $container->get('brebo_office_core.project_document_number_issuer'),
       $container->get('brebo_office_core.project_document_identity_resolver'),
       $container->get('database'),
+      $container->get('brebo_calculation.commercial_calculator'),
     );
   }
 
@@ -458,34 +462,117 @@ final class OfferVersionForm extends FormBase {
 
   private function loadOfferableCalculationLines(): array {
     if (!$this->calculation instanceof NodeInterface) return [];
-    $storage = $this->entityTypeManager->getStorage('node');
-    $element_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_element')->condition('field_brebo_calculation_ref.target_id', $this->calculation->id())->sort('field_brebo_element_sequence', 'ASC')->execute();
-    if (!$element_ids) return [];
-    $line_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_line')->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')->condition('field_brebo_line_type', 'Calculatieregel')->sort('nid', 'ASC')->execute();
-    $source_lines = $storage->loadMultiple($line_ids);
-    $direct_total = 0.0;
-    foreach ($source_lines as $source_line) if ($source_line instanceof NodeInterface) $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
-    $tail_pct = 0.0;
-    foreach (['field_brebo_general_cost_pct', 'field_brebo_risk_pct', 'field_brebo_profit_pct'] as $field_name) if ($this->calculation->hasField($field_name)) $tail_pct += (float) ($this->calculation->get($field_name)->value ?? 0);
-    $commercial_adjustment = $this->calculation->hasField('field_brebo_com_adjustment') ? (float) ($this->calculation->get('field_brebo_com_adjustment')->value ?? 0) : 0.0;
-    $sales_total = max(0.0, $direct_total * (1 + ($tail_pct / 100)) + $commercial_adjustment);
-    $factor = $direct_total > 0.0 ? $sales_total / $direct_total : 0.0;
+
+    $version = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($version)) {
+      throw new \RuntimeException('Offerte kan niet worden gemaakt zonder calculatiedomeinversie.');
+    }
+
+    $parameters = new CalculationParameters(
+      pricingMode: (string) $version['pricing_mode'],
+      commercialMethod: (string) $version['commercial_method'],
+      generalCostPct: (float) $version['general_cost_pct'],
+      riskPct: (float) $version['risk_pct'],
+      profitPct: (float) $version['profit_pct'],
+      singleMarginPct: (float) $version['single_margin_pct'],
+      commercialAdjustment: (float) $version['commercial_adjustment'],
+      priceDate: $version['price_date'] ?: NULL,
+      priceLevel: $version['price_level'] ?: NULL,
+    );
+
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->condition('version', (string) $version['version'])
+      ->orderBy('calc_line_id')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
+    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+
+    $directTotal = 0.0;
+    $directByKey = [];
     $lines = [];
-    foreach ($source_lines as $line) {
+    foreach ($rows as $row) {
+      $lineId = (int) $row['calc_line_id'];
+      $line = $lineEntities[$lineId] ?? NULL;
       if (!$line instanceof NodeInterface) continue;
-      $source_type = (string) ($line->get('field_brebo_line_post_type')->value ?? 'Vaste post');
+      $ruleType = (string) ($row['rule_type'] ?? 'normal');
+      if ($ruleType === 'note') continue;
       $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
-      $direct_cost = (float) ($line->get('field_brebo_direct_cost')->value ?? ($quantity * (float) ($line->get('field_brebo_unit_price')->value ?? 0)));
-      $amount = round($direct_cost * $factor, 2);
-      $lines[(int) $line->id()] = [
+      $unitDirect = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
+      $direct = $quantity * $unitDirect;
+      $key = 'line_' . $lineId;
+      $directByKey[$key] = $direct;
+      if ($ruleType !== 'option') $directTotal += $direct;
+      $lines[$key] = [
         'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
         'quantity' => (string) ($line->get('field_brebo_contract_quantity')->value ?? ''),
         'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
-        'suggested_type' => $this->mapOfferPostType($source_type),
-        'unit_price' => $quantity > 0.0 ? round($amount / $quantity, 4) : $amount,
-        'amount' => $amount,
+        'suggested_type' => match ($ruleType) {
+          'option' => 'Optie',
+          'allowance' => 'Stelpost',
+          'adjustable' => 'Verrekenpost',
+          default => 'Basisaanbieding',
+        },
       ];
     }
+
+    $instances = $this->database->select('brebo_calculation_recipe_instance', 'i')
+      ->fields('i')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->condition('calculation_version', (string) $version['version'])
+      ->orderBy('sort_order')
+      ->orderBy('id')
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    if ($instances) {
+      $instanceIds = array_map(static fn (array $instance): int => (int) $instance['id'], $instances);
+      $recipeRows = $this->database->select('brebo_calculation_recipe_instance_line', 'l')
+        ->fields('l')
+        ->condition('recipe_instance_id', $instanceIds, 'IN')
+        ->orderBy('recipe_instance_id')
+        ->orderBy('sort_order')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+      $recipeByInstance = [];
+      foreach ($recipeRows as $recipeRow) $recipeByInstance[(int) $recipeRow['recipe_instance_id']][] = $recipeRow;
+      foreach ($instances as $instance) {
+        $instanceId = (int) $instance['id'];
+        $direct = 0.0;
+        foreach ($recipeByInstance[$instanceId] ?? [] as $recipeRow) {
+          $quantity = $recipeRow['manual_quantity'] !== NULL && $recipeRow['manual_quantity'] !== '' ? (float) $recipeRow['manual_quantity'] : (float) ($recipeRow['calculated_quantity'] ?? 0);
+          $quantity *= 1 + ((float) ($recipeRow['waste_pct'] ?? 0) / 100);
+          $direct += $quantity * (float) ($recipeRow['unit_cost'] ?? 0);
+        }
+        $key = 'recipe_' . $instanceId;
+        $directByKey[$key] = $direct;
+        $directTotal += $direct;
+        $lines[$key] = [
+          'description' => (string) ($instance['name'] ?? ('Recept ' . $instanceId)),
+          'quantity' => (string) ($instance['quantity'] ?? '1'),
+          'unit' => (string) ($instance['unit'] ?? ''),
+          'suggested_type' => 'Basisaanbieding',
+        ];
+      }
+    }
+
+    $commercial = $this->commercialCalculator->calculate($directTotal, $parameters);
+    $factor = $directTotal > 0.0 ? $commercial->salesPrice / $directTotal : 0.0;
+    foreach ($lines as $key => &$line) {
+      $direct = $directByKey[$key] ?? 0.0;
+      $amount = round($direct * $factor, 2);
+      $quantity = (float) ($line['quantity'] ?: 0);
+      $line['unit_price'] = $quantity > 0.0 ? round($amount / $quantity, 4) : $amount;
+      $line['amount'] = $amount;
+    }
+    unset($line);
     return $lines;
   }
 
@@ -555,6 +642,7 @@ final class OfferVersionForm extends FormBase {
       'document_number' => $numberReceipt,
       'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
       'commercial_instalment_schedule' => $commercialInstalmentSchedule,
+      'calculation_domain_snapshot' => $this->calculationCommercialSnapshot($calculation),
       'created_at' => gmdate(DATE_ATOM),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -621,6 +709,92 @@ final class OfferVersionForm extends FormBase {
     $form_state->setRedirect('brebo_office_core.offer_preview', ['node' => $offer->id()]);
   }
 
+
+  /**
+   * Returns canonical version-bound commercial calculation evidence.
+   *
+   * @return array<string, mixed>
+   */
+  private function calculationCommercialSnapshot(NodeInterface $calculation): array {
+    $version = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', (int) $calculation->id())
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($version)) {
+      throw new \RuntimeException('Offerte kan niet worden vastgelegd zonder calculatiedomeinversie.');
+    }
+
+    $parameters = new CalculationParameters(
+      pricingMode: (string) $version['pricing_mode'],
+      commercialMethod: (string) $version['commercial_method'],
+      generalCostPct: (float) $version['general_cost_pct'],
+      riskPct: (float) $version['risk_pct'],
+      profitPct: (float) $version['profit_pct'],
+      singleMarginPct: (float) $version['single_margin_pct'],
+      commercialAdjustment: (float) $version['commercial_adjustment'],
+      priceDate: $version['price_date'] ?: NULL,
+      priceLevel: $version['price_level'] ?: NULL,
+    );
+
+    $directCost = 0.0;
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r')
+      ->condition('calculation_id', (int) $calculation->id())
+      ->condition('version', (string) $version['version'])
+      ->execute()
+      ->fetchAll(\PDO::FETCH_ASSOC);
+    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
+    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    foreach ($rows as $row) {
+      if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) continue;
+      $line = $lineEntities[(int) $row['calc_line_id']] ?? NULL;
+      if (!$line instanceof NodeInterface) continue;
+      $quantity = (float) ($line->get('field_brebo_contract_quantity')->value ?? 0);
+      $directCost += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']);
+    }
+
+    $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')
+      ->fields('i', ['id'])
+      ->condition('calculation_id', (int) $calculation->id())
+      ->condition('calculation_version', (string) $version['version'])
+      ->execute()
+      ->fetchCol();
+    if ($recipeInstances) {
+      $recipeLines = $this->database->select('brebo_calculation_recipe_instance_line', 'l')
+        ->fields('l')
+        ->condition('recipe_instance_id', $recipeInstances, 'IN')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+      foreach ($recipeLines as $line) {
+        $quantity = $line['manual_quantity'] !== NULL && $line['manual_quantity'] !== '' ? (float) $line['manual_quantity'] : (float) ($line['calculated_quantity'] ?? 0);
+        $quantity *= 1 + ((float) ($line['waste_pct'] ?? 0) / 100);
+        $directCost += $quantity * (float) ($line['unit_cost'] ?? 0);
+      }
+    }
+
+    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
+    return [
+      'version' => (string) $version['version'],
+      'content_hash' => (string) ($version['content_hash'] ?? ''),
+      'status' => (string) $version['status'],
+      'locked_at' => $version['locked_at'] !== NULL ? (int) $version['locked_at'] : NULL,
+      'parameters' => [
+        'pricing_mode' => $parameters->pricingMode,
+        'commercial_method' => $parameters->commercialMethod,
+        'general_cost_pct' => $parameters->generalCostPct,
+        'risk_pct' => $parameters->riskPct,
+        'profit_pct' => $parameters->profitPct,
+        'single_margin_pct' => $parameters->singleMarginPct,
+        'commercial_adjustment' => $parameters->commercialAdjustment,
+        'price_date' => $parameters->priceDate,
+        'price_level' => $parameters->priceLevel,
+      ],
+      'commercial_result' => $commercial->toArray(),
+    ];
+  }
 
   /**
    * Returns the project-owned commercial schedule as immutable offer evidence.

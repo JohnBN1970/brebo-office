@@ -19,7 +19,7 @@ final class OnSiteBootstrapController extends ControllerBase {
     private readonly OnSiteDeviceRegistry $deviceRegistry,
     private readonly OnSiteAssignmentProvider $assignmentProvider,
     private readonly OnSiteIdentityResolver $identityResolver,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $userEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -38,7 +38,7 @@ final class OnSiteBootstrapController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'device_not_linked'], 401);
     }
 
-    $user = $this->entityTypeManager->getStorage('user')->load($uid);
+    $user = $this->userEntityTypeManager->getStorage('user')->load($uid);
     if ($user === NULL || !$user->isActive()) {
       return new JsonResponse(['ok' => FALSE, 'error' => 'device_not_linked'], 401);
     }
@@ -47,11 +47,42 @@ final class OnSiteBootstrapController extends ControllerBase {
       'ok' => TRUE,
       'employee' => [
         'id' => (string) $user->id(),
+        'employee_number' => $this->fieldValue($user, 'field_brebo_employee_number'),
         'display_name' => $user->getDisplayName(),
+        'first_name' => $this->fieldValue($user, 'field_brebo_first_name'),
+        'last_name' => $this->fieldValue($user, 'field_brebo_last_name'),
+        'mobile' => $this->fieldValue($user, 'field_brebo_mobile'),
+        'job_title' => $this->fieldValue($user, 'field_brebo_job_title'),
+        'skills' => $this->fieldValues($user, 'field_brebo_skills'),
+        'workforce_status' => $this->fieldValue($user, 'field_brebo_workforce_status') ?: 'active',
         'language' => $this->identityResolver->languageFor($user),
       ],
       'projects' => $this->assignmentProvider->currentForUser((int) $user->id()),
     ]);
+  }
+
+  private function fieldValue(object $user, string $fieldName): string {
+    if (!method_exists($user, 'hasField') || !$user->hasField($fieldName) || $user->get($fieldName)->isEmpty()) {
+      return '';
+    }
+    return (string) ($user->get($fieldName)->value ?? '');
+  }
+
+  /**
+   * @return list<string>
+   */
+  private function fieldValues(object $user, string $fieldName): array {
+    if (!method_exists($user, 'hasField') || !$user->hasField($fieldName) || $user->get($fieldName)->isEmpty()) {
+      return [];
+    }
+    $values = [];
+    foreach ($user->get($fieldName) as $item) {
+      $value = trim((string) ($item->value ?? ''));
+      if ($value !== '') {
+        $values[] = $value;
+      }
+    }
+    return $values;
   }
 
   private function bearerToken(Request $request): ?string {
