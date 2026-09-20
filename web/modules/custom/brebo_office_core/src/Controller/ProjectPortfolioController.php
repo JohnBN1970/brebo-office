@@ -238,12 +238,29 @@ final class ProjectPortfolioController extends ControllerBase {
         $item['plan']['progress'] . '%',
         $this->signalLabel($item['plan']['signal']),
         \Drupal::service('date.formatter')->format($item['changed'], 'short'),
-        ['data' => ['#type' => 'operations', '#links' => [
-          'open' => ['title' => $this->t('Open project'), 'url' => $projectUrl],
-          'planning' => ['title' => $this->t('Planning'), 'url' => $planningUrl],
-          'edit' => ['title' => $this->t('Bewerken'), 'url' => Url::fromRoute('entity.node.edit_form', ['node' => $item['id']])],
-          'documents' => ['title' => $this->t('Documenten'), 'url' => Url::fromRoute('brebo_document_data.node_dossier', ['node' => $item['id']])],
-        ]]],
+        ['data' => [
+          '#type' => 'container',
+          '#attributes' => ['class' => ['brebo-project-row-actions']],
+          'open' => [
+            '#type' => 'link',
+            '#title' => $this->t('Open'),
+            '#url' => $projectUrl,
+            '#attributes' => ['class' => ['button', 'button--small']],
+          ],
+          'more' => [
+            '#type' => 'details',
+            '#title' => $this->t('Meer'),
+            '#attributes' => ['class' => ['brebo-project-row-actions__more']],
+            'links' => [
+              '#theme' => 'links',
+              '#links' => [
+                'planning' => ['title' => $this->t('Planning'), 'url' => $planningUrl],
+                'edit' => ['title' => $this->t('Bewerken'), 'url' => Url::fromRoute('entity.node.edit_form', ['node' => $item['id']])],
+                'documents' => ['title' => $this->t('Documenten'), 'url' => Url::fromRoute('brebo_document_data.node_dossier', ['node' => $item['id']])],
+              ],
+            ],
+          ],
+        ]],
       ];
     }
     return [
