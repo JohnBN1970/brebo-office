@@ -67,3 +67,10 @@ services:
   brebo_inzet.onsite_device_registry:
     class: Drupal\brebo_inzet\Service\OnSiteDeviceRegistry
     arguments: ['@keyvalue']
+
+
+  brebo_inzet.onsite_assignment_provider:
+    class: Drupal\brebo_inzet\Service\OnSiteAssignmentProvider
+    arguments:
+      - '@entity_type.manager'
+      - '@brebo_inzet.project_clock_zone_manager'
