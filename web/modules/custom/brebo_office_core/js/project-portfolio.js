@@ -81,8 +81,10 @@
           if (!details.open) return;
           const rect = details.getBoundingClientRect();
           const menuHeight = details.querySelector('.details-wrapper')?.scrollHeight || 150;
-          const spaceBelow = window.innerHeight - rect.bottom;
-          const spaceAbove = rect.top;
+          const table = details.closest('table');
+          const clipRect = table?.getBoundingClientRect() || { top: 0, bottom: window.innerHeight };
+          const spaceBelow = clipRect.bottom - rect.bottom;
+          const spaceAbove = rect.top - clipRect.top;
           details.classList.toggle('is-up', spaceBelow < menuHeight && spaceAbove > spaceBelow);
         });
       });
