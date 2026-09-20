@@ -6,6 +6,18 @@ brebo_inzet.app:
   requirements:
     _user_is_logged_in: 'TRUE'
 
+brebo_inzet.project_dashboard:
+  path: '/projecten/{node}/inzet'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\ProjectInzetHubController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\ProjectInzetHubController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.personnel_planning:
   path: '/inzet/planning'
   defaults:

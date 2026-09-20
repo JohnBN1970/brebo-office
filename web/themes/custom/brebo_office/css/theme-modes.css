@@ -1,6 +1,10 @@
 :root {
   color-scheme: light dark;
-  --brebo-accent-primary: #f47b20;
+  /* BREBO brand purple. Blue remains a secondary logo colour; status colours
+   * stay semantic and are never replaced by the brand accent. */
+  --brebo-accent-primary: #7b3fbb;
+  --brebo-accent-foreground: #ffffff;
+  --brebo-focus-color: var(--brebo-accent-primary);
   --brebo-status-success: #237a45;
   --brebo-status-warning: #a45b00;
   --brebo-status-danger: #b42318;
@@ -33,6 +37,7 @@ html[data-brebo-theme='night'] {
   --brebo-text-secondary: #aeb8c4;
   --brebo-border-default: #303b48;
   --brebo-overlay: rgba(0, 0, 0, .58);
+  --brebo-focus-color: #c9a7f5;
   --brebo-status-success: #52b77a;
   --brebo-status-warning: #e4a340;
   --brebo-status-danger: #f97066;
@@ -61,6 +66,7 @@ html[data-brebo-theme='system'] {
     --brebo-text-secondary: #aeb8c4;
     --brebo-border-default: #303b48;
     --brebo-overlay: rgba(0, 0, 0, .58);
+    --brebo-focus-color: #c9a7f5;
     --brebo-status-success: #52b77a;
     --brebo-status-warning: #e4a340;
     --brebo-status-danger: #f97066;

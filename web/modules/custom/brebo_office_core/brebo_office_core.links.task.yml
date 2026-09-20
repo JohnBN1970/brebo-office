@@ -1,0 +1,5 @@
+brebo_office_core.project_administration:
+  route_name: brebo_office_core.project_administration
+  title: 'Administratie'
+  base_route: brebo_office_core.project_dashboard
+  weight: 90

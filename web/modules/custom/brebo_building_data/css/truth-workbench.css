@@ -1,0 +1,303 @@
+.route-brebo-building-data-truth-workbench .layout-content {
+  min-width: 0;
+}
+
+.route-brebo-building-data-truth-workbench .messages--status,
+.route-brebo-building-data-truth-workbench .brebo-list-actions,
+.route-brebo-building-data-truth-workbench .brebo-bag-overview,
+.route-brebo-building-data-truth-workbench table {
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--brebo-bg-surface, var(--brebo-surface, #fff));
+  color: var(--brebo-text-primary, inherit);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .06);
+}
+
+.route-brebo-building-data-truth-workbench .messages--status {
+  margin: 0 0 18px;
+  padding: 18px 20px;
+  border-left: 4px solid var(--brebo-accent, #0b57d0);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 20px;
+  padding: 14px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-list-actions a {
+  margin: 0;
+}
+
+.route-brebo-building-data-truth-workbench table {
+  width: 100%;
+  margin: 0 0 24px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.route-brebo-building-data-truth-workbench caption {
+  padding: 16px 18px 12px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  text-align: left;
+  caption-side: top;
+}
+
+.route-brebo-building-data-truth-workbench thead th {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .07));
+  font-size: .78rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.route-brebo-building-data-truth-workbench tbody td {
+  padding: 12px 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--brebo-border, #7f7f7f) 65%, transparent);
+  vertical-align: top;
+}
+
+.route-brebo-building-data-truth-workbench tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.route-brebo-building-data-truth-workbench tbody tr:hover td {
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .045));
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary tbody {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(160px, 1fr));
+  gap: 12px;
+  padding: 14px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary thead {
+  display: none;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary tr {
+  display: block;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .15));
+  border-radius: 12px;
+  background: var(--brebo-bg-elevated, rgba(127, 127, 127, .035));
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary td {
+  display: block;
+  padding: 0;
+  border: 0;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary td:first-child {
+  margin-bottom: 7px;
+  color: var(--brebo-text-secondary, inherit);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-truth-summary td:last-child {
+  font-size: 1rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview {
+  margin: 0 0 24px;
+  padding: 20px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__header h2,
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__header p {
+  margin: 0;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__header p {
+  max-width: 66ch;
+  color: var(--brebo-text-secondary, inherit);
+  line-height: 1.5;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__facts {
+  display: grid;
+  grid-template-columns: minmax(260px, 2fr) repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-fact {
+  min-width: 0;
+  padding: 14px 16px;
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .15));
+  border-radius: 12px;
+  background: var(--brebo-bg-elevated, var(--brebo-bg-surface, #fff));
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-fact--scope {
+  border-left: 4px solid var(--brebo-accent, #f47b20);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-fact__label {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--brebo-text-secondary, inherit);
+  font-size: .72rem;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-fact__value {
+  font-size: 1.18rem;
+  font-weight: 800;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-overview__unit-title {
+  margin: 0 0 10px;
+  font-size: .9rem;
+  font-weight: 750;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-unit-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-unit-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 6px 11px;
+  border: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  border-radius: 999px;
+  background: var(--brebo-bg-muted, rgba(127, 127, 127, .07));
+  font-weight: 750;
+  line-height: 1;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-unit-chip.is-primary {
+  border-color: var(--brebo-accent, #f47b20);
+  box-shadow: inset 0 0 0 1px var(--brebo-accent, #f47b20);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-unit-empty {
+  width: 100%;
+  padding: 14px;
+  border: 1px dashed var(--brebo-border, rgba(127, 127, 127, .22));
+  border-radius: 10px;
+  color: var(--brebo-text-secondary, inherit);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-details {
+  margin: 0;
+  border-top: 1px solid var(--brebo-border, rgba(127, 127, 127, .22));
+  padding-top: 14px;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-details > summary {
+  cursor: pointer;
+  color: var(--brebo-text-secondary, inherit);
+  font-weight: 700;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-details[open] > summary {
+  margin-bottom: 14px;
+  color: var(--brebo-text-primary, inherit);
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-technical-table {
+  margin: 0;
+  font-size: .9rem;
+  box-shadow: none;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-technical-table td:nth-child(2) {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-technical-table td:nth-child(5),
+.route-brebo-building-data-truth-workbench .brebo-bag-technical-table td:nth-child(6) {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .78rem;
+}
+
+.route-brebo-building-data-truth-workbench .brebo-bag-technical-table td:nth-child(7) {
+  font-weight: 700;
+}
+
+@media (max-width: 1100px) {
+  .route-brebo-building-data-truth-workbench .brebo-truth-summary tbody {
+    grid-template-columns: repeat(2, minmax(160px, 1fr));
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-overview__facts {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-fact--scope {
+    grid-column: 1 / -1;
+  }
+
+  .route-brebo-building-data-truth-workbench table {
+    display: block;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 640px) {
+  .route-brebo-building-data-truth-workbench .brebo-truth-summary tbody,
+  .route-brebo-building-data-truth-workbench .brebo-bag-overview__facts {
+    grid-template-columns: 1fr;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-overview {
+    padding: 16px;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-overview__header {
+    display: block;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-overview__header p {
+    margin-top: 8px;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-bag-fact--scope {
+    grid-column: auto;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-list-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .route-brebo-building-data-truth-workbench .brebo-list-actions a {
+    width: 100%;
+    text-align: center;
+  }
+}

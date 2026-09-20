@@ -146,6 +146,33 @@ jobs:
           [[ -f "$webroot/index.php" ]] || { echo "::error::Drupal index.php missing in $webroot"; exit 1; }
           [[ ! -d "$webroot/web" ]] || { echo "::error::Nested Drupal webroot detected: $webroot/web"; exit 1; }
 
+          include_marker='BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS'
+          if ! grep -q "$include_marker" "$settings"; then
+            settings_mode="$(stat -c '%a' "$settings")"
+            settings_backup="$(mktemp "$app/.settings.php.runtime-include.XXXXXX")"
+            cp -p "$settings" "$settings_backup"
+            chmod u+w "$settings"
+            restore_settings() {
+              cp -p "$settings_backup" "$settings" >/dev/null 2>&1 || true
+              chmod "$settings_mode" "$settings" >/dev/null 2>&1 || true
+              rm -f "$settings_backup" >/dev/null 2>&1 || true
+            }
+            trap restore_settings ERR INT TERM EXIT
+            cat >> "$settings" <<'PHP'
+
+          // BREBO_DOCUMENT_EXTRACTION_RUNTIME_SETTINGS
+          $breboDocumentExtractionRuntimeSettings = dirname(__DIR__, 7) . '/.brebo-office-runtime/document-extraction.settings.php';
+          if (is_readable($breboDocumentExtractionRuntimeSettings)) {
+            require $breboDocumentExtractionRuntimeSettings;
+          }
+          PHP
+            /opt/alt/php83/usr/bin/php -l "$settings"
+            chmod "$settings_mode" "$settings"
+            rm -f "$settings_backup"
+            trap - ERR INT TERM EXIT
+            echo "DOCUMENT_EXTRACTION_SETTINGS_INCLUDE_OK=1"
+          fi
+
           settings_before="$(sha256sum "$settings" | awk '{print $1}')"
           settings_local_before=""
           services_before=""
@@ -265,9 +292,14 @@ jobs:
               "brebo_data_intake.upload"
             ] as $route) { $routes->getRouteByName($route); }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
-            $controller = (string) $projectRoute->getDefault("_controller");
-            if ($controller !== "\\Drupal\\brebo_project_cockpit\\Controller\\ProjectCockpitController::overview") {
-              throw new \RuntimeException("Canonical project route is not controlled by ProjectCockpitController: " . $controller);
+            $projectController = (string) $projectRoute->getDefault("_controller");
+            if ($projectController !== "\\Drupal\\brebo_project_cockpit\\Controller\\CanonicalProjectCockpitController::overview") {
+              throw new \RuntimeException("Canonical project route is not controlled by CanonicalProjectCockpitController::overview: " . $projectController);
+            }
+            $cockpitRoute = $routes->getRouteByName("brebo_project_cockpit.overview");
+            $cockpitController = (string) $cockpitRoute->getDefault("_controller");
+            if ($cockpitController !== "\\Drupal\\brebo_project_cockpit\\Controller\\CanonicalProjectCockpitController::overview") {
+              throw new \RuntimeException("Cockpit route is not controlled by CanonicalProjectCockpitController::overview: " . $cockpitController);
             }
             foreach (["brebo_project_publication", "brebo_project_publication_media", "brebo_project_publication_audit"] as $table) {
               if (!\Drupal::database()->schema()->tableExists($table)) { throw new \RuntimeException("Publication table missing: " . $table); }

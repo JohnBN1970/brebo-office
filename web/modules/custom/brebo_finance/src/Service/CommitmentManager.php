@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\node\NodeInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -16,17 +19,72 @@ final class CommitmentManager {
     private readonly VatCalculator $vatCalculator,
     private readonly FinancialPhaseGateManager $phaseGateManager,
     private readonly FinancialEuroTraceFindingSynchronizer $euroTraceSynchronizer,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectDocumentNumberIssuer $documentNumberIssuer,
   ) {}
 
-  public function createDraft(int $projectNid, string $commitmentNumber, string $supplierName, ?string $supplierRef, int $userId): int {
-    if (trim($commitmentNumber) === '' || trim($supplierName) === '') throw new InvalidArgumentException('Commitment number and supplier are required.');
-    if (!$this->hasLockedWorkingBudget($projectNid)) throw new RuntimeException('Purchasing is blocked until the working budget baseline is locked.');
+  public function createDraft(int $projectNid, string $supplierName, ?string $supplierRef, int $userId): int {
+    if (trim($supplierName) === '') {
+      throw new InvalidArgumentException('Supplier is required.');
+    }
+    if (!$this->hasLockedWorkingBudget($projectNid)) {
+      throw new RuntimeException('Purchasing is blocked until the working budget baseline is locked.');
+    }
     $this->phaseGateManager->requireRelease($projectNid, 'procurement_release');
+
+    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
+    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+      throw new UnexpectedValueException('A BREBO project is required for commitment numbering.');
+    }
+
     $now = time();
-    return (int) $this->database->insert('brebo_finance_commitment')->fields([
-      'project_nid'=>$projectNid,'commitment_number'=>trim($commitmentNumber),'supplier_ref'=>$supplierRef,'supplier_name'=>trim($supplierName),'status'=>'draft',
-      'amount_ex_vat'=>'0.0000','vat_amount'=>'0.0000','amount_inc_vat'=>'0.0000','currency'=>'EUR','created'=>$now,'created_by'=>$userId,'changed'=>$now,'changed_by'=>$userId,
+    $temporaryNumber = 'PENDING-' . strtoupper(bin2hex(random_bytes(6)));
+    $commitmentId = (int) $this->database->insert('brebo_finance_commitment')->fields([
+      'project_nid' => $projectNid,
+      'commitment_number' => $temporaryNumber,
+      'supplier_ref' => $supplierRef,
+      'supplier_name' => trim($supplierName),
+      'status' => 'draft',
+      'amount_ex_vat' => '0.0000',
+      'vat_amount' => '0.0000',
+      'amount_inc_vat' => '0.0000',
+      'currency' => 'EUR',
+      'created' => $now,
+      'created_by' => $userId,
+      'changed' => $now,
+      'changed_by' => $userId,
     ])->execute();
+
+    try {
+      $receipt = $this->documentNumberIssuer->issueAssignment($project, (string) $commitmentId, (int) date('Y', $now));
+      $commitmentNumber = trim((string) ($receipt['number'] ?? ''));
+      if ($commitmentNumber === '') {
+        throw new RuntimeException('Administration-aware assignment numbering returned no number.');
+      }
+      $updated = $this->database->update('brebo_finance_commitment')->fields([
+        'commitment_number' => $commitmentNumber,
+        'changed' => time(),
+        'changed_by' => $userId,
+      ])->condition('id', $commitmentId)->condition('commitment_number', $temporaryNumber)->execute();
+      if ((int) $updated !== 1) {
+        throw new RuntimeException('Commitment number could not be persisted.');
+      }
+      $this->audit($projectNid, $commitmentId, 'commitment_created', [
+        'commitment_number' => $commitmentNumber,
+        'number_receipt' => $receipt,
+        'supplier_ref' => $supplierRef,
+        'supplier_name' => trim($supplierName),
+      ], time(), $userId);
+    }
+    catch (\Throwable $exception) {
+      $current = $this->database->select('brebo_finance_commitment', 'c')->fields('c', ['commitment_number'])->condition('id', $commitmentId)->execute()->fetchField();
+      if ($current === $temporaryNumber) {
+        $this->database->delete('brebo_finance_commitment')->condition('id', $commitmentId)->condition('commitment_number', $temporaryNumber)->execute();
+      }
+      throw $exception;
+    }
+
+    return $commitmentId;
   }
 
   public function addLine(int $commitmentId, int $budgetLineId, string $description, string $quantity, string $unit, string $unitPriceExVat, string $vatRate, bool $reverseCharge, string $nonDeductibleVatPercentage, int $userId): int {
@@ -49,7 +107,7 @@ final class CommitmentManager {
   }
 
   private function hasLockedWorkingBudget(int $projectNid): bool { return (bool)$this->database->select('brebo_finance_budget','b')->condition('project_nid',$projectNid)->condition('budget_type','working')->condition('status','locked')->countQuery()->execute()->fetchField(); }
-  private function loadDraftCommitment(int $commitmentId): array { $r=$this->database->select('brebo_finance_commitment','c')->fields('c')->condition('id',$commitmentId)->execute()->fetchAssoc(); if($r===FALSE||$r['status']!=='draft') throw new UnexpectedValueException('A draft commitment is required.'); return $r; }
+  private function loadDraftCommitment(int $commitmentId): array { $r=$this->database->select('brebo_finance_commitment','c')->fields('c')->condition('id',$commitmentId)->execute()->fetchAssoc(); if($r===FALSE||$r['status']!=='draft') throw new UnexpectedValueException('A draft commitment is required.'); return$r; }
   private function loadLockedBudgetLine(int $budgetLineId,int $projectNid):array{$q=$this->database->select('brebo_finance_budget_line','l');$q->join('brebo_finance_budget','b','b.id = l.budget_id');$r=$q->fields('l')->condition('l.id',$budgetLineId)->condition('b.project_nid',$projectNid)->condition('b.budget_type','working')->condition('b.status','locked')->execute()->fetchAssoc();if($r===FALSE)throw new UnexpectedValueException('The commitment line must reference the locked working budget.');return$r;}
   private function remainingBudget(int $budgetLineId,string $budgetAmount):string{$q=$this->database->select('brebo_finance_commitment_line','l');$q->join('brebo_finance_commitment','c','c.id = l.commitment_id');$q->condition('l.budget_line_id',$budgetLineId)->condition('c.status',['cancelled'],'NOT IN')->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)','committed_total');$committed=(string)$q->execute()->fetchField();$mq=$this->database->select('brebo_finance_budget_mutation_line','ml');$mq->join('brebo_finance_budget_mutation','m','m.id = ml.mutation_id');$mq->condition('ml.budget_line_id',$budgetLineId)->condition('m.status','approved')->addExpression('COALESCE(SUM(ml.adjustment_ex_vat), 0)','approved_adjustment');$adj=(string)$mq->execute()->fetchField();return$this->vatCalculator->subtract($this->vatCalculator->add($budgetAmount,$adj),$committed);}
   private function nextLineNumber(int $commitmentId):int{$q=$this->database->select('brebo_finance_commitment_line','l');$q->condition('commitment_id',$commitmentId)->addExpression('COALESCE(MAX(line_number), 0) + 1','next_line');return(int)$q->execute()->fetchField();}

@@ -109,6 +109,25 @@ final class OutboundAttachmentService {
         continue;
       }
       $documentId = (int) ($relation['id'] ?? 0);
+      foreach ($this->resolveDocumentIds([$documentId]) as $attachment) {
+        $this->append($attachments, $seenHashes, $totalBytes, $attachment['filecontent'], $attachment['filename'], $attachment['filemime']);
+      }
+    }
+
+    return $attachments;
+  }
+
+  /**
+   * Resolves canonical BREBO documents without requiring a communication node.
+   *
+   * @param int[] $documentIds
+   * @return array<int,array{filecontent:string,filename:string,filemime:string}>
+   */
+  public function resolveDocumentIds(array $documentIds): array {
+    $attachments = [];
+    $seenHashes = [];
+    $totalBytes = 0;
+    foreach (array_unique(array_filter(array_map('intval', $documentIds))) as $documentId) {
       $document = $this->database->select('brebo_document', 'd')
         ->fields('d', ['title', 'original_filename', 'mime_type', 'sha256'])
         ->condition('id', $documentId)
@@ -154,7 +173,6 @@ final class OutboundAttachmentService {
       }
       $this->append($attachments, $seenHashes, $totalBytes, $content, $filename, $mime);
     }
-
     return $attachments;
   }
 
@@ -211,6 +229,5 @@ final class OutboundAttachmentService {
       'filemime' => $mime !== '' ? $mime : 'application/octet-stream',
     ];
   }
-
 
 }

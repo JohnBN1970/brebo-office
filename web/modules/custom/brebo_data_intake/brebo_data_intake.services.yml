@@ -11,6 +11,15 @@ services:
     class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
 
+  brebo_data_intake.website_project_request_destination:
+    class: Drupal\brebo_data_intake\Service\WebsiteProjectRequestIntakeDestination
+    arguments: ['@entity_type.manager']
+    tags:
+      - { name: brebo_data_intake.destination, priority: 200 }
+
+  brebo_data_intake.project_scope_inference_engine:
+    class: Drupal\brebo_data_intake\Service\ProjectScopeInferenceEngine
+
   brebo_data_intake.nlbe_sfb_provider:
     class: Drupal\brebo_data_intake\Service\NlbeSfbProvider
     arguments: ['@brebo_data_intake.ingest_manager', '@brebo_data_intake.classification_repository']
@@ -34,10 +43,20 @@ services:
     class: Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider
     arguments:
       - '@http_client'
-      - '%env(BREBO_DOCUMENT_EXTRACTION_ENDPOINT)%'
-      - '%env(BREBO_DOCUMENT_EXTRACTION_TOKEN)%'
+      - ''
+      - ''
     tags:
       - { name: brebo_data_intake.document_text_extraction_provider, priority: 100 }
+
+  brebo_data_intake.managed_document_text_enricher:
+    class: Drupal\brebo_data_intake\Service\ManagedDocumentTextEnricher
+    arguments:
+      - '@entity_type.manager'
+      - '@file_system'
+      - '@brebo_data_intake.document_text_extraction_provider_registry'
+      - '@brebo_data_intake.purchase_invoice_text_enricher'
+    tags:
+      - { name: brebo_data_intake.enricher, priority: 300 }
 
   brebo_data_intake.purchase_invoice_text_enricher:
     class: Drupal\brebo_data_intake\Service\PurchaseInvoiceTextEnricher

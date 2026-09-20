@@ -19,6 +19,7 @@
           const p = data.portfolio;
           const d = data.decisions;
           const h = data.business_health || {};
+          const lh = data.liquidity_horizons || {};
           const pl = h.profit_loss || {};
           const liq = h.liquidity || {};
           const fixed = h.fixed_costs || {};
@@ -52,6 +53,34 @@
           const steeringRows = steering.length
             ? `<ul class="bfcc-steering">${steering.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>`
             : '<p>Op basis van de beschikbare gegevens zijn er geen directe bedrijfseconomische stuurwaarschuwingen.</p>';
+
+          const horizonRows = ['30', '60', '90'].map((days) => {
+            const horizon = lh.horizons?.[days] || {};
+            const committed = horizon.committed || {};
+            const expected = horizon.expected || {};
+            const regularCommitted = committed.regular || {};
+            const regularExpected = expected.regular || {};
+            const gExpected = expected.g_account || {};
+            const tone = regularCommitted.shortfall || regularExpected.shortfall || gExpected.shortfall ? 'red' : (lh.complete ? 'green' : 'orange');
+            return `<article class="bfcc-domain">
+              <div class="bfcc-section-head"><div><span class="bfcc-kicker">${esc(days)} DAGEN</span><h3>Tot ${esc(horizon.through_date || '—')}</h3></div>${state(tone, tone === 'red' ? 'Tekort verwacht' : (lh.complete ? 'Bronnen compleet' : 'Configuratie afronden'))}</div>
+              <div class="bfcc-domain-metrics">
+                <div><small>Regulier · committed</small><strong>${esc(money(regularCommitted.projected_balance))}</strong><small>in ${esc(money(regularCommitted.incoming))} · uit ${esc(money(regularCommitted.outgoing))}</small></div>
+                <div><small>Regulier · expected</small><strong>${esc(money(regularExpected.projected_balance))}</strong><small>in ${esc(money(regularExpected.incoming))} · uit ${esc(money(regularExpected.outgoing))}</small></div>
+                <div><small>G-rekening · expected</small><strong>${esc(money(gExpected.projected_balance))}</strong><small>in ${esc(money(gExpected.incoming))} · uit ${esc(money(gExpected.outgoing))}</small></div>
+              </div>
+            </article>`;
+          }).join('');
+          const liquidityReasons = Array.isArray(lh.reasons) && lh.reasons.length
+            ? `<ul class="bfcc-steering">${lh.reasons.map((reason) => `<li>${esc(reason)}</li>`).join('')}</ul>`
+            : '';
+          const liquidityHorizons = `
+            <section class="bfcc-section" id="bfcc-liquidity-horizons">
+              <div class="bfcc-section-head"><div><span class="bfcc-kicker">LIQUIDITEIT · BRONGEBONDEN</span><h2>30 / 60 / 90 dagen</h2></div>${state(lh.complete ? 'green' : 'orange', lh.complete ? 'Volledig geclassificeerd' : 'Configuratie vereist')}</div>
+              <p>Beginsaldo uit Moneybird-bankrekeningen met expliciete Office-rol; toekomstige mutaties uitsluitend uit geregistreerde Finance cash-events. Geen bedragen worden verondersteld.</p>
+              <div class="bfcc-domain-grid">${horizonRows}</div>
+              ${liquidityReasons}
+            </section>`;
 
           const businessHealth = healthAvailable ? `
             <section class="bfcc-section" id="bfcc-business-health">
@@ -132,6 +161,7 @@
               </article>
             </section>
 
+            ${liquidityHorizons}
             ${businessHealth}
 
             <section class="bfcc-section"><div class="bfcc-section-head"><div><span class="bfcc-kicker">ACTIE</span><h2>Financiële beslissingen</h2></div>${decisionHeadLink}</div>${decisionRows}</section>

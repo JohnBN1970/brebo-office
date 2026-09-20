@@ -11,342 +11,105 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
-/**
- * Provides the building portfolio in list and configurable kanban views.
- */
+/** Provides the building portfolio dashboard. */
 final class BuildingPortfolioController extends ControllerBase {
 
-  private const DEFAULT_COLUMNS = [
-    'Mogelijk nieuw - te beoordelen',
-    'Intake',
-    'Actief',
-    'In uitvoering',
-    'Afgerond',
-    'Archief',
-  ];
-
-  /**
-   * Displays the building library as list or kanban.
-   */
+  /** Displays the building portfolio as dashboard with map and compact table. */
   public function overview(Request $request): array {
     $storage = $this->entityTypeManager()->getStorage('node');
-    $view = in_array((string) $request->query->get('view', 'kanban'), ['list', 'kanban'], TRUE)
-      ? (string) $request->query->get('view', 'kanban')
-      : 'kanban';
-
-    $ids = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', 'brebo_building')
-      ->sort('changed', 'DESC')
-      ->execute();
+    $ids = array_values($storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_building')->sort('changed', 'DESC')->execute());
     $buildings = $storage->loadMultiple($ids);
+    $database = \Drupal::database();
+    $schema = $database->schema();
+    $addressCounts = [];
+    $positions = [];
+    $totalAddresses = 0;
 
-    $observed = [];
-    foreach ($buildings as $building) {
-      if ($building instanceof NodeInterface) {
-        $status = $this->status($building);
-        if ($status !== '') {
-          $observed[$status] = $status;
+    if ($ids !== [] && $schema->tableExists('brebo_building_address')) {
+      $countQuery = $database->select('brebo_building_address', 'a');
+      $countQuery->addField('a', 'building_nid');
+      $countQuery->addExpression('COUNT(*)', 'address_count');
+      $countQuery->condition('building_nid', $ids, 'IN');
+      $countQuery->groupBy('building_nid');
+      foreach ($countQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+        $buildingId = (int) $row['building_nid'];
+        $count = (int) $row['address_count'];
+        $addressCounts[$buildingId] = $count;
+        $totalAddresses += $count;
+      }
+      if ($schema->fieldExists('brebo_building_address', 'latitude') && $schema->fieldExists('brebo_building_address', 'longitude')) {
+        $positionQuery = $database->select('brebo_building_address', 'a');
+        $positionQuery->fields('a', ['building_nid', 'latitude', 'longitude', 'is_primary']);
+        $positionQuery->condition('building_nid', $ids, 'IN');
+        $positionQuery->isNotNull('latitude');
+        $positionQuery->isNotNull('longitude');
+        $positionQuery->orderBy('is_primary', 'DESC');
+        $positionQuery->orderBy('id', 'ASC');
+        foreach ($positionQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+          $buildingId = (int) $row['building_nid'];
+          $positions[$buildingId] ??= $row;
         }
       }
     }
 
-    $availableColumns = array_values(array_unique(array_merge(self::DEFAULT_COLUMNS, array_values($observed))));
-    $preferences = $this->columnPreferences($availableColumns);
-    $columns = $preferences['columns'];
-    $hidden = $preferences['hidden'];
-
     $rows = [];
-    $cardsByStatus = [];
-    foreach ($availableColumns as $column) {
-      $cardsByStatus[$column] = [];
-    }
-
+    $markers = [];
     foreach ($buildings as $building) {
-      if (!$building instanceof NodeInterface) {
-        continue;
-      }
-      $status = $this->status($building);
-      if ($status === '') {
-        $status = 'Intake';
-      }
-      if (!isset($cardsByStatus[$status])) {
-        $cardsByStatus[$status] = [];
-        $columns[] = $status;
-      }
-
-      $dashboardUrl = Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $building->id()]);
-      $editUrl = Url::fromRoute('entity.node.edit_form', ['node' => $building->id()]);
+      if (!$building instanceof NodeInterface) continue;
+      $buildingId = (int) $building->id();
+      $dashboardUrl = Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $buildingId]);
+      $truthUrl = Url::fromRoute('brebo_building_data.truth_workbench', ['node' => $buildingId]);
       $changed = \Drupal::service('date.formatter')->format($building->getChangedTime(), 'short');
       $address = $this->value($building, 'field_brebo_address');
-
+      $city = $this->value($building, 'field_brebo_city');
+      $count = $addressCounts[$buildingId] ?? 0;
+      $searchText = mb_strtolower(trim($building->label() . ' ' . $address . ' ' . $city));
       $rows[] = [
-        ['data' => Link::fromTextAndUrl($building->label(), $dashboardUrl)->toRenderable()],
-        $status,
-        $changed,
-        ['data' => Link::fromTextAndUrl($this->t('Bewerken'), $editUrl)->toRenderable()],
+        'data' => [
+          ['data' => Link::fromTextAndUrl($building->label(), $dashboardUrl)->toRenderable()],
+          $address, $city, (string) $count, $changed,
+          ['data' => Link::fromTextAndUrl($this->t('Gebouwwaarheid'), $truthUrl)->toRenderable()],
+        ],
+        'data-search' => $searchText,
+        'data-building-id' => (string) $buildingId,
       ];
-
-      $cardsByStatus[$status][] = [
-        '#type' => 'container',
-        '#attributes' => [
-          'class' => ['brebo-building-kanban__card', 'brebo-kanban-card'],
-          'draggable' => 'true',
-          'data-building-id' => (string) $building->id(),
-          'data-building-status' => $status,
-        ],
-        'title' => [
-          '#type' => 'link',
-          '#title' => $building->label(),
-          '#url' => $dashboardUrl,
-          '#attributes' => ['class' => ['brebo-building-kanban__card-title']],
-        ],
-        'address' => [
-          '#type' => 'html_tag',
-          '#tag' => 'div',
-          '#value' => $address,
-          '#attributes' => ['class' => ['brebo-building-kanban__meta']],
-        ],
-        'changed' => [
-          '#type' => 'html_tag',
-          '#tag' => 'div',
-          '#value' => (string) $this->t('Gewijzigd @date', ['@date' => $changed]),
-          '#attributes' => ['class' => ['brebo-building-kanban__meta']],
-        ],
-        'actions' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['brebo-building-kanban__card-actions']],
-          'open' => Link::fromTextAndUrl($this->t('Openen'), $dashboardUrl)->toRenderable(),
-          'edit' => Link::fromTextAndUrl($this->t('Bewerken'), $editUrl)->toRenderable(),
-        ],
-      ];
+      $position = $positions[$buildingId] ?? NULL;
+      if (is_array($position)) {
+        $latitude = (float) ($position['latitude'] ?? 0);
+        $longitude = (float) ($position['longitude'] ?? 0);
+        if ($latitude !== 0.0 || $longitude !== 0.0) {
+          $markers[] = ['id' => $buildingId, 'title' => $building->label(), 'address' => $address, 'city' => $city, 'units' => $count, 'lat' => $latitude, 'lon' => $longitude, 'url' => $dashboardUrl->toString(), 'search' => $searchText];
+        }
+      }
     }
 
-    $kanban = [
+    $mapped = count($markers);
+    $total = count($rows);
+    $missing = max(0, $total - $mapped);
+    return [
       '#type' => 'container',
-      '#attributes' => [
-        'class' => ['brebo-building-kanban'],
-        'data-building-kanban' => 'true',
-        'data-move-url' => Url::fromRoute('brebo_office_core.buildings_kanban_move')->toString(),
-        'data-config-url' => Url::fromRoute('brebo_office_core.buildings_kanban_config')->toString(),
-      ],
-      '#access' => $view === 'kanban',
-    ];
-
-    foreach (array_values(array_unique($columns)) as $column) {
-      $isHidden = in_array($column, $hidden, TRUE);
-      $cards = $cardsByStatus[$column] ?? [];
-      $kanban['column_' . count($kanban)] = [
-        '#type' => 'container',
-        '#attributes' => [
-          'class' => array_values(array_filter([
-            'brebo-building-kanban__column',
-            'brebo-kanban-column',
-            $isHidden ? 'is-kanban-column-hidden' : NULL,
-          ])),
-          'data-kanban-status' => $column,
-          'data-kanban-hidden' => $isHidden ? 'true' : 'false',
-        ],
-        'header' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['brebo-building-kanban__column-header']],
-          'drag' => [
-            '#type' => 'html_tag',
-            '#tag' => 'span',
-            '#value' => '⋮⋮',
-            '#attributes' => ['class' => ['brebo-building-kanban__column-handle'], 'title' => $this->t('Kolom verslepen')],
-          ],
-          'title' => [
-            '#type' => 'html_tag',
-            '#tag' => 'h3',
-            '#value' => $column,
-          ],
-          'count' => [
-            '#type' => 'html_tag',
-            '#tag' => 'span',
-            '#value' => (string) count($cards),
-            '#attributes' => ['class' => ['brebo-building-kanban__count']],
-          ],
-          'hide' => [
-            '#type' => 'html_tag',
-            '#tag' => 'button',
-            '#value' => $isHidden ? (string) $this->t('Tonen') : (string) $this->t('Verbergen'),
-            '#attributes' => [
-              'type' => 'button',
-              'class' => ['brebo-building-kanban__visibility'],
-              'data-kanban-toggle-column' => $column,
-              'aria-label' => $isHidden
-                ? (string) $this->t('Kolom @column tonen', ['@column' => $column])
-                : (string) $this->t('Kolom @column verbergen', ['@column' => $column]),
-            ],
-          ],
-        ],
-        'cards' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['brebo-building-kanban__cards', 'brebo-kanban-cards'], 'data-kanban-dropzone' => $column],
-        ] + $cards,
-      ];
-    }
-
-    $visibleQuery = $request->query->all();
-    $listQuery = $visibleQuery;
-    $listQuery['view'] = 'list';
-    $kanbanQuery = $visibleQuery;
-    $kanbanQuery['view'] = 'kanban';
-
-    return [
-      'toolbar' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-building-portfolio__toolbar']],
-        'views' => [
-          '#type' => 'container',
-          '#attributes' => ['class' => ['brebo-view-switcher'], 'aria-label' => $this->t('Weergave kiezen')],
-          'list' => [
-            '#type' => 'link',
-            '#title' => $this->t('Lijst'),
-            '#url' => Url::fromRoute('brebo_office_core.buildings', [], ['query' => $listQuery]),
-            '#attributes' => ['class' => ['button', $view === 'list' ? 'is-active' : '']],
-          ],
-          'kanban' => [
-            '#type' => 'link',
-            '#title' => $this->t('Kanban'),
-            '#url' => Url::fromRoute('brebo_office_core.buildings', [], ['query' => $kanbanQuery]),
-            '#attributes' => ['class' => ['button', $view === 'kanban' ? 'is-active' : '']],
-          ],
-        ],
-        'configure' => [
-          '#type' => 'html_tag',
-          '#tag' => 'button',
-          '#value' => $this->t('Kolommen indelen'),
-          '#attributes' => [
-            'type' => 'button',
-            'class' => ['button', 'brebo-building-kanban__configure'],
-            'data-kanban-configure' => 'true',
-          ],
-          '#access' => $view === 'kanban',
-        ],
-        'add' => [
-          '#type' => 'link',
-          '#title' => $this->t('Nieuw gebouw'),
-          '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_building']),
-          '#attributes' => ['class' => ['button']],
-        ],
-      ],
-      'config_help' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-building-kanban__config-help'], 'hidden' => 'hidden'],
-        'text' => [
-          '#markup' => '<p>' . $this->t('Sleep kolommen in de gewenste volgorde en verberg kolommen die je niet gebruikt. Deze indeling wordt voor jouw gebruiker opgeslagen.') . '</p>',
-        ],
-      ],
-      'list' => [
-        '#type' => 'table',
-        '#header' => [$this->t('Naam'), $this->t('Status'), $this->t('Gewijzigd'), $this->t('Actie')],
-        '#rows' => $rows,
-        '#empty' => $this->t('Nog geen gebouwen aangemaakt.'),
-        '#access' => $view === 'list',
-      ],
-      'kanban' => $kanban,
-      '#attached' => [
-        'library' => ['brebo_office_core/building-kanban'],
-      ],
-      '#cache' => [
-        'contexts' => ['user', 'user.permissions', 'url.query_args:view'],
-        'tags' => ['node_list:brebo_building'],
-        'max-age' => 0,
-      ],
+      '#attributes' => ['class' => ['brebo-buildings-dashboard']],
+      'toolbar' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__toolbar']], 'intro' => ['#markup' => '<div><h2>' . $this->t('Gebouwenportefeuille') . '</h2><p>' . $this->t('Overzicht van de permanente gebouwobjecten in BREBO Office.') . '</p></div>'], 'add' => ['#type' => 'link', '#title' => $this->t('Nieuw gebouw'), '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_building']), '#attributes' => ['class' => ['button', 'button--primary']]]],
+      'kpis' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__kpis']], 'buildings' => $this->kpi((string) $total, (string) $this->t('Gebouwen')), 'addresses' => $this->kpi((string) $totalAddresses, (string) $this->t('BAG-adressen / eenheden')), 'mapped' => $this->kpi((string) $mapped, (string) $this->t('Op kaart')), 'missing' => $this->kpi((string) $missing, (string) $this->t('Nog zonder kaartpositie'))],
+      'map' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__map'], 'data-brebo-buildings-map' => 'true', 'data-markers' => json_encode($markers, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT)], 'placeholder' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__map-placeholder']], '#markup' => $markers === [] ? '<p>' . $this->t('Nog geen gebouwen met een BAG-kaartpositie. Gebruik PDOK/BAG verversen bij een gebouw om de positie vast te leggen.') . '</p>' : '<p>' . $this->t('Kaart laden…') . '</p>']],
+      'search' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__search']], 'input' => ['#type' => 'search', '#title' => $this->t('Zoek gebouw'), '#title_display' => 'invisible', '#placeholder' => $this->t('Zoek op gebouw, adres of plaats…'), '#attributes' => ['data-brebo-building-search' => 'true', 'autocomplete' => 'off']], 'count' => ['#markup' => '<span data-brebo-building-search-count>' . $this->formatPlural($total, '1 gebouw', '@count gebouwen') . '</span>']],
+      'portfolio' => ['#type' => 'table', '#attributes' => ['class' => ['brebo-buildings-dashboard__table'], 'data-brebo-building-table' => 'true'], '#caption' => $this->t('Gebouwen'), '#header' => [$this->t('Gebouw'), $this->t('Adres / dossierkader'), $this->t('Plaats'), $this->t('BAG-eenheden'), $this->t('Gewijzigd'), $this->t('Openen')], '#rows' => $rows, '#empty' => $this->t('Nog geen gebouwen aangemaakt.')],
+      'no_results' => ['#markup' => '<p class="brebo-buildings-dashboard__no-results" data-brebo-building-no-results hidden>' . $this->t('Geen gebouwen gevonden.') . '</p>'],
+      '#attached' => ['library' => ['brebo_office_core/building-dashboard']],
+      '#cache' => ['contexts' => ['user', 'user.permissions'], 'tags' => ['node_list:brebo_building'], 'max-age' => 0],
     ];
   }
 
-  /**
-   * Moves a building to a workflow column.
-   */
-  public function move(Request $request): JsonResponse {
-    $payload = json_decode((string) $request->getContent(), TRUE);
-    $buildingId = (int) ($payload['building_id'] ?? 0);
-    $status = trim((string) ($payload['status'] ?? ''));
-    if ($buildingId <= 0 || $status === '') {
-      return new JsonResponse(['ok' => FALSE, 'message' => 'Ongeldige verplaatsing.'], 400);
-    }
+  public function move(Request $request): JsonResponse { return new JsonResponse(['ok' => FALSE, 'message' => 'Gebouwen gebruiken geen Kanban-workflow meer.'], 410); }
+  public function saveConfig(Request $request): JsonResponse { return new JsonResponse(['ok' => FALSE, 'message' => 'Kanban-instellingen zijn niet meer van toepassing op Gebouwen.'], 410); }
 
-    $building = $this->entityTypeManager()->getStorage('node')->load($buildingId);
-    if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
-      return new JsonResponse(['ok' => FALSE, 'message' => 'Gebouw niet gevonden.'], 404);
-    }
-    if (!$building->access('update', $this->currentUser())) {
-      return new JsonResponse(['ok' => FALSE, 'message' => 'Geen wijzigingsrecht voor dit gebouw.'], 403);
-    }
-    if (!$building->hasField('field_brebo_status')) {
-      return new JsonResponse(['ok' => FALSE, 'message' => 'Gebouwstatus ontbreekt.'], 409);
-    }
-
-    $previous = $this->status($building);
-    if ($previous !== $status) {
-      $building->set('field_brebo_status', $status);
-      $building->save();
-    }
-
-    return new JsonResponse(['ok' => TRUE, 'building_id' => $buildingId, 'status' => $status, 'previous_status' => $previous]);
-  }
-
-  /**
-   * Stores a user's column order and visibility without schema changes.
-   */
-  public function saveConfig(Request $request): JsonResponse {
-    $payload = json_decode((string) $request->getContent(), TRUE);
-    $columns = array_values(array_unique(array_filter(array_map('strval', (array) ($payload['columns'] ?? [])))));
-    $hidden = array_values(array_unique(array_filter(array_map('strval', (array) ($payload['hidden'] ?? [])))));
-    if ($columns === []) {
-      return new JsonResponse(['ok' => FALSE, 'message' => 'Geen kolommen ontvangen.'], 400);
-    }
-
-    \Drupal::service('user.data')->set('brebo_office_core', (int) $this->currentUser()->id(), 'building_kanban', [
-      'columns' => $columns,
-      'hidden' => $hidden,
-    ]);
-
-    return new JsonResponse(['ok' => TRUE, 'columns' => $columns, 'hidden' => $hidden]);
-  }
-
-  /**
-   * Returns normalized per-user kanban preferences.
-   *
-   * @return array{columns: string[], hidden: string[]}
-   */
-  private function columnPreferences(array $available): array {
-    $stored = \Drupal::service('user.data')->get('brebo_office_core', (int) $this->currentUser()->id(), 'building_kanban');
-    $storedColumns = is_array($stored) ? array_values(array_filter(array_map('strval', (array) ($stored['columns'] ?? [])))) : [];
-    $storedHidden = is_array($stored) ? array_values(array_filter(array_map('strval', (array) ($stored['hidden'] ?? [])))) : [];
-
-    $columns = [];
-    foreach ($storedColumns as $column) {
-      if (in_array($column, $available, TRUE)) {
-        $columns[] = $column;
-      }
-    }
-    foreach ($available as $column) {
-      if (!in_array($column, $columns, TRUE)) {
-        $columns[] = $column;
-      }
-    }
-
-    return [
-      'columns' => $columns,
-      'hidden' => array_values(array_intersect($storedHidden, $columns)),
-    ];
-  }
-
-  private function status(NodeInterface $building): string {
-    if (!$building->hasField('field_brebo_status') || $building->get('field_brebo_status')->isEmpty()) {
-      return '';
-    }
-    return trim((string) $building->get('field_brebo_status')->value);
+  /** @return array<string, mixed> */
+  private function kpi(string $value, string $label): array {
+    return ['#type' => 'container', '#attributes' => ['class' => ['brebo-buildings-dashboard__kpi']], 'value' => ['#plain_text' => $value, '#prefix' => '<span class="brebo-buildings-dashboard__kpi-value">', '#suffix' => '</span>'], 'label' => ['#plain_text' => $label, '#prefix' => '<span class="brebo-buildings-dashboard__kpi-label">', '#suffix' => '</span>']];
   }
 
   private function value(NodeInterface $node, string $field): string {
-    if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
-      return '—';
-    }
+    if (!$node->hasField($field) || $node->get($field)->isEmpty()) return '—';
     return trim((string) ($node->get($field)->value ?? '')) ?: '—';
   }
 

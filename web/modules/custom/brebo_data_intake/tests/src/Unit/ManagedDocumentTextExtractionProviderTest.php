@@ -21,6 +21,15 @@ final class ManagedDocumentTextExtractionProviderTest extends TestCase {
     self::assertSame('unavailable', $provider->extract('pdf', 'application/pdf')['status']);
   }
 
+  public function testConfiguredProviderRejectsUnsupportedTiffWithoutCallingRuntime(): void {
+    $client = $this->createMock(ClientInterface::class);
+    $client->expects(self::never())->method('request');
+    $provider = new ManagedDocumentTextExtractionProvider($client, 'https://extract.example.test/v1/documents', 'secret');
+
+    self::assertFalse($provider->supports('image/tiff'));
+    self::assertSame('unavailable', $provider->extract('bytes', 'image/tiff')['status']);
+  }
+
   public function testReturnsManagedEvidenceWithoutMakingItCanonical(): void {
     $client = $this->createMock(ClientInterface::class);
     $client->expects(self::once())

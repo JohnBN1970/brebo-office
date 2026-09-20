@@ -21,6 +21,8 @@ function brebo_building_data_schema(): array {
       'postal_code' => ['type' => 'varchar', 'length' => 16, 'not null' => FALSE],
       'city' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
       'country' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE, 'default' => 'Nederland'],
+      'latitude' => ['type' => 'numeric', 'precision' => 10, 'scale' => 7, 'not null' => FALSE],
+      'longitude' => ['type' => 'numeric', 'precision' => 10, 'scale' => 7, 'not null' => FALSE],
       'is_primary' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
       'source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
       'source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
@@ -66,4 +68,22 @@ function brebo_building_data_schema(): array {
   ];
 
   return $schema;
+}
+
+/**
+ * Adds persistent WGS84 coordinates for the buildings dashboard map.
+ */
+function brebo_building_data_update_11001(): string {
+  $schema = \Drupal::database()->schema();
+  $table = 'brebo_building_address';
+  $fields = [
+    'latitude' => ['type' => 'numeric', 'precision' => 10, 'scale' => 7, 'not null' => FALSE],
+    'longitude' => ['type' => 'numeric', 'precision' => 10, 'scale' => 7, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $definition) {
+    if (!$schema->fieldExists($table, $name)) {
+      $schema->addField($table, $name, $definition);
+    }
+  }
+  return 'WGS84 latitude/longitude toegevoegd aan gebouwadressen voor het gebouwen-dashboard.';
 }

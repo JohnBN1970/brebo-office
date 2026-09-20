@@ -63,7 +63,7 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
   public function createCommitment(int $project_nid, Request $request): JsonResponse {
     $this->assertProjectAccess($project_nid);
     $data = $this->payload($request);
-    $id = $this->commitmentManager->createDraft($project_nid, (string) ($data['commitment_number'] ?? ''), (string) ($data['supplier_name'] ?? ''), isset($data['supplier_ref']) ? (string) $data['supplier_ref'] : NULL, (int) $this->currentUser->id());
+    $id = $this->commitmentManager->createDraft($project_nid, (string) ($data['supplier_name'] ?? ''), isset($data['supplier_ref']) ? (string) $data['supplier_ref'] : NULL, (int) $this->currentUser->id());
     return $this->json(['ok' => TRUE, 'commitment_id' => $id], 201);
   }
 

@@ -1,0 +1,5 @@
+dunning:
+  reminder_after_days: 3
+  demand_after_days: 8
+  final_notice_after_days: 15
+  collection_ready_after_days: 22

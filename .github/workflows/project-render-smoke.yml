@@ -1,0 +1,37 @@
+name: BREBO Project Render Smoke
+
+on:
+  pull_request:
+    paths:
+      - 'web/modules/custom/brebo_project_cockpit/**'
+      - 'web/modules/custom/brebo_inzet/**'
+      - 'web/modules/custom/brebo_document_data/**'
+      - 'web/modules/custom/brebo_office_core/**'
+      - 'web/modules/custom/brebo_finance/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-render-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint project cockpit module
+        run: php -l web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.module
+      - name: Verify heavy project shell is not injected into subpages
+        shell: bash
+        run: |
+          set -euo pipefail
+          file=web/modules/custom/brebo_project_cockpit/brebo_project_cockpit.module
+          ! grep -q "brebo_project_context_cockpit.*_context_shell" "$file"
+          ! grep -q "function brebo_project_cockpit_page_attachments" "$file"
+          grep -q "brebo_document_data.project_dossier" "$file"
+          grep -q "brebo_project_cockpit.budget" "$file"
+          grep -q "brebo_project_cockpit.procurement" "$file"
+          grep -q "brebo_project_cockpit.contracts" "$file"
+          grep -q "brebo_project_cockpit.invoices" "$file"
+          grep -q "brebo_inzet.project_dashboard" "$file"
+          grep -q "brebo_project_cockpit.quality" "$file"
+          grep -q "brebo_project_cockpit.completion" "$file"

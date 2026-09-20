@@ -1,0 +1,216 @@
+<?php
+
+declare(strict_types=1);
+
+use Drupal\Core\Entity\Display\EntityFormDisplayInterface;
+use Drupal\Core\Entity\Entity\EntityFormDisplay;
+use Drupal\field\Entity\FieldConfig;
+use Drupal\field\Entity\FieldStorageConfig;
+use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_schema().
+ */
+function brebo_project_cockpit_schema(): array {
+  return [
+    'brebo_project_commercial_instalment_schedule' => [
+      'description' => 'Project-specific commercial instalment schedule used before contract and copied forward to billing.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+        'source_template_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+        'source_template_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'schedule_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+        'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['project' => ['project_nid']],
+      'indexes' => ['status' => ['status'], 'content_hash' => ['content_hash']],
+    ],
+  ];
+}
+
+/**
+ * Ensures fresh installations receive the same canonical project relations.
+ */
+function brebo_project_cockpit_install(): void {
+  brebo_project_cockpit_update_11001();
+  brebo_project_cockpit_update_11002();
+}
+
+/**
+ * Adds canonical CRM relationships to projects without removing legacy text.
+ */
+function brebo_project_cockpit_update_11001(): string {
+  $definitions = [
+    'field_brebo_project_org_ref' => [
+      'label' => 'Opdrachtgever',
+      'cardinality' => 1,
+      'target_bundles' => ['brebo_organization' => 'brebo_organization'],
+      'description' => 'Canonieke CRM-organisatie die opdrachtgever is voor dit project.',
+      'weight' => 4,
+    ],
+    'field_brebo_project_contact_refs' => [
+      'label' => 'Projectcontactpersonen',
+      'cardinality' => -1,
+      'target_bundles' => ['brebo_contact' => 'brebo_contact'],
+      'description' => 'Contactpersonen die voor dit project relevant zijn. De organisatiecontext blijft in CRM vastgelegd.',
+      'weight' => 5,
+    ],
+  ];
+
+  foreach ($definitions as $field_name => $definition) {
+    $storage = FieldStorageConfig::loadByName('node', $field_name);
+    if (!$storage) {
+      $storage = FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => 'entity_reference',
+        'cardinality' => $definition['cardinality'],
+        'settings' => ['target_type' => 'node'],
+      ]);
+      $storage->save();
+    }
+
+    $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
+    if (!$field) {
+      $field = FieldConfig::create([
+        'field_storage' => $storage,
+        'bundle' => 'brebo_project',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => FALSE,
+        'settings' => [
+          'handler' => 'default:node',
+          'handler_settings' => ['target_bundles' => $definition['target_bundles']],
+        ],
+      ]);
+      $field->save();
+    }
+
+    $display = EntityFormDisplay::load('node.brebo_project.default');
+    if ($display instanceof EntityFormDisplayInterface) {
+      $display->setComponent($field_name, [
+        'type' => 'entity_reference_autocomplete',
+        'weight' => $definition['weight'],
+        'settings' => ['match_operator' => 'CONTAINS', 'match_limit' => 10, 'size' => 60, 'placeholder' => ''],
+      ])->save();
+    }
+  }
+
+  // Only materialize a legacy client string when it matches exactly one CRM
+  // organization. Ambiguous or missing values are deliberately left for review.
+  $node_storage = \Drupal::entityTypeManager()->getStorage('node');
+  $project_ids = $node_storage->getQuery()
+    ->accessCheck(FALSE)
+    ->condition('type', 'brebo_project')
+    ->execute();
+  $linked = 0;
+  $unresolved = 0;
+
+  foreach ($node_storage->loadMultiple($project_ids) as $project) {
+    if (!$project instanceof NodeInterface
+      || !$project->hasField('field_brebo_project_org_ref')
+      || !$project->get('field_brebo_project_org_ref')->isEmpty()) {
+      continue;
+    }
+    $legacy = $project->hasField('field_brebo_client') && !$project->get('field_brebo_client')->isEmpty()
+      ? trim((string) $project->get('field_brebo_client')->value)
+      : '';
+    if ($legacy === '') {
+      continue;
+    }
+    $organization_ids = array_values($node_storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_organization')
+      ->condition('title', $legacy)
+      ->range(0, 2)
+      ->execute());
+    if (count($organization_ids) !== 1) {
+      $unresolved++;
+      continue;
+    }
+    $project->set('field_brebo_project_org_ref', ['target_id' => $organization_ids[0]]);
+    $project->setNewRevision(TRUE);
+    $project->setRevisionLogMessage('Unieke bestaande opdrachtgever gekoppeld aan canonieke CRM-organisatie.');
+    $project->save();
+    $linked++;
+  }
+
+  return sprintf('Canonieke projectrelaties ingericht; %d opdrachtgever(s) veilig gekoppeld, %d legacy opdrachtgever(s) vragen beoordeling.', $linked, $unresolved);
+}
+
+/**
+ * Adds one canonical internal project manager relation.
+ */
+function brebo_project_cockpit_update_11002(): string {
+  $field_name = 'field_brebo_project_manager';
+  $storage = FieldStorageConfig::loadByName('node', $field_name);
+  if (!$storage) {
+    $storage = FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'cardinality' => 1,
+      'settings' => ['target_type' => 'user'],
+    ]);
+    $storage->save();
+  }
+
+  $field = FieldConfig::loadByName('node', 'brebo_project', $field_name);
+  if (!$field) {
+    $field = FieldConfig::create([
+      'field_storage' => $storage,
+      'bundle' => 'brebo_project',
+      'label' => 'Projectleider',
+      'description' => 'Interne Office-gebruiker die canoniek verantwoordelijk is voor dit project.',
+      'required' => FALSE,
+      'settings' => [
+        'handler' => 'default:user',
+        'handler_settings' => [
+          'include_anonymous' => FALSE,
+          'filter' => ['type' => '_none'],
+        ],
+      ],
+    ]);
+    $field->save();
+  }
+
+  $display = EntityFormDisplay::load('node.brebo_project.default');
+  if ($display instanceof EntityFormDisplayInterface) {
+    $display->setComponent($field_name, [
+      'type' => 'entity_reference_autocomplete',
+      'weight' => 3,
+      'settings' => [
+        'match_operator' => 'CONTAINS',
+        'match_limit' => 10,
+        'size' => 60,
+        'placeholder' => '',
+      ],
+    ])->save();
+  }
+
+  return 'Canonieke Projectleider-relatie naar een interne Office-gebruiker ingericht.';
+}
+
+
+/**
+ * Adds the project-level commercial instalment schedule snapshot.
+ */
+function brebo_project_cockpit_update_11003(): string {
+  $schema = \Drupal::database()->schema();
+  $table = 'brebo_project_commercial_instalment_schedule';
+  if ($schema->tableExists($table)) {
+    return 'Commercieel projecttermijnschema bestond al.';
+  }
+
+  $definitions = brebo_project_cockpit_schema();
+  $schema->createTable($table, $definitions[$table]);
+
+  return 'Commercieel projecttermijnschema als projectsnapshot ingericht.';
+}

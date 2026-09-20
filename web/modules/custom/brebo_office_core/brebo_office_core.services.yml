@@ -17,6 +17,73 @@ services:
     arguments:
       - '@database'
 
+  brebo_office_core.simple_pdf_renderer:
+    class: Drupal\brebo_office_core\Service\SimplePdfRenderer
+
+  brebo_office_core.administration_registry:
+    class: Drupal\brebo_office_core\Service\AdministrationRegistry
+    arguments:
+      - '@config.factory'
+
+  brebo_office_core.administration_document_identity:
+    class: Drupal\brebo_office_core\Service\AdministrationDocumentIdentity
+    arguments:
+      - '@brebo_office_core.administration_registry'
+
+  brebo_office_core.administration_number_issuer:
+    class: Drupal\brebo_office_core\Service\AdministrationNumberIssuer
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+      - '@lock'
+
+  brebo_office_core.administration_context_resolver:
+    class: Drupal\brebo_office_core\Service\AdministrationContextResolver
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+
+  brebo_office_core.project_document_identity_resolver:
+    class: Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver
+    arguments:
+      - '@brebo_office_core.administration_context_resolver'
+      - '@brebo_office_core.administration_document_identity'
+
+  brebo_office_core.project_document_number_issuer:
+    class: Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer
+    arguments:
+      - '@brebo_office_core.administration_context_resolver'
+      - '@brebo_office_core.administration_number_issuer'
+
+  brebo_office_core.administration_access_manager:
+    class: Drupal\brebo_office_core\Service\AdministrationAccessManager
+    arguments:
+      - '@brebo_office_core.administration_registry'
+      - '@keyvalue'
+
+  brebo_office_core.onboarding_tour_manager:
+    class: Drupal\brebo_office_core\Service\OnboardingTourManager
+    arguments:
+      - '@keyvalue'
+
+  brebo_office_core.onboarding_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\OnboardingRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  brebo_office_core.onboarding_redirect_subscriber:
+    class: Drupal\brebo_office_core\EventSubscriber\OnboardingRedirectSubscriber
+    arguments:
+      - '@current_user'
+      - '@brebo_office_core.administration_access_manager'
+    tags:
+      - { name: event_subscriber }
+
+  brebo_office_core.project_administration_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\ProjectAdministrationRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
   brebo_office_core.appearance_route_subscriber:
     class: Drupal\brebo_office_core\Routing\AppearanceRouteSubscriber
     tags:
@@ -34,6 +101,11 @@ services:
 
   brebo_office_core.status_portfolio_route_subscriber:
     class: Drupal\brebo_office_core\Routing\StatusPortfolioRouteSubscriber
+    tags:
+      - { name: event_subscriber }
+
+  brebo_office_core.settings_access_route_subscriber:
+    class: Drupal\brebo_office_core\Routing\SettingsAccessRouteSubscriber
     tags:
       - { name: event_subscriber }
 

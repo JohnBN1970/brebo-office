@@ -15,7 +15,8 @@
   overflow: hidden;
 }
 
-.brebo-project-cockpit__card-label {
+.brebo-project-cockpit__card-label,
+.brebo-project-dashboard__eyebrow {
   font-size: .78rem;
   font-weight: 800;
   letter-spacing: .08em;
@@ -31,7 +32,7 @@
 .brebo-project-cockpit__card-headline {
   grid-column: 1 / -1;
   margin-top: .15rem;
-  color: #202428;
+  color: var(--brebo-text-primary, var(--brebo-ink, #211829));
   font-size: 1.22rem;
   font-weight: 800;
   line-height: 1.2;
@@ -43,15 +44,12 @@
   align-content: start;
   gap: .28rem;
   margin-top: .3rem;
-  color: #4f555a;
+  color: var(--brebo-text-secondary, var(--brebo-muted, #6f6675));
   font-size: .84rem;
   line-height: 1.35;
 }
 
-.brebo-project-cockpit__card-line {
-  min-width: 0;
-  overflow-wrap: anywhere;
-}
+.brebo-project-cockpit__card-line { min-width: 0; overflow-wrap: anywhere; }
 
 .brebo-project-cockpit__status--rich::after {
   content: '';
@@ -62,18 +60,59 @@
   opacity: .55;
 }
 
+.brebo-project-identity {
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  display: grid;
+  grid-template-columns: minmax(14rem, 1.4fr) minmax(0, 3fr) auto;
+  gap: 1rem;
+  align-items: center;
+  border: 1px solid rgba(98, 102, 106, .18);
+  border-radius: .85rem;
+  background: var(--brebo-surface, #fff);
+  box-shadow: 0 .15rem .6rem rgba(24, 32, 40, .05);
+}
+.brebo-project-identity__heading { min-width: 0; }
+.brebo-project-identity__heading h1 { margin: .2rem 0 0; font-size: 1.45rem; line-height: 1.15; }
+.brebo-project-identity__facts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .65rem; }
+.brebo-project-identity__fact { min-width: 0; display: grid; gap: .15rem; }
+.brebo-project-identity__fact span { font-size: .74rem; font-weight: 700; color: var(--brebo-text-secondary, var(--brebo-muted, #6f6675)); }
+.brebo-project-identity__fact strong { overflow-wrap: anywhere; font-size: .9rem; }
+
+.brebo-project-dashboard { display: grid; gap: 1rem; margin-top: 1rem; }
+.brebo-project-dashboard__steering { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; }
+.brebo-project-dashboard__metric,
+.brebo-project-dashboard__panel {
+  border: 1px solid rgba(98, 102, 106, .18);
+  border-radius: .85rem;
+  background: var(--brebo-surface, #fff);
+  box-shadow: 0 .15rem .6rem rgba(24, 32, 40, .05);
+}
+.brebo-project-dashboard__metric { min-height: 8rem; padding: .9rem 1rem; display: grid; align-content: start; gap: .28rem; }
+.brebo-project-dashboard__metric strong { font-size: 1.45rem; line-height: 1.15; }
+.brebo-project-dashboard__metric > span,
+.brebo-project-dashboard__metric .brebo-project-dashboard__eyebrow { color: var(--brebo-text-secondary, var(--brebo-muted, #6f6675)); }
+.brebo-project-dashboard__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.brebo-project-dashboard__panel { min-height: 9rem; padding: 1rem 1.1rem; }
+.brebo-project-dashboard__panel h2 { margin: 0 0 .45rem; font-size: 1.05rem; }
+.brebo-project-dashboard__panel p { margin: 0 0 .75rem; color: var(--brebo-text-secondary, var(--brebo-muted, #6f6675)); line-height: 1.45; }
+.brebo-project-dashboard__panel ul { margin: .35rem 0 .75rem; padding-left: 1.2rem; }
+.brebo-project-dashboard__link { display: inline-block; margin-top: .45rem; font-weight: 700; text-decoration: none; }
+.brebo-project-cockpit__attention { margin-top: 1rem; }
+
 @media (max-width: 1220px) {
-  .brebo-project-cockpit__hero {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  .brebo-project-cockpit__hero,
+  .brebo-project-dashboard__steering { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .brebo-project-identity { grid-template-columns: 1fr; }
+  .brebo-project-identity__facts { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 @media (max-width: 760px) {
-  .brebo-project-cockpit__hero {
-    grid-template-columns: 1fr;
-  }
-
-  .brebo-project-cockpit__status--rich {
-    min-height: auto;
-  }
+  .brebo-project-cockpit__hero,
+  .brebo-project-dashboard__steering,
+  .brebo-project-dashboard__grid,
+  .brebo-project-identity__facts { grid-template-columns: 1fr; }
+  .brebo-project-cockpit__status--rich { min-height: auto; }
+  .brebo-project-dashboard__metric,
+  .brebo-project-dashboard__panel { min-height: auto; }
 }

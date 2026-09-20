@@ -1,0 +1,5 @@
+brebo_building_data.truth_workbench_tab:
+  route_name: brebo_building_data.truth_workbench
+  title: 'Gebouwwaarheid'
+  base_route: brebo_office_core.building_dashboard
+  weight: 5

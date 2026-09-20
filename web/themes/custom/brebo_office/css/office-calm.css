@@ -1,0 +1,115 @@
+/* BREBO Office calm UI layer.
+ * Loaded last so every Office module gets the same visual hierarchy without
+ * replacing module-specific behavior. Keep this layer conservative: structure
+ * belongs to modules; rhythm, density and visual priority belong here.
+ */
+
+.brebo-shell--authenticated {
+  --brebo-calm-section-gap: 20px;
+  --brebo-calm-row-y: 9px;
+  --brebo-calm-row-x: 12px;
+  --brebo-calm-accent-soft: color-mix(in srgb, var(--brebo-accent-primary) 10%, var(--brebo-bg-surface));
+  --brebo-calm-accent-line: color-mix(in srgb, var(--brebo-accent-primary) 38%, var(--brebo-border));
+  --brebo-accent-text: var(--brebo-accent-primary);
+}
+
+html[data-brebo-theme='night'] .brebo-shell--authenticated { --brebo-accent-text: #c9a7f5; }
+@media (prefers-color-scheme: dark) { html[data-brebo-theme='system'] .brebo-shell--authenticated { --brebo-accent-text: #c9a7f5; } }
+.brebo-shell--authenticated :focus-visible { outline-color: var(--brebo-focus-color); }
+
+.brebo-shell--authenticated :is(.brebo-section-heading > a:hover,.brebo-dashboard-panel__action a:hover,.brebo-dashboard-kpi__link:hover,.brebo-view-switcher .is-active,.brebo-workspace-switcher .is-active,.brebo-view-switcher [aria-current='true'],.brebo-workspace-switcher [aria-current='true']) { color: var(--brebo-accent-text); }
+
+.brebo-shell--authenticated .brebo-app-layout__content > :is(.brebo-card,.brebo-dashboard-panel,.brebo-section,details,fieldset,table,.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions) + :is(.brebo-card,.brebo-dashboard-panel,.brebo-section,details,fieldset,table,.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions) { margin-top: var(--brebo-calm-section-gap); }
+
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions,.form-actions) { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions) .button:not(.button--primary):not(.brebo-button--primary) { color:var(--brebo-text-secondary); background:var(--brebo-bg-surface); }
+.brebo-shell--authenticated :is(.button--primary,.brebo-button--primary,input[type="submit"]) { border-color:var(--brebo-accent-primary); background:var(--brebo-accent-primary); color:var(--brebo-accent-foreground); }
+
+/* Project portfolio: a single stable filter row. Controls may wrap, but never
+ * overlap the view switcher or the table below it. */
+.brebo-shell--authenticated .brebo-project-portfolio__top { margin-bottom: 18px; }
+.brebo-shell--authenticated .brebo-project-kpis { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.brebo-shell--authenticated .brebo-project-controls { position:relative; z-index:1; margin:0 0 14px; overflow:visible; }
+.brebo-shell--authenticated .brebo-project-controls__form { display:grid; grid-template-columns:minmax(240px,2fr) repeat(3,minmax(150px,1fr)) auto auto; gap:10px; align-items:end; padding:14px; border:1px solid var(--brebo-border); border-radius:var(--brebo-radius-md); background:var(--brebo-bg-surface); }
+.brebo-shell--authenticated .brebo-project-controls__form label { display:grid; gap:5px; min-width:0; margin:0; color:var(--brebo-text-secondary); font-size:.78rem; font-weight:700; }
+.brebo-shell--authenticated .brebo-project-controls__form :is(input,select,button,.button) { box-sizing:border-box; width:100%; min-width:0; min-height:40px; margin:0; }
+.brebo-shell--authenticated .brebo-project-controls__form button,
+.brebo-shell--authenticated .brebo-project-controls__form > .button { width:auto; white-space:nowrap; }
+.brebo-shell--authenticated .brebo-status-overview__actions { position:relative; z-index:0; display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; margin:0 0 16px; }
+.brebo-shell--authenticated .brebo-project-portfolio table { clear:both; margin-top:0; }
+
+.brebo-shell--authenticated .brebo-context-tabs { border-bottom:1px solid var(--brebo-border); }
+.brebo-shell--authenticated .brebo-context-tabs__items { display:flex; flex-wrap:wrap; gap:4px 6px; }
+.brebo-shell--authenticated .brebo-context-tabs__items > a { padding:8px 10px; border-radius:var(--brebo-radius-sm) var(--brebo-radius-sm) 0 0; color:var(--brebo-text-secondary); text-decoration:none; }
+.brebo-shell--authenticated .brebo-context-tabs__items > a:hover,.brebo-shell--authenticated .brebo-context-tabs__items > a:focus-visible { color:var(--brebo-text-primary); background:var(--brebo-bg-muted); }
+.brebo-shell--authenticated .brebo-context-tabs__items > a.is-active { color:var(--brebo-text-primary); background:var(--brebo-calm-accent-soft); box-shadow:inset 0 -3px 0 var(--brebo-accent-primary); font-weight:750; }
+
+.brebo-shell--authenticated table caption { padding:0 0 8px; color:var(--brebo-text-primary); font-size:.92rem; font-weight:750; text-align:left; }
+.brebo-shell--authenticated table th,.brebo-shell--authenticated table td { padding:var(--brebo-calm-row-y) var(--brebo-calm-row-x); }
+.brebo-shell--authenticated table th { background:var(--brebo-bg-muted); color:var(--brebo-text-primary); border-bottom-color:var(--brebo-calm-accent-line); }
+.brebo-shell--authenticated table td { font-size:.92rem; }
+
+.brebo-shell--authenticated details > summary { padding:11px 14px; cursor:pointer; list-style-position:inside; }
+.brebo-shell--authenticated details[open] { border-color:var(--brebo-calm-accent-line); }
+.brebo-shell--authenticated details[open] > summary { border-bottom:1px solid var(--brebo-border); background:var(--brebo-bg-muted); }
+.brebo-shell--authenticated details > :not(summary) { margin-left:14px; margin-right:14px; }
+.brebo-shell--authenticated details > :last-child { margin-bottom:14px; }
+
+.brebo-shell--authenticated .form-item { margin-block:0 14px; }
+.brebo-shell--authenticated .form-item :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea) { max-width:52rem; }
+.brebo-shell--authenticated :is(input[type="text"],input[type="email"],input[type="tel"],input[type="url"],input[type="search"],input[type="number"],input[type="date"],input[type="time"],input[type="datetime-local"],input[type="password"],select,textarea):focus { border-color:var(--brebo-focus-color); outline:0; box-shadow:0 0 0 3px color-mix(in srgb,var(--brebo-focus-color) 68%,transparent); }
+
+.brebo-shell--authenticated .brebo-dashboard-kpi { min-height:128px; padding:16px; box-shadow:none; }
+.brebo-shell--authenticated .brebo-dashboard-kpi > strong { font-size:clamp(1.55rem,2.1vw,2rem); }
+.brebo-shell--authenticated .brebo-dashboard-kpi:hover { transform:none; }
+.brebo-shell--authenticated :is(.brebo-card,.brebo-dashboard-panel,.brebo-section) { box-shadow:none; }
+.brebo-shell--authenticated :is(.brebo-project-cockpit__attention,.messages--warning) { border-left-color:var(--brebo-status-warning); }
+
+/* Project invoices: exactly two quiet summary blocks, one for creditors and
+ * one for debtors, each with the same status rhythm. */
+/* Drupal local actions: keep compact project actions horizontal instead of stacked. */
+.brebo-shell--authenticated .block-local-actions-block ul.action-links { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:0 0 14px; padding:0; list-style:none; }
+.brebo-shell--authenticated .block-local-actions-block ul.action-links > li { margin:0; padding:0; }
+
+/* Project invoices: keep the three filters and submit action on one calm row. */
+.brebo-shell--authenticated form.brebo-filter-bar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)) auto; gap:12px; align-items:end; margin:0 0 14px; }
+.brebo-shell--authenticated form.brebo-filter-bar > .form-item { min-width:0; margin:0; }
+.brebo-shell--authenticated form.brebo-filter-bar .form-actions { margin:0; }
+.brebo-shell--authenticated form.brebo-filter-bar .form-actions .button { margin:0; white-space:nowrap; }
+@media (max-width: 900px) {
+  .brebo-shell--authenticated form.brebo-filter-bar { grid-template-columns:1fr; }
+  .brebo-shell--authenticated form.brebo-filter-bar .form-actions .button { width:100%; }
+}
+
+.brebo-shell--authenticated .brebo-invoice-summary { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; margin:0 0 18px; }
+.brebo-shell--authenticated .brebo-invoice-summary__block { min-width:0; padding:16px; border:1px solid var(--brebo-border); border-radius:var(--brebo-radius-md); background:var(--brebo-bg-surface); }
+.brebo-shell--authenticated .brebo-invoice-summary__block h2 { margin:0 0 12px; font-size:1rem; line-height:1.3; }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses > div { display:grid; gap:2px; min-width:0; padding:9px 10px; border-radius:var(--brebo-radius-sm); background:var(--brebo-bg-muted); }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses strong { font-size:1.1rem; color:var(--brebo-text-primary); }
+.brebo-shell--authenticated .brebo-invoice-summary__statuses span { color:var(--brebo-text-secondary); font-size:.78rem; line-height:1.25; }
+
+/* Icon-only appearance selector: sun, moon, computer. */
+.brebo-theme-switcher__button { display:grid; place-items:center; min-height:38px; }
+.brebo-theme-switcher__icon { display:grid; place-items:center; width:20px; height:20px; }
+.brebo-theme-switcher__icon svg { width:20px; height:20px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.brebo-theme-switcher__button[aria-pressed='true'] { color:var(--brebo-accent-text); box-shadow:inset 0 -2px 0 var(--brebo-accent-primary); }
+
+@media (max-width: 84rem) {
+  .brebo-shell--authenticated .brebo-project-controls__form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .brebo-shell--authenticated .brebo-project-controls__form > button,
+  .brebo-shell--authenticated .brebo-project-controls__form > .button { width:100%; }
+}
+
+@media (max-width: 48rem) {
+  .brebo-shell--authenticated { --brebo-calm-section-gap:16px; --brebo-calm-row-y:8px; --brebo-calm-row-x:10px; }
+  .brebo-shell--authenticated :is(.brebo-list-actions,.brebo-action-bar,.brebo-project-cockpit__primary-actions,.form-actions) { gap:6px; }
+  .brebo-shell--authenticated .brebo-project-kpis { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .brebo-shell--authenticated .brebo-project-controls__form { grid-template-columns:1fr; padding:12px; }
+  .brebo-shell--authenticated .brebo-status-overview__actions { align-items:stretch; }
+  .brebo-shell--authenticated .brebo-context-tabs__items { flex-wrap:nowrap; overflow-x:auto; scrollbar-width:thin; }
+  .brebo-shell--authenticated .brebo-context-tabs__items > a { flex:0 0 auto; }
+  .brebo-shell--authenticated table td,.brebo-shell--authenticated table th { font-size:.86rem; }
+  .brebo-shell--authenticated .brebo-invoice-summary { grid-template-columns:1fr; }
+  .brebo-shell--authenticated .brebo-invoice-summary__statuses { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}

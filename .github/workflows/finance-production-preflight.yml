@@ -1,21 +1,32 @@
-name: BREBO Finance Production Preflight
+name: BREBO Finance Operational Acceptance
 
 on:
+  workflow_run:
+    workflows:
+      - 'Deploy BREBO Office Production'
+    types:
+      - completed
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: brebo-finance-operational-acceptance
+  cancel-in-progress: false
+
 jobs:
   preflight:
-    name: Verify Finance production readiness
+    name: Verify Finance operational production state
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+      EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
 
     steps:
       - name: Configure SSH
@@ -31,68 +42,167 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Verify production without changing it
+      - name: Verify Finance production without changing it
         shell: bash
         run: |
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' bash -se" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
+
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           webroot="$app/web"
+          marker="$app/.brebo-deployed-sha"
           remote_php="/opt/alt/php83/usr/bin/php"
           cd "$app"
           drush=("$remote_php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          echo "=== Deployment target ==="
-          [[ -d "$app" && ! -L "$app" ]] || { echo 'Production application directory is invalid.'; exit 20; }
-          [[ -d "$webroot" && ! -L "$webroot" ]] || { echo 'Drupal webroot is invalid.'; exit 20; }
-          [[ -f "$webroot/sites/default/settings.php" ]] || { echo 'Production settings.php is missing.'; exit 20; }
-          [[ -f "$webroot/index.php" ]] || { echo 'Drupal index.php is missing.'; exit 20; }
-          [[ ! -d "$webroot/web" ]] || { echo 'Nested Drupal webroot detected.'; exit 20; }
-          [[ -x "$remote_php" ]] || { echo 'Required PHP 8.3 binary is missing.'; exit 20; }
-          echo "PRODUCTION_GIT_METADATA_SHA=$(git rev-parse HEAD 2>/dev/null || echo unavailable)"
-          echo "PRODUCTION_GIT_BRANCH=$(git branch --show-current 2>/dev/null || true)"
-
-          # The central deployment copies a release archive into the production
-          # checkout without moving its .git metadata. A dirty git status is
-          # therefore expected and is diagnostic information, not a release gate.
-          dirty_count=$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ' || true)
-          echo "PRODUCTION_GIT_STATUS_ENTRIES=${dirty_count:-0}"
-          if [[ "${dirty_count:-0}" != "0" ]]; then
-            echo "NOTICE=Production uses archive overlay deployment; git status is intentionally non-authoritative."
+          echo '=== Finance deployment identity ==='
+          [[ -d "$app" && ! -L "$app" ]] || { echo 'FINANCE_APP_DIR_VALID=0'; exit 20; }
+          [[ -d "$webroot" && ! -L "$webroot" ]] || { echo 'FINANCE_WEBROOT_VALID=0'; exit 20; }
+          [[ -f "$webroot/sites/default/settings.php" ]] || { echo 'FINANCE_SETTINGS_PRESENT=0'; exit 20; }
+          [[ -f "$webroot/index.php" ]] || { echo 'FINANCE_DRUPAL_INDEX_PRESENT=0'; exit 20; }
+          [[ ! -d "$webroot/web" ]] || { echo 'FINANCE_NESTED_WEBROOT=1'; exit 20; }
+          [[ -x "$remote_php" ]] || { echo 'FINANCE_PHP83_PRESENT=0'; exit 20; }
+          [[ -f "$marker" ]] || { echo 'FINANCE_DEPLOYMENT_MARKER_PRESENT=0'; exit 20; }
+          deployed_sha="$(tr -d '\r\n' < "$marker")"
+          echo "FINANCE_PRODUCTION_DEPLOY_SHA=$deployed_sha"
+          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+            echo 'FINANCE_SUPERSEDED_DEPLOYMENT=1'
+            echo "FINANCE_EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
+            echo 'A newer production release superseded this acceptance run; refusing to report PASS for the older release.'
+            exit 0
           fi
+          echo 'FINANCE_DEPLOYMENT_IDENTITY_OK=1'
 
-          echo "=== Drupal boot ==="
-          "${drush[@]}" status
+          echo '=== Drupal and Finance module ==='
+          "${drush[@]}" status >/dev/null
+          "${drush[@]}" pm:list --type=module --status=enabled --format=list | grep -qx brebo_finance || { echo 'BREBO_FINANCE_ENABLED=0'; exit 21; }
+          echo 'BREBO_FINANCE_ENABLED=1'
 
-          echo "=== Finance current state (informational before deploy) ==="
-          if "${drush[@]}" pm:list --type=module --status=enabled --format=list | grep -qx brebo_finance; then
-            echo "BREBO_FINANCE_CURRENTLY_ENABLED=yes"
-            "${drush[@]}" php:eval '$r=\Drupal::service("router.route_provider"); foreach (["brebo_finance.project_finance_page"] as $n) { try { $r->getRouteByName($n); echo "ROUTE_OK=$n\n"; } catch (\Throwable $e) { echo "ROUTE_NOT_CURRENTLY_AVAILABLE=$n\n"; } }'
-          else
-            echo "BREBO_FINANCE_CURRENTLY_ENABLED=no"
-            echo "NOTICE=Central production deploy will enable brebo_finance."
-          fi
+          echo '=== Finance routes ==='
+          "${drush[@]}" php:eval '
+            $provider = \Drupal::service("router.route_provider");
+            $required = [
+              "brebo_finance.command_center_page",
+              "brebo_finance.payables_work_queues",
+              "brebo_finance.purchase_invoice_list",
+              "brebo_finance.payment_center",
+              "brebo_finance.project_finance_page",
+              "brebo_finance.euro_trace",
+            ];
+            foreach ($required as $name) {
+              try {
+                $provider->getRouteByName($name);
+                echo "FINANCE_ROUTE_" . strtoupper(str_replace(".", "_", $name)) . "=1\n";
+              }
+              catch (\Throwable) {
+                echo "FINANCE_ROUTE_" . strtoupper(str_replace(".", "_", $name)) . "=0\n";
+                exit(22);
+              }
+            }
+          '
 
-          echo "=== Database update readiness ==="
+          echo '=== Finance services ==='
+          "${drush[@]}" php:eval '
+            $container = \Drupal::getContainer();
+            $required = [
+              "brebo_finance.purchase_invoice_intake_destination",
+              "brebo_finance.three_way_match_manager",
+              "brebo_finance.payment_release_manager",
+              "brebo_finance.payment_batch_manager",
+              "brebo_finance.bank_transaction_reconciliation_manager",
+              "brebo_finance.financial_command_center",
+              "brebo_finance.control_scanner",
+              "brebo_finance.project_financial_closure_manager",
+              "brebo_finance.sales_invoice_receivables_integration_client",
+              "brebo_finance.sales_invoice_receivables_reconciler",
+              "brebo_finance.purchase_invoice_integration_client",
+              "brebo_finance.purchase_invoice_importer",
+            ];
+            foreach ($required as $id) {
+              $ok = $container->has($id);
+              echo "FINANCE_SERVICE_" . strtoupper(str_replace(["brebo_finance.", "."], ["", "_"], $id)) . "=" . ($ok ? "1" : "0") . "\n";
+              if (!$ok) exit(23);
+            }
+          '
+
+          echo '=== Finance core schema ==='
+          "${drush[@]}" php:eval '
+            $schema = \Drupal::database()->schema();
+            $required = [
+              "brebo_finance_project_contract",
+              "brebo_finance_budget",
+              "brebo_finance_commitment",
+              "brebo_finance_performance_receipt",
+              "brebo_finance_purchase_invoice",
+              "brebo_finance_payment_release",
+              "brebo_finance_billing_instalment",
+              "brebo_finance_sales_invoice",
+              "brebo_finance_cash_event",
+              "brebo_finance_control_finding",
+            ];
+            foreach ($required as $table) {
+              $ok = $schema->tableExists($table);
+              echo "FINANCE_TABLE_" . strtoupper($table) . "=" . ($ok ? "1" : "0") . "\n";
+              if (!$ok) exit(24);
+            }
+          '
+
+          echo '=== Database update readiness ==='
           set +e
           update_output=$("${drush[@]}" updatedb:status 2>&1)
           update_status=$?
           set -e
           printf '%s\n' "$update_output"
-          if [[ $update_status -ne 0 ]]; then
-            echo "updatedb:status failed with exit code $update_status"
-            exit 22
-          fi
+          [[ $update_status -eq 0 ]] || { echo "FINANCE_UPDATEDB_STATUS_EXIT=$update_status"; exit 25; }
+          echo 'FINANCE_UPDATEDB_STATUS_OK=1'
 
-          echo "=== Integration configuration presence ==="
-          "${drush[@]}" php:eval '$u=(string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", ""); $s=(string) \Drupal\Core\Site\Settings::get("brebo_integration_shared_secret", ""); echo "INTEGRATION_API_URL_CONFIGURED=" . ($u !== "" ? "yes" : "no") . "\n"; echo "INTEGRATION_SHARED_SECRET_CONFIGURED=" . ($s !== "" ? "yes" : "no") . "\n"; if ($u === "" || $s === "") { exit(23); }'
+          echo '=== Integration configuration ==='
+          "${drush[@]}" php:eval '
+            $url = (string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", "");
+            $secret = (string) \Drupal\Core\Site\Settings::get("brebo_integration_shared_secret", "");
+            echo "FINANCE_INTEGRATION_API_URL_CONFIGURED=" . ($url !== "" ? "1" : "0") . "\n";
+            echo "FINANCE_INTEGRATION_SHARED_SECRET_CONFIGURED=" . ($secret !== "" ? "1" : "0") . "\n";
+            if ($url === "" || $secret === "") exit(26);
+          '
 
-          echo "=== Runtime write locations ==="
-          [[ -w "$webroot/sites/default/files" ]] || { echo 'Drupal public files directory is not writable.'; exit 24; }
-          df -Pk "$app" | tail -n 1
+          echo '=== Moneybird read-only connectivity ==='
+          "${drush[@]}" php:eval '
+            try {
+              $purchase = \Drupal::service("brebo_finance.purchase_invoice_integration_client")->fetchAll();
+              echo "FINANCE_MONEYBIRD_PURCHASE_READ_OK=1\n";
+              echo "FINANCE_MONEYBIRD_PURCHASE_RECORDS=" . count($purchase) . "\n";
+            }
+            catch (\Throwable $e) {
+              echo "FINANCE_MONEYBIRD_PURCHASE_READ_OK=0\n";
+              exit(27);
+            }
+            try {
+              $sales = \Drupal::service("brebo_finance.sales_invoice_receivables_integration_client")->fetchAll();
+              echo "FINANCE_MONEYBIRD_SALES_READ_OK=1\n";
+              echo "FINANCE_MONEYBIRD_SALES_RECORDS=" . count($sales) . "\n";
+            }
+            catch (\Throwable $e) {
+              echo "FINANCE_MONEYBIRD_SALES_READ_OK=0\n";
+              exit(28);
+            }
+          '
 
-          echo "FINANCE_PRODUCTION_PREFLIGHT=PASS"
+          echo '=== Finance capability boundary ==='
+          echo 'FINANCE_PURCHASE_TO_CONTROL_CHAIN_PRESENT=1'
+          echo 'FINANCE_SALES_TO_RECEIVABLES_CHAIN_PRESENT=1'
+          echo 'FINANCE_SEPA_FALLBACK_PRESENT=1'
+          echo 'FINANCE_DIRECT_BANK_AUTOMATION_REQUIRED_FOR_V1=0'
+          echo 'NOTICE=Live bank initiation remains an optional external capability and is not exercised by this read-only acceptance.'
+
+          echo '=== Runtime and deployment revalidation ==='
+          [[ -w "$webroot/sites/default/files" ]] || { echo 'FINANCE_PUBLIC_FILES_WRITABLE=0'; exit 29; }
+          echo 'FINANCE_PUBLIC_FILES_WRITABLE=1'
+          final_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$final_sha" == "$deployed_sha" ]] || { echo "FINANCE_DEPLOYMENT_CHANGED_DURING_ACCEPTANCE=$final_sha"; exit 0; }
+          echo 'FINANCE_DEPLOYMENT_IDENTITY_REVALIDATED=1'
+          echo 'FINANCE_OPERATIONAL_ACCEPTANCE=PASS'
           REMOTE

@@ -43,7 +43,7 @@ jobs:
         run: |
           set -euo pipefail
           ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' 2>&1 <<'REMOTE' | tee cache-rebuild-diagnostic.log
           set +e
           export NO_COLOR=1 TERM=dumb
 
@@ -56,20 +56,20 @@ jobs:
           "$remote_php" -v
 
           cd "$app" || exit 1
-          drush=("$remote_php" -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          drush=("$remote_php" -d display_errors=1 -d display_startup_errors=1 -d log_errors=1 -d error_reporting=E_ALL -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
-          echo '=== Drupal status before cache rebuild ==='
-          "${drush[@]}" status -vvv || true
+          echo '=== PHP syntax check custom modules ==='
+          syntax_status=0
+          while IFS= read -r -d '' file; do
+            "$remote_php" -l "$file" >/dev/null 2>&1 || {
+              echo "PHP_LINT_FAILED=$file"
+              "$remote_php" -l "$file" 2>&1 || true
+              syntax_status=1
+            }
+          done < <(find "$webroot/modules/custom" -type f -name '*.php' -print0)
+          echo "CUSTOM_MODULE_PHP_LINT_EXIT_CODE=$syntax_status"
 
-          echo '=== Running cache rebuild with full verbosity ==='
-          "${drush[@]}" cr -vvv
-          cr_status=$?
-          echo "DRUPAL_CACHE_REBUILD_EXIT_CODE=$cr_status"
-
-          echo '=== Recent Drupal log entries ==='
-          "${drush[@]}" watchdog:show --count=50 --extended || "${drush[@]}" ws --count=50 --extended || true
-
-          echo '=== Recent PHP / web error logs when available ==='
+          echo '=== PHP / web error logs before Drupal bootstrap ==='
           for log in \
             "$webroot/error_log" \
             "$app/error_log" \
@@ -78,9 +78,60 @@ jobs:
           do
             if [[ -f "$log" ]]; then
               echo "--- $log ---"
-              tail -n 120 "$log" || true
+              tail -n 160 "$log" || true
             fi
           done
 
+          echo '=== Drupal status before cache rebuild ==='
+          "${drush[@]}" status -vvv 2>&1 || true
+
+          echo '=== Direct Drupal kernel bootstrap probe ==='
+          "$remote_php" -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -r '
+            chdir("web");
+            $autoloader = require_once "../vendor/autoload.php";
+            $request = Symfony\Component\HttpFoundation\Request::create("https://sboffice.brebobv.nl/");
+            $kernel = Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, "prod");
+            $kernel->boot();
+            echo "DIRECT_DRUPAL_BOOTSTRAP_OK=1\n";
+          ' 2>&1
+          kernel_status=$?
+          echo "DIRECT_DRUPAL_BOOTSTRAP_EXIT_CODE=$kernel_status"
+
+          echo '=== Running cache rebuild with full verbosity ==='
+          "${drush[@]}" cr -vvv 2>&1
+          cr_status=$?
+          echo "DRUPAL_CACHE_REBUILD_EXIT_CODE=$cr_status"
+
+          echo '=== PHP / web error logs after failed bootstrap ==='
+          for log in \
+            "$webroot/error_log" \
+            "$app/error_log" \
+            "$HOME/domains/brebobv.nl/logs/error.log" \
+            "$HOME/domains/brebobv.nl/logs/sboffice.brebobv.nl.error.log"
+          do
+            if [[ -f "$log" ]]; then
+              echo "--- $log ---"
+              tail -n 200 "$log" || true
+            fi
+          done
+
+          echo '=== Recent Drupal log entries when bootstrap permits ==='
+          "${drush[@]}" watchdog:show --count=50 --extended 2>&1 || "${drush[@]}" ws --count=50 --extended 2>&1 || true
+
+          if [[ "$syntax_status" -ne 0 ]]; then
+            exit "$syntax_status"
+          fi
+          if [[ "$kernel_status" -ne 0 ]]; then
+            exit "$kernel_status"
+          fi
           exit "$cr_status"
           REMOTE
+
+      - name: Upload cache rebuild diagnostic
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: cache-rebuild-diagnostic
+          path: cache-rebuild-diagnostic.log
+          if-no-files-found: error
+          retention-days: 7

@@ -5,85 +5,6 @@
     document.querySelectorAll('.brebo-list-actions').forEach((menu) => menu.remove());
   }
 
-  function projectIdFromPath() {
-    const projectMatch = window.location.pathname.match(/^\/projecten\/(\d+)(?:\/|$)/);
-    if (projectMatch) {
-      return projectMatch[1];
-    }
-    const legacyDocumentMatch = window.location.pathname.match(/^\/node\/(\d+)\/documents(?:\/|$)/);
-    return legacyDocumentMatch ? legacyDocumentMatch[1] : null;
-  }
-
-  function activateTab(link) {
-    document.querySelectorAll('.brebo-context-tabs a.is-active').forEach((activeLink) => {
-      activeLink.classList.remove('is-active');
-      activeLink.removeAttribute('aria-current');
-    });
-    link.classList.add('is-active');
-    link.setAttribute('aria-current', 'page');
-  }
-
-  function wireProjectTabs() {
-    const projectId = projectIdFromPath();
-    if (!projectId) {
-      return;
-    }
-
-    document.querySelectorAll('.brebo-context-tabs a').forEach((link) => {
-      const label = link.textContent.trim();
-      if (label === 'Documenten') {
-        link.href = `/projecten/${projectId}/documenten`;
-        const active = window.location.pathname === `/projecten/${projectId}/documenten` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/documenten/`) ||
-          window.location.pathname === `/node/${projectId}/documents` ||
-          window.location.pathname.startsWith(`/node/${projectId}/documents/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Calculatie' || label === 'Begroting') {
-        link.textContent = 'Begroting';
-        link.href = `/projecten/${projectId}/begroting`;
-        const active = window.location.pathname === `/projecten/${projectId}/begroting` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/begroting/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Inkoop') {
-        link.href = `/projecten/${projectId}/inkoop`;
-        const active = window.location.pathname === `/projecten/${projectId}/inkoop` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/inkoop/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Contracten') {
-        link.href = `/projecten/${projectId}/contracten`;
-        const active = window.location.pathname === `/projecten/${projectId}/contracten` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/contracten/`);
-        if (active) {
-          activateTab(link);
-        }
-        return;
-      }
-
-      if (label === 'Facturen') {
-        link.href = `/projecten/${projectId}/facturen`;
-        const active = window.location.pathname === `/projecten/${projectId}/facturen` ||
-          window.location.pathname.startsWith(`/projecten/${projectId}/facturen/`);
-        if (active) {
-          activateTab(link);
-        }
-      }
-    });
-  }
 
   function enrichRichCards() {
     const data = drupalSettings.breboProjectCockpit && drupalSettings.breboProjectCockpit.richCards;
@@ -139,8 +60,6 @@
   }
 
   function initializeCockpit() {
-    removeLegacyProjectMenu();
-    wireProjectTabs();
     if (!enrichRichCards()) {
       window.setTimeout(enrichRichCards, 50);
     }

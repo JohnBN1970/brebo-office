@@ -3,7 +3,27 @@
 declare(strict_types=1);
 
 use Drupal\Core\Entity\EntityInterface;
+use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
+
+/**
+ * Implements hook_preprocess_HOOK() for html.html.twig.
+ */
+function brebo_building_data_preprocess_html(array &$variables): void {
+  if (\Drupal::routeMatch()->getRouteName() === 'brebo_building_data.truth_workbench') {
+    $variables['attributes']['class'][] = 'route-brebo-building-data-truth-workbench';
+  }
+}
+
+/**
+ * Implements hook_page_attachments().
+ */
+function brebo_building_data_page_attachments(array &$attachments): void {
+  $routeName = \Drupal::routeMatch()->getRouteName();
+  if ($routeName === 'brebo_building_data.truth_workbench') {
+    $attachments['#attached']['library'][] = 'brebo_building_data/truth_workbench';
+  }
+}
 
 /**
  * Implements hook_entity_delete().
@@ -26,4 +46,35 @@ function brebo_building_data_entity_delete(EntityInterface $entity): void {
         ->execute();
     }
   }
+}
+
+/**
+ * Implements hook_link_alter().
+ *
+ * Generic edit links for BREBO buildings lead to the canonical building-truth
+ * workbench. The explicit base-edit action on that workbench opts out through
+ * the brebo_base_edit query flag.
+ */
+function brebo_building_data_link_alter(array &$variables): void {
+  $url = $variables['url'] ?? NULL;
+  if (!$url instanceof Url || !$url->isRouted() || $url->getRouteName() !== 'entity.node.edit_form') {
+    return;
+  }
+
+  $options = $url->getOptions();
+  if (!empty($options['query']['brebo_base_edit'])) {
+    return;
+  }
+
+  $nodeId = (int) ($url->getRouteParameters()['node'] ?? 0);
+  if ($nodeId <= 0) {
+    return;
+  }
+
+  $node = \Drupal::entityTypeManager()->getStorage('node')->load($nodeId);
+  if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_building') {
+    return;
+  }
+
+  $variables['url'] = Url::fromRoute('brebo_building_data.truth_workbench', ['node' => $nodeId]);
 }

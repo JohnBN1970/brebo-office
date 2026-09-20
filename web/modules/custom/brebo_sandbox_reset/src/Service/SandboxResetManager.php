@@ -25,6 +25,7 @@ final class SandboxResetManager {
   public function preview(string $scope): array {
     $mailIds = $this->mailIntakeCommunicationIds();
     $objectIds = $this->objectIdsForScope($scope);
+    $websiteTargets = $scope === 'website_europakozijn' ? $this->websiteEuropakozijnTargets() : $this->emptyWebsiteTargets();
 
     return [
       'scope' => $scope,
@@ -36,12 +37,18 @@ final class SandboxResetManager {
       'buildings' => count($this->nodeIdsByBundle('brebo_building', $scope)),
       'object_references' => $this->countNodeReferences($objectIds),
       'address_scope_proposals' => $this->countAddressScopeProposals(),
+      'website_intake_records' => count($websiteTargets['record_ids']),
+      'website_intake_runs' => count($websiteTargets['run_ids']),
+      'website_intake_decisions' => $this->countRows('brebo_data_intake_decision', 'record_id', $websiteTargets['record_ids']),
+      'website_intake_candidates' => $this->countRows('brebo_masterdata_candidate', 'record_id', $websiteTargets['record_ids']),
+      'website_intake_files' => count($websiteTargets['file_ids']),
+      'website_intake_leads' => count($websiteTargets['lead_ids']),
     ];
   }
 
   /** @return array<string, int|string> */
   public function reset(string $scope): array {
-    $allowed = ['mail_content', 'mail_content_zoho', 'projects', 'buildings', 'projects_buildings'];
+    $allowed = ['mail_content', 'mail_content_zoho', 'projects', 'buildings', 'projects_buildings', 'website_europakozijn'];
     if (!in_array($scope, $allowed, TRUE)) {
       throw new \InvalidArgumentException('Onbekende sandbox-resetscope.');
     }
@@ -52,6 +59,9 @@ final class SandboxResetManager {
     try {
       if (str_starts_with($scope, 'mail_content')) {
         $this->resetMail($scope);
+      }
+      elseif ($scope === 'website_europakozijn') {
+        $this->resetWebsiteEuropakozijn();
       }
       else {
         $objectIds = $this->objectIdsForScope($scope);
@@ -101,6 +111,79 @@ final class SandboxResetManager {
     }
   }
 
+  private function resetWebsiteEuropakozijn(): void {
+    $targets = $this->websiteEuropakozijnTargets();
+
+    if ($targets['record_ids'] !== []) {
+      $this->deleteRows('brebo_data_intake_decision', 'record_id', $targets['record_ids']);
+      $this->deleteRows('brebo_masterdata_candidate', 'record_id', $targets['record_ids']);
+      $this->deleteRows('brebo_data_record', 'id', $targets['record_ids']);
+    }
+    if ($targets['run_ids'] !== []) {
+      $this->deleteRows('brebo_data_ingest_run', 'id', $targets['run_ids']);
+    }
+    if ($targets['lead_ids'] !== []) {
+      $storage = $this->entityTypeManager->getStorage('node');
+      $nodes = $storage->loadMultiple($targets['lead_ids']);
+      if ($nodes !== []) {
+        $storage->delete($nodes);
+      }
+    }
+    if ($targets['file_ids'] !== []) {
+      $storage = $this->entityTypeManager->getStorage('file');
+      $files = $storage->loadMultiple($targets['file_ids']);
+      if ($files !== []) {
+        $storage->delete($files);
+      }
+    }
+  }
+
+  /** @return array{record_ids:int[],run_ids:int[],file_ids:int[],lead_ids:int[]} */
+  private function websiteEuropakozijnTargets(): array {
+    $recordIds = [];
+    $runIds = [];
+    $fileIds = [];
+
+    if ($this->database->schema()->tableExists('brebo_data_record')) {
+      $query = $this->database->select('brebo_data_record', 'r');
+      $query->fields('r', ['id', 'run_id', 'payload']);
+      $query->condition('r.record_type', 'source_neutral_intake');
+      $query->condition('r.payload', '%"classification":"website_project_request"%', 'LIKE');
+      $query->condition('r.payload', '%"source":"website"%', 'LIKE');
+      foreach ($query->execute() as $row) {
+        $recordIds[] = (int) $row->id;
+        $runIds[] = (int) $row->run_id;
+        $payload = json_decode((string) $row->payload, TRUE);
+        $fileId = $payload['envelope']['payload']['file_id'] ?? NULL;
+        if (is_numeric($fileId) && (int) $fileId > 0) {
+          $fileIds[] = (int) $fileId;
+        }
+      }
+    }
+
+    $leadIds = [];
+    $fieldDefinitions = $this->entityFieldManager->getFieldDefinitions('node', 'brebo_opportunity');
+    if (isset($fieldDefinitions['field_brebo_opp_source'])) {
+      $leadIds = array_values(array_map('intval', $this->entityTypeManager->getStorage('node')->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_opportunity')
+        ->condition('field_brebo_opp_source', 'Website - Europakozijn')
+        ->execute()));
+    }
+
+    return [
+      'record_ids' => array_values(array_unique($recordIds)),
+      'run_ids' => array_values(array_unique($runIds)),
+      'file_ids' => array_values(array_unique($fileIds)),
+      'lead_ids' => array_values(array_unique($leadIds)),
+    ];
+  }
+
+  /** @return array{record_ids:array<int>,run_ids:array<int>,file_ids:array<int>,lead_ids:array<int>} */
+  private function emptyWebsiteTargets(): array {
+    return ['record_ids' => [], 'run_ids' => [], 'file_ids' => [], 'lead_ids' => []];
+  }
+
   /** @return int[] */
   private function objectIdsForScope(string $scope): array {
     $ids = [];
@@ -126,17 +209,7 @@ final class SandboxResetManager {
       ->execute()));
   }
 
-  /**
-   * Removes field rows that reference objects being removed.
-   *
-   * Do this directly in the configurable field tables instead of loading and
-   * saving every referring node. Saving unrelated business records can invoke
-   * validation and hooks that are outside the reset scope and made the admin
-   * reset fail at runtime. Both current and revision rows are cleaned inside
-   * the same database transaction.
-   *
-   * @param int[] $targetIds
-   */
+  /** @param int[] $targetIds */
   private function clearNodeReferences(array $targetIds): void {
     if ($targetIds === []) {
       return;

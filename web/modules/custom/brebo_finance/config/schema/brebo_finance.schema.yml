@@ -1,0 +1,104 @@
+brebo_finance.business_health:
+  type: config_object
+  label: 'BREBO Finance bedrijfsgezondheid'
+  mapping:
+    liquidity:
+      type: mapping
+      label: 'Liquiditeitswaarschuwingen'
+      mapping:
+        red_months:
+          type: float
+          label: 'Rode buffergrens in maanden'
+        orange_months:
+          type: float
+          label: 'Oranje buffergrens in maanden'
+    bank_account_roles:
+      type: sequence
+      label: 'Moneybird-bankrekeningrollen'
+      sequence:
+        type: string
+        label: 'Bankrekeningrol'
+    fixed_cost_categories:
+      type: sequence
+      label: 'Vaste-kostenrubrieken'
+      sequence:
+        type: mapping
+        label: 'Vaste-kostenrubriek'
+        mapping:
+          label:
+            type: label
+            label: 'Rubrieknaam'
+          monthly_budget:
+            type: float
+            label: 'Maandbudget excl. btw'
+          ledger_account_ids:
+            type: sequence
+            label: 'Moneybird-grootboekrekeningen'
+            sequence:
+              type: string
+              label: 'Moneybird grootboek-ID'
+
+brebo_finance.sales:
+  type: config_object
+  label: 'BREBO Finance verkoopinstellingen'
+  mapping:
+    numbering:
+      type: mapping
+      label: 'Factuurnummering'
+      mapping:
+        prefix:
+          type: string
+          label: 'Factuurnummer prefix'
+        include_year:
+          type: boolean
+          label: 'Jaar opnemen'
+        separator:
+          type: string
+          label: 'Scheidingsteken'
+        digits:
+          type: integer
+          label: 'Aantal cijfers volgnummer'
+        start_number:
+          type: integer
+          label: 'Startnummer'
+        reset_yearly:
+          type: boolean
+          label: 'Jaarlijks herstarten'
+        default_payment_term_days:
+          type: integer
+          label: 'Standaard betaaltermijn in dagen'
+    vat_rates:
+      type: sequence
+      label: 'Btw-tarieven voor verkoop'
+      sequence:
+        type: mapping
+        label: 'Btw-tarief'
+        mapping:
+          label:
+            type: label
+            label: 'Weergavenaam'
+          rate:
+            type: float
+            label: 'Percentage'
+          treatment:
+            type: string
+            label: 'Fiscale behandeling'
+          active:
+            type: boolean
+            label: 'Actief'
+    g_account:
+      type: mapping
+      label: 'G-rekening verkoop'
+      mapping:
+        enabled:
+          type: boolean
+          label: 'G-rekening beschikbaar'
+        default_percentage:
+          type: float
+          label: 'Standaardpercentage'
+        regular_iban:
+          type: string
+          label: 'Regulier IBAN'
+        g_iban:
+          type: string
+          label: 'G-rekening IBAN'

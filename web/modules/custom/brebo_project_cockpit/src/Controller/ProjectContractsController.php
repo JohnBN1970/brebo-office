@@ -10,7 +10,7 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Shows the project-filtered contract position and obligations. */
+/** Shows the project contract and its obligations. */
 final class ProjectContractsController extends ControllerBase {
 
   public function __construct(
@@ -39,7 +39,7 @@ final class ProjectContractsController extends ControllerBase {
       $due = \DateTimeImmutable::createFromFormat('!Y-m-d', (string) ($row['due_date'] ?? ''));
       return $due !== FALSE && $due >= $today && $due <= $limit;
     }));
-    $exposure = array_sum(array_map(static fn(array $row): float => (float) ($row['financial_exposure_ex_vat'] ?? 0), $active));
+    $financialRisk = array_sum(array_map(static fn(array $row): float => (float) ($row['financial_exposure_ex_vat'] ?? 0), $active));
 
     $contractRows = [];
     if ($contract !== []) {
@@ -68,41 +68,41 @@ final class ProjectContractsController extends ControllerBase {
     }
 
     return [
-      'principle' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-contracts-principle']],
-        'title' => ['#markup' => '<h2>' . $this->t('Contractpositie van het project') . '</h2>'],
-        'text' => ['#markup' => '<p>' . $this->t('Compact overzicht van het goedgekeurde projectcontract en de bewaakte verplichtingen. Contractbeheer blijft in de onderliggende financiële module; deze pagina is de projectgerichte stuurlaag.') . '</p>'],
-      ],
       'kpis' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],
         'sum' => ['#markup' => $this->kpi('Contractsom', $contract['amount_ex_vat'] ?? NULL, 'excl. btw')],
-        'open' => ['#markup' => $this->countKpi(count($active), 'open verplichtingen')],
-        'upcoming' => ['#markup' => $this->countKpi(count($upcoming), 'deadline(s) binnen 30 dagen')],
-        'exposure' => ['#markup' => $this->kpi('Financiële exposure', $exposure, 'open verplichtingen')],
+        'open' => ['#markup' => $this->countKpi(count($active), 'openstaande contractverplichtingen')],
+        'upcoming' => ['#markup' => $this->countKpi(count($upcoming), 'termijnen binnen 30 dagen')],
+        'risk' => ['#markup' => $this->kpi('Financieel risico', $financialRisk, 'openstaande verplichtingen')],
       ],
       'contract' => [
         '#type' => 'details',
-        '#title' => $this->t('Contract'),
+        '#title' => $this->t('Projectcontract'),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Contract'), $this->t('Opdrachtgeverref.'), $this->t('Status'), $this->t('Datum'), $this->t('Betaaltermijn'), $this->t('G-rekening'), $this->t('Contractsom excl. btw')],
+          '#header' => [$this->t('Contractnummer'), $this->t('Referentie opdrachtgever'), $this->t('Status'), $this->t('Contractdatum'), $this->t('Betaaltermijn'), $this->t('G-rekening'), $this->t('Contractsom excl. btw')],
           '#rows' => $contractRows,
           '#empty' => $this->t('Voor dit project is nog geen projectcontract geregistreerd.'),
         ],
       ],
       'obligations' => [
         '#type' => 'details',
-        '#title' => $this->t('Verplichtingen & deadlines (@count)', ['@count' => count($obligationRows)]),
+        '#title' => $this->t('Contractverplichtingen (@count)', ['@count' => count($obligationRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Nr.'), $this->t('Verplichting'), $this->t('Type'), $this->t('Verantwoordelijke'), $this->t('Deadline'), $this->t('Status'), $this->t('Exposure excl. btw')],
+          '#header' => [$this->t('Nr.'), $this->t('Verplichting'), $this->t('Type'), $this->t('Verantwoordelijke partij'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Financieel risico excl. btw')],
           '#rows' => $obligationRows,
           '#empty' => $this->t('Voor dit project zijn nog geen contractverplichtingen geregistreerd.'),
         ],
+      ],
+      'explanation' => [
+        '#type' => 'details',
+        '#title' => $this->t('Toelichting'),
+        '#open' => FALSE,
+        'text' => ['#markup' => '<p>' . $this->t('Hier staan het projectcontract en de contractuele verplichtingen die voor dit project bewaakt worden. Uitgebreid financieel beheer blijft in Finance.') . '</p>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],
@@ -151,9 +151,9 @@ final class ProjectContractsController extends ControllerBase {
     return match ($type) {
       'payment_term' => 'Betaaltermijn',
       'notice_period' => 'Meld-/opzegtermijn',
-      'claim_deadline' => 'Claimdeadline',
+      'claim_deadline' => 'Claimtermijn',
       'guarantee' => 'Garantie',
-      'retention' => 'Retentie',
+      'retention' => 'Inhouding',
       'bank_guarantee' => 'Bankgarantie',
       'insurance' => 'Verzekering',
       'indexation' => 'Indexatie',

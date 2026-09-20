@@ -42,10 +42,11 @@ final class SandboxResetForm extends FormBase {
         'projects' => $this->t('Alle projecten wissen — overige inhoud behouden'),
         'buildings' => $this->t('Alle gebouwen wissen — overige inhoud behouden'),
         'projects_buildings' => $this->t('Alle projecten + gebouwen wissen — overige inhoud behouden'),
+        'website_europakozijn' => $this->t('Website / Europakozijn testintake wissen — leads, intake en bronbestanden'),
       ],
       '#default_value' => $scope,
       '#required' => TRUE,
-      '#description' => $this->t('Bij project/gebouw-reset worden verwijzingen vanuit andere records eerst veilig losgekoppeld. Mail en andere bedrijfsinhoud blijven bestaan.'),
+      '#description' => $this->t('Bij project/gebouw-reset worden verwijzingen vanuit andere records eerst veilig losgekoppeld. De Website / Europakozijn-reset ruimt alleen die sandbox-testketen op.'),
     ];
 
     $form['preview'] = [
@@ -62,10 +63,16 @@ final class SandboxResetForm extends FormBase {
         $this->t('@count gebouwen in gekozen reset', ['@count' => $preview['buildings']]),
         $this->t('@count verwijzende records/velden worden eerst losgekoppeld', ['@count' => $preview['object_references']]),
         $this->t('@count onbevestigde adres-/scopevoorstellen worden bij object-reset gewist', ['@count' => $preview['address_scope_proposals']]),
+        $this->t('@count Website / Europakozijn intake-records', ['@count' => $preview['website_intake_records']]),
+        $this->t('@count Website / Europakozijn ingest-runs', ['@count' => $preview['website_intake_runs']]),
+        $this->t('@count reviewbesluiten', ['@count' => $preview['website_intake_decisions']]),
+        $this->t('@count masterdata-candidates', ['@count' => $preview['website_intake_candidates']]),
+        $this->t('@count bronbestanden', ['@count' => $preview['website_intake_files']]),
+        $this->t('@count Website - Europakozijn leads', ['@count' => $preview['website_intake_leads']]),
       ],
     ];
     $form['preview']['kept'] = [
-      '#markup' => '<p><strong>Blijft staan:</strong> software, schema, configuratie, mailboxdefinities, gebruikers/rollen en externe bronmail. Een project/gebouw-reset verwijdert geen Communications; die worden alleen losgekoppeld van verwijderde objecten.</p>',
+      '#markup' => '<p><strong>Blijft staan:</strong> software, schema, configuratie, mailboxdefinities, gebruikers/rollen, bronnen en classificaties. Een project/gebouw-reset verwijdert geen Communications; die worden alleen losgekoppeld van verwijderde objecten.</p>',
     ];
 
     $form['confirm'] = [
@@ -98,11 +105,13 @@ final class SandboxResetForm extends FormBase {
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $result = $this->resetManager->reset((string) $form_state->getValue('scope'));
     $this->messenger()->addStatus($this->t(
-      'Reset voltooid: @projects projecten, @buildings gebouwen en @communications mailcommunicaties binnen het gekozen bereik verwijderd. Software en configuratie zijn behouden.',
+      'Reset voltooid: @projects projecten, @buildings gebouwen, @communications mailcommunicaties, @intakes website-intakes en @leads website-leads binnen het gekozen bereik verwijderd. Software en configuratie zijn behouden.',
       [
         '@projects' => $result['projects'],
         '@buildings' => $result['buildings'],
         '@communications' => $result['mail_communications'],
+        '@intakes' => $result['website_intake_records'],
+        '@leads' => $result['website_intake_leads'],
       ],
     ));
   }

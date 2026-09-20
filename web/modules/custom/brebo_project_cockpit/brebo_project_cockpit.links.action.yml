@@ -4,8 +4,14 @@ brebo_project_cockpit.instalment_schedule_action:
   appears_on:
     - brebo_project_cockpit.invoices
 
-brebo_project_cockpit.instalment_templates_action:
+brebo_project_cockpit.instalment_templates_finance_action:
   route_name: brebo_project_cockpit.instalment_templates
-  title: 'Termijnsjablonen'
+  title: 'Termijnschemasjablonen'
   appears_on:
-    - brebo_project_cockpit.invoices
+    - brebo_finance.sales_workspace
+
+brebo_project_cockpit.commercial_instalment_schedule_action:
+  route_name: brebo_project_cockpit.commercial_instalment_schedule
+  title: 'Commercieel termijnschema'
+  appears_on:
+    - brebo_project_cockpit.overview

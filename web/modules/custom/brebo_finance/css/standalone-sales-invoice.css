@@ -1,0 +1,49 @@
+.brebo-invoice-line {
+  display: grid;
+  grid-template-columns: minmax(360px, 3fr) minmax(110px, .7fr) minmax(110px, .8fr) minmax(150px, 1fr) minmax(100px, .7fr) auto;
+  gap: 16px;
+  align-items: end;
+  width: 100%;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--gin-border-color, #d8d8d8);
+}
+
+.brebo-invoice-line > .form-item,
+.brebo-invoice-line > .js-form-item {
+  margin-block: 0;
+  min-width: 0;
+}
+
+.brebo-invoice-line input,
+.brebo-invoice-line select {
+  width: 100%;
+  max-width: none;
+}
+
+.brebo-invoice-line .button {
+  margin-block: 0;
+  white-space: nowrap;
+}
+
+.brebo-invoice-lines__add {
+  margin-top: 16px;
+}
+
+@media (max-width: 1200px) {
+  .brebo-invoice-line {
+    grid-template-columns: minmax(260px, 2fr) repeat(4, minmax(100px, 1fr)) auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .brebo-invoice-line {
+    grid-template-columns: 1fr 1fr;
+    align-items: stretch;
+  }
+}
+
+@media (max-width: 640px) {
+  .brebo-invoice-line {
+    grid-template-columns: 1fr;
+  }
+}

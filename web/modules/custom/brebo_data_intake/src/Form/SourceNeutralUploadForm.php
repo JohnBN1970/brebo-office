@@ -110,9 +110,6 @@ final class SourceNeutralUploadForm extends FormBase {
 
     $transaction = $this->database->startTransaction();
     try {
-      // Promotion and canonical intake persistence share one DB transaction. If
-      // intake fails (or the request terminates), the file entity remains
-      // temporary and Drupal can clean it normally.
       $file->setPermanent();
       $file->save();
 
@@ -145,9 +142,6 @@ final class SourceNeutralUploadForm extends FormBase {
 
       $state = (string) ($result['state'] ?? 'review_required');
       if ($state === 'duplicate') {
-        // Do not retain the retry upload. Rolling back also reverts its
-        // permanent status, while the previously persisted canonical source
-        // remains untouched.
         $transaction->rollBack();
         $this->messenger()->addStatus($this->t('Dit bronbestand was al ontvangen; de bestaande intake is hergebruikt.'));
         return;

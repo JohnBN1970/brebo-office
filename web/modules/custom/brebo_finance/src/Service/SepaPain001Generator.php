@@ -11,7 +11,14 @@ use RuntimeException;
 /** Generates a SEPA pain.001 fallback from one sealed BREBO payment batch. */
 final class SepaPain001Generator {
 
-  public function __construct(private readonly PaymentBatchManager $batchManager) {}
+  private readonly VatCalculator $decimal;
+
+  public function __construct(
+    private readonly PaymentBatchManager $batchManager,
+    ?VatCalculator $decimal = NULL,
+  ) {
+    $this->decimal = $decimal ?? new VatCalculator();
+  }
 
   /** @return array{filename:string,xml:string,sha256:string,message_id:string,control_sum:string,item_count:int} */
   public function generate(int $batchId): array {
@@ -101,7 +108,7 @@ final class SepaPain001Generator {
       $this->text($document, $paymentId, 'EndToEndId', (string) $item['end_to_end_id']);
       $amount = $document->createElement('Amt');
       $transfer->appendChild($amount);
-      $instructed = $document->createElement('InstdAmt', number_format((float) $item['amount'], 2, '.', ''));
+      $instructed = $document->createElement('InstdAmt', $this->sepaAmount((string) $item['amount']));
       $instructed->setAttribute('Ccy', 'EUR');
       $amount->appendChild($instructed);
 
@@ -146,15 +153,34 @@ final class SepaPain001Generator {
   }
 
   private function controlSum(array $items): string {
-    $cents = 0;
+    $sum = '0';
     foreach ($items as $item) {
-      $amount = (string) $item['amount'];
-      if (!preg_match('/^-?\d+(?:\.\d{1,4})?$/', $amount)) {
-        throw new RuntimeException('Invalid monetary amount in sealed payment instruction.');
-      }
-      $cents += (int) round(((float) $amount) * 100);
+      $amount = $this->sepaAmount((string) $item['amount']);
+      $sum = $this->decimal->add($sum, $amount);
     }
-    return number_format($cents / 100, 2, '.', '');
+    return $this->sepaAmount($sum);
+  }
+
+  /**
+   * Returns an exact ISO 20022 EUR amount with two decimals.
+   *
+   * Finance stores four decimals, but SEPA credit transfers are cent-based.
+   * Fractional cents are rejected rather than silently rounded.
+   */
+  private function sepaAmount(string $amount): string {
+    $normalized = $this->decimal->add('0', trim($amount));
+    if ($this->decimal->compare($normalized, '0') <= 0) {
+      throw new RuntimeException('SEPA payment instructions require a positive amount.');
+    }
+    if (!preg_match('/^(\d+)\.(\d{4})$/', $normalized, $match)) {
+      throw new RuntimeException('Invalid monetary amount in sealed payment instruction.');
+    }
+    if (substr($match[2], 2) !== '00') {
+      throw new RuntimeException('SEPA payment instruction contains fractional cents; export is blocked instead of rounded.');
+    }
+    return ltrim($match[1], '0') === ''
+      ? '0.' . substr($match[2], 0, 2)
+      : ltrim($match[1], '0') . '.' . substr($match[2], 0, 2);
   }
 
   private function normaliseIban(string $iban): string {

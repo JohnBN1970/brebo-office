@@ -51,6 +51,8 @@ final class BuildingRelationRepository {
       'postal_code' => strtoupper($this->clean($address['postal_code'] ?? $address['postcode'] ?? NULL)),
       'city' => $this->clean($address['city'] ?? $address['woonplaatsnaam'] ?? NULL),
       'country' => $this->clean($address['country'] ?? NULL) ?: 'Nederland',
+      'latitude' => $this->nullableCoordinate($address['latitude'] ?? NULL),
+      'longitude' => $this->nullableCoordinate($address['longitude'] ?? NULL),
       'is_primary' => !empty($address['is_primary']) ? 1 : 0,
       'source' => $this->clean($address['source'] ?? NULL),
       'source_ref' => $this->clean($address['source_ref'] ?? NULL),
@@ -130,6 +132,34 @@ final class BuildingRelationRepository {
       ->execute();
 
     return ['state' => 'created', 'id' => $id, 'conflict_building_ids' => $conflictIds];
+  }
+
+  /**
+   * Removes relations owned by one external source before a successful refresh.
+   *
+   * Manual and other-source relations are deliberately preserved. Callers must
+   * only invoke this after the replacement source data has been resolved
+   * successfully, so a temporary upstream failure can never erase known data.
+   *
+   * @return array{addresses:int,identities:int}
+   */
+  public function clearSourceRelations(int $buildingNid, string $source): array {
+    $this->assertBuilding($buildingNid);
+    $source = $this->clean($source);
+    if ($source === '') {
+      throw new \InvalidArgumentException('Bron is verplicht bij het opschonen van gebouwrelaties.');
+    }
+
+    $addresses = $this->database->delete('brebo_building_address')
+      ->condition('building_nid', $buildingNid)
+      ->condition('source', $source)
+      ->execute();
+    $identities = $this->database->delete('brebo_building_bag_identity')
+      ->condition('building_nid', $buildingNid)
+      ->condition('source', $source)
+      ->execute();
+
+    return ['addresses' => (int) $addresses, 'identities' => (int) $identities];
   }
 
   /** @return int[] */
@@ -260,6 +290,16 @@ final class BuildingRelationRepository {
 
   private function clean(mixed $value): string {
     return trim((string) ($value ?? ''));
+  }
+
+  private function nullableCoordinate(mixed $value): ?string {
+    if ($value === NULL || $value === '') {
+      return NULL;
+    }
+    if (!is_numeric($value)) {
+      return NULL;
+    }
+    return number_format((float) $value, 7, '.', '');
   }
 
 }

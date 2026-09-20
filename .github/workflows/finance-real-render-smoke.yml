@@ -1,0 +1,69 @@
+name: BREBO Finance Real Render Smoke
+
+on:
+  workflow_run:
+    workflows: ['Configure BREBO Document Extraction Runtime']
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "$DEPLOY_PORT" "$DEPLOY_HOST" > ~/.ssh/known_hosts 2>/dev/null
+      - name: Render Finance routes as privileged user
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          drush=("$php" vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          "${drush[@]}" php:eval '
+            $users = \Drupal::entityTypeManager()->getStorage("user");
+            $account = $users->load(1);
+            if (!$account) { echo "FINANCE_RENDER_NO_USER=1\n"; exit(41); }
+            \Drupal::service("account_switcher")->switchTo($account);
+            $routes = [
+              "dashboard" => ["brebo_finance.command_center_page", []],
+              "payables" => ["brebo_finance.payables_work_queues", []],
+              "purchase_invoices" => ["brebo_finance.purchase_invoice_list", []],
+              "payment_center" => ["brebo_finance.payment_center", []],
+            ];
+            $kernel = \Drupal::service("http_kernel");
+            try {
+              foreach ($routes as $label => [$route, $params]) {
+                try {
+                  $url = \Drupal\Core\Url::fromRoute($route, $params)->toString();
+                  $request = \Symfony\Component\HttpFoundation\Request::create($url, "GET");
+                  $response = $kernel->handle($request, \Symfony\Component\HttpKernel\HttpKernelInterface::SUB_REQUEST);
+                  $status = $response->getStatusCode();
+                  echo "FINANCE_RENDER_" . strtoupper($label) . "_HTTP=$status\n";
+                  if ($status >= 400) exit(42);
+                } catch (\Throwable $e) {
+                  echo "FINANCE_RENDER_" . strtoupper($label) . "_EXCEPTION=" . get_class($e) . ": " . $e->getMessage() . "\n";
+                  exit(42);
+                }
+              }
+            } finally { \Drupal::service("account_switcher")->switchBack(); }
+            echo "FINANCE_REAL_RENDER_SMOKE=PASS\n";
+          '
+          REMOTE
