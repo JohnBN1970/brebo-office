@@ -45,6 +45,10 @@ function brebo_finance_schema(): array {
       'payment_term_days' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'contract_date' => ['type' => 'varchar', 'length' => 10, 'not null' => FALSE],
       'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'instalment_schedule_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'instalment_schedule_source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'instalment_schedule_source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'instalment_schedule_content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
       'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'approved_by' => $user,
       'created' => $timestamp,
@@ -1239,4 +1243,28 @@ function brebo_finance_schema(): array {
   ];
 
   return $schema;
+}
+
+
+/**
+ * Adds immutable commercial instalment evidence to project contracts.
+ */
+function brebo_finance_update_11001(): string {
+  $schema = \Drupal::database()->schema();
+  $table = 'brebo_finance_project_contract';
+  if (!$schema->tableExists($table)) {
+    return 'Projectcontracttabel ontbreekt; geen contracttermijnsnapshot toegevoegd.';
+  }
+  $fields = [
+    'instalment_schedule_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+    'instalment_schedule_source' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+    'instalment_schedule_source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+    'instalment_schedule_content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+  ];
+  foreach ($fields as $name => $specification) {
+    if (!$schema->fieldExists($table, $name)) {
+      $schema->addField($table, $name, $specification);
+    }
+  }
+  return 'Immutable commercieel termijnschema aan projectcontract toegevoegd.';
 }
