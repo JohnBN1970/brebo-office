@@ -157,6 +157,13 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $projectId = (int) $form_state->get('project_id');
+    // Recheck at write time as well: a contract may have been approved in a
+    // second session after this form was opened.
+    if ($this->hasApprovedContract($projectId)) {
+      $this->messenger()->addError($this->t('Het projectcontract is inmiddels goedgekeurd. Het commerciële termijnschema is daarom niet gewijzigd.'));
+      $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
+      return;
+    }
     $templates = $form_state->get('templates');
     $templateId = (string) $form_state->getValue('template');
     $template = $templateId !== 'manual' ? ($templates[$templateId] ?? NULL) : NULL;
