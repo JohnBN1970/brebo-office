@@ -31,12 +31,17 @@ workflows:
     artifacts:
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
 
-  brebo-crew-ios:
-    name: BREBO Crew iOS
+  brebo-onsite-ios:
+    name: BREBO OnSite iOS
     instance_type: mac_mini_m2
-    max_build_duration: 30
+    max_build_duration: 45
+    integrations:
+      app_store_connect: "BREBO Codemagic"
     environment:
       xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: nl.brebo.onsite
       vars:
         XCODE_PROJECT: ios/CrewPOC/BreboCrewPOC.xcodeproj
         XCODE_SCHEME: BreboCrewPOC
@@ -44,11 +49,11 @@ workflows:
       - name: Install XcodeGen
         script: |
           brew install xcodegen
-      - name: Generate Crew Xcode project
+      - name: Generate OnSite Xcode project
         script: |
           cd ios/CrewPOC
           xcodegen generate
-      - name: Build and test Crew simulator proof
+      - name: Build and test OnSite simulator proof
         script: |
           set -euo pipefail
           SIMULATOR_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(device["udid"] for runtime, devices in d.items() if "iOS" in runtime for device in devices if device.get("isAvailable") and "iPhone" in device.get("name", "")))')"
@@ -60,5 +65,16 @@ workflows:
             -configuration Debug \
             CODE_SIGNING_ALLOWED=NO \
             build test
+      - name: Apply OnSite signing profile
+        script: |
+          xcode-project use-profiles --project "$CM_BUILD_DIR/$XCODE_PROJECT"
+      - name: Build signed OnSite IPA
+        script: |
+          xcode-project build-ipa \
+            --project "$CM_BUILD_DIR/$XCODE_PROJECT" \
+            --scheme "$XCODE_SCHEME"
     artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
       - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.app
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
