@@ -9,3 +9,9 @@ brebo_project_cockpit.instalment_templates_finance_action:
   title: 'Termijnschemasjablonen'
   appears_on:
     - brebo_finance.sales_workspace
+
+brebo_project_cockpit.commercial_instalment_schedule_action:
+  route_name: brebo_project_cockpit.commercial_instalment_schedule
+  title: 'Commercieel termijnschema'
+  appears_on:
+    - brebo_project_cockpit.overview
