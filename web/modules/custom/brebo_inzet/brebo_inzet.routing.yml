@@ -128,3 +128,12 @@ brebo_inzet.onsite_link_verify:
   methods: [POST]
   requirements:
     _access: 'TRUE'
+
+
+brebo_inzet.onsite_bootstrap:
+  path: '/api/onsite/v1/bootstrap'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteBootstrapController::bootstrap'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
