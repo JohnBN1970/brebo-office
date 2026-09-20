@@ -6,6 +6,7 @@ struct CrewContentView: View {
     @StateObject private var presenceUploader = OnSitePresenceUploader()
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
+    @State private var pendingActivationToken: String?
 
     var body: some View {
         NavigationStack {
@@ -35,6 +36,28 @@ struct CrewContentView: View {
             }
             .onChange(of: locationMonitor.events) {
                 Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
+            }
+            .onOpenURL { url in
+                handleActivationURL(url)
+            }
+        }
+    }
+
+    private func handleActivationURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "brebo-onsite",
+              url.host?.lowercased() == "activate",
+              let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let token = components.queryItems?.first(where: { $0.name == "token" })?.value,
+              !token.isEmpty else {
+            return
+        }
+
+        pendingActivationToken = token
+        Task {
+            await identityStore.activate(activationToken: token)
+            if case .linked = identityStore.state {
+                pendingActivationToken = nil
+                syncProjectZones()
             }
         }
     }
