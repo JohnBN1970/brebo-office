@@ -1,11 +1,25 @@
 import Foundation
 
-enum OnSiteLanguage: String, Codable, CaseIterable {
-    case nl, en, ro, pl, uk
+/// Language is Office-owned and transported as a BCP-47 language tag.
+/// OnSite deliberately does not hard-code a closed list so the product can be
+/// sold internationally without changing identity or presence logic.
+struct OnSiteLanguage: RawRepresentable, Codable, Equatable, Hashable {
+    let rawValue: String
+
+    init?(rawValue: String) {
+        let normalized = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty else { return nil }
+        self.rawValue = normalized
+    }
+
+    static let dutch = OnSiteLanguage(rawValue: "nl")!
 
     static func bootstrap(from preferredLanguages: [String] = Locale.preferredLanguages) -> OnSiteLanguage {
-        guard let code = preferredLanguages.first?.split(separator: "-").first else { return .nl }
-        return OnSiteLanguage(rawValue: String(code)) ?? .nl
+        guard let preferred = preferredLanguages.first,
+              let language = OnSiteLanguage(rawValue: preferred) else {
+            return .dutch
+        }
+        return language
     }
 }
 
@@ -26,9 +40,10 @@ final class OnSiteIdentityStore: ObservableObject {
         state = .codeSent(phoneNumber: normalized)
     }
 
-    func applyVerifiedIdentity(employeeId: String, displayName: String, language: OnSiteLanguage) {
-        self.language = language
-        state = .linked(employeeId: employeeId, displayName: displayName, language: language)
+    func applyVerifiedIdentity(employeeId: String, displayName: String, languageTag: String) {
+        let officeLanguage = OnSiteLanguage(rawValue: languageTag) ?? .dutch
+        language = officeLanguage
+        state = .linked(employeeId: employeeId, displayName: displayName, language: officeLanguage)
     }
 
     func reset() {
