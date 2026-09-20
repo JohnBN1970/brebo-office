@@ -102,8 +102,16 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
       return;
     }
 
-    $percentages = $this->parsePercentages((string) $form_state->getValue('percentages'));
-    if ($percentages === [] || abs(array_sum($percentages) - 100.0) > 0.0001) {
+    $rawPercentages = (string) $form_state->getValue('percentages');
+    foreach (explode(',', $rawPercentages) as $token) {
+      $token = trim($token);
+      if ($token === '' || !is_numeric($token) || (float) $token <= 0) {
+        $form_state->setErrorByName('percentages', $this->t('Ieder percentage moet een positief getal zijn; ongeldige of lege waarden zijn niet toegestaan.'));
+        return;
+      }
+    }
+    $percentages = $this->parsePercentages($rawPercentages);
+    if (abs(array_sum($percentages) - 100.0) > 0.0001) {
       $form_state->setErrorByName('percentages', $this->t('De percentages moeten samen exact 100% zijn.'));
     }
     $labels = $this->parseLabels((string) $form_state->getValue('labels'));
