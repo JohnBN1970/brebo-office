@@ -137,3 +137,12 @@ brebo_inzet.onsite_bootstrap:
   methods: [GET]
   requirements:
     _access: 'TRUE'
+
+
+brebo_inzet.onsite_presence_record:
+  path: '/api/onsite/v1/presence'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSitePresenceController::record'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
