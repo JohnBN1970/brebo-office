@@ -94,6 +94,7 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     $form_state->set('templates', $templates);
     $form_state->set('existing_payload', $payload);
     $form_state->set('existing_template_id', (string) ($existing['source_template_id'] ?? ''));
+    $form_state->set('existing_template_name', (string) ($existing['source_template_name'] ?? ''));
     return $form;
   }
 
@@ -156,7 +157,9 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     $values = [
       'status' => 'draft',
       'source_template_id' => $templateId === 'manual' ? NULL : $templateId,
-      'source_template_name' => is_array($template) ? (string) $template['name'] : NULL,
+      'source_template_name' => $preserveSnapshot
+        ? ((string) $form_state->get('existing_template_name') ?: NULL)
+        : (is_array($template) ? (string) $template['name'] : NULL),
       'schedule_payload' => $json,
       'content_hash' => hash('sha256', $json),
       'changed' => $now,
