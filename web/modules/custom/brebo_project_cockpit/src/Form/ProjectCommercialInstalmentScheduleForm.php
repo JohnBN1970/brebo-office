@@ -41,6 +41,16 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     }
 
     $projectId = (int) $node->id();
+
+    // Once the project contract is approved, the commercial agreement is
+    // frozen. Finance may materialise billing terms from that agreed truth,
+    // but the underlying commercial distribution must no longer be edited.
+    if ($this->hasApprovedContract($projectId)) {
+      $form['locked'] = ['#markup' => '<p><strong>' . $this->t('Dit commerciële termijnschema is vergrendeld omdat het projectcontract is goedgekeurd.') . '</strong><br>' . $this->t('Wijzigingen horen vanaf dit moment via een formele contractwijziging of meer-/minderwerk te lopen.') . '</p>'];
+      $form['back'] = ['#type' => 'link', '#title' => $this->t('Terug naar Contracten'), '#url' => Url::fromRoute('brebo_project_cockpit.contracts', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
+      return $form;
+    }
+
     $existing = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
       ->fields('s')
       ->condition('project_nid', $projectId)
@@ -242,6 +252,18 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     ];
     $editable->set('templates', $templates)->save();
     $this->messenger()->addStatus($this->t('Termijnsjabloon “@name” is centraal opgeslagen.', ['@name' => $name]));
+  }
+
+  private function hasApprovedContract(int $projectId): bool {
+    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) {
+      return FALSE;
+    }
+    return (bool) $this->database->select('brebo_finance_project_contract', 'c')
+      ->condition('project_nid', $projectId)
+      ->condition('status', 'approved')
+      ->countQuery()
+      ->execute()
+      ->fetchField();
   }
 
   private function globalPaymentTermDays(): int {
