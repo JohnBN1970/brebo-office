@@ -1266,5 +1266,103 @@ function brebo_finance_update_11001(): string {
       $schema->addField($table, $name, $specification);
     }
   }
-  return 'Immutable commercieel termijnschema aan projectcontract toegevoegd.';
+
+  // Backfill already-approved contracts from the commercial truth that was
+  // frozen by the old process. Prefer the project snapshot; when older data
+  // only has an accepted-offer snapshot, use that immutable offer evidence.
+  $database = \Drupal::database();
+  $contracts = $database->select($table, 'c')
+    ->fields('c', ['id', 'project_nid'])
+    ->condition('status', 'approved')
+    ->isNull('instalment_schedule_content_hash')
+    ->execute()
+    ->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+  $backfilled = 0;
+
+  foreach ($contracts as $contract) {
+    $projectId = (int) $contract['project_nid'];
+    $source = NULL;
+    $sourceRef = NULL;
+    $payload = NULL;
+    $contentHash = NULL;
+
+    if ($schema->tableExists('brebo_project_commercial_instalment_schedule')) {
+      $row = $database->select('brebo_project_commercial_instalment_schedule', 's')
+        ->fields('s', ['schedule_payload', 'content_hash'])
+        ->condition('project_nid', $projectId)
+        ->execute()
+        ->fetchAssoc();
+      if (is_array($row) && (string) ($row['content_hash'] ?? '') !== '') {
+        $candidate = json_decode((string) $row['schedule_payload'], TRUE);
+        if (is_array($candidate)) {
+          $payload = $candidate;
+          $contentHash = (string) $row['content_hash'];
+          $source = 'legacy_project_commercial_schedule';
+          $sourceRef = (string) $projectId;
+        }
+      }
+    }
+
+    if ($payload === NULL) {
+      $project = \Drupal::entityTypeManager()->getStorage('node')->load($projectId);
+      if ($project instanceof \Drupal\node\NodeInterface
+        && $project->hasField('field_brebo_project_opp_ref')
+        && !$project->get('field_brebo_project_opp_ref')->isEmpty()) {
+        $opportunity = $project->get('field_brebo_project_opp_ref')->entity;
+        if ($opportunity instanceof \Drupal\node\NodeInterface
+          && $opportunity->hasField('field_brebo_opp_offer_ref')
+          && !$opportunity->get('field_brebo_opp_offer_ref')->isEmpty()) {
+          $offer = $opportunity->get('field_brebo_opp_offer_ref')->entity;
+          if ($offer instanceof \Drupal\node\NodeInterface
+            && $offer->hasField('field_brebo_offer_status')
+            && (string) ($offer->get('field_brebo_offer_status')->value ?? '') === 'Geaccepteerd'
+            && $offer->hasField('field_brebo_offer_snapshot')) {
+            $snapshot = json_decode((string) ($offer->get('field_brebo_offer_snapshot')->value ?? ''), TRUE);
+            $schedule = is_array($snapshot) ? ($snapshot['commercial_instalment_schedule'] ?? NULL) : NULL;
+            if (is_array($schedule) && is_array($schedule['schedule'] ?? NULL) && (string) ($schedule['content_hash'] ?? '') !== '') {
+              $payload = $schedule['schedule'];
+              $contentHash = (string) $schedule['content_hash'];
+              $source = 'legacy_accepted_offer';
+              $sourceRef = (string) $offer->id();
+            }
+          }
+        }
+      }
+    }
+
+    if (!is_array($payload) || $contentHash === NULL) {
+      continue;
+    }
+    $percentages = array_values(array_map('floatval', $payload['percentages'] ?? []));
+    if ($percentages === [] || abs(array_sum($percentages) - 100.0) > 0.001) {
+      continue;
+    }
+    $labels = array_values(array_map('strval', $payload['labels'] ?? []));
+    if ($labels === []) {
+      $labels = array_map(static fn(int $i): string => 'Termijn ' . ($i + 1), array_keys($percentages));
+    }
+    if (count($labels) !== count($percentages)) {
+      continue;
+    }
+    $snapshotPayload = json_encode([
+      'version' => 1,
+      'percentages' => $percentages,
+      'labels' => $labels,
+      'payment_term_days' => max(0, (int) ($payload['payment_term_days'] ?? 14)),
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
+
+    $database->update($table)
+      ->fields([
+        'instalment_schedule_payload' => $snapshotPayload,
+        'instalment_schedule_source' => $source,
+        'instalment_schedule_source_ref' => $sourceRef,
+        'instalment_schedule_content_hash' => $contentHash,
+      ])
+      ->condition('id', (int) $contract['id'])
+      ->isNull('instalment_schedule_content_hash')
+      ->execute();
+    $backfilled++;
+  }
+
+  return sprintf('Immutable commercieel termijnschema aan projectcontract toegevoegd; %d bestaand(e) goedgekeurd(e) contract(en) veilig gebackfilld.', $backfilled);
 }
