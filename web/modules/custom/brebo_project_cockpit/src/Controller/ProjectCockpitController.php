@@ -136,24 +136,13 @@ final class ProjectCockpitController extends ControllerBase {
     ];
   }
 
+  /**
+   * Use the same canonical project navigation on the cockpit overview as on
+   * every project subpage. This prevents the overview from maintaining a
+   * second, stale set of labels and placeholder routes.
+   */
   private function projectTabs(int $projectId): array {
-    $tabs = [
-      ['Overzicht', 'brebo_project_cockpit.overview', ['node' => $projectId], TRUE],
-      ['Planning', 'brebo_office_core.project_planning', ['node' => $projectId], FALSE],
-      ['Documenten', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
-      ['Calculatie', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
-      ['Inkoop', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
-      ['Contracten', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
-      ['Facturen', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], FALSE],
-      ['Inzet', 'brebo_inzet.live_workforce', ['node' => $projectId], FALSE],
-      ['Kwaliteit', 'brebo_office_core.deviations', [], FALSE],
-      ['Oplevering', 'brebo_project_cockpit.overview', ['node' => $projectId], FALSE],
-    ];
-    $items = [];
-    foreach ($tabs as [$label, $route, $parameters, $active]) {
-      $items[] = ['#type' => 'link', '#title' => $this->t($label), '#url' => Url::fromRoute($route, $parameters), '#attributes' => ['class' => $active ? ['is-active'] : [], 'aria-current' => $active ? 'page' : NULL]];
-    }
-    return ['#type' => 'container', '#attributes' => ['class' => ['brebo-context-tabs'], 'aria-label' => $this->t('Projectonderdelen')], 'items' => ['#type' => 'container', '#attributes' => ['class' => ['brebo-context-tabs__items']]] + $items];
+    return _brebo_project_cockpit_tabs($projectId, 'brebo_project_cockpit.overview');
   }
 
   private function financeStatus(array $finance, array $forecast, array $cash): string { if ($this->decimalNegative($forecast['forecast_result_ex_vat'] ?? NULL)) return 'rood'; $billing=is_array($finance['billing_position']??NULL)?$finance['billing_position']:[]; $workflow=is_array($finance['workflow']??NULL)?$finance['workflow']:[]; if(!empty($finance['forecast_is_stale'])||(int)($billing['overdue_count']??0)>0||array_sum(array_map('intval',$workflow))>0)return'oranje'; return $forecast===[]?'grijs':'groen'; }
