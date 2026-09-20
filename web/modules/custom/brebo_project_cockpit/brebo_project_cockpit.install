@@ -14,6 +14,7 @@ use Drupal\node\NodeInterface;
 function brebo_project_cockpit_install(): void {
   brebo_project_cockpit_update_11001();
   brebo_project_cockpit_update_11002();
+  brebo_project_cockpit_update_11003();
 }
 
 /**
