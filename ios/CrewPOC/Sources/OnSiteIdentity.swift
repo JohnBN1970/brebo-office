@@ -1,7 +1,7 @@
 import Foundation
 
 enum OnSiteLanguage: String, Codable, CaseIterable {
-    case nl, en, ro, pl
+    case nl, en, ro, pl, uk
 
     static func bootstrap(from preferredLanguages: [String] = Locale.preferredLanguages) -> OnSiteLanguage {
         guard let code = preferredLanguages.first?.split(separator: "-").first else { return .nl }
