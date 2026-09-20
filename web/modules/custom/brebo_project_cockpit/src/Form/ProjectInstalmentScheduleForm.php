@@ -111,7 +111,6 @@ final class ProjectInstalmentScheduleForm extends FormBase {
     ];
 
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Termijnschema aanmaken'), '#button_type' => 'primary'];
-    $form['actions']['templates'] = ['#type' => 'link', '#title' => $this->t('Eigen sjablonen beheren'), '#url' => Url::fromRoute('brebo_project_cockpit.instalment_templates', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
 
     $form_state->set('project_id', $projectId);
