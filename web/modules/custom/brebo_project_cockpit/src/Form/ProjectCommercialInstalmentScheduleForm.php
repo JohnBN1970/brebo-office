@@ -24,7 +24,7 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly ConfigFactoryInterface $projectConfigFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -189,14 +189,14 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
   }
 
   private function globalPaymentTermDays(): int {
-    $value = $this->configFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    $value = $this->projectConfigFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
     return is_numeric($value) ? max(0, (int) $value) : 14;
   }
 
   /** @return array<string, array{name: string, percentages: list<float>, labels: list<string>}> */
   private function templates(): array {
     $templates = InstalmentTemplateForm::standardTemplates();
-    $custom = $this->configFactory->get(self::TEMPLATE_CONFIG)->get('templates') ?? [];
+    $custom = $this->projectConfigFactory->get(self::TEMPLATE_CONFIG)->get('templates') ?? [];
     if (is_array($custom)) {
       foreach ($custom as $id => $template) {
         if (is_array($template) && !empty($template['active'])) {
