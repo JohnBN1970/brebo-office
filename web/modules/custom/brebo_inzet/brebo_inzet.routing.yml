@@ -111,3 +111,20 @@ brebo_inzet.live_workforce:
     parameters:
       node:
         type: entity:node
+
+
+brebo_inzet.onsite_link_request:
+  path: '/api/onsite/v1/link/request'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteLinkController::requestCode'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
+
+brebo_inzet.onsite_link_verify:
+  path: '/api/onsite/v1/link/verify'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteLinkController::verifyCode'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
