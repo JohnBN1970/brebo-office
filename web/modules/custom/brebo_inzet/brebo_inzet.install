@@ -13,6 +13,8 @@ use Drupal\user\Entity\Role;
  */
 function brebo_inzet_install(): void {
   _brebo_inzet_ensure_personnel_assignment_schema();
+  _brebo_inzet_ensure_onsite_user_fields();
+  _brebo_inzet_ensure_employee_profile_fields();
 }
 
 /**
