@@ -65,6 +65,10 @@ struct OnSiteBootstrapZone: Decodable, Identifiable, Equatable {
     }
 }
 
+struct OnSitePresenceResponse: Decodable {
+    let ok: Bool
+}
+
 struct OnSiteChallenge: Decodable {
     let challengeId: String
     let expiresIn: Int
@@ -110,21 +114,57 @@ struct OnSiteAPIClient {
     }
 
     func bootstrap(deviceToken: String) async throws -> OnSiteBootstrap {
-        let url = baseURL.appending(path: "/api/onsite/v1/bootstrap")
+        try await authorizedGet(path: "/api/onsite/v1/bootstrap", deviceToken: deviceToken)
+    }
+
+    func recordPresence(event: CrewPresenceEvent, deviceToken: String) async throws {
+        let formatter = ISO8601DateFormatter()
+        let body: [String: String] = [
+            "project_id": event.projectId,
+            "zone_id": event.zoneId,
+            "kind": event.kind == .enteredProject ? "in" : "out",
+            "occurred_at": formatter.string(from: event.occurredAt),
+        ]
+        let _: OnSitePresenceResponse = try await authorizedPost(
+            path: "/api/onsite/v1/presence",
+            deviceToken: deviceToken,
+            body: body
+        )
+    }
+
+    private func authorizedGet<T: Decodable>(path: String, deviceToken: String) async throws -> T {
+        let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
+        return try await execute(request)
+    }
 
+    private func authorizedPost<T: Decodable>(
+        path: String,
+        deviceToken: String,
+        body: [String: String]
+    ) async throws -> T {
+        let url = baseURL.appending(path: path)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return try await execute(request)
+    }
+
+    private func execute<T: Decodable>(_ request: URLRequest) async throws -> T {
         let (data, response) = try await session.data(for: request)
         guard let http = response as? HTTPURLResponse else {
             throw OnSiteAPIError.invalidResponse
         }
         guard 200..<300 ~= http.statusCode else {
             let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
-            let error = payload?["error"] as? String ?? "bootstrap_failed"
+            let error = payload?["error"] as? String ?? "request_failed"
             throw OnSiteAPIError.server(error)
         }
-        return try JSONDecoder().decode(OnSiteBootstrap.self, from: data)
+        return try JSONDecoder().decode(T.self, from: data)
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
