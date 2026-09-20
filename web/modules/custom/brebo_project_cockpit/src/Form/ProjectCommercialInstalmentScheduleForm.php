@@ -92,6 +92,19 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
       '#default_value' => (int) ($payload['payment_term_days'] ?? $this->globalPaymentTermDays()),
       '#required' => TRUE,
     ];
+    $form['save_as_template'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Dit projectschema ook opslaan als centraal sjabloon'),
+      '#access' => $this->currentUser()->hasPermission('manage brebo instalment templates'),
+      '#description' => $this->t('Maakt na het opslaan een herbruikbaar actief sjabloon. Het project blijft een eigen snapshot houden.'),
+    ];
+    $form['template_name'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Naam nieuw sjabloon'),
+      '#maxlength' => 128,
+      '#access' => $this->currentUser()->hasPermission('manage brebo instalment templates'),
+      '#states' => ['visible' => [':input[name="save_as_template"]' => ['checked' => TRUE]]],
+    ];
     $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Projecttermijnschema opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_project_cockpit.overview', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
 
@@ -104,6 +117,10 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
+    if ((bool) $form_state->getValue('save_as_template')
+      && trim((string) $form_state->getValue('template_name')) === '') {
+      $form_state->setErrorByName('template_name', $this->t('Vul een naam in voor het nieuwe centrale sjabloon.'));
+    }
     $templateId = (string) $form_state->getValue('template');
     $templates = $form_state->get('templates');
     if ($templateId !== 'manual' && isset($templates[$templateId])) {
@@ -184,8 +201,47 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
       ])->execute();
     }
 
+    if ((bool) $form_state->getValue('save_as_template')
+      && $this->currentUser()->hasPermission('manage brebo instalment templates')) {
+      $this->saveSnapshotAsTemplate(
+        trim((string) $form_state->getValue('template_name')),
+        $percentages,
+        $labels,
+      );
+    }
+
     $this->messenger()->addStatus($this->t('Het commerciële termijnschema is als projectsnapshot opgeslagen.'));
     $form_state->setRedirect('brebo_project_cockpit.overview', ['node' => $projectId]);
+  }
+
+  /**
+   * Publishes a project snapshot as reusable central template.
+   *
+   * @param list<float> $percentages
+   * @param list<string> $labels
+   */
+  private function saveSnapshotAsTemplate(string $name, array $percentages, array $labels): void {
+    if ($name === '') {
+      return;
+    }
+    $editable = $this->projectConfigFactory->getEditable(self::TEMPLATE_CONFIG);
+    $templates = $editable->get('templates') ?? [];
+    if (!is_array($templates)) {
+      $templates = [];
+    }
+    $id = 'custom_' . substr(hash('sha256', strtolower($name) . '|' . microtime(TRUE)), 0, 16);
+    $templates[$id] = [
+      'id' => $id,
+      'name' => $name,
+      'percentages' => array_values($percentages),
+      'labels' => array_values($labels),
+      'active' => TRUE,
+      'created' => time(),
+      'created_by' => (int) $this->currentUser()->id(),
+      'source' => 'project_commercial_schedule',
+    ];
+    $editable->set('templates', $templates)->save();
+    $this->messenger()->addStatus($this->t('Termijnsjabloon “@name” is centraal opgeslagen.', ['@name' => $name]));
   }
 
   private function globalPaymentTermDays(): int {
