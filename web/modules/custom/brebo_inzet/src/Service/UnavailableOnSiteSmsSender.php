@@ -13,4 +13,8 @@ final class UnavailableOnSiteSmsSender implements OnSiteSmsSenderInterface {
     throw new \RuntimeException('OnSite SMS provider is nog niet geconfigureerd.');
   }
 
+  public function sendInstallInvite(string $mobile, string $installUrl, string $languageTag): void {
+    throw new \RuntimeException('OnSite SMS provider is nog niet geconfigureerd.');
+  }
+
 }
