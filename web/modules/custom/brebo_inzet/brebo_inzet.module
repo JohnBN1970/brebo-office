@@ -46,3 +46,49 @@ function brebo_inzet_page_attachments(array &$attachments): void {
     ];
   }
 }
+
+/**
+ * Implements hook_form_FORM_ID_alter() for Office user profiles.
+ */
+function brebo_inzet_form_user_form_alter(array &$form, \Drupal\Core\Form\FormStateInterface $form_state): void {
+  $user = $form_state->getFormObject()->getEntity();
+  if (!$user instanceof \Drupal\user\UserInterface || $user->isNew()) {
+    return;
+  }
+  if (!\Drupal::currentUser()->hasPermission('administer users')) {
+    return;
+  }
+
+  $form['brebo_onsite'] = [
+    '#type' => 'details',
+    '#title' => t('BREBO OnSite'),
+    '#open' => TRUE,
+    '#weight' => 90,
+  ];
+  $form['brebo_onsite']['invite'] = [
+    '#type' => 'submit',
+    '#value' => t('Opslaan en OnSite koppelen via WhatsApp'),
+    '#submit' => ['brebo_inzet_onsite_invite_submit'],
+    '#limit_validation_errors' => NULL,
+  ];
+  $form['brebo_onsite']['help'] = [
+    '#markup' => '<p>' . t('Maakt een persoonlijke, eenmalige activatielink voor deze medewerker. Geen sms-code nodig.') . '</p>',
+  ];
+}
+
+
+/**
+ * Saves the user profile before creating an OnSite invitation.
+ */
+function brebo_inzet_onsite_invite_submit(array &$form, \Drupal\Core\Form\FormStateInterface $form_state): void {
+  $form_object = $form_state->getFormObject();
+  $user = $form_object->getEntity();
+  if (!$user instanceof \Drupal\user\UserInterface || $user->isNew()) {
+    return;
+  }
+
+  // Reuse Drupal's normal user-form save path so edits such as the mobile
+  // number are persisted before the invitation manager reloads the account.
+  $form_object->save($form, $form_state);
+  $form_state->setRedirect('brebo_inzet.onsite_invite_user', ['user' => $user->id()]);
+}

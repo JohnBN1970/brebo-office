@@ -8,7 +8,7 @@ use Drupal\Core\Url;
 use Drupal\user\UserInterface;
 
 /**
- * Sends the first OnSite installation invitation to an Office user.
+ * Creates the personal OnSite installation invitation for an Office user.
  */
 final class OnSiteInvitationManager {
 
@@ -17,7 +17,10 @@ final class OnSiteInvitationManager {
     private readonly OnSiteActivationManager $activationManager,
   ) {}
 
-  public function invite(UserInterface $user): void {
+  /**
+   * @return array{mobile: string, install_url: string, language: string}
+   */
+  public function invite(UserInterface $user): array {
     if (!$user->isActive()) {
       throw new \InvalidArgumentException('Alleen actieve gebruikers kunnen voor OnSite worden uitgenodigd.');
     }
@@ -40,8 +43,11 @@ final class OnSiteInvitationManager {
       ],
     ])->toString();
 
-    // The Office UI can present this personal URL for sharing via WhatsApp.
-    // No SMS provider is required for installation or activation.
+    return [
+      'mobile' => $mobile,
+      'install_url' => $installUrl,
+      'language' => $language,
+    ];
   }
 
 }

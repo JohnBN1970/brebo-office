@@ -176,3 +176,15 @@ brebo_inzet.onsite_activate:
   methods: [POST]
   requirements:
     _access: 'TRUE'
+
+brebo_inzet.onsite_invite_user:
+  path: '/user/{user}/onsite-uitnodigen'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteInviteController::page'
+    _title: 'OnSite uitnodigen'
+  requirements:
+    _permission: 'administer users'
+  options:
+    parameters:
+      user:
+        type: entity:user
