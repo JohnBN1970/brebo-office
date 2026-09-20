@@ -19,7 +19,7 @@ final class OnSiteBootstrapController extends ControllerBase {
     private readonly OnSiteDeviceRegistry $deviceRegistry,
     private readonly OnSiteAssignmentProvider $assignmentProvider,
     private readonly OnSiteIdentityResolver $identityResolver,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly EntityTypeManagerInterface $userEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -38,7 +38,7 @@ final class OnSiteBootstrapController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'device_not_linked'], 401);
     }
 
-    $user = $this->entityTypeManager->getStorage('user')->load($uid);
+    $user = $this->userEntityTypeManager->getStorage('user')->load($uid);
     if ($user === NULL || !$user->isActive()) {
       return new JsonResponse(['ok' => FALSE, 'error' => 'device_not_linked'], 401);
     }
