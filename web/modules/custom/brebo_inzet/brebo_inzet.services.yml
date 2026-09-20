@@ -81,3 +81,10 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@brebo_inzet.onsite_assignment_provider'
+
+
+  brebo_inzet.onsite_invitation_manager:
+    class: Drupal\brebo_inzet\Service\OnSiteInvitationManager
+    arguments:
+      - '@brebo_inzet.onsite_identity_resolver'
+      - '@brebo_inzet.onsite_sms_sender'
