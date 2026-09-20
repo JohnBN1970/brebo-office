@@ -9,7 +9,7 @@ use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Mobile landing page linked from the OnSite invitation SMS.
+ * Mobile landing page linked from the personal OnSite invitation.
  */
 final class OnSiteInstallController extends ControllerBase {
 
@@ -17,6 +17,10 @@ final class OnSiteInstallController extends ControllerBase {
     $language = preg_replace('/[^A-Za-z0-9-]/', '', (string) $request->query->get('lang', 'nl')) ?: 'nl';
     $iosUrl = (string) Settings::get('brebo_onsite_ios_install_url', '');
     $androidUrl = (string) Settings::get('brebo_onsite_android_install_url', '');
+    $activation = preg_replace('/[^A-Za-z0-9_-]/', '', (string) $request->query->get('activation', '')) ?: '';
+    $activationUrl = $activation !== ''
+      ? 'brebo-onsite://activate?token=' . rawurlencode($activation)
+      : '';
 
     return [
       '#type' => 'container',
@@ -25,8 +29,16 @@ final class OnSiteInstallController extends ControllerBase {
         'lang' => $language,
       ],
       'title' => [
-        '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Na installatie koppel je de app eenmalig met je mobiele nummer.</p>',
+        '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Deze persoonlijke link activeert daarna automatisch je toestel.</p>',
       ],
+      'activate' => $activationUrl !== '' ? [
+        '#type' => 'link',
+        '#title' => $this->t('Open en activeer OnSite'),
+        '#url' => Drupal\Core\Url::fromUri($activationUrl),
+        '#attributes' => [
+          'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
+        ],
+      ] : [],
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op iPhone'),
