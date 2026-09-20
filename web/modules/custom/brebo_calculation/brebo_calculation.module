@@ -257,15 +257,6 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
   }
   unset($row);
 
-  $form['workbench']['total']['#markup'] = '<div class="brebo-calc-workbench__total">'
-    . '<span><small>Directe kostprijs</small><strong data-total-kind="direct">€ 0,00</strong></span>'
-    . '<span><small>AK</small><strong data-total-kind="general-cost">€ 0,00</strong></span>'
-    . '<span><small>Risico</small><strong data-total-kind="risk">€ 0,00</strong></span>'
-    . '<span><small>' . ($commercialMethod === 'single_margin' ? 'Marge' : 'Winst') . '</small><strong data-total-kind="margin">€ 0,00</strong></span>'
-    . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ 0,00</strong></span>'
-    . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ 0,00</strong></span>'
-    . '</div>';
-
   $editable = $record['locked_at'] === NULL
     && (string) $record['status'] === 'draft'
     && \Drupal::currentUser()->hasPermission('edit brebo calculation workbench');
