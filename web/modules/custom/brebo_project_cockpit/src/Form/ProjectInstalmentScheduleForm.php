@@ -135,6 +135,21 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       throw new \RuntimeException('Contract or commercial instalment schedule unavailable.');
     }
 
+    // Re-resolve immediately before writing. A stale form must never
+    // materialise Finance terms from a commercial schedule that changed after
+    // the page was opened.
+    $project = $this->entityTypeManager()->getStorage('node')->load($projectId);
+    if (!$project instanceof NodeInterface) {
+      throw new \RuntimeException('Project unavailable while creating instalments.');
+    }
+    $currentCommercial = $this->commercialScheduleForProject($project);
+    if ($currentCommercial === NULL || !hash_equals((string) $commercial['content_hash'], (string) $currentCommercial['content_hash'])) {
+      $this->messenger()->addError($this->t('Het commerciële termijnschema is gewijzigd sinds dit scherm werd geopend. Er zijn geen Finance-termijnen aangemaakt; open het termijnschema opnieuw.'));
+      $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
+      return;
+    }
+    $commercial = $currentCommercial;
+
     $choice = (string) $form_state->getValue('payment_term');
     $paymentDays = match ($choice) {
       'custom' => max(0, (int) $form_state->getValue('custom_payment_term_days')),
