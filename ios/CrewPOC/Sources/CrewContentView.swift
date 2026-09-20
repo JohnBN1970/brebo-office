@@ -3,6 +3,7 @@ import SwiftUI
 struct CrewContentView: View {
     @StateObject private var locationMonitor = CrewLocationMonitor()
     @StateObject private var identityStore = OnSiteIdentityStore()
+    @StateObject private var presenceUploader = OnSitePresenceUploader()
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
 
@@ -31,6 +32,9 @@ struct CrewContentView: View {
             }
             .onChange(of: identityStore.assignedProjects) {
                 syncProjectZones()
+            }
+            .onChange(of: locationMonitor.events) {
+                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
             }
         }
     }
@@ -199,8 +203,19 @@ struct CrewContentView: View {
                 }
 
                 GroupBox("Laatste waarneming") {
-                    Text(lastObservationText)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(lastObservationText)
+                        if let error = presenceUploader.lastError {
+                            Text("Synchronisatie: \(error)")
+                                .font(.caption)
+                                .foregroundStyle(.red)
+                        } else if presenceUploader.lastUploadedEventId != nil {
+                            Text("Gesynchroniseerd met Office")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -211,6 +226,7 @@ struct CrewContentView: View {
             project.zones.map { zone in
                 CrewProjectZone(
                     id: zone.id,
+                    projectId: project.id,
                     projectName: project.name,
                     latitude: zone.latitude,
                     longitude: zone.longitude,
