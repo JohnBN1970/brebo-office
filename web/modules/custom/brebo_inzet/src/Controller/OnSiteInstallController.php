@@ -6,6 +6,7 @@ namespace Drupal\brebo_inzet\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Site\Settings;
+use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -34,7 +35,7 @@ final class OnSiteInstallController extends ControllerBase {
       'activate' => $activationUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Open en activeer OnSite'),
-        '#url' => Drupal\Core\Url::fromUri($activationUrl),
+        '#url' => Url::fromUri($activationUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -42,7 +43,7 @@ final class OnSiteInstallController extends ControllerBase {
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op iPhone'),
-        '#url' => Drupal\Core\Url::fromUri($iosUrl),
+        '#url' => Url::fromUri($iosUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -52,7 +53,7 @@ final class OnSiteInstallController extends ControllerBase {
       'android' => $androidUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op Android'),
-        '#url' => Drupal\Core\Url::fromUri($androidUrl),
+        '#url' => Url::fromUri($androidUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -60,7 +61,7 @@ final class OnSiteInstallController extends ControllerBase {
       'note' => [
         '#markup' => '<p style="color:#666;font-size:14px;">Office bepaalt daarna automatisch je taal, projecten en projectzones. Je hoeft in OnSite niets handmatig in te stellen.</p>',
       ],
-      '#cache' => ['max-age' => 300],
+      '#cache' => ['max-age' => 0],
     ];
   }
 
