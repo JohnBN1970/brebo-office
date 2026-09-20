@@ -9,12 +9,38 @@ use Drupal\field\Entity\FieldStorageConfig;
 use Drupal\node\NodeInterface;
 
 /**
+ * Implements hook_schema().
+ */
+function brebo_project_cockpit_schema(): array {
+  return [
+    'brebo_project_commercial_instalment_schedule' => [
+      'description' => 'Project-specific commercial instalment schedule used before contract and copied forward to billing.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
+        'source_template_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+        'source_template_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'schedule_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+        'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['project' => ['project_nid']],
+      'indexes' => ['status' => ['status'], 'content_hash' => ['content_hash']],
+    ],
+  ];
+}
+
+/**
  * Ensures fresh installations receive the same canonical project relations.
  */
 function brebo_project_cockpit_install(): void {
   brebo_project_cockpit_update_11001();
   brebo_project_cockpit_update_11002();
-  brebo_project_cockpit_update_11003();
 }
 
 /**
@@ -178,29 +204,13 @@ function brebo_project_cockpit_update_11002(): string {
  */
 function brebo_project_cockpit_update_11003(): string {
   $schema = \Drupal::database()->schema();
-  if ($schema->tableExists('brebo_project_commercial_instalment_schedule')) {
+  $table = 'brebo_project_commercial_instalment_schedule';
+  if ($schema->tableExists($table)) {
     return 'Commercieel projecttermijnschema bestond al.';
   }
 
-  $schema->createTable('brebo_project_commercial_instalment_schedule', [
-    'description' => 'Project-specific commercial instalment schedule used before contract and copied forward to billing.',
-    'fields' => [
-      'id' => ['type' => 'serial', 'not null' => TRUE],
-      'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
-      'source_template_id' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
-      'source_template_name' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
-      'schedule_payload' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
-      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'changed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-    ],
-    'primary key' => ['id'],
-    'unique keys' => ['project' => ['project_nid']],
-    'indexes' => ['status' => ['status'], 'content_hash' => ['content_hash']],
-  ]);
+  $definitions = brebo_project_cockpit_schema();
+  $schema->createTable($table, $definitions[$table]);
 
   return 'Commercieel projecttermijnschema als projectsnapshot ingericht.';
 }
