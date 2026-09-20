@@ -6,7 +6,6 @@ namespace Drupal\brebo_inzet\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Site\Settings;
-use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
@@ -33,17 +32,12 @@ final class OnSiteInstallController extends ControllerBase {
         '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Deze persoonlijke link activeert daarna automatisch je toestel.</p>',
       ],
       'activate' => $activationUrl !== '' ? [
-        '#type' => 'link',
-        '#title' => $this->t('Open en activeer OnSite'),
-        '#url' => Url::fromUri($activationUrl),
-        '#attributes' => [
-          'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
-        ],
+        '#markup' => '<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;">' . $this->t('Open en activeer OnSite') . '</a>',
       ] : [],
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op iPhone'),
-        '#url' => Url::fromUri($iosUrl),
+        '#url' => \Drupal\Core\Url::fromUri($iosUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -53,7 +47,7 @@ final class OnSiteInstallController extends ControllerBase {
       'android' => $androidUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op Android'),
-        '#url' => Url::fromUri($androidUrl),
+        '#url' => \Drupal\Core\Url::fromUri($androidUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
