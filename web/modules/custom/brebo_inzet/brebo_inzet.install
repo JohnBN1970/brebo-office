@@ -181,3 +181,55 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
     }
   }
 }
+
+
+/**
+ * Adds the Office-owned OnSite identity fields to users.
+ */
+function brebo_inzet_update_11003(): string {
+  _brebo_inzet_ensure_onsite_user_fields();
+  return 'OnSite gebruikerskoppeling toegevoegd: mobiel nummer en taalcode.';
+}
+
+/**
+ * Ensures Office owns the employee mobile number and OnSite language.
+ */
+function _brebo_inzet_ensure_onsite_user_fields(): void {
+  $fields = [
+    'field_brebo_mobile' => [
+      'label' => 'Mobiel nummer',
+      'type' => 'string',
+      'storage' => ['max_length' => 32],
+      'description' => 'Mobiel nummer voor eenmalige BREBO OnSite-verificatie.',
+    ],
+    'field_brebo_onsite_language' => [
+      'label' => 'OnSite taal',
+      'type' => 'string',
+      'storage' => ['max_length' => 35],
+      'description' => 'BCP-47 taalcode die BREBO OnSite na koppeling gebruikt, bijvoorbeeld nl, en, ro, pl of uk.',
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('user', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('user', 'user', $field_name)) {
+      FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'bundle' => 'user',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => FALSE,
+      ])->save();
+    }
+  }
+}
