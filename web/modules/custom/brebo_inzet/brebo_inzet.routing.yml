@@ -123,3 +123,56 @@ brebo_inzet.live_workforce:
     parameters:
       node:
         type: entity:node
+
+
+brebo_inzet.onsite_link_request:
+  path: '/api/onsite/v1/link/request'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteLinkController::requestCode'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
+
+brebo_inzet.onsite_link_verify:
+  path: '/api/onsite/v1/link/verify'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteLinkController::verifyCode'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
+
+
+brebo_inzet.onsite_bootstrap:
+  path: '/api/onsite/v1/bootstrap'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteBootstrapController::bootstrap'
+  methods: [GET]
+  requirements:
+    _access: 'TRUE'
+
+
+brebo_inzet.onsite_presence_record:
+  path: '/api/onsite/v1/presence'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSitePresenceController::record'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'
+
+
+brebo_inzet.onsite_install:
+  path: '/onsite/install'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteInstallController::page'
+    _title: 'BREBO OnSite'
+  requirements:
+    _access: 'TRUE'
+
+
+brebo_inzet.onsite_activate:
+  path: '/api/onsite/v1/activate'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\OnSiteActivationController::activate'
+  methods: [POST]
+  requirements:
+    _access: 'TRUE'

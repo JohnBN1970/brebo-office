@@ -181,3 +181,138 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
     }
   }
 }
+
+
+/**
+ * Adds the Office-owned OnSite identity fields to users.
+ */
+function brebo_inzet_update_11003(): string {
+  _brebo_inzet_ensure_onsite_user_fields();
+  return 'OnSite gebruikerskoppeling toegevoegd: mobiel nummer en taalcode.';
+}
+
+/**
+ * Ensures Office owns the employee mobile number and OnSite language.
+ */
+function _brebo_inzet_ensure_onsite_user_fields(): void {
+  $fields = [
+    'field_brebo_mobile' => [
+      'label' => 'Mobiel nummer',
+      'type' => 'string',
+      'storage' => ['max_length' => 32],
+      'description' => 'Mobiel nummer voor eenmalige BREBO OnSite-verificatie.',
+    ],
+    'field_brebo_onsite_language' => [
+      'label' => 'OnSite taal',
+      'type' => 'string',
+      'storage' => ['max_length' => 35],
+      'description' => 'BCP-47 taalcode die BREBO OnSite na koppeling gebruikt, bijvoorbeeld nl, en, ro, pl of uk.',
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('user', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('user', 'user', $field_name)) {
+      FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'bundle' => 'user',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => FALSE,
+      ])->save();
+    }
+  }
+}
+
+
+/**
+ * Adds durable OnSite presence evidence storage.
+ */
+function brebo_inzet_update_11004(): string {
+  _brebo_inzet_ensure_onsite_presence_schema();
+  return 'OnSite aanwezigheidsevidence toegevoegd.';
+}
+
+/**
+ * Ensures the app-specific presence event bundle exists.
+ */
+function _brebo_inzet_ensure_onsite_presence_schema(): void {
+  $bundle = 'brebo_onsite_presence_event';
+
+  if (!NodeType::load($bundle)) {
+    NodeType::create([
+      'type' => $bundle,
+      'name' => 'OnSite aanwezigheidsevent',
+      'description' => 'Ruwe IN/UIT-waarneming vanuit BREBO OnSite. Dit is bewijs van aanwezigheid en geen geboekte werktijd.',
+      'new_revision' => FALSE,
+      'preview_mode' => 0,
+      'display_submitted' => FALSE,
+    ])->save();
+  }
+
+  $fields = [
+    'field_brebo_clock_user' => [
+      'label' => 'Medewerker',
+      'type' => 'entity_reference',
+      'storage' => ['target_type' => 'user'],
+      'settings' => ['handler' => 'default:user'],
+    ],
+    'field_brebo_project_ref' => [
+      'label' => 'Project',
+      'type' => 'entity_reference',
+      'storage' => ['target_type' => 'node'],
+      'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+    ],
+    'field_brebo_clock_zone_ref' => [
+      'label' => 'Projectzone',
+      'type' => 'entity_reference',
+      'storage' => ['target_type' => 'node'],
+      'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_clock_zone' => 'brebo_clock_zone']]],
+    ],
+    'field_brebo_onsite_event_kind' => [
+      'label' => 'Waarneming',
+      'type' => 'list_string',
+      'storage' => ['allowed_values' => ['in' => 'IN', 'out' => 'UIT']],
+      'settings' => [],
+    ],
+    'field_brebo_onsite_occurred_at' => [
+      'label' => 'Waargenomen op',
+      'type' => 'datetime',
+      'storage' => ['datetime_type' => 'datetime'],
+      'settings' => [],
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('node', $bundle, $field_name)) {
+      FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'required' => TRUE,
+        'settings' => $definition['settings'],
+      ])->save();
+    }
+  }
+}
