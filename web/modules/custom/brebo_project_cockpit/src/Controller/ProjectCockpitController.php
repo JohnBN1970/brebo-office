@@ -73,22 +73,25 @@ final class ProjectCockpitController extends ControllerBase {
     $domainRoutes = [
       'planning' => ['brebo_office_core.project_planning', ['node' => $projectId]],
       'inzet' => ['brebo_inzet.live_workforce', ['node' => $projectId]],
-      'quality' => ['brebo_office_core.deviations', []],
-      'risks' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
-      'actions' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
-      'procurement' => ['brebo_project_cockpit.overview', ['node' => $projectId]],
+      'quality' => ['brebo_project_cockpit.shortcomings', ['node' => $projectId]],
+      // Risks and actions do not yet have a project-scoped destination. Keep
+      // their steering rows non-clickable rather than pretending that
+      // "Openen" leads somewhere useful.
+      'risks' => NULL,
+      'actions' => NULL,
+      'procurement' => ['brebo_project_cockpit.orders', ['node' => $projectId]],
     ];
     $cards = [];
     foreach (($operational['domains'] ?? []) as $key => $domain) {
-      [$route, $parameters] = $domainRoutes[$key] ?? ['brebo_project_cockpit.overview', ['node' => $projectId]];
+      $destination = $domainRoutes[$key] ?? NULL;
       $status = $key === 'planning' ? $planningStatus : (string) $domain['status'];
       $subtitle = $key === 'planning' && is_numeric($progress['actual_progress_pct'] ?? NULL)
         ? sprintf('%s%% gereed; %s%% tijd verstreken', number_format((float) $progress['actual_progress_pct'], 1, ',', '.'), $this->percentNumber($progress['time_elapsed_pct'] ?? NULL))
         : (string) $domain['message'];
-      $cards[] = $this->card((string) $domain['label'], (int) $domain['total'], $subtitle, $route, $parameters, $status);
+      $cards[] = $this->card((string) $domain['label'], (int) $domain['total'], $subtitle, $destination, $status);
     }
-    $cards[] = $this->card('Financiën', NULL, 'Resultaat, verplichtingen, facturen en prognose', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $financeStatus);
-    $cards[] = $this->card('Cashflow', NULL, 'Betaald, ontvangen en 13-weeks liquiditeitsbeeld', 'brebo_finance.project_finance_page', ['project_nid' => $projectId], $cashStatus);
+    $cards[] = $this->card('Financiën', NULL, 'Resultaat, verplichtingen, facturen en prognose', ['brebo_finance.project_finance_page', ['project_nid' => $projectId]], $financeStatus);
+    $cards[] = $this->card('Cashflow', NULL, 'Betaald, ontvangen en 13-weeks liquiditeitsbeeld', ['brebo_finance.project_finance_page', ['project_nid' => $projectId]], $cashStatus);
 
     $hero = [
       '#type' => 'container', '#attributes' => ['class' => ['brebo-project-cockpit__hero']],
@@ -150,7 +153,12 @@ final class ProjectCockpitController extends ControllerBase {
   private function worstStatus(array $statuses): string { $rank=['grijs'=>0,'groen'=>1,'oranje'=>2,'rood'=>3]; $worst='grijs'; foreach($statuses as $s) if(($rank[$s]??0)>($rank[$worst]??0)) $worst=$s; return $worst; }
   private function statusMarkup(string $label,string $status): string { return '<div class="brebo-project-cockpit__status brebo-project-cockpit__status--'.$status.'"><span>'.$label.'</span><strong>'.mb_strtoupper($status).'</strong></div>'; }
   private function statusLabel(string $status): string { return match($status){'rood'=>'🔴 Rood','oranje'=>'🟠 Oranje','groen'=>'🟢 Groen',default=>'⚪ Grijs'}; }
-  private function card(string $title,?int $value,string $subtitle,string $route,array $parameters,string $status): array { return ['title'=>$title,'value'=>$value,'subtitle'=>$subtitle,'status'=>$status,'link'=>Link::fromTextAndUrl($this->t('Openen'),Url::fromRoute($route,$parameters))->toRenderable()]; }
+  private function card(string $title, ?int $value, string $subtitle, ?array $destination, string $status): array {
+    $link = $destination === NULL
+      ? ['#markup' => '<span aria-label="Geen projectscherm beschikbaar">—</span>']
+      : Link::fromTextAndUrl($this->t('Openen'), Url::fromRoute($destination[0], $destination[1]))->toRenderable();
+    return ['title' => $title, 'value' => $value, 'subtitle' => $subtitle, 'status' => $status, 'link' => $link];
+  }
   private function linkButton(string $label,string $route,array $parameters=[]): array { return ['#type'=>'link','#title'=>$this->t($label),'#url'=>Url::fromRoute($route,$parameters),'#attributes'=>['class'=>['button']]]; }
   private function money(mixed $value): string { $n=$this->number($value); return $n===NULL?'—':'€ '.number_format($n,2,',','.'); }
   private function percent(mixed $value): string { $n=$this->number($value); return $n===NULL?'—':number_format($n,1,',','.').' %'; }
