@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_calculation\Domain\CalculationParameters;
+use Drupal\brebo_calculation\Service\CommercialCalculator;
 use Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver;
 use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
 use Drupal\Core\Database\Connection;
@@ -29,6 +31,7 @@ final class OfferVersionForm extends FormBase {
     private readonly ProjectDocumentNumberIssuer $documentNumbers,
     private readonly ProjectDocumentIdentityResolver $documentIdentity,
     private readonly Connection $database,
+    private readonly CommercialCalculator $commercialCalculator,
   ) {
     $this->entityTypeManager = $entityTypeManager;
   }
@@ -39,6 +42,7 @@ final class OfferVersionForm extends FormBase {
       $container->get('brebo_office_core.project_document_number_issuer'),
       $container->get('brebo_office_core.project_document_identity_resolver'),
       $container->get('database'),
+      $container->get('brebo_calculation.commercial_calculator'),
     );
   }
 
@@ -463,13 +467,37 @@ final class OfferVersionForm extends FormBase {
     if (!$element_ids) return [];
     $line_ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calc_line')->condition('field_brebo_calc_element_ref.target_id', array_values($element_ids), 'IN')->condition('field_brebo_line_type', 'Calculatieregel')->sort('nid', 'ASC')->execute();
     $source_lines = $storage->loadMultiple($line_ids);
+    $domainVersion = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', (int) $this->calculation->id())
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($domainVersion)) {
+      throw new \RuntimeException('Offerte kan niet worden gemaakt zonder calculatiedomeinversie.');
+    }
+
     $direct_total = 0.0;
-    foreach ($source_lines as $source_line) if ($source_line instanceof NodeInterface) $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
-    $tail_pct = 0.0;
-    foreach (['field_brebo_general_cost_pct', 'field_brebo_risk_pct', 'field_brebo_profit_pct'] as $field_name) if ($this->calculation->hasField($field_name)) $tail_pct += (float) ($this->calculation->get($field_name)->value ?? 0);
-    $commercial_adjustment = $this->calculation->hasField('field_brebo_com_adjustment') ? (float) ($this->calculation->get('field_brebo_com_adjustment')->value ?? 0) : 0.0;
-    $sales_total = max(0.0, $direct_total * (1 + ($tail_pct / 100)) + $commercial_adjustment);
-    $factor = $direct_total > 0.0 ? $sales_total / $direct_total : 0.0;
+    foreach ($source_lines as $source_line) {
+      if (!$source_line instanceof NodeInterface) continue;
+      $sourceType = mb_strtolower((string) ($source_line->get('field_brebo_line_post_type')->value ?? ''));
+      if (str_contains($sourceType, 'optie') || str_contains($sourceType, 'alternatief') || str_contains($sourceType, 'notitie')) continue;
+      $direct_total += (float) ($source_line->get('field_brebo_direct_cost')->value ?? ((float) ($source_line->get('field_brebo_contract_quantity')->value ?? 0) * (float) ($source_line->get('field_brebo_unit_price')->value ?? 0)));
+    }
+    $parameters = new CalculationParameters(
+      pricingMode: (string) $domainVersion['pricing_mode'],
+      commercialMethod: (string) $domainVersion['commercial_method'],
+      generalCostPct: (float) $domainVersion['general_cost_pct'],
+      riskPct: (float) $domainVersion['risk_pct'],
+      profitPct: (float) $domainVersion['profit_pct'],
+      singleMarginPct: (float) $domainVersion['single_margin_pct'],
+      commercialAdjustment: (float) $domainVersion['commercial_adjustment'],
+      priceDate: $domainVersion['price_date'] ?: NULL,
+      priceLevel: $domainVersion['price_level'] ?: NULL,
+    );
+    $commercial = $this->commercialCalculator->calculate($direct_total, $parameters);
+    $factor = $direct_total > 0.0 ? $commercial->salesPrice / $direct_total : 0.0;
     $lines = [];
     foreach ($source_lines as $line) {
       if (!$line instanceof NodeInterface) continue;
@@ -555,6 +583,7 @@ final class OfferVersionForm extends FormBase {
       'document_number' => $numberReceipt,
       'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
       'commercial_instalment_schedule' => $commercialInstalmentSchedule,
+      'calculation_domain_snapshot' => $this->calculationCommercialSnapshot($calculation),
       'created_at' => gmdate(DATE_ATOM),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -621,6 +650,76 @@ final class OfferVersionForm extends FormBase {
     $form_state->setRedirect('brebo_office_core.offer_preview', ['node' => $offer->id()]);
   }
 
+
+  /**
+   * Returns canonical version-bound commercial calculation evidence.
+   *
+   * @return array<string, mixed>
+   */
+  private function calculationCommercialSnapshot(NodeInterface $calculation): array {
+    $version = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v')
+      ->condition('calculation_id', (int) $calculation->id())
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($version)) {
+      throw new \RuntimeException('Offerte kan niet worden vastgelegd zonder calculatiedomeinversie.');
+    }
+
+    $parameters = new CalculationParameters(
+      pricingMode: (string) $version['pricing_mode'],
+      commercialMethod: (string) $version['commercial_method'],
+      generalCostPct: (float) $version['general_cost_pct'],
+      riskPct: (float) $version['risk_pct'],
+      profitPct: (float) $version['profit_pct'],
+      singleMarginPct: (float) $version['single_margin_pct'],
+      commercialAdjustment: (float) $version['commercial_adjustment'],
+      priceDate: $version['price_date'] ?: NULL,
+      priceLevel: $version['price_level'] ?: NULL,
+    );
+
+    $offerable = $this->loadOfferableCalculationLines();
+    $directCost = 0.0;
+    foreach ($offerable as $line) {
+      if (($line['suggested_type'] ?? '') === 'Optie') continue;
+      $directCost += (float) ($line['amount'] ?? 0.0) / max(1.0, $this->commercialFactorForSnapshot($version, $offerable));
+    }
+    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
+
+    return [
+      'version' => (string) $version['version'],
+      'content_hash' => (string) ($version['content_hash'] ?? ''),
+      'status' => (string) $version['status'],
+      'locked_at' => $version['locked_at'] !== NULL ? (int) $version['locked_at'] : NULL,
+      'parameters' => [
+        'pricing_mode' => $parameters->pricingMode,
+        'commercial_method' => $parameters->commercialMethod,
+        'general_cost_pct' => $parameters->generalCostPct,
+        'risk_pct' => $parameters->riskPct,
+        'profit_pct' => $parameters->profitPct,
+        'single_margin_pct' => $parameters->singleMarginPct,
+        'commercial_adjustment' => $parameters->commercialAdjustment,
+        'price_date' => $parameters->priceDate,
+        'price_level' => $parameters->priceLevel,
+      ],
+      'commercial_result' => $commercial->toArray(),
+    ];
+  }
+
+  /** @param array<int, array<string, mixed>> $offerable */
+  private function commercialFactorForSnapshot(array $version, array $offerable): float {
+    $sales = 0.0;
+    $direct = 0.0;
+    foreach ($offerable as $line) {
+      if (($line['suggested_type'] ?? '') === 'Optie') continue;
+      $sales += (float) ($line['amount'] ?? 0.0);
+      $quantity = (float) ($line['quantity'] ?? 0.0);
+      $direct += $quantity > 0.0 ? ((float) ($line['unit_price'] ?? 0.0) * $quantity) : (float) ($line['amount'] ?? 0.0);
+    }
+    return $direct > 0.0 ? max($sales / $direct, 0.000001) : 1.0;
+  }
 
   /**
    * Returns the project-owned commercial schedule as immutable offer evidence.
