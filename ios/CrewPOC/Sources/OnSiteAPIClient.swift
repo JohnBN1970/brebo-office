@@ -27,6 +27,44 @@ struct OnSiteVerifiedIdentity: Decodable {
     }
 }
 
+
+
+struct OnSiteBootstrap: Decodable {
+    let employee: OnSiteBootstrapEmployee
+    let projects: [OnSiteBootstrapProject]
+}
+
+struct OnSiteBootstrapEmployee: Decodable {
+    let id: String
+    let displayName: String
+    let language: String
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case displayName = "display_name"
+        case language
+    }
+}
+
+struct OnSiteBootstrapProject: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let zones: [OnSiteBootstrapZone]
+}
+
+struct OnSiteBootstrapZone: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let latitude: Double
+    let longitude: Double
+    let radiusMetres: Double
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, latitude, longitude
+        case radiusMetres = "radius_metres"
+    }
+}
+
 struct OnSiteChallenge: Decodable {
     let challengeId: String
     let expiresIn: Int
@@ -69,6 +107,24 @@ struct OnSiteAPIClient {
             "challenge_id": challengeId,
             "code": code,
         ])
+    }
+
+    func bootstrap(deviceToken: String) async throws -> OnSiteBootstrap {
+        let url = baseURL.appending(path: "/api/onsite/v1/bootstrap")
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
+
+        let (data, response) = try await session.data(for: request)
+        guard let http = response as? HTTPURLResponse else {
+            throw OnSiteAPIError.invalidResponse
+        }
+        guard 200..<300 ~= http.statusCode else {
+            let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let error = payload?["error"] as? String ?? "bootstrap_failed"
+            throw OnSiteAPIError.server(error)
+        }
+        return try JSONDecoder().decode(OnSiteBootstrap.self, from: data)
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
