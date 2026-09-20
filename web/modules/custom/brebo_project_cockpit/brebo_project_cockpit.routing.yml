@@ -72,6 +72,32 @@ brebo_project_cockpit.contracts:
       node:
         type: entity:node
 
+brebo_project_cockpit.contract_edit:
+  path: '/projecten/{node}/contracten/bewerken'
+  defaults:
+    _form: '\\Drupal\\brebo_project_cockpit\\Form\\ProjectContractForm'
+    _title: 'Projectcontract registreren'
+  requirements:
+    _entity_access: 'node.update'
+    _permission: 'manage brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
+brebo_project_cockpit.contract_approve:
+  path: '/projecten/{node}/contracten/goedkeuren'
+  defaults:
+    _form: '\\Drupal\\brebo_project_cockpit\\Form\\ProjectContractApprovalForm'
+    _title: 'Projectcontract goedkeuren'
+  requirements:
+    _entity_access: 'node.view'
+    _permission: 'approve brebo finance'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_project_cockpit.invoices:
   path: '/projecten/{node}/facturen'
   defaults:
