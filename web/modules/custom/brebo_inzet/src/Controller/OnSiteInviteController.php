@@ -31,6 +31,15 @@ final class OnSiteInviteController extends ControllerBase {
     }
 
     $digits = preg_replace('/\D+/', '', $invitation['mobile']) ?? '';
+    // WhatsApp click-to-chat requires an international recipient number.
+    if (preg_match('/^06\\d{8}$/', $digits) === 1) {
+      $digits = '31' . substr($digits, 1);
+    }
+    if (preg_match('/^31[1-9]\\d{8}$/', $digits) !== 1) {
+      return [
+        '#markup' => '<p>' . $this->t('OnSite-uitnodiging kan niet worden gemaakt: gebruik een Nederlands mobiel nummer als 06xxxxxxxx of +316xxxxxxxx.') . '</p>',
+      ];
+    }
     $message = $this->t('BREBO OnSite: open deze persoonlijke link op je iPhone om OnSite eenmalig aan Office te koppelen: @url', [
       '@url' => $invitation['install_url'],
     ]);
