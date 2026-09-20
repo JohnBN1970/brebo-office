@@ -49,3 +49,16 @@ services:
   brebo_inzet.onsite_identity_resolver:
     class: Drupal\brebo_inzet\Service\OnSiteIdentityResolver
     arguments: ['@entity_type.manager']
+
+
+  brebo_inzet.onsite_sms_sender:
+    class: Drupal\brebo_inzet\Service\UnavailableOnSiteSmsSender
+
+  brebo_inzet.onsite_otp_manager:
+    class: Drupal\brebo_inzet\Service\OnSiteOtpManager
+    arguments:
+      - '@brebo_inzet.onsite_identity_resolver'
+      - '@brebo_inzet.onsite_sms_sender'
+      - '@keyvalue.expirable'
+      - '@private_key'
+      - '@flood'
