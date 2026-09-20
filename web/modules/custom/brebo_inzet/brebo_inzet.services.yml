@@ -83,8 +83,14 @@ services:
       - '@brebo_inzet.onsite_assignment_provider'
 
 
+  brebo_inzet.onsite_activation_manager:
+    class: Drupal\brebo_inzet\Service\OnSiteActivationManager
+    arguments:
+      - '@keyvalue.expirable'
+      - '@brebo_inzet.onsite_device_registry'
+
   brebo_inzet.onsite_invitation_manager:
     class: Drupal\brebo_inzet\Service\OnSiteInvitationManager
     arguments:
       - '@brebo_inzet.onsite_identity_resolver'
-      - '@brebo_inzet.onsite_sms_sender'
+      - '@brebo_inzet.onsite_activation_manager'
