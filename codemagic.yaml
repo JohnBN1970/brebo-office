@@ -56,7 +56,7 @@ workflows:
       - name: Set OnSite build number
         script: |
           cd ios/CrewPOC
-          xcrun agvtool new-version -all "$CM_BUILD_NUMBER"
+          xcrun agvtool new-version -all "$BUILD_NUMBER"
       - name: Build and test OnSite simulator proof
         script: |
           set -euo pipefail
