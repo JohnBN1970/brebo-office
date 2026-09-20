@@ -49,6 +49,9 @@
         <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.command_center_page' ? ' is-active' : '' }}" href="{{ path('brebo_finance.command_center_page') }}"><span>Overzicht</span></a>
         <a class="brebo-office-nav__subitem{{ route in ['brebo_finance.payables_work_queues', 'brebo_finance.purchase_invoice_list', 'brebo_finance.purchase_invoice_view'] ? ' is-active' : '' }}" href="{{ path('brebo_finance.purchase_invoice_list') }}"><span>Inkoop</span></a>
         <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.sales_workspace' ? ' is-active' : '' }}" href="{{ path('brebo_finance.sales_workspace') }}"><span>Verkoop</span></a>
+        {% if logged_in and user.hasPermission('manage brebo instalment templates') %}
+          <a class="brebo-office-nav__subitem{{ route == 'brebo_project_cockpit.instalment_templates' ? ' is-active' : '' }}" href="{{ path('brebo_project_cockpit.instalment_templates') }}"><span>Termijnschemasjablonen</span></a>
+        {% endif %}
         <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.payment_center' ? ' is-active' : '' }}" href="{{ path('brebo_finance.payment_center') }}"><span>Bank & betalingen</span></a>
         <a class="brebo-office-nav__subitem{{ route == 'brebo_finance.financial_decision_page' ? ' is-active' : '' }}" href="{{ path('brebo_finance.financial_decision_page') }}"><span>Besluiten / te doen</span></a>
       </div>
