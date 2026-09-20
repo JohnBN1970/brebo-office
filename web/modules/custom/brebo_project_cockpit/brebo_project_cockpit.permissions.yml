@@ -1,0 +1,4 @@
+manage brebo instalment templates:
+  title: 'Termijnschemasjablonen beheren'
+  description: 'Mag centrale termijnschemasjablonen maken en beheren voor hergebruik in projecten.'
+  restrict access: true
