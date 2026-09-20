@@ -6,6 +6,7 @@ namespace Drupal\brebo_office_core\Form;
 
 use Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver;
 use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -27,6 +28,7 @@ final class OfferVersionForm extends FormBase {
     EntityTypeManagerInterface $entityTypeManager,
     private readonly ProjectDocumentNumberIssuer $documentNumbers,
     private readonly ProjectDocumentIdentityResolver $documentIdentity,
+    private readonly Connection $database,
   ) {
     $this->entityTypeManager = $entityTypeManager;
   }
@@ -36,6 +38,7 @@ final class OfferVersionForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_office_core.project_document_number_issuer'),
       $container->get('brebo_office_core.project_document_identity_resolver'),
+      $container->get('database'),
     );
   }
 
@@ -543,6 +546,7 @@ final class OfferVersionForm extends FormBase {
     $numberReceipt = $this->documentNumbers->issueQuotation($calculation, $version);
     $offer_number = (string) $numberReceipt['number'];
     $g_account_on = (bool) $form_state->getValue('g_account_on');
+    $commercialInstalmentSchedule = $this->commercialInstalmentScheduleSnapshot($calculation);
     $snapshot = json_encode([
       'calculation_id' => (int) $calculation->id(),
       'calculation_label' => (string) $calculation->label(),
@@ -550,6 +554,7 @@ final class OfferVersionForm extends FormBase {
       'calculation_changed' => (int) $calculation->getChangedTime(),
       'document_number' => $numberReceipt,
       'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
+      'commercial_instalment_schedule' => $commercialInstalmentSchedule,
       'created_at' => gmdate(DATE_ATOM),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -614,6 +619,47 @@ final class OfferVersionForm extends FormBase {
       '@count' => count($offer_lines),
     ]));
     $form_state->setRedirect('brebo_office_core.offer_preview', ['node' => $offer->id()]);
+  }
+
+
+  /**
+   * Returns the project-owned commercial schedule as immutable offer evidence.
+   *
+   * @return array<string, mixed>|null
+   */
+  private function commercialInstalmentScheduleSnapshot(NodeInterface $calculation): ?array {
+    if (!$this->database->schema()->tableExists('brebo_project_commercial_instalment_schedule')) {
+      return NULL;
+    }
+
+    $project = \Drupal::service('brebo_office_core.administration_context_resolver')->projectForNode($calculation);
+    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+      return NULL;
+    }
+
+    $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
+      ->fields('s', ['status', 'source_template_id', 'source_template_name', 'schedule_payload', 'content_hash', 'changed'])
+      ->condition('project_nid', (int) $project->id())
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($row)) {
+      return NULL;
+    }
+
+    $payload = json_decode((string) $row['schedule_payload'], TRUE);
+    if (!is_array($payload)) {
+      throw new \RuntimeException('Het commerciële projecttermijnschema bevat geen geldige snapshot.');
+    }
+
+    return [
+      'project_nid' => (int) $project->id(),
+      'status' => (string) $row['status'],
+      'source_template_id' => $row['source_template_id'] !== NULL ? (string) $row['source_template_id'] : NULL,
+      'source_template_name' => $row['source_template_name'] !== NULL ? (string) $row['source_template_name'] : NULL,
+      'schedule' => $payload,
+      'content_hash' => (string) $row['content_hash'],
+      'snapshot_changed' => (int) $row['changed'],
+    ];
   }
 
 }
