@@ -316,3 +316,138 @@ function _brebo_inzet_ensure_onsite_presence_schema(): void {
     }
   }
 }
+
+
+/**
+ * Adds the canonical Office employee profile used by BREBO apps.
+ */
+function brebo_inzet_update_11005(): string {
+  _brebo_inzet_ensure_employee_profile_fields();
+  return 'BREBO gebruikersprofiel uitgebreid met personeelsnummer, NAW, functie, vaardigheden en inzetstatus.';
+}
+
+/**
+ * Ensures Office is the canonical source for app-facing employee data.
+ */
+function _brebo_inzet_ensure_employee_profile_fields(): void {
+  $fields = [
+    'field_brebo_employee_number' => [
+      'label' => 'Personeelsnummer',
+      'type' => 'string',
+      'storage' => ['max_length' => 32],
+      'cardinality' => 1,
+      'description' => 'Uniek intern BREBO-personeelsnummer voor koppelingen met apps en planning.',
+    ],
+    'field_brebo_first_name' => [
+      'label' => 'Voornaam',
+      'type' => 'string',
+      'storage' => ['max_length' => 100],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_last_name' => [
+      'label' => 'Achternaam',
+      'type' => 'string',
+      'storage' => ['max_length' => 150],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_street' => [
+      'label' => 'Straat en huisnummer',
+      'type' => 'string',
+      'storage' => ['max_length' => 255],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_postal_code' => [
+      'label' => 'Postcode',
+      'type' => 'string',
+      'storage' => ['max_length' => 20],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_city' => [
+      'label' => 'Plaats',
+      'type' => 'string',
+      'storage' => ['max_length' => 150],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_country' => [
+      'label' => 'Land',
+      'type' => 'string',
+      'storage' => ['max_length' => 2],
+      'cardinality' => 1,
+      'description' => 'ISO-landcode, bijvoorbeeld NL of BE.',
+    ],
+    'field_brebo_job_title' => [
+      'label' => 'Functie',
+      'type' => 'string',
+      'storage' => ['max_length' => 150],
+      'cardinality' => 1,
+      'description' => '',
+    ],
+    'field_brebo_skills' => [
+      'label' => 'Vaardigheden',
+      'type' => 'string',
+      'storage' => ['max_length' => 150],
+      'cardinality' => -1,
+      'description' => 'Vaardigheden en inzetbare competenties van de medewerker.',
+    ],
+    'field_brebo_workforce_status' => [
+      'label' => 'Inzetstatus',
+      'type' => 'list_string',
+      'storage' => ['allowed_values' => ['active' => 'Actief', 'inactive' => 'Inactief']],
+      'cardinality' => 1,
+      'description' => 'Operationele inzetstatus voor planning en apps.',
+      'default_value' => [['value' => 'active']],
+    ],
+  ];
+
+  foreach ($fields as $field_name => $definition) {
+    if (!FieldStorageConfig::loadByName('user', $field_name)) {
+      FieldStorageConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => $definition['cardinality'],
+      ])->save();
+    }
+
+    if (!FieldConfig::loadByName('user', 'user', $field_name)) {
+      $field = FieldConfig::create([
+        'field_name' => $field_name,
+        'entity_type' => 'user',
+        'bundle' => 'user',
+        'label' => $definition['label'],
+        'description' => $definition['description'],
+        'required' => FALSE,
+      ]);
+      if (!empty($definition['default_value'])) {
+        $field->setDefaultValue($definition['default_value']);
+      }
+      $field->save();
+    }
+  }
+
+  $display = EntityFormDisplay::load('user.user.default') ?: EntityFormDisplay::create([
+    'targetEntityType' => 'user',
+    'bundle' => 'user',
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  $weight = 10;
+  foreach (array_keys($fields) as $field_name) {
+    $display->setComponent($field_name, [
+      'type' => $field_name === 'field_brebo_workforce_status' ? 'options_select' : 'string_textfield',
+      'weight' => $weight++,
+    ]);
+  }
+  foreach (['field_brebo_mobile', 'field_brebo_onsite_language'] as $field_name) {
+    if (FieldConfig::loadByName('user', 'user', $field_name)) {
+      $display->setComponent($field_name, ['type' => 'string_textfield', 'weight' => $weight++]);
+    }
+  }
+  $display->save();
+}
