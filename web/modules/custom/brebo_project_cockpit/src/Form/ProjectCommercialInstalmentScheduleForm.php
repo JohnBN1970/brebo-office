@@ -68,8 +68,8 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     $form['percentages'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Percentages'),
-      '#required' => TRUE,
       '#default_value' => implode(',', $percentages),
+      '#states' => ['required' => [':input[name="template"]' => ['value' => 'manual']]],
       '#description' => $this->t('Komma-gescheiden en samen exact 100%. Bij opslaan met een gekozen sjabloon wordt diens verdeling als projectsnapshot overgenomen.'),
     ];
     $form['labels'] = [
@@ -92,6 +92,8 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
 
     $form_state->set('project_id', $projectId);
     $form_state->set('templates', $templates);
+    $form_state->set('existing_payload', $payload);
+    $form_state->set('existing_template_id', (string) ($existing['source_template_id'] ?? ''));
     return $form;
   }
 
@@ -125,9 +127,19 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
     $templates = $form_state->get('templates');
     $templateId = (string) $form_state->getValue('template');
     $template = $templateId !== 'manual' ? ($templates[$templateId] ?? NULL) : NULL;
+    $existingPayload = $form_state->get('existing_payload');
+    $existingTemplateId = (string) $form_state->get('existing_template_id');
+    $preserveSnapshot = $templateId !== 'manual'
+      && $templateId === $existingTemplateId
+      && is_array($existingPayload)
+      && is_array($existingPayload['percentages'] ?? NULL);
 
-    $percentages = is_array($template) ? $template['percentages'] : $this->parsePercentages((string) $form_state->getValue('percentages'));
-    $labels = is_array($template) ? $template['labels'] : $this->parseLabels((string) $form_state->getValue('labels'));
+    $percentages = $preserveSnapshot
+      ? array_values(array_map('floatval', $existingPayload['percentages']))
+      : (is_array($template) ? $template['percentages'] : $this->parsePercentages((string) $form_state->getValue('percentages')));
+    $labels = $preserveSnapshot
+      ? array_values(array_map('strval', $existingPayload['labels'] ?? []))
+      : (is_array($template) ? $template['labels'] : $this->parseLabels((string) $form_state->getValue('labels')));
     if ($labels === []) {
       $labels = array_map(static fn(int $i): string => 'Termijn ' . ($i + 1), array_keys($percentages));
     }
