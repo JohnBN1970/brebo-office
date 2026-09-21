@@ -26,7 +26,7 @@ final class OnSiteInstallController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => [
-        'style' => 'max-width:520px;height:100dvh;min-height:100svh;margin:0 auto;padding:clamp(16px,3dvh,28px) 24px clamp(14px,2.5dvh,24px);box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;background:linear-gradient(180deg,#0b4f8a 0%,#0a3f73 56%,#082f58 100%);color:#fff;position:relative;overflow:hidden;',
+        'style' => 'max-width:520px;min-height:100dvh;margin:0 auto;padding:clamp(16px,3dvh,28px) 24px clamp(14px,2.5dvh,24px);box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;background:linear-gradient(180deg,#0b4f8a 0%,#0a3f73 56%,#082f58 100%);color:#fff;position:relative;overflow-x:hidden;',
         'lang' => $language,
       ],
       'title' => [
