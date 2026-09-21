@@ -21,15 +21,17 @@ final class KozijnPriceObservationRepository {
     $system = trim((string) $values['system']);
     $configurationType = trim((string) $values['configuration_type']);
     $integerSyntax = static fn (mixed $value): bool => is_int($value) || (is_string($value) && preg_match('/^[0-9]+$/', $value) === 1);
-    $decimalSyntax = static fn (mixed $value): bool => is_int($value) || is_float($value) || (is_string($value) && preg_match('/^[0-9]+(?:\\.[0-9]+)?$/', $value) === 1);
-    if (!$integerSyntax($values['width_mm']) || !$integerSyntax($values['height_mm']) || !$integerSyntax($values['observed_at']) || !$decimalSyntax($values['supplier_gross'])) {
+    $decimalSyntax = static fn (mixed $value): bool => (is_int($value) || is_string($value)) && preg_match('/^(?:0|[1-9][0-9]{0,13})(?:\\.[0-9]{1,4})?$/', (string) $value) === 1;
+    $fieldsValue = $values['fields_count'] ?? 1;
+    if (!$integerSyntax($values['width_mm']) || !$integerSyntax($values['height_mm']) || !$integerSyntax($values['observed_at']) || !$integerSyntax($fieldsValue) || !$decimalSyntax($values['supplier_gross'])) {
       throw new \InvalidArgumentException('Observation numeric values must use canonical numeric syntax.');
     }
     $width = (int) $values['width_mm'];
     $height = (int) $values['height_mm'];
-    $gross = (float) $values['supplier_gross'];
+    $gross = (string) $values['supplier_gross'];
     $observedAt = (int) $values['observed_at'];
-    if ($system === '' || $configurationType === '' || $width < 1 || $height < 1 || !is_finite($gross) || $gross <= 0 || $observedAt < 1) {
+    $fieldsCount = (int) $fieldsValue;
+    if ($system === '' || $configurationType === '' || $width < 1 || $height < 1 || $fieldsCount < 1 || (float) $gross <= 0 || $observedAt < 1) {
       throw new \InvalidArgumentException('Invalid kozijn price observation.');
     }
 
@@ -38,7 +40,7 @@ final class KozijnPriceObservationRepository {
       'brand' => $this->nullable($values['brand'] ?? NULL),
       'width_mm' => $width,
       'height_mm' => $height,
-      'fields_count' => max(1, (int) ($values['fields_count'] ?? 1)),
+      'fields_count' => $fieldsCount,
       'configuration_type' => $configurationType,
       'glass_spec' => $this->nullable($values['glass_spec'] ?? NULL),
       'colour' => $this->nullable($values['colour'] ?? NULL),
