@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_inzet\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Render\Markup;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\HttpFoundation\Request;
 
@@ -32,17 +33,12 @@ final class OnSiteInstallController extends ControllerBase {
         '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Deze persoonlijke link activeert daarna automatisch je toestel.</p>',
       ],
       'activate' => $activationUrl !== '' ? [
-        '#type' => 'link',
-        '#title' => $this->t('Open en activeer OnSite'),
-        '#url' => Drupal\Core\Url::fromUri($activationUrl),
-        '#attributes' => [
-          'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
-        ],
+        '#markup' => Markup::create('<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;">' . htmlspecialchars((string) $this->t('Open en activeer OnSite'), ENT_QUOTES, 'UTF-8') . '</a>'),
       ] : [],
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op iPhone'),
-        '#url' => Drupal\Core\Url::fromUri($iosUrl),
+        '#url' => \Drupal\Core\Url::fromUri($iosUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -52,7 +48,7 @@ final class OnSiteInstallController extends ControllerBase {
       'android' => $androidUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op Android'),
-        '#url' => Drupal\Core\Url::fromUri($androidUrl),
+        '#url' => \Drupal\Core\Url::fromUri($androidUrl),
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
@@ -60,7 +56,7 @@ final class OnSiteInstallController extends ControllerBase {
       'note' => [
         '#markup' => '<p style="color:#666;font-size:14px;">Office bepaalt daarna automatisch je taal, projecten en projectzones. Je hoeft in OnSite niets handmatig in te stellen.</p>',
       ],
-      '#cache' => ['max-age' => 300],
+      '#cache' => ['max-age' => 0],
     ];
   }
 
