@@ -14,28 +14,32 @@ targets:
       - Sources
       - path: Resources
         buildPhase: resources
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleDisplayName: "BREBO OnSite"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        CFBundleIconName: AppIcon
+        ITSAppUsesNonExemptEncryption: false
+        OnSiteAPIBaseURL: "https://sboffice.brebobv.nl"
+        CFBundleURLTypes:
+          - CFBundleURLName: nl.brebo.onsite
+            CFBundleURLSchemes:
+              - brebo-onsite
+        NSLocationWhenInUseUsageDescription: "BREBO OnSite gebruikt je locatie om aanwezigheid op het toegewezen project te herkennen."
+        NSLocationAlwaysAndWhenInUseUsageDescription: "BREBO OnSite gebruikt geofencing om binnenkomst en vertrek bij toegewezen projecten aantoonbaar te registreren. Er wordt geen routehistorie opgeslagen."
+        UIBackgroundModes:
+          - location
+        UILaunchScreen: {}
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: nl.brebo.onsite
         MARKETING_VERSION: "1.0.0"
-        CURRENT_PROJECT_VERSION: "4"
+        CURRENT_PROJECT_VERSION: "5"
         TARGETED_DEVICE_FAMILY: "1"
         SUPPORTS_MACCATALYST: NO
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: "BREBO OnSite"
-        INFOPLIST_KEY_CFBundleIconName: AppIcon
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
-        INFOPLIST_KEY_OnSiteAPIBaseURL: "https://sboffice.brebobv.nl"
-        INFOPLIST_KEY_CFBundleURLTypes:
-          - CFBundleURLName: nl.brebo.onsite
-            CFBundleURLSchemes:
-              - brebo-onsite
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
-        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: "BREBO OnSite gebruikt je locatie om aanwezigheid op het toegewezen project te herkennen."
-        INFOPLIST_KEY_NSLocationAlwaysAndWhenInUseUsageDescription: "BREBO OnSite gebruikt geofencing om binnenkomst en vertrek bij toegewezen projecten aantoonbaar te registreren. Er wordt geen routehistorie opgeslagen."
-        INFOPLIST_KEY_UIBackgroundModes: location
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
     scheme:
       testTargets:
         - BreboCrewPOCTests
