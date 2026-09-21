@@ -31,6 +31,9 @@ struct CrewContentView: View {
             .onChange(of: identityStore.assignedProjects) {
                 syncProjectZones()
             }
+            .onChange(of: locationMonitor.authorizationStatus) {
+                syncProjectZones()
+            }
             .onChange(of: locationMonitor.events) {
                 Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
             }
