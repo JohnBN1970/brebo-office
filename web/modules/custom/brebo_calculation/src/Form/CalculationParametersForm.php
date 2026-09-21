@@ -56,7 +56,7 @@ final class CalculationParametersForm extends FormBase {
       '#default_value' => $version['commercial_method'], '#disabled' => $locked,
     ];
 
-    $form['tail_costs'] = ['#type' => 'details', '#title' => 'Staartkosten', '#open' => TRUE];
+    $form['tail_costs'] = ['#type' => 'details', '#title' => 'Staartkosten', '#open' => TRUE, '#tree' => TRUE];
     foreach (['general_cost_pct' => 'Algemene kosten (AK) %', 'risk_pct' => 'Risico / onvoorzien %', 'profit_pct' => 'Winst %'] as $key => $label) {
       $form['tail_costs'][$key] = [
         '#type' => 'number', '#title' => $label, '#default_value' => (float) $version[$key],
@@ -97,7 +97,10 @@ final class CalculationParametersForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     foreach (['general_cost_pct', 'risk_pct', 'profit_pct', 'single_margin_pct'] as $field) {
-      if ((float) $form_state->getValue($field) < 0) {
+      $value = in_array($field, ['general_cost_pct', 'risk_pct', 'profit_pct'], TRUE)
+        ? $form_state->getValue(['tail_costs', $field])
+        : $form_state->getValue($field);
+      if ((float) $value < 0) {
         $form_state->setErrorByName($field, 'Percentage kan niet negatief zijn.');
       }
     }
@@ -129,7 +132,13 @@ final class CalculationParametersForm extends FormBase {
       'price_date' => ($date = (string) $form_state->getValue('price_date')) !== '' ? $date : NULL,
       'price_level' => ($level = trim((string) $form_state->getValue('price_level'))) !== '' ? $level : NULL,
     ];
-    $values['content_hash'] = hash('sha256', json_encode([$calculationId, $versionName, $values], JSON_THROW_ON_ERROR));
+    $hashPayload = $current;
+    unset($hashPayload['id'], $hashPayload['content_hash']);
+    foreach ($values as $key => $value) {
+      $hashPayload[$key] = $value;
+    }
+    ksort($hashPayload);
+    $values['content_hash'] = hash('sha256', json_encode($hashPayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
 
     $updated = $this->database->update('brebo_calculation_version')
       ->fields($values)
