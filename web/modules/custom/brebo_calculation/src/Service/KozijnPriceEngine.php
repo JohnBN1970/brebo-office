@@ -12,13 +12,15 @@ namespace Drupal\brebo_calculation\Service;
  */
 final class KozijnPriceEngine {
 
-  public const MODEL_VERSION = '2026-09-21.1';
+  public const MODEL_VERSION = '2026-09-21.2';
   private const BREBO_DISCOUNT_PERCENT = 49.0;
 
   private const CALIBRATION = [
     'ideal4000' => ['fixed_1200x1200' => 242.17, 'dk_delta' => 118.10],
     'ideal7000_nl' => ['fixed_1200x1200' => 325.71, 'fixed_980x1360' => 311.06, 'dk_delta_mean' => 119.62],
   ];
+
+  public function __construct(private readonly KozijnPriceObservationRepository $observations) {}
 
   /** @param array<string,mixed> $configuration */
   public function estimate(array $configuration): array {
@@ -32,11 +34,12 @@ final class KozijnPriceEngine {
       return $this->unsupported('uncalibrated_geometry_or_function');
     }
 
-    $gross = match ($system) {
-      'ideal4000' => $this->ideal4000($width, $height, $type),
-      'ideal7000_nl' => $this->ideal7000Nl($width, $height, $type),
-      default => NULL,
-    };
+    $points = $this->observations->approved($system, $type, $fields);
+    if ($points === []) {
+      return $this->unsupported('no_approved_calibration');
+    }
+
+    $gross = $this->estimateFromApprovedPoints($system, $width, $height, $type, $points);
     if ($gross === NULL) {
       return $this->unsupported('uncalibrated_system');
     }
@@ -83,13 +86,57 @@ final class KozijnPriceEngine {
     ];
   }
 
-  private function ideal4000(int $width, int $height, string $type): float {
+  /** @param array<int,array<string,mixed>> $points */
+  private function estimateFromApprovedPoints(string $system, int $width, int $height, string $type, array $points): ?float {
+    foreach ($points as $point) {
+      if ((int) $point['width_mm'] === $width && (int) $point['height_mm'] === $height) {
+        return (float) $point['supplier_gross'];
+      }
+    }
+
+    if ($system === 'ideal4000') {
+      $fixed = $this->observations->approved($system, 'vast', 1);
+      $anchor = $this->findPoint($fixed, 1200, 1200);
+      $dk = $this->findPoint($points, 1200, 1200);
+      if ($anchor === NULL) return NULL;
+      $areaDelta = (($width * $height) - 1_440_000) / 1_000_000;
+      return $anchor + (85.0 * $areaDelta) + ($type === 'draai-kiep' && $dk !== NULL ? $dk - $anchor : 0.0);
+    }
+
+    if ($system === 'ideal7000_nl') {
+      $fixed = $this->observations->approved($system, 'vast', 1);
+      $v1 = $this->findPoint($fixed, 1200, 1200);
+      $v2 = $this->findPoint($fixed, 980, 1360);
+      if ($v1 === NULL || $v2 === NULL) return NULL;
+      $perimeter = 2 * ($width + $height) / 1000;
+      $base = $v1 + (($perimeter - 4.8) * (($v1 - $v2) / (4.8 - 4.68)));
+      if ($type === 'vast') return $base;
+      $dk1 = $this->findPoint($points, 1200, 1200);
+      $dk2 = $this->findPoint($points, 980, 1360);
+      if ($dk1 === NULL || $dk2 === NULL) return NULL;
+      return $base + ((($dk1 - $v1) + ($dk2 - $v2)) / 2);
+    }
+
+    return NULL;
+  }
+
+  /** @param array<int,array<string,mixed>> $points */
+  private function findPoint(array $points, int $width, int $height): ?float {
+    foreach ($points as $point) {
+      if ((int) $point['width_mm'] === $width && (int) $point['height_mm'] === $height) {
+        return (float) $point['supplier_gross'];
+      }
+    }
+    return NULL;
+  }
+
+  private function legacyIdeal4000(int $width, int $height, string $type): float {
     $areaDelta = (($width * $height) - 1_440_000) / 1_000_000;
     return self::CALIBRATION['ideal4000']['fixed_1200x1200'] + (85.0 * $areaDelta)
       + ($type === 'draai-kiep' ? self::CALIBRATION['ideal4000']['dk_delta'] : 0.0);
   }
 
-  private function ideal7000Nl(int $width, int $height, string $type): float {
+  private function legacyIdeal7000Nl(int $width, int $height, string $type): float {
     $p1 = 4.8; $v1 = self::CALIBRATION['ideal7000_nl']['fixed_1200x1200'];
     $p2 = 4.68; $v2 = self::CALIBRATION['ideal7000_nl']['fixed_980x1360'];
     $perimeter = 2 * ($width + $height) / 1000;
