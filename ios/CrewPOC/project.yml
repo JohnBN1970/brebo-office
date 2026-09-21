@@ -18,6 +18,8 @@ targets:
       path: Resources/Info.plist
       properties:
         CFBundleDisplayName: "BREBO OnSite"
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         CFBundleIconName: AppIcon
         ITSAppUsesNonExemptEncryption: false
         OnSiteAPIBaseURL: "https://sboffice.brebobv.nl"
