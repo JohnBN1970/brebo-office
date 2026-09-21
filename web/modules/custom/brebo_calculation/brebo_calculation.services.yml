@@ -1,4 +1,7 @@
 services:
+  brebo_calculation.kozijn_price_engine:
+    class: Drupal\brebo_calculation\Service\KozijnPriceEngine
+
   brebo_calculation.commercial_calculator:
     class: Drupal\brebo_calculation\Service\CommercialCalculator
 
