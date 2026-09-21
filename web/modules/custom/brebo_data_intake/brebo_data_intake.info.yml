@@ -3,3 +3,5 @@ type: module
 description: 'BREBO-brede inname-, normalisatie- en masterdatafoundation voor API-, document-, mail-, tabel- en bestandsbronnen.'
 package: BREBO
 core_version_requirement: ^10 || ^11
+dependencies:
+  - brebo_calculation:brebo_calculation
