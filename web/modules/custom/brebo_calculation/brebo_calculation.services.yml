@@ -5,6 +5,12 @@ services:
   brebo_calculation.commercial_calculator:
     class: Drupal\brebo_calculation\Service\CommercialCalculator
 
+  brebo_calculation.kozijn_commercial_price:
+    class: Drupal\brebo_calculation\Service\KozijnCommercialPriceService
+    arguments:
+      - '@brebo_calculation.kozijn_price_engine'
+      - '@brebo_calculation.commercial_calculator'
+
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
 
