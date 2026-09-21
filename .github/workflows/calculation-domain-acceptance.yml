@@ -111,6 +111,7 @@ jobs:
           grep -q "Division by zero in recipe formula" "$evaluator"
           php web/modules/custom/brebo_calculation/tests/recipe_formula_smoke.php
           php web/modules/custom/brebo_calculation/tests/kozijn_price_engine_smoke.php
+          php web/modules/custom/brebo_calculation/tests/kozijn_commercial_price_smoke.php
 
       - name: Prove migration guardrails
         shell: bash
