@@ -14,24 +14,27 @@ final class KozijnPriceObservationRepository {
   /** @param array<string,mixed> $values */
   public function add(array $values, ?int $userId = NULL): int {
     foreach (['system', 'width_mm', 'height_mm', 'configuration_type', 'supplier_gross', 'observed_at'] as $required) {
-      if (!isset($values[$required]) || $values[$required] === '') {
+      if (!array_key_exists($required, $values)) {
         throw new \InvalidArgumentException('Missing required observation field: ' . $required);
       }
     }
+    $system = trim((string) $values['system']);
+    $configurationType = trim((string) $values['configuration_type']);
     $width = (int) $values['width_mm'];
     $height = (int) $values['height_mm'];
     $gross = (float) $values['supplier_gross'];
-    if ($width < 1 || $height < 1 || !is_finite($gross) || $gross <= 0) {
+    $observedAt = is_numeric($values['observed_at']) ? (int) $values['observed_at'] : 0;
+    if ($system === '' || $configurationType === '' || $width < 1 || $height < 1 || !is_finite($gross) || $gross <= 0 || $observedAt < 1) {
       throw new \InvalidArgumentException('Invalid kozijn price observation.');
     }
 
     return (int) $this->database->insert('brebo_kozijn_price_observation')->fields([
-      'system' => trim((string) $values['system']),
+      'system' => $system,
       'brand' => $this->nullable($values['brand'] ?? NULL),
       'width_mm' => $width,
       'height_mm' => $height,
       'fields_count' => max(1, (int) ($values['fields_count'] ?? 1)),
-      'configuration_type' => trim((string) $values['configuration_type']),
+      'configuration_type' => $configurationType,
       'glass_spec' => $this->nullable($values['glass_spec'] ?? NULL),
       'colour' => $this->nullable($values['colour'] ?? NULL),
       'joint_type' => $this->nullable($values['joint_type'] ?? NULL),
@@ -40,7 +43,7 @@ final class KozijnPriceObservationRepository {
       'currency' => strtoupper(trim((string) ($values['currency'] ?? 'EUR'))),
       'source_type' => trim((string) ($values['source_type'] ?? 'controlled_quote')),
       'source_ref' => $this->nullable($values['source_ref'] ?? NULL),
-      'observed_at' => (int) $values['observed_at'],
+      'observed_at' => $observedAt,
       'status' => (string) ($values['status'] ?? 'review'),
       'metadata' => isset($values['metadata']) ? json_encode($values['metadata'], JSON_THROW_ON_ERROR) : NULL,
       'created' => time(),
