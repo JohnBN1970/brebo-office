@@ -45,13 +45,30 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
       return $this->indicationUnavailable('commercial_policy_not_configured');
     }
 
+    $method = $policy['commercial_method'] ?? NULL;
+    if (!is_string($method) || !in_array($method, ['tail_costs', 'single_margin'], TRUE)) {
+      return $this->indicationUnavailable('commercial_policy_invalid');
+    }
+
+    $required = $method === 'single_margin'
+      ? ['single_margin_pct']
+      : ['general_cost_pct', 'risk_pct', 'profit_pct'];
+    foreach ($required as $key) {
+      if (!array_key_exists($key, $policy) || !is_numeric($policy[$key]) || (float) $policy[$key] < 0.0) {
+        return $this->indicationUnavailable('commercial_policy_invalid');
+      }
+    }
+    if (!array_key_exists('commercial_adjustment', $policy) || !is_numeric($policy['commercial_adjustment'])) {
+      return $this->indicationUnavailable('commercial_policy_invalid');
+    }
+
     $parameters = new CalculationParameters(
-      commercialMethod: (string) ($policy['commercial_method'] ?? 'tail_costs'),
+      commercialMethod: $method,
       generalCostPct: (float) ($policy['general_cost_pct'] ?? 0.0),
       riskPct: (float) ($policy['risk_pct'] ?? 0.0),
       profitPct: (float) ($policy['profit_pct'] ?? 0.0),
       singleMarginPct: (float) ($policy['single_margin_pct'] ?? 0.0),
-      commercialAdjustment: (float) ($policy['commercial_adjustment'] ?? 0.0),
+      commercialAdjustment: (float) $policy['commercial_adjustment'],
     );
     $result = $this->priceService->calculate($payload['configuration'], $parameters);
     $public = $result['public'] ?? [
