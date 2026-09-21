@@ -37,6 +37,16 @@ foreach (['supplier_gross', 'net_purchase_expected', 'brebo_discount_percent'] a
     throw new RuntimeException('Public commercial indication leaks internal data: ' . $secret);
   }
 }
+$zeroBand = $service->calculate([
+  'width_mm' => 400,
+  'height_mm' => 700,
+  'system' => 'ideal7000_nl',
+  'type' => 'vast',
+  'fields' => 1,
+], new CalculationParameters());
+if (($zeroBand['status'] ?? NULL) !== 'insufficient_calibration') {
+  throw new RuntimeException('Non-positive public price bands must not be published.');
+}
 $unsupported = $service->calculate([
   'width_mm' => 1200,
   'height_mm' => 1200,
