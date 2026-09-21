@@ -41,7 +41,7 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
     // Commercial policy is Office-owned and fail-closed. A public amount may
     // only leave Office after an explicit commercial policy is configured.
     $policy = Settings::get('kozijn_public_price_policy');
-    if (!is_array($policy) || empty($policy['enabled'])) {
+    if (!is_array($policy) || ($policy['enabled'] ?? NULL) !== TRUE) {
       return $this->indicationUnavailable('commercial_policy_not_configured');
     }
 
@@ -54,21 +54,31 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
       ? ['single_margin_pct']
       : ['general_cost_pct', 'risk_pct', 'profit_pct'];
     foreach ($required as $key) {
-      if (!array_key_exists($key, $policy) || !is_numeric($policy[$key]) || (float) $policy[$key] < 0.0) {
+      if (!array_key_exists($key, $policy) || !is_numeric($policy[$key])) {
+        return $this->indicationUnavailable('commercial_policy_invalid');
+      }
+      $value = (float) $policy[$key];
+      if (!is_finite($value) || $value < 0.0) {
         return $this->indicationUnavailable('commercial_policy_invalid');
       }
     }
     if (!array_key_exists('commercial_adjustment', $policy) || !is_numeric($policy['commercial_adjustment'])) {
       return $this->indicationUnavailable('commercial_policy_invalid');
     }
+    $adjustment = (float) $policy['commercial_adjustment'];
+    if (!is_finite($adjustment)) {
+      return $this->indicationUnavailable('commercial_policy_invalid');
+    }
 
+    // Forward only parameters active for the selected method. Stale inactive
+    // settings must never turn a safe public request into an exception.
     $parameters = new CalculationParameters(
       commercialMethod: $method,
-      generalCostPct: (float) ($policy['general_cost_pct'] ?? 0.0),
-      riskPct: (float) ($policy['risk_pct'] ?? 0.0),
-      profitPct: (float) ($policy['profit_pct'] ?? 0.0),
-      singleMarginPct: (float) ($policy['single_margin_pct'] ?? 0.0),
-      commercialAdjustment: (float) $policy['commercial_adjustment'],
+      generalCostPct: $method === 'tail_costs' ? (float) $policy['general_cost_pct'] : 0.0,
+      riskPct: $method === 'tail_costs' ? (float) $policy['risk_pct'] : 0.0,
+      profitPct: $method === 'tail_costs' ? (float) $policy['profit_pct'] : 0.0,
+      singleMarginPct: $method === 'single_margin' ? (float) $policy['single_margin_pct'] : 0.0,
+      commercialAdjustment: $adjustment,
     );
     $result = $this->priceService->calculate($payload['configuration'], $parameters);
     $public = $result['public'] ?? [
