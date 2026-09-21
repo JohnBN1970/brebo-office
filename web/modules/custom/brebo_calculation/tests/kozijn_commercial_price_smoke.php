@@ -37,6 +37,16 @@ foreach (['supplier_gross', 'net_purchase_expected', 'brebo_discount_percent'] a
     throw new RuntimeException('Public commercial indication leaks internal data: ' . $secret);
   }
 }
+$roundedZeroBand = $service->calculate([
+  'width_mm' => 1200,
+  'height_mm' => 1200,
+  'system' => 'ideal7000_nl',
+  'type' => 'vast',
+  'fields' => 1,
+], new CalculationParameters(commercialMethod: 'single_margin', singleMarginPct: 10.0, commercialAdjustment: -168.10));
+if (($roundedZeroBand['status'] ?? NULL) !== 'insufficient_calibration') {
+  throw new RuntimeException('A public price that rounds to zero must not be published.');
+}
 $zeroBand = $service->calculate([
   'width_mm' => 400,
   'height_mm' => 700,
