@@ -34,6 +34,14 @@ final class KozijnCommercialPriceService {
     $expected = $this->commercialCalculator->calculate((float) $estimate['net_purchase_expected'], $parameters);
     $high = $this->commercialCalculator->calculate((float) $estimate['net_purchase_high'], $parameters);
 
+    if ($low->salesPrice <= 0 || $expected->salesPrice <= 0 || $high->salesPrice <= 0) {
+      return [
+        'status' => 'insufficient_calibration',
+        'model_version' => $estimate['model_version'],
+        'reason' => 'non_positive_public_price_band',
+      ];
+    }
+
     return [
       'status' => 'calculated',
       'model_version' => $estimate['model_version'],
