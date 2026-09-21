@@ -38,10 +38,21 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
       return $this->error(422, 'invalid_payload');
     }
 
-    // Commercial policy is Office-owned. Do not accept margin parameters from
-    // the public caller. Until configured policy is introduced, zero markup is
-    // explicit rather than invented here.
-    $parameters = new CalculationParameters();
+    // Commercial policy is Office-owned and fail-closed. A public amount may
+    // only leave Office after an explicit commercial policy is configured.
+    $policy = Settings::get('kozijn_public_price_policy');
+    if (!is_array($policy) || empty($policy['enabled'])) {
+      return $this->indicationUnavailable('commercial_policy_not_configured');
+    }
+
+    $parameters = new CalculationParameters(
+      commercialMethod: (string) ($policy['commercial_method'] ?? 'tail_costs'),
+      generalCostPct: (float) ($policy['general_cost_pct'] ?? 0.0),
+      riskPct: (float) ($policy['risk_pct'] ?? 0.0),
+      profitPct: (float) ($policy['profit_pct'] ?? 0.0),
+      singleMarginPct: (float) ($policy['single_margin_pct'] ?? 0.0),
+      commercialAdjustment: (float) ($policy['commercial_adjustment'] ?? 0.0),
+    );
     $result = $this->priceService->calculate($payload['configuration'], $parameters);
     $public = $result['public'] ?? [
       'status' => 'insufficient_calibration',
@@ -71,6 +82,19 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
     $bodyHash = hash('sha256', $raw);
     $canonical = implode("\n", ['POST', $request->getPathInfo(), $bodyHash, $timestamp, $requestId]);
     return hash_equals(hash_hmac('sha256', $canonical, $secret), $match[1]);
+  }
+
+  private function indicationUnavailable(string $reason): JsonResponse {
+    $response = new JsonResponse([
+      'status' => 'ok',
+      'indication' => [
+        'status' => 'temporarily_unavailable',
+        'reason' => $reason,
+      ],
+    ], 200);
+    $response->headers->set('Cache-Control', 'private, no-store');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    return $response;
   }
 
   private function error(int $status, string $code): JsonResponse {
