@@ -42,6 +42,7 @@ final class OnSiteInviteController extends ControllerBase {
     }
     $message = (string) $this->t('BREBO OnSite: open deze persoonlijke link op je iPhone om OnSite eenmalig aan Office te koppelen:');
     $message .= ' ' . $invitation['install_url'];
+    $message .= "\n\n" . (string) $this->t("Belangrijk: zet locatievoorziening aan en geef BREBO OnSite locatietoegang 'Altijd'. Alleen dan kan automatische aanwezigheid op toegewezen projectlocaties werken.");
     $whatsAppUrl = 'https://wa.me/' . $digits . '?text=' . rawurlencode((string) $message);
 
     return [
