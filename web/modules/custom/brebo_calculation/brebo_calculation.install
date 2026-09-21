@@ -35,6 +35,8 @@ function brebo_calculation_schema(): array {
     'primary key' => ['calc_line_id', 'version'], 'indexes' => ['calculation_version_paragraph' => ['calculation_id', 'version', 'paragraph_key'], 'calculation_version_rule_type' => ['calculation_id', 'version', 'rule_type']],
   ];
 
+  $schema['brebo_kozijn_price_observation'] = brebo_calculation_kozijn_price_observation_schema();
+
   $schema += brebo_calculation_recipe_schema();
   $schema['brebo_calculation_price_source'] = brebo_calculation_price_source_schema();
   $schema['brebo_calculation_price_source_line'] = brebo_calculation_price_source_line_schema();
@@ -110,4 +112,49 @@ function brebo_calculation_price_source_line_schema(): array {
     'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'price_source_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'calc_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'source_line_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE], 'extracted_description' => ['type' => 'text', 'not null' => FALSE], 'extracted_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'extracted_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'extracted_unit_price' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'extracted_total' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'proposed_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'approved_oa_unit_cost' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'approval_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'review'], 'is_active_source' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0], 'approval_note' => ['type' => 'text', 'not null' => FALSE], 'approved' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'approved_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
     'primary key' => ['id'], 'unique keys' => ['source_calculation_line' => ['price_source_id', 'calc_line_id', 'version']], 'indexes' => ['calculation_line' => ['calculation_id', 'version', 'calc_line_id'], 'active_source' => ['calculation_id', 'version', 'calc_line_id', 'is_active_source'], 'approval_status' => ['approval_status']],
   ];
+}
+
+
+/** Auditable calibration observations for the canonical kozijn price engine. */
+function brebo_calculation_kozijn_price_observation_schema(): array {
+  return [
+    'description' => 'Approved supplier price observations used to calibrate the kozijn engine.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'system' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'brand' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'width_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'height_mm' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'fields_count' => ['type' => 'int', 'size' => 'small', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 1],
+      'configuration_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'glass_spec' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'colour' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'joint_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'rebate_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'supplier_gross' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE],
+      'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
+      'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'controlled_quote'],
+      'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+      'observed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'review'],
+      'metadata' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'calibration_scope' => ['system', 'configuration_type', 'fields_count', 'status'],
+      'dimensions' => ['width_mm', 'height_mm'],
+      'observed_at' => ['observed_at'],
+    ],
+  ];
+}
+
+/** Install the kozijn calibration dataset on existing installations. */
+function brebo_calculation_update_11001(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_kozijn_price_observation')) {
+    $definition = brebo_calculation_kozijn_price_observation_schema();
+    $schema->createTable('brebo_kozijn_price_observation', $definition);
+  }
 }
