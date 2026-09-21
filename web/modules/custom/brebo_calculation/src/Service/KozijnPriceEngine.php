@@ -40,6 +40,9 @@ final class KozijnPriceEngine {
     if ($gross === NULL) {
       return $this->unsupported('uncalibrated_system');
     }
+    if ($gross <= 0) {
+      return $this->unsupported('outside_calibrated_price_domain');
+    }
 
     $band = max(15.0, $gross * 0.08);
     $net = $gross * (1 - self::BREBO_DISCOUNT_PERCENT / 100);
