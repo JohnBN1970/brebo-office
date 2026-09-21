@@ -34,7 +34,10 @@ final class KozijnCommercialPriceService {
     $expected = $this->commercialCalculator->calculate((float) $estimate['net_purchase_expected'], $parameters);
     $high = $this->commercialCalculator->calculate((float) $estimate['net_purchase_high'], $parameters);
 
-    if ($low->salesPrice <= 0 || $expected->salesPrice <= 0 || $high->salesPrice <= 0) {
+    $publicLow = round($low->salesPrice, 2);
+    $publicExpected = round($expected->salesPrice, 2);
+    $publicHigh = round($high->salesPrice, 2);
+    if ($publicLow <= 0 || $publicExpected <= 0 || $publicHigh <= 0) {
       return [
         'status' => 'insufficient_calibration',
         'model_version' => $estimate['model_version'],
@@ -53,9 +56,9 @@ final class KozijnCommercialPriceService {
       'public' => [
         'status' => 'indicative',
         'currency' => 'EUR',
-        'expected' => round($expected->salesPrice, 2),
-        'low' => round($low->salesPrice, 2),
-        'high' => round($high->salesPrice, 2),
+        'expected' => $publicExpected,
+        'low' => $publicLow,
+        'high' => $publicHigh,
         'reliability' => $estimate['reliability'],
         'model_version' => $estimate['model_version'],
         'disclaimer' => 'Prijsindicatie op basis van de bekende configuratie; definitieve prijs volgt na technische en commerciële controle door BREBO.',
