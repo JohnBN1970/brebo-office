@@ -26,14 +26,14 @@ final class OnSiteInstallController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => [
-        'style' => 'max-width:520px;margin:48px auto;padding:24px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;',
+        'style' => 'max-width:520px;min-height:100vh;margin:0 auto;padding:64px 24px 40px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;background:#2196f3;color:#fff;',
         'lang' => $language,
       ],
       'title' => [
-        '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Deze persoonlijke link activeert daarna automatisch je toestel.</p>',
+        '#markup' => '<h1 style="margin:24px 0 12px;color:#fff;font-size:36px;line-height:1.1;">BREBO OnSite</h1><p style="margin:0 auto 28px;max-width:420px;color:#fff;font-size:18px;line-height:1.5;">Activeer OnSite op deze iPhone. Je persoonlijke koppeling wordt automatisch verwerkt.</p>',
       ],
       'activate' => $activationUrl !== '' ? [
-        '#markup' => Markup::create('<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;">' . htmlspecialchars((string) $this->t('Open en activeer OnSite'), ENT_QUOTES, 'UTF-8') . '</a>'),
+        '#markup' => Markup::create('<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:18px;margin:24px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:16px;font-size:18px;font-weight:700;box-shadow:0 8px 24px rgba(39,13,58,.22);">' . htmlspecialchars((string) $this->t('Open BREBO OnSite'), ENT_QUOTES, 'UTF-8') . '</a>'),
       ] : [],
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
@@ -42,9 +42,7 @@ final class OnSiteInstallController extends ControllerBase {
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
-      ] : [
-        '#markup' => '<p><strong>iPhone-installatie wordt binnenkort beschikbaar.</strong></p>',
-      ],
+      ] : [],
       'android' => $androidUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op Android'),
@@ -54,7 +52,7 @@ final class OnSiteInstallController extends ControllerBase {
         ],
       ] : [],
       'note' => [
-        '#markup' => '<p style="color:#666;font-size:14px;">Office bepaalt daarna automatisch je taal, projecten en projectzones. Je hoeft in OnSite niets handmatig in te stellen.</p>',
+        '#markup' => '<p style="margin:28px auto 0;max-width:420px;color:rgba(255,255,255,.9);font-size:15px;line-height:1.5;">Projecten en projectzones komen rechtstreeks uit BREBO Office. Je hoeft in OnSite niets handmatig in te stellen.</p>',
       ],
       '#cache' => ['max-age' => 0],
     ];
