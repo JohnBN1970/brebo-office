@@ -45,16 +45,21 @@ final class KozijnPriceEngine {
     }
 
     $band = max(15.0, $gross * 0.08);
-    $net = $gross * (1 - self::BREBO_DISCOUNT_PERCENT / 100);
+    $discountFactor = 1 - self::BREBO_DISCOUNT_PERCENT / 100;
+    $grossLow = max(0, $gross - $band);
+    $grossHigh = $gross + $band;
+    $net = $gross * $discountFactor;
 
     return [
       'supported' => TRUE,
       'model_version' => self::MODEL_VERSION,
       'reliability' => 'C',
       'supplier_gross' => round($gross, 2),
-      'supplier_gross_low' => round(max(0, $gross - $band), 2),
-      'supplier_gross_high' => round($gross + $band, 2),
+      'supplier_gross_low' => round($grossLow, 2),
+      'supplier_gross_high' => round($grossHigh, 2),
+      'net_purchase_low' => round($grossLow * $discountFactor, 2),
       'net_purchase_expected' => round($net, 2),
+      'net_purchase_high' => round($grossHigh * $discountFactor, 2),
       'brebo_discount_percent' => self::BREBO_DISCOUNT_PERCENT,
     ];
   }
