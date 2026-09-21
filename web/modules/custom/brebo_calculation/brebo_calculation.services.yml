@@ -11,6 +11,13 @@ services:
       - '@brebo_calculation.kozijn_price_engine'
       - '@brebo_calculation.commercial_calculator'
 
+  brebo_calculation.result:
+    class: Drupal\brebo_calculation\Service\CalculationResultService
+    arguments:
+      - '@database'
+      - '@entity_type.manager'
+      - '@brebo_calculation.commercial_calculator'
+
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
 
