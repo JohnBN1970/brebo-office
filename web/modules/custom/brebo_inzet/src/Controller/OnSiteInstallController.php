@@ -26,14 +26,14 @@ final class OnSiteInstallController extends ControllerBase {
     return [
       '#type' => 'container',
       '#attributes' => [
-        'style' => 'max-width:520px;margin:48px auto;padding:24px;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;',
+        'style' => 'max-width:520px;min-height:100vh;margin:0 auto;padding:34px 24px 44px;box-sizing:border-box;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif;text-align:center;background:linear-gradient(180deg,#0b4f8a 0%,#0a3f73 56%,#082f58 100%);color:#fff;position:relative;overflow:hidden;',
         'lang' => $language,
       ],
       'title' => [
-        '#markup' => '<h1>BREBO OnSite</h1><p>Installeer OnSite op je telefoon. Deze persoonlijke link activeert daarna automatisch je toestel.</p>',
+        '#markup' => Markup::create('<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:34px;"><div style="display:flex;align-items:center;gap:12px;text-align:left;"><div style="width:54px;height:54px;border-radius:14px;background:#fff;color:#0b4f8a;display:flex;align-items:center;justify-content:center;font-size:34px;font-weight:800;">B</div><div><div style="font-size:28px;font-weight:800;letter-spacing:.2px;">BREBO</div><div style="font-size:12px;letter-spacing:2.4px;opacity:.9;">BOUW &amp; ADVIES</div></div></div><div style="text-align:right;font-size:11px;line-height:1.6;letter-spacing:2px;opacity:.85;">INZICHT<br>REGIE<br>REALISATIE</div></div><div style="width:112px;height:112px;margin:0 auto 22px;border-radius:28px;background:#fff;color:#0b4f8a;display:flex;align-items:center;justify-content:center;font-size:70px;font-weight:800;box-shadow:0 14px 34px rgba(0,0,0,.18);">B</div><h1 style="margin:0 0 14px;color:#fff;font-size:38px;line-height:1.1;">BREBO OnSite</h1><p style="margin:0 auto 12px;max-width:420px;color:#fff;font-size:22px;line-height:1.35;">Activeer OnSite op dit toestel.</p><p style="margin:0 auto 28px;max-width:420px;color:#fff;font-size:16px;line-height:1.55;">Deze persoonlijke link koppelt automatisch je toestel aan jouw BREBO-account. Projecten en projectzones komen rechtstreeks uit BREBO Office.</p>'),
       ],
       'activate' => $activationUrl !== '' ? [
-        '#markup' => Markup::create('<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;">' . htmlspecialchars((string) $this->t('Open en activeer OnSite'), ENT_QUOTES, 'UTF-8') . '</a>'),
+        '#markup' => Markup::create('<a href="' . htmlspecialchars($activationUrl, ENT_QUOTES, 'UTF-8') . '" style="display:block;padding:18px;margin:26px 0 30px;background:linear-gradient(90deg,#6f35a7,#8a4ac7);color:white;text-decoration:none;border-radius:18px;font-size:19px;font-weight:800;box-shadow:0 10px 28px rgba(26,5,46,.28);">' . htmlspecialchars((string) $this->t('Open BREBO OnSite'), ENT_QUOTES, 'UTF-8') . '</a>'),
       ] : [],
       'ios' => $iosUrl !== '' ? [
         '#type' => 'link',
@@ -42,9 +42,7 @@ final class OnSiteInstallController extends ControllerBase {
         '#attributes' => [
           'style' => 'display:block;padding:16px;margin:20px 0;background:#5b2c83;color:white;text-decoration:none;border-radius:12px;font-weight:700;',
         ],
-      ] : [
-        '#markup' => '<p><strong>iPhone-installatie wordt binnenkort beschikbaar.</strong></p>',
-      ],
+      ] : [],
       'android' => $androidUrl !== '' ? [
         '#type' => 'link',
         '#title' => $this->t('Installeer op Android'),
@@ -54,7 +52,7 @@ final class OnSiteInstallController extends ControllerBase {
         ],
       ] : [],
       'note' => [
-        '#markup' => '<p style="color:#666;font-size:14px;">Office bepaalt daarna automatisch je taal, projecten en projectzones. Je hoeft in OnSite niets handmatig in te stellen.</p>',
+        '#markup' => Markup::create('<div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:6px;"><div style="padding:14px 8px;border-radius:16px;background:rgba(255,255,255,.09);"><div style="font-size:26px;">⌖</div><strong style="display:block;margin-top:7px;font-size:13px;line-height:1.25;">Automatische<br>locatie</strong><span style="display:block;margin-top:6px;font-size:11px;line-height:1.35;opacity:.86;">Alleen op toegewezen locaties</span></div><div style="padding:14px 8px;border-radius:16px;background:rgba(255,255,255,.09);"><div style="font-size:24px;">▣</div><strong style="display:block;margin-top:7px;font-size:13px;line-height:1.25;">Direct je<br>projecten</strong><span style="display:block;margin-top:6px;font-size:11px;line-height:1.35;opacity:.86;">Uit BREBO Office</span></div><div style="padding:14px 8px;border-radius:16px;background:rgba(255,255,255,.09);"><div style="font-size:24px;">✓</div><strong style="display:block;margin-top:7px;font-size:13px;line-height:1.25;">Veilig en<br>persoonlijk</strong><span style="display:block;margin-top:6px;font-size:11px;line-height:1.35;opacity:.86;">Jouw link, jouw toestel</span></div></div><div style="margin-top:34px;font-size:24px;font-style:italic;font-family:Georgia,serif;opacity:.82;text-align:left;line-height:1.25;transform:rotate(-3deg);">Samen bouwen<br>aan morgen.</div>'),
       ],
       '#cache' => ['max-age' => 0],
     ];
