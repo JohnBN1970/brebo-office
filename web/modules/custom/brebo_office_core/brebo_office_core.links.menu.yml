@@ -19,3 +19,11 @@ brebo_office_core.finance_decisions_menu:
   menu_name: main
   parent: brebo_office_core.finance_menu
   weight: 1
+
+
+brebo_office_core.calculations_menu:
+  title: 'Calculaties'
+  description: 'Calculaties openen en beheren'
+  route_name: brebo_office_core.calculations
+  menu_name: main
+  weight: -6
