@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CrewContentView: View {
     @StateObject private var locationMonitor = CrewLocationMonitor()
@@ -11,18 +12,14 @@ struct CrewContentView: View {
     var body: some View {
         NavigationStack {
             Group {
-                if !hasLocationPermission {
-                    permissionView
-                } else {
-                    switch identityStore.state {
-                    case .unlinked, .requestingCode:
-                        linkView
-                    case .codeSent(let phoneNumber, let challengeId),
-                         .verifying(let phoneNumber, let challengeId):
-                        verificationView(phoneNumber: phoneNumber, challengeId: challengeId)
-                    case .linked(let employeeId, let displayName, _):
-                        operationalView(employeeId: employeeId, displayName: displayName)
-                    }
+                switch identityStore.state {
+                case .unlinked, .requestingCode:
+                    linkView
+                case .codeSent(let phoneNumber, let challengeId),
+                     .verifying(let phoneNumber, let challengeId):
+                    verificationView(phoneNumber: phoneNumber, challengeId: challengeId)
+                case .linked(let employeeId, let displayName, _):
+                    operationalView(employeeId: employeeId, displayName: displayName)
                 }
             }
             .padding()
@@ -32,6 +29,9 @@ struct CrewContentView: View {
                 syncProjectZones()
             }
             .onChange(of: identityStore.assignedProjects) {
+                syncProjectZones()
+            }
+            .onChange(of: locationMonitor.authorizationStatus) {
                 syncProjectZones()
             }
             .onChange(of: locationMonitor.events) {
@@ -62,32 +62,62 @@ struct CrewContentView: View {
         }
     }
 
-    private var hasLocationPermission: Bool {
-        locationMonitor.authorizationStatus == .authorizedAlways ||
-        locationMonitor.authorizationStatus == .authorizedWhenInUse
+    private var hasAutomaticPresencePermission: Bool {
+        locationMonitor.authorizationStatus == .authorizedAlways
     }
 
-    private var permissionView: some View {
-        VStack(spacing: 20) {
-            Image(systemName: "mappin.and.ellipse")
-                .font(.system(size: 48))
+    @ViewBuilder
+    private var locationStatusCard: some View {
+        if !hasAutomaticPresencePermission {
+            GroupBox("Automatische aanwezigheid") {
+                VStack(alignment: .leading, spacing: 10) {
+                    Label("Automatische aanwezigheid uit", systemImage: "location.slash")
+                        .font(.headline)
 
-            Text("BREBO OnSite")
-                .font(.largeTitle.bold())
+                    Text(locationGuidanceText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
 
-            Text("Aantoonbare aanwezigheid op toegewezen projecten, zonder routehistorie.")
-                .multilineTextAlignment(.center)
-
-            Button("Locatietoegang voorbereiden") {
-                locationMonitor.requestAuthorization()
+                    Button(locationActionTitle) {
+                        handleLocationAction()
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .buttonStyle(.borderedProminent)
-
-            Text("Status: \(authorizationText)")
-                .font(.caption)
-
-            Spacer()
         }
+    }
+
+    private var locationGuidanceText: String {
+        switch locationMonitor.authorizationStatus {
+        case .notDetermined:
+            return "Geef OnSite locatietoegang om automatisch IN/UIT op toegewezen projectzones te herkennen. De rest van de app blijft bruikbaar."
+        case .authorizedWhenInUse:
+            return "Locatie is alleen tijdens gebruik toegestaan. Kies 'Altijd' in Instellingen voor automatische aanwezigheid op de achtergrond."
+        case .denied:
+            return "Locatietoegang is uitgeschakeld. Projecten blijven zichtbaar, maar automatische IN/UIT-waarnemingen worden niet gemaakt."
+        case .restricted:
+            return "Locatietoegang is op dit toestel beperkt. Projecten blijven zichtbaar, maar automatische aanwezigheid is niet beschikbaar."
+        case .authorizedAlways:
+            return "Automatische aanwezigheid is actief."
+        @unknown default:
+            return "Locatiestatus is onbekend. Projecten blijven zichtbaar; automatische aanwezigheid is mogelijk niet beschikbaar."
+        }
+    }
+
+    private var locationActionTitle: String {
+        locationMonitor.authorizationStatus == .notDetermined
+            ? "Locatie inschakelen"
+            : "Open Instellingen"
+    }
+
+    private func handleLocationAction() {
+        if locationMonitor.authorizationStatus == .notDetermined {
+            locationMonitor.requestAuthorization()
+            return
+        }
+        guard let settingsURL = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(settingsURL)
     }
 
     private var linkView: some View {
@@ -174,6 +204,8 @@ struct CrewContentView: View {
     private func operationalView(employeeId: String, displayName: String) -> some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
+                locationStatusCard
+
                 HStack {
                     Image(systemName: "checkmark.circle.fill")
                     VStack(alignment: .leading) {
@@ -213,7 +245,9 @@ struct CrewContentView: View {
 
                 GroupBox("Aanwezigheid") {
                     VStack(alignment: .leading, spacing: 8) {
-                        if let active = activePresenceText {
+                        if !hasAutomaticPresencePermission {
+                            Label("Automatische aanwezigheid uit", systemImage: "location.slash")
+                        } else if let active = activePresenceText {
                             Label(active, systemImage: "mappin.and.ellipse")
                         } else {
                             Label("Niet binnen een toegewezen projectzone", systemImage: "mappin.slash")
