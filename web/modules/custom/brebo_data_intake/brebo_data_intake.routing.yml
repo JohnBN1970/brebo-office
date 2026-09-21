@@ -38,3 +38,11 @@ brebo_data_intake.website_europakozijn_project_document:
   requirements:
     _access: 'TRUE'
   methods: [POST]
+
+brebo_data_intake.website_kozijn_price_indication:
+  path: '/brebo-internal/price-indication/kozijn'
+  defaults:
+    _controller: '\Drupal\brebo_data_intake\Controller\WebsiteKozijnPriceIndicationController::calculate'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
