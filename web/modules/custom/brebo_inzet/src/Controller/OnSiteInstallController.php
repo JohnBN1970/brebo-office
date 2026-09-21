@@ -25,7 +25,7 @@ final class OnSiteInstallController extends ControllerBase {
 
     return [
       'viewport_lock' => [
-        '#markup' => Markup::create('<style>html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none!important;}body{position:fixed!important;inset:0!important;width:100%!important;} .brebo-onsite-install{position:fixed!important;inset:0!important;width:min(100%,520px)!important;height:100dvh!important;min-height:0!important;margin:0 auto!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain!important;-webkit-overflow-scrolling:touch;}@media (max-height:720px){.brebo-onsite-install{padding-top:12px!important;padding-bottom:10px!important;}}</style>'),
+        '#markup' => Markup::create('<style>html,body{margin:0!important;padding:0!important;height:100%!important;overflow:hidden!important;overscroll-behavior:none!important;}body{position:fixed!important;inset:0!important;width:100%!important;} .brebo-onsite-install{position:fixed!important;inset:0!important;z-index:1000!important;width:min(100%,520px)!important;height:100dvh!important;min-height:0!important;margin:0 auto!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain!important;-webkit-overflow-scrolling:touch;}@media (max-height:720px){.brebo-onsite-install{padding-top:12px!important;padding-bottom:10px!important;}}</style>'),
       ],
       '#type' => 'container',
       '#attributes' => [
