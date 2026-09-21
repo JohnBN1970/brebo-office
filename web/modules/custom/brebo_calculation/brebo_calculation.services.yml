@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.kozijn_price_observation_repository:
+    class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
+    arguments: ['@database']
+
   brebo_calculation.kozijn_price_engine:
     class: Drupal\brebo_calculation\Service\KozijnPriceEngine
 
