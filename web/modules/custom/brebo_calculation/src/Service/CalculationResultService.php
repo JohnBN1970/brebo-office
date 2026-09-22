@@ -182,7 +182,11 @@ final class CalculationResultService {
       if ($ruleType === 'note') {
         continue;
       }
-      $quantity = (float) ($row['quantity'] ?? 0);
+      $contractQuantity = (float) ($row['quantity'] ?? 0);
+      $actualQuantity = $row['actual_quantity'] ?? NULL;
+      $quantity = $ruleType === 'adjustable' && $actualQuantity !== NULL && $actualQuantity !== ''
+        ? (float) $actualQuantity
+        : $contractQuantity;
       $unitCosts = is_array($row['unit_costs'] ?? NULL) ? $row['unit_costs'] : [];
       $unitDirect = 0.0;
       foreach ($unitCosts as $cost) {
