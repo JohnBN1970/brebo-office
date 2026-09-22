@@ -101,6 +101,7 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<div class="brebo-calc-command__actions">'
         . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])->toString()) . '">Basisgegevens</a>'
         . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()])->toString()) . '">Parameters</a>'
+        . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['node' => $node->id()])->toString()) . '">Versie vaststellen</a>' : '')
         . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()])->toString()) . '">Offerte maken</a>'
         . '</div></div>'
         . '<div class="brebo-calc-command__context"><span><strong>Project</strong>' . htmlspecialchars($projectLabel) . '</span><span><strong>Versie</strong>' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong>' . htmlspecialchars($statusLabel) . '</span></div>'
