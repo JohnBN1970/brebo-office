@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
-use Drupal\brebo_calculation\Domain\CalculationParameters;
-use Drupal\brebo_calculation\Service\CommercialCalculator;
+use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
+use Drupal\brebo_calculation\Service\CalculationResultService;
 use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\brebo_calculation\Service\RecipeManager;
@@ -28,7 +28,8 @@ final class CalculationWorkbenchForm extends FormBase {
     private readonly CalculationStructureManager $structureManager,
     private readonly RecipeManager $recipeManager,
     private readonly RecipePriceHealthInspector $recipePriceHealthInspector,
-    private readonly CommercialCalculator $commercialCalculator,
+    private readonly CalculationResultService $resultService,
+    private readonly CalculationReadinessInspector $readinessInspector,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -39,7 +40,8 @@ final class CalculationWorkbenchForm extends FormBase {
       $container->get('brebo_calculation.structure_manager'),
       $container->get('brebo_calculation.recipe_manager'),
       $container->get('brebo_calculation.recipe_price_health_inspector'),
-      $container->get('brebo_calculation.commercial_calculator'),
+      $container->get('brebo_calculation.result'),
+      $container->get('brebo_calculation.readiness_inspector'),
     );
   }
 
@@ -55,12 +57,49 @@ final class CalculationWorkbenchForm extends FormBase {
     }
     $locked = $version['locked_at'] !== NULL;
     $editable = !$locked && $version['status'] === 'draft' && $node->access('update') && $this->currentUser()->hasPermission('edit brebo calculation workbench');
+    $result = $this->resultService->calculate((int) $node->id(), (string) $version['version']);
+    $readiness = $this->readinessInspector->inspect((int) $node->id(), (string) $version['version']);
+    $commercial = (array) ($result['commercial_result'] ?? []);
+    $directCost = (float) ($result['priced_direct_cost'] ?? 0);
+    $salesPrice = (float) ($commercial['sales_price'] ?? 0);
+    $grossProfit = $salesPrice - $directCost;
+    $marginPct = $salesPrice > 0 ? ($grossProfit / $salesPrice) * 100 : 0.0;
 
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
     $form['version'] = ['#type' => 'hidden', '#value' => $version['version']];
     $form['workbench'] = ['#type' => 'container', '#attributes' => ['id' => 'brebo-calculation-workbench', 'class' => ['brebo-calc-workbench']]];
+
+    $package = $node->hasField('field_brebo_package_ref') ? $node->get('field_brebo_package_ref')->entity : NULL;
+    $project = $package instanceof NodeInterface && $package->hasField('field_brebo_project_ref') ? $package->get('field_brebo_project_ref')->entity : NULL;
+    $code = $node->hasField('field_brebo_calc_code') && !$node->get('field_brebo_calc_code')->isEmpty() ? (string) $node->get('field_brebo_calc_code')->value : (string) $node->label();
+    $projectLabel = $project instanceof NodeInterface ? (string) $project->label() : 'Geen project gekoppeld';
+    $statusLabel = (string) $version['status'];
+    $readinessLabel = match ((string) $readiness['status']) {
+      'ready' => 'Gereed voor offerte',
+      'review' => 'Controle nodig',
+      default => 'Geblokkeerd',
+    };
+
+    $form['workbench']['hero'] = [
+      '#markup' => '<section class="brebo-calc-command">'
+        . '<div class="brebo-calc-command__title"><div><small>Calculatie</small><h1>' . htmlspecialchars($code) . '</h1><p>' . htmlspecialchars((string) $node->label()) . '</p></div>'
+        . '<div class="brebo-calc-command__actions">'
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])->toString()) . '">Basisgegevens</a>'
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()])->toString()) . '">Parameters</a>'
+        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()])->toString()) . '">Offerte maken</a>'
+        . '</div></div>'
+        . '<div class="brebo-calc-command__context"><span><strong>Project</strong>' . htmlspecialchars($projectLabel) . '</span><span><strong>Versie</strong>' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong>' . htmlspecialchars($statusLabel) . '</span></div>'
+        . '<div class="brebo-calc-kpis">'
+        . '<div><small>Directe kostprijs</small><strong>€ ' . number_format($directCost, 2, ',', '.') . '</strong></div>'
+        . '<div><small>Verkoopprijs</small><strong>€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></div>'
+        . '<div><small>Bruto resultaat</small><strong>€ ' . number_format($grossProfit, 2, ',', '.') . '</strong></div>'
+        . '<div><small>Marge</small><strong>' . number_format($marginPct, 1, ',', '.') . '%</strong></div>'
+        . '<div class="readiness-' . htmlspecialchars((string) $readiness['status']) . '"><small>Readiness</small><strong>' . htmlspecialchars($readinessLabel) . '</strong><span>' . (int) $readiness['blocking'] . ' blokkade(s) · ' . (int) $readiness['warnings'] . ' waarschuwing(en)</span></div>'
+        . '</div></section>',
+      '#weight' => -50,
+    ];
     $form['workbench']['meta'] = ['#markup' => '<div class="brebo-calc-workbench__meta"><span><strong>Versie</strong> ' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong> ' . htmlspecialchars((string) $version['status']) . '</span><span><strong>Classificatie</strong> ' . htmlspecialchars(strtoupper((string) $version['classification_system'])) . '</span><span class="' . ($locked ? 'is-locked' : 'is-open') . '">' . ($locked ? '🔒 Vergrendeld' : ($editable ? '● Bewerkbaar' : '○ Alleen lezen')) . '</span></div>'];
     $form['workbench']['navigation'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__navigation']], '#weight' => -20];
     $form['workbench']['navigation']['subcalculations'] = ['#type' => 'link', '#title' => 'Deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()]), '#attributes' => ['class' => ['button', 'button--primary']]];
@@ -216,27 +255,16 @@ final class CalculationWorkbenchForm extends FormBase {
       }
     }
 
-    $directCost = $this->directTotal($rows, $lineEntities) + $this->recipeInstancesTotal($recipeLinesByInstance);
-    $parameters = new CalculationParameters(
-      pricingMode: (string) $version['pricing_mode'],
-      commercialMethod: (string) $version['commercial_method'],
-      generalCostPct: (float) $version['general_cost_pct'],
-      riskPct: (float) $version['risk_pct'],
-      profitPct: (float) $version['profit_pct'],
-      singleMarginPct: (float) $version['single_margin_pct'],
-      commercialAdjustment: (float) $version['commercial_adjustment'],
-      priceDate: $version['price_date'] ?: NULL,
-      priceLevel: $version['price_level'] ?: NULL,
-    );
-    $commercial = $this->commercialCalculator->calculate($directCost, $parameters);
-    $margin = $parameters->commercialMethod === 'single_margin' ? $commercial->singleMargin : $commercial->profit;
+    $margin = ((string) ($result['parameters']['commercial_method'] ?? 'tail_costs')) === 'single_margin'
+      ? (float) ($commercial['single_margin'] ?? 0)
+      : (float) ($commercial['profit'] ?? 0);
     $form['workbench']['total'] = ['#markup' => '<div class="brebo-calc-workbench__total">'
-      . '<span><small>Directe kostprijs</small><strong data-total-kind="direct">€ ' . number_format($commercial->directCost, 2, ',', '.') . '</strong></span>'
-      . '<span><small>AK</small><strong data-total-kind="general-cost">€ ' . number_format($commercial->generalCost, 2, ',', '.') . '</strong></span>'
-      . '<span><small>Risico</small><strong data-total-kind="risk">€ ' . number_format($commercial->risk, 2, ',', '.') . '</strong></span>'
-      . '<span><small>' . ($parameters->commercialMethod === 'single_margin' ? 'Marge' : 'Winst') . '</small><strong data-total-kind="margin">€ ' . number_format($margin, 2, ',', '.') . '</strong></span>'
-      . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ ' . number_format($commercial->commercialAdjustment, 2, ',', '.') . '</strong></span>'
-      . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ ' . number_format($commercial->salesPrice, 2, ',', '.') . '</strong></span>'
+      . '<span><small>Directe kostprijs</small><strong data-total-kind="direct">€ ' . number_format((float) ($commercial['direct_cost'] ?? $directCost), 2, ',', '.') . '</strong></span>'
+      . '<span><small>AK</small><strong data-total-kind="general-cost">€ ' . number_format((float) ($commercial['general_cost'] ?? 0), 2, ',', '.') . '</strong></span>'
+      . '<span><small>Risico</small><strong data-total-kind="risk">€ ' . number_format((float) ($commercial['risk'] ?? 0), 2, ',', '.') . '</strong></span>'
+      . '<span><small>' . (((string) ($result['parameters']['commercial_method'] ?? 'tail_costs')) === 'single_margin' ? 'Marge' : 'Winst') . '</small><strong data-total-kind="margin">€ ' . number_format($margin, 2, ',', '.') . '</strong></span>'
+      . '<span><small>Correctie</small><strong data-total-kind="adjustment">€ ' . number_format((float) ($commercial['commercial_adjustment'] ?? 0), 2, ',', '.') . '</strong></span>'
+      . '<span class="is-sales"><small>Verkoopprijs</small><strong data-total-kind="sales-price">€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></span>'
       . '</div>'];
     return $form;
   }
