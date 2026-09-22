@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Session\AccountInterface;
 
@@ -16,6 +17,7 @@ final class CalculationVersionEstablisher {
     private readonly Connection $database,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
+    private readonly TimeInterface $time,
   ) {}
 
   /**
@@ -61,7 +63,7 @@ final class CalculationVersionEstablisher {
     ];
     $contentHash = hash('sha256', json_encode($hashPayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
 
-    $lockedAt = \Drupal::time()->getCurrentTime();
+    $lockedAt = $this->time->getCurrentTime();
     $snapshotResult = $result;
     $snapshotResult['content_hash'] = $contentHash;
     $payload = [
