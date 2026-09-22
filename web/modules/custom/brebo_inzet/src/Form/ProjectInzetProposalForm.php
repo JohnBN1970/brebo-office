@@ -62,6 +62,7 @@ final class ProjectInzetProposalForm extends FormBase {
     $endTime = (string) ($form_state->getValue('end_time') ?: '16:00');
 
     $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
+    $conflicts = $this->crossProjectConflicts((int) $node->id(), $selected, $start, $end, $startTime, $endTime);
     $delta = (float) $proposal['delta_hours'];
     $tone = $proposal['budget_hours'] <= 0
       ? 'attention'
@@ -135,6 +136,20 @@ final class ProjectInzetProposalForm extends FormBase {
       ],
     ];
 
+    if ($conflicts !== []) {
+      $items = '';
+      foreach ($conflicts as $conflict) {
+        $items .= '<li>' . htmlspecialchars($conflict, ENT_QUOTES, 'UTF-8') . '</li>';
+      }
+      $form['conflict_warning'] = [
+        '#markup' => '<div class="messages messages--error"><strong>Bezettingsconflict gevonden.</strong><ul>' . $items . '</ul><p>Office blokkeert definitieve projectvulling zolang dezelfde medewerker op hetzelfde tijdstip op een ander project staat.</p></div>',
+      ];
+      $form_state->set('cross_project_conflicts', $conflicts);
+    }
+    else {
+      $form_state->set('cross_project_conflicts', []);
+    }
+
     if ((float) $proposal['budget_hours'] <= 0) {
       $form['budget_warning'] = [
         '#markup' => '<div class="messages messages--warning">Er zijn voor dit project nog geen gebudgetteerde uren gevonden in de gekoppelde werkbegrotingen. Het inzetvoorstel kan wel worden bekeken, maar de budgetvergelijking is nog niet volledig.</div>',
@@ -157,6 +172,7 @@ final class ProjectInzetProposalForm extends FormBase {
       '#value' => $this->t('Volledige projectinzet bevestigen'),
       '#button_type' => 'primary',
       '#submit' => ['::confirmSubmit'],
+      '#disabled' => $conflicts !== [],
     ];
 
     $form_state->set('project_id', (int) $node->id());
@@ -185,6 +201,11 @@ final class ProjectInzetProposalForm extends FormBase {
   }
 
   public function confirmSubmit(array &$form, FormStateInterface $form_state): void {
+    if ((array) $form_state->get('cross_project_conflicts') !== []) {
+      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: los eerst de bezettingsconflicten op.'));
+      $form_state->setRebuild(TRUE);
+      return;
+    }
     $projectId = (int) $form_state->get('project_id');
     $project = $this->entityTypeManager->getStorage('node')->load($projectId);
     if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
@@ -241,6 +262,59 @@ final class ProjectInzetProposalForm extends FormBase {
       '@skipped' => $skipped,
     ]));
     $form_state->setRedirect('brebo_inzet.project_week_planning', ['node' => $projectId], ['query' => ['week' => $start]]);
+  }
+
+  /**
+   * @return string[]
+   */
+  private function crossProjectConflicts(int $projectId, array $userIds, string $start, string $end, string $startTime, string $endTime): array {
+    if ($userIds === [] || $start === '' || $end === '') {
+      return [];
+    }
+
+    $dates = $this->proposalBuilder->dates($start, $end);
+    if ($dates === []) {
+      return [];
+    }
+
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_personnel_assignment')
+      ->condition('field_brebo_plan_user', $userIds, 'IN')
+      ->condition('field_brebo_plan_date', $dates, 'IN')
+      ->condition('field_brebo_project_ref', $projectId, '<>')
+      ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+      ->execute();
+
+    $conflicts = [];
+    foreach ($storage->loadMultiple($ids) as $assignment) {
+      if (!$assignment instanceof NodeInterface) {
+        continue;
+      }
+      $otherStart = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
+      $otherEnd = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
+      if ($otherStart === '' || $otherEnd === '' || !$this->timesOverlap($startTime, $endTime, $otherStart, $otherEnd)) {
+        continue;
+      }
+      $person = $assignment->get('field_brebo_plan_user')->entity;
+      $project = $assignment->get('field_brebo_project_ref')->entity;
+      $date = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
+      $conflicts[] = sprintf(
+        '%s · %s · %s (%s-%s)',
+        $person?->label() ?? 'Onbekende medewerker',
+        $date,
+        $project?->label() ?? 'Ander project',
+        $otherStart,
+        $otherEnd,
+      );
+    }
+
+    return array_values(array_unique($conflicts));
+  }
+
+  private function timesOverlap(string $startA, string $endA, string $startB, string $endB): bool {
+    return $startA < $endB && $startB < $endA;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
