@@ -50,3 +50,17 @@
 .brebo-calc-panel--commercial .brebo-calc-facts dd strong{font-size:14px;color:var(--brebo-strong,#162235)}
 @media(max-width:1350px){.brebo-calc-command-panels{grid-template-columns:1fr 1fr}}
 @media(max-width:700px){.brebo-calc-command-panels{grid-template-columns:1fr}}
+
+/* Calculatiestaat hierarchy: chapters, paragraphs and calculation lines must scan as different levels. */
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__structure>td{vertical-align:middle}
+.brebo-calc-workbench__grid tr.is-main-group>td{padding-top:13px;padding-bottom:13px;background:#e9eef5;border-top:2px solid #aeb9c8;border-bottom:1px solid #c7d0dc;font-weight:800}
+.brebo-calc-workbench__grid tr.is-main-group .brebo-calc-structure-title strong{font-size:14px;letter-spacing:.01em}
+.brebo-calc-workbench__grid tr.is-main-group .brebo-calc-structure-code{display:inline-block;min-width:38px;font-weight:800}
+.brebo-calc-workbench__grid tr.is-paragraph>td{padding-top:9px;padding-bottom:9px;background:#f5f7fa;border-bottom:1px solid #dfe4eb;font-weight:700}
+.brebo-calc-workbench__grid tr.is-paragraph .brebo-calc-structure-title{padding-left:14px}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line>td{background:#fff;border-bottom:1px solid #edf0f4}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line>td:nth-child(2){padding-left:31px}
+.brebo-calc-structure-title{display:flex;align-items:center;gap:7px}
+.brebo-calc-structure-kind{display:inline-flex;align-items:center;padding:2px 6px;border-radius:10px;background:#fff;border:1px solid #d5dce6;color:#687386;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.is-main-group .brebo-calc-structure-kind{background:#27364b;border-color:#27364b;color:#fff}
+.brebo-calc-collapse-toggle{flex:0 0 auto}
