@@ -7,7 +7,7 @@ namespace Drupal\brebo_calculation\Service;
 use Drupal\Core\Database\Connection;
 
 /** Stores and reads approved, traceable kozijn price observations. */
-final class KozijnPriceObservationRepository {
+final class KozijnPriceObservationRepository implements KozijnPriceObservationProviderInterface {
 
   public function __construct(private readonly Connection $database) {}
 
