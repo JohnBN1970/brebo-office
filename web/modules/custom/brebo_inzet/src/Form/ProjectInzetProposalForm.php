@@ -6,6 +6,7 @@ namespace Drupal\brebo_inzet\Form;
 
 use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\ProjectInzetProposalBuilder;
+use Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -23,6 +24,7 @@ final class ProjectInzetProposalForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ProjectInzetProposalBuilder $proposalBuilder,
     private readonly LabourProductivityManager $labourProductivity,
+    private readonly PersonnelFinanceSynchronizer $financeSynchronizer,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -30,6 +32,7 @@ final class ProjectInzetProposalForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_inzet.project_inzet_proposal_builder'),
       $container->get('brebo_finance.labour_productivity_manager'),
+      $container->get('brebo_inzet.personnel_finance_synchronizer'),
     );
   }
 
@@ -342,6 +345,7 @@ final class ProjectInzetProposalForm extends FormBase {
           'field_brebo_assignment_status' => 'planned',
         ]);
         $assignment->save();
+        $this->financeSynchronizer->synchronize($assignment);
         $lineQueue[$lineIndex]['remaining'] = round($lineQueue[$lineIndex]['remaining'] - $allocatedHours, 4);
         $created++;
       }
