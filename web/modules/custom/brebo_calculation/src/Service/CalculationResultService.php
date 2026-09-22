@@ -166,6 +166,17 @@ final class CalculationResultService {
    * @return array<string,mixed>
    */
   private function resultFromSnapshot(array $version, array $payload): array {
+    if (($payload['schema'] ?? NULL) === 'canonical_result_v1' && is_array($payload['canonical_result'] ?? NULL)) {
+      $result = $payload['canonical_result'];
+      $result['calculation_id'] = (int) $version['calculation_id'];
+      $result['version'] = (string) $version['version'];
+      $result['content_hash'] = (string) ($version['content_hash'] ?? $payload['content_hash'] ?? '');
+      $result['status'] = (string) $version['status'];
+      $result['locked_at'] = $version['locked_at'] !== NULL ? (int) $version['locked_at'] : NULL;
+      $result['source'] = 'immutable_snapshot';
+      return $result;
+    }
+
     $commercial = is_array($payload['commercial'] ?? NULL) ? $payload['commercial'] : [];
     $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
     $pricedDirect = (float) ($commercial['direct_cost'] ?? $commercial['directCost'] ?? $totals['priced_scope'] ?? $totals['pricedScope'] ?? 0);
