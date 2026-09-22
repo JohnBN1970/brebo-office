@@ -145,3 +145,16 @@ jobs:
           grep -q "tail_costs" web/modules/custom/brebo_calculation/src/Domain/CalculationParameters.php
           grep -q "sourceAmount - \$allocated" "$distribution"
           grep -q "Only distributed rows can be allocated" "$distribution"
+
+      - name: Prove canonical result ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          result='web/modules/custom/brebo_calculation/src/Service/CalculationResultService.php'
+          workbench='web/modules/custom/brebo_calculation/js/calculation-workbench.js'
+          grep -q "field_brebo_actual_quantity" "$result"
+          grep -q "ruleType === 'adjustable'" "$result"
+          grep -q "canonical_result_v1" "$result"
+          grep -q "data.serverSubtotal" "$workbench"
+          grep -q "Grand totals are canonical server output" "$workbench"
+          ! grep -q "setText(form,'\\[data-total-kind=\\\"direct\\\"\\]',grand.direct)" "$workbench"
