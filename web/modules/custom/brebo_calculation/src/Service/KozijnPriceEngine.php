@@ -20,7 +20,7 @@ final class KozijnPriceEngine {
     'ideal7000_nl' => ['fixed_1200x1200' => 325.71, 'fixed_980x1360' => 311.06, 'dk_delta_mean' => 119.62],
   ];
 
-  public function __construct(private readonly KozijnPriceObservationRepository $observations) {}
+  public function __construct(private readonly KozijnPriceObservationProviderInterface $observations) {}
 
   /** @param array<string,mixed> $configuration */
   public function estimate(array $configuration): array {
