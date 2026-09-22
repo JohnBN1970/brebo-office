@@ -158,23 +158,6 @@ final class ProjectInzetHubController extends ControllerBase {
           '#empty' => $this->t('Voor vandaag is nog niemand ingepland. Het projectteam kan wel al aan dit project gekoppeld zijn.'),
         ],
       ],
-      'control' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-section']],
-        'heading' => [
-          '#markup' => '<div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">STURING</p><h2>Projectinzet beheren</h2></div></div>',
-        ],
-        'items' => [
-          '#theme' => 'item_list',
-          '#items' => [
-            Link::fromTextAndUrl($this->t('Projectteam — medewerkers koppelen aan dit project'), Url::fromRoute('brebo_inzet.project_team', ['node' => $projectId])),
-            Link::fromTextAndUrl($this->t('Nu aan het werk — actuele aanwezigheid controleren'), Url::fromRoute('brebo_inzet.live_workforce', ['node' => $projectId])),
-            Link::fromTextAndUrl($this->t('Kloklocaties — projectlocaties en geofencing beheren'), Url::fromRoute('brebo_inzet.project_clock_zones', ['node' => $projectId])),
-            Link::fromTextAndUrl($this->t('Afwijkingen — tijd- en locatieafwijkingen beoordelen'), Url::fromRoute('brebo_inzet.project_clock_deviations', ['node' => $projectId])),
-            Link::fromTextAndUrl($this->t('Instellingen — werktijden en klokbeleid beheren'), Url::fromRoute('brebo_inzet.project_clock_settings', ['node' => $projectId])),
-          ],
-        ],
-      ],
     ];
 
     $build['actions']['plan']['#attributes']['class'] = ['button', 'button--primary', 'brebo-button--primary'];
