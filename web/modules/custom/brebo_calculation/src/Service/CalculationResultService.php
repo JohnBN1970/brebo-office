@@ -37,7 +37,7 @@ final class CalculationResultService {
       throw new \RuntimeException('Calculatiedomeinversie niet gevonden.');
     }
 
-    if ($versionName !== NULL && ((string) $version['status'] !== 'draft' || $version['locked_at'] !== NULL)) {
+    if ((string) $version['status'] !== 'draft' || $version['locked_at'] !== NULL) {
       $snapshot = $this->database->select('brebo_calculation_snapshot', 's')
         ->fields('s', ['payload'])
         ->condition('calculation_id', $calculationId)
