@@ -106,6 +106,44 @@ final class CalculationWorkbenchForm extends FormBase {
     $form['workbench']['navigation']['recipes'] = ['#type' => 'link', '#title' => 'Recept plaatsen', '#url' => Url::fromRoute('brebo_calculation.recipe_place', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
     $form['workbench']['navigation']['structure'] = ['#type' => 'link', '#title' => 'Calculatiestructuur', '#url' => Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
     $form['workbench']['navigation']['parameters'] = ['#type' => 'link', '#title' => 'Parameters & opslagen', '#url' => Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['panels'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-command-panels']], '#weight' => -15];
+
+    $form['workbench']['panels']['actions'] = [
+      '#markup' => '<section class="brebo-calc-panel"><h2>Acties</h2><div class="brebo-calc-panel__actions">'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString()) . '">Structuur beheren</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.recipe_place', ['node' => $node->id()])->toString()) . '">Recept plaatsen</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()])->toString()) . '">Deelcalculaties</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()])->toString()) . '">Opslagen & parameters</a>'
+        . '</div></section>',
+    ];
+
+    $readinessItems = '';
+    foreach (array_slice((array) ($readiness['checks'] ?? []), 0, 6) as $check) {
+      if (!is_array($check)) {
+        continue;
+      }
+      $level = (string) ($check['level'] ?? 'warning');
+      $readinessItems .= '<li class="level-' . htmlspecialchars($level) . '"><span>' . ($level === 'error' ? '●' : '▲') . '</span><div><strong>'
+        . htmlspecialchars((string) ($check['label'] ?? 'Controle nodig')) . '</strong><small>'
+        . htmlspecialchars((string) ($check['code'] ?? '')) . '</small></div></li>';
+    }
+    if ($readinessItems === '') {
+      $readinessItems = '<li class="level-ok"><span>✓</span><div><strong>Geen blokkades gevonden</strong><small>Deze versie is inhoudelijk gereed volgens de huidige controles.</small></div></li>';
+    }
+    $form['workbench']['panels']['readiness'] = [
+      '#markup' => '<section class="brebo-calc-panel"><h2>Readiness</h2><ul class="brebo-calc-readiness-list">' . $readinessItems . '</ul></section>',
+    ];
+
+    $form['workbench']['panels']['info'] = [
+      '#markup' => '<section class="brebo-calc-panel"><h2>Calculatie-info</h2><dl class="brebo-calc-facts">'
+        . '<dt>Code</dt><dd>' . htmlspecialchars($code) . '</dd>'
+        . '<dt>Versie</dt><dd>' . htmlspecialchars((string) $version['version']) . '</dd>'
+        . '<dt>Classificatie</dt><dd>' . htmlspecialchars(strtoupper((string) $version['classification_system'])) . '</dd>'
+        . '<dt>Prijsdatum</dt><dd>' . htmlspecialchars((string) ($result['parameters']['price_date'] ?? '—')) . '</dd>'
+        . '<dt>Prijsniveau</dt><dd>' . htmlspecialchars((string) ($result['parameters']['price_level'] ?? '—')) . '</dd>'
+        . '</dl></section>',
+    ];
+
     $form['workbench']['messages'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']]];
     if ($form_state->get('ajax_message')) { $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>']; }
 
