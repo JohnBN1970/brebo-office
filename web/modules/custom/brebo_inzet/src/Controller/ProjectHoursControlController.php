@@ -192,6 +192,12 @@ final class ProjectHoursControlController extends ControllerBase {
           '#markup' => $this->kpi((string) $exceptions, 'Uurafwijkingen', $exceptions > 0 ? 'attention' : 'positive'),
         ],
       ],
+      'approval_action' => [
+        '#type' => 'link',
+        '#title' => $this->t('Uren beoordelen'),
+        '#url' => \Drupal\Core\Url::fromRoute('brebo_inzet.project_hours_approval', ['node' => $projectId]),
+        '#attributes' => ['class' => ['button', 'button--primary']],
+      ],
       'finance_note' => [
         '#markup' => '<div class="messages messages--status"><strong>Financiële urenwaarheid:</strong> alleen goedgekeurde werkelijke uren tellen financieel als actual. Ingediende uren blijven zichtbaar als nog te beoordelen bewijs. Prognose en arbeidskosten komen rechtstreeks uit Finance wanneer een vergrendelde arbeidsbegroting beschikbaar is.</div>',
       ],
