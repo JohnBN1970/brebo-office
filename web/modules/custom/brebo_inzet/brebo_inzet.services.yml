@@ -98,3 +98,7 @@ services:
     arguments:
       - '@brebo_inzet.onsite_identity_resolver'
       - '@brebo_inzet.onsite_activation_manager'
+
+  brebo_inzet.personnel_finance_synchronizer:
+    class: Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer
+    arguments: ['@brebo_finance.labour_productivity_manager']
