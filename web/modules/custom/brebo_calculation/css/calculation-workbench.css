@@ -28,3 +28,20 @@
 .brebo-calc-workbench__navigation{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:0}
 @media(max-width:1200px){.brebo-calc-kpis{grid-template-columns:repeat(3,minmax(145px,1fr))}}
 @media(max-width:780px){.brebo-calc-command__title{flex-direction:column}.brebo-calc-command__actions{justify-content:flex-start}.brebo-calc-kpis{grid-template-columns:1fr 1fr}}
+
+.brebo-calc-command-panels{display:grid;grid-template-columns:1.05fr 1.35fr 1fr;gap:12px;margin:0 0 14px}
+.brebo-calc-panel{padding:14px 15px;background:#fff;border:1px solid var(--brebo-border,#d8dee8);border-radius:9px}
+.brebo-calc-panel h2{margin:0 0 11px;color:var(--brebo-strong,#162235);font-size:13px}
+.brebo-calc-panel__actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.brebo-calc-panel__actions a{display:block;padding:9px 10px;border:1px solid #dfe5ec;border-radius:7px;background:#f9fbfd;color:var(--brebo-strong,#162235);font-weight:700;text-decoration:none}
+.brebo-calc-panel__actions a:hover{background:#eef4fa}
+.brebo-calc-readiness-list{display:grid;gap:8px;margin:0;padding:0;list-style:none}
+.brebo-calc-readiness-list li{display:flex;gap:9px;align-items:flex-start;padding:8px 9px;border-radius:7px;background:#f9fbfd}
+.brebo-calc-readiness-list li>span{font-size:12px;line-height:1.4}
+.brebo-calc-readiness-list strong,.brebo-calc-readiness-list small{display:block}
+.brebo-calc-readiness-list small{margin-top:2px;color:var(--brebo-muted,#667085);font-size:10px}
+.brebo-calc-readiness-list .level-error{background:#fff3f2}.brebo-calc-readiness-list .level-warning{background:#fff9ed}.brebo-calc-readiness-list .level-ok{background:#f0faf5}
+.brebo-calc-facts{display:grid;grid-template-columns:auto 1fr;gap:7px 12px;margin:0}
+.brebo-calc-facts dt{color:var(--brebo-muted,#667085)}.brebo-calc-facts dd{margin:0;text-align:right;font-weight:700}
+@media(max-width:1050px){.brebo-calc-command-panels{grid-template-columns:1fr 1fr}.brebo-calc-command-panels>.brebo-calc-panel:last-child{grid-column:1/-1}}
+@media(max-width:700px){.brebo-calc-command-panels{grid-template-columns:1fr}.brebo-calc-command-panels>.brebo-calc-panel:last-child{grid-column:auto}.brebo-calc-panel__actions{grid-template-columns:1fr}}
