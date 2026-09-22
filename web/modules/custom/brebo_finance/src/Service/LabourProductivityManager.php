@@ -288,6 +288,29 @@ final class LabourProductivityManager {
     return $this->lockedLabourLines($projectNid);
   }
 
+  /**
+   * Returns current Inzet actual-review status keyed by assignment node ID.
+   *
+   * @return array<int, array{status:string,actual_hours:string,changed:int}>
+   */
+  public function inzetActualStatuses(int $projectNid): array {
+    $query = $this->database->select('brebo_finance_labour_entry', 'e');
+    $query->fields('e', ['assignment_nid', 'status', 'actual_hours', 'changed']);
+    $query->condition('project_nid', $projectNid);
+    $query->condition('source_system', 'brebo_inzet_actual');
+    $query->condition('status', ['worked', 'approved'], 'IN');
+    $query->isNotNull('assignment_nid');
+    $result = [];
+    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+      $result[(int) $row['assignment_nid']] = [
+        'status' => (string) $row['status'],
+        'actual_hours' => (string) $row['actual_hours'],
+        'changed' => (int) $row['changed'],
+      ];
+    }
+    return $result;
+  }
+
   private function lockedLabourLines(int $projectNid): array {
     $query = $this->database->select('brebo_finance_budget_line', 'l');
     $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
