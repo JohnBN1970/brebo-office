@@ -76,6 +76,11 @@ function brebo_inzet_update_11002(): string {
 /**
  * Ensures the canonical planned personnel-assignment bundle exists.
  */
+function brebo_inzet_update_11010(): string {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+  return 'Personeelsinzet gekoppeld aan de vergrendelde Finance-arbeidsbegrotingsregel.';
+}
+
 function _brebo_inzet_ensure_personnel_assignment_schema(): void {
   $bundle = 'brebo_personnel_assignment';
 
@@ -122,10 +127,15 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
       'storage' => ['precision' => 6, 'scale' => 2], 'field_settings' => [],
       'widget' => 'number', 'weight' => 6,
     ],
+    'field_brebo_budget_line_id' => [
+      'label' => 'Arbeidsbegrotingsregel', 'type' => 'integer', 'required' => FALSE,
+      'storage' => ['unsigned' => TRUE, 'size' => 'big'], 'field_settings' => [],
+      'widget' => 'number', 'weight' => 7,
+    ],
     'field_brebo_assignment_status' => [
       'label' => 'Status', 'type' => 'list_string', 'required' => TRUE,
       'storage' => ['allowed_values' => ['planned' => 'Gepland', 'confirmed' => 'Bevestigd', 'cancelled' => 'Geannuleerd']],
-      'field_settings' => [], 'widget' => 'options_select', 'weight' => 7,
+      'field_settings' => [], 'widget' => 'options_select', 'weight' => 8,
       'default_value' => [['value' => 'planned']],
     ],
   ];
