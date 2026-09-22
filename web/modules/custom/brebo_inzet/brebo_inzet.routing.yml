@@ -41,8 +41,8 @@ brebo_inzet.app_clock:
 brebo_inzet.project_hours_control:
   path: '/projecten/{node}/inzet/urencontrole'
   defaults:
-    _controller: '\\Drupal\\brebo_inzet\\Controller\\ProjectHoursControlController::overview'
-    _title_callback: '\\Drupal\\brebo_inzet\\Controller\\ProjectHoursControlController::title'
+    _controller: '\Drupal\brebo_inzet\Controller\ProjectHoursControlController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\ProjectHoursControlController::title'
   requirements:
     _entity_access: 'node.view'
   options:
