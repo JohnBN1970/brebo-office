@@ -141,6 +141,31 @@ final class ProjectInzetProposalForm extends FormBase {
       $conflicts = array_merge($conflicts, $unavailable);
     }
 
+    $capacity = $this->capacityGap($node, $selected, $start, $end, $startTime, $endTime, (float) $proposal['budget_hours']);
+    $form['capacity'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-kpis']],
+      'available' => [
+        '#markup' => '<div class="brebo-kpi brebo-kpi--neutral"><span class="brebo-kpi__value">' . number_format($capacity['available_hours'], 2, ',', '.') . ' u</span><span class="brebo-kpi__label">Beschikbare ploegcapaciteit</span></div>',
+      ],
+      'shortage' => [
+        '#markup' => '<div class="brebo-kpi brebo-kpi--' . ($capacity['shortage_hours'] > 0 ? 'critical' : 'positive') . '"><span class="brebo-kpi__value">' . number_format($capacity['shortage_hours'], 2, ',', '.') . ' u</span><span class="brebo-kpi__label">Capaciteitstekort</span></div>',
+      ],
+      'days' => [
+        '#markup' => '<div class="brebo-kpi brebo-kpi--' . ($capacity['shortage_days'] > 0 ? 'critical' : 'positive') . '"><span class="brebo-kpi__value">' . number_format($capacity['shortage_days'], 1, ',', '.') . '</span><span class="brebo-kpi__label">Ontbrekende mandagen</span></div>',
+      ],
+    ];
+
+    if ($capacity['shortage_hours'] > 0) {
+      $suggestions = $this->availableReplacementCandidates((int) $node->id(), $selected, $start, $end, $startTime, $endTime);
+      $text = $suggestions === []
+        ? 'Er zijn op basis van de huidige Office-planning geen direct vrije actieve medewerkers gevonden.'
+        : 'Vrije medewerkers om te onderzoeken: <strong>' . implode(', ', array_map(static fn (string $name): string => htmlspecialchars($name, ENT_QUOTES, 'UTF-8'), $suggestions)) . '</strong>.';
+      $form['capacity_warning'] = [
+        '#markup' => '<div class="messages messages--warning"><strong>De gekozen ploeg levert binnen deze periode ' . number_format($capacity['shortage_hours'], 2, ',', '.') . ' uur te weinig capaciteit voor de werkbegroting.</strong> Dat is circa ' . number_format($capacity['shortage_days'], 1, ',', '.') . ' mandag(en). ' . $text . '</div>',
+      ];
+    }
+
     if ($conflicts !== []) {
       $items = '';
       foreach ($conflicts as $conflict) {
@@ -351,6 +376,71 @@ final class ProjectInzetProposalForm extends FormBase {
       );
     }
     return array_values(array_unique($conflicts));
+  }
+
+  /**
+   * @return array{available_hours: float, shortage_hours: float, shortage_days: float}
+   */
+  private function capacityGap(NodeInterface $project, array $userIds, string $start, string $end, string $startTime, string $endTime, float $budgetHours): array {
+    $dates = $this->proposalBuilder->dates($start, $end);
+    $hoursPerDay = max(0.0, (strtotime('1970-01-01 ' . $endTime) - strtotime('1970-01-01 ' . $startTime)) / 3600);
+    $blocked = [];
+    foreach ($this->entityTypeManager->getStorage('node')->loadByProperties(['type' => 'brebo_workforce_availability']) as $period) {
+      if (!$period instanceof NodeInterface) {
+        continue;
+      }
+      $uid = (int) ($period->get('field_brebo_plan_user')->target_id ?? 0);
+      if (!in_array($uid, $userIds, TRUE)) {
+        continue;
+      }
+      $from = (string) ($period->get('field_brebo_unavailable_start')->value ?? '');
+      $to = (string) ($period->get('field_brebo_unavailable_end')->value ?? '');
+      foreach ($dates as $date) {
+        if ($from <= $date && $to >= $date) {
+          $blocked[$uid . ':' . $date] = TRUE;
+        }
+      }
+    }
+    $availableSlots = max(0, (count($userIds) * count($dates)) - count($blocked));
+    $availableHours = round($availableSlots * $hoursPerDay, 2);
+    $shortage = round(max(0.0, $budgetHours - $availableHours), 2);
+    return [
+      'available_hours' => $availableHours,
+      'shortage_hours' => $shortage,
+      'shortage_days' => $hoursPerDay > 0 ? round($shortage / $hoursPerDay, 1) : 0.0,
+    ];
+  }
+
+  /**
+   * Finds active employees who have no overlapping assignment/unavailability.
+   *
+   * @return string[]
+   */
+  private function availableReplacementCandidates(int $projectId, array $selected, string $start, string $end, string $startTime, string $endTime): array {
+    $dates = $this->proposalBuilder->dates($start, $end);
+    if ($dates === []) {
+      return [];
+    }
+    $users = $this->entityTypeManager->getStorage('user')->loadByProperties(['status' => 1]);
+    $candidates = [];
+    foreach ($users as $account) {
+      if (!$account instanceof UserInterface || (int) $account->id() === 0 || in_array((int) $account->id(), $selected, TRUE)) {
+        continue;
+      }
+      $uid = (int) $account->id();
+      if ($this->crossProjectConflicts($projectId, [$uid], $start, $end, $startTime, $endTime) !== []) {
+        continue;
+      }
+      if ($this->unavailabilityConflicts([$uid], $start, $end) !== []) {
+        continue;
+      }
+      $candidates[] = $account->getDisplayName();
+      if (count($candidates) >= 8) {
+        break;
+      }
+    }
+    sort($candidates, SORT_NATURAL | SORT_FLAG_CASE);
+    return $candidates;
   }
 
   private function timesOverlap(string $startA, string $endA, string $startB, string $endB): bool {
