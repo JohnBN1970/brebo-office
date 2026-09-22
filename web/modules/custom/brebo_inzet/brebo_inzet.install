@@ -15,6 +15,7 @@ function brebo_inzet_install(): void {
   _brebo_inzet_ensure_personnel_assignment_schema();
   _brebo_inzet_ensure_onsite_user_fields();
   _brebo_inzet_ensure_employee_profile_fields();
+  _brebo_inzet_ensure_project_team_field();
 }
 
 /**
@@ -452,4 +453,45 @@ function _brebo_inzet_ensure_employee_profile_fields(): void {
     }
   }
   $display->save();
+}
+
+
+/**
+ * Adds the durable project-team relation used by Inzet and OnSite.
+ */
+function brebo_inzet_update_11006(): string {
+  _brebo_inzet_ensure_project_team_field();
+  return 'Projectteam toegevoegd: medewerkers kunnen duurzaam aan projecten worden gekoppeld en zijn direct beschikbaar voor BREBO Inzet en OnSite.';
+}
+
+/**
+ * Ensures projects own their canonical workforce membership.
+ */
+function _brebo_inzet_ensure_project_team_field(): void {
+  $field_name = 'field_brebo_project_team';
+
+  if (!FieldStorageConfig::loadByName('node', $field_name)) {
+    FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'user'],
+      'cardinality' => -1,
+    ])->save();
+  }
+
+  if (!FieldConfig::loadByName('node', 'brebo_project', $field_name)) {
+    FieldConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'node',
+      'bundle' => 'brebo_project',
+      'label' => 'Projectteam',
+      'description' => 'Medewerkers die bij dit project horen. BREBO Inzet en OnSite gebruiken deze relatie als duurzame projecttoewijzing.',
+      'required' => FALSE,
+      'settings' => [
+        'handler' => 'default:user',
+        'handler_settings' => [],
+      ],
+    ])->save();
+  }
 }
