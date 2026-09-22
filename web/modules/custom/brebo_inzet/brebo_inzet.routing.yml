@@ -258,3 +258,17 @@ brebo_inzet.availability:
     _title: 'Beschikbaarheid'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
+
+
+brebo_inzet.project_hours_approval:
+  path: '/projecten/{node}/inzet/urencontrole/beoordelen'
+  defaults:
+    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectHoursApprovalForm'
+    _title: 'Uren beoordelen'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
