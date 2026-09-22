@@ -105,6 +105,14 @@ final class ProjectHoursApprovalForm extends FormBase {
         continue;
       }
       try {
+        $review = $this->labourProductivity->inzetActualStatus($projectId, (int) $assignment->id());
+        $reviewStatus = (string) ($review['status'] ?? 'open');
+        if ($approve && $reviewStatus !== 'worked') {
+          throw new \UnexpectedValueException('Alleen ingediende uren kunnen worden goedgekeurd.');
+        }
+        if (!$approve && $reviewStatus === 'approved') {
+          throw new \UnexpectedValueException('Goedgekeurde uren kunnen niet opnieuw worden ingediend.');
+        }
         $approve ? $this->actualHours->approve($assignment, (int) $this->currentUser()->id()) : $this->actualHours->submit($assignment, (int) $this->currentUser()->id());
         $done++;
       }
