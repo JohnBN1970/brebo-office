@@ -6,6 +6,7 @@ namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
 use Drupal\brebo_calculation\Service\CalculationVersionEstablisher;
+use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -22,12 +23,14 @@ final class CalculationEstablishForm extends ConfirmFormBase {
   public function __construct(
     private readonly CalculationVersionEstablisher $establisher,
     private readonly CalculationReadinessInspector $readinessInspector,
+    private readonly Connection $database,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_calculation.version_establisher'),
       $container->get('brebo_calculation.readiness_inspector'),
+      $container->get('database'),
     );
   }
 
@@ -57,7 +60,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
     }
     $this->calculation = $node;
 
-    $row = \Drupal::database()->select('brebo_calculation_version', 'v')
+    $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version', 'status', 'locked_at'])
       ->condition('calculation_id', (int) $node->id())
       ->orderBy('id', 'DESC')
