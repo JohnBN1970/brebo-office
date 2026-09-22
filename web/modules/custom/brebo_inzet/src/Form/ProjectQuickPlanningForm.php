@@ -63,11 +63,21 @@ final class ProjectQuickPlanningForm extends FormBase {
       '#options' => $options,
       '#required' => TRUE,
     ];
+    $form['planning_mode'] = [
+      '#type' => 'radios',
+      '#title' => $this->t('Periode'),
+      '#options' => [
+        'day' => $this->t('Eén dag'),
+        'weekdays' => $this->t('Werkweek (maandag t/m vrijdag)'),
+      ],
+      '#default_value' => 'day',
+    ];
     $form['date'] = [
       '#type' => 'date',
-      '#title' => $this->t('Datum'),
+      '#title' => $this->t('Startdatum'),
       '#default_value' => (new DrupalDateTime('now'))->format('Y-m-d'),
       '#required' => TRUE,
+      '#description' => $this->t('Bij Werkweek wordt de maandag van deze week gebruikt en worden maandag t/m vrijdag ingepland.'),
     ];
     $form['time'] = [
       '#type' => 'container',
@@ -118,6 +128,20 @@ final class ProjectQuickPlanningForm extends FormBase {
     }
 
     $date = (string) $form_state->getValue('date');
+    $mode = (string) $form_state->getValue('planning_mode');
+    $dates = [$date];
+    if ($mode === 'weekdays') {
+      $monday = new DrupalDateTime($date);
+      $monday->modify('monday this week');
+      $dates = [];
+      for ($offset = 0; $offset < 5; $offset++) {
+        $planningDate = clone $monday;
+        if ($offset > 0) {
+          $planningDate->modify('+' . $offset . ' days');
+        }
+        $dates[] = $planningDate->format('Y-m-d');
+      }
+    }
     $start = (string) $form_state->getValue(['time', 'start']);
     $end = (string) $form_state->getValue(['time', 'end']);
     $status = (string) $form_state->getValue('status');
@@ -129,42 +153,45 @@ final class ProjectQuickPlanningForm extends FormBase {
     $skipped = 0;
 
     foreach ($selected as $uid) {
-      $existing = $storage->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('type', 'brebo_personnel_assignment')
-        ->condition('field_brebo_project_ref', $projectId)
-        ->condition('field_brebo_plan_user', $uid)
-        ->condition('field_brebo_plan_date', $date)
-        ->condition('field_brebo_assignment_status', 'cancelled', '<>')
-        ->range(0, 1)
-        ->execute();
-      if ($existing !== []) {
-        $skipped++;
-        continue;
-      }
-
       $account = $this->entityTypeManager->getStorage('user')->load($uid);
-      $assignment = $storage->create([
-        'type' => 'brebo_personnel_assignment',
-        'title' => sprintf('%s - %s - %s', $project->label(), $account?->label() ?? ('Gebruiker ' . $uid), $date),
-        'status' => 1,
-        'field_brebo_project_ref' => ['target_id' => $projectId],
-        'field_brebo_plan_user' => ['target_id' => $uid],
-        'field_brebo_plan_date' => $date,
-        'field_brebo_assignment_start' => $start,
-        'field_brebo_assignment_end' => $end,
-        'field_brebo_planned_hours' => round($hours, 2),
-        'field_brebo_assignment_status' => $status,
-      ]);
-      $assignment->save();
-      $created++;
+      foreach ($dates as $planningDate) {
+        $existing = $storage->getQuery()
+          ->accessCheck(FALSE)
+          ->condition('type', 'brebo_personnel_assignment')
+          ->condition('field_brebo_project_ref', $projectId)
+          ->condition('field_brebo_plan_user', $uid)
+          ->condition('field_brebo_plan_date', $planningDate)
+          ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+          ->range(0, 1)
+          ->execute();
+        if ($existing !== []) {
+          $skipped++;
+          continue;
+        }
+
+        $assignment = $storage->create([
+          'type' => 'brebo_personnel_assignment',
+          'title' => sprintf('%s - %s - %s', $project->label(), $account?->label() ?? ('Gebruiker ' . $uid), $planningDate),
+          'status' => 1,
+          'field_brebo_project_ref' => ['target_id' => $projectId],
+          'field_brebo_plan_user' => ['target_id' => $uid],
+          'field_brebo_plan_date' => $planningDate,
+          'field_brebo_assignment_start' => $start,
+          'field_brebo_assignment_end' => $end,
+          'field_brebo_planned_hours' => round($hours, 2),
+          'field_brebo_assignment_status' => $status,
+        ]);
+        $assignment->save();
+        $created++;
+      }
     }
 
     $this->messenger()->addStatus($this->t('@created medewerker(s) ingepland. @skipped bestaande daginzet(ten) overgeslagen.', [
       '@created' => $created,
       '@skipped' => $skipped,
     ]));
-    $form_state->setRedirect('brebo_inzet.project_dashboard', ['node' => $projectId]);
+    $weekAnchor = $dates[0] ?? $date;
+    $form_state->setRedirect('brebo_inzet.project_week_planning', ['node' => $projectId], ['query' => ['week' => $weekAnchor]]);
   }
 
 }
