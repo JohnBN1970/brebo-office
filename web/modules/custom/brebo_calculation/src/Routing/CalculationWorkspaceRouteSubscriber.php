@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Routing;
 
-use Drupal\Core\Routing\RouteSubscriberBase;
 use Symfony\Component\Routing\RouteCollection;
+use Drupal\Core\Routing\RouteSubscriberBase;
 
-/** Sends legacy calculation detail navigation directly to the new workbench. */
+/**
+ * Keeps the public Office calculation detail URL as the canonical workbench.
+ *
+ * The old Office controller still contains legacy calculation dashboard code,
+ * but users should never land on that parallel calculation truth.
+ */
 final class CalculationWorkspaceRouteSubscriber extends RouteSubscriberBase {
 
   protected function alterRoutes(RouteCollection $collection): void {
@@ -21,7 +26,13 @@ final class CalculationWorkspaceRouteSubscriber extends RouteSubscriberBase {
     $defaults['_form'] = '\\Drupal\\brebo_calculation\\Form\\CalculationWorkbenchForm';
     $defaults['_title'] = 'Calculatiewerkbank';
     $route->setDefaults($defaults);
-    $route->setRequirement('_permission', 'edit brebo calculation workbench');
+
+    // Preserve normal node access for the Office URL. The workbench itself
+    // determines whether the current user may edit or only view the version.
+    $route->setRequirement('_entity_access', 'node.view');
+    $route->setOption('parameters', [
+      'node' => ['type' => 'entity:node'],
+    ]);
   }
 
 }
