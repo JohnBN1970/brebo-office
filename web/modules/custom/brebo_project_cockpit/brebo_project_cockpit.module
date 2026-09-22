@@ -45,6 +45,21 @@ function brebo_project_cockpit_preprocess_page(array &$variables): void {
     (int) $project->id(),
     $route_name,
   );
+
+  // Project pages have one canonical dossier navigation: the persistent BREBO
+  // context tabs above the content. Drupal's generic local-tasks block would
+  // otherwise render the same project and Inzet tasks a second time inside
+  // the content region (as unstyled primary/secondary lists).
+  if (isset($variables['page']['content']['brebo_office_local_tasks'])) {
+    unset($variables['page']['content']['brebo_office_local_tasks']);
+  }
+  if (!empty($variables['page']['content']) && is_array($variables['page']['content'])) {
+    foreach ($variables['page']['content'] as $key => $element) {
+      if (is_array($element) && ($element['#plugin_id'] ?? NULL) === 'local_tasks_block') {
+        unset($variables['page']['content'][$key]);
+      }
+    }
+  }
 }
 
 /**
