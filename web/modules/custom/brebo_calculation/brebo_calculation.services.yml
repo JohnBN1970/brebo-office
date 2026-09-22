@@ -22,6 +22,14 @@ services:
       - '@entity_type.manager'
       - '@brebo_calculation.commercial_calculator'
 
+  brebo_calculation.version_establisher:
+    class: Drupal\brebo_calculation\Service\CalculationVersionEstablisher
+    arguments:
+      - '@database'
+      - '@brebo_calculation.result'
+      - '@brebo_calculation.readiness_inspector'
+      - '@datetime.time'
+
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
 
