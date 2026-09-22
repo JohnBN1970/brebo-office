@@ -279,6 +279,15 @@ final class LabourProductivityManager {
   /**
    * @return list<array<string, mixed>>
    */
+  /**
+   * Returns the authoritative locked labour budget lines for a project.
+   *
+   * @return list<array<string, mixed>>
+   */
+  public function labourBudgetLines(int $projectNid): array {
+    return $this->lockedLabourLines($projectNid);
+  }
+
   private function lockedLabourLines(int $projectNid): array {
     $query = $this->database->select('brebo_finance_budget_line', 'l');
     $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
