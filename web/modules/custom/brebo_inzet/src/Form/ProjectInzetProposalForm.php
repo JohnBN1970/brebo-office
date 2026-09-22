@@ -63,6 +63,7 @@ final class ProjectInzetProposalForm extends FormBase {
 
     $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
     $conflicts = $this->crossProjectConflicts((int) $node->id(), $selected, $start, $end, $startTime, $endTime);
+    $unavailable = $this->unavailabilityConflicts($selected, $start, $end);
     $delta = (float) $proposal['delta_hours'];
     $tone = $proposal['budget_hours'] <= 0
       ? 'attention'
@@ -135,6 +136,10 @@ final class ProjectInzetProposalForm extends FormBase {
         '#markup' => '<div class="brebo-kpi brebo-kpi--' . $tone . '"><span class="brebo-kpi__value">' . ($delta > 0 ? '+' : '') . number_format($delta, 2, ',', '.') . ' u</span><span class="brebo-kpi__label">Verschil t.o.v. begroting</span></div>',
       ],
     ];
+
+    if ($unavailable !== []) {
+      $conflicts = array_merge($conflicts, $unavailable);
+    }
 
     if ($conflicts !== []) {
       $items = '';
@@ -310,6 +315,41 @@ final class ProjectInzetProposalForm extends FormBase {
       );
     }
 
+    return array_values(array_unique($conflicts));
+  }
+
+  /**
+   * @return string[]
+   */
+  private function unavailabilityConflicts(array $userIds, string $start, string $end): array {
+    if ($userIds === [] || $start === '' || $end === '') {
+      return [];
+    }
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_workforce_availability')
+      ->condition('field_brebo_plan_user', $userIds, 'IN')
+      ->condition('field_brebo_unavailable_start', $end, '<=')
+      ->condition('field_brebo_unavailable_end', $start, '>=')
+      ->execute();
+
+    $conflicts = [];
+    foreach ($storage->loadMultiple($ids) as $period) {
+      if (!$period instanceof NodeInterface) {
+        continue;
+      }
+      $person = $period->get('field_brebo_plan_user')->entity;
+      $type = (string) ($period->get('field_brebo_unavailable_type')->value ?? '');
+      $label = $type === 'leave' ? 'Verlof' : 'Niet beschikbaar';
+      $conflicts[] = sprintf(
+        '%s · %s · %s t/m %s',
+        $person?->label() ?? 'Onbekende medewerker',
+        $label,
+        (string) $period->get('field_brebo_unavailable_start')->value,
+        (string) $period->get('field_brebo_unavailable_end')->value,
+      );
+    }
     return array_values(array_unique($conflicts));
   }
 
