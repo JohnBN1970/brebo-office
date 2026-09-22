@@ -66,6 +66,7 @@ final class KozijnPriceObservationRepository implements KozijnPriceObservationPr
       ->condition('configuration_type', $type)
       ->condition('fields_count', $fields)
       ->condition('status', 'approved')
+      ->condition('currency', 'EUR')
       ->orderBy('observed_at', 'DESC')
       ->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
   }
