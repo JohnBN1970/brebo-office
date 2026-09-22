@@ -201,14 +201,17 @@ final class CalculationWorkbenchForm extends FormBase {
     $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenheid','Aantal','Arbeid','Materiaal','Materieel','Onderaanneming','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
-      $isParagraph = (string) $item['node_type'] === 'paragraph';
+      $nodeType = (string) $item['node_type'];
+      $isParagraph = $nodeType === 'paragraph';
+      $structureClass = $nodeType === 'main_group' ? 'is-main-group' : ($isParagraph ? 'is-paragraph' : 'is-structure');
+      $structureLabel = $nodeType === 'main_group' ? 'Hoofdstuk' : ($isParagraph ? 'Paragraaf' : 'Structuur');
       $operations = ['#markup' => ''];
       if ($isParagraph && $editable) {
         $operations = ['#type' => 'submit', '#value' => '+ Regel', '#submit' => ['::addRow'], '#paragraph_key' => (string) $key, '#limit_validation_errors' => [], '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Calculatieregel toevoegen…']]];
       }
       $form['workbench']['grid']['structure_' . $key] = [
-        '#attributes' => ['class' => ['brebo-calc-workbench__structure','depth-' . $depth], 'data-structure-key' => (string) $key, 'data-parent-key' => (string) ($item['parent_key'] ?? '')],
-        'code' => ['#markup' => htmlspecialchars((string) ($item['code'] ?: ''))], 'description' => ['#markup' => '<button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="In-/uitklappen">▾</button><strong>' . htmlspecialchars((string) $item['label']) . '</strong>'],
+        '#attributes' => ['class' => ['brebo-calc-workbench__structure', $structureClass, 'depth-' . $depth], 'data-structure-key' => (string) $key, 'data-parent-key' => (string) ($item['parent_key'] ?? ''), 'data-structure-type' => $nodeType],
+        'code' => ['#markup' => '<span class="brebo-calc-structure-code">' . htmlspecialchars((string) ($item['code'] ?: '')) . '</span>'], 'description' => ['#markup' => '<div class="brebo-calc-structure-title"><button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="In-/uitklappen">▾</button><span class="brebo-calc-structure-kind">' . $structureLabel . '</span><strong>' . htmlspecialchars((string) $item['label']) . '</strong></div>'],
         'unit' => ['#markup' => ''], 'quantity' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => '<strong class="brebo-calc-structure-subtotal">€ 0,00</strong>'], 'operations' => $operations,
       ];
 
