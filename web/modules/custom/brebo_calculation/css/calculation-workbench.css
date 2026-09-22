@@ -64,3 +64,24 @@
 .brebo-calc-structure-kind{display:inline-flex;align-items:center;padding:2px 6px;border-radius:10px;background:#fff;border:1px solid #d5dce6;color:#687386;font-size:9px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
 .is-main-group .brebo-calc-structure-kind{background:#27364b;border-color:#27364b;color:#fff}
 .brebo-calc-collapse-toggle{flex:0 0 auto}
+
+/* Dense daily-use calculation sheet. Keep hierarchy prominent, make editable rows compact. */
+.brebo-calc-workbench__grid{width:100%;table-layout:auto;border-collapse:separate;border-spacing:0;font-size:12px}
+.brebo-calc-workbench__grid thead th{position:sticky;top:0;z-index:3;padding:7px 6px;white-space:nowrap;background:#f7f8fa;border-bottom:2px solid #cbd3de;font-size:10px;font-weight:800;letter-spacing:.025em;text-transform:uppercase}
+.brebo-calc-workbench__grid tbody td{padding:4px 5px;line-height:1.2}
+.brebo-calc-workbench__grid th:first-child,.brebo-calc-workbench__grid td:first-child{width:72px;white-space:nowrap}
+.brebo-calc-workbench__grid th:nth-child(2),.brebo-calc-workbench__grid td:nth-child(2){min-width:260px}
+.brebo-calc-workbench__grid th:nth-child(3),.brebo-calc-workbench__grid td:nth-child(3){width:64px}
+.brebo-calc-workbench__grid th:nth-child(4),.brebo-calc-workbench__grid td:nth-child(4){width:82px}
+.brebo-calc-workbench__grid th:nth-child(n+5):nth-child(-n+11),.brebo-calc-workbench__grid td:nth-child(n+5):nth-child(-n+11){min-width:82px;text-align:right;white-space:nowrap}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line input[type="text"],
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line input[type="number"]{min-height:30px;height:30px;margin:0;padding:3px 5px;font-size:12px}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line td:nth-child(n+4):nth-child(-n+9) input{text-align:right;font-variant-numeric:tabular-nums}
+.brebo-calc-workbench__grid .form-item{margin:0}
+.brebo-calc-workbench__grid .form-actions{margin:0}
+.brebo-calc-money{display:inline-block;min-width:72px;text-align:right;font-variant-numeric:tabular-nums}
+.brebo-calc-line-total{font-weight:800}
+.brebo-calc-row-link{font-size:11px;white-space:nowrap}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__line:hover>td{background:#f8fafc}
+.brebo-calc-workbench__grid tr.brebo-calc-workbench__recipe>td{padding-top:7px;padding-bottom:7px}
+@media (max-width:1200px){.brebo-calc-workbench{overflow-x:auto}.brebo-calc-workbench__grid{min-width:1180px}}
