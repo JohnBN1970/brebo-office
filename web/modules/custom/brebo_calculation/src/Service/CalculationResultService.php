@@ -85,7 +85,15 @@ final class CalculationResultService {
       if ($ruleType === 'note') {
         continue;
       }
-      $quantity = $line->hasField('field_brebo_contract_quantity') ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0) : 0.0;
+      $contractQuantity = $line->hasField('field_brebo_contract_quantity')
+        ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0)
+        : 0.0;
+      $actualRaw = $line->hasField('field_brebo_actual_quantity')
+        ? $line->get('field_brebo_actual_quantity')->value
+        : NULL;
+      $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
+        ? (float) $actualRaw
+        : $contractQuantity;
       $unitDirect = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
       $direct = $quantity * $unitDirect;
       if ($ruleType === 'option') {
