@@ -38,6 +38,18 @@ brebo_inzet.app_clock:
       node:
         type: entity:node
 
+brebo_inzet.project_team:
+  path: '/projecten/{node}/inzet/projectteam'
+  defaults:
+    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectTeamForm'
+    _title: 'Projectteam'
+  requirements:
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_clock_zones:
   path: '/projecten/{node}/inzet/kloklocaties'
   defaults:
