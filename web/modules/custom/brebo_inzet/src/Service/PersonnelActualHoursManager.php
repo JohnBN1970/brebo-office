@@ -52,7 +52,7 @@ final class PersonnelActualHoursManager {
     return $this->labourProductivity->synchronizeEntry(
       $projectId, $budgetLineId, 'brebo_inzet_actual', 'assignment:' . $assignment->id(),
       (string) $assignment->getRevisionId(), (int) $assignment->id(), NULL, NULL, NULL,
-      NULL, number_format($planned, 4, '.', ''), number_format($clocked, 4, '.', ''),
+      NULL, '0.0000', number_format($clocked, 4, '.', ''),
       NULL, '0.0000', $status, time(), $payload, $userId,
     );
   }
