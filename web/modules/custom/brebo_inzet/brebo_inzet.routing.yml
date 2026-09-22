@@ -38,6 +38,18 @@ brebo_inzet.app_clock:
       node:
         type: entity:node
 
+brebo_inzet.project_week_planning:
+  path: '/projecten/{node}/inzet/week'
+  defaults:
+    _controller: '\\Drupal\\brebo_inzet\\Controller\\ProjectWeekPlanningController::overview'
+    _title_callback: '\\Drupal\\brebo_inzet\\Controller\\ProjectWeekPlanningController::title'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_quick_planning:
   path: '/projecten/{node}/inzet/plannen'
   defaults:
