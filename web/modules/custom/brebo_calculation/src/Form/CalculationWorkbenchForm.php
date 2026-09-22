@@ -198,6 +198,49 @@ final class CalculationWorkbenchForm extends FormBase {
       $form['workbench']['price_health'] = ['#markup' => '<div class="messages messages--status brebo-calc-price-health"><strong>Prijscontrole:</strong> alle receptmateriaalprijzen hebben een geldige actuele prijsbron.</div>', '#weight' => -10];
     }
 
+    $structureDirectTotals = array_fill_keys(array_keys($structure), 0.0);
+    foreach ((array) ($result['components'] ?? []) as $component) {
+      if (!is_array($component) || ($component['rule_type'] ?? 'normal') === 'option') {
+        continue;
+      }
+      $componentKey = ($component['kind'] ?? '') === 'row'
+        ? 'line_' . (int) ($component['id'] ?? 0)
+        : (($component['kind'] ?? '') === 'recipe' ? 'recipe_' . (int) ($component['id'] ?? 0) : '');
+      if ($componentKey === '') {
+        continue;
+      }
+      foreach ($rows as $domainRow) {
+        if ($componentKey === 'line_' . (int) ($domainRow['calc_line_id'] ?? 0)) {
+          $paragraphKey = (string) ($domainRow['paragraph_key'] ?? '');
+          if (isset($structureDirectTotals[$paragraphKey])) {
+            $structureDirectTotals[$paragraphKey] += (float) ($component['direct_cost'] ?? 0);
+          }
+          break;
+        }
+      }
+      if (str_starts_with($componentKey, 'recipe_')) {
+        $recipeId = (int) substr($componentKey, 7);
+        foreach ($recipeInstances as $recipeInstance) {
+          if ((int) $recipeInstance['id'] === $recipeId) {
+            $paragraphKey = (string) $recipeInstance['paragraph_key'];
+            if (isset($structureDirectTotals[$paragraphKey])) {
+              $structureDirectTotals[$paragraphKey] += (float) ($component['direct_cost'] ?? 0);
+            }
+            break;
+          }
+        }
+      }
+    }
+    foreach ($structure as $structureKey => $structureItem) {
+      if ((string) $structureItem['node_type'] !== 'paragraph') {
+        continue;
+      }
+      $parentKey = (string) ($structureItem['parent_key'] ?? '');
+      if ($parentKey !== '' && isset($structureDirectTotals[$parentKey])) {
+        $structureDirectTotals[$parentKey] += $structureDirectTotals[$structureKey] ?? 0.0;
+      }
+    }
+
     $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenh.','Aantal','Arbeid','Materiaal','Materieel','Onderaann.','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
@@ -212,7 +255,7 @@ final class CalculationWorkbenchForm extends FormBase {
       $form['workbench']['grid']['structure_' . $key] = [
         '#attributes' => ['class' => ['brebo-calc-workbench__structure', $structureClass, 'depth-' . $depth], 'data-structure-key' => (string) $key, 'data-parent-key' => (string) ($item['parent_key'] ?? ''), 'data-structure-type' => $nodeType],
         'code' => ['#markup' => '<span class="brebo-calc-structure-code">' . htmlspecialchars((string) ($item['code'] ?: '')) . '</span>'], 'description' => ['#markup' => '<div class="brebo-calc-structure-title"><button type="button" class="brebo-calc-collapse-toggle" aria-expanded="true" title="In-/uitklappen">▾</button><span class="brebo-calc-structure-kind">' . $structureLabel . '</span><strong>' . htmlspecialchars((string) $item['label']) . '</strong></div>'],
-        'unit' => ['#markup' => ''], 'quantity' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => '<strong class="brebo-calc-structure-subtotal">€ 0,00</strong>'], 'operations' => $operations,
+        'unit' => ['#markup' => ''], 'quantity' => ['#markup' => ''], 'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''], 'total' => ['#markup' => '<strong class="brebo-calc-structure-subtotal" data-server-subtotal="' . htmlspecialchars((string) ($structureDirectTotals[$key] ?? 0.0)) . '">€ ' . number_format((float) ($structureDirectTotals[$key] ?? 0.0), 2, ',', '.') . '</strong>'], 'operations' => $operations,
       ];
 
       foreach ($rows as $row) {
