@@ -66,19 +66,41 @@ final class ProjectTeamForm extends FormBase {
         $jobTitle = $account->hasField('field_brebo_job_title')
           ? (string) ($account->get('field_brebo_job_title')->value ?? '')
           : '';
+        $skills = [];
+        if ($account->hasField('field_brebo_skills')) {
+          foreach ($account->get('field_brebo_skills') as $skill) {
+            $value = trim((string) ($skill->value ?? ''));
+            if ($value !== '') {
+              $skills[] = $value;
+            }
+          }
+        }
+        $workforceStatus = $account->hasField('field_brebo_workforce_status')
+          ? (string) ($account->get('field_brebo_workforce_status')->value ?? '')
+          : '';
         $rows[] = [
           $account->getDisplayName(),
           $employeeNumber !== '' ? $employeeNumber : '-',
           $jobTitle !== '' ? $jobTitle : '-',
+          $skills !== [] ? implode(', ', $skills) : '-',
+          $workforceStatus !== '' ? ucfirst(str_replace('_', ' ', $workforceStatus)) : ($account->isActive() ? $this->t('Actief') : $this->t('Inactief')),
         ];
       }
       $form['current'] = [
         '#type' => 'table',
         '#caption' => $this->t('Huidig projectteam'),
-        '#header' => [$this->t('Medewerker'), $this->t('Personeelsnummer'), $this->t('Functie')],
+        '#header' => [$this->t('Medewerker'), $this->t('Personeelsnummer'), $this->t('Functie'), $this->t('Vaardigheden'), $this->t('Status')],
         '#rows' => $rows,
       ];
     }
+
+    $form['next'] = [
+      '#type' => 'container',
+      '#attributes' => ['class' => ['brebo-section']],
+      'text' => [
+        '#markup' => '<p><strong>Volgende stap:</strong> na opslaan zijn deze medewerkers direct herkenbaar voor Inzet en OnSite. Plan daarna alleen nog de dagen en tijden waarop ze worden verwacht.</p>',
+      ],
+    ];
 
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit'] = [
@@ -112,9 +134,10 @@ final class ProjectTeamForm extends FormBase {
 
     $this->messenger()->addStatus($this->formatPlural(
       count($ids),
-      'Projectteam opgeslagen met 1 medewerker.',
-      'Projectteam opgeslagen met @count medewerkers.'
+      'Projectteam opgeslagen met 1 medewerker. Inzet en OnSite herkennen deze projectkoppeling direct.',
+      'Projectteam opgeslagen met @count medewerkers. Inzet en OnSite herkennen deze projectkoppelingen direct.'
     ));
+    $form_state->setRedirect('brebo_inzet.project_quick_planning', ['node' => (int) $project->id()]);
   }
 
 }
