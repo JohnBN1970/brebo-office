@@ -166,6 +166,36 @@ final class CalculationResultService {
     $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
     $pricedDirect = (float) ($commercial['direct_cost'] ?? $commercial['directCost'] ?? $totals['priced_scope'] ?? $totals['pricedScope'] ?? 0);
     $optionsDirect = (float) ($totals['options'] ?? 0);
+    $components = [];
+    foreach ((array) ($payload['rows'] ?? []) as $index => $row) {
+      if (!is_array($row)) {
+        continue;
+      }
+      $ruleType = (string) ($row['type'] ?? 'normal');
+      if ($ruleType === 'note') {
+        continue;
+      }
+      $quantity = (float) ($row['quantity'] ?? 0);
+      $unitCosts = is_array($row['unit_costs'] ?? NULL) ? $row['unit_costs'] : [];
+      $unitDirect = 0.0;
+      foreach ($unitCosts as $cost) {
+        if (is_numeric($cost)) {
+          $unitDirect += (float) $cost;
+        }
+      }
+      $legacyId = (int) ($row['legacy_line_id'] ?? 0);
+      $key = $legacyId > 0 ? 'line_' . $legacyId : 'snapshot_row_' . $index;
+      $components[$key] = [
+        'kind' => 'row',
+        'id' => $legacyId,
+        'rule_type' => $ruleType,
+        'description' => (string) ($row['description'] ?? ''),
+        'quantity' => $quantity,
+        'unit' => (string) ($row['unit'] ?? ''),
+        'direct_cost' => $quantity * $unitDirect,
+      ];
+    }
+
     return [
       'calculation_id' => (int) $version['calculation_id'],
       'version' => (string) $version['version'],
@@ -186,7 +216,7 @@ final class CalculationResultService {
       'priced_direct_cost' => $pricedDirect,
       'options_direct_cost' => $optionsDirect,
       'commercial_result' => $commercial,
-      'components' => [],
+      'components' => $components,
       'source' => 'immutable_snapshot',
     ];
   }
