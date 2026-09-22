@@ -69,6 +69,13 @@ final class ProjectInzetProposalForm extends FormBase {
 
     $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
     $labourLines = $this->labourProductivity->labourBudgetLines((int) $node->id());
+    $financeBudgetHours = array_sum(array_map(
+      static fn (array $line): float => max(0.0, (float) ($line['budget_hours'] ?? 0)),
+      $labourLines
+    ));
+    // Finance locked labour lines are the authoritative labour budget.
+    $proposal['budget_hours'] = round($financeBudgetHours, 2);
+    $proposal['delta_hours'] = round((float) $proposal['proposed_hours'] - $financeBudgetHours, 2);
     $conflicts = $this->crossProjectConflicts((int) $node->id(), $selected, $start, $end, $startTime, $endTime);
     $unavailable = $this->unavailabilityConflicts($selected, $start, $end);
     $delta = (float) $proposal['delta_hours'];
