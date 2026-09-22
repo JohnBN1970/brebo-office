@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
+use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\ProjectInzetProposalBuilder;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -21,12 +22,14 @@ final class ProjectInzetProposalForm extends FormBase {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly ProjectInzetProposalBuilder $proposalBuilder,
+    private readonly LabourProductivityManager $labourProductivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('entity_type.manager'),
       $container->get('brebo_inzet.project_inzet_proposal_builder'),
+      $container->get('brebo_finance.labour_productivity_manager'),
     );
   }
 
@@ -62,6 +65,7 @@ final class ProjectInzetProposalForm extends FormBase {
     $endTime = (string) ($form_state->getValue('end_time') ?: '16:00');
 
     $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
+    $labourLines = $this->labourProductivity->labourBudgetLines((int) $node->id());
     $conflicts = $this->crossProjectConflicts((int) $node->id(), $selected, $start, $end, $startTime, $endTime);
     $unavailable = $this->unavailabilityConflicts($selected, $start, $end);
     $delta = (float) $proposal['delta_hours'];
@@ -136,6 +140,31 @@ final class ProjectInzetProposalForm extends FormBase {
         '#markup' => '<div class="brebo-kpi brebo-kpi--' . $tone . '"><span class="brebo-kpi__value">' . ($delta > 0 ? '+' : '') . number_format($delta, 2, ',', '.') . ' u</span><span class="brebo-kpi__label">Verschil t.o.v. begroting</span></div>',
       ],
     ];
+
+    if ($labourLines !== []) {
+      $lineRows = [];
+      $totalLineHours = array_sum(array_map(static fn (array $line): float => max(0.0, (float) ($line['budget_hours'] ?? 0)), $labourLines));
+      foreach ($labourLines as $line) {
+        $hours = max(0.0, (float) ($line['budget_hours'] ?? 0));
+        $share = $totalLineHours > 0 ? ($hours / $totalLineHours) * 100 : 0.0;
+        $lineRows[] = [
+          htmlspecialchars((string) ($line['work_package'] ?? ''), ENT_QUOTES, 'UTF-8'),
+          htmlspecialchars((string) ($line['description'] ?? 'Arbeid'), ENT_QUOTES, 'UTF-8'),
+          number_format($hours, 2, ',', '.') . ' u',
+          number_format($share, 1, ',', '.') . '%',
+        ];
+      }
+      $form['labour_lines'] = [
+        '#type' => 'table',
+        '#caption' => $this->t('Verdeling arbeidsbegroting'),
+        '#header' => [$this->t('Werkpakket'), $this->t('Arbeidsregel'), $this->t('Begrote uren'), $this->t('Aandeel')],
+        '#rows' => $lineRows,
+        '#empty' => $this->t('Geen vergrendelde arbeidsregels gevonden.'),
+      ];
+      $form['line_distribution_note'] = [
+        '#markup' => '<div class="messages messages--status"><strong>Projectvulling wordt per arbeidsbegrotingsregel verdeeld.</strong> Office vult de regels in begrotingsvolgorde en legt de regel-ID op iedere daginzet vast. Er worden geen uren aan een willekeurige regel gekoppeld.</div>',
+      ];
+    }
 
     if ($unavailable !== []) {
       $conflicts = array_merge($conflicts, $unavailable);
@@ -250,9 +279,29 @@ final class ProjectInzetProposalForm extends FormBase {
     $dates = $this->proposalBuilder->dates($start, $end);
     $hours = max(0, (strtotime('1970-01-01 ' . $endTime) - strtotime('1970-01-01 ' . $startTime)) / 3600);
 
+    $labourLines = $this->labourProductivity->labourBudgetLines($projectId);
+    if ($labourLines === []) {
+      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: er is geen vergrendelde arbeidsbegrotingsregel beschikbaar.'));
+      $form_state->setRebuild(TRUE);
+      return;
+    }
+    $lineQueue = [];
+    foreach ($labourLines as $line) {
+      $remaining = max(0.0, (float) ($line['budget_hours'] ?? 0));
+      if ($remaining > 0) {
+        $lineQueue[] = ['id' => (int) $line['id'], 'remaining' => $remaining];
+      }
+    }
+    if ($lineQueue === []) {
+      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: de vergrendelde arbeidsbegroting bevat geen positieve arbeidsuren.'));
+      $form_state->setRebuild(TRUE);
+      return;
+    }
+
     $storage = $this->entityTypeManager->getStorage('node');
     $created = 0;
     $skipped = 0;
+    $lineIndex = 0;
     foreach ($selected as $uid) {
       $account = $this->entityTypeManager->getStorage('user')->load($uid);
       foreach ($dates as $date) {
@@ -270,6 +319,15 @@ final class ProjectInzetProposalForm extends FormBase {
           continue;
         }
 
+        while (isset($lineQueue[$lineIndex]) && $lineQueue[$lineIndex]['remaining'] <= 0.001) {
+          $lineIndex++;
+        }
+        if (!isset($lineQueue[$lineIndex])) {
+          break 2;
+        }
+        $allocatedHours = min($hours, $lineQueue[$lineIndex]['remaining']);
+        $budgetLineId = $lineQueue[$lineIndex]['id'];
+
         $assignment = $storage->create([
           'type' => 'brebo_personnel_assignment',
           'title' => sprintf('%s - %s - %s', $project->label(), $account?->label() ?? ('Gebruiker ' . $uid), $date),
@@ -279,10 +337,12 @@ final class ProjectInzetProposalForm extends FormBase {
           'field_brebo_plan_date' => $date,
           'field_brebo_assignment_start' => $startTime,
           'field_brebo_assignment_end' => $endTime,
-          'field_brebo_planned_hours' => round($hours, 2),
+          'field_brebo_planned_hours' => round($allocatedHours, 2),
+          'field_brebo_budget_line_id' => $budgetLineId,
           'field_brebo_assignment_status' => 'planned',
         ]);
         $assignment->save();
+        $lineQueue[$lineIndex]['remaining'] = round($lineQueue[$lineIndex]['remaining'] - $allocatedHours, 4);
         $created++;
       }
     }
