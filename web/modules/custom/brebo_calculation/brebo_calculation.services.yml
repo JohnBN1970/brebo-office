@@ -29,6 +29,7 @@ services:
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
+      - '@entity_type.manager'
 
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
