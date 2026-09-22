@@ -38,6 +38,19 @@ brebo_inzet.app_clock:
       node:
         type: entity:node
 
+brebo_inzet.project_proposal:
+  path: '/projecten/{node}/inzet/projectvoorstel'
+  defaults:
+    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectInzetProposalForm'
+    _title: 'Projectinzet voorstellen'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_week_planning:
   path: '/projecten/{node}/inzet/week'
   defaults:
