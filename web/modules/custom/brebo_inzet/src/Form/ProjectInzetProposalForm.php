@@ -165,7 +165,7 @@ final class ProjectInzetProposalForm extends FormBase {
         '#empty' => $this->t('Geen vergrendelde arbeidsregels gevonden.'),
       ];
       $form['line_distribution_note'] = [
-        '#markup' => '<div class="messages messages--status"><strong>Projectvulling wordt per arbeidsbegrotingsregel verdeeld.</strong> Office vult de regels in begrotingsvolgorde en legt de regel-ID op iedere daginzet vast. Er worden geen uren aan een willekeurige regel gekoppeld.</div>',
+        '#markup' => '<div class="messages messages--status"><strong>Projectvulling wordt per arbeidsbegrotingsregel verdeeld.</strong> Office verdeelt de volledige ploegcapaciteit proportioneel over de vergrendelde arbeidsregels en legt de regel-ID op iedere daginzet vast. De werkbegroting is hierbij de controlemarge; een overschrijding wordt zichtbaar maar kapt de planning niet af.</div>',
       ];
     }
 
@@ -288,48 +288,74 @@ final class ProjectInzetProposalForm extends FormBase {
       $form_state->setRebuild(TRUE);
       return;
     }
-    $lineQueue = [];
+    $lineTargets = [];
+    $totalBudgetHours = 0.0;
     foreach ($labourLines as $line) {
-      $remaining = max(0.0, (float) ($line['budget_hours'] ?? 0));
-      if ($remaining > 0) {
-        $lineQueue[] = ['id' => (int) $line['id'], 'remaining' => $remaining];
+      $budgetHours = max(0.0, (float) ($line['budget_hours'] ?? 0));
+      if ($budgetHours <= 0) {
+        continue;
       }
+      $lineId = (int) $line['id'];
+      $lineTargets[$lineId] = [
+        'budget_hours' => $budgetHours,
+        'allocated_hours' => 0.0,
+        'target_hours' => 0.0,
+      ];
+      $totalBudgetHours += $budgetHours;
     }
-    if ($lineQueue === []) {
+    if ($lineTargets === [] || $totalBudgetHours <= 0) {
       $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: de vergrendelde arbeidsbegroting bevat geen positieve arbeidsuren.'));
       $form_state->setRebuild(TRUE);
       return;
     }
 
     $storage = $this->entityTypeManager->getStorage('node');
+    $existingIds = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_personnel_assignment')
+      ->condition('field_brebo_project_ref', $projectId)
+      ->condition('field_brebo_plan_user', $selected, 'IN')
+      ->condition('field_brebo_plan_date', $dates, 'IN')
+      ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+      ->execute();
+
+    $existingByPersonDate = [];
+    foreach ($storage->loadMultiple($existingIds) as $existingAssignment) {
+      if (!$existingAssignment instanceof NodeInterface) {
+        continue;
+      }
+      $uid = (int) ($existingAssignment->get('field_brebo_plan_user')->target_id ?? 0);
+      $date = (string) ($existingAssignment->get('field_brebo_plan_date')->value ?? '');
+      if ($uid > 0 && $date !== '') {
+        $existingByPersonDate[$uid . ':' . $date] = TRUE;
+      }
+      $lineId = (int) ($existingAssignment->get('field_brebo_budget_line_id')->value ?? 0);
+      if (isset($lineTargets[$lineId])) {
+        $lineTargets[$lineId]['allocated_hours'] += max(0.0, (float) ($existingAssignment->get('field_brebo_planned_hours')->value ?? 0));
+      }
+    }
+
+    // Budget determines the proportional distribution over labour lines, but
+    // never truncates the selected team's full project-period capacity.
+    $fullCapacityHours = count($selected) * count($dates) * $hours;
+    foreach ($lineTargets as &$lineTarget) {
+      $lineTarget['target_hours'] = $fullCapacityHours * ($lineTarget['budget_hours'] / $totalBudgetHours);
+    }
+    unset($lineTarget);
+
     $created = 0;
     $skipped = 0;
-    $lineIndex = 0;
-    foreach ($selected as $uid) {
-      $account = $this->entityTypeManager->getStorage('user')->load($uid);
-      foreach ($dates as $date) {
-        $existing = $storage->getQuery()
-          ->accessCheck(FALSE)
-          ->condition('type', 'brebo_personnel_assignment')
-          ->condition('field_brebo_project_ref', $projectId)
-          ->condition('field_brebo_plan_user', $uid)
-          ->condition('field_brebo_plan_date', $date)
-          ->condition('field_brebo_assignment_status', 'cancelled', '<>')
-          ->range(0, 1)
-          ->execute();
-        if ($existing !== []) {
+
+    // Plan day-first so the full selected crew is filled evenly through time.
+    foreach ($dates as $date) {
+      foreach ($selected as $uid) {
+        if (isset($existingByPersonDate[$uid . ':' . $date])) {
           $skipped++;
           continue;
         }
 
-        while (isset($lineQueue[$lineIndex]) && $lineQueue[$lineIndex]['remaining'] <= 0.001) {
-          $lineIndex++;
-        }
-        if (!isset($lineQueue[$lineIndex])) {
-          break 2;
-        }
-        $allocatedHours = min($hours, $lineQueue[$lineIndex]['remaining']);
-        $budgetLineId = $lineQueue[$lineIndex]['id'];
+        $budgetLineId = $this->nextLabourLineId($lineTargets);
+        $account = $this->entityTypeManager->getStorage('user')->load($uid);
 
         $assignment = $storage->create([
           'type' => 'brebo_personnel_assignment',
@@ -340,13 +366,14 @@ final class ProjectInzetProposalForm extends FormBase {
           'field_brebo_plan_date' => $date,
           'field_brebo_assignment_start' => $startTime,
           'field_brebo_assignment_end' => $endTime,
-          'field_brebo_planned_hours' => round($allocatedHours, 2),
+          'field_brebo_planned_hours' => round($hours, 2),
           'field_brebo_budget_line_id' => $budgetLineId,
           'field_brebo_assignment_status' => 'planned',
         ]);
         $assignment->save();
         $this->financeSynchronizer->synchronize($assignment);
-        $lineQueue[$lineIndex]['remaining'] = round($lineQueue[$lineIndex]['remaining'] - $allocatedHours, 4);
+        $lineTargets[$budgetLineId]['allocated_hours'] += $hours;
+        $existingByPersonDate[$uid . ':' . $date] = TRUE;
         $created++;
       }
     }
@@ -356,6 +383,27 @@ final class ProjectInzetProposalForm extends FormBase {
       '@skipped' => $skipped,
     ]));
     $form_state->setRedirect('brebo_inzet.project_week_planning', ['node' => $projectId], ['query' => ['week' => $start]]);
+  }
+
+  /**
+   * Chooses the labour line that is furthest below its proportional target.
+   *
+   * @param array<int, array{budget_hours: float, allocated_hours: float, target_hours: float}> $lineTargets
+   */
+  private function nextLabourLineId(array $lineTargets): int {
+    $selectedId = 0;
+    $largestDeficit = -INF;
+    foreach ($lineTargets as $lineId => $target) {
+      $deficit = $target['target_hours'] - $target['allocated_hours'];
+      if ($selectedId === 0 || $deficit > $largestDeficit) {
+        $selectedId = (int) $lineId;
+        $largestDeficit = $deficit;
+      }
+    }
+    if ($selectedId <= 0) {
+      throw new \UnexpectedValueException('Geen geldige arbeidsbegrotingsregel beschikbaar voor projectinzet.');
+    }
+    return $selectedId;
   }
 
   /**
