@@ -136,6 +136,8 @@ final class CalculationResultService {
     }
 
     $commercial = $this->commercialCalculator->calculate($pricedDirect, $parameters);
+    $commercialFactor = $pricedDirect > 0.0 ? $commercial->salesPrice / $pricedDirect : 0.0;
+    $optionsSalesPrice = $optionsDirect * $commercialFactor;
     return [
       'calculation_id' => $calculationId,
       'version' => (string) $version['version'],
@@ -151,6 +153,8 @@ final class CalculationResultService {
       ],
       'priced_direct_cost' => $pricedDirect,
       'options_direct_cost' => $optionsDirect,
+      'options_sales_price' => $optionsSalesPrice,
+      'commercial_factor' => $commercialFactor,
       'commercial_result' => $commercial->toArray(),
       'components' => $components,
     ];
@@ -166,6 +170,9 @@ final class CalculationResultService {
     $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
     $pricedDirect = (float) ($commercial['direct_cost'] ?? $commercial['directCost'] ?? $totals['priced_scope'] ?? $totals['pricedScope'] ?? 0);
     $optionsDirect = (float) ($totals['options'] ?? 0);
+    $salesPrice = (float) ($commercial['sales_price'] ?? $commercial['salesPrice'] ?? 0);
+    $commercialFactor = $pricedDirect > 0.0 ? $salesPrice / $pricedDirect : 0.0;
+    $optionsSalesPrice = $optionsDirect * $commercialFactor;
     $components = [];
     foreach ((array) ($payload['rows'] ?? []) as $index => $row) {
       if (!is_array($row)) {
@@ -215,6 +222,8 @@ final class CalculationResultService {
       ],
       'priced_direct_cost' => $pricedDirect,
       'options_direct_cost' => $optionsDirect,
+      'options_sales_price' => $optionsSalesPrice,
+      'commercial_factor' => $commercialFactor,
       'commercial_result' => $commercial,
       'components' => $components,
       'source' => 'immutable_snapshot',
