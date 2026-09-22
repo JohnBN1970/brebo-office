@@ -161,10 +161,10 @@ function brebo_calculation_update_11001(): void {
 
 
 /** Seed the six proven legacy kozijn calibration observations. */
-function brebo_calculation_update_11002(): void {
+function brebo_calculation_seed_legacy_kozijn_observations(): void {
   $database = \Drupal::database();
   if (!$database->schema()->tableExists('brebo_kozijn_price_observation')) {
-    throw new \RuntimeException('Kozijn price observation table is missing; run update 11001 first.');
+    return;
   }
 
   $observedAt = (new \DateTimeImmutable('2026-09-07T22:01:18+02:00'))->getTimestamp();
@@ -208,4 +208,17 @@ function brebo_calculation_update_11002(): void {
       'created_by' => NULL,
     ])->execute();
   }
+}
+
+/** Implements hook_install(). */
+function brebo_calculation_install(): void {
+  brebo_calculation_seed_legacy_kozijn_observations();
+}
+
+/** Seed existing installations after the dataset table exists. */
+function brebo_calculation_update_11002(): void {
+  if (!\Drupal::database()->schema()->tableExists('brebo_kozijn_price_observation')) {
+    throw new \RuntimeException('Kozijn price observation table is missing; run update 11001 first.');
+  }
+  brebo_calculation_seed_legacy_kozijn_observations();
 }
