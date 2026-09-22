@@ -157,7 +157,7 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<dt>' . $marginLabel . ' (' . number_format((float) ($commercialMethod === 'single_margin' ? ($result['parameters']['single_margin_pct'] ?? 0) : ($result['parameters']['profit_pct'] ?? 0)), 2, ',', '.') . '%)</dt><dd>€ ' . number_format($marginAmount, 2, ',', '.') . '</dd>'
         . '<dt>Correctie</dt><dd>€ ' . number_format((float) ($commercial['commercial_adjustment'] ?? 0), 2, ',', '.') . '</dd>'
         . '<dt>Verkoopprijs</dt><dd><strong>€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></dd>'
-        . '<dt>Opties buiten basisprijs</dt><dd>€ ' . number_format((float) ($result['options_direct_cost'] ?? 0), 2, ',', '.') . '</dd>'
+        . '<dt>Opties verkoopwaarde</dt><dd>€ ' . number_format((float) ($result['options_sales_price'] ?? 0), 2, ',', '.') . '</dd>'
         . '</dl></section>',
     ];
 
