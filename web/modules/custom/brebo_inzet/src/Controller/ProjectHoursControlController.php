@@ -49,6 +49,7 @@ final class ProjectHoursControlController extends ControllerBase {
     $clockedTotal = 0.0;
     $futurePlanned = 0.0;
     $rows = [];
+    $weekly = [];
     $exceptions = 0;
 
     foreach ($storage->loadMultiple($assignmentIds) as $assignment) {
@@ -62,6 +63,13 @@ final class ProjectHoursControlController extends ControllerBase {
       $clockedTotal += $clocked;
 
       $date = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
+      if ($date !== '') {
+        $week = (new \DateTimeImmutable($date))->format('o-\\WW');
+        $weekly[$week] ??= ['planned' => 0.0, 'clocked' => 0.0, 'days' => []];
+        $weekly[$week]['planned'] += $planned;
+        $weekly[$week]['clocked'] += $clocked;
+        $weekly[$week]['days'][$date] = TRUE;
+      }
       if ($date > $today) {
         $futurePlanned += $planned;
       }
@@ -92,6 +100,9 @@ final class ProjectHoursControlController extends ControllerBase {
     $budgetHours = $this->budgetHours($node);
     $forecast = round($clockedTotal + $futurePlanned, 2);
     $remainingBudget = round($budgetHours - $clockedTotal, 2);
+    $completedWeeks = array_filter($weekly, static fn (array $week): bool => $week['clocked'] > 0);
+    $averageClockedWeek = $completedWeeks === [] ? 0.0 : round(array_sum(array_column($completedWeeks, 'clocked')) / count($completedWeeks), 2);
+    $averagePlannedWeek = $weekly === [] ? 0.0 : round(array_sum(array_column($weekly, 'planned')) / count($weekly), 2);
     $forecastDelta = round($forecast - $budgetHours, 2);
 
     return [
@@ -130,9 +141,22 @@ final class ProjectHoursControlController extends ControllerBase {
         'forecast_delta' => [
           '#markup' => $this->kpi(($forecastDelta > 0 ? '+' : '') . number_format($forecastDelta, 2, ',', '.') . ' u', 'Prognose vs begroting', $forecastDelta > 0 ? 'critical' : ($forecastDelta < 0 ? 'attention' : 'positive')),
         ],
+        'avg_week' => [
+          '#markup' => $this->kpi(number_format($averageClockedWeek, 2, ',', '.') . ' u', 'Gemiddeld werkelijk per week', 'neutral'),
+        ],
+        'avg_plan_week' => [
+          '#markup' => $this->kpi(number_format($averagePlannedWeek, 2, ',', '.') . ' u', 'Gemiddeld gepland per week', 'neutral'),
+        ],
         'exceptions' => [
           '#markup' => $this->kpi((string) $exceptions, 'Uurafwijkingen', $exceptions > 0 ? 'attention' : 'positive'),
         ],
+      ],
+      'weekly' => [
+        '#type' => 'table',
+        '#caption' => $this->t('Uren per week'),
+        '#header' => [$this->t('Week'), $this->t('Gepland'), $this->t('Werkelijk'), $this->t('Verschil'), $this->t('Gem. werkelijk per geregistreerde dag')],
+        '#rows' => $this->weeklyRows($weekly),
+        '#empty' => $this->t('Nog geen weekgegevens beschikbaar.'),
       ],
       'table' => [
         '#type' => 'table',
@@ -150,6 +174,27 @@ final class ProjectHoursControlController extends ControllerBase {
         '#empty' => $this->t('Er is nog geen personeelsinzet om te controleren.'),
       ],
     ];
+  }
+
+  /**
+   * @param array<string, array{planned: float, clocked: float, days: array<string, bool>}> $weekly
+   * @return array<int, array<int, string>>
+   */
+  private function weeklyRows(array $weekly): array {
+    ksort($weekly);
+    $rows = [];
+    foreach ($weekly as $week => $values) {
+      $delta = round($values['clocked'] - $values['planned'], 2);
+      $days = count($values['days']);
+      $rows[] = [
+        $week,
+        number_format($values['planned'], 2, ',', '.') . ' u',
+        number_format($values['clocked'], 2, ',', '.') . ' u',
+        ($delta > 0 ? '+' : '') . number_format($delta, 2, ',', '.') . ' u',
+        number_format($days > 0 ? $values['clocked'] / $days : 0, 2, ',', '.') . ' u',
+      ];
+    }
+    return array_reverse($rows);
   }
 
   private function budgetHours(NodeInterface $project): float {
