@@ -107,6 +107,10 @@ final class ProjectInzetHubController extends ControllerBase {
       'actions' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-action-bar']],
+        'hours' => Link::fromTextAndUrl(
+          $this->t('Uren controleren'),
+          Url::fromRoute('brebo_inzet.project_hours_control', ['node' => $projectId])
+        )->toRenderable(),
         'proposal' => Link::fromTextAndUrl(
           $this->t('Hele project vullen'),
           Url::fromRoute('brebo_inzet.project_proposal', ['node' => $projectId])
@@ -168,6 +172,7 @@ final class ProjectInzetHubController extends ControllerBase {
       ],
     ];
 
+    $build['actions']['hours']['#attributes']['class'] = ['button'];
     $build['actions']['proposal']['#attributes']['class'] = ['button', 'button--primary', 'brebo-button--primary'];
     $build['actions']['week']['#attributes']['class'] = ['button'];
     $build['actions']['plan']['#attributes']['class'] = ['button'];
