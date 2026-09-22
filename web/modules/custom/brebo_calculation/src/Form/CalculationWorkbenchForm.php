@@ -144,6 +144,23 @@ final class CalculationWorkbenchForm extends FormBase {
         . '</dl></section>',
     ];
 
+    $commercialMethod = (string) ($result['parameters']['commercial_method'] ?? 'tail_costs');
+    $marginAmount = $commercialMethod === 'single_margin'
+      ? (float) ($commercial['single_margin'] ?? 0)
+      : (float) ($commercial['profit'] ?? 0);
+    $marginLabel = $commercialMethod === 'single_margin' ? 'Marge' : 'Winst';
+    $form['workbench']['panels']['commercial'] = [
+      '#markup' => '<section class="brebo-calc-panel brebo-calc-panel--commercial"><h2>Commerciële opbouw</h2><dl class="brebo-calc-facts">'
+        . '<dt>Directe kostprijs</dt><dd>€ ' . number_format($directCost, 2, ',', '.') . '</dd>'
+        . '<dt>AK (' . number_format((float) ($result['parameters']['general_cost_pct'] ?? 0), 2, ',', '.') . '%)</dt><dd>€ ' . number_format((float) ($commercial['general_cost'] ?? 0), 2, ',', '.') . '</dd>'
+        . '<dt>Risico (' . number_format((float) ($result['parameters']['risk_pct'] ?? 0), 2, ',', '.') . '%)</dt><dd>€ ' . number_format((float) ($commercial['risk'] ?? 0), 2, ',', '.') . '</dd>'
+        . '<dt>' . $marginLabel . ' (' . number_format((float) ($commercialMethod === 'single_margin' ? ($result['parameters']['single_margin_pct'] ?? 0) : ($result['parameters']['profit_pct'] ?? 0)), 2, ',', '.') . '%)</dt><dd>€ ' . number_format($marginAmount, 2, ',', '.') . '</dd>'
+        . '<dt>Correctie</dt><dd>€ ' . number_format((float) ($commercial['commercial_adjustment'] ?? 0), 2, ',', '.') . '</dd>'
+        . '<dt>Verkoopprijs</dt><dd><strong>€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></dd>'
+        . '<dt>Opties verkoopwaarde</dt><dd>€ ' . number_format((float) ($result['options_sales_price'] ?? 0), 2, ',', '.') . '</dd>'
+        . '</dl></section>',
+    ];
+
     $form['workbench']['messages'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']]];
     if ($form_state->get('ajax_message')) { $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>']; }
 
