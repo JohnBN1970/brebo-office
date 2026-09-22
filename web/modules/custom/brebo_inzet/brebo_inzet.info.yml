@@ -7,4 +7,5 @@ dependencies:
   - drupal:node
   - drupal:options
   - brebo_office_core:brebo_office_core
+  - brebo_finance:brebo_finance
   - brebo_building_data:brebo_building_data

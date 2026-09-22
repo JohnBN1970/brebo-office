@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Controller;
 
+use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\PersonnelAssignmentComparison;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -18,10 +19,14 @@ final class ProjectHoursControlController extends ControllerBase {
 
   public function __construct(
     private readonly PersonnelAssignmentComparison $comparison,
+    private readonly LabourProductivityManager $labourProductivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_inzet.personnel_assignment_comparison'));
+    return new static(
+      $container->get('brebo_inzet.personnel_assignment_comparison'),
+      $container->get('brebo_finance.labour_productivity_manager'),
+    );
   }
 
   public function title(NodeInterface $node): string {
@@ -97,8 +102,16 @@ final class ProjectHoursControlController extends ControllerBase {
       ];
     }
 
-    $budgetHours = $this->budgetHours($node);
-    $forecast = round($clockedTotal + $futurePlanned, 2);
+    $finance = $this->labourProductivity->analyzeProject($projectId);
+    $financeTotals = (array) ($finance['totals'] ?? []);
+    $financeBudgetHours = (float) ($financeTotals['budget_hours'] ?? 0);
+    $budgetHours = $financeBudgetHours > 0 ? $financeBudgetHours : $this->budgetHours($node);
+    $approvedHours = (float) ($financeTotals['actual_approved_hours'] ?? 0);
+    $submittedHours = (float) ($financeTotals['actual_submitted_hours'] ?? 0);
+    $financeForecastHours = (float) ($financeTotals['forecast_end_hours'] ?? 0);
+    $financeForecastCost = (float) ($financeTotals['forecast_cost_ex_vat'] ?? 0);
+    $financeVariance = (float) ($financeTotals['forecast_variance_ex_vat'] ?? 0);
+    $forecast = $financeForecastHours > 0 ? round($financeForecastHours, 2) : round($clockedTotal + $futurePlanned, 2);
     $remainingBudget = round($budgetHours - $clockedTotal, 2);
     $completedWeeks = array_filter($weekly, static fn (array $week): bool => $week['clocked'] > 0);
     $averageClockedWeek = $completedWeeks === [] ? 0.0 : round(array_sum(array_column($completedWeeks, 'clocked')) / count($completedWeeks), 2);
@@ -132,6 +145,12 @@ final class ProjectHoursControlController extends ControllerBase {
         'clocked' => [
           '#markup' => $this->kpi(number_format($clockedTotal, 2, ',', '.') . ' u', 'Werkelijk geklokt', $clockedTotal > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
         ],
+        'submitted' => [
+          '#markup' => $this->kpi(number_format($submittedHours, 2, ',', '.') . ' u', 'Ingediend werkelijk', 'neutral'),
+        ],
+        'approved' => [
+          '#markup' => $this->kpi(number_format($approvedHours, 2, ',', '.') . ' u', 'Goedgekeurd werkelijk', $approvedHours > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
+        ],
         'remaining' => [
           '#markup' => $this->kpi(($remainingBudget >= 0 ? '' : '+') . number_format(abs($remainingBudget), 2, ',', '.') . ' u', $remainingBudget >= 0 ? 'Budget resterend' : 'Budget overschreden', $remainingBudget >= 0 ? 'positive' : 'critical'),
         ],
@@ -140,6 +159,12 @@ final class ProjectHoursControlController extends ControllerBase {
         ],
         'forecast_delta' => [
           '#markup' => $this->kpi(($forecastDelta > 0 ? '+' : '') . number_format($forecastDelta, 2, ',', '.') . ' u', 'Prognose vs begroting', $forecastDelta > 0 ? 'critical' : ($forecastDelta < 0 ? 'attention' : 'positive')),
+        ],
+        'forecast_cost' => [
+          '#markup' => $this->kpi('€ ' . number_format($financeForecastCost, 2, ',', '.'), 'Prognose arbeidskosten excl. btw', $financeVariance > 0 ? 'critical' : 'neutral'),
+        ],
+        'cost_delta' => [
+          '#markup' => $this->kpi(($financeVariance > 0 ? '+€ ' : '€ ') . number_format(abs($financeVariance), 2, ',', '.'), 'Financiële afwijking excl. btw', $financeVariance > 0 ? 'critical' : ($financeVariance < 0 ? 'positive' : 'neutral')),
         ],
         'avg_week' => [
           '#markup' => $this->kpi(number_format($averageClockedWeek, 2, ',', '.') . ' u', 'Gemiddeld werkelijk per week', 'neutral'),
@@ -150,6 +175,9 @@ final class ProjectHoursControlController extends ControllerBase {
         'exceptions' => [
           '#markup' => $this->kpi((string) $exceptions, 'Uurafwijkingen', $exceptions > 0 ? 'attention' : 'positive'),
         ],
+      ],
+      'finance_note' => [
+        '#markup' => '<div class="messages messages--status"><strong>Financiële urenwaarheid:</strong> alleen goedgekeurde werkelijke uren tellen financieel als actual. Ingediende uren blijven zichtbaar als nog te beoordelen bewijs. Prognose en arbeidskosten komen rechtstreeks uit Finance wanneer een vergrendelde arbeidsbegroting beschikbaar is.</div>',
       ],
       'weekly' => [
         '#type' => 'table',
