@@ -50,11 +50,24 @@ final class ProjectInzetProposalBuilder {
 
     $budgetHours = 0.0;
     if ($packageIds !== []) {
-      $budgetIds = $storage->getQuery()
+      $candidateBudgetIds = $storage->getQuery()
         ->accessCheck(FALSE)
         ->condition('type', 'brebo_work_budget')
         ->condition('field_brebo_package_ref', array_values($packageIds), 'IN')
+        ->sort('changed', 'DESC')
         ->execute();
+      $budgetIds = [];
+      foreach ($storage->loadMultiple($candidateBudgetIds) as $budget) {
+        if (!$budget instanceof NodeInterface) {
+          continue;
+        }
+        $packageId = (int) ($budget->get('field_brebo_package_ref')->target_id ?? 0);
+        if ($packageId > 0 && !isset($budgetIds[$packageId])) {
+          // One current execution budget per work package; older versions are
+          // historical truth and must never be double-counted in Inzet.
+          $budgetIds[$packageId] = (int) $budget->id();
+        }
+      }
       if ($budgetIds !== []) {
         $lineIds = $storage->getQuery()
           ->accessCheck(FALSE)
