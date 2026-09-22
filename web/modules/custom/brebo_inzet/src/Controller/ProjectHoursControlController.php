@@ -117,6 +117,15 @@ final class ProjectHoursControlController extends ControllerBase {
     $averageClockedWeek = $completedWeeks === [] ? 0.0 : round(array_sum(array_column($completedWeeks, 'clocked')) / count($completedWeeks), 2);
     $averagePlannedWeek = $weekly === [] ? 0.0 : round(array_sum(array_column($weekly, 'planned')) / count($weekly), 2);
     $forecastDelta = round($forecast - $budgetHours, 2);
+    $alerts = $this->hourAlerts(
+      $budgetHours,
+      $plannedTotal,
+      $clockedTotal,
+      $approvedHours,
+      $forecast,
+      $weekly,
+      $exceptions,
+    );
 
     return [
       '#cache' => [
@@ -132,6 +141,13 @@ final class ProjectHoursControlController extends ControllerBase {
       ],
       'header' => [
         '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO INZET</p><h1>Urencontrole</h1><p class="brebo-page-header__description">Vergelijk vrijgegeven werkbegrotingsuren met geplande en werkelijk geklokte inzet. De prognose combineert werkelijk geklokte uren tot nu met de nog geplande toekomstige inzet.</p></div>',
+      ],
+      'alerts' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-hours-alerts']],
+        'summary' => [
+          '#markup' => $this->alertSummary($alerts),
+        ],
       ],
       'kpis' => [
         '#type' => 'container',
@@ -202,6 +218,98 @@ final class ProjectHoursControlController extends ControllerBase {
         '#empty' => $this->t('Er is nog geen personeelsinzet om te controleren.'),
       ],
     ];
+  }
+
+  /**
+   * Builds deterministic controller alerts from the current hours truth.
+   *
+   * @param array<string, array{planned: float, clocked: float, days: array<string, bool>}> $weekly
+   * @return list<array{level: string, title: string, detail: string}>
+   */
+  private function hourAlerts(
+    float $budgetHours,
+    float $plannedHours,
+    float $clockedHours,
+    float $approvedHours,
+    float $forecastHours,
+    array $weekly,
+    int $exceptions,
+  ): array {
+    $alerts = [];
+
+    if ($budgetHours > 0 && $plannedHours > $budgetHours) {
+      $alerts[] = [
+        'level' => 'critical',
+        'title' => 'Planning boven arbeidsbegroting',
+        'detail' => number_format($plannedHours - $budgetHours, 2, ',', '.') . ' uur meer gepland dan vrijgegeven.',
+      ];
+    }
+    if ($budgetHours > 0 && $approvedHours > $budgetHours) {
+      $alerts[] = [
+        'level' => 'critical',
+        'title' => 'Arbeidsbudget overschreden',
+        'detail' => number_format($approvedHours - $budgetHours, 2, ',', '.') . ' goedgekeurde uren boven begroting.',
+      ];
+    }
+    if ($budgetHours > 0 && $forecastHours > $budgetHours) {
+      $alerts[] = [
+        'level' => 'critical',
+        'title' => 'Eindprognose boven arbeidsbegroting',
+        'detail' => 'Verwachte overschrijding: ' . number_format($forecastHours - $budgetHours, 2, ',', '.') . ' uur.',
+      ];
+    }
+
+    $latest = $weekly;
+    krsort($latest);
+    foreach ($latest as $week => $values) {
+      if ($values['clocked'] <= 0 || $values['planned'] <= 0) {
+        continue;
+      }
+      $delta = $values['clocked'] - $values['planned'];
+      $pct = ($delta / $values['planned']) * 100;
+      if ($pct > 10) {
+        $alerts[] = [
+          'level' => 'warning',
+          'title' => 'Weekverbruik loopt uit',
+          'detail' => $week . ': +' . number_format($delta, 2, ',', '.') . ' uur (' . number_format($pct, 1, ',', '.') . '% boven planning).',
+        ];
+      }
+      break;
+    }
+
+    if ($exceptions > 0) {
+      $alerts[] = [
+        'level' => 'warning',
+        'title' => 'Uurafwijkingen vragen controle',
+        'detail' => $exceptions . ' inzetregistratie(s) wijken af van de planning of missen klokbewijs.',
+      ];
+    }
+
+    if ($alerts === [] && ($clockedHours > 0 || $plannedHours > 0)) {
+      $alerts[] = [
+        'level' => 'ok',
+        'title' => 'Uren binnen controle',
+        'detail' => 'Geen actuele overschrijding of controller-signaal op basis van de beschikbare urenwaarheid.',
+      ];
+    }
+    return $alerts;
+  }
+
+  /**
+   * @param list<array{level: string, title: string, detail: string}> $alerts
+   */
+  private function alertSummary(array $alerts): string {
+    if ($alerts === []) {
+      return '<div class="messages messages--status"><strong>Urencontrole:</strong> nog onvoldoende ureninformatie voor signalering.</div>';
+    }
+    $items = '';
+    $critical = FALSE;
+    foreach ($alerts as $alert) {
+      $critical = $critical || $alert['level'] === 'critical';
+      $items .= '<li><strong>' . $alert['title'] . ':</strong> ' . $alert['detail'] . '</li>';
+    }
+    $class = $critical ? 'messages--error' : (array_filter($alerts, static fn (array $alert): bool => $alert['level'] === 'warning') ? 'messages--warning' : 'messages--status');
+    return '<div class="messages ' . $class . '"><strong>Controller-signalen</strong><ul>' . $items . '</ul></div>';
   }
 
   /**
