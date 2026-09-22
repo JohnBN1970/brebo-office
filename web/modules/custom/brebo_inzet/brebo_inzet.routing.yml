@@ -38,6 +38,19 @@ brebo_inzet.app_clock:
       node:
         type: entity:node
 
+brebo_inzet.project_quick_planning:
+  path: '/projecten/{node}/inzet/plannen'
+  defaults:
+    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectQuickPlanningForm'
+    _title: 'Medewerkers plannen'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+    _entity_access: 'node.update'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_team:
   path: '/projecten/{node}/inzet/projectteam'
   defaults:
