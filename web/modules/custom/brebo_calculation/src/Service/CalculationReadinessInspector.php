@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\node\NodeInterface;
 
 /** Aggregates calculation quality checks into an offer-readiness status. */
 final class CalculationReadinessInspector {
@@ -12,6 +14,7 @@ final class CalculationReadinessInspector {
   public function __construct(
     private readonly Connection $database,
     private readonly RecipePriceHealthInspector $priceHealthInspector,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   /**
@@ -29,8 +32,18 @@ final class CalculationReadinessInspector {
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
 
+    $lineIds = array_values(array_filter(array_map(
+      static fn (array $row): int => (int) ($row['calc_line_id'] ?? 0),
+      $rows,
+    )));
+    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+
     foreach ($rows as $row) {
-      $quantity = (float) ($row['quantity'] ?? 0);
+      $lineId = (int) ($row['calc_line_id'] ?? 0);
+      $line = $lineEntities[$lineId] ?? NULL;
+      $quantity = $line instanceof NodeInterface && $line->bundle() === 'brebo_calc_line' && $line->hasField('field_brebo_contract_quantity')
+        ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0)
+        : 0.0;
       $unitCost = (float) ($row['labour_unit_cost'] ?? 0)
         + (float) ($row['material_unit_cost'] ?? 0)
         + (float) ($row['equipment_unit_cost'] ?? 0)
