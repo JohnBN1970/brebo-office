@@ -54,8 +54,8 @@ brebo_inzet.project_proposal:
 brebo_inzet.project_week_planning:
   path: '/projecten/{node}/inzet/week'
   defaults:
-    _controller: '\\Drupal\\brebo_inzet\\Controller\\ProjectWeekPlanningController::overview'
-    _title_callback: '\\Drupal\\brebo_inzet\\Controller\\ProjectWeekPlanningController::title'
+    _controller: '\Drupal\brebo_inzet\Controller\ProjectWeekPlanningController::overview'
+    _title_callback: '\Drupal\brebo_inzet\Controller\ProjectWeekPlanningController::title'
   requirements:
     _entity_access: 'node.view'
   options:
