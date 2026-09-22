@@ -279,11 +279,15 @@ final class CalculationWorkbenchForm extends FormBase {
         if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') { continue; }
         $description = $line->hasField('field_brebo_line_description') ? (string) $line->get('field_brebo_line_description')->value : (string) $line->label();
         $unit = $line->hasField('field_brebo_unit') ? (string) $line->get('field_brebo_unit')->value : '';
-        $quantity = $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0;
+        $contractQuantity = $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0;
+        $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+        $ruleType = (string) ($row['rule_type'] ?? 'normal');
+        $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
+          ? (float) $actualRaw
+          : $contractQuantity;
         $directUnit = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
         $lineTotal = $quantity * $directUnit;
         $isNewLine = $lineId === $newLineId;
-        $ruleType = (string) ($row['rule_type'] ?? 'normal');
         $ruleLabel = match ($ruleType) {
           'allowance' => 'Stelpost',
           'option' => 'Optie',
@@ -305,7 +309,7 @@ final class CalculationWorkbenchForm extends FormBase {
             'value' => $this->editableText($lineId, 'description', $description, $editable, $isNewLine),
           ],
           'unit' => $this->editableText($lineId, 'unit', $unit, $editable),
-          'quantity' => $this->editableNumber($lineId, 'quantity', $quantity, $editable, '0.0001'),
+          'quantity' => $this->editableNumber($lineId, 'quantity', $ruleType === 'adjustable' ? $contractQuantity : $quantity, $editable, '0.0001'),
           'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
           'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
           'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
