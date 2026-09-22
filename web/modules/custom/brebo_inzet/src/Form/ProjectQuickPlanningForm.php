@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_inzet\Form;
 
 use Drupal\brebo_finance\Service\LabourProductivityManager;
+use Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -22,12 +23,14 @@ final class ProjectQuickPlanningForm extends FormBase {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly LabourProductivityManager $labourProductivity,
+    private readonly PersonnelFinanceSynchronizer $financeSynchronizer,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('entity_type.manager'),
       $container->get('brebo_finance.labour_productivity_manager'),
+      $container->get('brebo_inzet.personnel_finance_synchronizer'),
     );
   }
 
@@ -208,6 +211,7 @@ final class ProjectQuickPlanningForm extends FormBase {
           'field_brebo_assignment_status' => $status,
         ]);
         $assignment->save();
+        $this->financeSynchronizer->synchronize($assignment);
         $created++;
       }
     }
