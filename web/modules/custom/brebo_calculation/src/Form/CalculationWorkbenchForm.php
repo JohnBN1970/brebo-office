@@ -198,7 +198,7 @@ final class CalculationWorkbenchForm extends FormBase {
       $form['workbench']['price_health'] = ['#markup' => '<div class="messages messages--status brebo-calc-price-health"><strong>Prijscontrole:</strong> alle receptmateriaalprijzen hebben een geldige actuele prijsbron.</div>', '#weight' => -10];
     }
 
-    $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenheid','Aantal','Arbeid','Materiaal','Materieel','Onderaanneming','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
+    $form['workbench']['grid'] = ['#type' => 'table', '#header' => ['Code','Omschrijving','Eenh.','Aantal','Arbeid','Materiaal','Materieel','Onderaann.','Overig','Eenheidsprijs','Totaal','Acties'], '#attributes' => ['class' => ['brebo-calc-workbench__grid']]];
     foreach ($structure as $key => $item) {
       $depth = (int) $item['depth'];
       $nodeType = (string) $item['node_type'];
@@ -240,8 +240,8 @@ final class CalculationWorkbenchForm extends FormBase {
           'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
           'subcontracting' => $this->editableNumber($lineId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
           'other' => $this->editableNumber($lineId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
-          'unit_total' => ['#markup' => '€ ' . number_format($directUnit, 2, ',', '.')],
-          'total' => ['#markup' => '<strong>€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'],
+          'unit_total' => ['#markup' => '<span class="brebo-calc-money">€ ' . number_format($directUnit, 2, ',', '.') . '</span>'],
+          'total' => ['#markup' => '<strong class="brebo-calc-money brebo-calc-line-total">€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'],
           'operations' => [
             '#type' => 'container',
             'save' => $editable ? [
@@ -249,7 +249,7 @@ final class CalculationWorkbenchForm extends FormBase {
               '#limit_validation_errors' => [array_merge($fieldPath, ['description']), array_merge($fieldPath, ['unit']), array_merge($fieldPath, ['quantity']), array_merge($fieldPath, ['labour']), array_merge($fieldPath, ['material']), array_merge($fieldPath, ['equipment']), array_merge($fieldPath, ['subcontracting']), array_merge($fieldPath, ['other'])],
               '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Regel opslaan…']],
             ] : ['#markup' => ''],
-            'price_sources' => ['#type' => 'link', '#title' => 'Prijsbronnen', '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
+            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
           ],
         ];
       }
