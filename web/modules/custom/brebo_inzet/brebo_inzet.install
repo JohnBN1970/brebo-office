@@ -495,3 +495,84 @@ function _brebo_inzet_ensure_project_team_field(): void {
     ])->save();
   }
 }
+
+
+/**
+ * Adds employee availability periods used by project planning.
+ */
+function brebo_inzet_update_11009(): string {
+  _brebo_inzet_ensure_workforce_availability_schema();
+  return 'Inzet beschikbaarheid toegevoegd: verlof en niet-beschikbare perioden.';
+}
+
+/**
+ * Ensures workforce availability truth exists.
+ */
+function _brebo_inzet_ensure_workforce_availability_schema(): void {
+  $bundle = 'brebo_workforce_availability';
+  if (!NodeType::load($bundle)) {
+    NodeType::create([
+      'type' => $bundle,
+      'name' => 'Personeelsbeschikbaarheid',
+      'description' => 'Verlof en overige niet-beschikbare perioden voor BREBO Inzet.',
+      'new_revision' => TRUE,
+      'preview_mode' => 0,
+      'display_submitted' => FALSE,
+    ])->save();
+  }
+
+  $fields = [
+    'field_brebo_plan_user' => [
+      'label' => 'Medewerker', 'type' => 'entity_reference', 'required' => TRUE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'widget' => 'entity_reference_autocomplete', 'weight' => 1,
+    ],
+    'field_brebo_unavailable_type' => [
+      'label' => 'Reden', 'type' => 'list_string', 'required' => TRUE,
+      'storage' => ['allowed_values' => ['leave' => 'Verlof', 'unavailable' => 'Niet beschikbaar']],
+      'field_settings' => [], 'widget' => 'options_select', 'weight' => 2,
+    ],
+    'field_brebo_unavailable_start' => [
+      'label' => 'Van', 'type' => 'datetime', 'required' => TRUE,
+      'storage' => ['datetime_type' => 'date'], 'field_settings' => [], 'widget' => 'datetime_default', 'weight' => 3,
+    ],
+    'field_brebo_unavailable_end' => [
+      'label' => 'Tot en met', 'type' => 'datetime', 'required' => TRUE,
+      'storage' => ['datetime_type' => 'date'], 'field_settings' => [], 'widget' => 'datetime_default', 'weight' => 4,
+    ],
+    'field_brebo_unavailable_note' => [
+      'label' => 'Notitie', 'type' => 'string', 'required' => FALSE,
+      'storage' => ['max_length' => 255], 'field_settings' => [], 'widget' => 'string_textfield', 'weight' => 5,
+    ],
+  ];
+
+  foreach ($fields as $fieldName => $definition) {
+    if (!FieldStorageConfig::loadByName('node', $fieldName)) {
+      FieldStorageConfig::create([
+        'field_name' => $fieldName,
+        'entity_type' => 'node',
+        'type' => $definition['type'],
+        'settings' => $definition['storage'],
+        'cardinality' => 1,
+      ])->save();
+    }
+    if (!FieldConfig::loadByName('node', $bundle, $fieldName)) {
+      FieldConfig::create([
+        'field_name' => $fieldName,
+        'entity_type' => 'node',
+        'bundle' => $bundle,
+        'label' => $definition['label'],
+        'required' => $definition['required'],
+        'settings' => $definition['field_settings'],
+      ])->save();
+    }
+  }
+
+  $display = EntityFormDisplay::load("node.$bundle.default") ?: EntityFormDisplay::create([
+    'targetEntityType' => 'node', 'bundle' => $bundle, 'mode' => 'default', 'status' => TRUE,
+  ]);
+  foreach ($fields as $fieldName => $definition) {
+    $display->setComponent($fieldName, ['type' => $definition['widget'], 'weight' => $definition['weight']]);
+  }
+  $display->save();
+}
