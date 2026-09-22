@@ -1,4 +1,8 @@
 services:
+  brebo_inzet.project_inzet_proposal_builder:
+    class: Drupal\brebo_inzet\Service\ProjectInzetProposalBuilder
+    arguments: ['@entity_type.manager']
+
   brebo_inzet.personnel_budget_control:
     class: Drupal\brebo_inzet\Service\PersonnelBudgetControl
 
