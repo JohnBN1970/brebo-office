@@ -104,6 +104,8 @@ final class ProjectHoursControlController extends ControllerBase {
 
     $finance = $this->labourProductivity->analyzeProject($projectId);
     $financeTotals = (array) ($finance['totals'] ?? []);
+    $actualReviewStates = $this->labourProductivity->inzetActualStatuses($projectId);
+    $pendingApproval = count(array_filter($actualReviewStates, static fn (array $entry): bool => $entry['status'] === 'worked'));
     $financeBudgetHours = (float) ($financeTotals['budget_hours'] ?? 0);
     $budgetHours = $financeBudgetHours > 0 ? $financeBudgetHours : $this->budgetHours($node);
     $approvedHours = (float) ($financeTotals['actual_approved_hours'] ?? 0);
@@ -163,6 +165,9 @@ final class ProjectHoursControlController extends ControllerBase {
         ],
         'submitted' => [
           '#markup' => $this->kpi(number_format($submittedHours, 2, ',', '.') . ' u', 'Ingediend werkelijk', 'neutral'),
+        ],
+        'pending_approval' => [
+          '#markup' => $this->kpi((string) $pendingApproval, 'Wacht op goedkeuring', $pendingApproval > 0 ? 'attention' : 'positive'),
         ],
         'approved' => [
           '#markup' => $this->kpi(number_format($approvedHours, 2, ',', '.') . ' u', 'Goedgekeurd werkelijk', $approvedHours > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
