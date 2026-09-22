@@ -32,6 +32,22 @@ final class ProjectInzetHubController extends ControllerBase {
       ? $node->get('field_brebo_project_team')->referencedEntities()
       : [];
 
+    $weekStart = new DrupalDateTime('monday this week');
+    $weekEnd = clone $weekStart;
+    $weekEnd->modify('+6 days');
+
+    $weekAssignmentIds = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_personnel_assignment')
+      ->condition('field_brebo_project_ref', $projectId)
+      ->condition('field_brebo_plan_date', $weekStart->format('Y-m-d'), '>=')
+      ->condition('field_brebo_plan_date', $weekEnd->format('Y-m-d'), '<=')
+      ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+      ->sort('field_brebo_plan_date', 'ASC')
+      ->sort('field_brebo_assignment_start', 'ASC')
+      ->execute();
+    $weekAssignments = $weekAssignmentIds ? $storage->loadMultiple($weekAssignmentIds) : [];
+
     $assignmentIds = $storage->getQuery()
       ->accessCheck(FALSE)
       ->condition('type', 'brebo_personnel_assignment')
@@ -75,6 +91,53 @@ final class ProjectInzetHubController extends ControllerBase {
         $status === 'confirmed' ? $this->t('Bevestigd') : $this->t('Gepland'),
       ];
     }
+
+    $dayLabels = ['ma', 'di', 'wo', 'do', 'vr', 'za', 'zo'];
+    $weekByUser = [];
+    foreach ($weekAssignments as $assignment) {
+      if (!$assignment instanceof NodeInterface) {
+        continue;
+      }
+      $person = $assignment->get('field_brebo_plan_user')->entity;
+      $uid = $person ? (int) $person->id() : 0;
+      if ($uid <= 0) {
+        continue;
+      }
+      if (!isset($weekByUser[$uid])) {
+        $weekByUser[$uid] = [
+          'name' => $person->label(),
+          'days' => array_fill(0, 7, ''),
+          'hours' => 0.0,
+        ];
+      }
+      $dateValue = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
+      $date = $dateValue !== '' ? new DrupalDateTime($dateValue) : NULL;
+      if (!$date) {
+        continue;
+      }
+      $dayIndex = (int) $date->format('N') - 1;
+      $start = substr((string) ($assignment->get('field_brebo_assignment_start')->value ?? ''), 0, 5);
+      $end = substr((string) ($assignment->get('field_brebo_assignment_end')->value ?? ''), 0, 5);
+      $weekByUser[$uid]['days'][$dayIndex] = trim($start . ($end !== '' ? '–' . $end : ''), '–');
+      $weekByUser[$uid]['hours'] += (float) ($assignment->get('field_brebo_planned_hours')->value ?? 0);
+    }
+
+    $weekRows = [];
+    foreach ($weekByUser as $row) {
+      $weekRows[] = array_merge(
+        [$row['name']],
+        $row['days'],
+        [number_format((float) $row['hours'], 2, ',', '.') . ' u']
+      );
+    }
+
+    $weekHeader = [$this->t('Medewerker')];
+    for ($i = 0; $i < 7; $i++) {
+      $date = clone $weekStart;
+      $date->modify('+' . $i . ' days');
+      $weekHeader[] = strtoupper($dayLabels[$i]) . ' ' . $date->format('d-m');
+    }
+    $weekHeader[] = $this->t('Totaal');
 
     $teamCount = count($team);
     $plannedCount = count($plannedRows);
@@ -138,6 +201,19 @@ final class ProjectInzetHubController extends ControllerBase {
         ],
         'deviations' => [
           '#markup' => '<div class="brebo-kpi ' . ($deviationCount > 0 ? 'brebo-kpi--attention' : 'brebo-kpi--positive') . '"><span class="brebo-kpi__value">' . $deviationCount . '</span><span class="brebo-kpi__label">Afwijkingen</span></div>',
+        ],
+      ],
+      'week' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-section']],
+        'heading' => [
+          '#markup' => '<div class="brebo-section-heading"><div><p class="brebo-page-header__eyebrow">DEZE WEEK</p><h2>Weekbezetting</h2></div></div>',
+        ],
+        'table' => [
+          '#type' => 'table',
+          '#header' => $weekHeader,
+          '#rows' => $weekRows,
+          '#empty' => $this->t('Voor deze week is nog niemand ingepland.'),
         ],
       ],
       'today' => [
