@@ -520,6 +520,36 @@ final class ProjectInzetProposalForm extends FormBase {
         }
       }
     }
+    // Cross-project assignments consume the same capacity even when the
+    // proposal itself is blocked from confirmation. Count those occupied
+    // person/date slots so the capacity KPI never overstates availability.
+    if ($userIds !== [] && $dates !== []) {
+      $assignmentStorage = $this->entityTypeManager->getStorage('node');
+      $assignmentIds = $assignmentStorage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_personnel_assignment')
+        ->condition('field_brebo_plan_user', $userIds, 'IN')
+        ->condition('field_brebo_plan_date', $dates, 'IN')
+        ->condition('field_brebo_project_ref', (int) $project->id(), '<>')
+        ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+        ->execute();
+      foreach ($assignmentStorage->loadMultiple($assignmentIds) as $assignment) {
+        if (!$assignment instanceof NodeInterface) {
+          continue;
+        }
+        $otherStart = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
+        $otherEnd = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
+        if ($otherStart === '' || $otherEnd === '' || !$this->timesOverlap($startTime, $endTime, $otherStart, $otherEnd)) {
+          continue;
+        }
+        $uid = (int) ($assignment->get('field_brebo_plan_user')->target_id ?? 0);
+        $date = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
+        if ($uid > 0 && $date !== '') {
+          $blocked[$uid . ':' . $date] = TRUE;
+        }
+      }
+    }
+
     $availableSlots = max(0, (count($userIds) * count($dates)) - count($blocked));
     $availableHours = round($availableSlots * $hoursPerDay, 2);
     $shortage = round(max(0.0, $budgetHours - $availableHours), 2);
