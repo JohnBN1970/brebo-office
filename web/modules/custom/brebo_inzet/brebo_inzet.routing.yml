@@ -238,3 +238,11 @@ brebo_inzet.onsite_invite_user:
     parameters:
       user:
         type: entity:user
+
+brebo_inzet.availability:
+  path: '/inzet/beschikbaarheid'
+  defaults:
+    _form: '\\Drupal\\brebo_inzet\\Form\\WorkforceAvailabilityForm'
+    _title: 'Beschikbaarheid'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
