@@ -56,10 +56,10 @@ brebo_inzet.project_deviations_tab:
   route_name: brebo_inzet.project_clock_deviations
   title: 'Afwijkingen'
   parent_id: brebo_inzet.project_tab
-  weight: 90
+  weight: 80
 
 brebo_inzet.project_settings_tab:
   route_name: brebo_inzet.project_clock_settings
   title: 'Instellingen'
   parent_id: brebo_inzet.project_tab
-  weight: 60
+  weight: 90
