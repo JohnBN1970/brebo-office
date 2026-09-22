@@ -105,6 +105,37 @@ final class MigrationAuditController extends ControllerBase {
       ),
     ];
 
+    $rowAudit = [];
+    foreach ($result->rows as $row) {
+      $contractAmount = $row->quantity * $row->unitCosts->directCost();
+      $newAmount = $row->directCost();
+      $rowAudit[] = [
+        $row->legacyLineId,
+        $row->description,
+        $row->type->value,
+        number_format($row->quantity, 4, ',', '.'),
+        $row->actualQuantity === NULL ? '—' : number_format($row->actualQuantity, 4, ',', '.'),
+        '€ ' . number_format($contractAmount, 2, ',', '.'),
+        '€ ' . number_format($newAmount, 2, ',', '.'),
+        '€ ' . number_format($newAmount - $contractAmount, 2, ',', '.'),
+      ];
+    }
+    $build['row_audit'] = [
+      '#type' => 'table',
+      '#caption' => $this->t('Financiële aansluiting per regel'),
+      '#header' => [
+        $this->t('Regel'),
+        $this->t('Omschrijving'),
+        $this->t('Type'),
+        $this->t('Contracthoeveelheid'),
+        $this->t('Werkelijke hoeveelheid'),
+        $this->t('Legacy bedrag'),
+        $this->t('Nieuw bedrag'),
+        $this->t('Verschil'),
+      ],
+      '#rows' => $rowAudit,
+    ];
+
     $build['warnings'] = [
       '#type' => 'details',
       '#title' => $this->formatPlural(count($result->warnings), '1 migratiewaarschuwing', '@count migratiewaarschuwingen'),
