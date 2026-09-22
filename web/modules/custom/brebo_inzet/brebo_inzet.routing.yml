@@ -82,7 +82,6 @@ brebo_inzet.project_quick_planning:
     _title: 'Medewerkers plannen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
-    _entity_access: 'node.update'
   options:
     parameters:
       node:
@@ -94,7 +93,7 @@ brebo_inzet.project_team:
     _form: '\\Drupal\\brebo_inzet\\Form\\ProjectTeamForm'
     _title: 'Projectteam'
   requirements:
-    _entity_access: 'node.update'
+    _permission: 'edit any brebo_personnel_assignment content'
   options:
     parameters:
       node:
