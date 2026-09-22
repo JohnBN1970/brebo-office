@@ -153,7 +153,7 @@ jobs:
           result='web/modules/custom/brebo_calculation/src/Service/CalculationResultService.php'
           workbench='web/modules/custom/brebo_calculation/js/calculation-workbench.js'
           grep -q "field_brebo_actual_quantity" "$result"
-          grep -q "ruleType === 'adjustable'" "$result"
+          grep -q "RuleType::Adjustable" "$result"
           grep -q "canonical_result_v1" "$result"
           grep -q "data.serverSubtotal" "$workbench"
           grep -q "Grand totals are canonical server output" "$workbench"
