@@ -53,7 +53,20 @@ final class CalculationWorkbenchForm extends FormBase {
     }
     $version = $this->latestVersion((int) $node->id());
     if ($version === NULL) {
-      return ['message' => ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie. Voer eerst de migratie-audit uit.</p>']];
+      $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $node->id()])->toString();
+      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString();
+      return [
+        '#attached' => ['library' => ['brebo_calculation/workbench']],
+        'legacy_entry' => [
+          '#markup' => '<section class="brebo-calc-legacy-entry">'
+            . '<div><small>Bestaande calculatie</small><h2>Deze calculatie moet één keer worden aangesloten op de nieuwe werkbank.</h2>'
+            . '<p>De oude calculatiegegevens blijven behouden. Controleer eerst de migratie; daarna opent deze calculatie voortaan direct in het commandocentrum.</p></div>'
+            . '<div class="brebo-calc-legacy-entry__actions">'
+            . '<a class="button button--primary" href="' . htmlspecialchars($auditUrl) . '">Migratie controleren</a>'
+            . '<a class="button" href="' . htmlspecialchars($structureUrl) . '">Structuur bekijken</a>'
+            . '</div></section>',
+        ],
+      ];
     }
     $locked = $version['locked_at'] !== NULL;
     $editable = !$locked && $version['status'] === 'draft' && $node->access('update') && $this->currentUser()->hasPermission('edit brebo calculation workbench');
