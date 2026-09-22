@@ -85,3 +85,16 @@
 .brebo-calc-workbench__grid tr.brebo-calc-workbench__line:hover>td{background:#f8fafc}
 .brebo-calc-workbench__grid tr.brebo-calc-workbench__recipe>td{padding-top:7px;padding-bottom:7px}
 @media (max-width:1200px){.brebo-calc-workbench{overflow-x:auto}.brebo-calc-workbench__grid{min-width:1180px}}
+
+/* Rule semantics must be visible without reading hidden domain metadata. */
+.brebo-calc-line-description{display:flex;align-items:center;gap:6px;min-width:0}
+.brebo-calc-line-description>.form-item{flex:1 1 auto}
+.brebo-calc-rule-badge{flex:0 0 auto;display:inline-flex;align-items:center;padding:2px 6px;border:1px solid #d5dce6;border-radius:10px;background:#f6f8fa;color:#5f6b7a;font-size:9px;font-weight:800;letter-spacing:.035em;text-transform:uppercase}
+.brebo-calc-workbench__grid tr.rule-option>td{background:#fbf8ee}
+.brebo-calc-workbench__grid tr.rule-option .brebo-calc-rule-badge{border-color:#dfcf9b;background:#fff8dc;color:#725d18}
+.brebo-calc-workbench__grid tr.rule-allowance>td{background:#f8f6fb}
+.brebo-calc-workbench__grid tr.rule-allowance .brebo-calc-rule-badge{border-color:#d8cde6;background:#f3edf9;color:#655177}
+.brebo-calc-workbench__grid tr.rule-note>td{background:#f7f8f9;color:#657080;font-style:italic}
+.brebo-calc-workbench__grid tr.rule-note .brebo-calc-rule-badge{font-style:normal}
+.brebo-calc-workbench__grid tr.rule-adjustable .brebo-calc-rule-badge,
+.brebo-calc-workbench__grid tr.rule-distributed .brebo-calc-rule-badge{background:#eef4f8;color:#405c70}
