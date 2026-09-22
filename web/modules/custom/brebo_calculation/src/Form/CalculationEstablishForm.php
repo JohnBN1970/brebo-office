@@ -19,6 +19,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
 
   private ?NodeInterface $calculation = NULL;
   private string $version = '';
+  private bool $blocked = FALSE;
 
   public function __construct(
     private readonly CalculationVersionEstablisher $establisher,
@@ -58,6 +59,9 @@ final class CalculationEstablishForm extends ConfirmFormBase {
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
       throw new NotFoundHttpException();
     }
+    if (!$node->access('update', $this->currentUser())) {
+      throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException();
+    }
     $this->calculation = $node;
 
     $row = $this->database->select('brebo_calculation_version', 'v')
@@ -78,11 +82,11 @@ final class CalculationEstablishForm extends ConfirmFormBase {
 
     $readiness = $this->readinessInspector->inspect((int) $node->id(), $this->version);
     if ((int) ($readiness['blocking'] ?? 0) > 0) {
+      $this->blocked = TRUE;
       $form['blocked'] = [
         '#markup' => '<div class="messages messages--error"><strong>Vaststellen geblokkeerd.</strong> Los eerst '
           . (int) $readiness['blocking'] . ' readiness-blokkade(s) op.</div>',
       ];
-      return $form;
     }
 
     if ((int) ($readiness['warnings'] ?? 0) > 0) {
@@ -98,12 +102,19 @@ final class CalculationEstablishForm extends ConfirmFormBase {
     $form['version'] = ['#type' => 'hidden', '#value' => $this->version];
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
 
-    return parent::buildForm($form, $form_state);
+    $form = parent::buildForm($form, $form_state);
+    if ($this->blocked) {
+      $form['actions']['submit']['#access'] = FALSE;
+    }
+    return $form;
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $calculationId = (int) $form_state->getValue('calculation_id');
-    $version = (string) $form_state->getValue('version');
+    if (!$this->calculation instanceof NodeInterface || !$this->calculation->access('update', $this->currentUser())) {
+      throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException();
+    }
+    $calculationId = (int) $this->calculation->id();
+    $version = $this->version;
     $this->establisher->establish($calculationId, $version, $this->currentUser());
     $this->messenger()->addStatus('Calculatieversie ' . $version . ' is vastgesteld en vergrendeld.');
     $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculationId]);
