@@ -34,6 +34,21 @@ final class OnSiteAssignmentProvider {
       ->execute();
 
     $projectIds = [];
+
+    // A durable project-team relation makes a project available to OnSite
+    // without requiring a synthetic daily planning record.
+    $teamProjectIds = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_project')
+      ->condition('status', 1)
+      ->condition('field_brebo_project_team', $uid)
+      ->execute();
+    foreach ($teamProjectIds as $projectId) {
+      $projectIds[(int) $projectId] = (int) $projectId;
+    }
+
+    // Daily assignments remain additive: a person can be scheduled on a
+    // project even when they are not part of its durable core team.
     foreach ($storage->loadMultiple($assignmentIds) as $assignment) {
       if (!$assignment instanceof NodeInterface) {
         continue;

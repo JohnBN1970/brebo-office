@@ -26,6 +26,7 @@ final class ProjectInzetHubController extends ControllerBase {
     $projectId = (int) $node->id();
 
     $sections = [
+      ['Projectteam', 'Beheer welke medewerkers structureel bij dit project horen.', 'brebo_inzet.project_team'],
       ['Nu aan het werk', 'Wie is er nu actief op dit project.', 'brebo_inzet.live_workforce'],
       ['Klokken', 'Open de klokregistratie voor dit project.', 'brebo_inzet.mobile_clock'],
       ['Kloklocaties', 'Beheer toegestane projectlocaties voor klokregistratie.', 'brebo_inzet.project_clock_zones'],
