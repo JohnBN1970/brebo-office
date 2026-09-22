@@ -6,7 +6,9 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
+use Drupal\node\NodeInterface;
 
 /**
  * Establishes a draft calculation version as one immutable canonical truth.
@@ -18,6 +20,7 @@ final class CalculationVersionEstablisher {
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
     private readonly TimeInterface $time,
+    private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
   /**
@@ -63,6 +66,44 @@ final class CalculationVersionEstablisher {
     ];
     $contentHash = hash('sha256', json_encode($hashPayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
 
+    $snapshotRows = [];
+    foreach ((array) ($result['components'] ?? []) as $component) {
+      if (!is_array($component) || ($component['kind'] ?? '') !== 'row') {
+        continue;
+      }
+      $lineId = (int) ($component['id'] ?? 0);
+      if ($lineId <= 0) {
+        continue;
+      }
+      $domain = $this->database->select('brebo_calculation_row_domain', 'r')
+        ->fields('r')
+        ->condition('calc_line_id', $lineId)
+        ->condition('version', $version)
+        ->execute()
+        ->fetchAssoc();
+      $line = $this->entityTypeManager->getStorage('node')->load($lineId);
+      if (!is_array($domain) || !$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+        continue;
+      }
+      $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+      $snapshotRows[] = [
+        'legacy_line_id' => $lineId,
+        'paragraph_id' => (string) ($domain['paragraph_key'] ?? ''),
+        'type' => (string) ($domain['rule_type'] ?? 'normal'),
+        'description' => (string) ($component['description'] ?? $line->label()),
+        'quantity' => (float) ($line->get('field_brebo_contract_quantity')->value ?? 0),
+        'actual_quantity' => ($actualRaw === NULL || $actualRaw === '') ? NULL : (float) $actualRaw,
+        'unit' => (string) ($component['unit'] ?? ''),
+        'unit_costs' => [
+          'labour' => (float) ($domain['labour_unit_cost'] ?? 0),
+          'material' => (float) ($domain['material_unit_cost'] ?? 0),
+          'equipment' => (float) ($domain['equipment_unit_cost'] ?? 0),
+          'subcontracting' => (float) ($domain['subcontracting_unit_cost'] ?? 0),
+          'other' => (float) ($domain['other_unit_cost'] ?? 0),
+        ],
+      ];
+    }
+
     $lockedAt = $this->time->getCurrentTime();
     $snapshotResult = $result;
     $snapshotResult['content_hash'] = $contentHash;
@@ -72,6 +113,7 @@ final class CalculationVersionEstablisher {
       'version' => $version,
       'content_hash' => $contentHash,
       'structure' => $structure,
+      'rows' => $snapshotRows,
       'canonical_result' => $snapshotResult,
       'readiness' => $readiness,
     ];
@@ -112,6 +154,15 @@ final class CalculationVersionEstablisher {
 
       if ($updated !== 1) {
         throw new \RuntimeException('Calculatieversie veranderde tijdens het vaststellen.');
+      }
+
+      $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
+      if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') {
+        throw new \RuntimeException('Calculatie-node niet gevonden tijdens vaststellen.');
+      }
+      if ($calculation->hasField('field_brebo_calc_status')) {
+        $calculation->set('field_brebo_calc_status', 'Vastgesteld');
+        $calculation->save();
       }
     }
     catch (\Throwable $e) {
