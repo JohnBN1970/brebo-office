@@ -122,7 +122,31 @@ final class LegacyDryRunService {
     }
 
     $totals = $this->totalizer->total($rows);
-    $reconciliation = $this->reconciler->compare($legacyAmount, $totals->includingOptions());
+
+    // Migration reconciliation proves that the original contract calculation
+    // survives the mapping unchanged. Actual quantities on adjustable rows are
+    // operational state and must migrate with the row, but must not change the
+    // contract baseline used by this safety gate.
+    $contractRows = array_map(static function (CalculationRow $row): CalculationRow {
+      if ($row->actualQuantity === NULL) {
+        return $row;
+      }
+      return new CalculationRow(
+        legacyLineId: $row->legacyLineId,
+        paragraphId: $row->paragraphId,
+        type: $row->type,
+        description: $row->description,
+        quantity: $row->quantity,
+        unit: $row->unit,
+        unitCosts: $row->unitCosts,
+        sortOrder: $row->sortOrder,
+        locationRef: $row->locationRef,
+        actualQuantity: NULL,
+        memo: $row->memo,
+      );
+    }, $rows);
+    $contractTotals = $this->totalizer->total($contractRows);
+    $reconciliation = $this->reconciler->compare($legacyAmount, $contractTotals->includingOptions());
 
     return new LegacyDryRunResult(
       calculationId: $calculationId,
