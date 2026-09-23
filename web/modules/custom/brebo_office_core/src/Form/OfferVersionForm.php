@@ -60,9 +60,14 @@ final class OfferVersionForm extends FormBase {
     }
 
     $this->calculation = $node;
-    $this->calculationVersion = $this->offerableCalculationVersion((int) $node->id());
+    $storedCalculationVersion = (string) $form_state->get('brebo_calculation_version');
+    $this->calculationVersion = $storedCalculationVersion !== ''
+      ? $storedCalculationVersion
+      : $this->offerableCalculationVersion((int) $node->id());
     $form_state->set('brebo_calculation_id', (int) $node->id());
-    $form_state->set('brebo_calculation_version', $this->calculationVersion);
+    if ($storedCalculationVersion === '') {
+      $form_state->set('brebo_calculation_version', $this->calculationVersion);
+    }
     $storage = $this->entityTypeManager->getStorage('node');
     $existing_ids = $storage->getQuery()
       ->accessCheck(FALSE)
