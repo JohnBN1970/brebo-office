@@ -586,3 +586,53 @@ function _brebo_inzet_ensure_workforce_availability_schema(): void {
   }
   $display->save();
 }
+
+
+/**
+ * Adds the canonical internal hourly labour cost to employee profiles.
+ */
+function brebo_inzet_update_11011(): string {
+  _brebo_inzet_ensure_employee_hourly_cost_field();
+  return 'BREBO medewerkersprofiel uitgebreid met interne kostprijs per uur voor automatische arbeidskoppeling.';
+}
+
+/**
+ * Ensures every Office employee can carry an internal hourly labour cost.
+ */
+function _brebo_inzet_ensure_employee_hourly_cost_field(): void {
+  $field_name = 'field_brebo_hourly_cost';
+
+  if (!FieldStorageConfig::loadByName('user', $field_name)) {
+    FieldStorageConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'user',
+      'type' => 'decimal',
+      'settings' => ['precision' => 10, 'scale' => 2],
+      'cardinality' => 1,
+    ])->save();
+  }
+
+  if (!FieldConfig::loadByName('user', 'user', $field_name)) {
+    FieldConfig::create([
+      'field_name' => $field_name,
+      'entity_type' => 'user',
+      'bundle' => 'user',
+      'label' => 'Interne kostprijs per uur',
+      'description' => 'Interne arbeidskostprijs waarmee BREBO Inzet automatisch de juiste arbeidsregel uit de werkbegroting kiest.',
+      'required' => FALSE,
+    ])->save();
+  }
+
+  $display = EntityFormDisplay::load('user.user.default') ?: EntityFormDisplay::create([
+    'targetEntityType' => 'user',
+    'bundle' => 'user',
+    'mode' => 'default',
+    'status' => TRUE,
+  ]);
+  $display->setComponent($field_name, [
+    'type' => 'number',
+    'weight' => 30,
+    'settings' => ['placeholder' => '0,00'],
+  ]);
+  $display->save();
+}
