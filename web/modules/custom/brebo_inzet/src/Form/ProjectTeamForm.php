@@ -75,6 +75,9 @@ final class ProjectTeamForm extends FormBase {
             }
           }
         }
+        $hourlyCost = $account->hasField('field_brebo_hourly_cost')
+          ? (float) ($account->get('field_brebo_hourly_cost')->value ?? 0)
+          : 0.0;
         $workforceStatus = $account->hasField('field_brebo_workforce_status')
           ? (string) ($account->get('field_brebo_workforce_status')->value ?? '')
           : '';
@@ -83,13 +86,14 @@ final class ProjectTeamForm extends FormBase {
           $employeeNumber !== '' ? $employeeNumber : '-',
           $jobTitle !== '' ? $jobTitle : '-',
           $skills !== [] ? implode(', ', $skills) : '-',
+          $hourlyCost > 0 ? '€ ' . number_format($hourlyCost, 2, ',', '.') . '/u' : 'Nog invullen',
           $workforceStatus !== '' ? ucfirst(str_replace('_', ' ', $workforceStatus)) : ($account->isActive() ? $this->t('Actief') : $this->t('Inactief')),
         ];
       }
       $form['current'] = [
         '#type' => 'table',
         '#caption' => $this->t('Huidig projectteam'),
-        '#header' => [$this->t('Medewerker'), $this->t('Personeelsnummer'), $this->t('Functie'), $this->t('Vaardigheden'), $this->t('Status')],
+        '#header' => [$this->t('Medewerker'), $this->t('Personeelsnummer'), $this->t('Functie'), $this->t('Vaardigheden'), $this->t('Kostprijs'), $this->t('Status')],
         '#rows' => $rows,
       ];
     }
