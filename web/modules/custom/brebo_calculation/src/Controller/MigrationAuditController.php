@@ -84,8 +84,8 @@ final class MigrationAuditController extends ControllerBase {
         [$this->t('Structuurnodes'), count($result->structure)],
         [$this->t('Calculatieregels'), count($result->rows)],
         [$this->t('Legacy totaal'), '€ ' . number_format($reconciliation->legacyAmount, 2, ',', '.')],
-        [$this->t('Nieuw totaal'), '€ ' . number_format($reconciliation->newAmount, 2, ',', '.')],
-        [$this->t('Verschil'), '€ ' . number_format($reconciliation->difference, 2, ',', '.')],
+        [$this->t('Contractbasis nieuw domein'), '€ ' . number_format($reconciliation->newAmount, 2, ',', '.')],
+        [$this->t('Migratieverschil contractbasis'), '€ ' . number_format($reconciliation->difference, 2, ',', '.')],
         [$this->t('Tolerantie'), '€ ' . number_format($reconciliation->tolerance, 2, ',', '.')],
         [$this->t('Financiële aansluiting'), $reconciliation->matches ? $this->t('JA') : $this->t('NEE')],
         [$this->t('Veilig voor migratie'), $safe ? $this->t('JA') : $this->t('NEE')],
@@ -94,6 +94,9 @@ final class MigrationAuditController extends ControllerBase {
     ];
 
     $totals = $result->totals->toArray();
+    $build['current_total'] = [
+      '#markup' => '<p><strong>' . $this->t('Actuele stand nieuw domein: @amount', ['@amount' => '€ ' . number_format($result->totals->includingOptions(), 2, ',', '.')]) . '</strong></p>',
+    ];
     $build['buckets'] = [
       '#type' => 'table',
       '#caption' => $this->t('Nieuwe financiële bakken'),
@@ -129,9 +132,9 @@ final class MigrationAuditController extends ControllerBase {
         $this->t('Type'),
         $this->t('Contracthoeveelheid'),
         $this->t('Werkelijke hoeveelheid'),
-        $this->t('Legacy bedrag'),
-        $this->t('Nieuw bedrag'),
-        $this->t('Verschil'),
+        $this->t('Contractbasis'),
+        $this->t('Actuele stand'),
+        $this->t('Actuele afwijking'),
       ],
       '#rows' => $rowAudit,
     ];
