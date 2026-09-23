@@ -76,7 +76,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $directCost = (float) ($result['priced_direct_cost'] ?? 0);
     $salesPrice = (float) ($commercial['sales_price'] ?? 0);
     $grossProfit = $salesPrice - $directCost;
-    $marginPct = $salesPrice > 0 ? ($grossProfit / $salesPrice) * 100 : 0.0;
+    $marginPct = $directCost > 0 ? ($grossProfit / $directCost) * 100 : 0.0;
 
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
@@ -109,7 +109,7 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<div><small>Directe kostprijs</small><strong>€ ' . number_format($directCost, 2, ',', '.') . '</strong></div>'
         . '<div><small>Verkoopprijs</small><strong>€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></div>'
         . '<div><small>Totale marge</small><strong>€ ' . number_format($grossProfit, 2, ',', '.') . '</strong></div>'
-        . '<div><small>Marge op verkoopprijs</small><strong>' . number_format($marginPct, 1, ',', '.') . '%</strong><span>AK + risico + winst</span></div>'
+        . '<div><small>Marge op inkoop</small><strong>' . number_format($marginPct, 1, ',', '.') . '%</strong><span>AK + risico + winst</span></div>'
         . '<div class="readiness-' . htmlspecialchars((string) $readiness['status']) . '"><small>Readiness</small><strong>' . htmlspecialchars($readinessLabel) . '</strong><span>' . (int) $readiness['blocking'] . ' blokkade(s) · ' . (int) $readiness['warnings'] . ' waarschuwing(en)</span></div>'
         . '</div></section>',
       '#weight' => -50,
@@ -162,7 +162,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $marginAmount = $commercialMethod === 'single_margin'
       ? (float) ($commercial['single_margin'] ?? 0)
       : (float) ($commercial['profit'] ?? 0);
-    $marginLabel = $commercialMethod === 'single_margin' ? 'Marge' : 'Winst';
+    $marginLabel = $commercialMethod === 'single_margin' ? 'Marge op inkoop' : 'Winst';
     $form['workbench']['panels']['commercial'] = [
       '#markup' => '<section class="brebo-calc-panel brebo-calc-panel--commercial"><h2>Commerciële opbouw</h2><dl class="brebo-calc-facts">'
         . '<dt>Directe kostprijs</dt><dd>€ ' . number_format($directCost, 2, ',', '.') . '</dd>'
