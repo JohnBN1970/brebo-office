@@ -278,7 +278,11 @@ jobs:
               "brebo_project_cockpit.project_status_aggregator",
               "brebo_project_cockpit.project_progress_builder",
               "brebo_project_cockpit.project_milestone_builder",
-              "brebo_data_intake.source_neutral_intake_manager"
+              "brebo_data_intake.source_neutral_intake_manager",
+              "brebo_inzet.personnel_assignment_comparison",
+              "brebo_inzet.personnel_finance_synchronizer",
+              "brebo_inzet.personnel_actual_hours_manager",
+              "brebo_inzet.personnel_labour_line_resolver"
             ] as $service) { \Drupal::service($service); }
             $routes = \Drupal::service("router.route_provider");
             foreach ([
@@ -293,8 +297,28 @@ jobs:
               "brebo_project_cockpit.overview",
               "brebo_office_core.project_dashboard",
               "brebo_sandbox_reset.form",
-              "brebo_data_intake.upload"
+              "brebo_data_intake.upload",
+              "brebo_inzet.project_dashboard",
+              "brebo_inzet.project_quick_planning",
+              "brebo_inzet.project_team",
+              "brebo_inzet.project_hours_control",
+              "brebo_inzet.project_hours_approval"
             ] as $route) { $routes->getRouteByName($route); }
+            $approvalRoute = $routes->getRouteByName("brebo_inzet.project_hours_approval");
+            if ($approvalRoute->getRequirement("_permission") !== "edit any brebo_personnel_assignment content") {
+              throw new \RuntimeException("Inzet hours approval permission mismatch.");
+            }
+            if ((string) $approvalRoute->getRequirement("_entity_access") !== "") {
+              throw new \RuntimeException("Inzet hours approval unexpectedly requires project entity update access.");
+            }
+            $userFields = \Drupal::service("entity_field.manager")->getFieldDefinitions("user", "user");
+            if (!isset($userFields["field_brebo_hourly_cost"])) {
+              throw new \RuntimeException("Employee hourly cost field is missing.");
+            }
+            $assignmentFields = \Drupal::service("entity_field.manager")->getFieldDefinitions("node", "brebo_personnel_assignment");
+            foreach (["field_brebo_project_ref", "field_brebo_plan_user", "field_brebo_budget_line_id"] as $fieldName) {
+              if (!isset($assignmentFields[$fieldName])) { throw new \RuntimeException("Inzet assignment field missing: " . $fieldName); }
+            }
             $projectRoute = $routes->getRouteByName("brebo_office_core.project_dashboard");
             $projectController = (string) $projectRoute->getDefault("_controller");
             if ($projectController !== "\\Drupal\\brebo_project_cockpit\\Controller\\CanonicalProjectCockpitController::overview") {
@@ -313,6 +337,7 @@ jobs:
             print "SANDBOX_RESET_RUNTIME_OK=1\n";
             print "PROJECT_PUBLICATION_RUNTIME_OK=1\n";
             print "DATA_INTAKE_RUNTIME_OK=1\n";
+            print "INZET_RUNTIME_CONTRACT_OK=1\n";
           '
 
           login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
