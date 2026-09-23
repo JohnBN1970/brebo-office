@@ -311,6 +311,31 @@ final class LabourProductivityManager {
     return $result;
   }
 
+  /**
+   * Returns the current submitted/approved Inzet evidence for one assignment.
+   *
+   * @return array{status:string,actual_hours:string,changed:int}|null
+   */
+  public function inzetActualStatus(int $projectNid, int $assignmentNid): ?array {
+    if ($projectNid <= 0 || $assignmentNid <= 0) {
+      return NULL;
+    }
+    $query = $this->database->select('brebo_finance_labour_entry', 'e');
+    $query->fields('e', ['status', 'actual_hours', 'changed']);
+    $query->condition('project_nid', $projectNid);
+    $query->condition('source_system', 'brebo_inzet_actual');
+    $query->condition('source_record_id', 'assignment:' . $assignmentNid);
+    $row = $query->execute()->fetchAssoc();
+    if ($row === FALSE) {
+      return NULL;
+    }
+    return [
+      'status' => (string) $row['status'],
+      'actual_hours' => (string) $row['actual_hours'],
+      'changed' => (int) $row['changed'],
+    ];
+  }
+
   private function lockedLabourLines(int $projectNid): array {
     $query = $this->database->select('brebo_finance_budget_line', 'l');
     $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
