@@ -101,11 +101,31 @@ final class WorkingBudgetImporter {
         ->execute();
 
       $sortOrder = 0;
+      $labourByRate = [];
       foreach ($payload['rows'] as $rowIndex => $row) {
         $quantity = (float) ($row['actual_quantity'] ?? $row['quantity'] ?? 0);
         foreach (self::COST_COMPONENTS as $component => $costCode) {
           $unitCost = (float) ($row['unit_costs'][$component] ?? 0);
           if ($unitCost === 0.0 || $quantity === 0.0) {
+            continue;
+          }
+
+          if ($component === 'labour') {
+            $hours = (float) ($row['budget_hours'] ?? 0);
+            $rate = round((float) ($row['labour_rate'] ?? 0), 2);
+            if ($hours <= 0 || $rate <= 0) {
+              throw new UnexpectedValueException(sprintf(
+                'Arbeidsregel %d mist begrote uren of intern uurtarief in de vastgestelde calculatie.',
+                $rowIndex + 1,
+              ));
+            }
+            $rateKey = number_format($rate, 2, '.', '');
+            $labourByRate[$rateKey] ??= ['hours' => 0.0, 'amount' => 0.0, 'sources' => []];
+            $labourByRate[$rateKey]['hours'] += $hours;
+            $labourByRate[$rateKey]['amount'] += $hours * $rate;
+            $labourByRate[$rateKey]['sources'][] = isset($row['legacy_line_id'])
+              ? (string) $row['legacy_line_id']
+              : sprintf('snapshot-row-%d', $rowIndex + 1);
             continue;
           }
 
@@ -137,6 +157,40 @@ final class WorkingBudgetImporter {
             ])
             ->execute();
         }
+      }
+
+      ksort($labourByRate, SORT_NUMERIC);
+      foreach ($labourByRate as $rateKey => $labour) {
+        $rate = (float) $rateKey;
+        $hours = (float) $labour['hours'];
+        $amount = $hours * $rate;
+        $this->database->insert('brebo_finance_budget_line')
+          ->fields([
+            'budget_id' => $budgetId,
+            'line_key' => sprintf('labour-rate-%s', str_replace('.', '-', $rateKey)),
+            'cost_code' => 'arbeid',
+            'work_package' => '',
+            'description' => sprintf('Arbeid € %.2f/u', $rate),
+            'quantity' => $this->decimal($hours),
+            'unit' => 'uur',
+            'unit_cost_ex_vat' => $this->decimal($rate),
+            'amount_ex_vat' => $this->decimal($amount),
+            'budget_hours' => $this->decimal($hours),
+            'hourly_cost_ex_vat' => $this->decimal($rate),
+            'vat_code' => 'NL_0',
+            'vat_rate' => '0.0000',
+            'vat_amount' => '0.0000',
+            'amount_inc_vat' => $this->decimal($amount),
+            'vat_reverse_charge' => 0,
+            'non_deductible_vat_amount' => '0.0000',
+            'source_line_ref' => implode(',', $labour['sources']),
+            'sort_order' => ++$sortOrder,
+            'created' => $now,
+            'created_by' => $userId,
+            'changed' => $now,
+            'changed_by' => $userId,
+          ])
+          ->execute();
       }
 
       if ($sortOrder === 0) {
