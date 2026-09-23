@@ -57,7 +57,6 @@ brebo_inzet.project_proposal:
     _title: 'Projectinzet voorstellen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
-    _entity_access: 'node.update'
   options:
     parameters:
       node:
