@@ -15,6 +15,7 @@ function brebo_inzet_install(): void {
   _brebo_inzet_ensure_personnel_assignment_schema();
   _brebo_inzet_ensure_onsite_user_fields();
   _brebo_inzet_ensure_employee_profile_fields();
+  _brebo_inzet_ensure_employee_hourly_cost_field();
   _brebo_inzet_ensure_project_team_field();
 }
 
