@@ -25,7 +25,7 @@ final class OfferConfirmedAccessCheck implements AccessInterface {
       return AccessResult::forbidden('Offer readiness applies only to calculations.');
     }
 
-    $version = $this->latestVersion((int) $node->id());
+    $version = $this->latestEstablishedVersion((int) $node->id());
     if ($version === '') {
       return AccessResult::forbidden('A calculation version is required before an offer can be created.')
         ->addCacheableDependency($node)
@@ -57,10 +57,12 @@ final class OfferConfirmedAccessCheck implements AccessInterface {
       ->setCacheMaxAge(0);
   }
 
-  private function latestVersion(int $calculationId): string {
+  private function latestEstablishedVersion(int $calculationId): string {
     $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
       ->condition('calculation_id', $calculationId)
+      ->condition('status', 'established')
+      ->isNotNull('locked_at')
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
