@@ -157,4 +157,4 @@ jobs:
           grep -q "canonical_result_v1" "$result"
           grep -q "data.serverSubtotal" "$workbench"
           grep -q "Grand totals are canonical server output" "$workbench"
-          ! grep -Fq "setText(form,'[data-total-kind=\"direct\"]',grand.direct)" "$workbench"
+          ! grep -Fq "setText(form,'[data-total-kind=" "$workbench"
