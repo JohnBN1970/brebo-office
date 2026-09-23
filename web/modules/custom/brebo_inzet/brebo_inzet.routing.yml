@@ -53,7 +53,7 @@ brebo_inzet.project_hours_control:
 brebo_inzet.project_proposal:
   path: '/projecten/{node}/inzet/projectvoorstel'
   defaults:
-    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectInzetProposalForm'
+    _form: '\Drupal\brebo_inzet\Form\ProjectInzetProposalForm'
     _title: 'Projectinzet voorstellen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
@@ -78,7 +78,7 @@ brebo_inzet.project_week_planning:
 brebo_inzet.project_quick_planning:
   path: '/projecten/{node}/inzet/plannen'
   defaults:
-    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectQuickPlanningForm'
+    _form: '\Drupal\brebo_inzet\Form\ProjectQuickPlanningForm'
     _title: 'Medewerkers plannen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
@@ -90,7 +90,7 @@ brebo_inzet.project_quick_planning:
 brebo_inzet.project_team:
   path: '/projecten/{node}/inzet/projectteam'
   defaults:
-    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectTeamForm'
+    _form: '\Drupal\brebo_inzet\Form\ProjectTeamForm'
     _title: 'Projectteam'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
@@ -253,7 +253,7 @@ brebo_inzet.onsite_invite_user:
 brebo_inzet.availability:
   path: '/inzet/beschikbaarheid'
   defaults:
-    _form: '\\Drupal\\brebo_inzet\\Form\\WorkforceAvailabilityForm'
+    _form: '\Drupal\brebo_inzet\Form\WorkforceAvailabilityForm'
     _title: 'Beschikbaarheid'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
@@ -262,7 +262,7 @@ brebo_inzet.availability:
 brebo_inzet.project_hours_approval:
   path: '/projecten/{node}/inzet/urencontrole/beoordelen'
   defaults:
-    _form: '\\Drupal\\brebo_inzet\\Form\\ProjectHoursApprovalForm'
+    _form: '\Drupal\brebo_inzet\Form\ProjectHoursApprovalForm'
     _title: 'Uren beoordelen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
