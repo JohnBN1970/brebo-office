@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
-use Drupal\brebo_finance\Service\LabourProductivityManager;
+use Drupal\brebo_inzet\Service\PersonnelLabourLineResolver;
 use Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -22,14 +22,14 @@ final class ProjectQuickPlanningForm extends FormBase {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly LabourProductivityManager $labourProductivity,
+    private readonly PersonnelLabourLineResolver $labourLineResolver,
     private readonly PersonnelFinanceSynchronizer $financeSynchronizer,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('entity_type.manager'),
-      $container->get('brebo_finance.labour_productivity_manager'),
+      $container->get('brebo_inzet.personnel_labour_line_resolver'),
       $container->get('brebo_inzet.personnel_finance_synchronizer'),
     );
   }
@@ -64,20 +64,6 @@ final class ProjectQuickPlanningForm extends FormBase {
       ];
       return $form;
     }
-
-    $labourLines = $this->labourProductivity->labourBudgetLines((int) $node->id());
-    $lineOptions = [];
-    foreach ($labourLines as $line) {
-      $lineOptions[(int) $line['id']] = trim((string) ($line['work_package'] ?? '') . ' · ' . (string) ($line['description'] ?? 'Arbeid')) . ' · ' . number_format((float) ($line['budget_hours'] ?? 0), 2, ',', '.') . ' u';
-    }
-    $form['budget_line_id'] = [
-      '#type' => 'select',
-      '#title' => $this->t('Arbeidsbegrotingsregel'),
-      '#options' => $lineOptions,
-      '#empty_option' => $this->t('- Kies arbeidsregel -'),
-      '#required' => TRUE,
-      '#description' => $this->t('Alleen vergrendelde arbeidsregels uit de Finance-werkbegroting zijn selecteerbaar.'),
-    ];
 
     $form['users'] = [
       '#type' => 'checkboxes',
@@ -167,12 +153,6 @@ final class ProjectQuickPlanningForm extends FormBase {
     $start = (string) $form_state->getValue(['time', 'start']);
     $end = (string) $form_state->getValue(['time', 'end']);
     $status = (string) $form_state->getValue('status');
-    $budgetLineId = (int) $form_state->getValue('budget_line_id');
-    $allowedLineIds = array_map(static fn (array $line): int => (int) $line['id'], $this->labourProductivity->labourBudgetLines($projectId));
-    if (!in_array($budgetLineId, $allowedLineIds, TRUE)) {
-      $this->messenger()->addError($this->t('De gekozen arbeidsbegrotingsregel is niet meer geldig of niet vergrendeld.'));
-      return;
-    }
     $hours = max(0, (strtotime('1970-01-01 ' . $end) - strtotime('1970-01-01 ' . $start)) / 3600);
 
     $selected = array_filter(array_map('intval', (array) $form_state->getValue('users')));
@@ -182,6 +162,17 @@ final class ProjectQuickPlanningForm extends FormBase {
 
     foreach ($selected as $uid) {
       $account = $this->entityTypeManager->getStorage('user')->load($uid);
+      if (!$account instanceof UserInterface) {
+        continue;
+      }
+      try {
+        $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+      }
+      catch (\Throwable $e) {
+        $this->messenger()->addError($e->getMessage());
+        continue;
+      }
+      $budgetLineId = (int) $labourLine['id'];
       foreach ($dates as $planningDate) {
         $existing = $storage->getQuery()
           ->accessCheck(FALSE)
