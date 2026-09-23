@@ -43,7 +43,7 @@ final class OfferReviewConfirmForm extends FormBase {
     }
 
     $calculationId = (int) $node->id();
-    $version = $this->latestVersion($calculationId);
+    $version = $this->latestEstablishedVersion($calculationId);
     if ($version === '') {
       throw new AccessDeniedHttpException('Calculatieversie ontbreekt.');
     }
@@ -101,7 +101,7 @@ final class OfferReviewConfirmForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $calculationId = (int) $form_state->get('calculation_id');
-    $version = $this->latestVersion($calculationId);
+    $version = $this->latestEstablishedVersion($calculationId);
     if ($calculationId <= 0 || $version === '') {
       $form_state->setErrorByName('review_confirmed', $this->t('De actuele calculatieversie kon niet worden vastgesteld.'));
       return;
@@ -121,7 +121,7 @@ final class OfferReviewConfirmForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $calculationId = (int) $form_state->get('calculation_id');
-    $version = $this->latestVersion($calculationId);
+    $version = $this->latestEstablishedVersion($calculationId);
     $readiness = $this->readinessInspector->inspect($calculationId, $version);
     $status = (string) ($readiness['status'] ?? 'blocked');
 
@@ -142,10 +142,12 @@ final class OfferReviewConfirmForm extends FormBase {
     $form_state->setRedirect('brebo_calculation.offer_create_internal', ['node' => $calculationId]);
   }
 
-  private function latestVersion(int $calculationId): string {
+  private function latestEstablishedVersion(int $calculationId): string {
     $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
       ->condition('calculation_id', $calculationId)
+      ->condition('status', 'established')
+      ->isNotNull('locked_at')
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
