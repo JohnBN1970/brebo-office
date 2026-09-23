@@ -7,6 +7,7 @@ namespace Drupal\brebo_inzet\Form;
 use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\ProjectInzetProposalBuilder;
 use Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer;
+use Drupal\brebo_inzet\Service\PersonnelLabourLineResolver;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -25,6 +26,7 @@ final class ProjectInzetProposalForm extends FormBase {
     private readonly ProjectInzetProposalBuilder $proposalBuilder,
     private readonly LabourProductivityManager $labourProductivity,
     private readonly PersonnelFinanceSynchronizer $financeSynchronizer,
+    private readonly PersonnelLabourLineResolver $labourLineResolver,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -33,6 +35,7 @@ final class ProjectInzetProposalForm extends FormBase {
       $container->get('brebo_inzet.project_inzet_proposal_builder'),
       $container->get('brebo_finance.labour_productivity_manager'),
       $container->get('brebo_inzet.personnel_finance_synchronizer'),
+      $container->get('brebo_inzet.personnel_labour_line_resolver'),
     );
   }
 
@@ -158,21 +161,21 @@ final class ProjectInzetProposalForm extends FormBase {
         $hours = max(0.0, (float) ($line['budget_hours'] ?? 0));
         $share = $totalLineHours > 0 ? ($hours / $totalLineHours) * 100 : 0.0;
         $lineRows[] = [
-          htmlspecialchars((string) ($line['work_package'] ?? ''), ENT_QUOTES, 'UTF-8'),
           htmlspecialchars((string) ($line['description'] ?? 'Arbeid'), ENT_QUOTES, 'UTF-8'),
+          '€ ' . number_format((float) ($line['hourly_cost_ex_vat'] ?? 0), 2, ',', '.') . '/u',
           number_format($hours, 2, ',', '.') . ' u',
           number_format($share, 1, ',', '.') . '%',
         ];
       }
       $form['labour_lines'] = [
         '#type' => 'table',
-        '#caption' => $this->t('Verdeling arbeidsbegroting'),
-        '#header' => [$this->t('Werkpakket'), $this->t('Arbeidsregel'), $this->t('Begrote uren'), $this->t('Aandeel')],
+        '#caption' => $this->t('Arbeid per kostprijs'),
+        '#header' => [$this->t('Arbeid'), $this->t('Kostprijs'), $this->t('Begrote uren'), $this->t('Aandeel')],
         '#rows' => $lineRows,
         '#empty' => $this->t('Geen vergrendelde arbeidsregels gevonden.'),
       ];
       $form['line_distribution_note'] = [
-        '#markup' => '<div class="messages messages--status"><strong>Projectvulling wordt per arbeidsbegrotingsregel verdeeld.</strong> Office verdeelt de volledige ploegcapaciteit proportioneel over de vergrendelde arbeidsregels en legt de regel-ID op iedere daginzet vast. De werkbegroting is hierbij de controlemarge; een overschrijding wordt zichtbaar maar kapt de planning niet af.</div>',
+        '#markup' => '<div class="messages messages--status"><strong>Arbeid wordt automatisch gekoppeld op kostprijs.</strong> De medewerker bepaalt de kostprijs; Office kiest daar automatisch de enige vergrendelde arbeidsregel met hetzelfde uurtarief bij. Geen handmatige keuze per werkzaamheid.</div>',
       ];
     }
 
@@ -291,27 +294,27 @@ final class ProjectInzetProposalForm extends FormBase {
 
     $labourLines = $this->labourProductivity->labourBudgetLines($projectId);
     if ($labourLines === []) {
-      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: er is geen vergrendelde arbeidsbegrotingsregel beschikbaar.'));
+      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: er is geen vergrendelde arbeidsbegroting met arbeid beschikbaar.'));
       $form_state->setRebuild(TRUE);
       return;
     }
-    $lineTargets = [];
-    $totalBudgetHours = 0.0;
-    foreach ($labourLines as $line) {
-      $budgetHours = max(0.0, (float) ($line['budget_hours'] ?? 0));
-      if ($budgetHours <= 0) {
+
+    $userStorage = $this->entityTypeManager->getStorage('user');
+    $lineByUser = [];
+    foreach ($selected as $uid) {
+      $account = $userStorage->load($uid);
+      if (!$account instanceof UserInterface) {
         continue;
       }
-      $lineId = (int) $line['id'];
-      $lineTargets[$lineId] = [
-        'budget_hours' => $budgetHours,
-        'allocated_hours' => 0.0,
-        'target_hours' => 0.0,
-      ];
-      $totalBudgetHours += $budgetHours;
+      try {
+        $lineByUser[$uid] = $this->labourLineResolver->resolve($projectId, $account);
+      }
+      catch (\Throwable $e) {
+        $this->messenger()->addError($e->getMessage());
+      }
     }
-    if ($lineTargets === [] || $totalBudgetHours <= 0) {
-      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: de vergrendelde arbeidsbegroting bevat geen positieve arbeidsuren.'));
+    if (count($lineByUser) !== count($selected)) {
+      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: vul eerst bij alle geselecteerde medewerkers een geldige interne kostprijs in en zorg voor precies één arbeidsregel per tarief in de werkbegroting.'));
       $form_state->setRebuild(TRUE);
       return;
     }
@@ -336,19 +339,7 @@ final class ProjectInzetProposalForm extends FormBase {
       if ($uid > 0 && $date !== '') {
         $existingByPersonDate[$uid . ':' . $date] = TRUE;
       }
-      $lineId = (int) ($existingAssignment->get('field_brebo_budget_line_id')->value ?? 0);
-      if (isset($lineTargets[$lineId])) {
-        $lineTargets[$lineId]['allocated_hours'] += max(0.0, (float) ($existingAssignment->get('field_brebo_planned_hours')->value ?? 0));
-      }
     }
-
-    // Budget determines the proportional distribution over labour lines, but
-    // never truncates the selected team's full project-period capacity.
-    $fullCapacityHours = count($selected) * count($dates) * $hours;
-    foreach ($lineTargets as &$lineTarget) {
-      $lineTarget['target_hours'] = $fullCapacityHours * ($lineTarget['budget_hours'] / $totalBudgetHours);
-    }
-    unset($lineTarget);
 
     $created = 0;
     $skipped = 0;
@@ -361,8 +352,8 @@ final class ProjectInzetProposalForm extends FormBase {
           continue;
         }
 
-        $budgetLineId = $this->nextLabourLineId($lineTargets);
-        $account = $this->entityTypeManager->getStorage('user')->load($uid);
+        $budgetLineId = (int) $lineByUser[$uid]['id'];
+        $account = $userStorage->load($uid);
 
         $assignment = $storage->create([
           'type' => 'brebo_personnel_assignment',
@@ -379,7 +370,6 @@ final class ProjectInzetProposalForm extends FormBase {
         ]);
         $assignment->save();
         $this->financeSynchronizer->synchronize($assignment);
-        $lineTargets[$budgetLineId]['allocated_hours'] += $hours;
         $existingByPersonDate[$uid . ':' . $date] = TRUE;
         $created++;
       }
@@ -390,27 +380,6 @@ final class ProjectInzetProposalForm extends FormBase {
       '@skipped' => $skipped,
     ]));
     $form_state->setRedirect('brebo_inzet.project_week_planning', ['node' => $projectId], ['query' => ['week' => $start]]);
-  }
-
-  /**
-   * Chooses the labour line that is furthest below its proportional target.
-   *
-   * @param array<int, array{budget_hours: float, allocated_hours: float, target_hours: float}> $lineTargets
-   */
-  private function nextLabourLineId(array $lineTargets): int {
-    $selectedId = 0;
-    $largestDeficit = -INF;
-    foreach ($lineTargets as $lineId => $target) {
-      $deficit = $target['target_hours'] - $target['allocated_hours'];
-      if ($selectedId === 0 || $deficit > $largestDeficit) {
-        $selectedId = (int) $lineId;
-        $largestDeficit = $deficit;
-      }
-    }
-    if ($selectedId <= 0) {
-      throw new \UnexpectedValueException('Geen geldige arbeidsbegrotingsregel beschikbaar voor projectinzet.');
-    }
-    return $selectedId;
   }
 
   /**
