@@ -1,0 +1,119 @@
+name: Diagnose Inzet Project Actions
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/inzet-project-actions-diagnostics.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Probe Inzet routes and forms
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE' | tee inzet-project-actions-diagnostic.log
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+
+          "$php" -d display_errors=1 -d error_reporting=E_ALL -r '
+            chdir("web");
+            $autoloader = require_once "../vendor/autoload.php";
+            $request = Symfony\Component\HttpFoundation\Request::create("https://sboffice.brebobv.nl/");
+            $kernel = Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, "prod");
+            $kernel->boot();
+            $container = $kernel->getContainer();
+
+            $routeProvider = $container->get("router.route_provider");
+            foreach (["brebo_inzet.project_quick_planning", "brebo_inzet.project_team"] as $routeName) {
+              $route = $routeProvider->getRouteByName($routeName);
+              echo "ROUTE={$routeName}\n";
+              echo "PATH=" . $route->getPath() . "\n";
+              echo "FORM=" . (string) $route->getDefault("_form") . "\n";
+              echo "PERMISSION=" . (string) $route->getRequirement("_permission") . "\n";
+              echo "ENTITY_ACCESS=" . (string) $route->getRequirement("_entity_access") . "\n";
+            }
+
+            $storage = $container->get("entity_type.manager")->getStorage("node");
+            $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_project")->sort("nid", "ASC")->range(0, 1)->execute();
+            if (!$ids) {
+              throw new RuntimeException("No brebo_project available for diagnostic.");
+            }
+            $project = $storage->load(reset($ids));
+            echo "PROJECT_NID=" . $project->id() . "\n";
+            echo "PROJECT_TEAM_FIELD=" . ($project->hasField("field_brebo_project_team") ? "yes" : "no") . "\n";
+
+            $users = $container->get("entity_type.manager")->getStorage("user");
+            $uids = $users->getQuery()->accessCheck(FALSE)->condition("status", 1)->condition("uid", 0, ">")->sort("uid", "ASC")->execute();
+            $account = NULL;
+            foreach ($uids as $uid) {
+              $candidate = $users->load($uid);
+              if ($candidate && ($candidate->hasPermission("edit any brebo_personnel_assignment content") || $candidate->hasPermission("administer site configuration"))) {
+                $account = $candidate;
+                break;
+              }
+            }
+            if (!$account) {
+              throw new RuntimeException("No privileged diagnostic user found.");
+            }
+            echo "DIAG_UID=" . $account->id() . "\n";
+            echo "CAN_INZET_EDIT=" . ($account->hasPermission("edit any brebo_personnel_assignment content") ? "yes" : "no") . "\n";
+
+            $accessManager = $container->get("access_manager");
+            foreach (["brebo_inzet.project_quick_planning", "brebo_inzet.project_team"] as $routeName) {
+              $access = $accessManager->checkNamedRoute($routeName, ["node" => $project->id()], $account, TRUE);
+              echo "ACCESS_{$routeName}=" . ($access->isAllowed() ? "allowed" : ($access->isForbidden() ? "forbidden" : "neutral")) . "\n";
+            }
+
+            $formBuilder = $container->get("form_builder");
+            foreach ([
+              Drupal\brebo_inzet\Form\ProjectQuickPlanningForm::class,
+              Drupal\brebo_inzet\Form\ProjectTeamForm::class,
+            ] as $formClass) {
+              try {
+                $built = $formBuilder->getForm($formClass, $project);
+                echo "FORM_BUILD_{$formClass}=ok\n";
+                echo "FORM_KEYS=" . implode(",", array_slice(array_keys($built), 0, 20)) . "\n";
+              }
+              catch (Throwable $e) {
+                echo "FORM_BUILD_{$formClass}=failed\n";
+                echo "ERROR_CLASS=" . get_class($e) . "\n";
+                echo "ERROR_MESSAGE=" . $e->getMessage() . "\n";
+                throw $e;
+              }
+            }
+          '
+          REMOTE
+
+      - name: Upload diagnostic
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inzet-project-actions-diagnostic
+          path: inzet-project-actions-diagnostic.log
+          retention-days: 7
