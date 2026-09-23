@@ -157,7 +157,8 @@ jobs:
           grep -q "canonical_result_v1" "$result"
           grep -q "data.serverSubtotal" "$workbench"
           grep -q "Grand totals are canonical server output" "$workbench"
-          if grep -Fq "setText(form,'[data-total-kind=" "$workbench"; then
+          # The workbench may read canonical total elements, but must never write them.
+          if grep -Eq "setText\\([^,]+,[^,]*data-total-kind" "$workbench"; then
             echo "Client-side writes to the canonical total bar are forbidden."
             exit 1
           fi
