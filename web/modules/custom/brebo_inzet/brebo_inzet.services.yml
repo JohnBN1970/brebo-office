@@ -106,3 +106,7 @@ services:
   brebo_inzet.personnel_actual_hours_manager:
     class: Drupal\brebo_inzet\Service\PersonnelActualHoursManager
     arguments: ['@brebo_inzet.personnel_assignment_comparison', '@brebo_finance.labour_productivity_manager']
+
+  brebo_inzet.personnel_labour_line_resolver:
+    class: Drupal\brebo_inzet\Service\PersonnelLabourLineResolver
+    arguments: ['@brebo_finance.labour_productivity_manager']
