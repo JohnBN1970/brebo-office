@@ -94,6 +94,8 @@ final class CalculationVersionEstablisher {
         'quantity' => (float) ($line->get('field_brebo_contract_quantity')->value ?? 0),
         'actual_quantity' => ($actualRaw === NULL || $actualRaw === '') ? NULL : (float) $actualRaw,
         'unit' => (string) ($component['unit'] ?? ''),
+        'budget_hours' => (float) ($line->get('field_brebo_budget_hours')->value ?? 0),
+        'labour_rate' => (float) ($line->get('field_brebo_labor_rate')->value ?? 0),
         'unit_costs' => [
           'labour' => (float) ($domain['labour_unit_cost'] ?? 0),
           'material' => (float) ($domain['material_unit_cost'] ?? 0),
