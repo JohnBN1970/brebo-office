@@ -265,7 +265,6 @@ brebo_inzet.project_hours_approval:
     _title: 'Uren beoordelen'
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
-    _entity_access: 'node.update'
   options:
     parameters:
       node:
