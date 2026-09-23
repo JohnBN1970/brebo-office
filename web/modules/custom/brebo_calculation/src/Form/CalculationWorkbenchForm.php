@@ -108,8 +108,8 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<div class="brebo-calc-kpis">'
         . '<div><small>Directe kostprijs</small><strong>€ ' . number_format($directCost, 2, ',', '.') . '</strong></div>'
         . '<div><small>Verkoopprijs</small><strong>€ ' . number_format($salesPrice, 2, ',', '.') . '</strong></div>'
-        . '<div><small>Bruto resultaat</small><strong>€ ' . number_format($grossProfit, 2, ',', '.') . '</strong></div>'
-        . '<div><small>Marge</small><strong>' . number_format($marginPct, 1, ',', '.') . '%</strong></div>'
+        . '<div><small>Totale marge</small><strong>€ ' . number_format($grossProfit, 2, ',', '.') . '</strong></div>'
+        . '<div><small>Marge op verkoopprijs</small><strong>' . number_format($marginPct, 1, ',', '.') . '%</strong><span>AK + risico + winst</span></div>'
         . '<div class="readiness-' . htmlspecialchars((string) $readiness['status']) . '"><small>Readiness</small><strong>' . htmlspecialchars($readinessLabel) . '</strong><span>' . (int) $readiness['blocking'] . ' blokkade(s) · ' . (int) $readiness['warnings'] . ' waarschuwing(en)</span></div>'
         . '</div></section>',
       '#weight' => -50,
