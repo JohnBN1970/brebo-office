@@ -213,6 +213,9 @@ final class LabourProductivityManager {
       'actual_approved_hours' => '0.0000',
       'forecast_end_hours' => '0.0000',
       'budget_cost_ex_vat' => '0.0000',
+      'planned_cost_ex_vat' => '0.0000',
+      'actual_submitted_cost_ex_vat' => '0.0000',
+      'actual_approved_cost_ex_vat' => '0.0000',
       'forecast_cost_ex_vat' => '0.0000',
       'forecast_variance_ex_vat' => '0.0000',
     ];
@@ -227,7 +230,10 @@ final class LabourProductivityManager {
         ? $this->decimal->percentage($approved, $progress)
         : '0.0000';
       $forecastHours = $this->maximum([$planned, $submitted, $approved, $earnedForecast]);
-      $forecastCost = $this->decimal->multiply($forecastHours, (string) $line['hourly_cost_ex_vat']);
+      $plannedCost = $this->sumCost($lineId, ['planned', 'confirmed'], 'brebo_inzet');
+      $submittedCost = $this->sumCost($lineId, ['worked'], 'brebo_inzet_actual');
+      $approvedCost = $this->sumCost($lineId, ['approved'], 'brebo_inzet_actual');
+      $forecastCost = $this->maximum([$plannedCost, $submittedCost, $approvedCost]);
       $variance = $this->decimal->subtract($forecastCost, (string) $line['amount_ex_vat']);
 
       $row = [
@@ -242,6 +248,9 @@ final class LabourProductivityManager {
         'forecast_end_hours' => $forecastHours,
         'remaining_budget_hours' => $this->decimal->subtract((string) $line['budget_hours'], $approved),
         'budget_cost_ex_vat' => (string) $line['amount_ex_vat'],
+        'planned_cost_ex_vat' => $plannedCost,
+        'actual_submitted_cost_ex_vat' => $submittedCost,
+        'actual_approved_cost_ex_vat' => $approvedCost,
         'forecast_cost_ex_vat' => $forecastCost,
         'forecast_variance_ex_vat' => $variance,
         'status' => $this->lineStatus((string) $line['budget_hours'], $planned, $approved, $forecastHours),
@@ -355,6 +364,18 @@ final class LabourProductivityManager {
     $query->condition('budget_line_id', $budgetLineId);
     $query->condition('status', $statuses, 'IN');
     $query->addExpression("COALESCE(SUM($field), 0)", 'total');
+    return (string) $query->execute()->fetchField();
+  }
+
+  /**
+   * @param list<string> $statuses
+   */
+  private function sumCost(int $budgetLineId, array $statuses, string $sourceSystem): string {
+    $query = $this->database->select('brebo_finance_labour_entry', 'e');
+    $query->condition('budget_line_id', $budgetLineId);
+    $query->condition('status', $statuses, 'IN');
+    $query->condition('source_system', $sourceSystem);
+    $query->addExpression('COALESCE(SUM(actual_cost_ex_vat), 0)', 'total');
     return (string) $query->execute()->fetchField();
   }
 
