@@ -292,11 +292,7 @@ final class ProjectInzetProposalForm extends FormBase {
     $hours = max(0, (strtotime('1970-01-01 ' . $endTime) - strtotime('1970-01-01 ' . $startTime)) / 3600);
 
     $labourLines = $this->labourProductivity->labourBudgetLines($projectId);
-    if ($labourLines === []) {
-      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: er is geen vergrendelde arbeidsbegroting met arbeid beschikbaar.'));
-      $form_state->setRebuild(TRUE);
-      return;
-    }
+    $hasLabourBudget = $labourLines !== [];
 
     $userStorage = $this->entityTypeManager->getStorage('user');
 
@@ -337,14 +333,17 @@ final class ProjectInzetProposalForm extends FormBase {
         if (!$account instanceof UserInterface) {
           continue;
         }
-        try {
-          $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+        $budgetLineId = 0;
+        if ($hasLabourBudget) {
+          try {
+            $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+            $budgetLineId = (int) $labourLine['id'];
+          }
+          catch (\Throwable $e) {
+            $this->messenger()->addError($e->getMessage());
+            continue;
+          }
         }
-        catch (\Throwable $e) {
-          $this->messenger()->addError($e->getMessage());
-          continue;
-        }
-        $budgetLineId = (int) $labourLine['id'];
 
         $assignment = $storage->create([
           'type' => 'brebo_personnel_assignment',
@@ -356,16 +355,21 @@ final class ProjectInzetProposalForm extends FormBase {
           'field_brebo_assignment_start' => $startTime,
           'field_brebo_assignment_end' => $endTime,
           'field_brebo_planned_hours' => round($hours, 2),
-          'field_brebo_budget_line_id' => $budgetLineId,
+          'field_brebo_budget_line_id' => $budgetLineId > 0 ? $budgetLineId : NULL,
           'field_brebo_assignment_status' => 'planned',
         ]);
         $assignment->save();
-        $this->financeSynchronizer->synchronize($assignment);
+        if ($budgetLineId > 0) {
+          $this->financeSynchronizer->synchronize($assignment);
+        }
         $existingByPersonDate[$uid . ':' . $date] = TRUE;
         $created++;
       }
     }
 
+    if (!$hasLabourBudget && $created > 0) {
+      $this->messenger()->addWarning($this->t('De inzet is wel gepland, maar nog niet financieel gekoppeld omdat dit project nog geen vergrendeld arbeidsbudget heeft.'));
+    }
     $this->messenger()->addStatus($this->t('@created daginzet(ten) aangemaakt; @skipped bestaande daginzet(ten) zijn behouden.', [
       '@created' => $created,
       '@skipped' => $skipped,
