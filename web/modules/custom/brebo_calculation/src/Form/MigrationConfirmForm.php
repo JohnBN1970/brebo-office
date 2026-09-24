@@ -8,6 +8,10 @@ use Drupal\brebo_calculation\Service\GuardedLegacyMigrator;
 use Drupal\brebo_calculation\Service\LegacyDryRunService;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Access\AccessResult;
+use Drupal\Core\Session\AccountInterface;
+use Drupal\node\NodeInterface;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -15,6 +19,8 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class MigrationConfirmForm extends ConfirmFormBase {
 
   private int $calculationId = 0;
+
+  private ?NodeInterface $calculation = NULL;
 
   public function __construct(
     private readonly LegacyDryRunService $dryRun,
@@ -33,19 +39,23 @@ final class MigrationConfirmForm extends ConfirmFormBase {
   }
 
   public function getQuestion(): string {
-    return (string) $this->t('Calculatie @id migreren naar het nieuwe calculatiedomein?', ['@id' => $this->calculationId]);
+    return (string) $this->t('Deze bestaande calculatie omzetten naar de nieuwe calculatiewerkbank?');
   }
 
   public function getConfirmText(): string {
-    return (string) $this->t('Gecontroleerd migreren');
+    return (string) $this->t('Omzetten naar nieuwe calculatie');
   }
 
   public function getCancelUrl(): Url {
     return Url::fromRoute('brebo_calculation.migration_audit', ['node' => $this->calculationId]);
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?int $node = NULL): array {
-    $this->calculationId = (int) $node;
+  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation' || !$node->access('update', $this->currentUser())) {
+      throw new AccessDeniedHttpException();
+    }
+    $this->calculation = $node;
+    $this->calculationId = (int) $node->id();
     $preview = $this->dryRun->preview($this->calculationId);
     if (!$preview->isSafeToMigrate()) {
       $this->messenger()->addError($this->t('Migratie geblokkeerd: de actuele dry-run is niet schoon.'));
@@ -68,7 +78,10 @@ final class MigrationConfirmForm extends ConfirmFormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $result = $this->migrator->migrate($this->calculationId);
+    if (!$this->calculation instanceof NodeInterface || !$this->calculation->access('update', $this->currentUser())) {
+      throw new AccessDeniedHttpException();
+    }
+    $result = $this->migrator->migrate((int) $this->calculation->id());
     $this->messenger()->addStatus($this->t(
       'Calculatie @id is gemigreerd als @version: @rows regels, @nodes structuurnodes. Hash: @hash',
       [
@@ -79,7 +92,7 @@ final class MigrationConfirmForm extends ConfirmFormBase {
         '@hash' => $result->contentHash,
       ],
     ));
-    $form_state->setRedirect('brebo_calculation.migration_audit', ['node' => $this->calculationId]);
+    $form_state->setRedirect('brebo_calculation.workbench', ['node' => $this->calculationId]);
   }
 
 }
