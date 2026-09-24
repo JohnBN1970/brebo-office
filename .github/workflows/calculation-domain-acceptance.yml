@@ -127,7 +127,7 @@ jobs:
           grep -q "target migration version already exists" "$migrator"
           grep -q "startTransaction" "$migrator"
           grep -q "assertWritten" "$migrator"
-          grep -q "Gecontroleerd migreren" "$confirm"
+          grep -q "Omzetten naar nieuwe calculatie" "$confirm"
           grep -q "migration_overview" "$routing"
           grep -q "migration_confirm" "$routing"
           grep -q "migrate brebo calculation" "$permissions"
