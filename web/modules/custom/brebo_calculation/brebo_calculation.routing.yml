@@ -29,6 +29,9 @@ brebo_calculation.migration_confirm:
     node: '\d+'
   options:
     _admin_route: true
+    parameters:
+      node:
+        type: entity:node
 
 brebo_calculation.workbench:
   path: '/admin/brebo/calculations/{node}/workbench'
