@@ -120,6 +120,12 @@ final class ProjectQuickPlanningForm extends FormBase {
     return $form;
   }
 
+  private function labourProductivityAvailable(int $projectId): bool {
+    /** @var \Drupal\brebo_finance\Service\LabourProductivityManager $manager */
+    $manager = \Drupal::service('brebo_finance.labour_productivity_manager');
+    return $manager->labourBudgetLines($projectId) !== [];
+  }
+
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $start = (string) $form_state->getValue(['time', 'start']);
     $end = (string) $form_state->getValue(['time', 'end']);
@@ -156,6 +162,7 @@ final class ProjectQuickPlanningForm extends FormBase {
     $hours = max(0, (strtotime('1970-01-01 ' . $end) - strtotime('1970-01-01 ' . $start)) / 3600);
 
     $selected = array_filter(array_map('intval', (array) $form_state->getValue('users')));
+    $hasLabourBudget = $this->labourProductivityAvailable($projectId);
     $storage = $this->entityTypeManager->getStorage('node');
     $created = 0;
     $skipped = 0;
@@ -166,14 +173,17 @@ final class ProjectQuickPlanningForm extends FormBase {
         continue;
       }
       foreach ($dates as $planningDate) {
-        try {
-          $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+        $budgetLineId = 0;
+        if ($hasLabourBudget) {
+          try {
+            $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+            $budgetLineId = (int) $labourLine['id'];
+          }
+          catch (\Throwable $e) {
+            $this->messenger()->addError($e->getMessage());
+            continue;
+          }
         }
-        catch (\Throwable $e) {
-          $this->messenger()->addError($e->getMessage());
-          continue;
-        }
-        $budgetLineId = (int) $labourLine['id'];
         $existing = $storage->getQuery()
           ->accessCheck(FALSE)
           ->condition('type', 'brebo_personnel_assignment')
@@ -198,15 +208,20 @@ final class ProjectQuickPlanningForm extends FormBase {
           'field_brebo_assignment_start' => $start,
           'field_brebo_assignment_end' => $end,
           'field_brebo_planned_hours' => round($hours, 2),
-          'field_brebo_budget_line_id' => $budgetLineId,
+          'field_brebo_budget_line_id' => $budgetLineId > 0 ? $budgetLineId : NULL,
           'field_brebo_assignment_status' => $status,
         ]);
         $assignment->save();
-        $this->financeSynchronizer->synchronize($assignment);
+        if ($budgetLineId > 0) {
+          $this->financeSynchronizer->synchronize($assignment);
+        }
         $created++;
       }
     }
 
+    if (!$hasLabourBudget && $created > 0) {
+      $this->messenger()->addWarning($this->t('De inzet is gepland zonder financiële koppeling; er is nog geen vergrendeld arbeidsbudget.'));
+    }
     $this->messenger()->addStatus($this->t('@created medewerker(s) ingepland. @skipped bestaande daginzet(ten) overgeslagen.', [
       '@created' => $created,
       '@skipped' => $skipped,
