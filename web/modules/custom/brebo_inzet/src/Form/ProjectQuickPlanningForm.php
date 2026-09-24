@@ -165,15 +165,15 @@ final class ProjectQuickPlanningForm extends FormBase {
       if (!$account instanceof UserInterface) {
         continue;
       }
-      try {
-        $labourLine = $this->labourLineResolver->resolve($projectId, $account);
-      }
-      catch (\Throwable $e) {
-        $this->messenger()->addError($e->getMessage());
-        continue;
-      }
-      $budgetLineId = (int) $labourLine['id'];
       foreach ($dates as $planningDate) {
+        try {
+          $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+        }
+        catch (\Throwable $e) {
+          $this->messenger()->addError($e->getMessage());
+          continue;
+        }
+        $budgetLineId = (int) $labourLine['id'];
         $existing = $storage->getQuery()
           ->accessCheck(FALSE)
           ->condition('type', 'brebo_personnel_assignment')
