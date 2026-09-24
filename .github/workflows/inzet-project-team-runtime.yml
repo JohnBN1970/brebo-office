@@ -54,7 +54,6 @@ jobs:
               ->accessCheck(FALSE)
               ->condition("type", "brebo_project")
               ->sort("nid", "DESC")
-              ->range(0, 50)
               ->execute();
 
             foreach ($storage->loadMultiple($projectIds) as $project) {
