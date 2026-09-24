@@ -65,10 +65,10 @@ final class ProjectInzetProposalForm extends FormBase {
       ? array_values(array_filter(array_map('intval', $selected)))
       : $defaultUsers;
 
-    $start = (string) ($form_state->getValue('start_date') ?: ($detected['start'] ?? ''));
-    $end = (string) ($form_state->getValue('end_date') ?: ($detected['end'] ?? ''));
-    $startTime = (string) ($form_state->getValue('start_time') ?: '07:00');
-    $endTime = (string) ($form_state->getValue('end_time') ?: '16:00');
+    $start = (string) ($form_state->getValue(['period', 'start_date']) ?: ($detected['start'] ?? ''));
+    $end = (string) ($form_state->getValue(['period', 'end_date']) ?: ($detected['end'] ?? ''));
+    $startTime = (string) ($form_state->getValue(['times', 'start_time']) ?: '07:00');
+    $endTime = (string) ($form_state->getValue(['times', 'end_time']) ?: '16:00');
 
     $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
     $labourLines = $this->labourProductivity->labourBudgetLines((int) $node->id());
@@ -106,6 +106,7 @@ final class ProjectInzetProposalForm extends FormBase {
     ];
     $form['period'] = [
       '#type' => 'container',
+      '#tree' => TRUE,
       '#attributes' => ['class' => ['container-inline']],
     ];
     $form['period']['start_date'] = [
@@ -122,6 +123,7 @@ final class ProjectInzetProposalForm extends FormBase {
     ];
     $form['times'] = [
       '#type' => 'container',
+      '#tree' => TRUE,
       '#attributes' => ['class' => ['container-inline']],
     ];
     $form['times']['start_time'] = [
@@ -252,23 +254,21 @@ final class ProjectInzetProposalForm extends FormBase {
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
-    $start = (string) $form_state->getValue('start_date');
-    $end = (string) $form_state->getValue('end_date');
+    $start = (string) $form_state->getValue(['period', 'start_date']);
+    $end = (string) $form_state->getValue(['period', 'end_date']);
     if ($start !== '' && $end !== '' && $end < $start) {
       $form_state->setErrorByName('period][end_date', $this->t('Einddatum moet op of na de startdatum liggen.'));
     }
-    $from = (string) $form_state->getValue('start_time');
-    $to = (string) $form_state->getValue('end_time');
+    $from = (string) $form_state->getValue(['times', 'start_time']);
+    $to = (string) $form_state->getValue(['times', 'end_time']);
     if ($from !== '' && $to !== '' && $to <= $from) {
       $form_state->setErrorByName('times][end_time', $this->t('Eindtijd moet na de begintijd liggen.'));
     }
   }
 
   public function previewSubmit(array &$form, FormStateInterface $form_state): void {
-    // period/times are visual containers only (no #tree), so their child
-    // values already live at the top level. Rebuild directly from submitted
-    // values instead of overwriting them with non-existent nested values.
     $form_state->setRebuild(TRUE);
+    $this->messenger()->addStatus($this->t('Inzetvoorstel herberekend met de gekozen periode, werktijden en medewerkers.'));
   }
 
   public function confirmSubmit(array &$form, FormStateInterface $form_state): void {
@@ -284,10 +284,10 @@ final class ProjectInzetProposalForm extends FormBase {
     }
 
     $selected = array_values(array_filter(array_map('intval', (array) $form_state->getValue('users'))));
-    $start = (string) $form_state->getValue('start_date');
-    $end = (string) $form_state->getValue('end_date');
-    $startTime = (string) $form_state->getValue('start_time');
-    $endTime = (string) $form_state->getValue('end_time');
+    $start = (string) $form_state->getValue(['period', 'start_date']);
+    $end = (string) $form_state->getValue(['period', 'end_date']);
+    $startTime = (string) $form_state->getValue(['times', 'start_time']);
+    $endTime = (string) $form_state->getValue(['times', 'end_time']);
     $dates = $this->proposalBuilder->dates($start, $end);
     $hours = max(0, (strtotime('1970-01-01 ' . $endTime) - strtotime('1970-01-01 ' . $startTime)) / 3600);
 
