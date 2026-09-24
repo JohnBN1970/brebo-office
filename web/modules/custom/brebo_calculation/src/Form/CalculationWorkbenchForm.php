@@ -262,11 +262,14 @@ final class CalculationWorkbenchForm extends FormBase {
         }
       }
     }
-    foreach ($structure as $structureKey => $structureItem) {
-      if ((string) $structureItem['node_type'] !== 'paragraph') {
-        continue;
-      }
-      $parentKey = (string) ($structureItem['parent_key'] ?? '');
+    // Roll child totals upward deepest-first so every ancestor receives the
+    // complete descendant total, independent of the display/sort order.
+    $rollupKeys = array_keys($structure);
+    usort($rollupKeys, static fn (string $a, string $b): int =>
+      ((int) ($structure[$b]['depth'] ?? 0)) <=> ((int) ($structure[$a]['depth'] ?? 0))
+    );
+    foreach ($rollupKeys as $structureKey) {
+      $parentKey = (string) ($structure[$structureKey]['parent_key'] ?? '');
       if ($parentKey !== '' && isset($structureDirectTotals[$parentKey])) {
         $structureDirectTotals[$parentKey] += $structureDirectTotals[$structureKey] ?? 0.0;
       }
