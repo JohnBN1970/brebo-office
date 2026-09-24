@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
+use Drupal\brebo_calculation\Service\LegacyDryRunService;
 use Drupal\brebo_calculation\Service\CalculationResultService;
 use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
@@ -30,6 +31,7 @@ final class CalculationWorkbenchForm extends FormBase {
     private readonly RecipePriceHealthInspector $recipePriceHealthInspector,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
+    private readonly LegacyDryRunService $legacyDryRun,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -42,6 +44,7 @@ final class CalculationWorkbenchForm extends FormBase {
       $container->get('brebo_calculation.recipe_price_health_inspector'),
       $container->get('brebo_calculation.result'),
       $container->get('brebo_calculation.readiness_inspector'),
+      $container->get('brebo_calculation.legacy_dry_run'),
     );
   }
 
@@ -54,16 +57,29 @@ final class CalculationWorkbenchForm extends FormBase {
     $version = $this->latestVersion((int) $node->id());
     if ($version === NULL) {
       $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $node->id()])->toString();
-      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString();
+      $preview = $this->legacyDryRun->preview((int) $node->id());
+      $safe = $preview->isSafeToMigrate();
+      $canConvert = $safe
+        && $node->access('update', $this->currentUser())
+        && $this->currentUser()->hasPermission('migrate brebo calculation');
+      $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $node->id()])->toString();
+      $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
+      $description = $safe
+        ? ($canConvert
+          ? 'De controle is schoon. De bestaande bron blijft intact en na bevestiging opent deze calculatie direct in de nieuwe werkbank.'
+          : 'De controle is schoon. Alleen een gebruiker met migratierechten kan deze bestaande calculatie omzetten.')
+        : 'Er zijn verschillen of waarschuwingen die eerst gecontroleerd moeten worden. De bestaande calculatie wordt niet gewijzigd.';
+      $primary = $canConvert
+        ? '<a class="button button--primary" href="' . htmlspecialchars($convertUrl) . '">Omzetten naar nieuwe calculatie</a>'
+        : '<a class="button button--primary" href="' . htmlspecialchars($auditUrl) . '">Migratiecontrole bekijken</a>';
       return [
         '#attached' => ['library' => ['brebo_calculation/workbench']],
         'legacy_entry' => [
           '#markup' => '<section class="brebo-calc-legacy-entry">'
-            . '<div><small>Bestaande calculatie</small><h2>Deze calculatie moet één keer worden aangesloten op de nieuwe werkbank.</h2>'
-            . '<p>De oude calculatiegegevens blijven behouden. Controleer eerst de migratie; daarna opent deze calculatie voortaan direct in het commandocentrum.</p></div>'
-            . '<div class="brebo-calc-legacy-entry__actions">'
-            . '<a class="button button--primary" href="' . htmlspecialchars($auditUrl) . '">Migratie controleren</a>'
-            . '<a class="button" href="' . htmlspecialchars($structureUrl) . '">Structuur bekijken</a>'
+            . '<div><small>Bestaande calculatie</small><h2>' . htmlspecialchars($title) . '</h2>'
+            . '<p>' . htmlspecialchars($description) . '</p></div>'
+            . '<div class="brebo-calc-legacy-entry__actions">' . $primary
+            . ($canConvert ? '<a class="button" href="' . htmlspecialchars($auditUrl) . '">Migratiecontrole bekijken</a>' : '')
             . '</div></section>',
         ],
       ];
