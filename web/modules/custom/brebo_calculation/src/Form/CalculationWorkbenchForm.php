@@ -59,12 +59,17 @@ final class CalculationWorkbenchForm extends FormBase {
       $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $node->id()])->toString();
       $preview = $this->legacyDryRun->preview((int) $node->id());
       $safe = $preview->isSafeToMigrate();
+      $canConvert = $safe
+        && $node->access('update', $this->currentUser())
+        && $this->currentUser()->hasPermission('migrate brebo calculation');
       $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $node->id()])->toString();
       $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
       $description = $safe
-        ? 'De controle is schoon. De bestaande bron blijft intact en na bevestiging opent deze calculatie direct in de nieuwe werkbank.'
+        ? ($canConvert
+          ? 'De controle is schoon. De bestaande bron blijft intact en na bevestiging opent deze calculatie direct in de nieuwe werkbank.'
+          : 'De controle is schoon. Alleen een gebruiker met migratierechten kan deze bestaande calculatie omzetten.')
         : 'Er zijn verschillen of waarschuwingen die eerst gecontroleerd moeten worden. De bestaande calculatie wordt niet gewijzigd.';
-      $primary = $safe
+      $primary = $canConvert
         ? '<a class="button button--primary" href="' . htmlspecialchars($convertUrl) . '">Omzetten naar nieuwe calculatie</a>'
         : '<a class="button button--primary" href="' . htmlspecialchars($auditUrl) . '">Migratiecontrole bekijken</a>';
       return [
@@ -74,7 +79,7 @@ final class CalculationWorkbenchForm extends FormBase {
             . '<div><small>Bestaande calculatie</small><h2>' . htmlspecialchars($title) . '</h2>'
             . '<p>' . htmlspecialchars($description) . '</p></div>'
             . '<div class="brebo-calc-legacy-entry__actions">' . $primary
-            . ($safe ? '<a class="button" href="' . htmlspecialchars($auditUrl) . '">Migratiecontrole bekijken</a>' : '')
+            . ($canConvert ? '<a class="button" href="' . htmlspecialchars($auditUrl) . '">Migratiecontrole bekijken</a>' : '')
             . '</div></section>',
         ],
       ];
