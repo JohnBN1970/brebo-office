@@ -25,6 +25,7 @@ jobs:
           php-version: '8.3'
           coverage: none
 
+      # Canonical calculation behavior is covered by the executable domain checks below.
       - name: Lint calculation module PHP
         shell: bash
         run: |
