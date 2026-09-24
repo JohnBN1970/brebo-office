@@ -33,6 +33,8 @@ final class PersonnelActualHoursManager {
       throw new \UnexpectedValueException('Clocked hours must be submitted before they can be approved.');
     }
     $submittedHours = max(0.0, (float) $submitted['actual_hours']);
+    $employeeCost = $this->employeeHourlyCost($assignment);
+    $actualCost = number_format($submittedHours * $employeeCost, 4, '.', '');
     if ($submittedHours <= 0) {
       throw new \UnexpectedValueException('Submitted evidence contains no actual hours.');
     }
@@ -44,14 +46,24 @@ final class PersonnelActualHoursManager {
       'actual_hours' => $submittedHours,
       'submitted_at' => (int) $submitted['changed'],
       'approval_status' => 'approved',
+      'employee_hourly_cost' => number_format($employeeCost, 2, '.', ''),
+      'actual_cost_ex_vat' => $actualCost,
       'evidence' => 'sealed_submitted_hours',
     ];
     return $this->labourProductivity->synchronizeEntry(
       $projectId, $budgetLineId, 'brebo_inzet_actual', 'assignment:' . $assignment->id(),
       (string) $assignment->getRevisionId(), (int) $assignment->id(), NULL, NULL, NULL,
       NULL, '0.0000', number_format($submittedHours, 4, '.', ''),
-      NULL, '0.0000', 'approved', time(), $payload, $userId,
+      NULL, $actualCost, 'approved', time(), $payload, $userId,
     );
+  }
+
+  private function employeeHourlyCost(NodeInterface $assignment): float {
+    $account = $assignment->get('field_brebo_plan_user')->entity;
+    if (!$account instanceof \Drupal\user\UserInterface || !$account->hasField('field_brebo_hourly_cost')) {
+      return 0.0;
+    }
+    return max(0.0, (float) ($account->get('field_brebo_hourly_cost')->value ?? 0));
   }
 
   private function synchronize(NodeInterface $assignment, string $status, int $userId): int {
@@ -72,6 +84,8 @@ final class PersonnelActualHoursManager {
       throw new \UnexpectedValueException('No clocked hours are available for this assignment.');
     }
     $planned = max(0.0, (float) $actual['planned_hours']);
+    $employeeCost = $this->employeeHourlyCost($assignment);
+    $actualCost = number_format($clocked * $employeeCost, 4, '.', '');
     $payload = [
       'assignment_nid' => (int) $assignment->id(),
       'project_nid' => $projectId,
@@ -80,12 +94,14 @@ final class PersonnelActualHoursManager {
       'actual_hours' => $clocked,
       'comparison_state' => (string) $actual['state'],
       'approval_status' => $status,
+      'employee_hourly_cost' => number_format($employeeCost, 2, '.', ''),
+      'actual_cost_ex_vat' => $actualCost,
     ];
     return $this->labourProductivity->synchronizeEntry(
       $projectId, $budgetLineId, 'brebo_inzet_actual', 'assignment:' . $assignment->id(),
       (string) $assignment->getRevisionId(), (int) $assignment->id(), NULL, NULL, NULL,
       NULL, '0.0000', number_format($clocked, 4, '.', ''),
-      NULL, '0.0000', $status, time(), $payload, $userId,
+      NULL, $actualCost, $status, time(), $payload, $userId,
     );
   }
 }

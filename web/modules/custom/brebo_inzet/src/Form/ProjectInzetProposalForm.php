@@ -169,13 +169,13 @@ final class ProjectInzetProposalForm extends FormBase {
       }
       $form['labour_lines'] = [
         '#type' => 'table',
-        '#caption' => $this->t('Arbeid per kostprijs'),
-        '#header' => [$this->t('Arbeid'), $this->t('Kostprijs'), $this->t('Begrote uren'), $this->t('Aandeel')],
+        '#caption' => $this->t('Arbeidsbudget'),
+        '#header' => [$this->t('Arbeid'), $this->t('Begroot tarief'), $this->t('Begrote uren'), $this->t('Aandeel')],
         '#rows' => $lineRows,
         '#empty' => $this->t('Geen vergrendelde arbeidsregels gevonden.'),
       ];
       $form['line_distribution_note'] = [
-        '#markup' => '<div class="messages messages--status"><strong>Arbeid wordt automatisch gekoppeld op kostprijs.</strong> De medewerker bepaalt de kostprijs; Office kiest daar automatisch de enige vergrendelde arbeidsregel met hetzelfde uurtarief bij. Geen handmatige keuze per werkzaamheid.</div>',
+        '#markup' => '<div class="messages messages--status"><strong>Begroot tarief en medewerkerkostprijs staan los van elkaar.</strong> Office verdeelt geplande uren over de beschikbare arbeidsbegroting; de werkelijke medewerkerkostprijs wordt apart gebruikt voor de financiële prognose. Een medewerker hoeft dus niet hetzelfde uurtarief te hebben als de begroting.</div>',
       ];
     }
 
@@ -300,24 +300,6 @@ final class ProjectInzetProposalForm extends FormBase {
     }
 
     $userStorage = $this->entityTypeManager->getStorage('user');
-    $lineByUser = [];
-    foreach ($selected as $uid) {
-      $account = $userStorage->load($uid);
-      if (!$account instanceof UserInterface) {
-        continue;
-      }
-      try {
-        $lineByUser[$uid] = $this->labourLineResolver->resolve($projectId, $account);
-      }
-      catch (\Throwable $e) {
-        $this->messenger()->addError($e->getMessage());
-      }
-    }
-    if (count($lineByUser) !== count($selected)) {
-      $this->messenger()->addError($this->t('Projectinzet is niet aangemaakt: vul eerst bij alle geselecteerde medewerkers een geldige interne kostprijs in en zorg voor precies één arbeidsregel per tarief in de werkbegroting.'));
-      $form_state->setRebuild(TRUE);
-      return;
-    }
 
     $storage = $this->entityTypeManager->getStorage('node');
     $existingIds = $storage->getQuery()
@@ -352,8 +334,18 @@ final class ProjectInzetProposalForm extends FormBase {
           continue;
         }
 
-        $budgetLineId = (int) $lineByUser[$uid]['id'];
         $account = $userStorage->load($uid);
+        if (!$account instanceof UserInterface) {
+          continue;
+        }
+        try {
+          $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+        }
+        catch (\Throwable $e) {
+          $this->messenger()->addError($e->getMessage());
+          continue;
+        }
+        $budgetLineId = (int) $labourLine['id'];
 
         $assignment = $storage->create([
           'type' => 'brebo_personnel_assignment',

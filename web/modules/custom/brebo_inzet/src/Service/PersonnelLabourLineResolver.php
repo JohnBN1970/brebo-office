@@ -8,7 +8,7 @@ use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\user\UserInterface;
 
 /**
- * Resolves the single locked labour line that matches an employee hourly cost.
+ * Allocates personnel planning to labour budget capacity, independent of rate.
  */
 final class PersonnelLabourLineResolver {
 
@@ -17,44 +17,44 @@ final class PersonnelLabourLineResolver {
   ) {}
 
   /**
-   * @return array{id:int,hourly_cost:float,description:string}
+   * Returns the labour budget line with the most remaining planned capacity.
+   *
+   * Employee cost is deliberately NOT used to choose the budget line. The
+   * working-budget rate is a baseline assumption; the employee rate is an
+   * actual/forecast cost characteristic.
+   *
+   * @return array{id:int,employee_hourly_cost:float,description:string}
    */
   public function resolve(int $projectId, UserInterface $account): array {
-    if (!$account->hasField('field_brebo_hourly_cost')) {
-      throw new \UnexpectedValueException(sprintf('Medewerker %s heeft nog geen kostprijsveld.', $account->getDisplayName()));
+    $lines = $this->labourProductivity->labourBudgetLines($projectId);
+    if ($lines === []) {
+      throw new \UnexpectedValueException('Geen vergrendelde arbeidsbegroting met arbeid gevonden voor dit project.');
     }
 
-    $hourlyCost = round((float) ($account->get('field_brebo_hourly_cost')->value ?? 0), 2);
-    if ($hourlyCost <= 0) {
-      throw new \UnexpectedValueException(sprintf('Vul eerst de interne kostprijs per uur in bij %s.', $account->getDisplayName()));
+    $analysis = $this->labourProductivity->analyzeProject($projectId);
+    $plannedByLine = [];
+    foreach ((array) ($analysis['lines'] ?? []) as $row) {
+      $plannedByLine[(int) ($row['budget_line_id'] ?? 0)] = (float) ($row['planned_hours'] ?? 0);
     }
 
-    $matches = [];
-    foreach ($this->labourProductivity->labourBudgetLines($projectId) as $line) {
-      $lineCost = round((float) ($line['hourly_cost_ex_vat'] ?? 0), 2);
-      if (abs($lineCost - $hourlyCost) < 0.001) {
-        $matches[] = $line;
+    usort($lines, static function (array $a, array $b) use ($plannedByLine): int {
+      $aRemaining = (float) ($a['budget_hours'] ?? 0) - ($plannedByLine[(int) ($a['id'] ?? 0)] ?? 0.0);
+      $bRemaining = (float) ($b['budget_hours'] ?? 0) - ($plannedByLine[(int) ($b['id'] ?? 0)] ?? 0.0);
+      if (abs($aRemaining - $bRemaining) < 0.0001) {
+        return ((int) ($a['id'] ?? 0)) <=> ((int) ($b['id'] ?? 0));
       }
-    }
+      return $aRemaining < $bRemaining ? 1 : -1;
+    });
 
-    if ($matches === []) {
-      throw new \UnexpectedValueException(sprintf(
-        'Geen vergrendelde arbeidsregel met kostprijs € %.2f/u gevonden voor %s.',
-        $hourlyCost,
-        $account->getDisplayName(),
-      ));
-    }
-    if (count($matches) > 1) {
-      throw new \UnexpectedValueException(sprintf(
-        'Meerdere arbeidsregels met kostprijs € %.2f/u gevonden. Bundel arbeid in de werkbegroting tot één regel per uurtarief.',
-        $hourlyCost,
-      ));
+    $employeeHourlyCost = 0.0;
+    if ($account->hasField('field_brebo_hourly_cost')) {
+      $employeeHourlyCost = round((float) ($account->get('field_brebo_hourly_cost')->value ?? 0), 2);
     }
 
     return [
-      'id' => (int) $matches[0]['id'],
-      'hourly_cost' => $hourlyCost,
-      'description' => (string) ($matches[0]['description'] ?? 'Arbeid'),
+      'id' => (int) $lines[0]['id'],
+      'employee_hourly_cost' => max(0.0, $employeeHourlyCost),
+      'description' => (string) ($lines[0]['description'] ?? 'Arbeid'),
     ];
   }
 
