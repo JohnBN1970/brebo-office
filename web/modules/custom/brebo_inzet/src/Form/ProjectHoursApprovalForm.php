@@ -83,6 +83,7 @@ final class ProjectHoursApprovalForm extends FormBase {
     ];
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['submit_hours'] = ['#type' => 'submit', '#value' => $this->t('Selectie indienen'), '#submit' => ['::submitHours']];
+    $form['actions']['return_hours'] = ['#type' => 'submit', '#value' => $this->t('Terug voor correctie'), '#submit' => ['::returnHours']];
     $form['actions']['approve_hours'] = ['#type' => 'submit', '#value' => $this->t('Selectie goedkeuren'), '#button_type' => 'primary', '#submit' => ['::approveHours']];
     $form_state->set('project_id', (int) $node->id());
     return $form;
@@ -90,10 +91,11 @@ final class ProjectHoursApprovalForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
 
-  public function submitHours(array &$form, FormStateInterface $form_state): void { $this->process($form_state, FALSE); }
-  public function approveHours(array &$form, FormStateInterface $form_state): void { $this->process($form_state, TRUE); }
+  public function submitHours(array &$form, FormStateInterface $form_state): void { $this->process($form_state, 'submit'); }
+  public function approveHours(array &$form, FormStateInterface $form_state): void { $this->process($form_state, 'approve'); }
+  public function returnHours(array &$form, FormStateInterface $form_state): void { $this->process($form_state, 'return'); }
 
-  private function process(FormStateInterface $form_state, bool $approve): void {
+  private function process(FormStateInterface $form_state, string $action): void {
     $ids = array_values(array_filter(array_map('intval', (array) $form_state->getValue('assignments'))));
     if ($ids === []) { $this->messenger()->addWarning($this->t('Selecteer minimaal één urenregel.')); return; }
     $done = 0;
@@ -107,13 +109,21 @@ final class ProjectHoursApprovalForm extends FormBase {
       try {
         $review = $this->labourProductivity->inzetActualStatus($projectId, (int) $assignment->id());
         $reviewStatus = (string) ($review['status'] ?? 'open');
-        if ($approve && $reviewStatus !== 'worked') {
-          throw new \UnexpectedValueException('Alleen ingediende uren kunnen worden goedgekeurd.');
+        if (($action === 'approve' || $action === 'return') && $reviewStatus !== 'worked') {
+          throw new \UnexpectedValueException('Alleen ingediende uren kunnen worden goedgekeurd of teruggestuurd.');
         }
-        if (!$approve && $reviewStatus === 'approved') {
+        if ($action === 'submit' && $reviewStatus === 'approved') {
           throw new \UnexpectedValueException('Goedgekeurde uren kunnen niet opnieuw worden ingediend.');
         }
-        $approve ? $this->actualHours->approve($assignment, (int) $this->currentUser()->id()) : $this->actualHours->submit($assignment, (int) $this->currentUser()->id());
+        if ($action === 'approve') {
+          $this->actualHours->approve($assignment, (int) $this->currentUser()->id());
+        }
+        elseif ($action === 'return') {
+          $this->actualHours->returnForCorrection($assignment, (int) $this->currentUser()->id());
+        }
+        else {
+          $this->actualHours->submit($assignment, (int) $this->currentUser()->id());
+        }
         $done++;
       }
       catch (\Throwable $e) {
