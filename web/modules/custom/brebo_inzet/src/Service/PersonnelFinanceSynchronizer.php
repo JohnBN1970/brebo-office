@@ -26,8 +26,14 @@ final class PersonnelFinanceSynchronizer {
       : 0.0;
     $plannedCost = number_format(((float) $plannedHours) * $hourlyCost, 4, '.', '');
     $status = in_array($assignmentStatus, ['planned', 'confirmed', 'cancelled'], TRUE) ? $assignmentStatus : 'planned';
-    if ($projectId <= 0 || $budgetLineId <= 0 || $plannedHours === '0.0000') {
-      throw new \UnexpectedValueException('Finance synchronization requires project, labour budget line and planned hours.');
+    if ($projectId <= 0 || $plannedHours === '0.0000') {
+      throw new \UnexpectedValueException('Finance synchronization requires a project and planned hours.');
+    }
+    // Planning is allowed before a working budget is locked. In that case
+    // the assignment remains operationally valid and Finance linking is
+    // deferred until a labour budget line becomes available.
+    if ($budgetLineId <= 0) {
+      return 0;
     }
     $payload = [
       'assignment_nid' => (int) $assignment->id(), 'project_nid' => $projectId,
