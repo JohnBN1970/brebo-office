@@ -1,0 +1,100 @@
+name: Diagnose Inzet Project Team Runtime
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/inzet-project-team-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Inspect project team runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE' | tee inzet-project-team-runtime.log
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+
+          "$php" -r '
+            chdir("web");
+            $autoloader = require_once "../vendor/autoload.php";
+            $request = Symfony\Component\HttpFoundation\Request::create("https://sboffice.brebobv.nl/");
+            $kernel = Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, "prod");
+            $kernel->boot();
+            $container = $kernel->getContainer();
+
+            $storage = $container->get("entity_type.manager")->getStorage("node");
+            $projectIds = $storage->getQuery()
+              ->accessCheck(FALSE)
+              ->condition("type", "brebo_project")
+              ->sort("nid", "DESC")
+              ->range(0, 50)
+              ->execute();
+
+            foreach ($storage->loadMultiple($projectIds) as $project) {
+              if (!$project instanceof Drupal\node\NodeInterface) { continue; }
+              $team = [];
+              if ($project->hasField("field_brebo_project_team") && !$project->get("field_brebo_project_team")->isEmpty()) {
+                foreach ($project->get("field_brebo_project_team")->referencedEntities() as $account) {
+                  $team[] = [
+                    "uid" => (int) $account->id(),
+                    "name" => $account->getDisplayName(),
+                    "active" => $account->isActive(),
+                    "hourly_cost" => $account->hasField("field_brebo_hourly_cost") ? (string) ($account->get("field_brebo_hourly_cost")->value ?? "") : "",
+                  ];
+                }
+              }
+
+              if ($team === []) { continue; }
+
+              $assignmentCount = (int) $storage->getQuery()
+                ->accessCheck(FALSE)
+                ->condition("type", "brebo_personnel_assignment")
+                ->condition("field_brebo_project_ref", (int) $project->id())
+                ->condition("field_brebo_assignment_status", "cancelled", "<>")
+                ->count()
+                ->execute();
+
+              echo json_encode([
+                "project_nid" => (int) $project->id(),
+                "project" => $project->label(),
+                "team" => $team,
+                "assignment_count" => $assignmentCount,
+              ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n";
+            }
+          '
+          REMOTE
+
+      - name: Upload diagnostic
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inzet-project-team-runtime
+          path: inzet-project-team-runtime.log
+          retention-days: 3
