@@ -200,8 +200,11 @@ final class CalculationWorkbenchForm extends FormBase {
       }
       $auditComponents[(string) $componentKey] = $component;
     }
+    $commercialAdjustment = (float) ($commercial['commercial_adjustment'] ?? 0);
+    $componentSalesTarget = $salesPrice - $commercialAdjustment;
+    $componentCommercialFactor = $directCost > 0.0 ? $componentSalesTarget / $directCost : 0.0;
     $auditDirectCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0), $directCost);
-    $auditSalesCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0) * $commercialFactor, $salesPrice);
+    $auditSalesCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0) * $componentCommercialFactor, $componentSalesTarget);
 
     $auditRows = '';
     foreach ($auditComponents as $componentKey => $component) {
@@ -210,11 +213,10 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<td>' . htmlspecialchars((string) ($component['description'] ?? '')) . '</td>'
         . '<td>' . number_format((float) ($component['quantity'] ?? 0), 4, ',', '.') . ' ' . htmlspecialchars((string) ($component['unit'] ?? '')) . '</td>'
         . '<td>€ ' . number_format(($auditDirectCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</td>'
-        . '<td>× ' . number_format($commercialFactor, 6, ',', '.') . '</td>'
+        . '<td>× ' . number_format($componentCommercialFactor, 6, ',', '.') . '</td>'
         . '<td><strong>€ ' . number_format(($auditSalesCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</strong></td>'
         . '</tr>';
     }
-    $commercialAdjustment = (float) ($commercial['commercial_adjustment'] ?? 0);
     if (abs($commercialAdjustment) >= 0.005 || ($directCost == 0.0 && $salesPrice != 0.0)) {
       $auditRows .= '<tr class="brebo-calc-line-audit__adjustment"><td>commerciele_correctie</td><td>Commerciële correctie</td><td>—</td><td>€ 0,00</td><td>—</td><td><strong>€ '
         . number_format($commercialAdjustment, 2, ',', '.') . '</strong></td></tr>';
@@ -226,7 +228,7 @@ final class CalculationWorkbenchForm extends FormBase {
       '#markup' => '<details class="brebo-calc-panel brebo-calc-line-audit"><summary><strong>Regelaudit</strong> — herleid directe kostprijs en verkoopwaarde per regel</summary>'
         . '<div class="table-responsive"><table><thead><tr><th>Bron</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Directe kostprijs</th><th>Commerciële factor</th><th>Verkoopwaarde</th></tr></thead><tbody>'
         . $auditRows
-        . '</tbody><tfoot><tr><th colspan="3">Totaal</th><th>€ ' . number_format($directCost, 2, ',', '.') . '</th><th>× ' . number_format($commercialFactor, 6, ',', '.') . '</th><th>€ ' . number_format($salesPrice, 2, ',', '.') . '</th></tr></tfoot></table></div></details>',
+        . '</tbody><tfoot><tr><th colspan="3">Totaal</th><th>€ ' . number_format($directCost, 2, ',', '.') . '</th><th>× ' . number_format($componentCommercialFactor, 6, ',', '.') . '</th><th>€ ' . number_format($salesPrice, 2, ',', '.') . '</th></tr></tfoot></table></div></details>',
       '#weight' => -5,
     ];
 
