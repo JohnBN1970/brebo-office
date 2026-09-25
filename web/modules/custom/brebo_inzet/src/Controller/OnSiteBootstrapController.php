@@ -58,6 +58,7 @@ final class OnSiteBootstrapController extends ControllerBase {
         'language' => $this->identityResolver->languageFor($user),
       ],
       'projects' => $this->assignmentProvider->currentForUser((int) $user->id()),
+      'buildings' => $this->assignmentProvider->buildingsForRecognition(),
     ]);
   }
 
