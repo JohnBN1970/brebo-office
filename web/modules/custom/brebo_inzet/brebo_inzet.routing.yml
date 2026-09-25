@@ -38,6 +38,19 @@ brebo_inzet.app_clock:
       node:
         type: entity:node
 
+
+brebo_inzet.project_planning:
+  path: '/projecten/{node}/inzet/planning'
+  defaults:
+    _form: '\Drupal\brebo_inzet\Form\ProjectPlanningWorkbenchForm'
+    _title: 'Planning'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+  options:
+    parameters:
+      node:
+        type: entity:node
+
 brebo_inzet.project_hours_control:
   path: '/projecten/{node}/inzet/urencontrole'
   defaults:
