@@ -44,6 +44,7 @@ final class OnSitePresenceController extends ControllerBase {
         (string) ($payload['zone_id'] ?? ''),
         (string) ($payload['kind'] ?? ''),
         (string) ($payload['occurred_at'] ?? ''),
+        (string) ($payload['building_id'] ?? ''),
       );
       return new JsonResponse(['ok' => TRUE, 'event' => $event], 201);
     }
@@ -51,7 +52,7 @@ final class OnSitePresenceController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'invalid_event'], 400);
     }
     catch (\RuntimeException $e) {
-      return new JsonResponse(['ok' => FALSE, 'error' => 'assignment_mismatch'], 403);
+      return new JsonResponse(['ok' => FALSE, 'error' => 'presence_context_mismatch'], 403);
     }
     catch (\Throwable $e) {
       return new JsonResponse(['ok' => FALSE, 'error' => 'presence_write_failed'], 500);
