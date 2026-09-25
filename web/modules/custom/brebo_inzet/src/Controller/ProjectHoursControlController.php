@@ -134,8 +134,12 @@ final class ProjectHoursControlController extends ControllerBase {
 
     $finance = $this->labourProductivity->analyzeProject($projectId);
     $financeTotals = (array) ($finance['totals'] ?? []);
-    $actualReviewStates = $this->labourProductivity->inzetActualStatuses($projectId);
-    $pendingApproval = count(array_filter($actualReviewStates, static fn (array $entry): bool => $entry['status'] === 'worked'));
+    $pendingApproval = 0;
+    foreach ($storage->loadMultiple($assignmentIds) as $assignment) {
+      if ($assignment instanceof NodeInterface && (string) ($assignment->get('field_brebo_actual_status')->value ?? 'open') === 'worked') {
+        $pendingApproval++;
+      }
+    }
     $financeBudgetHours = (float) ($financeTotals['budget_hours'] ?? 0);
     $budgetHours = $financeBudgetHours > 0 ? $financeBudgetHours : $this->budgetHours($node);
     $approvedHours = (float) ($financeTotals['actual_approved_hours'] ?? 0);
@@ -204,7 +208,7 @@ final class ProjectHoursControlController extends ControllerBase {
         '#attributes' => ['class' => ['button', 'button--primary']],
       ],
       'finance_note' => [
-        '#markup' => '<div class="messages messages--status"><strong>Financiële urenwaarheid:</strong> alleen goedgekeurde werkelijke uren tellen financieel als actual. Ingediende uren blijven zichtbaar als nog te beoordelen bewijs. Prognose en arbeidskosten komen rechtstreeks uit Finance wanneer een vergrendelde arbeidsbegroting beschikbaar is.</div>',
+        '#markup' => '<div class="messages messages--status"><strong>Urenwaarheid:</strong> goedkeuring gebeurt in Personeel en blijft geldig, ook wanneer Finance nog niet gekoppeld is. Zodra een vergrendelde arbeidsbegroting beschikbaar is, kan dezelfde goedgekeurde urenwaarheid financieel worden gekoppeld.</div>',
       ],
       'weekly' => [
         '#type' => 'table',
