@@ -307,12 +307,21 @@ function _brebo_inzet_ensure_onsite_presence_schema(): void {
       'type' => 'entity_reference',
       'storage' => ['target_type' => 'node'],
       'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+      'required' => FALSE,
+    ],
+    'field_brebo_building_ref' => [
+      'label' => 'Gebouw',
+      'type' => 'entity_reference',
+      'storage' => ['target_type' => 'node'],
+      'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']]],
+      'required' => FALSE,
     ],
     'field_brebo_clock_zone_ref' => [
-      'label' => 'Projectzone',
+      'label' => 'Personeelszone',
       'type' => 'entity_reference',
       'storage' => ['target_type' => 'node'],
       'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_clock_zone' => 'brebo_clock_zone']]],
+      'required' => FALSE,
     ],
     'field_brebo_onsite_event_kind' => [
       'label' => 'Waarneming',
@@ -345,7 +354,7 @@ function _brebo_inzet_ensure_onsite_presence_schema(): void {
         'entity_type' => 'node',
         'bundle' => $bundle,
         'label' => $definition['label'],
-        'required' => TRUE,
+        'required' => $definition['required'] ?? TRUE,
         'settings' => $definition['settings'],
       ])->save();
     }
@@ -666,4 +675,23 @@ function _brebo_inzet_ensure_employee_hourly_cost_field(): void {
 function brebo_inzet_update_11012(): string {
   _brebo_inzet_ensure_personnel_assignment_schema();
   return 'Personeelsuren kunnen nu operationeel worden ingediend en goedgekeurd voordat Finance is gekoppeld.';
+}
+
+
+/**
+ * Makes raw OnSite evidence building-first and planning-independent.
+ */
+function brebo_inzet_update_11013(): string {
+  _brebo_inzet_ensure_onsite_presence_schema();
+
+  foreach (['field_brebo_project_ref', 'field_brebo_clock_zone_ref'] as $fieldName) {
+    if ($field = FieldConfig::loadByName('node', 'brebo_onsite_presence_event', $fieldName)) {
+      $field->setRequired(FALSE)->save();
+    }
+  }
+  if ($field = FieldConfig::loadByName('node', 'brebo_onsite_presence_event', 'field_brebo_building_ref')) {
+    $field->setRequired(FALSE)->save();
+  }
+
+  return 'OnSite aanwezigheid kan nu gebouwgericht worden vastgelegd zonder voorafgaande projectplanning.';
 }
