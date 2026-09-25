@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
+use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\PersonnelFinanceSynchronizer;
 use Drupal\brebo_inzet\Service\PersonnelLabourLineResolver;
 use Drupal\Core\Datetime\DrupalDateTime;
@@ -26,6 +27,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly PersonnelLabourLineResolver $labourLineResolver,
     private readonly PersonnelFinanceSynchronizer $financeSynchronizer,
+    private readonly LabourProductivityManager $labourProductivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -33,6 +35,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_inzet.personnel_labour_line_resolver'),
       $container->get('brebo_inzet.personnel_finance_synchronizer'),
+      $container->get('brebo_finance.labour_productivity_manager'),
     );
   }
 
@@ -178,7 +181,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
 
     $storage = $this->entityTypeManager->getStorage('node');
     $userStorage = $this->entityTypeManager->getStorage('user');
-    $hasLabourBudget = \Drupal::service('brebo_finance.labour_productivity_manager')->labourBudgetLines($projectId) !== [];
+    $hasLabourBudget = $this->labourProductivity->labourBudgetLines($projectId) !== [];
 
     $created = 0;
     $updated = 0;
