@@ -49,7 +49,11 @@ final class ProjectClockZoneForm extends FormBase {
     $this->project = $node;
     $form['#attached']['library'][] = 'brebo_inzet/clock-zone-map';
 
-    $building = $this->projectBuilding($node);
+    $buildings = $this->projectBuildings($node);
+    $selectedBuildingId = $zone?->hasField('field_brebo_building_ref') && !$zone->get('field_brebo_building_ref')->isEmpty()
+      ? (int) $zone->get('field_brebo_building_ref')->target_id
+      : (count($buildings) === 1 ? (int) array_key_first($buildings) : 0);
+    $building = $selectedBuildingId > 0 ? ($buildings[$selectedBuildingId] ?? NULL) : NULL;
     $buildingCoordinates = $this->buildingCoordinates($building);
     [$projectLatitude, $projectLongitude] = $buildingCoordinates ?? ['52.37021600', '4.89516800'];
     $defaultLatitude = $zone?->get('field_brebo_zone_latitude')->value ?? $projectLatitude;
@@ -64,6 +68,19 @@ final class ProjectClockZoneForm extends FormBase {
 
     $form['context'] = [
       '#markup' => '<section class="brebo-clock-zone-context"><div><span class="brebo-clock-zone-context__label">' . $this->t('Project') . '</span><strong>' . $projectLabel . '</strong></div><div><span class="brebo-clock-zone-context__label">' . $this->t('Gebouw') . '</span><strong>' . $buildingLabel . '</strong>' . $addressMarkup . '</div></section>',
+    ];
+
+    $buildingOptions = ['' => $this->t('- Kies gebouw -')];
+    foreach ($buildings as $buildingId => $candidate) {
+      $buildingOptions[$buildingId] = $candidate->label();
+    }
+    $form['building'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Gebouw'),
+      '#options' => $buildingOptions,
+      '#default_value' => $selectedBuildingId ?: '',
+      '#required' => count($buildings) > 1,
+      '#description' => $this->t('De zone wordt gekoppeld aan dit gebouw. Het middelpunt start op de bekende gebouwcoördinaten; de cirkel mag daarna bewust ruimer worden gezet.'),
     ];
 
     $form['name'] = [
@@ -144,6 +161,7 @@ final class ProjectClockZoneForm extends FormBase {
     $values = [
       'title' => trim((string) $form_state->getValue('name')),
       'field_brebo_project_ref' => ['target_id' => (int) $this->project->id()],
+      'field_brebo_building_ref' => ($buildingId = (int) $form_state->getValue('building')) > 0 ? ['target_id' => $buildingId] : NULL,
       'field_brebo_zone_latitude' => (float) $form_state->getValue('latitude'),
       'field_brebo_zone_longitude' => (float) $form_state->getValue('longitude'),
       'field_brebo_zone_radius' => (float) $form_state->getValue('radius'),
@@ -170,26 +188,31 @@ final class ProjectClockZoneForm extends FormBase {
     $form_state->setRedirect('brebo_inzet.project_clock_zones', ['node' => $this->project->id()]);
   }
 
-  private function projectBuilding(NodeInterface $project): ?NodeInterface {
+  /**
+   * @return array<int, NodeInterface>
+   */
+  private function projectBuildings(NodeInterface $project): array {
     $storage = $this->clockZoneEntityTypeManager->getStorage('node');
+    $result = [];
+
     foreach ($this->projectBuildingRepository->buildingsForProject((int) $project->id()) as $relation) {
       $buildingId = (int) ($relation['building_nid'] ?? 0);
       $building = $buildingId > 0 ? $storage->load($buildingId) : NULL;
-      if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building' && $this->buildingCoordinates($building) !== NULL) {
-        return $building;
+      if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+        $result[(int) $building->id()] = $building;
       }
     }
 
     if ($project->hasField('field_brebo_building_refs') && !$project->get('field_brebo_building_refs')->isEmpty()) {
-      $buildings = array_values(array_filter(
-        $project->get('field_brebo_building_refs')->referencedEntities(),
-        static fn ($building): bool => $building instanceof NodeInterface && $building->bundle() === 'brebo_building',
-      ));
-      if (count($buildings) === 1 && $this->buildingCoordinates($buildings[0]) !== NULL) {
-        return $buildings[0];
+      foreach ($project->get('field_brebo_building_refs')->referencedEntities() as $building) {
+        if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+          $result[(int) $building->id()] = $building;
+        }
       }
     }
-    return NULL;
+
+    uasort($result, static fn (NodeInterface $a, NodeInterface $b): int => strnatcasecmp((string) $a->label(), (string) $b->label()));
+    return $result;
   }
 
   /** @return array{0: string, 1: string}|null */
