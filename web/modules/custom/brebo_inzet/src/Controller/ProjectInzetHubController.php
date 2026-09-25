@@ -111,21 +111,9 @@ final class ProjectInzetHubController extends ControllerBase {
           $this->t('Uren controleren'),
           Url::fromRoute('brebo_inzet.project_hours_control', ['node' => $projectId])
         )->toRenderable(),
-        'proposal' => Link::fromTextAndUrl(
-          $this->t('Hele project vullen'),
-          Url::fromRoute('brebo_inzet.project_proposal', ['node' => $projectId])
-        )->toRenderable(),
-        'week' => Link::fromTextAndUrl(
-          $this->t('Weekplanning'),
-          Url::fromRoute('brebo_inzet.project_week_planning', ['node' => $projectId])
-        )->toRenderable(),
-        'plan' => Link::fromTextAndUrl(
-          $this->t('Medewerkers plannen'),
-          Url::fromRoute('brebo_inzet.project_quick_planning', ['node' => $projectId])
-        )->toRenderable(),
-        'team' => Link::fromTextAndUrl(
-          $this->t('Projectteam beheren'),
-          Url::fromRoute('brebo_inzet.project_team', ['node' => $projectId])
+        'planning' => Link::fromTextAndUrl(
+          $this->t('Planning'),
+          Url::fromRoute('brebo_inzet.project_planning', ['node' => $projectId])
         )->toRenderable(),
         'clock' => Link::fromTextAndUrl(
           $this->t('Klokken'),
@@ -173,10 +161,7 @@ final class ProjectInzetHubController extends ControllerBase {
     ];
 
     $build['actions']['hours']['#attributes']['class'] = ['button'];
-    $build['actions']['proposal']['#attributes']['class'] = ['button', 'button--primary', 'brebo-button--primary'];
-    $build['actions']['week']['#attributes']['class'] = ['button'];
-    $build['actions']['plan']['#attributes']['class'] = ['button'];
-    $build['actions']['team']['#attributes']['class'] = ['button'];
+    $build['actions']['planning']['#attributes']['class'] = ['button', 'button--primary', 'brebo-button--primary'];
     $build['actions']['clock']['#attributes']['class'] = ['button'];
     $build['actions']['deviations']['#attributes']['class'] = ['button'];
 
