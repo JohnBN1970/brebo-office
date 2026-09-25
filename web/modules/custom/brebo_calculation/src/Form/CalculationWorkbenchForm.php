@@ -192,22 +192,32 @@ final class CalculationWorkbenchForm extends FormBase {
         . '</dl></section>',
     ];
 
-    $auditRows = '';
+    $auditComponents = [];
     $commercialFactor = (float) ($result['commercial_factor'] ?? 0);
     foreach ((array) ($result['components'] ?? []) as $componentKey => $component) {
       if (!is_array($component) || in_array((string) ($component['rule_type'] ?? 'normal'), ['note', 'option'], TRUE)) {
         continue;
       }
-      $componentDirect = (float) ($component['direct_cost'] ?? 0);
-      $componentSales = $componentDirect * $commercialFactor;
+      $auditComponents[(string) $componentKey] = $component;
+    }
+    $auditDirectCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0), $directCost);
+    $auditSalesCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0) * $commercialFactor, $salesPrice);
+
+    $auditRows = '';
+    foreach ($auditComponents as $componentKey => $component) {
       $auditRows .= '<tr>'
-        . '<td>' . htmlspecialchars((string) $componentKey) . '</td>'
+        . '<td>' . htmlspecialchars($componentKey) . '</td>'
         . '<td>' . htmlspecialchars((string) ($component['description'] ?? '')) . '</td>'
         . '<td>' . number_format((float) ($component['quantity'] ?? 0), 4, ',', '.') . ' ' . htmlspecialchars((string) ($component['unit'] ?? '')) . '</td>'
-        . '<td>€ ' . number_format($componentDirect, 2, ',', '.') . '</td>'
+        . '<td>€ ' . number_format(($auditDirectCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</td>'
         . '<td>× ' . number_format($commercialFactor, 6, ',', '.') . '</td>'
-        . '<td><strong>€ ' . number_format($componentSales, 2, ',', '.') . '</strong></td>'
+        . '<td><strong>€ ' . number_format(($auditSalesCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</strong></td>'
         . '</tr>';
+    }
+    $commercialAdjustment = (float) ($commercial['commercial_adjustment'] ?? 0);
+    if (abs($commercialAdjustment) >= 0.005 || ($directCost == 0.0 && $salesPrice != 0.0)) {
+      $auditRows .= '<tr class="brebo-calc-line-audit__adjustment"><td>commerciele_correctie</td><td>Commerciële correctie</td><td>—</td><td>€ 0,00</td><td>—</td><td><strong>€ '
+        . number_format($commercialAdjustment, 2, ',', '.') . '</strong></td></tr>';
     }
     if ($auditRows === '') {
       $auditRows = '<tr><td colspan="6">Geen prijsdragende regels gevonden.</td></tr>';
@@ -517,4 +527,37 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @return array{labour:float,material:float,equipment:float,subcontracting:float,other:float} */
   private function recipeCostColumns(string $lineType, float $unitCost): array { $columns = ['labour' => 0.0, 'material' => 0.0, 'equipment' => 0.0, 'subcontracting' => 0.0, 'other' => 0.0]; $normalized = strtolower(trim($lineType)); $target = match ($normalized) { 'labour', 'arbeid' => 'labour', 'equipment', 'materieel' => 'equipment', 'subcontracting', 'onderaanneming', 'onderaannemer' => 'subcontracting', 'other', 'overig' => 'other', default => 'material' }; $columns[$target] = $unitCost; return $columns; }
   private function formatMoneyCell(float $value): string { return $value === 0.0 ? '' : '€ ' . number_format($value, 2, ',', '.'); }
+  /**
+   * @param array<string,array<string,mixed>> $components
+   * @return array<string,int>
+   */
+  private function reconcileAuditCents(array $components, callable $rawAmount, float $target): array {
+    $cents = [];
+    $remainders = [];
+    $allocated = 0;
+    foreach ($components as $key => $component) {
+      $rawCents = $rawAmount($component) * 100;
+      $rounded = (int) round($rawCents);
+      $cents[$key] = $rounded;
+      $remainders[$key] = $rawCents - $rounded;
+      $allocated += $rounded;
+    }
+    $delta = (int) round($target * 100) - $allocated;
+    while ($delta !== 0 && $remainders) {
+      $keys = array_keys($remainders);
+      usort($keys, static fn (string $a, string $b): int => $delta > 0
+        ? ($remainders[$b] <=> $remainders[$a])
+        : ($remainders[$a] <=> $remainders[$b]));
+      foreach ($keys as $key) {
+        if ($delta === 0) {
+          break;
+        }
+        $step = $delta > 0 ? 1 : -1;
+        $cents[$key] += $step;
+        $delta -= $step;
+      }
+    }
+    return $cents;
+  }
+
 }
