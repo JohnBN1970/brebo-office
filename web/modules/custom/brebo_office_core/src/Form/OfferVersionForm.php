@@ -481,6 +481,7 @@ final class OfferVersionForm extends FormBase {
     $factor = $directTotal > 0.0 ? $salesPrice / $directTotal : 0.0;
 
     $lines = [];
+    $pricedKeys = [];
     foreach ((array) ($result['components'] ?? []) as $key => $component) {
       if (!is_array($component)) {
         continue;
@@ -492,9 +493,11 @@ final class OfferVersionForm extends FormBase {
       }
 
       $direct = (float) ($component['direct_cost'] ?? 0);
-      $amount = round($direct * $factor, 2);
+      $rawAmount = $direct * $factor;
+      $amount = round($rawAmount, 2);
       $quantity = (float) ($component['quantity'] ?? 0);
-      $lines[(string) $key] = [
+      $lineKey = (string) $key;
+      $lines[$lineKey] = [
         'description' => (string) ($component['description'] ?? ''),
         'quantity' => $quantity > 0 ? (string) $quantity : '',
         'unit' => (string) ($component['unit'] ?? ''),
@@ -506,10 +509,63 @@ final class OfferVersionForm extends FormBase {
         },
         'unit_price' => $quantity > 0.0 ? round($amount / $quantity, 4) : $amount,
         'amount' => $amount,
+        '_raw_amount' => $rawAmount,
       ];
+      if ($ruleType !== 'option') {
+        $pricedKeys[] = $lineKey;
+      }
     }
 
+    $this->reconcileOfferLineAmounts($lines, $pricedKeys, $salesPrice);
+    foreach ($lines as &$line) {
+      unset($line['_raw_amount']);
+    }
+    unset($line);
+
     return $lines;
+  }
+
+  /**
+   * Makes the priced offer lines close exactly to the canonical sales total.
+   *
+   * @param array<string, array<string, mixed>> $lines
+   * @param string[] $pricedKeys
+   */
+  private function reconcileOfferLineAmounts(array &$lines, array $pricedKeys, float $salesPrice): void {
+    if ($pricedKeys === []) {
+      return;
+    }
+
+    $targetCents = (int) round($salesPrice * 100);
+    $allocatedCents = 0;
+    $remainders = [];
+    foreach ($pricedKeys as $key) {
+      $rawCents = ((float) ($lines[$key]['_raw_amount'] ?? 0)) * 100;
+      $roundedCents = (int) round($rawCents);
+      $allocatedCents += $roundedCents;
+      $remainders[$key] = $rawCents - $roundedCents;
+      $lines[$key]['amount'] = $roundedCents / 100;
+    }
+
+    $delta = $targetCents - $allocatedCents;
+    while ($delta !== 0) {
+      uasort($remainders, static fn (float $a, float $b): int => $delta > 0 ? $b <=> $a : $a <=> $b);
+      foreach (array_keys($remainders) as $key) {
+        if ($delta === 0) {
+          break;
+        }
+        $step = $delta > 0 ? 1 : -1;
+        $lines[$key]['amount'] = ((int) round(((float) $lines[$key]['amount']) * 100) + $step) / 100;
+        $delta -= $step;
+      }
+    }
+
+    foreach ($pricedKeys as $key) {
+      $quantity = (float) ($lines[$key]['quantity'] ?? 0);
+      $lines[$key]['unit_price'] = $quantity > 0.0
+        ? round(((float) $lines[$key]['amount']) / $quantity, 4)
+        : (float) $lines[$key]['amount'];
+    }
   }
 
   private function mapOfferPostType(string $source_type): string {
