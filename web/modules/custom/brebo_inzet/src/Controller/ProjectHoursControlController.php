@@ -10,6 +10,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DrupalDateTime;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -20,12 +21,14 @@ final class ProjectHoursControlController extends ControllerBase {
   public function __construct(
     private readonly PersonnelAssignmentComparison $comparison,
     private readonly LabourProductivityManager $labourProductivity,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_inzet.personnel_assignment_comparison'),
       $container->get('brebo_finance.labour_productivity_manager'),
+      $container->get('request_stack'),
     );
   }
 
@@ -119,6 +122,14 @@ final class ProjectHoursControlController extends ControllerBase {
 
     $priority = ['red' => 0, 'orange' => 1, 'green' => 2, 'grey' => 3];
     usort($rows, static fn (array $a, array $b): int => ($priority[$a['traffic']] ?? 9) <=> ($priority[$b['traffic']] ?? 9));
+    $filter = (string) $this->requestStack->getCurrentRequest()?->query->get('status', 'attention');
+    if (!in_array($filter, ['attention', 'red', 'orange', 'green', 'grey', 'all'], TRUE)) {
+      $filter = 'attention';
+    }
+    if ($filter !== 'all') {
+      $wanted = $filter === 'attention' ? ['red', 'orange'] : [$filter];
+      $rows = array_values(array_filter($rows, static fn (array $row): bool => in_array($row['traffic'], $wanted, TRUE)));
+    }
     $rows = array_column($rows, 'cells');
 
     $finance = $this->labourProductivity->analyzeProject($projectId);
@@ -170,6 +181,16 @@ final class ProjectHoursControlController extends ControllerBase {
         'orange' => ['#markup' => $this->kpi('🟠 ' . $orange, 'Controleren', 'attention')],
         'red' => ['#markup' => $this->kpi('🔴 ' . $red, 'Actie nodig', 'critical')],
         'grey' => ['#markup' => $this->kpi('⚪ ' . $grey, 'Geen inzet', 'neutral')],
+      ],
+      'filters' => [
+        '#type' => 'container',
+        '#attributes' => ['class' => ['brebo-hours-filters']],
+        'label' => ['#markup' => '<strong>Filter:</strong> '],
+        'attention' => ['#type' => 'link', '#title' => $this->t('Aandacht (@count)', ['@count' => $red + $orange]), '#url' => \Drupal\Core\Url::fromRoute('<current>', [], ['query' => ['status' => 'attention']]), '#attributes' => ['class' => ['button', $filter === 'attention' ? 'button--primary' : '']]],
+        'red' => ['#type' => 'link', '#title' => $this->t('🔴 Rood (@count)', ['@count' => $red]), '#url' => \Drupal\Core\Url::fromRoute('<current>', [], ['query' => ['status' => 'red']]), '#attributes' => ['class' => ['button']]],
+        'orange' => ['#type' => 'link', '#title' => $this->t('🟠 Oranje (@count)', ['@count' => $orange]), '#url' => \Drupal\Core\Url::fromRoute('<current>', [], ['query' => ['status' => 'orange']]), '#attributes' => ['class' => ['button']]],
+        'green' => ['#type' => 'link', '#title' => $this->t('🟢 Groen (@count)', ['@count' => $green]), '#url' => \Drupal\Core\Url::fromRoute('<current>', [], ['query' => ['status' => 'green']]), '#attributes' => ['class' => ['button']]],
+        'all' => ['#type' => 'link', '#title' => $this->t('Alles'), '#url' => \Drupal\Core\Url::fromRoute('<current>', [], ['query' => ['status' => 'all']]), '#attributes' => ['class' => ['button']]],
       ],
       'worklist_intro' => [
         '#markup' => $exceptions > 0
