@@ -195,7 +195,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $auditRows = '';
     $commercialFactor = (float) ($result['commercial_factor'] ?? 0);
     foreach ((array) ($result['components'] ?? []) as $componentKey => $component) {
-      if (!is_array($component) || (string) ($component['rule_type'] ?? 'normal') === 'note') {
+      if (!is_array($component) || in_array((string) ($component['rule_type'] ?? 'normal'), ['note', 'option'], TRUE)) {
         continue;
       }
       $componentDirect = (float) ($component['direct_cost'] ?? 0);
