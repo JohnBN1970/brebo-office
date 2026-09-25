@@ -80,7 +80,7 @@ final class ProjectClockZoneForm extends FormBase {
       '#options' => $buildingOptions,
       '#default_value' => $selectedBuildingId ?: '',
       '#required' => count($buildings) > 1,
-      '#description' => $this->t('De zone wordt gekoppeld aan dit gebouw. Het middelpunt start op de bekende gebouwcoördinaten; de cirkel mag daarna bewust ruimer worden gezet.'),
+      '#description' => $this->t('Het gebouw is het vaste anker. De personeelszone mag bewust ruimer worden gezet zodat bijvoorbeeld parkeerplaatsen, bouwplaatsinrichting, achterterrein of een veilige toegang binnen de herkenningszone vallen.'),
     ];
 
     $form['name'] = [
@@ -89,7 +89,7 @@ final class ProjectClockZoneForm extends FormBase {
       '#required' => TRUE,
       '#maxlength' => 255,
       '#default_value' => $zone?->label() ?? '',
-      '#placeholder' => $this->t('Bijvoorbeeld Achterterrein, Blok B of Depot'),
+      '#placeholder' => $this->t('Bijvoorbeeld Gebouw + parkeerplaats, Achterterrein of Blok B'),
     ];
     $mapAttributes = ['class' => ['brebo-clock-zone-map'], 'data-brebo-clock-zone-map' => 'true'];
     if ($buildingCoordinates !== NULL) {
@@ -103,16 +103,16 @@ final class ProjectClockZoneForm extends FormBase {
         '#markup' => '<div class="brebo-clock-zone-map__canvas"><img class="brebo-clock-zone-map__image" src="' . htmlspecialchars($mapUrl, ENT_QUOTES, 'UTF-8') . '" alt="PDOK luchtfoto rond de kloklocatie"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
       ],
       'help' => [
-        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de middelste pin om de kloklocatie te verplaatsen. Pak de ronde handgreep op de rand van de cirkel en sleep naar binnen of buiten om de klokzone direct groter of kleiner te maken. Huidige klokzone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
+        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de middelste pin om het middelpunt te verplaatsen. Pak de ronde handgreep op de rand van de cirkel en neem ook praktische aankomstzones mee, zoals parkeerplaats, achterterrein of bouwplaatsingang. Huidige personeelszone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
       ],
     ];
     $form['radius'] = [
-      '#type' => 'number', '#title' => $this->t('Klokzone'), '#field_suffix' => ' m',
+      '#type' => 'number', '#title' => $this->t('Personeelszone'), '#field_suffix' => ' m',
       '#required' => TRUE, '#default_value' => $defaultRadius, '#min' => 10, '#max' => 5000, '#step' => 5,
       '#description' => $this->t('Wordt direct bijgewerkt wanneer de cirkelrand op de kaart wordt versleept. Gebruik dit veld alleen voor fijne numerieke afstelling.'),
     ];
     $form['active'] = [
-      '#type' => 'checkbox', '#title' => $this->t('Kloklocatie actief'),
+      '#type' => 'checkbox', '#title' => $this->t('Personeelszone actief'),
       '#default_value' => $zone ? (bool) $zone->get('field_brebo_zone_active')->value : TRUE,
     ];
     $form['description'] = [
@@ -136,7 +136,7 @@ final class ProjectClockZoneForm extends FormBase {
       '#description' => $this->t('Wordt automatisch bijgewerkt via de kaart.'),
     ];
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Kloklocatie opslaan'), '#button_type' => 'primary'];
+    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Personeelszone opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = [
       '#type' => 'link', '#title' => $this->t('Annuleren'),
       '#url' => \Drupal\Core\Url::fromRoute('brebo_inzet.project_clock_zones', ['node' => $node->id()]),
@@ -184,7 +184,7 @@ final class ProjectClockZoneForm extends FormBase {
       $savedZone->save();
     }
 
-    $this->messenger()->addStatus($this->t('Kloklocatie @name opgeslagen.', ['@name' => $savedZone->label()]));
+    $this->messenger()->addStatus($this->t('Personeelszone @name opgeslagen.', ['@name' => $savedZone->label()]));
     $form_state->setRedirect('brebo_inzet.project_clock_zones', ['node' => $this->project->id()]);
   }
 
