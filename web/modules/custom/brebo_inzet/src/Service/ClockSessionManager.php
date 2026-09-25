@@ -79,6 +79,42 @@ final class ClockSessionManager {
     return ['registration' => $registration, 'location' => $geo, 'reconciled_registration' => $reconciled];
   }
 
+  /**
+   * Returns employee-specific planned times for the project/day, with the
+   * project defaults only as fallback when no day assignment exists.
+   *
+   * @return array{0:string,1:string}
+   */
+  private function plannedTimesForUser(NodeInterface $project, int $userId, string $date): array {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_personnel_assignment')
+      ->condition('field_brebo_project_ref', (int) $project->id())
+      ->condition('field_brebo_plan_user', $userId)
+      ->condition('field_brebo_plan_date', $date)
+      ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+      ->range(0, 1)
+      ->execute();
+
+    if ($ids !== []) {
+      $assignment = $storage->load((int) reset($ids));
+      if ($assignment instanceof NodeInterface) {
+        $start = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
+        $end = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
+        if (preg_match('/^\d{2}:\d{2}$/', $start) === 1 && preg_match('/^\d{2}:\d{2}$/', $end) === 1 && $end > $start) {
+          return [$start, $end];
+        }
+      }
+    }
+
+    $start = $project->hasField('field_brebo_workday_start') && $project->get('field_brebo_workday_start')->value
+      ? (string) $project->get('field_brebo_workday_start')->value : '07:00';
+    $end = $project->hasField('field_brebo_workday_end') && $project->get('field_brebo_workday_end')->value
+      ? (string) $project->get('field_brebo_workday_end')->value : '16:00';
+    return [$start, $end];
+  }
+
   /** @return array<string, mixed> */
   public function clockOut(NodeInterface $project, int $userId, ?float $latitude, ?float $longitude, ?float $accuracy, ?string $reason = NULL): array {
     $registration = $this->findOpen($project, $userId);
@@ -97,10 +133,7 @@ final class ClockSessionManager {
     $geo = $this->zoneControl->assess($this->zoneManager->loadForProject($project), $latitude, $longitude, $accuracy);
 
     $date = $clockIn->format('Y-m-d');
-    $startTime = $project->hasField('field_brebo_workday_start') && $project->get('field_brebo_workday_start')->value
-      ? (string) $project->get('field_brebo_workday_start')->value : '07:00';
-    $endTime = $project->hasField('field_brebo_workday_end') && $project->get('field_brebo_workday_end')->value
-      ? (string) $project->get('field_brebo_workday_end')->value : '16:00';
+    [$startTime, $endTime] = $this->plannedTimesForUser($project, $userId, $date);
     $plannedStart = new \DateTimeImmutable($date . ' ' . $startTime);
     $plannedEnd = new \DateTimeImmutable($date . ' ' . $endTime);
 
