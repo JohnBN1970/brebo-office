@@ -26,7 +26,7 @@ final class ProjectClockZoneController extends ControllerBase {
 
   public function title(NodeInterface $node): string {
     $this->assertProject($node);
-    return 'Kloklocaties - ' . $node->label();
+    return 'Personeelszones - ' . $node->label();
   }
 
   public function overview(NodeInterface $node): array {
@@ -63,13 +63,13 @@ final class ProjectClockZoneController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-inzet-clock-zones']],
       'intro' => [
-        '#markup' => '<p>' . $this->t('Leg één of meer toegestane kloklocaties vast. Het officiële gebouwadres blijft ongewijzigd; deze zones zijn uitsluitend bedoeld voor personeelsinzet en locatieklokken.') . '</p>',
+        '#markup' => '<p>' . $this->t('Koppel een personeelszone aan een gebouw en teken de praktische aankomstzone ruim genoeg voor bijvoorbeeld parkeren, bouwplaatsingang of achterterrein. De officiële gebouwlocatie blijft ongewijzigd.') . '</p>',
       ],
       'actions' => [
         '#type' => 'actions',
         'add' => [
           '#type' => 'link',
-          '#title' => $this->t('Kloklocatie toevoegen'),
+          '#title' => $this->t('Personeelszone toevoegen'),
           '#url' => Url::fromRoute('brebo_inzet.project_clock_zone_add', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
@@ -85,7 +85,7 @@ final class ProjectClockZoneController extends ControllerBase {
           $this->t('Acties'),
         ],
         '#rows' => $rows,
-        '#empty' => $this->t('Nog geen kloklocaties ingesteld voor dit project.'),
+        '#empty' => $this->t('Nog geen personeelszones ingesteld voor dit project.'),
       ],
     ];
   }
