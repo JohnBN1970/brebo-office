@@ -26,6 +26,8 @@ final class OfferReadinessAccessCheck implements AccessInterface {
     $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
       ->condition('calculation_id', (int) $node->id())
+      ->condition('status', 'established')
+      ->isNotNull('locked_at')
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()

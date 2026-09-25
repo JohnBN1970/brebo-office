@@ -23,6 +23,8 @@ final class OfferVersionForm extends FormBase {
 
   private ?NodeInterface $calculation = NULL;
 
+  private ?string $calculationVersion = NULL;
+
   protected EntityTypeManagerInterface $entityTypeManager;
 
   public function __construct(
@@ -58,7 +60,14 @@ final class OfferVersionForm extends FormBase {
     }
 
     $this->calculation = $node;
+    $storedCalculationVersion = (string) $form_state->get('brebo_calculation_version');
+    $this->calculationVersion = $storedCalculationVersion !== ''
+      ? $storedCalculationVersion
+      : $this->offerableCalculationVersion((int) $node->id());
     $form_state->set('brebo_calculation_id', (int) $node->id());
+    if ($storedCalculationVersion === '') {
+      $form_state->set('brebo_calculation_version', $this->calculationVersion);
+    }
     $storage = $this->entityTypeManager->getStorage('node');
     $existing_ids = $storage->getQuery()
       ->accessCheck(FALSE)
@@ -464,7 +473,8 @@ final class OfferVersionForm extends FormBase {
       return [];
     }
 
-    $result = $this->calculationResultService->calculate((int) $this->calculation->id());
+    $version = $this->calculationVersion ?? $this->offerableCalculationVersion((int) $this->calculation->id());
+    $result = $this->calculationResultService->calculate((int) $this->calculation->id(), $version);
     $commercial = (array) ($result['commercial_result'] ?? []);
     $directTotal = (float) ($result['priced_direct_cost'] ?? 0);
     $salesPrice = (float) ($commercial['sales_price'] ?? 0);
@@ -519,7 +529,25 @@ final class OfferVersionForm extends FormBase {
     $calculation = $this->entityTypeManager->getStorage('node')->load($calculation_id);
     if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') return NULL;
     $this->calculation = $calculation;
+    $storedVersion = (string) $form_state->get('brebo_calculation_version');
+    $this->calculationVersion = $storedVersion !== '' ? $storedVersion : $this->offerableCalculationVersion($calculation_id);
     return $calculation;
+  }
+
+  private function offerableCalculationVersion(int $calculationId): string {
+    $row = $this->database->select('brebo_calculation_version', 'v')
+      ->fields('v', ['version'])
+      ->condition('calculation_id', $calculationId)
+      ->condition('status', 'established')
+      ->isNotNull('locked_at')
+      ->orderBy('id', 'DESC')
+      ->range(0, 1)
+      ->execute()
+      ->fetchAssoc();
+    if (!is_array($row) || (string) ($row['version'] ?? '') === '') {
+      throw new \RuntimeException('Maak eerst een vastgestelde calculatieversie voordat een offerte wordt gemaakt.');
+    }
+    return (string) $row['version'];
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
@@ -563,7 +591,7 @@ final class OfferVersionForm extends FormBase {
     $snapshot = json_encode([
       'calculation_id' => (int) $calculation->id(),
       'calculation_label' => (string) $calculation->label(),
-      'calculation_version' => (string) ($calculation->get('field_brebo_calc_version')->value ?? ''),
+      'calculation_version' => (string) ($this->calculationVersion ?? $this->offerableCalculationVersion((int) $calculation->id())),
       'calculation_changed' => (int) $calculation->getChangedTime(),
       'document_number' => $numberReceipt,
       'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
@@ -642,7 +670,8 @@ final class OfferVersionForm extends FormBase {
    * @return array<string, mixed>
    */
   private function calculationCommercialSnapshot(NodeInterface $calculation): array {
-    return $this->calculationResultService->calculate((int) $calculation->id());
+    $version = $this->calculationVersion ?? $this->offerableCalculationVersion((int) $calculation->id());
+    return $this->calculationResultService->calculate((int) $calculation->id(), $version);
   }
 
   /**

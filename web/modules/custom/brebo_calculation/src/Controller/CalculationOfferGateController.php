@@ -41,7 +41,7 @@ final class CalculationOfferGateController extends ControllerBase {
       throw new NotFoundHttpException();
     }
 
-    $version = $this->latestVersion((int) $node->id());
+    $version = $this->latestEstablishedVersion((int) $node->id());
     if ($version === '') {
       throw new AccessDeniedHttpException('Calculatieversie ontbreekt.');
     }
@@ -60,10 +60,12 @@ final class CalculationOfferGateController extends ControllerBase {
     return $this->formBuilderService->getForm(OfferReviewConfirmForm::class, $node);
   }
 
-  private function latestVersion(int $calculationId): string {
+  private function latestEstablishedVersion(int $calculationId): string {
     $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
       ->condition('calculation_id', $calculationId)
+      ->condition('status', 'established')
+      ->isNotNull('locked_at')
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
