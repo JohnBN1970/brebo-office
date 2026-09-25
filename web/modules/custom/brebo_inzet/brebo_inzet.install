@@ -139,6 +139,27 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
       'field_settings' => [], 'widget' => 'options_select', 'weight' => 8,
       'default_value' => [['value' => 'planned']],
     ],
+    'field_brebo_actual_hours' => [
+      'label' => 'Werkelijke uren', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => ['precision' => 7, 'scale' => 2], 'field_settings' => [],
+      'widget' => 'number', 'weight' => 9,
+    ],
+    'field_brebo_actual_status' => [
+      'label' => 'Urenstatus', 'type' => 'list_string', 'required' => FALSE,
+      'storage' => ['allowed_values' => ['open' => 'Open', 'worked' => 'Ingediend', 'approved' => 'Goedgekeurd']],
+      'field_settings' => [], 'widget' => 'options_select', 'weight' => 10,
+      'default_value' => [['value' => 'open']],
+    ],
+    'field_brebo_actual_reviewed_by' => [
+      'label' => 'Uren beoordeeld door', 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'widget' => 'entity_reference_autocomplete', 'weight' => 11,
+    ],
+    'field_brebo_actual_reviewed_at' => [
+      'label' => 'Uren beoordeeld op', 'type' => 'datetime', 'required' => FALSE,
+      'storage' => ['datetime_type' => 'datetime'], 'field_settings' => [],
+      'widget' => 'datetime_default', 'weight' => 12,
+    ],
   ];
 
   foreach ($fields as $field_name => $definition) {
@@ -636,4 +657,13 @@ function _brebo_inzet_ensure_employee_hourly_cost_field(): void {
     'settings' => ['placeholder' => '0,00'],
   ]);
   $display->save();
+}
+
+
+/**
+ * Adds budget-independent actual-hour review truth to personnel assignments.
+ */
+function brebo_inzet_update_11012(): string {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+  return 'Personeelsuren kunnen nu operationeel worden ingediend en goedgekeurd voordat Finance is gekoppeld.';
 }
