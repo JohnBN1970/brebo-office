@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
-use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\PersonnelActualHoursManager;
 use Drupal\brebo_inzet\Service\PersonnelAssignmentComparison;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -20,7 +19,6 @@ final class ProjectHoursApprovalForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly PersonnelAssignmentComparison $comparison,
     private readonly PersonnelActualHoursManager $actualHours,
-    private readonly LabourProductivityManager $labourProductivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -28,7 +26,6 @@ final class ProjectHoursApprovalForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_inzet.personnel_assignment_comparison'),
       $container->get('brebo_inzet.personnel_actual_hours_manager'),
-      $container->get('brebo_finance.labour_productivity_manager'),
     );
   }
 
