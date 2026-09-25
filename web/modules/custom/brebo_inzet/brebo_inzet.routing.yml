@@ -1,8 +1,16 @@
+brebo_inzet.personnel_dashboard:
+  path: '/personeel'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelPlanningController::overview'
+    _title: 'Personeel'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
 brebo_inzet.app:
   path: '/inzet'
   defaults:
     _controller: '\Drupal\brebo_inzet\Controller\InzetHomeController::start'
-    _title: 'BREBO Inzet'
+    _title: 'Personeel'
   requirements:
     _user_is_logged_in: 'TRUE'
 
