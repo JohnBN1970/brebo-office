@@ -56,6 +56,10 @@ final class ProjectHoursControlController extends ControllerBase {
     $rows = [];
     $weekly = [];
     $exceptions = 0;
+    $green = 0;
+    $orange = 0;
+    $red = 0;
+    $grey = 0;
 
     foreach ($storage->loadMultiple($assignmentIds) as $assignment) {
       if (!$assignment instanceof NodeInterface || !$assignment->access('view')) {
@@ -80,13 +84,21 @@ final class ProjectHoursControlController extends ControllerBase {
       }
 
       $state = (string) $actual['state'];
-      if (in_array($state, ['under', 'over', 'unclocked', 'clocked_without_plan', 'incomplete'], TRUE)) {
+      $delta = (float) $actual['delta_hours'];
+      $traffic = $this->trafficState($state, $planned, $clocked, $delta, $date, $today);
+      match ($traffic) {
+        'red' => $red++,
+        'orange' => $orange++,
+        'green' => $green++,
+        default => $grey++,
+      };
+      if (in_array($traffic, ['red', 'orange'], TRUE)) {
         $exceptions++;
       }
 
       $person = $assignment->get('field_brebo_plan_user')->entity;
-      $delta = (float) $actual['delta_hours'];
-      $rows[] = [
+      $row = [
+        $this->trafficLight($traffic),
         $person ? $person->label() : $this->t('Onbekende medewerker'),
         $date,
         trim(
@@ -98,9 +110,16 @@ final class ProjectHoursControlController extends ControllerBase {
         number_format($planned, 2, ',', '.') . ' u',
         number_format($clocked, 2, ',', '.') . ' u',
         ($delta > 0 ? '+' : '') . number_format($delta, 2, ',', '.') . ' u',
-        $this->stateLabel($state),
+        $traffic === 'grey' ? $this->t('Geen inzet te controleren') : $this->stateLabel($state),
       ];
+      // The operational worklist is exceptions first. Green and grey remain
+      // available as context underneath, but never create false exceptions.
+      $rows[] = ['traffic' => $traffic, 'cells' => $row];
     }
+
+    $priority = ['red' => 0, 'orange' => 1, 'green' => 2, 'grey' => 3];
+    usort($rows, static fn (array $a, array $b): int => ($priority[$a['traffic']] ?? 9) <=> ($priority[$b['traffic']] ?? 9));
+    $rows = array_column($rows, 'cells');
 
     $finance = $this->labourProductivity->analyzeProject($projectId);
     $financeTotals = (array) ($finance['totals'] ?? []);
@@ -142,60 +161,20 @@ final class ProjectHoursControlController extends ControllerBase {
         'max-age' => 60,
       ],
       'header' => [
-        '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO INZET</p><h1>Urencontrole</h1><p class="brebo-page-header__description">Vergelijk vrijgegeven werkbegrotingsuren met geplande en werkelijk geklokte inzet. De prognose combineert werkelijk geklokte uren tot nu met de nog geplande toekomstige inzet.</p></div>',
+        '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO PERSONEEL</p><h1>Uren</h1><p class="brebo-page-header__description">Alleen uitzonderingen vragen aandacht. Groen is akkoord; grijs betekent dat er niets te controleren is.</p></div>',
       ],
-      'alerts' => [
-        '#type' => 'container',
-        '#attributes' => ['class' => ['brebo-hours-alerts']],
-        'summary' => [
-          '#markup' => $this->alertSummary($alerts),
-        ],
-      ],
-      'kpis' => [
+      'traffic' => [
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-kpis']],
-        'budget' => [
-          '#markup' => $this->kpi(number_format($budgetHours, 2, ',', '.') . ' u', 'Werkbegroting', 'neutral'),
-        ],
-        'planned' => [
-          '#markup' => $this->kpi(number_format($plannedTotal, 2, ',', '.') . ' u', 'Totaal gepland', $plannedTotal > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
-        ],
-        'clocked' => [
-          '#markup' => $this->kpi(number_format($clockedTotal, 2, ',', '.') . ' u', 'Werkelijk geklokt', $clockedTotal > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
-        ],
-        'submitted' => [
-          '#markup' => $this->kpi(number_format($submittedHours, 2, ',', '.') . ' u', 'Ingediend werkelijk', 'neutral'),
-        ],
-        'pending_approval' => [
-          '#markup' => $this->kpi((string) $pendingApproval, 'Wacht op goedkeuring', $pendingApproval > 0 ? 'attention' : 'positive'),
-        ],
-        'approved' => [
-          '#markup' => $this->kpi(number_format($approvedHours, 2, ',', '.') . ' u', 'Goedgekeurd werkelijk', $approvedHours > $budgetHours && $budgetHours > 0 ? 'critical' : 'neutral'),
-        ],
-        'remaining' => [
-          '#markup' => $this->kpi(($remainingBudget >= 0 ? '' : '+') . number_format(abs($remainingBudget), 2, ',', '.') . ' u', $remainingBudget >= 0 ? 'Budget resterend' : 'Budget overschreden', $remainingBudget >= 0 ? 'positive' : 'critical'),
-        ],
-        'forecast' => [
-          '#markup' => $this->kpi(number_format($forecast, 2, ',', '.') . ' u', 'Prognose einduren', $forecastDelta > 0 ? 'critical' : 'positive'),
-        ],
-        'forecast_delta' => [
-          '#markup' => $this->kpi(($forecastDelta > 0 ? '+' : '') . number_format($forecastDelta, 2, ',', '.') . ' u', 'Prognose vs begroting', $forecastDelta > 0 ? 'critical' : ($forecastDelta < 0 ? 'attention' : 'positive')),
-        ],
-        'forecast_cost' => [
-          '#markup' => $this->kpi('€ ' . number_format($financeForecastCost, 2, ',', '.'), 'Prognose arbeidskosten excl. btw', $financeVariance > 0 ? 'critical' : 'neutral'),
-        ],
-        'cost_delta' => [
-          '#markup' => $this->kpi(($financeVariance > 0 ? '+€ ' : '€ ') . number_format(abs($financeVariance), 2, ',', '.'), 'Financiële afwijking excl. btw', $financeVariance > 0 ? 'critical' : ($financeVariance < 0 ? 'positive' : 'neutral')),
-        ],
-        'avg_week' => [
-          '#markup' => $this->kpi(number_format($averageClockedWeek, 2, ',', '.') . ' u', 'Gemiddeld werkelijk per week', 'neutral'),
-        ],
-        'avg_plan_week' => [
-          '#markup' => $this->kpi(number_format($averagePlannedWeek, 2, ',', '.') . ' u', 'Gemiddeld gepland per week', 'neutral'),
-        ],
-        'exceptions' => [
-          '#markup' => $this->kpi((string) $exceptions, 'Uurafwijkingen', $exceptions > 0 ? 'attention' : 'positive'),
-        ],
+        'green' => ['#markup' => $this->kpi('🟢 ' . $green, 'Akkoord', 'positive')],
+        'orange' => ['#markup' => $this->kpi('🟠 ' . $orange, 'Controleren', 'attention')],
+        'red' => ['#markup' => $this->kpi('🔴 ' . $red, 'Actie nodig', 'critical')],
+        'grey' => ['#markup' => $this->kpi('⚪ ' . $grey, 'Geen inzet', 'neutral')],
+      ],
+      'worklist_intro' => [
+        '#markup' => $exceptions > 0
+          ? '<div class="messages messages--warning"><strong>' . $exceptions . ' registratie(s) vragen aandacht.</strong> Rood en oranje staan bovenaan.</div>'
+          : '<div class="messages messages--status"><strong>Geen urenafwijkingen die aandacht vragen.</strong></div>',
       ],
       'approval_action' => [
         '#type' => 'link',
@@ -215,8 +194,9 @@ final class ProjectHoursControlController extends ControllerBase {
       ],
       'table' => [
         '#type' => 'table',
-        '#caption' => $this->t('Controle per medewerker en dag'),
+        '#caption' => $this->t('Uren per medewerker en dag'),
         '#header' => [
+          $this->t('Status'),
           $this->t('Medewerker'),
           $this->t('Datum'),
           $this->t('Planning'),
@@ -226,7 +206,7 @@ final class ProjectHoursControlController extends ControllerBase {
           $this->t('Controle'),
         ],
         '#rows' => $rows,
-        '#empty' => $this->t('Er is nog geen personeelsinzet om te controleren.'),
+        '#empty' => $this->t('Er zijn nog geen uren om te controleren.'),
       ],
     ];
   }
@@ -389,6 +369,37 @@ final class ProjectHoursControlController extends ControllerBase {
       }
     }
     return round($hours, 2);
+  }
+
+  private function trafficState(string $state, float $planned, float $clocked, float $delta, string $date, string $today): string {
+    if ($planned <= 0.0 && $clocked <= 0.0) {
+      return 'grey';
+    }
+    if ($date > $today || $state === 'future') {
+      return 'grey';
+    }
+    if ($state === 'match' || (abs($delta) <= 0.25 && $clocked > 0.0)) {
+      return 'green';
+    }
+    if (in_array($state, ['clocked_without_plan', 'incomplete'], TRUE)) {
+      return 'red';
+    }
+    if ($state === 'unclocked' && $planned > 0.0 && $date < $today) {
+      return 'red';
+    }
+    if (in_array($state, ['under', 'over', 'today_pending', 'unclocked'], TRUE)) {
+      return 'orange';
+    }
+    return 'grey';
+  }
+
+  private function trafficLight(string $traffic): string {
+    return match ($traffic) {
+      'green' => '🟢',
+      'orange' => '🟠',
+      'red' => '🔴',
+      default => '⚪',
+    };
   }
 
   private function stateLabel(string $state): string {
