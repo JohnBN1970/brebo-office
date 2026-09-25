@@ -37,6 +37,7 @@ final class ProjectClockZoneController extends ControllerBase {
     foreach ($zones as $zone) {
       $rows[] = [
         $zone['name'],
+        $zone['building'] !== '' ? $zone['building'] : $this->t('Niet gekoppeld'),
         number_format($zone['radius'], 0, ',', '.') . ' m',
         $zone['active'] ? $this->t('Actief') : $this->t('Inactief'),
         number_format($zone['latitude'], 6, ',', '.') . ', ' . number_format($zone['longitude'], 6, ',', '.'),
@@ -77,6 +78,7 @@ final class ProjectClockZoneController extends ControllerBase {
         '#type' => 'table',
         '#header' => [
           $this->t('Locatie'),
+          $this->t('Gebouw'),
           $this->t('Radius'),
           $this->t('Status'),
           $this->t('Middelpunt'),
