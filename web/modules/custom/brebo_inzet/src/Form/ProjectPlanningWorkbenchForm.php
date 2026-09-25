@@ -202,8 +202,34 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
       $startTime = (string) $row['start_time'];
       $endTime = (string) $row['end_time'];
       $hours = round(max(0, (strtotime('1970-01-01 ' . $endTime) - strtotime('1970-01-01 ' . $startTime)) / 3600), 2);
+      $desiredDates = $this->workdays($startDate, $endDate);
 
-      foreach ($this->workdays($startDate, $endDate) as $date) {
+      // This workbench represents one contiguous current/future period per
+      // employee. When that period is shortened, cancel obsolete future days
+      // so old planning cannot silently remain active.
+      $today = (new DrupalDateTime('now'))->format('Y-m-d');
+      $existingForUser = $storage->getQuery()
+        ->accessCheck(FALSE)
+        ->condition('type', 'brebo_personnel_assignment')
+        ->condition('field_brebo_project_ref', $projectId)
+        ->condition('field_brebo_plan_user', $uid)
+        ->condition('field_brebo_plan_date', $today, '>=')
+        ->condition('field_brebo_assignment_status', 'cancelled', '<>')
+        ->execute();
+      foreach ($storage->loadMultiple($existingForUser) as $obsolete) {
+        if (!$obsolete instanceof NodeInterface) {
+          continue;
+        }
+        $obsoleteDate = (string) ($obsolete->get('field_brebo_plan_date')->value ?? '');
+        if ($obsoleteDate !== '' && !in_array($obsoleteDate, $desiredDates, TRUE)) {
+          $obsolete->set('field_brebo_assignment_status', 'cancelled');
+          $obsolete->setNewRevision(TRUE);
+          $obsolete->setRevisionLogMessage('Toekomstige personeelsplanning vervallen door aangepaste planperiode.');
+          $obsolete->save();
+        }
+      }
+
+      foreach ($desiredDates as $date) {
         $other = $this->overlappingOtherProject($projectId, $uid, $date, $startTime, $endTime);
         if ($other !== NULL) {
           $conflicts[] = sprintf('%s · %s · al gepland op %s', $account->getDisplayName(), $date, $other);
