@@ -18,7 +18,7 @@ final class ProjectInzetHubController extends ControllerBase {
 
   public function title(NodeInterface $node): string {
     $this->assertProject($node);
-    return 'Inzet · ' . $node->label();
+    return 'Personeel · ' . $node->label();
   }
 
   /** @return array<string, mixed> */
@@ -97,7 +97,7 @@ final class ProjectInzetHubController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-page-header']],
         'main' => [
-          '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO INZET</p><h1 class="brebo-page-header__title">' .
+          '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO PERSONEEL</p><h1 class="brebo-page-header__title">' .
             $this->t('Inzet vandaag') .
             '</h1><p class="brebo-page-header__description">' .
             $this->t('Stuur het projectteam, de planning en de werkelijke aanwezigheid vanuit één scherm. Projectteam bepaalt wie bij het project hoort; dagplanning bepaalt wie vandaag wordt verwacht.') .
@@ -118,6 +118,14 @@ final class ProjectInzetHubController extends ControllerBase {
         'clock' => Link::fromTextAndUrl(
           $this->t('Klokken'),
           Url::fromRoute('brebo_inzet.mobile_clock', ['node' => $projectId])
+        )->toRenderable(),
+        'zones' => Link::fromTextAndUrl(
+          $this->t('Gebouwen & zones'),
+          Url::fromRoute('brebo_inzet.project_clock_zones', ['node' => $projectId])
+        )->toRenderable(),
+        'team' => Link::fromTextAndUrl(
+          $this->t('Projectteam'),
+          Url::fromRoute('brebo_inzet.project_team', ['node' => $projectId])
         )->toRenderable(),
         'deviations' => Link::fromTextAndUrl(
           $this->t('Afwijkingen bekijken'),
@@ -163,6 +171,8 @@ final class ProjectInzetHubController extends ControllerBase {
     $build['actions']['hours']['#attributes']['class'] = ['button'];
     $build['actions']['planning']['#attributes']['class'] = ['button', 'button--primary', 'brebo-button--primary'];
     $build['actions']['clock']['#attributes']['class'] = ['button'];
+    $build['actions']['zones']['#attributes']['class'] = ['button'];
+    $build['actions']['team']['#attributes']['class'] = ['button'];
     $build['actions']['deviations']['#attributes']['class'] = ['button'];
 
     return $build;
