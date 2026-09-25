@@ -192,6 +192,34 @@ final class CalculationWorkbenchForm extends FormBase {
         . '</dl></section>',
     ];
 
+    $auditRows = '';
+    $commercialFactor = (float) ($result['commercial_factor'] ?? 0);
+    foreach ((array) ($result['components'] ?? []) as $componentKey => $component) {
+      if (!is_array($component) || (string) ($component['rule_type'] ?? 'normal') === 'note') {
+        continue;
+      }
+      $componentDirect = (float) ($component['direct_cost'] ?? 0);
+      $componentSales = $componentDirect * $commercialFactor;
+      $auditRows .= '<tr>'
+        . '<td>' . htmlspecialchars((string) $componentKey) . '</td>'
+        . '<td>' . htmlspecialchars((string) ($component['description'] ?? '')) . '</td>'
+        . '<td>' . number_format((float) ($component['quantity'] ?? 0), 4, ',', '.') . ' ' . htmlspecialchars((string) ($component['unit'] ?? '')) . '</td>'
+        . '<td>€ ' . number_format($componentDirect, 2, ',', '.') . '</td>'
+        . '<td>× ' . number_format($commercialFactor, 6, ',', '.') . '</td>'
+        . '<td><strong>€ ' . number_format($componentSales, 2, ',', '.') . '</strong></td>'
+        . '</tr>';
+    }
+    if ($auditRows === '') {
+      $auditRows = '<tr><td colspan="6">Geen prijsdragende regels gevonden.</td></tr>';
+    }
+    $form['workbench']['line_audit'] = [
+      '#markup' => '<details class="brebo-calc-panel brebo-calc-line-audit"><summary><strong>Regelaudit</strong> — herleid directe kostprijs en verkoopwaarde per regel</summary>'
+        . '<div class="table-responsive"><table><thead><tr><th>Bron</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Directe kostprijs</th><th>Commerciële factor</th><th>Verkoopwaarde</th></tr></thead><tbody>'
+        . $auditRows
+        . '</tbody><tfoot><tr><th colspan="3">Totaal</th><th>€ ' . number_format($directCost, 2, ',', '.') . '</th><th>× ' . number_format($commercialFactor, 6, ',', '.') . '</th><th>€ ' . number_format($salesPrice, 2, ',', '.') . '</th></tr></tfoot></table></div></details>',
+      '#weight' => -5,
+    ];
+
     $form['workbench']['messages'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']]];
     if ($form_state->get('ajax_message')) { $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>']; }
 
