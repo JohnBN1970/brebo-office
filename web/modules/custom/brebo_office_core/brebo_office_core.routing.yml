@@ -521,3 +521,16 @@ brebo_office_core.integration_api_test:
     _title: 'Fictieve AI-communicatietest'
   requirements:
     _permission: 'administer site configuration'
+
+
+brebo_office_core.calc_project_context:
+  path: '/api/workbench/v1/projects/{node}/calculation-context'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CalculationWorkbenchContextController::project'
+  requirements:
+    _access: 'TRUE'
+  options:
+    no_cache: TRUE
+    parameters:
+      node:
+        type: entity:node
