@@ -237,3 +237,14 @@ brebo_calculation.parameters:
     parameters:
       node:
         type: entity:node
+
+brebo_calculation.calc_supplier_quote_upload:
+  path: '/api/workbench/v1/calculations/{calculation}/supplier-quotes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::upload'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
