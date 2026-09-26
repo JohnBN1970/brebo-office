@@ -133,6 +133,15 @@ jobs:
           grep -q "migrate brebo calculation" "$permissions"
           grep -q "max-age.*0" "$audit"
 
+      - name: Prove nested structure totals roll up deepest first
+        shell: bash
+        run: |
+          set -euo pipefail
+          workbench='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
+          grep -q "Roll child totals upward deepest-first" "$workbench"
+          grep -Fq 'usort($rollupKeys' "$workbench"
+          grep -Fq '$structureDirectTotals[$parentKey] += $structureDirectTotals[$structureKey]' "$workbench"
+
       - name: Prove calculation financial invariants
         shell: bash
         run: |
