@@ -10,6 +10,7 @@ use Drupal\Core\File\FileExists;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider;
+use Drupal\brebo_calculation\Service\SupplierQuoteNormalizer;
 use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -32,6 +33,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
   public function __construct(
     private readonly FileSystemInterface $fileSystem,
     private readonly ManagedDocumentTextExtractionProvider $extractor,
+    private readonly SupplierQuoteNormalizer $normalizer,
     private readonly CacheBackendInterface $cache,
   ) {}
 
@@ -39,6 +41,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     return new static(
       $container->get('file_system'),
       $container->get('brebo_data_intake.managed_document_text_extraction_provider'),
+      $container->get('brebo_calculation.supplier_quote_normalizer'),
       $container->get('cache.default'),
     );
   }
@@ -79,6 +82,11 @@ final class CalcSupplierQuoteController extends ControllerBase {
     $file->save();
 
     $extraction = $this->extractor->extract($bytes, $mime, $filename);
+    $proposal = $this->normalizer->normalize((string) ($extraction['text'] ?? ''), [
+      'description' => trim((string) $request->headers->get('X-BREBO-Line-Description', '')),
+      'quantity' => is_numeric($request->headers->get('X-BREBO-Line-Quantity')) ? (float) $request->headers->get('X-BREBO-Line-Quantity') : NULL,
+      'unit' => trim((string) $request->headers->get('X-BREBO-Line-Unit', '')),
+    ]);
     return new JsonResponse([
       'contract' => 'brebo-office-calc-quote-source-v1',
       'source' => [
@@ -94,6 +102,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
         'confidence' => (float) ($extraction['confidence'] ?? 0),
         'extractor' => (string) ($extraction['extractor'] ?? ''),
       ],
+      'proposal' => $proposal,
     ], 201, ['Cache-Control' => 'no-store, private']);
   }
 
