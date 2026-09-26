@@ -72,7 +72,7 @@ final class CalculationWorkbenchContextController implements ContainerInjectionI
         'client_name' => $this->fieldValue($node, 'field_brebo_client'),
         'client_organization' => $clientOrganization,
         'project_kind' => $this->fieldValue($node, 'field_brebo_project_kind'),
-        'disciplines' => $this->fieldValue($node, 'field_brebo_disciplines'),
+        'disciplines' => $this->fieldValues($node, 'field_brebo_disciplines'),
         'description' => $this->fieldValue($node, 'field_brebo_description'),
         'buildings' => $buildings,
       ],
@@ -114,6 +114,22 @@ final class CalculationWorkbenchContextController implements ContainerInjectionI
     }
 
     $this->cache->set($replayKey, TRUE, $now + 600);
+  }
+
+
+  /** @return string[] */
+  private function fieldValues(NodeInterface $node, string $field): array {
+    if (!$node->hasField($field) || $node->get($field)->isEmpty()) {
+      return [];
+    }
+    $values = [];
+    foreach ($node->get($field) as $item) {
+      $value = trim((string) ($item->value ?? ''));
+      if ($value !== '') {
+        $values[] = $value;
+      }
+    }
+    return array_values(array_unique($values));
   }
 
   private function fieldValue(NodeInterface $node, string $field): string {
