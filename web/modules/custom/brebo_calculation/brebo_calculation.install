@@ -158,3 +158,67 @@ function brebo_calculation_update_11001(): void {
     $schema->createTable('brebo_kozijn_price_observation', $definition);
   }
 }
+
+
+/** Seed the six proven legacy kozijn calibration observations. */
+function brebo_calculation_seed_legacy_kozijn_observations(): void {
+  $database = \Drupal::database();
+  if (!$database->schema()->tableExists('brebo_kozijn_price_observation')) {
+    return;
+  }
+
+  $observedAt = (new \DateTimeImmutable('2026-09-07T22:01:18+02:00'))->getTimestamp();
+  $rows = [
+    ['ideal4000', 1200, 1200, 'vast', '242.1700'],
+    ['ideal4000', 1200, 1200, 'draai-kiep', '360.2700'],
+    ['ideal7000_nl', 1200, 1200, 'vast', '325.7100'],
+    ['ideal7000_nl', 1200, 1200, 'draai-kiep', '446.4300'],
+    ['ideal7000_nl', 980, 1360, 'vast', '311.0600'],
+    ['ideal7000_nl', 980, 1360, 'draai-kiep', '429.5800'],
+  ];
+
+  foreach ($rows as [$system, $width, $height, $type, $gross]) {
+    $exists = $database->select('brebo_kozijn_price_observation', 'o')
+      ->condition('system', $system)
+      ->condition('width_mm', $width)
+      ->condition('height_mm', $height)
+      ->condition('fields_count', 1)
+      ->condition('configuration_type', $type)
+      ->condition('source_ref', 'WEB-26-1152537')
+      ->countQuery()->execute()->fetchField();
+    if ((int) $exists > 0) {
+      continue;
+    }
+    $database->insert('brebo_kozijn_price_observation')->fields([
+      'system' => $system,
+      'brand' => 'aluplast',
+      'width_mm' => $width,
+      'height_mm' => $height,
+      'fields_count' => 1,
+      'configuration_type' => $type,
+      'glass_spec' => '4/16/4-24mm-GrA',
+      'supplier_gross' => $gross,
+      'currency' => 'EUR',
+      'source_type' => 'controlled_quote',
+      'source_ref' => 'WEB-26-1152537',
+      'observed_at' => $observedAt,
+      'status' => 'approved',
+      'metadata' => json_encode(['dataset_role' => 'calibration', 'migration' => 'legacy_controlled_observation_set'], JSON_THROW_ON_ERROR),
+      'created' => time(),
+      'created_by' => NULL,
+    ])->execute();
+  }
+}
+
+/** Implements hook_install(). */
+function brebo_calculation_install(): void {
+  brebo_calculation_seed_legacy_kozijn_observations();
+}
+
+/** Seed existing installations after the dataset table exists. */
+function brebo_calculation_update_11002(): void {
+  if (!\Drupal::database()->schema()->tableExists('brebo_kozijn_price_observation')) {
+    throw new \RuntimeException('Kozijn price observation table is missing; run update 11001 first.');
+  }
+  brebo_calculation_seed_legacy_kozijn_observations();
+}

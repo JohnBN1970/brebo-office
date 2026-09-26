@@ -2,11 +2,12 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/kozijn_price_observation_fixture.php';
 require_once __DIR__ . '/../src/Service/KozijnPriceEngine.php';
 
 use Drupal\brebo_calculation\Service\KozijnPriceEngine;
 
-$engine = new KozijnPriceEngine();
+$engine = new KozijnPriceEngine(brebo_kozijn_test_observation_provider());
 $estimate = $engine->estimate(['width_mm' => 1200, 'height_mm' => 1200, 'system' => 'ideal7000_nl', 'type' => 'vast', 'fields' => 1]);
 if (($estimate['supported'] ?? FALSE) !== TRUE || abs(($estimate['supplier_gross'] ?? 0) - 325.71) > 0.01) {
   throw new RuntimeException('Known calibration anchor must remain stable.');
