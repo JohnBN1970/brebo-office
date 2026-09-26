@@ -37,6 +37,16 @@ final class OnSitePresenceController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'invalid_payload'], 400);
     }
 
+    // Presence evidence may only be created as part of an explicit clock
+    // action initiated by the employee. Background geofence events are not
+    // accepted by Office.
+    if (($payload['trigger'] ?? '') !== 'clock_action') {
+      return new JsonResponse(['ok' => FALSE, 'error' => 'explicit_clock_action_required'], 400);
+    }
+    if (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload)) {
+      return new JsonResponse(['ok' => FALSE, 'error' => 'coordinates_not_accepted'], 400);
+    }
+
     try {
       $event = $this->writer->record(
         $uid,
