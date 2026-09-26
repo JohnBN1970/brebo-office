@@ -3367,6 +3367,11 @@ final class OfficeController extends ControllerBase {
           '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
+        'open_calc_workbench' => [
+          '#type' => 'link', '#title' => $this->t('Open in Calculatie'),
+          '#url' => Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $node->id()]),
+          '#attributes' => ['class' => ['button', 'button--primary']],
+        ],
         'add_adjustment' => [
           '#type' => 'link', '#title' => $this->t('Opslag toevoegen'),
           '#url' => Url::fromRoute('node.add', ['node_type' => 'brebo_calc_adjustment'], [
