@@ -248,3 +248,15 @@ brebo_calculation.calc_supplier_quote_upload:
   methods: [POST]
   options:
     no_cache: TRUE
+
+brebo_calculation.calc_supplier_quote_preview:
+  path: '/api/workbench/v1/calculations/{calculation}/supplier-quotes/{file}/preview'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::preview'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    file: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
