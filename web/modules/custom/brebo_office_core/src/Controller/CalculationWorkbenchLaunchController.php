@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\Core\Routing\TrustedRedirectResponse;
 use Drupal\Core\Site\Settings;
 use Drupal\node\NodeInterface;
-use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -15,7 +15,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
  */
 final class CalculationWorkbenchLaunchController {
 
-  public function launch(NodeInterface $node): RedirectResponse {
+  public function launch(NodeInterface $node): TrustedRedirectResponse {
     if ($node->bundle() !== 'brebo_calculation') {
       throw new NotFoundHttpException();
     }
@@ -43,7 +43,7 @@ final class CalculationWorkbenchLaunchController {
     $signature = hash_hmac('sha256', $encoded, $secret);
     $token = $encoded . '.' . $signature;
 
-    return new RedirectResponse($baseUrl . '/launch?token=' . rawurlencode($token), 302, [
+    return new TrustedRedirectResponse($baseUrl . '/launch?token=' . rawurlencode($token), 302, [
       'Cache-Control' => 'no-store, private',
       'Referrer-Policy' => 'no-referrer',
     ]);
