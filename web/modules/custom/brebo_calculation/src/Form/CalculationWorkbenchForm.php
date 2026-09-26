@@ -194,6 +194,46 @@ final class CalculationWorkbenchForm extends FormBase {
         . '</dl></section>',
     ];
 
+    $auditComponents = [];
+    $commercialFactor = (float) ($result['commercial_factor'] ?? 0);
+    foreach ((array) ($result['components'] ?? []) as $componentKey => $component) {
+      if (!is_array($component) || in_array((string) ($component['rule_type'] ?? 'normal'), ['note', 'option'], TRUE)) {
+        continue;
+      }
+      $auditComponents[(string) $componentKey] = $component;
+    }
+    $commercialAdjustment = (float) ($commercial['commercial_adjustment'] ?? 0);
+    $componentSalesTarget = $salesPrice - $commercialAdjustment;
+    $componentCommercialFactor = $directCost > 0.0 ? $componentSalesTarget / $directCost : 0.0;
+    $auditDirectCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0), $directCost);
+    $auditSalesCents = $this->reconcileAuditCents($auditComponents, static fn (array $component): float => (float) ($component['direct_cost'] ?? 0) * $componentCommercialFactor, $componentSalesTarget);
+
+    $auditRows = '';
+    foreach ($auditComponents as $componentKey => $component) {
+      $auditRows .= '<tr>'
+        . '<td>' . htmlspecialchars($componentKey) . '</td>'
+        . '<td>' . htmlspecialchars((string) ($component['description'] ?? '')) . '</td>'
+        . '<td>' . number_format((float) ($component['quantity'] ?? 0), 4, ',', '.') . ' ' . htmlspecialchars((string) ($component['unit'] ?? '')) . '</td>'
+        . '<td>€ ' . number_format(($auditDirectCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</td>'
+        . '<td>× ' . number_format($componentCommercialFactor, 6, ',', '.') . '</td>'
+        . '<td><strong>€ ' . number_format(($auditSalesCents[$componentKey] ?? 0) / 100, 2, ',', '.') . '</strong></td>'
+        . '</tr>';
+    }
+    if (abs($commercialAdjustment) >= 0.005 || ($directCost == 0.0 && $salesPrice != 0.0)) {
+      $auditRows .= '<tr class="brebo-calc-line-audit__adjustment"><td>commerciele_correctie</td><td>Commerciële correctie</td><td>—</td><td>€ 0,00</td><td>—</td><td><strong>€ '
+        . number_format($commercialAdjustment, 2, ',', '.') . '</strong></td></tr>';
+    }
+    if ($auditRows === '') {
+      $auditRows = '<tr><td colspan="6">Geen prijsdragende regels gevonden.</td></tr>';
+    }
+    $form['workbench']['line_audit'] = [
+      '#markup' => '<details class="brebo-calc-panel brebo-calc-line-audit"><summary><strong>Regelaudit</strong> — herleid directe kostprijs en verkoopwaarde per regel</summary>'
+        . '<div class="table-responsive"><table><thead><tr><th>Bron</th><th>Omschrijving</th><th>Hoeveelheid</th><th>Directe kostprijs</th><th>Commerciële factor</th><th>Verkoopwaarde</th></tr></thead><tbody>'
+        . $auditRows
+        . '</tbody><tfoot><tr><th colspan="3">Totaal</th><th>€ ' . number_format($directCost, 2, ',', '.') . '</th><th>× ' . number_format($componentCommercialFactor, 6, ',', '.') . '</th><th>€ ' . number_format($salesPrice, 2, ',', '.') . '</th></tr></tfoot></table></div></details>',
+      '#weight' => -5,
+    ];
+
     $form['workbench']['messages'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']]];
     if ($form_state->get('ajax_message')) { $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>']; }
 
@@ -491,4 +531,37 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @return array{labour:float,material:float,equipment:float,subcontracting:float,other:float} */
   private function recipeCostColumns(string $lineType, float $unitCost): array { $columns = ['labour' => 0.0, 'material' => 0.0, 'equipment' => 0.0, 'subcontracting' => 0.0, 'other' => 0.0]; $normalized = strtolower(trim($lineType)); $target = match ($normalized) { 'labour', 'arbeid' => 'labour', 'equipment', 'materieel' => 'equipment', 'subcontracting', 'onderaanneming', 'onderaannemer' => 'subcontracting', 'other', 'overig' => 'other', default => 'material' }; $columns[$target] = $unitCost; return $columns; }
   private function formatMoneyCell(float $value): string { return $value === 0.0 ? '' : '€ ' . number_format($value, 2, ',', '.'); }
+  /**
+   * @param array<string,array<string,mixed>> $components
+   * @return array<string,int>
+   */
+  private function reconcileAuditCents(array $components, callable $rawAmount, float $target): array {
+    $cents = [];
+    $remainders = [];
+    $allocated = 0;
+    foreach ($components as $key => $component) {
+      $rawCents = $rawAmount($component) * 100;
+      $rounded = (int) round($rawCents);
+      $cents[$key] = $rounded;
+      $remainders[$key] = $rawCents - $rounded;
+      $allocated += $rounded;
+    }
+    $delta = (int) round($target * 100) - $allocated;
+    while ($delta !== 0 && $remainders) {
+      $keys = array_keys($remainders);
+      usort($keys, static fn (string $a, string $b): int => $delta > 0
+        ? ($remainders[$b] <=> $remainders[$a])
+        : ($remainders[$a] <=> $remainders[$b]));
+      foreach ($keys as $key) {
+        if ($delta === 0) {
+          break;
+        }
+        $step = $delta > 0 ? 1 : -1;
+        $cents[$key] += $step;
+        $delta -= $step;
+      }
+    }
+    return $cents;
+  }
+
 }
