@@ -39,6 +39,8 @@ final class CalculationProjectLinkForm extends FormBase {
       ? $package->get('field_brebo_project_ref')->entity
       : NULL;
 
+    $form['#tree'] = TRUE;
+
     $form['calculation_id'] = [
       '#type' => 'hidden',
       '#value' => (int) $node->id(),
@@ -159,10 +161,7 @@ final class CalculationProjectLinkForm extends FormBase {
         'field_brebo_package_code' => 'CALC-' . $calculation->id(),
         'field_brebo_package_status' => 'Concept',
         'field_brebo_discipline' => trim((string) $form_state->getValue(['new_package', 'discipline'])),
-        'field_brebo_package_scope' => [
-          'value' => trim((string) $form_state->getValue(['new_package', 'scope'])),
-          'format' => 'plain_text',
-        ],
+        'field_brebo_package_scope' => trim((string) $form_state->getValue(['new_package', 'scope'])),
       ]);
       $package->setNewRevision(TRUE);
       $package->setRevisionLogMessage('Werkpakket automatisch aangemaakt bij projectkoppeling van calculatie ' . $calculation->label() . '.');
