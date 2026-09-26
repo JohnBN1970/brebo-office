@@ -5,23 +5,47 @@ declare(strict_types=1);
 namespace Drupal\brebo_article\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
+use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Database\Connection;
+use Drupal\Core\Site\Settings;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
 /**
  * Zoekt actuele leveranciersartikelen voor de calculatie-pop-up.
  */
 final class ArticleSearchController extends ControllerBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly Connection $database,
+    private readonly CacheBackendInterface $cache,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static(
+      $container->get('database'),
+      $container->get('cache.default'),
+    );
   }
 
   public function search(Request $request): JsonResponse {
+    return $this->searchResponse($request);
+  }
+
+  /**
+   * HMAC-protected article search for the external BREBO Calc workbench.
+   */
+  public function workbenchSearch(Request $request): JsonResponse {
+    $this->assertCalcSignedRequest($request);
+    $response = $this->searchResponse($request);
+    $response->headers->set('Cache-Control', 'no-store, private');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    return $response;
+  }
+
+  private function searchResponse(Request $request): JsonResponse {
     $term = trim((string) $request->query->get('q', ''));
     $supplier = trim((string) $request->query->get('supplier', ''));
     $category = trim((string) $request->query->get('category', ''));
@@ -103,6 +127,39 @@ final class ArticleSearchController extends ControllerBase {
       'count' => count($items),
       'items' => $items,
     ]);
+  }
+
+  private function assertCalcSignedRequest(Request $request): void {
+    $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
+    if ($secret === '') {
+      throw new AccessDeniedHttpException('Calc integration is not configured.');
+    }
+
+    $timestamp = trim((string) $request->headers->get('X-BREBO-Timestamp', ''));
+    $requestId = trim((string) $request->headers->get('X-BREBO-Request-Id', ''));
+    $signature = trim((string) $request->headers->get('X-BREBO-Signature', ''));
+    if (!ctype_digit($timestamp) || !preg_match('/^[0-9a-fA-F-]{36}$/', $requestId) || !str_starts_with($signature, 'v1=')) {
+      throw new AccessDeniedHttpException('Invalid authentication headers.');
+    }
+
+    $now = time();
+    if (abs($now - (int) $timestamp) > 300) {
+      throw new AccessDeniedHttpException('Expired request.');
+    }
+
+    $replayKey = 'brebo_calc_article_request:' . hash('sha256', $requestId);
+    if ($this->cache->get($replayKey)) {
+      throw new AccessDeniedHttpException('Replayed request.');
+    }
+
+    $requestUri = $request->getRequestUri();
+    $canonical = "GET\n{$requestUri}\n" . hash('sha256', '') . "\n{$timestamp}\n{$requestId}";
+    $expected = 'v1=' . hash_hmac('sha256', $canonical, $secret);
+    if (!hash_equals($expected, $signature)) {
+      throw new AccessDeniedHttpException('Invalid signature.');
+    }
+
+    $this->cache->set($replayKey, TRUE, $now + 600);
   }
 
 }
