@@ -244,7 +244,7 @@ brebo_calculation.calc_supplier_quote_upload:
     _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::upload'
   requirements:
     _access: 'TRUE'
-    calculation: '\\d+'
+    calculation: '\d+'
   methods: [POST]
   options:
     no_cache: TRUE
