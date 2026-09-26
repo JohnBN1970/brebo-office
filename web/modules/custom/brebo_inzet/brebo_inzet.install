@@ -679,7 +679,7 @@ function brebo_inzet_update_11012(): string {
 
 
 /**
- * Makes raw OnSite evidence building-first and planning-independent.
+ * Makes explicit OnSite clock evidence building-first and planning-independent.
  */
 function brebo_inzet_update_11013(): string {
   _brebo_inzet_ensure_onsite_presence_schema();
@@ -693,5 +693,5 @@ function brebo_inzet_update_11013(): string {
     $field->setRequired(FALSE)->save();
   }
 
-  return 'OnSite aanwezigheid kan nu gebouwgericht worden vastgelegd zonder voorafgaande projectplanning.';
+  return 'OnSite klokbewijs kan gebouwgericht worden vastgelegd zonder voorafgaande projectplanning; locatiecontrole blijft gekoppeld aan een bewuste klokactie.';
 }
