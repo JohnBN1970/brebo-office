@@ -58,6 +58,13 @@ final class OnSiteBootstrapController extends ControllerBase {
         'language' => $this->identityResolver->languageFor($user),
       ],
       'projects' => $this->assignmentProvider->currentForUser((int) $user->id()),
+      'clock_locations' => $this->assignmentProvider->clockLocations(),
+      'location_policy' => [
+        'mode' => 'clock_action_only',
+        'background_tracking' => FALSE,
+        'automatic_presence_events' => FALSE,
+        'store_coordinates' => FALSE,
+      ],
     ]);
   }
 

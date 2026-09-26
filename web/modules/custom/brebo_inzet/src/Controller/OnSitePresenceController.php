@@ -37,6 +37,16 @@ final class OnSitePresenceController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'invalid_payload'], 400);
     }
 
+    // Presence evidence may only be created as part of an explicit clock
+    // action initiated by the employee. Background geofence events are not
+    // accepted by Office.
+    if (($payload['trigger'] ?? '') !== 'clock_action') {
+      return new JsonResponse(['ok' => FALSE, 'error' => 'explicit_clock_action_required'], 400);
+    }
+    if (array_key_exists('latitude', $payload) || array_key_exists('longitude', $payload)) {
+      return new JsonResponse(['ok' => FALSE, 'error' => 'coordinates_not_accepted'], 400);
+    }
+
     try {
       $event = $this->writer->record(
         $uid,
@@ -44,6 +54,7 @@ final class OnSitePresenceController extends ControllerBase {
         (string) ($payload['zone_id'] ?? ''),
         (string) ($payload['kind'] ?? ''),
         (string) ($payload['occurred_at'] ?? ''),
+        (string) ($payload['building_id'] ?? ''),
       );
       return new JsonResponse(['ok' => TRUE, 'event' => $event], 201);
     }
@@ -51,7 +62,7 @@ final class OnSitePresenceController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'invalid_event'], 400);
     }
     catch (\RuntimeException $e) {
-      return new JsonResponse(['ok' => FALSE, 'error' => 'assignment_mismatch'], 403);
+      return new JsonResponse(['ok' => FALSE, 'error' => 'presence_context_mismatch'], 403);
     }
     catch (\Throwable $e) {
       return new JsonResponse(['ok' => FALSE, 'error' => 'presence_write_failed'], 500);

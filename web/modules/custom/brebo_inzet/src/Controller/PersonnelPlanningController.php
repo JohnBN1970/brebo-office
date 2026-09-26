@@ -95,7 +95,7 @@ final class PersonnelPlanningController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-page-header']],
         'main' => [
-          '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO INZET</p><h1 class="brebo-page-header__title">Personeelsplanning</h1><p class="brebo-page-header__description">Geplande inzet naast werkelijk geklokte uren. Afwijkingen worden automatisch zichtbaar zonder een tweede urenregistratie.</p></div>',
+          '#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO PERSONEEL</p><h1 class="brebo-page-header__title">Personeelsplanning</h1><p class="brebo-page-header__description">Geplande inzet naast werkelijk geklokte uren. Afwijkingen worden automatisch zichtbaar zonder een tweede urenregistratie.</p></div>',
         ],
       ],
       'actions' => [

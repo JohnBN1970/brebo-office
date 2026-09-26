@@ -49,7 +49,11 @@ final class ProjectClockZoneForm extends FormBase {
     $this->project = $node;
     $form['#attached']['library'][] = 'brebo_inzet/clock-zone-map';
 
-    $building = $this->projectBuilding($node);
+    $buildings = $this->projectBuildings($node);
+    $selectedBuildingId = $zone?->hasField('field_brebo_building_ref') && !$zone->get('field_brebo_building_ref')->isEmpty()
+      ? (int) $zone->get('field_brebo_building_ref')->target_id
+      : (count($buildings) === 1 ? (int) array_key_first($buildings) : 0);
+    $building = $selectedBuildingId > 0 ? ($buildings[$selectedBuildingId] ?? NULL) : NULL;
     $buildingCoordinates = $this->buildingCoordinates($building);
     [$projectLatitude, $projectLongitude] = $buildingCoordinates ?? ['52.37021600', '4.89516800'];
     $defaultLatitude = $zone?->get('field_brebo_zone_latitude')->value ?? $projectLatitude;
@@ -66,13 +70,26 @@ final class ProjectClockZoneForm extends FormBase {
       '#markup' => '<section class="brebo-clock-zone-context"><div><span class="brebo-clock-zone-context__label">' . $this->t('Project') . '</span><strong>' . $projectLabel . '</strong></div><div><span class="brebo-clock-zone-context__label">' . $this->t('Gebouw') . '</span><strong>' . $buildingLabel . '</strong>' . $addressMarkup . '</div></section>',
     ];
 
+    $buildingOptions = ['' => $this->t('- Kies gebouw -')];
+    foreach ($buildings as $buildingId => $candidate) {
+      $buildingOptions[$buildingId] = $candidate->label();
+    }
+    $form['building'] = [
+      '#type' => 'select',
+      '#title' => $this->t('Gebouw'),
+      '#options' => $buildingOptions,
+      '#default_value' => $selectedBuildingId ?: '',
+      '#required' => count($buildings) > 1,
+      '#description' => $this->t('Het gebouw is het vaste anker. De personeelszone mag bewust ruimer worden gezet zodat bijvoorbeeld parkeerplaatsen, bouwplaatsinrichting, achterterrein of een veilige toegang binnen de herkenningszone vallen.'),
+    ];
+
     $form['name'] = [
       '#type' => 'textfield',
       '#title' => $this->t('Naam kloklocatie'),
       '#required' => TRUE,
       '#maxlength' => 255,
       '#default_value' => $zone?->label() ?? '',
-      '#placeholder' => $this->t('Bijvoorbeeld Achterterrein, Blok B of Depot'),
+      '#placeholder' => $this->t('Bijvoorbeeld Gebouw + parkeerplaats, Achterterrein of Blok B'),
     ];
     $mapAttributes = ['class' => ['brebo-clock-zone-map'], 'data-brebo-clock-zone-map' => 'true'];
     if ($buildingCoordinates !== NULL) {
@@ -86,16 +103,16 @@ final class ProjectClockZoneForm extends FormBase {
         '#markup' => '<div class="brebo-clock-zone-map__canvas"><img class="brebo-clock-zone-map__image" src="' . htmlspecialchars($mapUrl, ENT_QUOTES, 'UTF-8') . '" alt="PDOK luchtfoto rond de kloklocatie"><span class="brebo-clock-zone-map__circle" aria-hidden="true"></span><button type="button" class="brebo-clock-zone-map__marker" aria-label="Versleep middelpunt kloklocatie"></button></div>',
       ],
       'help' => [
-        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de middelste pin om de kloklocatie te verplaatsen. Pak de ronde handgreep op de rand van de cirkel en sleep naar binnen of buiten om de klokzone direct groter of kleiner te maken. Huidige klokzone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
+        '#markup' => '<p class="brebo-clock-zone-map__help">' . $this->t('Versleep de middelste pin om het middelpunt te verplaatsen. Pak de ronde handgreep op de rand van de cirkel en neem ook praktische aankomstzones mee, zoals parkeerplaats, achterterrein of bouwplaatsingang. Huidige personeelszone: <span class="brebo-clock-zone-map__readout">@radius m</span>.', ['@radius' => (string) round((float) $defaultRadius)]) . '</p>',
       ],
     ];
     $form['radius'] = [
-      '#type' => 'number', '#title' => $this->t('Klokzone'), '#field_suffix' => ' m',
+      '#type' => 'number', '#title' => $this->t('Personeelszone'), '#field_suffix' => ' m',
       '#required' => TRUE, '#default_value' => $defaultRadius, '#min' => 10, '#max' => 5000, '#step' => 5,
       '#description' => $this->t('Wordt direct bijgewerkt wanneer de cirkelrand op de kaart wordt versleept. Gebruik dit veld alleen voor fijne numerieke afstelling.'),
     ];
     $form['active'] = [
-      '#type' => 'checkbox', '#title' => $this->t('Kloklocatie actief'),
+      '#type' => 'checkbox', '#title' => $this->t('Personeelszone actief'),
       '#default_value' => $zone ? (bool) $zone->get('field_brebo_zone_active')->value : TRUE,
     ];
     $form['description'] = [
@@ -119,7 +136,7 @@ final class ProjectClockZoneForm extends FormBase {
       '#description' => $this->t('Wordt automatisch bijgewerkt via de kaart.'),
     ];
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Kloklocatie opslaan'), '#button_type' => 'primary'];
+    $form['actions']['submit'] = ['#type' => 'submit', '#value' => $this->t('Personeelszone opslaan'), '#button_type' => 'primary'];
     $form['actions']['cancel'] = [
       '#type' => 'link', '#title' => $this->t('Annuleren'),
       '#url' => \Drupal\Core\Url::fromRoute('brebo_inzet.project_clock_zones', ['node' => $node->id()]),
@@ -144,6 +161,7 @@ final class ProjectClockZoneForm extends FormBase {
     $values = [
       'title' => trim((string) $form_state->getValue('name')),
       'field_brebo_project_ref' => ['target_id' => (int) $this->project->id()],
+      'field_brebo_building_ref' => ($buildingId = (int) $form_state->getValue('building')) > 0 ? ['target_id' => $buildingId] : NULL,
       'field_brebo_zone_latitude' => (float) $form_state->getValue('latitude'),
       'field_brebo_zone_longitude' => (float) $form_state->getValue('longitude'),
       'field_brebo_zone_radius' => (float) $form_state->getValue('radius'),
@@ -166,30 +184,35 @@ final class ProjectClockZoneForm extends FormBase {
       $savedZone->save();
     }
 
-    $this->messenger()->addStatus($this->t('Kloklocatie @name opgeslagen.', ['@name' => $savedZone->label()]));
+    $this->messenger()->addStatus($this->t('Personeelszone @name opgeslagen.', ['@name' => $savedZone->label()]));
     $form_state->setRedirect('brebo_inzet.project_clock_zones', ['node' => $this->project->id()]);
   }
 
-  private function projectBuilding(NodeInterface $project): ?NodeInterface {
+  /**
+   * @return array<int, NodeInterface>
+   */
+  private function projectBuildings(NodeInterface $project): array {
     $storage = $this->clockZoneEntityTypeManager->getStorage('node');
+    $result = [];
+
     foreach ($this->projectBuildingRepository->buildingsForProject((int) $project->id()) as $relation) {
       $buildingId = (int) ($relation['building_nid'] ?? 0);
       $building = $buildingId > 0 ? $storage->load($buildingId) : NULL;
-      if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building' && $this->buildingCoordinates($building) !== NULL) {
-        return $building;
+      if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+        $result[(int) $building->id()] = $building;
       }
     }
 
     if ($project->hasField('field_brebo_building_refs') && !$project->get('field_brebo_building_refs')->isEmpty()) {
-      $buildings = array_values(array_filter(
-        $project->get('field_brebo_building_refs')->referencedEntities(),
-        static fn ($building): bool => $building instanceof NodeInterface && $building->bundle() === 'brebo_building',
-      ));
-      if (count($buildings) === 1 && $this->buildingCoordinates($buildings[0]) !== NULL) {
-        return $buildings[0];
+      foreach ($project->get('field_brebo_building_refs')->referencedEntities() as $building) {
+        if ($building instanceof NodeInterface && $building->bundle() === 'brebo_building') {
+          $result[(int) $building->id()] = $building;
+        }
       }
     }
-    return NULL;
+
+    uasort($result, static fn (NodeInterface $a, NodeInterface $b): int => strnatcasecmp((string) $a->label(), (string) $b->label()));
+    return $result;
   }
 
   /** @return array{0: string, 1: string}|null */

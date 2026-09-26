@@ -23,7 +23,7 @@ final class ProjectClockZoneManager {
    * calculation service. A clock registration can therefore ask for project
    * zones once and pass the normalized result to ProjectClockZoneControl.
    *
-   * @return array<int, array{id: int, name: string, latitude: float, longitude: float, radius: float, active: bool}>
+   * @return array<int, array{id: int, name: string, building_id: int, building: string, latitude: float, longitude: float, radius: float, active: bool}>
    */
   public function loadForProject(NodeInterface $project): array {
     if ($project->bundle() !== 'brebo_project') {
@@ -51,9 +51,12 @@ final class ProjectClockZoneManager {
         continue;
       }
 
+      $building = $zone->hasField('field_brebo_building_ref') ? $zone->get('field_brebo_building_ref')->entity : NULL;
       $zones[] = [
         'id' => (int) $zone->id(),
         'name' => $zone->label(),
+        'building_id' => $building instanceof NodeInterface ? (int) $building->id() : 0,
+        'building' => $building instanceof NodeInterface ? (string) $building->label() : '',
         'latitude' => (float) $latitude,
         'longitude' => (float) $longitude,
         'radius' => (float) $radius,

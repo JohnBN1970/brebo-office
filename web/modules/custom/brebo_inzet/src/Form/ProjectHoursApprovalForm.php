@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
-use Drupal\brebo_finance\Service\LabourProductivityManager;
 use Drupal\brebo_inzet\Service\PersonnelActualHoursManager;
 use Drupal\brebo_inzet\Service\PersonnelAssignmentComparison;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
@@ -20,7 +19,6 @@ final class ProjectHoursApprovalForm extends FormBase {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly PersonnelAssignmentComparison $comparison,
     private readonly PersonnelActualHoursManager $actualHours,
-    private readonly LabourProductivityManager $labourProductivity,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -28,7 +26,6 @@ final class ProjectHoursApprovalForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_inzet.personnel_assignment_comparison'),
       $container->get('brebo_inzet.personnel_actual_hours_manager'),
-      $container->get('brebo_finance.labour_productivity_manager'),
     );
   }
 
@@ -45,7 +42,6 @@ final class ProjectHoursApprovalForm extends FormBase {
       ->condition('field_brebo_assignment_status', 'cancelled', '<>')
       ->sort('field_brebo_plan_date', 'DESC')->execute();
 
-    $reviewStates = $this->labourProductivity->inzetActualStatuses((int) $node->id());
     $options = [];
     $rows = [];
     foreach ($storage->loadMultiple($ids) as $assignment) {
@@ -54,8 +50,7 @@ final class ProjectHoursApprovalForm extends FormBase {
       if ((float) $actual['clocked_hours'] <= 0 || (bool) $actual['open_session']) continue;
       $person = $assignment->get('field_brebo_plan_user')->entity;
       $id = (int) $assignment->id();
-      $review = $reviewStates[$id] ?? NULL;
-      $reviewStatus = (string) ($review['status'] ?? 'open');
+      $reviewStatus = (string) ($assignment->get('field_brebo_actual_status')->value ?? 'open');
       $options[$id] = '';
       $rows[$id] = [
         'person' => ['#plain_text' => $person?->label() ?? 'Onbekende medewerker'],
@@ -72,7 +67,7 @@ final class ProjectHoursApprovalForm extends FormBase {
       ];
     }
 
-    $form['intro'] = ['#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO INZET</p><h1>Uren beoordelen</h1><p>Controleer klokuren voordat ze financiële actual worden. Ingediend blijft bewijs; alleen goedgekeurd telt financieel.</p></div>'];
+    $form['intro'] = ['#markup' => '<div class="brebo-page-header__main"><p class="brebo-page-header__eyebrow">BREBO PERSONEEL</p><h1>Uren beoordelen</h1><p>Controleer en keur de werkelijke uren operationeel goed. Finance wordt automatisch gekoppeld zodra een arbeidsbudget beschikbaar is.</p></div>'];
     $form['assignments'] = [
       '#type' => 'tableselect', '#header' => [
         'person' => $this->t('Medewerker'), 'date' => $this->t('Datum'),
@@ -105,8 +100,7 @@ final class ProjectHoursApprovalForm extends FormBase {
         continue;
       }
       try {
-        $review = $this->labourProductivity->inzetActualStatus($projectId, (int) $assignment->id());
-        $reviewStatus = (string) ($review['status'] ?? 'open');
+        $reviewStatus = (string) ($assignment->get('field_brebo_actual_status')->value ?? 'open');
         if ($approve && $reviewStatus !== 'worked') {
           throw new \UnexpectedValueException('Alleen ingediende uren kunnen worden goedgekeurd.');
         }

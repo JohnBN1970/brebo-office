@@ -36,6 +36,21 @@
       </div>
     </div>
 
+
+    {% set personnel_active = route starts with 'brebo_inzet.' %}
+    <div class="brebo-office-nav__group{{ personnel_active ? ' is-active' : '' }}" data-brebo-nav-group="personnel">
+      <button class="brebo-office-nav__item brebo-office-nav__group-toggle" type="button" aria-expanded="{{ personnel_active ? 'true' : 'false' }}" data-brebo-nav-group-toggle title="Personeel">
+        <span class="brebo-office-nav__icon" aria-hidden="true">♙</span><span class="brebo-office-nav__label">Personeel</span><span class="brebo-office-nav__chevron" aria-hidden="true">›</span>
+      </button>
+      <div class="brebo-office-nav__submenu" data-brebo-nav-submenu>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_inzet.personnel_dashboard' ? ' is-active' : '' }}" href="{{ path('brebo_inzet.personnel_dashboard') }}"><span>Vandaag</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_inzet.personnel_planning' ? ' is-active' : '' }}" href="{{ path('brebo_inzet.personnel_planning') }}"><span>Planning</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_inzet.personnel_hours' ? ' is-active' : '' }}" href="{{ path('brebo_inzet.personnel_hours') }}"><span>Uren</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_inzet.personnel_employees' ? ' is-active' : '' }}" href="{{ path('brebo_inzet.personnel_employees') }}"><span>Medewerkers</span></a>
+        <a class="brebo-office-nav__subitem{{ route == 'brebo_inzet.availability' ? ' is-active' : '' }}" href="{{ path('brebo_inzet.availability') }}"><span>Beschikbaarheid</span></a>
+      </div>
+    </div>
+
     <a class="brebo-office-nav__item{{ route starts with 'brebo_calculation.' or route starts with 'brebo_office_core.calculation' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.calculations') }}" title="Calculaties"{{ route starts with 'brebo_calculation.' or route starts with 'brebo_office_core.calculation' ? ' aria-current="page"' : '' }}><span class="brebo-office-nav__icon" aria-hidden="true">∑</span><span class="brebo-office-nav__label">Calculaties</span></a>
 
     <a class="brebo-office-nav__item{{ route == 'brebo_office_core.crm' ? ' is-active' : '' }}" href="{{ path('brebo_office_core.crm') }}" title="Relaties"><span class="brebo-office-nav__icon" aria-hidden="true">◎</span><span class="brebo-office-nav__label">Relaties</span></a>

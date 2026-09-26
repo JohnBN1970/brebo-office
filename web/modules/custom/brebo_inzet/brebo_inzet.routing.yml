@@ -1,8 +1,33 @@
+brebo_inzet.personnel_dashboard:
+  path: '/personeel'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelPlanningController::overview'
+    _title: 'Personeel'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
+
+brebo_inzet.personnel_hours:
+  path: '/personeel/uren'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelWorkspaceController::hours'
+    _title: 'Uren'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
+brebo_inzet.personnel_employees:
+  path: '/personeel/medewerkers'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelWorkspaceController::employees'
+    _title: 'Medewerkers'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
 brebo_inzet.app:
   path: '/inzet'
   defaults:
     _controller: '\Drupal\brebo_inzet\Controller\InzetHomeController::start'
-    _title: 'BREBO Inzet'
+    _title: 'Personeel'
   requirements:
     _user_is_logged_in: 'TRUE'
 
@@ -127,7 +152,7 @@ brebo_inzet.project_clock_zone_add:
   path: '/projecten/{node}/inzet/kloklocaties/toevoegen'
   defaults:
     _form: '\Drupal\brebo_inzet\Form\ProjectClockZoneForm'
-    _title: 'Kloklocatie toevoegen'
+    _title: 'Personeelszone toevoegen'
   requirements:
     _entity_access: 'node.update'
   options:
@@ -139,7 +164,7 @@ brebo_inzet.project_clock_zone_edit:
   path: '/projecten/{node}/inzet/kloklocaties/{zone}/bewerken'
   defaults:
     _form: '\Drupal\brebo_inzet\Form\ProjectClockZoneForm'
-    _title: 'Kloklocatie bewerken'
+    _title: 'Personeelszone bewerken'
   requirements:
     _entity_access: 'node.update'
   options:
@@ -165,7 +190,7 @@ brebo_inzet.project_clock_settings:
   path: '/projecten/{node}/inzet/instellingen'
   defaults:
     _form: '\Drupal\brebo_inzet\Form\ProjectClockSettingsForm'
-    _title: 'Inzet-klok instellingen'
+    _title: 'Personeelsinstellingen'
   requirements:
     _entity_access: 'node.update'
   options:

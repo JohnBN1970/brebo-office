@@ -26,7 +26,7 @@ final class ProjectClockZoneController extends ControllerBase {
 
   public function title(NodeInterface $node): string {
     $this->assertProject($node);
-    return 'Kloklocaties - ' . $node->label();
+    return 'Personeelszones - ' . $node->label();
   }
 
   public function overview(NodeInterface $node): array {
@@ -37,6 +37,7 @@ final class ProjectClockZoneController extends ControllerBase {
     foreach ($zones as $zone) {
       $rows[] = [
         $zone['name'],
+        $zone['building'] !== '' ? $zone['building'] : $this->t('Niet gekoppeld'),
         number_format($zone['radius'], 0, ',', '.') . ' m',
         $zone['active'] ? $this->t('Actief') : $this->t('Inactief'),
         number_format($zone['latitude'], 6, ',', '.') . ', ' . number_format($zone['longitude'], 6, ',', '.'),
@@ -62,13 +63,13 @@ final class ProjectClockZoneController extends ControllerBase {
       '#type' => 'container',
       '#attributes' => ['class' => ['brebo-inzet-clock-zones']],
       'intro' => [
-        '#markup' => '<p>' . $this->t('Leg één of meer toegestane kloklocaties vast. Het officiële gebouwadres blijft ongewijzigd; deze zones zijn uitsluitend bedoeld voor personeelsinzet en locatieklokken.') . '</p>',
+        '#markup' => '<p>' . $this->t('Koppel een personeelszone aan een gebouw en teken de praktische aankomstzone ruim genoeg voor bijvoorbeeld parkeren, bouwplaatsingang of achterterrein. De officiële gebouwlocatie blijft ongewijzigd.') . '</p>',
       ],
       'actions' => [
         '#type' => 'actions',
         'add' => [
           '#type' => 'link',
-          '#title' => $this->t('Kloklocatie toevoegen'),
+          '#title' => $this->t('Personeelszone toevoegen'),
           '#url' => Url::fromRoute('brebo_inzet.project_clock_zone_add', ['node' => $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
@@ -77,13 +78,14 @@ final class ProjectClockZoneController extends ControllerBase {
         '#type' => 'table',
         '#header' => [
           $this->t('Locatie'),
+          $this->t('Gebouw'),
           $this->t('Radius'),
           $this->t('Status'),
           $this->t('Middelpunt'),
           $this->t('Acties'),
         ],
         '#rows' => $rows,
-        '#empty' => $this->t('Nog geen kloklocaties ingesteld voor dit project.'),
+        '#empty' => $this->t('Nog geen personeelszones ingesteld voor dit project.'),
       ],
     ];
   }

@@ -215,7 +215,7 @@ function brebo_office_preprocess_page(array &$variables): void {
         }
 
         $inzet['available'] = TRUE;
-        $inzet['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.app')->toString();
+        $inzet['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.personnel_dashboard')->toString();
       }
 
       if ($account->hasPermission('edit any brebo_personnel_assignment content')
@@ -270,7 +270,7 @@ function brebo_office_preprocess_page(array &$variables): void {
         $inzet['management']['today_planned_hours'] = round($inzet['management']['today_planned_hours'], 2);
         $inzet['management']['today_clocked_hours'] = round($inzet['management']['today_clocked_hours'], 2);
         $inzet['management']['visible'] = TRUE;
-        $inzet['management']['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.personnel_planning')->toString();
+        $inzet['management']['url'] = \Drupal\Core\Url::fromRoute('brebo_inzet.personnel_dashboard')->toString();
       }
     }
 

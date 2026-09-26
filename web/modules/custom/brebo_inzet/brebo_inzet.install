@@ -139,6 +139,27 @@ function _brebo_inzet_ensure_personnel_assignment_schema(): void {
       'field_settings' => [], 'widget' => 'options_select', 'weight' => 8,
       'default_value' => [['value' => 'planned']],
     ],
+    'field_brebo_actual_hours' => [
+      'label' => 'Werkelijke uren', 'type' => 'decimal', 'required' => FALSE,
+      'storage' => ['precision' => 7, 'scale' => 2], 'field_settings' => [],
+      'widget' => 'number', 'weight' => 9,
+    ],
+    'field_brebo_actual_status' => [
+      'label' => 'Urenstatus', 'type' => 'list_string', 'required' => FALSE,
+      'storage' => ['allowed_values' => ['open' => 'Open', 'worked' => 'Ingediend', 'approved' => 'Goedgekeurd']],
+      'field_settings' => [], 'widget' => 'options_select', 'weight' => 10,
+      'default_value' => [['value' => 'open']],
+    ],
+    'field_brebo_actual_reviewed_by' => [
+      'label' => 'Uren beoordeeld door', 'type' => 'entity_reference', 'required' => FALSE,
+      'storage' => ['target_type' => 'user'], 'field_settings' => ['handler' => 'default:user'],
+      'widget' => 'entity_reference_autocomplete', 'weight' => 11,
+    ],
+    'field_brebo_actual_reviewed_at' => [
+      'label' => 'Uren beoordeeld op', 'type' => 'datetime', 'required' => FALSE,
+      'storage' => ['datetime_type' => 'datetime'], 'field_settings' => [],
+      'widget' => 'datetime_default', 'weight' => 12,
+    ],
   ];
 
   foreach ($fields as $field_name => $definition) {
@@ -286,12 +307,21 @@ function _brebo_inzet_ensure_onsite_presence_schema(): void {
       'type' => 'entity_reference',
       'storage' => ['target_type' => 'node'],
       'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_project' => 'brebo_project']]],
+      'required' => FALSE,
+    ],
+    'field_brebo_building_ref' => [
+      'label' => 'Gebouw',
+      'type' => 'entity_reference',
+      'storage' => ['target_type' => 'node'],
+      'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']]],
+      'required' => FALSE,
     ],
     'field_brebo_clock_zone_ref' => [
-      'label' => 'Projectzone',
+      'label' => 'Personeelszone',
       'type' => 'entity_reference',
       'storage' => ['target_type' => 'node'],
       'settings' => ['handler' => 'default:node', 'handler_settings' => ['target_bundles' => ['brebo_clock_zone' => 'brebo_clock_zone']]],
+      'required' => FALSE,
     ],
     'field_brebo_onsite_event_kind' => [
       'label' => 'Waarneming',
@@ -324,7 +354,7 @@ function _brebo_inzet_ensure_onsite_presence_schema(): void {
         'entity_type' => 'node',
         'bundle' => $bundle,
         'label' => $definition['label'],
-        'required' => TRUE,
+        'required' => $definition['required'] ?? TRUE,
         'settings' => $definition['settings'],
       ])->save();
     }
@@ -636,4 +666,32 @@ function _brebo_inzet_ensure_employee_hourly_cost_field(): void {
     'settings' => ['placeholder' => '0,00'],
   ]);
   $display->save();
+}
+
+
+/**
+ * Adds budget-independent actual-hour review truth to personnel assignments.
+ */
+function brebo_inzet_update_11012(): string {
+  _brebo_inzet_ensure_personnel_assignment_schema();
+  return 'Personeelsuren kunnen nu operationeel worden ingediend en goedgekeurd voordat Finance is gekoppeld.';
+}
+
+
+/**
+ * Makes explicit OnSite clock evidence building-first and planning-independent.
+ */
+function brebo_inzet_update_11013(): string {
+  _brebo_inzet_ensure_onsite_presence_schema();
+
+  foreach (['field_brebo_project_ref', 'field_brebo_clock_zone_ref'] as $fieldName) {
+    if ($field = FieldConfig::loadByName('node', 'brebo_onsite_presence_event', $fieldName)) {
+      $field->setRequired(FALSE)->save();
+    }
+  }
+  if ($field = FieldConfig::loadByName('node', 'brebo_onsite_presence_event', 'field_brebo_building_ref')) {
+    $field->setRequired(FALSE)->save();
+  }
+
+  return 'OnSite klokbewijs kan gebouwgericht worden vastgelegd zonder voorafgaande projectplanning; locatiecontrole blijft gekoppeld aan een bewuste klokactie.';
 }

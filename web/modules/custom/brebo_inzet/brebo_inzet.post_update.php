@@ -163,3 +163,39 @@ function brebo_inzet_post_update_repair_clock_runtime_schema(array &$sandbox = N
 
   return 'Kloklocaties, klokregistraties en projectbeleid gecontroleerd en waar nodig hersteld.';
 }
+
+/**
+ * Links clock zones explicitly to one BREBO building.
+ */
+function brebo_inzet_post_update_clock_zone_building_ref(array &$sandbox = NULL): string {
+  $bundle = 'brebo_clock_zone';
+  $fieldName = 'field_brebo_building_ref';
+
+  if (!FieldStorageConfig::loadByName('node', $fieldName)) {
+    FieldStorageConfig::create([
+      'field_name' => $fieldName,
+      'entity_type' => 'node',
+      'type' => 'entity_reference',
+      'settings' => ['target_type' => 'node'],
+      'cardinality' => 1,
+    ])->save();
+  }
+
+  if (!FieldConfig::loadByName('node', $bundle, $fieldName)) {
+    FieldConfig::create([
+      'field_name' => $fieldName,
+      'entity_type' => 'node',
+      'bundle' => $bundle,
+      'label' => 'Gebouw',
+      'description' => 'Gebouw waarvoor deze personeelszone geldt.',
+      'required' => FALSE,
+      'settings' => [
+        'handler' => 'default:node',
+        'handler_settings' => ['target_bundles' => ['brebo_building' => 'brebo_building']],
+      ],
+    ])->save();
+  }
+
+  return 'Kloklocaties kunnen nu expliciet aan een BREBO-gebouw worden gekoppeld.';
+}
+
