@@ -90,14 +90,16 @@ final class OnSiteAssignmentProvider {
   }
 
   /**
-   * Returns all known BREBO buildings with coordinates for passive OnSite
-   * recognition. This is deliberately independent of project planning.
+   * Returns known BREBO buildings and personnel zones that the app may use
+   * for a user-initiated clock action. This catalogue is deliberately
+   * independent of project planning, but MUST NOT be used for background
+   * location tracking or automatic presence registration.
    *
    * Explicit personnel zones override the default building radius.
    *
    * @return array<int, array{id:string,name:string,latitude:float,longitude:float,radius_metres:float,zones:array<int,array<string,mixed>>}>
    */
-  public function buildingsForRecognition(): array {
+  public function clockLocations(): array {
     $storage = $this->entityTypeManager->getStorage('node');
     $buildingIds = $storage->getQuery()
       ->accessCheck(FALSE)
