@@ -8,7 +8,11 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 
 /**
- * Persists raw OnSite IN/OUT observations without booking work hours.
+ * Persists explicit OnSite clock-action evidence without booking work hours.
+ *
+ * Coordinates are intentionally not accepted or stored here. The mobile app
+ * checks the selected personnel zone locally at the moment the employee
+ * chooses Start/Stop work.
  */
 final class OnSitePresenceEvidenceWriter {
 
@@ -84,9 +88,9 @@ final class OnSitePresenceEvidenceWriter {
       }
     }
 
-    // Raw presence is intentionally NOT gated by project team or planning.
-    // Assignment validation belongs to downstream interpretation, because the
-    // app must be able to observe an employee at any known BREBO building.
+    // A clock action is intentionally NOT gated by a daily planning record:
+    // actual work may differ from the plan. The employee explicitly initiated
+    // this event; Office does not create it from background location changes.
     $node = $storage->create([
       'type' => 'brebo_onsite_presence_event',
       'title' => sprintf(
