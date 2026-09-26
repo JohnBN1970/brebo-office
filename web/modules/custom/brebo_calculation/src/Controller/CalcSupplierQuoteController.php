@@ -48,10 +48,23 @@ final class CalcSupplierQuoteController extends ControllerBase {
   }
 
   public function upload(Request $request): JsonResponse {
-    $bytes = (string) $request->getContent();
-    $this->assertSignedRequest($request, $bytes);
+    try {
+      $bytes = (string) $request->getContent();
+      $this->assertSignedRequest($request, $bytes);
+    }
+    catch (AccessDeniedHttpException $e) {
+      throw $e;
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('authentication', $e);
+    }
 
-    $mime = strtolower(trim((string) $request->headers->get('Content-Type', '')));
+    try {
+      $mime = strtolower(trim((string) $request->headers->get('Content-Type', '')));
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('request_mime', $e);
+    }
     if (!in_array($mime, self::MIME_TYPES, TRUE)) {
       throw new BadRequestHttpException('Dit bestandstype wordt nog niet ondersteund voor offerteherkenning.');
     }
@@ -59,14 +72,24 @@ final class CalcSupplierQuoteController extends ControllerBase {
       throw new BadRequestHttpException('Offertebestand ontbreekt of is groter dan 20 MB.');
     }
 
-    $calculationId = (int) $request->headers->get('X-BREBO-Calculation-Id', 0);
-    $lineRef = trim((string) $request->headers->get('X-BREBO-Line-Ref', ''));
+    try {
+      $calculationId = (int) $request->headers->get('X-BREBO-Calculation-Id', 0);
+      $lineRef = trim((string) $request->headers->get('X-BREBO-Line-Ref', ''));
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('request_context', $e);
+    }
     if ($calculationId <= 0 || !preg_match('/^[A-Za-z0-9._:-]{1,128}$/', $lineRef)) {
       throw new BadRequestHttpException('Calculatie- of regelreferentie ontbreekt.');
     }
 
-    $filename = $this->safeFilename((string) $request->headers->get('X-BREBO-Filename', 'offerte'));
-    $directory = 'private://brebo/calculation-price-sources/' . $calculationId . '/' . date('Y/m');
+    try {
+      $filename = $this->safeFilename((string) $request->headers->get('X-BREBO-Filename', 'offerte'));
+      $directory = 'private://brebo/calculation-price-sources/' . $calculationId . '/' . date('Y/m');
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('request_setup', $e);
+    }
     try {
       if (!$this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS)) {
         throw new \RuntimeException('Private offertemap kon niet worden voorbereid.');
