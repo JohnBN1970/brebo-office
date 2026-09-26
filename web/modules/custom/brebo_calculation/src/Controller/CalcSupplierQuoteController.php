@@ -67,27 +67,51 @@ final class CalcSupplierQuoteController extends ControllerBase {
 
     $filename = $this->safeFilename((string) $request->headers->get('X-BREBO-Filename', 'offerte'));
     $directory = 'private://brebo/calculation-price-sources/' . $calculationId . '/' . date('Y/m');
-    $this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS);
-    $destination = $directory . '/' . time() . '-' . bin2hex(random_bytes(6)) . '-' . $filename;
-    $uri = $this->fileSystem->saveData($bytes, $destination, FileExists::Rename);
-    if (!$uri) {
-      throw new BadRequestHttpException('Offerte kon niet in Office worden opgeslagen.');
+    try {
+      if (!$this->fileSystem->prepareDirectory($directory, FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS)) {
+        throw new \RuntimeException('Private offertemap kon niet worden voorbereid.');
+      }
+      $destination = $directory . '/' . time() . '-' . bin2hex(random_bytes(6)) . '-' . $filename;
+      $uri = $this->fileSystem->saveData($bytes, $destination, FileExists::Rename);
+      if (!$uri) {
+        throw new \RuntimeException('Offerte kon niet in Office worden opgeslagen.');
+      }
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('storage', $e);
     }
 
-    $file = File::create([
-      'uri' => $uri,
-      'filename' => $filename,
-      'status' => 1,
-      'uid' => 0,
-    ]);
-    $file->save();
+    try {
+      $file = File::create([
+        'uri' => $uri,
+        'filename' => $filename,
+        'status' => 1,
+        'uid' => 0,
+      ]);
+      $file->save();
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('file_entity', $e);
+    }
 
-    $extraction = $this->extractor->extract($bytes, $mime, $filename);
-    $proposal = $this->normalizer->normalize((string) ($extraction['text'] ?? ''), [
+    try {
+      $extraction = $this->extractor->extract($bytes, $mime, $filename);
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('extraction', $e);
+    }
+
+    try {
+      $proposal = $this->normalizer->normalize((string) ($extraction['text'] ?? ''), [
       'description' => trim((string) $request->headers->get('X-BREBO-Line-Description', '')),
       'quantity' => is_numeric($request->headers->get('X-BREBO-Line-Quantity')) ? (float) $request->headers->get('X-BREBO-Line-Quantity') : NULL,
-      'unit' => trim((string) $request->headers->get('X-BREBO-Line-Unit', '')),
-    ]);
+        'unit' => trim((string) $request->headers->get('X-BREBO-Line-Unit', '')),
+      ]);
+    }
+    catch (\Throwable $e) {
+      return $this->stageError('normalization', $e);
+    }
+
     return new JsonResponse([
       'contract' => 'brebo-office-calc-quote-source-v1',
       'source' => [
@@ -153,6 +177,18 @@ final class CalcSupplierQuoteController extends ControllerBase {
       throw new AccessDeniedHttpException('Invalid signature.');
     }
     $this->cache->set($replayKey, TRUE, $now + 600);
+  }
+
+  private function stageError(string $stage, \Throwable $error): JsonResponse {
+    $this->getLogger('brebo_calculation')->error('Calc supplier quote failed at @stage: @message', [
+      '@stage' => $stage,
+      '@message' => $error->getMessage(),
+    ]);
+    return new JsonResponse([
+      'error' => 'supplier_quote_processing_failed',
+      'stage' => $stage,
+      'message' => $error->getMessage(),
+    ], 500, ['Cache-Control' => 'no-store, private']);
   }
 
   private function safeFilename(string $filename): string {
