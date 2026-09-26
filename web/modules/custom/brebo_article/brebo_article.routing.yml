@@ -6,6 +6,17 @@ brebo_article.search:
     _permission: 'access brebo articles'
   methods: [GET]
 
+
+brebo_article.workbench_search:
+  path: '/api/workbench/v1/articles'
+  defaults:
+    _controller: '\Drupal\brebo_article\Controller\ArticleSearchController::workbenchSearch'
+  requirements:
+    _access: 'TRUE'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
 brebo_article.import:
   path: '/artikelen/importeren'
   defaults:
