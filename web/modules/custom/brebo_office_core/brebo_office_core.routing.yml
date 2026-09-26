@@ -534,3 +534,16 @@ brebo_office_core.calc_project_context:
     parameters:
       node:
         type: entity:node
+
+
+brebo_office_core.calc_workbench_launch:
+  path: '/calculaties/{node}/open-in-calc'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CalculationWorkbenchLaunchController::launch'
+  requirements:
+    _entity_access: 'node.view'
+  options:
+    no_cache: TRUE
+    parameters:
+      node:
+        type: entity:node
