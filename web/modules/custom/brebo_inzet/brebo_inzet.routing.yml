@@ -6,6 +6,23 @@ brebo_inzet.personnel_dashboard:
   requirements:
     _permission: 'edit any brebo_personnel_assignment content'
 
+
+brebo_inzet.personnel_hours:
+  path: '/personeel/uren'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelWorkspaceController::hours'
+    _title: 'Uren'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
+brebo_inzet.personnel_employees:
+  path: '/personeel/medewerkers'
+  defaults:
+    _controller: '\Drupal\brebo_inzet\Controller\PersonnelWorkspaceController::employees'
+    _title: 'Medewerkers'
+  requirements:
+    _permission: 'edit any brebo_personnel_assignment content'
+
 brebo_inzet.app:
   path: '/inzet'
   defaults:
