@@ -15,6 +15,7 @@ use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 
@@ -104,6 +105,30 @@ final class CalcSupplierQuoteController extends ControllerBase {
       ],
       'proposal' => $proposal,
     ], 201, ['Cache-Control' => 'no-store, private']);
+  }
+
+  public function preview(Request $request, int $calculation, int $file): Response {
+    $this->assertSignedRequest($request, '');
+    $entity = File::load($file);
+    if (!$entity) {
+      return new Response('Offertebron niet gevonden.', 404);
+    }
+    $uri = (string) $entity->getFileUri();
+    $expectedPrefix = 'private://brebo/calculation-price-sources/' . $calculation . '/';
+    if (!str_starts_with($uri, $expectedPrefix)) {
+      throw new AccessDeniedHttpException('Offertebron hoort niet bij deze calculatie.');
+    }
+    $realPath = $this->fileSystem->realpath($uri);
+    if (!$realPath || !is_file($realPath)) {
+      return new Response('Offertebestand ontbreekt.', 404);
+    }
+    $mime = (string) ($entity->getMimeType() ?: 'application/octet-stream');
+    $response = new Response((string) file_get_contents($realPath));
+    $response->headers->set('Content-Type', $mime);
+    $response->headers->set('Content-Disposition', 'inline; filename="' . addcslashes((string) $entity->getFilename(), '"\\') . '"');
+    $response->headers->set('Cache-Control', 'no-store, private');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    return $response;
   }
 
   private function assertSignedRequest(Request $request, string $body): void {
