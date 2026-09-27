@@ -391,6 +391,11 @@ final class SupplierQuoteNormalizer {
     foreach ($result as $row) {
       if (str_starts_with((string) $row['description'], 'Offertepositie ')) {
         $layoutDescription = $this->descriptionForPosition((string) $row['position'], $lines);
+        // Some layout extractors serialize the position/price columns separately
+        // from the description column. In that case there is no line starting
+        // with the position near its Deurelement text. Recover by the stable
+        // visual order of product descriptions, but only as a last resort.
+        $layoutDescription ??= $this->descriptionForPositionOrdinal((string) $row['position'], $lines);
         if ($layoutDescription !== NULL) {
           $row['description'] = $layoutDescription;
         }
@@ -466,6 +471,66 @@ final class SupplierQuoteNormalizer {
       }
     }
     return NULL;
+  }
+
+  /**
+   * Recover a description when PDF extraction separated table columns.
+   *
+   * Supplier quote positions are ordered 001..nnn and the description column
+   * retains that same visual order even when its position numbers are emitted
+   * elsewhere in the extracted text.
+   *
+   * @param list<string> $lines
+   */
+  private function descriptionForPositionOrdinal(string $position, array $lines): ?string {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+
+    $descriptions = [];
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$i]) ?? '');
+      $deurelementPos = mb_stripos($candidate, 'Deurelement');
+      if ($deurelementPos === FALSE) {
+        continue;
+      }
+
+      $parts = [];
+      $candidate = mb_substr($candidate, $deurelementPos);
+      for ($j = $i; $j < min($count, $i + 20); $j++) {
+        if ($j > $i) {
+          $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$j]) ?? '');
+        }
+        if ($candidate === '') {
+          continue;
+        }
+
+        if ($j > $i && mb_stripos($candidate, 'Deurelement') !== FALSE) {
+          break;
+        }
+        if (preg_match('/\\bSysteem\\s*:/ui', $candidate)) {
+          $before = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? '';
+          if (trim($before) !== '') {
+            $parts[] = trim($before);
+          }
+          break;
+        }
+        if ($j > $i && preg_match('/^(?:Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslag|Prijs|Totaal|EUR)\\b/ui', $candidate)) {
+          break;
+        }
+        $parts[] = $candidate;
+      }
+
+      $description = trim(preg_replace('/\\s+/u', ' ', implode(' ', $parts)) ?? '');
+      if ($description !== '') {
+        $descriptions[] = mb_substr($description, 0, 500);
+      }
+    }
+
+    // Do not guess unless the requested ordinal actually exists.
+    return $descriptions[$ordinal - 1] ?? NULL;
   }
 
   private function decimal(string $raw): float {
