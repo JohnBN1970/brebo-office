@@ -11,6 +11,7 @@ use Drupal\Core\File\FileSystemInterface;
 use Drupal\Core\Site\Settings;
 use Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider;
 use Drupal\brebo_calculation\Service\SupplierQuoteNormalizer;
+use Drupal\brebo_calculation\Service\SupplierQuotePdfTextExtractor;
 use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -34,6 +35,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
   public function __construct(
     private readonly FileSystemInterface $fileSystem,
     private readonly ManagedDocumentTextExtractionProvider $extractor,
+    private readonly SupplierQuotePdfTextExtractor $pdfTextExtractor,
     private readonly SupplierQuoteNormalizer $normalizer,
     private readonly CacheBackendInterface $cache,
   ) {}
@@ -42,6 +44,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     return new static(
       $container->get('file_system'),
       $container->get('brebo_data_intake.managed_document_text_extraction_provider'),
+      $container->get('brebo_calculation.supplier_quote_pdf_text_extractor'),
       $container->get('brebo_calculation.supplier_quote_normalizer'),
       $container->get('cache.default'),
     );
@@ -118,7 +121,19 @@ final class CalcSupplierQuoteController extends ControllerBase {
     }
 
     try {
-      $extraction = $this->extractor->extract($bytes, $mime, $filename);
+      $extraction = [];
+      if ($mime === 'application/pdf') {
+        $realPath = $this->fileSystem->realpath($uri);
+        if (is_string($realPath) && $realPath !== '') {
+          $local = $this->pdfTextExtractor->extract($realPath);
+          if (($local['status'] ?? '') === 'extracted' && trim((string) ($local['text'] ?? '')) !== '') {
+            $extraction = $local;
+          }
+        }
+      }
+      if ($extraction === []) {
+        $extraction = $this->extractor->extract($bytes, $mime, $filename);
+      }
     }
     catch (\Throwable $e) {
       return $this->stageError('extraction', $e);
