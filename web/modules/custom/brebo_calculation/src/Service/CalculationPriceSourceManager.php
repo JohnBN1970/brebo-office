@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 
 /** Guarded creation and approval of auditable calculation price sources. */
 final class CalculationPriceSourceManager {
@@ -18,11 +18,11 @@ final class CalculationPriceSourceManager {
     'other' => 'other_unit_cost',
   ];
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly Connection $database, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
   /** @param array<string,mixed> $values */
-  public function createForLine(int $calculationId, string $version, int $rowId, array $values, AccountInterface $account): int {
-    $this->assertEditable($calculationId, $version, $rowId, $account);
+  public function createForLine(int $calculationId, string $version, int $rowId, array $values, int $actorId): int {
+    $this->assertEditable($calculationId, $version, $rowId, $actorId);
     $costCarrier = $this->normalizeCostCarrier((string) ($values['cost_carrier'] ?? 'subcontracting'));
     $now = time();
     $transaction = $this->database->startTransaction();
@@ -48,9 +48,9 @@ final class CalculationPriceSourceManager {
         'conditions_summary' => trim((string) ($values['conditions_summary'] ?? '')) ?: NULL,
         'internal_note' => trim((string) ($values['internal_note'] ?? '')) ?: NULL,
         'created' => $now,
-        'created_by' => (int) $account->id(),
+        'created_by' => $actorId,
         'changed' => $now,
-        'changed_by' => (int) $account->id(),
+        'changed_by' => $actorId,
       ])->execute();
 
       // The legacy column name proposed_oa_unit_cost is retained temporarily for
@@ -70,7 +70,7 @@ final class CalculationPriceSourceManager {
         'approval_status' => 'review',
         'is_active_source' => 0,
         'created' => $now,
-        'created_by' => (int) $account->id(),
+        'created_by' => $actorId,
       ])->execute();
       return $sourceId;
     }
@@ -80,8 +80,8 @@ final class CalculationPriceSourceManager {
     }
   }
 
-  public function approveForLine(int $calculationId, string $version, int $rowId, int $sourceId, string $costCarrier, float $unitCost, ?string $note, AccountInterface $account): void {
-    $this->assertEditable($calculationId, $version, $rowId, $account);
+  public function approveForLine(int $calculationId, string $version, int $rowId, int $sourceId, string $costCarrier, float $unitCost, ?string $note, int $actorId): void {
+    $this->assertEditable($calculationId, $version, $rowId, $actorId);
     $costCarrier = $this->normalizeCostCarrier($costCarrier);
     if ($unitCost < 0) {
       throw new \InvalidArgumentException('Unit cost cannot be negative.');
@@ -115,7 +115,7 @@ final class CalculationPriceSourceManager {
           'is_active_source' => 1,
           'approval_note' => trim('Kostendrager: ' . $costCarrier . '. ' . ($note ?? '')),
           'approved' => time(),
-          'approved_by' => (int) $account->id(),
+          'approved_by' => $actorId,
           'source_line_ref' => 'cost_carrier:' . $costCarrier,
         ])
         ->condition('id', (int) $mapping)
@@ -127,7 +127,7 @@ final class CalculationPriceSourceManager {
         ->condition('row_id', $rowId)
         ->execute();
       $this->database->update('brebo_calculation_price_source')
-        ->fields(['status' => 'accepted', 'changed' => time(), 'changed_by' => (int) $account->id()])
+        ->fields(['status' => 'accepted', 'changed' => time(), 'changed_by' => $actorId])
         ->condition('id', $sourceId)
         ->execute();
     }
@@ -144,10 +144,8 @@ final class CalculationPriceSourceManager {
     return $costCarrier;
   }
 
-  private function assertEditable(int $calculationId, string $version, int $rowId, AccountInterface $account): void {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function assertEditable(int $calculationId, string $version, int $rowId, int $actorId): void {
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
     $versionRow = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['status', 'locked_at'])
       ->condition('calculation_id', $calculationId)
