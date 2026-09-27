@@ -139,6 +139,18 @@ jobs:
           grep -q "/admin/brebo/calculations/{calculation}/workbench" "$routing"
           redirect_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceRedirectController.php'
           grep -q "brebo_calculation.workbench" "$redirect_controller"
+          parameters_form='web/modules/custom/brebo_calculation/src/Form/CalculationParametersForm.php'
+          structure_form='web/modules/custom/brebo_calculation/src/Form/CalculationStructureForm.php'
+          establish_form='web/modules/custom/brebo_calculation/src/Form/CalculationEstablishForm.php'
+          readiness_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationReadinessController.php'
+          ! grep -q "NodeInterface" "$parameters_form"
+          ! grep -q "NodeInterface" "$structure_form"
+          ! grep -q "NodeInterface" "$establish_form"
+          ! grep -q "NodeInterface" "$readiness_controller"
+          grep -q "/admin/brebo/calculations/{calculation}/parameters" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/structure" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/establish" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/readiness" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
