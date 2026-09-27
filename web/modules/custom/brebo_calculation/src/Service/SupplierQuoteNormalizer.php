@@ -277,6 +277,17 @@ final class SupplierQuoteNormalizer {
           }
         }
       }
+      if ($pair === NULL && abs($quantity - 1.0) < 0.0001) {
+        $plausible = array_values(array_filter(
+          $money,
+          static fn(array $candidate): bool => (float) $candidate['value'] >= 100.0
+        ));
+        if ($plausible !== []) {
+          usort($plausible, static fn(array $a, array $b): int => $b['value'] <=> $a['value']);
+          $value = (float) $plausible[0]['value'];
+          $pair = [$value, $value];
+        }
+      }
       if ($pair === NULL) {
         continue;
       }
@@ -343,6 +354,16 @@ final class SupplierQuoteNormalizer {
             $pair = [$values[$a], $values[$b]];
             break 2;
           }
+        }
+      }
+      if ($pair === NULL && abs($quantity - 1.0) < 0.0001) {
+        $plausible = array_values(array_filter(
+          $values,
+          static fn(float $candidate): bool => $candidate >= 100.0
+        ));
+        if ($plausible !== []) {
+          rsort($plausible, SORT_NUMERIC);
+          $pair = [(float) $plausible[0], (float) $plausible[0]];
         }
       }
       if ($pair === NULL) {
