@@ -9,6 +9,6 @@ namespace Drupal\brebo_calculation\Contract;
  */
 interface CalculationAccessGatewayInterface {
 
-  public function assertCanUpdate(int $calculationId, int $accountId): void;
+  public function assertCanEditWorkbench(int $calculationId, int $actorId): void;
 
 }
