@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\Core\Database\Connection;
 
 /** Writes object-derived rows through the current BREBO calculation workbench. */
@@ -12,6 +13,7 @@ final class CalculationObjectLineWriter {
     private readonly Connection $database,
     private readonly CalculationRowManager $rowManager,
     private readonly \Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface $legacyLineGateway,
+    private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
 
   /** @param array<string,float|int> $unitCosts @param array<string,mixed> $priceTrace */
@@ -22,7 +24,7 @@ final class CalculationObjectLineWriter {
     $rowId=$this->rowManager->add($calculationId,$version,$paragraphKey,$actorId);
     $costs=['labour_unit_cost'=>$this->cost($unitCosts,'labour'),'material_unit_cost'=>$this->cost($unitCosts,'material'),'equipment_unit_cost'=>$this->cost($unitCosts,'equipment'),'subcontracting_unit_cost'=>$this->cost($unitCosts,'subcontracting'),'other_unit_cost'=>$this->cost($unitCosts,'other')];
     $priceSourceRef=trim((string)($priceTrace['source_ref']??''));$priceSourceDate=trim((string)($priceTrace['source_date']??''));$priceConfidence=trim((string)($priceTrace['confidence']??''));$priceReason=trim((string)($priceTrace['reason']??''));
-    $legacyLineId=(int)$this->database->select('brebo_calculation_row_domain','r')->fields('r',['calc_line_id'])->condition('row_id',$rowId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute()->fetchField();
+    $legacyLineId=$this->legacyMirrorMap->legacyLineId($calculationId,$version,$rowId) ?? 0;
     $transaction=$this->database->startTransaction();
     try {
       if($legacyLineId>0){
