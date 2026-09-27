@@ -6,6 +6,7 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\Core\Database\Connection;
 
 /** Guarded mutations for editable calculation rows. */
@@ -16,6 +17,7 @@ final class CalculationRowManager {
     private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
     private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationRowIdentityGenerator $rowIdentityGenerator,
+    private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
@@ -25,7 +27,6 @@ final class CalculationRowManager {
     $rowId = $this->rowIdentityGenerator->next();
     $this->database->insert('brebo_calculation_row_domain')->fields([
       'row_id' => $rowId,
-      'calc_line_id' => NULL,
       'calculation_id' => $calculationId,
       'version' => $version,
       'paragraph_key' => $paragraphKey,
@@ -99,7 +100,7 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
     if ($legacyLineId > 0) {
       $this->legacyLineGateway->updateQuickEntry($legacyLineId, $description, $unit, $quantity, $costs);
     }
@@ -109,22 +110,18 @@ final class CalculationRowManager {
     $this->assertEditable($calculationId, $version, $actorId);
     $domain = $this->domainRow($calculationId, $version, $rowId);
 
-    unset($domain['row_id'], $domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
+    unset($domain['row_id'], $domain['calculation_id'], $domain['version']);
     $copyRowId = $this->rowIdentityGenerator->next();
     $domain['row_id'] = $copyRowId;
-    $domain['calc_line_id'] = NULL;
     $domain['sort_order'] = $this->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
     $domain['calculation_id'] = $calculationId;
     $domain['version'] = $version;
     $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
 
-    $legacyLineId = (int) ($this->domainRow($calculationId, $version, $rowId)['calc_line_id'] ?? 0);
+    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
     if ($legacyLineId > 0) {
       $copyLegacyLineId = $this->legacyLineGateway->duplicate($legacyLineId, $actorId);
-      $this->database->update('brebo_calculation_row_domain')
-        ->fields(['calc_line_id' => $copyLegacyLineId])
-        ->condition('row_id', $copyRowId)
-        ->execute();
+      $this->legacyMirrorMap->attach($calculationId, $version, $copyRowId, $copyLegacyLineId);
     }
     else {
       $this->createLegacyMirror($calculationId, $version, $copyRowId, (string) $domain['paragraph_key'], $actorId);
@@ -179,12 +176,7 @@ final class CalculationRowManager {
     }
 
     $legacyLineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
-    $this->database->update('brebo_calculation_row_domain')
-      ->fields(['calc_line_id' => $legacyLineId])
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute();
+    $this->legacyMirrorMap->attach($calculationId, $version, $rowId, $legacyLineId);
   }
 
   /** @return array<string,mixed> */
