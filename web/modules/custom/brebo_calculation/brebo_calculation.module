@@ -187,6 +187,7 @@ function brebo_calculation_node_presave(NodeInterface $node): void {
     'unit' => mb_substr((string) ($node->get('field_brebo_unit')->value ?? ''), 0, 32),
     'budget_hours' => $node->hasField('field_brebo_budget_hours') ? (float) ($node->get('field_brebo_budget_hours')->value ?? 0) : 0.0,
     'labour_rate' => $node->hasField('field_brebo_labor_rate') ? (float) ($node->get('field_brebo_labor_rate')->value ?? 0) : 0.0,
+    'sort_order' => $node->hasField('field_brebo_line_sequence') ? (int) ($node->get('field_brebo_line_sequence')->value ?? 0) : 0,
   ];
   $database->update($table)
     ->fields($values)
