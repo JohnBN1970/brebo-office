@@ -99,6 +99,11 @@ jobs:
           ! grep -R -q "calc_line_id" "$active_forms"
           mirror_map='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationLegacyLineMirrorMap.php'
           grep -q "calc_line_id" "$mirror_map"
+          mirror_config='web/modules/custom/brebo_calculation/config/install/brebo_calculation.settings.yml'
+          mirror_policy='web/modules/custom/brebo_calculation/src/Infrastructure/DrupalCalculationLegacyLineMirrorPolicy.php'
+          grep -q "legacy_line_mirror_enabled: false" "$mirror_config"
+          grep -q "legacy_line_mirror_enabled" "$mirror_policy"
+          grep -q "createLegacyMirrors" "$row_manager"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
