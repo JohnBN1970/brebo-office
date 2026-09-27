@@ -4,14 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Routing;
 
-use Symfony\Component\Routing\RouteCollection;
 use Drupal\Core\Routing\RouteSubscriberBase;
+use Symfony\Component\Routing\RouteCollection;
 
 /**
- * Keeps the public Office calculation detail URL as the canonical workbench.
- *
- * The old Office controller still contains legacy calculation dashboard code,
- * but users should never land on that parallel calculation truth.
+ * Keeps the legacy Office calculation URL as a compatibility redirect.
  */
 final class CalculationWorkspaceRouteSubscriber extends RouteSubscriberBase {
 
@@ -22,17 +19,13 @@ final class CalculationWorkspaceRouteSubscriber extends RouteSubscriberBase {
     }
 
     $defaults = $route->getDefaults();
-    unset($defaults['_controller'], $defaults['_title_callback']);
-    $defaults['_form'] = '\\Drupal\\brebo_calculation\\Form\\CalculationWorkbenchForm';
+    unset($defaults['_controller'], $defaults['_form'], $defaults['_title_callback']);
+    $defaults['_controller'] = '\\Drupal\\brebo_calculation\\Controller\\CalculationWorkspaceRedirectController::redirect';
     $defaults['_title'] = 'Calculatiewerkbank';
     $route->setDefaults($defaults);
 
-    // Preserve normal node access for the Office URL. The workbench itself
-    // determines whether the current user may edit or only view the version.
-    $route->setRequirement('_entity_access', 'node.view');
-    $route->setOption('parameters', [
-      'node' => ['type' => 'entity:node'],
-    ]);
+    $route->setRequirement('_permission', 'edit brebo calculation workbench');
+    $route->setOption('parameters', []);
   }
 
 }
