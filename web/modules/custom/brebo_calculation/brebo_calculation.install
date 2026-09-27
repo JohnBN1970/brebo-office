@@ -10,6 +10,21 @@ declare(strict_types=1);
 /** Implements hook_schema(). */
 function brebo_calculation_schema(): array {
   $schema = [];
+  $schema['brebo_calculation_context'] = [
+    'description' => 'BREBO-owned calculation identity and Office context.',
+    'fields' => [
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+      'package_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'project_label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'updated' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['calculation_id'],
+    'indexes' => ['project' => ['project_id'], 'package' => ['package_id']],
+  ];
+
 
   $schema['brebo_calculation_structure'] = [
     'description' => 'Hierarchical structure nodes for calculation versions.',

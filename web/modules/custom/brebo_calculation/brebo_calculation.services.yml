@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.context:
+    class: Drupal\brebo_calculation\Service\CalculationContextService
+    arguments: ['@database']
+
   brebo_calculation.structure_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationStructureIdentityGenerator
     arguments: ['@database']
