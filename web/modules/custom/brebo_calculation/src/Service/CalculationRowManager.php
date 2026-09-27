@@ -30,8 +30,9 @@ final class CalculationRowManager {
     try {
       $lineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
 
+      $rowId = $this->nextRowId();
       $this->database->insert('brebo_calculation_row_domain')->fields([
-        'row_id' => $this->nextRowId(),
+        'row_id' => $rowId,
         'calc_line_id' => $lineId,
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -49,7 +50,7 @@ final class CalculationRowManager {
         'subcontracting_unit_cost' => 0,
         'other_unit_cost' => 0,
       ])->execute();
-      return $lineId;
+      return $rowId;
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -67,7 +68,7 @@ final class CalculationRowManager {
   public function updateQuickEntry(
     int $calculationId,
     string $version,
-    int $lineId,
+    int $rowId,
     string $description,
     string $unit,
     float $quantity,
@@ -75,7 +76,7 @@ final class CalculationRowManager {
     int $actorId,
   ): void {
     $this->assertEditable($calculationId, $version, $actorId);
-    $this->domainRow($calculationId, $version, $lineId);
+    $domain = $this->domainRow($calculationId, $version, $rowId);
 
     $description = trim($description);
     $unit = trim($unit);
@@ -99,7 +100,7 @@ final class CalculationRowManager {
 
     $transaction = $this->database->startTransaction();
     try {
-      $this->legacyLineGateway->updateQuickEntry($lineId, $description, $unit, $quantity, $costs);
+      $this->legacyLineGateway->updateQuickEntry((int) $domain['calc_line_id'], $description, $unit, $quantity, $costs);
 
       $this->database->update('brebo_calculation_row_domain')
         ->fields($costs + [
@@ -107,7 +108,7 @@ final class CalculationRowManager {
           'contract_quantity' => $quantity,
           'unit' => $unit,
         ])
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->execute();
@@ -118,19 +119,20 @@ final class CalculationRowManager {
     }
   }
 
-  public function duplicate(int $calculationId, string $version, int $lineId, int $actorId): int {
+  public function duplicate(int $calculationId, string $version, int $rowId, int $actorId): int {
     $this->assertEditable($calculationId, $version, $actorId);
-    $domain = $this->domainRow($calculationId, $version, $lineId);
+    $domain = $this->domainRow($calculationId, $version, $rowId);
     $transaction = $this->database->startTransaction();
     try {
-      $copyId = $this->legacyLineGateway->duplicate($lineId, $actorId);
-      unset($domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
-      $domain['row_id'] = $this->nextRowId();
-      $domain['calc_line_id'] = $copyId;
+      $copyLegacyLineId = $this->legacyLineGateway->duplicate((int) $domain['calc_line_id'], $actorId);
+      unset($domain['row_id'], $domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
+      $copyRowId = $this->nextRowId();
+      $domain['row_id'] = $copyRowId;
+      $domain['calc_line_id'] = $copyLegacyLineId;
       $domain['calculation_id'] = $calculationId;
       $domain['version'] = $version;
       $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
-      return $copyId;
+      return $copyRowId;
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -138,17 +140,17 @@ final class CalculationRowManager {
     }
   }
 
-  public function delete(int $calculationId, string $version, int $lineId, int $actorId): void {
+  public function delete(int $calculationId, string $version, int $rowId, int $actorId): void {
     $this->assertEditable($calculationId, $version, $actorId);
-    $this->domainRow($calculationId, $version, $lineId);
+    $domain = $this->domainRow($calculationId, $version, $rowId);
     $transaction = $this->database->startTransaction();
     try {
       $this->database->delete('brebo_calculation_row_domain')
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->execute();
-      $this->legacyLineGateway->delete($lineId);
+      $this->legacyLineGateway->delete((int) $domain['calc_line_id']);
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -156,9 +158,9 @@ final class CalculationRowManager {
     }
   }
 
-  public function move(int $calculationId, string $version, int $lineId, string $targetParagraphKey, int $actorId): void {
+  public function move(int $calculationId, string $version, int $rowId, string $targetParagraphKey, int $actorId): void {
     $this->assertEditable($calculationId, $version, $actorId);
-    $this->domainRow($calculationId, $version, $lineId);
+    $domain = $this->domainRow($calculationId, $version, $rowId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
 
     $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
@@ -168,11 +170,11 @@ final class CalculationRowManager {
 
     $transaction = $this->database->startTransaction();
     try {
-      $this->legacyLineGateway->move($lineId, $targetElementId);
+      $this->legacyLineGateway->move((int) $domain['calc_line_id'], $targetElementId);
 
       $this->database->update('brebo_calculation_row_domain')
         ->fields(['paragraph_key' => $targetParagraphKey])
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->execute();
@@ -184,10 +186,10 @@ final class CalculationRowManager {
   }
 
   /** @return array<string,mixed> */
-  private function domainRow(int $calculationId, string $version, int $lineId): array {
+  private function domainRow(int $calculationId, string $version, int $rowId): array {
     $row = $this->database->select('brebo_calculation_row_domain', 'r')
       ->fields('r')
-      ->condition('calc_line_id', $lineId)
+      ->condition('row_id', $rowId)
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
       ->execute()->fetchAssoc();
