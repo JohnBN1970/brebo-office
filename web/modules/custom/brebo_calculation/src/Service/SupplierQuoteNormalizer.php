@@ -654,8 +654,10 @@ final class SupplierQuoteNormalizer {
 
     // PDF layout extraction may concatenate several labelled fields on one line.
     // Insert a logical line break before every known label before parsing.
-    $labels = 'Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot';
+    $labels = 'Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie(?:\\s*\\(zonder\\s+toebehoren\\))?|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot';
     $normalized = preg_replace('/\\s*(?=(' . $labels . ')\\s*:)/ui', "\n", $details) ?? $details;
+    // Recover labels that lost their colon during column serialization.
+    $normalized = preg_replace('/\\s+(?=(Bovenste\\s+sluiter|Gewicht\\s+positie(?:\\s*\\(zonder\\s+toebehoren\\))?|Ontwatering|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\b)/ui', "\n", $normalized) ?? $normalized;
 
     $fields = [];
     $current = NULL;
@@ -664,7 +666,7 @@ final class SupplierQuoteNormalizer {
       if ($line === '') {
         continue;
       }
-      if (preg_match('/^(' . $labels . ')\\s*:\\s*(.*)$/ui', $line, $m)) {
+      if (preg_match('/^(' . $labels . ')\\s*:?\\s*(.*)$/ui', $line, $m)) {
         $key = trim((string) $m[1]);
         $value = trim((string) $m[2]);
         $fields[$key] = $value;
