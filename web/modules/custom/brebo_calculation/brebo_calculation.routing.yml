@@ -196,7 +196,7 @@ brebo_calculation.object_exception_lines:
         type: entity:node
 
 brebo_calculation.price_sources:
-  path: '/admin/brebo/calculations/{node}/workbench/line/{line}/price-sources'
+  path: '/admin/brebo/calculations/{node}/workbench/row/{row}/price-sources'
   defaults:
     _form: '\Drupal\brebo_calculation\Form\CalculationPriceSourceForm'
     _title: 'Prijsbronnen calculatieregel'
