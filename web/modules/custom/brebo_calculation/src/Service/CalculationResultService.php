@@ -69,7 +69,7 @@ final class CalculationResultService {
       ->condition('version', (string) $version['version'])
       ->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $lines = $this->lineReadModel->loadMany($lineIds);
+    $lines = $this->lineReadModel->loadMany($lineIds, (string) $version['version']);
 
     $pricedDirect = 0.0;
     $optionsDirect = 0.0;
