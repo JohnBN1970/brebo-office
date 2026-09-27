@@ -121,12 +121,14 @@ final class CalculationRowManager {
     $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
 
     $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0) {
-      $copyLegacyLineId = $this->legacyLineGateway->duplicate($legacyLineId, $actorId);
-      $this->legacyMirrorMap->attach($calculationId, $version, $copyRowId, $copyLegacyLineId);
-    }
-    else {
-      $this->createLegacyMirror($calculationId, $version, $copyRowId, (string) $domain['paragraph_key'], $actorId);
+    if ($this->legacyMirrorPolicy->createLegacyMirrors()) {
+      if ($legacyLineId > 0) {
+        $copyLegacyLineId = $this->legacyLineGateway->duplicate($legacyLineId, $actorId);
+        $this->legacyMirrorMap->attach($calculationId, $version, $copyRowId, $copyLegacyLineId);
+      }
+      else {
+        $this->createLegacyMirror($calculationId, $version, $copyRowId, (string) $domain['paragraph_key'], $actorId);
+      }
     }
 
     return $copyRowId;
