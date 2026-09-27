@@ -15,6 +15,7 @@ final class CalculationRowManager {
     private readonly Connection $database,
     private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
     private readonly CalculationAccessGatewayInterface $accessGateway,
+    private readonly CalculationRowIdentityGenerator $rowIdentityGenerator,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
@@ -30,7 +31,7 @@ final class CalculationRowManager {
     try {
       $lineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
 
-      $rowId = $this->nextRowId();
+      $rowId = $this->rowIdentityGenerator->next();
       $this->database->insert('brebo_calculation_row_domain')->fields([
         'row_id' => $rowId,
         'calc_line_id' => $lineId,
@@ -126,7 +127,7 @@ final class CalculationRowManager {
     try {
       $copyLegacyLineId = $this->legacyLineGateway->duplicate((int) $domain['calc_line_id'], $actorId);
       unset($domain['row_id'], $domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
-      $copyRowId = $this->nextRowId();
+      $copyRowId = $this->rowIdentityGenerator->next();
       $domain['row_id'] = $copyRowId;
       $domain['calc_line_id'] = $copyLegacyLineId;
       $domain['calculation_id'] = $calculationId;
@@ -231,11 +232,6 @@ final class CalculationRowManager {
     }
   }
 
-  private function nextRowId(): int {
-    $query = $this->database->select('brebo_calculation_row_domain', 'r');
-    $query->addExpression('MAX(row_id)', 'max_row_id');
-    return ((int) $query->execute()->fetchField()) + 1;
-  }
 
   /** @param array<string, float|int> $unitCosts */
   private function nonNegativeCost(array $unitCosts, string $key): float {
