@@ -337,3 +337,75 @@ brebo_calculation.workspace_v2_structure_reorder:
   methods: [PATCH]
   options:
     no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_recipe_place:
+  path: '/api/workbench/v2/calculations/{calculation}/recipes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::placeRecipe'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_recipe_update:
+  path: '/api/workbench/v2/calculations/{calculation}/recipes/{recipe}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRecipe'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    recipe: '\d+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_create:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculation'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_scope_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/scopes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationScope'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    subcalculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_application_create:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculationApplication'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    subcalculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_application_object_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications/{application}/objects'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationApplicationObject'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    subcalculation: '\d+'
+    application: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
