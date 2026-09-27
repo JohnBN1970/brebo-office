@@ -9,6 +9,8 @@ use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\brebo_calculation\Service\RecipeManager;
 use Drupal\brebo_calculation\Service\SubcalculationManager;
 use Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard;
+use Drupal\brebo_calculation\Service\CalculationPriceSourceManager;
+use Drupal\brebo_calculation\Service\ObjectExceptionLineManager;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -27,6 +29,8 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     private readonly RecipeManager $recipeManager,
     private readonly SubcalculationManager $subcalculationManager,
     private readonly CalculationWorkspaceResourceGuard $resourceGuard,
+    private readonly CalculationPriceSourceManager $priceSourceManager,
+    private readonly ObjectExceptionLineManager $exceptionLineManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -36,6 +40,8 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $container->get('brebo_calculation.recipe_manager'),
       $container->get('brebo_calculation.subcalculation_manager'),
       $container->get('brebo_calculation.workspace_resource_guard'),
+      $container->get('brebo_calculation.price_source_manager'),
+      $container->get('brebo_calculation.object_exception_line_manager'),
     );
   }
 
@@ -218,6 +224,47 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         is_array($input['exception_costs'] ?? NULL) ? $input['exception_costs'] : [],
       );
       return ['object_id' => $id, 'application_id' => $application];
+    }, $request, 201);
+  }
+
+  public function addPriceSource(Request $request, int $calculation, int $row): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $row): array {
+      $sourceId = $this->priceSourceManager->createForLine(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $row,
+        $input,
+        (int) $this->currentUser()->id(),
+      );
+      return ['price_source_id' => $sourceId, 'row_id' => $row];
+    }, $request, 201);
+  }
+
+  public function approvePriceSource(Request $request, int $calculation, int $row, int $source): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $row, $source): array {
+      $this->priceSourceManager->approveForLine(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $row,
+        $source,
+        $this->requiredString($input, 'cost_carrier'),
+        $this->requiredFloat($input, 'unit_cost'),
+        ($note = trim((string) ($input['note'] ?? ''))) !== '' ? $note : NULL,
+        (int) $this->currentUser()->id(),
+      );
+      return ['price_source_id' => $source, 'row_id' => $row, 'approved' => TRUE];
+    }, $request);
+  }
+
+  public function addObjectExceptionLine(Request $request, int $calculation, int $subcalculation, int $application, int $object): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $subcalculation, $application, $object): array {
+      $this->resourceGuard->assertApplicationObject($calculation, $subcalculation, $application, $object);
+      $lineId = $this->exceptionLineManager->addLine(
+        $object,
+        $input,
+        (int) $this->currentUser()->id(),
+      );
+      return ['exception_line_id' => $lineId, 'object_id' => $object];
     }, $request, 201);
   }
 
