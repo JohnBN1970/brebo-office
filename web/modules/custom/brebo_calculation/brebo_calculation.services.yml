@@ -8,8 +8,8 @@ services:
     arguments: ['@entity_type.manager']
 
   brebo_calculation.line_read_model:
-    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineReadModel
-    arguments: ['@entity_type.manager']
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationLineReadModel
+    arguments: ['@database']
 
   brebo_calculation.legacy_structure_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationStructureLegacyGateway
