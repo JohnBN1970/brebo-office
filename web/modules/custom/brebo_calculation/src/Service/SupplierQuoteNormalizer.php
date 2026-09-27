@@ -96,7 +96,7 @@ final class SupplierQuoteNormalizer {
   }
 
   /** @param list<array<string,mixed>> $quoteLines
-   *  @return array{group:string,paragraph:string,discipline:string,subtype:string,confidence:float}|null
+   *  @return array{discipline:string,element:string,material:string,type:string,confidence:float}|null
    */
   private function classifyScope(string $text, array $quoteLines): ?array {
     $haystack = mb_strtolower($text);
@@ -108,10 +108,10 @@ final class SupplierQuoteNormalizer {
     }
     if ($quoteLines !== [] && $score >= 3) {
       return [
-        'group' => 'Kozijnen',
-        'paragraph' => 'Stalen kozijnen en deuren',
-        'discipline' => 'kozijnen',
-        'subtype' => 'stalen_kozijnen_deuren',
+        'discipline' => 'gevel_en_openingen',
+        'element' => 'kozijn',
+        'material' => 'staal',
+        'type' => 'kozijn_deur',
         'confidence' => min(0.99, 0.70 + ($score * 0.04)),
       ];
     }
