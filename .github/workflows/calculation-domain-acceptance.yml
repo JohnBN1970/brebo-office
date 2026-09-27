@@ -94,6 +94,12 @@ jobs:
           grep -q "row_ids" "$glass_guard"
           grep -q "material_row_id" "$glass_exporter"
           grep -q "labour_row_id" "$glass_exporter"
+          active_services='web/modules/custom/brebo_calculation/src/Service'
+          active_forms='web/modules/custom/brebo_calculation/src/Form'
+          ! grep -R -q "calc_line_id" "$active_services"
+          ! grep -R -q "calc_line_id" "$active_forms"
+          mirror_map='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationLegacyLineMirrorMap.php'
+          grep -q "calc_line_id" "$mirror_map"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
