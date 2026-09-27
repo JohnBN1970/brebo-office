@@ -6,15 +6,14 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
-use Drupal\brebo_calculation\Contract\CalculationStructureLegacyGatewayInterface;
 
 /** Creates and reorders calculation structure while preserving legacy identity. */
 final class CalculationStructureManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly CalculationStructureLegacyGatewayInterface $legacyStructureGateway,
     private readonly CalculationAccessGatewayInterface $accessGateway,
+    private readonly CalculationStructureIdentityGenerator $structureIdentityGenerator,
   ) {}
 
   public function addMainGroup(int $calculationId, string $version, string $code, string $label, int $actorId): string {
@@ -27,9 +26,8 @@ final class CalculationStructureManager {
 
     $transaction = $this->database->startTransaction();
     try {
-      $legacy = $this->legacyStructureGateway->createMainGroup($calculationId, $code, $label, $actorId);
-      $sequence = $legacy['sequence'];
-      $nodeKey = 'component_' . $legacy['id'];
+      $sequence = $this->nextSortOrder($calculationId, $version, NULL);
+      $nodeKey = $this->structureIdentityGenerator->mainGroupKey($calculationId, $version);
       $this->database->insert('brebo_calculation_structure')->fields([
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -57,11 +55,6 @@ final class CalculationStructureManager {
     if ($parent['node_type'] !== 'main_group') {
       throw new \InvalidArgumentException('Paragraphs must currently be attached to a main group.');
     }
-    if (!preg_match('/^component_(\d+)$/', $parentKey, $matches)) {
-      throw new \RuntimeException('Main group has no legacy component identity.');
-    }
-
-    $componentId = (int) $matches[1];
     $code = trim($code);
     $label = trim($label);
     if ($label === '') {
@@ -70,9 +63,8 @@ final class CalculationStructureManager {
 
     $transaction = $this->database->startTransaction();
     try {
-      $legacy = $this->legacyStructureGateway->createParagraph($calculationId, $componentId, $code, $label, $actorId);
-      $sequence = $legacy['sequence'];
-      $nodeKey = 'element_' . $legacy['id'];
+      $sequence = $this->nextSortOrder($calculationId, $version, $parentKey);
+      $nodeKey = $this->structureIdentityGenerator->paragraphKey($calculationId, $version);
       $this->database->insert('brebo_calculation_structure')->fields([
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -106,12 +98,6 @@ final class CalculationStructureManager {
         ->condition('node_key', $nodeKey)
         ->execute();
 
-      if ($node['node_type'] === 'main_group' && preg_match('/^component_(\d+)$/', $nodeKey, $matches)) {
-        $this->legacyStructureGateway->reorder('main_group', (int) $matches[1], $sortOrder);
-      }
-      if ($node['node_type'] === 'paragraph' && preg_match('/^element_(\d+)$/', $nodeKey, $matches)) {
-        $this->legacyStructureGateway->reorder('paragraph', (int) $matches[1], $sortOrder);
-      }
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -131,6 +117,20 @@ final class CalculationStructureManager {
     }
     $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
     return $row;
+  }
+
+  private function nextSortOrder(int $calculationId, string $version, ?string $parentKey): int {
+    $query = $this->database->select('brebo_calculation_structure', 's')
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version);
+    if ($parentKey === NULL) {
+      $query->isNull('parent_key');
+    }
+    else {
+      $query->condition('parent_key', $parentKey);
+    }
+    $query->addExpression('MAX(sort_order)', 'max_sort_order');
+    return ((int) $query->execute()->fetchField()) + 10;
   }
 
   /** @return array<string,mixed> */

@@ -108,6 +108,13 @@ jobs:
           grep -q "legacy_line_gateway" "$services"
           grep -q "legacy_line_compatibility.drupal" "$services"
           grep -q "NoopCalculationLegacyLineCompatibility" "$services"
+          structure_manager='web/modules/custom/brebo_calculation/src/Service/CalculationStructureManager.php'
+          structure_identity='web/modules/custom/brebo_calculation/src/Service/CalculationStructureIdentityGenerator.php'
+          ! grep -q "CalculationStructureLegacyGatewayInterface" "$structure_manager"
+          ! grep -q "component_" "$structure_manager"
+          ! grep -q "element_" "$structure_manager"
+          grep -q "mainGroupKey" "$structure_identity"
+          grep -q "paragraphKey" "$structure_identity"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
