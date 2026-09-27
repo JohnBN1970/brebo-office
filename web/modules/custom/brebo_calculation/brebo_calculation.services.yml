@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.structure_identity_generator:
+    class: Drupal\brebo_calculation\Service\CalculationStructureIdentityGenerator
+    arguments: ['@database']
+
   brebo_calculation.legacy_line_mirror_policy:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyLineMirrorPolicy
     arguments: ['@config.factory']
@@ -155,8 +159,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
       - '@database'
-      - '@brebo_calculation.legacy_structure_gateway'
       - '@brebo_calculation.access_gateway'
+      - '@brebo_calculation.structure_identity_generator'
 
   brebo_calculation.price_source_manager:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
