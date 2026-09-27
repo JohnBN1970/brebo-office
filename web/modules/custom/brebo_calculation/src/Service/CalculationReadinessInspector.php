@@ -35,7 +35,7 @@ final class CalculationReadinessInspector {
       static fn (array $row): int => (int) ($row['calc_line_id'] ?? 0),
       $rows,
     )));
-    $lineData = $lineIds ? $this->lineReadModel->loadMany($lineIds) : [];
+    $lineData = $lineIds ? $this->lineReadModel->loadMany($lineIds, $version) : [];
 
     foreach ($rows as $row) {
       $lineId = (int) ($row['calc_line_id'] ?? 0);
