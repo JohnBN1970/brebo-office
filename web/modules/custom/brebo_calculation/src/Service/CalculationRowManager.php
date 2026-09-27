@@ -22,42 +22,30 @@ final class CalculationRowManager {
     $this->assertEditable($calculationId, $version, $actorId);
     $this->assertLeafParagraph($calculationId, $version, $paragraphKey);
 
-    $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
-    if ($legacyElementId === NULL) {
-      throw new \RuntimeException('No legacy calculation element is mapped to this paragraph yet.');
-    }
+    $rowId = $this->rowIdentityGenerator->next();
+    $this->database->insert('brebo_calculation_row_domain')->fields([
+      'row_id' => $rowId,
+      'calc_line_id' => NULL,
+      'calculation_id' => $calculationId,
+      'version' => $version,
+      'paragraph_key' => $paragraphKey,
+      'rule_type' => 'normal',
+      'description' => 'Nieuwe calculatieregel',
+      'contract_quantity' => 1,
+      'actual_quantity' => NULL,
+      'unit' => 'post',
+      'budget_hours' => 0,
+      'labour_rate' => 0,
+      'sort_order' => $this->nextSortOrder($calculationId, $version, $paragraphKey),
+      'labour_unit_cost' => 0,
+      'material_unit_cost' => 0,
+      'equipment_unit_cost' => 0,
+      'subcontracting_unit_cost' => 0,
+      'other_unit_cost' => 0,
+    ])->execute();
 
-    $transaction = $this->database->startTransaction();
-    try {
-      $lineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
-
-      $rowId = $this->rowIdentityGenerator->next();
-      $this->database->insert('brebo_calculation_row_domain')->fields([
-        'row_id' => $rowId,
-        'calc_line_id' => $lineId,
-        'calculation_id' => $calculationId,
-        'version' => $version,
-        'paragraph_key' => $paragraphKey,
-        'rule_type' => 'normal',
-        'description' => 'Nieuwe calculatieregel',
-        'contract_quantity' => 1,
-        'actual_quantity' => NULL,
-        'unit' => 'post',
-        'budget_hours' => 0,
-        'labour_rate' => 0,
-        'sort_order' => $this->nextSortOrder($calculationId, $version, $paragraphKey),
-        'labour_unit_cost' => 0,
-        'material_unit_cost' => 0,
-        'equipment_unit_cost' => 0,
-        'subcontracting_unit_cost' => 0,
-        'other_unit_cost' => 0,
-      ])->execute();
-      return $rowId;
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
-    }
+    $this->createLegacyMirror($calculationId, $version, $rowId, $paragraphKey, $actorId);
+    return $rowId;
   }
 
   /**
@@ -100,24 +88,20 @@ final class CalculationRowManager {
       'other_unit_cost' => $this->nonNegativeCost($unitCosts, 'other'),
     ];
 
-    $transaction = $this->database->startTransaction();
-    try {
-      $this->legacyLineGateway->updateQuickEntry((int) $domain['calc_line_id'], $description, $unit, $quantity, $costs);
+    $this->database->update('brebo_calculation_row_domain')
+      ->fields($costs + [
+        'description' => $description,
+        'contract_quantity' => $quantity,
+        'unit' => $unit,
+      ])
+      ->condition('row_id', $rowId)
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->execute();
 
-      $this->database->update('brebo_calculation_row_domain')
-        ->fields($costs + [
-          'description' => $description,
-          'contract_quantity' => $quantity,
-          'unit' => $unit,
-        ])
-        ->condition('row_id', $rowId)
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->execute();
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
+    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    if ($legacyLineId > 0) {
+      $this->legacyLineGateway->updateQuickEntry($legacyLineId, $description, $unit, $quantity, $costs);
     }
   }
 
@@ -146,18 +130,15 @@ final class CalculationRowManager {
   public function delete(int $calculationId, string $version, int $rowId, int $actorId): void {
     $this->assertEditable($calculationId, $version, $actorId);
     $domain = $this->domainRow($calculationId, $version, $rowId);
-    $transaction = $this->database->startTransaction();
-    try {
-      $this->database->delete('brebo_calculation_row_domain')
-        ->condition('row_id', $rowId)
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->execute();
-      $this->legacyLineGateway->delete((int) $domain['calc_line_id']);
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
+    $this->database->delete('brebo_calculation_row_domain')
+      ->condition('row_id', $rowId)
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->execute();
+
+    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    if ($legacyLineId > 0) {
+      $this->legacyLineGateway->delete($legacyLineId);
     }
   }
 
@@ -166,26 +147,38 @@ final class CalculationRowManager {
     $domain = $this->domainRow($calculationId, $version, $rowId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
 
-    $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
-    if ($targetElementId === NULL) {
-      throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
+    $this->database->update('brebo_calculation_row_domain')
+      ->fields([
+        'paragraph_key' => $targetParagraphKey,
+        'sort_order' => $this->nextSortOrder($calculationId, $version, $targetParagraphKey),
+      ])
+      ->condition('row_id', $rowId)
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->execute();
+
+    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    if ($legacyLineId > 0) {
+      $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
+      if ($targetElementId !== NULL) {
+        $this->legacyLineGateway->move($legacyLineId, $targetElementId);
+      }
+    }
+  }
+
+  private function createLegacyMirror(int $calculationId, string $version, int $rowId, string $paragraphKey, int $actorId): void {
+    $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
+    if ($legacyElementId === NULL) {
+      return;
     }
 
-    $transaction = $this->database->startTransaction();
-    try {
-      $this->legacyLineGateway->move((int) $domain['calc_line_id'], $targetElementId);
-
-      $this->database->update('brebo_calculation_row_domain')
-        ->fields(['paragraph_key' => $targetParagraphKey])
-        ->condition('row_id', $rowId)
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->execute();
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
-    }
+    $legacyLineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
+    $this->database->update('brebo_calculation_row_domain')
+      ->fields(['calc_line_id' => $legacyLineId])
+      ->condition('row_id', $rowId)
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->execute();
   }
 
   /** @return array<string,mixed> */
