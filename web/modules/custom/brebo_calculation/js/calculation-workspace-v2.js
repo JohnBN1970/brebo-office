@@ -48,13 +48,24 @@
         const qty = Number(row.actual_quantity ?? row.contract_quantity ?? 0);
         const unitCost = ['labour_unit_cost','material_unit_cost','equipment_unit_cost','subcontracting_unit_cost','other_unit_cost']
           .reduce((sum, field) => sum + Number(row[field] || 0), 0);
+        const editable = Boolean(state.editable);
+        const input = (field, value, type = 'text', step = '') => editable
+          ? '<input data-row-field="' + field + '" type="' + type + '"' + (step ? ' step="' + step + '"' : '') + ' value="' + esc(value) + '">'
+          : '<span>' + esc(value) + '</span>';
         body += '<div class="brebo-sw-row" data-row-id="' + esc(row.row_id) + '">'
           + '<span class="brebo-sw-row__code">' + esc(row.code || '') + '</span>'
-          + '<span class="brebo-sw-row__description">' + esc(row.description || '') + '</span>'
-          + '<span>' + esc(row.unit || '') + '</span>'
-          + '<span>' + esc(qty) + '</span>'
-          + '<span>' + money.format(unitCost) + '</span>'
+          + '<span class="brebo-sw-row__description">' + input('description', row.description || '') + '</span>'
+          + '<span>' + input('unit', row.unit || '') + '</span>'
+          + '<span>' + input('quantity', qty, 'number', '0.0001') + '</span>'
+          + '<span class="brebo-sw-costs">'
+          + input('labour_unit_cost', Number(row.labour_unit_cost || 0), 'number', '0.01')
+          + input('material_unit_cost', Number(row.material_unit_cost || 0), 'number', '0.01')
+          + input('equipment_unit_cost', Number(row.equipment_unit_cost || 0), 'number', '0.01')
+          + input('subcontracting_unit_cost', Number(row.subcontracting_unit_cost || 0), 'number', '0.01')
+          + input('other_unit_cost', Number(row.other_unit_cost || 0), 'number', '0.01')
+          + '</span>'
           + '<strong>' + money.format(qty * unitCost) + '</strong>'
+          + (editable ? '<button type="button" class="brebo-sw-delete" data-command="delete-row" title="Regel verwijderen">×</button>' : '')
           + '</div>';
       });
 
@@ -75,8 +86,29 @@
       + '<div><small>Verkoopprijs</small><strong>' + money.format(sales) + '</strong></div>'
       + '<div><small>Marge</small><strong>' + money.format(sales - direct) + '</strong></div>'
       + '<div><small>Readiness</small><strong>' + esc(readiness.status || '—') + '</strong></div></div>'
-      + '<main class="brebo-sw-main"><div class="brebo-sw-grid-head"><span>Code</span><span>Omschrijving</span><span>Eenh.</span><span>Aantal</span><span>Eenheidsprijs</span><span>Totaal</span></div>'
+      + '<main class="brebo-sw-main"><div class="brebo-sw-grid-head"><span>Code</span><span>Omschrijving</span><span>Eenh.</span><span>Aantal</span><span>Kostendragers</span><span>Totaal</span><span></span></div>'
       + (body || '<div class="brebo-sw-empty">Nog geen calculatiestructuur.</div>') + '</main></div>';
+  }
+
+  function rowPayload(root, row) {
+    const value = (field) => {
+      const element = row.querySelector('[data-row-field="' + field + '"]');
+      return element ? element.value : '';
+    };
+    const numeric = (field) => Number(value(field) || 0);
+    return {
+      version: root.dataset.version,
+      description: value('description'),
+      unit: value('unit'),
+      quantity: numeric('quantity'),
+      unit_costs: {
+        labour: numeric('labour_unit_cost'),
+        material: numeric('material_unit_cost'),
+        equipment: numeric('equipment_unit_cost'),
+        subcontracting: numeric('subcontracting_unit_cost'),
+        other: numeric('other_unit_cost'),
+      },
+    };
   }
 
   async function load(root) {
@@ -111,6 +143,40 @@
         version: root.dataset.version,
         paragraph_key: button.dataset.paragraph,
       });
+    }
+    catch (error) {
+      window.alert(error.message);
+      button.disabled = false;
+    }
+  });
+
+  document.addEventListener('change', async (event) => {
+    const field = event.target.closest('[data-row-field]');
+    if (!field) return;
+    const row = field.closest('[data-row-id]');
+    const root = field.closest('#brebo-calculation-workspace-v2');
+    if (!row || !root) return;
+    field.disabled = true;
+    try {
+      const base = root.dataset.stateUrl.replace(/\/$/, '');
+      await command(root, base + '/rows/' + row.dataset.rowId, 'PATCH', rowPayload(root, row));
+    }
+    catch (error) {
+      window.alert(error.message);
+      field.disabled = false;
+    }
+  });
+
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-command="delete-row"]');
+    if (!button) return;
+    const row = button.closest('[data-row-id]');
+    const root = button.closest('#brebo-calculation-workspace-v2');
+    if (!row || !root || !window.confirm('Deze calculatieregel verwijderen?')) return;
+    button.disabled = true;
+    try {
+      const base = root.dataset.stateUrl.replace(/\/$/, '');
+      await command(root, base + '/rows/' + row.dataset.rowId, 'DELETE', { version: root.dataset.version });
     }
     catch (error) {
       window.alert(error.message);
