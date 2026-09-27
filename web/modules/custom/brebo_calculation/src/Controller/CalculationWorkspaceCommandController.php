@@ -6,6 +6,8 @@ namespace Drupal\brebo_calculation\Controller;
 
 use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
+use Drupal\brebo_calculation\Service\RecipeManager;
+use Drupal\brebo_calculation\Service\SubcalculationManager;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -21,12 +23,16 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
   public function __construct(
     private readonly CalculationRowManager $rowManager,
     private readonly CalculationStructureManager $structureManager,
+    private readonly RecipeManager $recipeManager,
+    private readonly SubcalculationManager $subcalculationManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_calculation.row_manager'),
       $container->get('brebo_calculation.structure_manager'),
+      $container->get('brebo_calculation.recipe_manager'),
+      $container->get('brebo_calculation.subcalculation_manager'),
     );
   }
 
@@ -123,6 +129,89 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       );
       return ['structure_key' => $structure];
     }, $request);
+  }
+
+  public function placeRecipe(Request $request, int $calculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation): array {
+      $parameters = is_array($input['parameters'] ?? NULL) ? $input['parameters'] : [];
+      $instanceId = $this->recipeManager->placeRecipe(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $this->requiredString($input, 'paragraph_key'),
+        $this->requiredInt($input, 'recipe_version_id'),
+        $this->requiredFloat($input, 'quantity'),
+        $parameters,
+        (int) $this->currentUser()->id(),
+      );
+      return ['recipe_instance_id' => $instanceId];
+    }, $request, 201);
+  }
+
+  public function updateRecipe(Request $request, int $calculation, int $recipe): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $recipe): array {
+      if (isset($input['quantity'])) {
+        $this->recipeManager->updateQuantity($recipe, $this->requiredFloat($input, 'quantity'), (int) $this->currentUser()->id());
+      }
+      if (isset($input['parameters'])) {
+        if (!is_array($input['parameters'])) {
+          throw new \InvalidArgumentException('parameters must be an object.');
+        }
+        $this->recipeManager->updateParameters($recipe, $input['parameters'], (int) $this->currentUser()->id());
+      }
+      return ['recipe_instance_id' => $recipe];
+    }, $request);
+  }
+
+  public function createSubcalculation(Request $request, int $calculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation): array {
+      $id = $this->subcalculationManager->create(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $input,
+        (int) $this->currentUser()->id(),
+      );
+      return ['subcalculation_id' => $id];
+    }, $request, 201);
+  }
+
+  public function addSubcalculationScope(Request $request, int $calculation, int $subcalculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $subcalculation): array {
+      $id = $this->subcalculationManager->addScope(
+        $subcalculation,
+        $this->requiredString($input, 'scope_type'),
+        $this->requiredString($input, 'scope_ref'),
+        isset($input['multiplier']) && is_numeric($input['multiplier']) ? (float) $input['multiplier'] : 1.0,
+        (int) $this->currentUser()->id(),
+      );
+      return ['scope_id' => $id, 'subcalculation_id' => $subcalculation];
+    }, $request, 201);
+  }
+
+  public function createSubcalculationApplication(Request $request, int $calculation, int $subcalculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $subcalculation): array {
+      $id = $this->subcalculationManager->createApplication(
+        $subcalculation,
+        $input,
+        (int) $this->currentUser()->id(),
+      );
+      return ['application_id' => $id, 'subcalculation_id' => $subcalculation];
+    }, $request, 201);
+  }
+
+  public function addSubcalculationApplicationObject(Request $request, int $calculation, int $subcalculation, int $application): JsonResponse {
+    return $this->command(function (array $input) use ($calculation, $subcalculation, $application): array {
+      $id = $this->subcalculationManager->addApplicationObject(
+        $application,
+        $this->requiredString($input, 'object_type'),
+        $this->requiredString($input, 'object_ref'),
+        isset($input['factor']) && is_numeric($input['factor']) ? (float) $input['factor'] : 1.0,
+        !empty($input['is_exception']),
+        ($note = trim((string) ($input['exception_payload'] ?? ''))) !== '' ? $note : NULL,
+        (int) $this->currentUser()->id(),
+        is_array($input['exception_costs'] ?? NULL) ? $input['exception_costs'] : [],
+      );
+      return ['object_id' => $id, 'application_id' => $application];
+    }, $request, 201);
   }
 
   /**
