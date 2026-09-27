@@ -7,7 +7,6 @@ namespace Drupal\brebo_calculation\Service;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Session\AccountInterface;
 
 /** Guarded mutations for editable calculation rows. */
 final class CalculationRowManager {
@@ -18,7 +17,7 @@ final class CalculationRowManager {
     private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
-  public function add(int $calculationId, string $version, string $paragraphKey, AccountInterface $account): int {
+  public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
     $this->assertEditable($calculationId, $version, $account);
     $this->assertLeafParagraph($calculationId, $version, $paragraphKey);
 
@@ -29,7 +28,7 @@ final class CalculationRowManager {
 
     $transaction = $this->database->startTransaction();
     try {
-      $lineId = $this->legacyLineGateway->create($legacyElementId, (int) $account->id());
+      $lineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
 
       $this->database->insert('brebo_calculation_row_domain')->fields([
         'calc_line_id' => $lineId,
@@ -66,7 +65,7 @@ final class CalculationRowManager {
     string $unit,
     float $quantity,
     array $unitCosts,
-    AccountInterface $account,
+    int $actorId,
   ): void {
     $this->assertEditable($calculationId, $version, $account);
     $this->domainRow($calculationId, $version, $lineId);
@@ -108,12 +107,12 @@ final class CalculationRowManager {
     }
   }
 
-  public function duplicate(int $calculationId, string $version, int $lineId, AccountInterface $account): int {
+  public function duplicate(int $calculationId, string $version, int $lineId, int $actorId): int {
     $this->assertEditable($calculationId, $version, $account);
     $domain = $this->domainRow($calculationId, $version, $lineId);
     $transaction = $this->database->startTransaction();
     try {
-      $copyId = $this->legacyLineGateway->duplicate($lineId, (int) $account->id());
+      $copyId = $this->legacyLineGateway->duplicate($lineId, $actorId);
       unset($domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
       $domain['calc_line_id'] = $copyId;
       $domain['calculation_id'] = $calculationId;
@@ -127,7 +126,7 @@ final class CalculationRowManager {
     }
   }
 
-  public function delete(int $calculationId, string $version, int $lineId, AccountInterface $account): void {
+  public function delete(int $calculationId, string $version, int $lineId, int $actorId): void {
     $this->assertEditable($calculationId, $version, $account);
     $this->domainRow($calculationId, $version, $lineId);
     $transaction = $this->database->startTransaction();
@@ -145,7 +144,7 @@ final class CalculationRowManager {
     }
   }
 
-  public function move(int $calculationId, string $version, int $lineId, string $targetParagraphKey, AccountInterface $account): void {
+  public function move(int $calculationId, string $version, int $lineId, string $targetParagraphKey, int $actorId): void {
     $this->assertEditable($calculationId, $version, $account);
     $this->domainRow($calculationId, $version, $lineId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
@@ -186,10 +185,7 @@ final class CalculationRowManager {
     return $row;
   }
 
-  private function assertEditable(int $calculationId, string $version, AccountInterface $account): void {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function assertEditable(int $calculationId, string $version, int $actorId): void {
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['locked_at', 'status'])
       ->condition('calculation_id', $calculationId)
@@ -198,7 +194,7 @@ final class CalculationRowManager {
     if (!$row || $row['locked_at'] !== NULL || $row['status'] !== 'draft') {
       throw new \RuntimeException('Only unlocked draft calculation versions may be changed.');
     }
-    $this->accessGateway->assertCanUpdate($calculationId, (int) $account->id());
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
   }
 
   private function assertLeafParagraph(int $calculationId, string $version, string $paragraphKey): void {
