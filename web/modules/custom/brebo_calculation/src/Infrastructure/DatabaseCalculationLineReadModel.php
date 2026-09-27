@@ -16,16 +16,16 @@ final class DatabaseCalculationLineReadModel implements CalculationLineReadModel
     private readonly Connection $database,
   ) {}
 
-  public function loadMany(array $lineIds, string $version): array {
-    $lineIds = array_values(array_unique(array_filter(array_map('intval', $lineIds), static fn (int $id): bool => $id > 0)));
+  public function loadMany(array $rowIds, string $version): array {
+    $rowIds = array_values(array_unique(array_filter(array_map('intval', $rowIds), static fn (int $id): bool => $id > 0)));
     $version = trim($version);
-    if ($lineIds === [] || $version === '') {
+    if ($rowIds === [] || $version === '') {
       return [];
     }
 
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')
       ->fields('r', [
-        'calc_line_id',
+        'row_id',
         'description',
         'contract_quantity',
         'actual_quantity',
@@ -33,14 +33,14 @@ final class DatabaseCalculationLineReadModel implements CalculationLineReadModel
         'budget_hours',
         'labour_rate',
       ])
-      ->condition('calc_line_id', $lineIds, 'IN')
+      ->condition('row_id', $rowIds, 'IN')
       ->condition('version', $version)
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
 
     $result = [];
     foreach ($rows as $row) {
-      $id = (int) $row['calc_line_id'];
+      $id = (int) $row['row_id'];
       $result[$id] = [
         'description' => (string) ($row['description'] ?? ''),
         'contract_quantity' => (float) ($row['contract_quantity'] ?? 0),
