@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.calc_request_authenticator:
+    class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
+    arguments: ['@cache.default']
+
   brebo_calculation.workspace_resource_guard:
     class: Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard
     arguments: ['@database']
