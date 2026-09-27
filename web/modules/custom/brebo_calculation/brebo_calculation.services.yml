@@ -33,7 +33,9 @@ services:
 
   brebo_calculation.access_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationAccessGateway
-    arguments: ['@entity_type.manager']
+    arguments:
+      - '@entity_type.manager'
+      - '@database'
 
   brebo_calculation.legacy_line_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
