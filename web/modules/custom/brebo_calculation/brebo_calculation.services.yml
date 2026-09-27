@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.access_gateway:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationAccessGateway
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.legacy_line_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
     arguments: ['@entity_type.manager']
@@ -74,8 +78,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationRowManager
     arguments:
       - '@database'
-      - '@entity_type.manager'
       - '@brebo_calculation.legacy_line_gateway'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
