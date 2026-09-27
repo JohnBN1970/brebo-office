@@ -108,23 +108,29 @@ final class CalculationRowManager {
   public function duplicate(int $calculationId, string $version, int $rowId, int $actorId): int {
     $this->assertEditable($calculationId, $version, $actorId);
     $domain = $this->domainRow($calculationId, $version, $rowId);
-    $transaction = $this->database->startTransaction();
-    try {
-      $copyLegacyLineId = $this->legacyLineGateway->duplicate((int) $domain['calc_line_id'], $actorId);
-      unset($domain['row_id'], $domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
-      $copyRowId = $this->rowIdentityGenerator->next();
-      $domain['row_id'] = $copyRowId;
-      $domain['calc_line_id'] = $copyLegacyLineId;
-      $domain['sort_order'] = $this->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
-      $domain['calculation_id'] = $calculationId;
-      $domain['version'] = $version;
-      $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
-      return $copyRowId;
+
+    unset($domain['row_id'], $domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
+    $copyRowId = $this->rowIdentityGenerator->next();
+    $domain['row_id'] = $copyRowId;
+    $domain['calc_line_id'] = NULL;
+    $domain['sort_order'] = $this->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
+    $domain['calculation_id'] = $calculationId;
+    $domain['version'] = $version;
+    $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
+
+    $legacyLineId = (int) ($this->domainRow($calculationId, $version, $rowId)['calc_line_id'] ?? 0);
+    if ($legacyLineId > 0) {
+      $copyLegacyLineId = $this->legacyLineGateway->duplicate($legacyLineId, $actorId);
+      $this->database->update('brebo_calculation_row_domain')
+        ->fields(['calc_line_id' => $copyLegacyLineId])
+        ->condition('row_id', $copyRowId)
+        ->execute();
     }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
+    else {
+      $this->createLegacyMirror($calculationId, $version, $copyRowId, (string) $domain['paragraph_key'], $actorId);
     }
+
+    return $copyRowId;
   }
 
   public function delete(int $calculationId, string $version, int $rowId, int $actorId): void {
