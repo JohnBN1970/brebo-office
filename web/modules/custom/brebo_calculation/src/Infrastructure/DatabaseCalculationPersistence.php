@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Infrastructure;
 
+use Drupal\brebo_calculation\Service\CalculationRowIdentityGenerator;
 use Drupal\brebo_calculation\Contract\CalculationPersistenceInterface;
 use Drupal\brebo_calculation\Domain\CalculationSnapshot;
 use Drupal\brebo_calculation\Domain\CalculationVersion;
@@ -72,9 +73,7 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
 
   public function saveRowDomain(int $calculationId, string $version, int $calcLineId, array $data): void {
     if (!isset($data['row_id'])) {
-      $query = $this->database->select('brebo_calculation_row_domain', 'r');
-      $query->addExpression('MAX(row_id)', 'max_row_id');
-      $data['row_id'] = ((int) $query->execute()->fetchField()) + 1;
+      $data['row_id'] = $this->rowIdentityGenerator->next();
     }
     $allowed = [
       'row_id', 'paragraph_key', 'rule_type', 'location_ref', 'description',
