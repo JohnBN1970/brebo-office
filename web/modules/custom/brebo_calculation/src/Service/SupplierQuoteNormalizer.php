@@ -729,10 +729,13 @@ final class SupplierQuoteNormalizer {
     }
 
     return [
-      'x' => 0.05,
-      'y' => 0.42,
-      'width' => 0.42,
-      'height' => 0.53,
+      // The live GABIT layout places the elevation in the upper-left of
+      // the position page. Keep enough surrounding white space to retain the
+      // complete door/kozijn drawing, but stop before the technical text column.
+      'x' => 0.02,
+      'y' => 0.08,
+      'width' => 0.30,
+      'height' => 0.48,
     ];
   }
 
