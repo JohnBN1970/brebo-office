@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.line_read_model:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineReadModel
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.kozijn_price_observation_repository:
     class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
     arguments: ['@database']
@@ -19,7 +23,7 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationResultService
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.commercial_calculator'
 
   brebo_calculation.version_establisher:
