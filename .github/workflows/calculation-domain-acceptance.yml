@@ -126,6 +126,13 @@ jobs:
           ! grep -q "legacyCalculationGateway" "$version_establisher"
           grep -q "'status' => 'established'" "$version_establisher"
           grep -q "'locked_at' => \$lockedAt" "$version_establisher"
+          context_service='web/modules/custom/brebo_calculation/src/Service/CalculationContextService.php'
+          workbench_form='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
+          grep -q "brebo_calculation_context" "$install_file"
+          grep -q "brebo_calculation_context" "$context_service"
+          grep -q "CalculationContextService" "$workbench_form"
+          grep -q "calculationContext->get" "$workbench_form"
+          grep -q "accessGateway->assertCanEditWorkbench" "$workbench_form"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
