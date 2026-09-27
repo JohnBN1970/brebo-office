@@ -60,7 +60,6 @@ final class CalculationPriceSourceManager {
         'calculation_id' => $calculationId,
         'version' => $version,
         'row_id' => $rowId,
-        'calc_line_id' => $this->legacyLineId($calculationId, $version, $rowId),
         'source_line_ref' => 'cost_carrier:' . $costCarrier,
         'extracted_description' => trim((string) ($values['extracted_description'] ?? '')) ?: NULL,
         'extracted_quantity' => ($values['extracted_quantity'] ?? '') !== '' ? (float) $values['extracted_quantity'] : NULL,
@@ -136,17 +135,6 @@ final class CalculationPriceSourceManager {
       $transaction->rollBack();
       throw $e;
     }
-  }
-
-  private function legacyLineId(int $calculationId, string $version, int $rowId): ?int {
-    $legacyLineId = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['calc_line_id'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('row_id', $rowId)
-      ->execute()
-      ->fetchField();
-    return $legacyLineId ? (int) $legacyLineId : NULL;
   }
 
   private function normalizeCostCarrier(string $costCarrier): string {
