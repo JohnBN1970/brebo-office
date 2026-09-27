@@ -134,3 +134,57 @@ function brebo_calculation_post_update_add_object_price_provenance(&$sandbox = N
   }
   return $added ? 'BREBO Calculation price provenance added: '.implode(', ',$added).'.' : 'BREBO Calculation price provenance already exists.';
 }
+
+
+/**
+ * Promote primary calculation-line values into BREBO-owned row storage.
+ */
+function brebo_calculation_post_update_promote_row_domain_authority(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; authority promotion skipped.';
+  }
+
+  $fields = [
+    'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''],
+    'contract_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+    'actual_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+    'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+    'budget_hours' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+    'labour_rate' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+  ];
+  foreach ($fields as $name => $definition) {
+    if (!$schema->fieldExists($table, $name)) {
+      $schema->addField($table, $name, $definition);
+    }
+  }
+
+  $ids = array_map('intval', $database->select($table, 'r')->fields('r', ['calc_line_id'])->distinct()->execute()->fetchCol());
+  if ($ids === []) {
+    return 'BREBO Calculation row authority fields added; no existing rows required backfill.';
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $updated = 0;
+  foreach (array_chunk($ids, 100) as $chunk) {
+    foreach ($storage->loadMultiple($chunk) as $line) {
+      if (!$line instanceof \Drupal\node\NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+        continue;
+      }
+      $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+      $database->update($table)->fields([
+        'description' => mb_substr((string) ($line->get('field_brebo_line_description')->value ?? $line->label()), 0, 255),
+        'contract_quantity' => (float) ($line->get('field_brebo_contract_quantity')->value ?? 0),
+        'actual_quantity' => ($actualRaw === NULL || $actualRaw === '') ? NULL : (float) $actualRaw,
+        'unit' => mb_substr((string) ($line->get('field_brebo_unit')->value ?? ''), 0, 32),
+        'budget_hours' => $line->hasField('field_brebo_budget_hours') ? (float) ($line->get('field_brebo_budget_hours')->value ?? 0) : 0.0,
+        'labour_rate' => $line->hasField('field_brebo_labor_rate') ? (float) ($line->get('field_brebo_labor_rate')->value ?? 0) : 0.0,
+      ])->condition('calc_line_id', (int) $line->id())->execute();
+      $updated++;
+    }
+  }
+
+  return sprintf('BREBO Calculation row authority fields ready; %d legacy calc lines backfilled.', $updated);
+}
