@@ -6,7 +6,6 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\brebo_calculation\Contract\CalculationLegacyGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
@@ -21,7 +20,6 @@ final class CalculationVersionEstablisher {
     private readonly CalculationReadinessInspector $readinessInspector,
     private readonly TimeInterface $time,
     private readonly CalculationLineReadModelInterface $lineReadModel,
-    private readonly CalculationLegacyGatewayInterface $legacyCalculationGateway,
     private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
 
@@ -167,7 +165,6 @@ final class CalculationVersionEstablisher {
         throw new \RuntimeException('Calculatieversie veranderde tijdens het vaststellen.');
       }
 
-      $this->legacyCalculationGateway->markEstablished($calculationId);
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
