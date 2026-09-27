@@ -851,12 +851,38 @@ final class SupplierQuoteNormalizer {
               break;
             }
           }
+          $searchY = max(0.0, $yMax / $pageHeight);
+          $searchHeight = max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight));
           $row['source_visual_search_region'] = [
             'x' => 0.0,
-            'y' => max(0.0, $yMax / $pageHeight),
+            'y' => $searchY,
             'width' => 1.0,
-            'height' => max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight)),
+            'height' => $searchHeight,
           ];
+
+          // Export text-line bounds inside this position region. Calc can mask
+          // these rectangles before graphic-component detection, so headings,
+          // labels, prices and technical text cannot pollute the visual crop.
+          $textRegions = [];
+          foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $textLine) {
+            if (!$textLine instanceof \DOMElement) {
+              continue;
+            }
+            $tx0 = (float) $textLine->getAttribute('xMin');
+            $ty0 = (float) $textLine->getAttribute('yMin');
+            $tx1 = (float) $textLine->getAttribute('xMax');
+            $ty1 = (float) $textLine->getAttribute('yMax');
+            if ($ty1 < $yMax || $ty0 > $nextY || $tx1 <= $tx0 || $ty1 <= $ty0) {
+              continue;
+            }
+            $textRegions[] = [
+              'x' => max(0.0, min(1.0, $tx0 / $pageWidth)),
+              'y' => max(0.0, min(1.0, $ty0 / $pageHeight)),
+              'width' => max(0.001, min(1.0, ($tx1 - $tx0) / $pageWidth)),
+              'height' => max(0.001, min(1.0, ($ty1 - $ty0) / $pageHeight)),
+            ];
+          }
+          $row['source_text_regions'] = $textRegions;
           break 2;
         }
       }
