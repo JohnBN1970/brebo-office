@@ -183,18 +183,10 @@ jobs:
           grep -q "assertApplicationObject" "$resource_guard"
           grep -q "workspace_v2_price_source_add" "$routing"
           grep -q "workspace_v2_object_exception_line_add" "$routing"
-          workspace_shell='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceShellController.php'
-          workspace_client='web/modules/custom/brebo_calculation/js/calculation-workspace-v2.js'
-          grep -q "CalculationWorkspaceShellController::workspace" "$routing"
-          grep -q "brebo_calculation.workbench_legacy_form" "$routing"
-          grep -q "brebo_calculation.workspace_v2_state" "$workspace_shell"
-          grep -q "workspace_v2" "$workspace_shell"
-          grep -q "data-command=\\\"add-row\\\"" "$workspace_client"
-          grep -q "data-row-field" "$workspace_client"
-          grep -q "rowPayload" "$workspace_client"
-          grep -q "data-command=\\\"add-group\\\"" "$workspace_client"
-          grep -q "data-command=\\\"add-paragraph\\\"" "$workspace_client"
-          grep -q "data-command=\\\"delete-row\\\"" "$workspace_client"
+          services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
+          ! grep -q "workspace_route_subscriber" "$services"
+          grep -q "CalculationWorkspaceRedirectController::redirect" "$routing"
+          grep -q "/api/workbench/v2/calculations/{calculation}" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
