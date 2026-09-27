@@ -292,7 +292,6 @@ final class CalculationWorkbenchForm extends FormBase {
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
         $rowId = (int) $row['row_id'];
-        $legacyLineId = (int) ($row['calc_line_id'] ?? 0);
         $description = (string) ($row['description'] ?? '');
         $unit = (string) ($row['unit'] ?? '');
         $contractQuantity = (float) ($row['contract_quantity'] ?? 0);

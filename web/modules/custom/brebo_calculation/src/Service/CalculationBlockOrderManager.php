@@ -7,6 +7,7 @@ namespace Drupal\brebo_calculation\Service;
 use Drupal\Core\Database\Connection;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 
 /** Persists one shared order for calculation rows and recipe blocks. */
 final class CalculationBlockOrderManager {
@@ -15,6 +16,7 @@ final class CalculationBlockOrderManager {
     private readonly Connection $database,
     private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
     private readonly CalculationAccessGatewayInterface $accessGateway,
+    private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
 
   /**
@@ -252,14 +254,7 @@ final class CalculationBlockOrderManager {
   }
 
   private function legacyLineId(int $calculationId, string $version, int $rowId): ?int {
-    $legacyLineId = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['calc_line_id'])
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()
-      ->fetchField();
-    return $legacyLineId ? (int) $legacyLineId : NULL;
+    return $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId);
   }
 
   private function assertEditable(int $calculationId, string $version, int $actorId): void {
