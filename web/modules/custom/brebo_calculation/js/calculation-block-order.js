@@ -58,7 +58,7 @@
         const orderPayload = () => ({
           __workspace__: primaryRows().map((row) => ({
             type: row.dataset.blockType,
-            id: Number(row.dataset.lineId || row.dataset.recipeInstanceId),
+            id: Number(row.dataset.rowId || row.dataset.recipeInstanceId),
             paragraph: row.dataset.structureKey || '',
           })),
         });
@@ -140,7 +140,7 @@
               dragged = row;
               row.classList.add('is-dragging');
               event.dataTransfer.effectAllowed = 'move';
-              event.dataTransfer.setData('text/plain', `${row.dataset.blockType}:${row.dataset.lineId || row.dataset.recipeInstanceId}`);
+              event.dataTransfer.setData('text/plain', `${row.dataset.blockType}:${row.dataset.rowId || row.dataset.recipeInstanceId}`);
             });
             handle.addEventListener('dragend', () => {
               row.classList.remove('is-dragging');
