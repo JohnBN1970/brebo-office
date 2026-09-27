@@ -121,6 +121,11 @@ jobs:
           ! grep -q "access('update'" "$calculation_access"
           grep -q "brebo_calculation_version" "$calculation_access"
           grep -q "edit brebo calculation workbench" "$calculation_access"
+          version_establisher='web/modules/custom/brebo_calculation/src/Service/CalculationVersionEstablisher.php'
+          ! grep -q "CalculationLegacyGatewayInterface" "$version_establisher"
+          ! grep -q "legacyCalculationGateway" "$version_establisher"
+          grep -q "'status' => 'established'" "$version_establisher"
+          grep -q "'locked_at' => \$lockedAt" "$version_establisher"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
