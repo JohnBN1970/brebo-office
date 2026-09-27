@@ -4,30 +4,31 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Controller;
 
-use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Service\CalculationWorkspaceStateService;
+use Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 
 /** Read/query endpoints for the BREBO calculation workspace. */
 final class CalculationWorkspaceQueryController extends ControllerBase {
 
   public function __construct(
     private readonly CalculationWorkspaceStateService $stateService,
-    private readonly CalculationAccessGatewayInterface $accessGateway,
+    private readonly CalcIntegrationRequestAuthenticator $authenticator,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_calculation.workspace_state'),
-      $container->get('brebo_calculation.access_gateway'),
+      $container->get('brebo_calculation.calc_request_authenticator'),
     );
   }
 
-  public function state(int $calculation): JsonResponse {
+  public function state(Request $request, int $calculation): JsonResponse {
     try {
-      $this->accessGateway->assertCanEditWorkbench($calculation, (int) $this->currentUser()->id());
+      $this->authenticator->assertSigned($request, '');
       $state = $this->stateService->state($calculation);
       return new JsonResponse($state, 200, ['Cache-Control' => 'no-store, private']);
     }
