@@ -8,6 +8,7 @@ use Drupal\brebo_calculation\Service\CalculationRowManager;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\brebo_calculation\Service\RecipeManager;
 use Drupal\brebo_calculation\Service\SubcalculationManager;
+use Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -25,6 +26,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     private readonly CalculationStructureManager $structureManager,
     private readonly RecipeManager $recipeManager,
     private readonly SubcalculationManager $subcalculationManager,
+    private readonly CalculationWorkspaceResourceGuard $resourceGuard,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -33,6 +35,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $container->get('brebo_calculation.structure_manager'),
       $container->get('brebo_calculation.recipe_manager'),
       $container->get('brebo_calculation.subcalculation_manager'),
+      $container->get('brebo_calculation.workspace_resource_guard'),
     );
   }
 
@@ -149,6 +152,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
 
   public function updateRecipe(Request $request, int $calculation, int $recipe): JsonResponse {
     return $this->command(function (array $input) use ($calculation, $recipe): array {
+      $this->resourceGuard->assertRecipeInstance($calculation, $recipe);
       if (isset($input['quantity'])) {
         $this->recipeManager->updateQuantity($recipe, $this->requiredFloat($input, 'quantity'), (int) $this->currentUser()->id());
       }
@@ -176,6 +180,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
 
   public function addSubcalculationScope(Request $request, int $calculation, int $subcalculation): JsonResponse {
     return $this->command(function (array $input) use ($calculation, $subcalculation): array {
+      $this->resourceGuard->assertSubcalculation($calculation, $subcalculation);
       $id = $this->subcalculationManager->addScope(
         $subcalculation,
         $this->requiredString($input, 'scope_type'),
@@ -189,6 +194,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
 
   public function createSubcalculationApplication(Request $request, int $calculation, int $subcalculation): JsonResponse {
     return $this->command(function (array $input) use ($calculation, $subcalculation): array {
+      $this->resourceGuard->assertSubcalculation($calculation, $subcalculation);
       $id = $this->subcalculationManager->createApplication(
         $subcalculation,
         $input,
@@ -200,6 +206,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
 
   public function addSubcalculationApplicationObject(Request $request, int $calculation, int $subcalculation, int $application): JsonResponse {
     return $this->command(function (array $input) use ($calculation, $subcalculation, $application): array {
+      $this->resourceGuard->assertApplication($calculation, $subcalculation, $application);
       $id = $this->subcalculationManager->addApplicationObject(
         $application,
         $this->requiredString($input, 'object_type'),
