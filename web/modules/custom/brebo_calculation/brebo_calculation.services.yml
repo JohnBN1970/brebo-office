@@ -1,4 +1,12 @@
 services:
+  brebo_calculation.workspace_state:
+    class: Drupal\brebo_calculation\Service\CalculationWorkspaceStateService
+    arguments:
+      - '@database'
+      - '@brebo_calculation.context'
+      - '@brebo_calculation.result'
+      - '@brebo_calculation.readiness_inspector'
+
   brebo_calculation.context:
     class: Drupal\brebo_calculation\Service\CalculationContextService
     arguments: ['@database']
