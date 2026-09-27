@@ -6,7 +6,6 @@ namespace Drupal\brebo_calculation\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
@@ -15,13 +14,11 @@ final class CalculationWorkbenchController extends ControllerBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $calculationEntityTypeManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager'),
     );
   }
 
@@ -58,8 +55,6 @@ final class CalculationWorkbenchController extends ControllerBase {
       ->condition('version', $version['version'])
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
 
-    $lineIds = array_map(static fn (array $r): int => (int) $r['calc_line_id'], $rowRecords);
-    $lines = $lineIds ? $this->calculationEntityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
     $byParagraph = [];
     foreach ($rowRecords as $record) {
       $byParagraph[$record['paragraph_key']][] = $record;
@@ -81,10 +76,9 @@ final class CalculationWorkbenchController extends ControllerBase {
       ];
 
       foreach ($byParagraph[$key] ?? [] as $domain) {
-        $line = $lines[(int) $domain['calc_line_id']] ?? NULL;
-        $quantity = $line instanceof NodeInterface ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0) : 0.0;
-        $unit = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_unit')->value ?? '') : '';
-        $description = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_line_description')->value ?? $line->label()) : ('Regel ' . $domain['calc_line_id']);
+        $quantity = (float) ($domain['contract_quantity'] ?? 0);
+        $unit = (string) ($domain['unit'] ?? '');
+        $description = (string) ($domain['description'] ?? ('Regel ' . $domain['row_id']));
         $labour = (float) $domain['labour_unit_cost'];
         $material = (float) $domain['material_unit_cost'];
         $equipment = (float) $domain['equipment_unit_cost'];

@@ -204,8 +204,6 @@ final class CalculationWorkbenchForm extends FormBase {
     }
 
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $lineEntities = $lineIds ? $this->calculationEntityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
     $newLineId = (int) ($form_state->get('quick_entry_line_id') ?? 0);
 
     $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('calculation_id', (int) $node->id())->condition('calculation_version', $version['version'])->orderBy('paragraph_key')->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
@@ -294,12 +292,10 @@ final class CalculationWorkbenchForm extends FormBase {
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
         $lineId = (int) $row['calc_line_id'];
-        $line = $lineEntities[$lineId] ?? NULL;
-        if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') { continue; }
-        $description = $line->hasField('field_brebo_line_description') ? (string) $line->get('field_brebo_line_description')->value : (string) $line->label();
-        $unit = $line->hasField('field_brebo_unit') ? (string) $line->get('field_brebo_unit')->value : '';
-        $contractQuantity = $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0;
-        $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+        $description = (string) ($row['description'] ?? '');
+        $unit = (string) ($row['unit'] ?? '');
+        $contractQuantity = (float) ($row['contract_quantity'] ?? 0);
+        $actualRaw = $row['actual_quantity'] ?? NULL;
         $ruleType = (string) ($row['rule_type'] ?? 'normal');
         $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
           ? (float) $actualRaw
@@ -480,8 +476,8 @@ final class CalculationWorkbenchForm extends FormBase {
 
   private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
 
-  /** @param array<int,array<string,mixed>> $rows @param array<int,NodeInterface> $lineEntities */
-  private function directTotal(array $rows, array $lineEntities): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $lineId = (int) $row['calc_line_id']; $line = $lineEntities[$lineId] ?? NULL; $quantity = $line instanceof NodeInterface && $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0; $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
+  /** @param array<int,array<string,mixed>> $rows */
+  private function directTotal(array $rows): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $quantity = (float) ($row['contract_quantity'] ?? 0); $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
   /** @param array<int,array<string,mixed>> $lines */
   private function recipeInstanceTotal(array $lines): float { $total = 0.0; foreach ($lines as $line) { $total += $this->recipeLineQuantity($line) * (float) ($line['unit_cost'] ?? 0); } return $total; }
   /** @param array<int,array<int,array<string,mixed>>> $linesByInstance */
