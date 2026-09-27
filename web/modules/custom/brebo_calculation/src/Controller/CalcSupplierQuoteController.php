@@ -193,6 +193,50 @@ final class CalcSupplierQuoteController extends ControllerBase {
     return $response;
   }
 
+  public function positionVisual(Request $request, int $calculation, int $file, int $page): Response {
+    $this->assertSignedRequest($request, '');
+    if ($page < 1 || $page > 500) {
+      return new Response('Ongeldige bronpagina.', 400);
+    }
+    $entity = File::load($file);
+    if (!$entity) {
+      return new Response('Offertebron niet gevonden.', 404);
+    }
+    $uri = (string) $entity->getFileUri();
+    $expectedPrefix = 'private://brebo/calculation-price-sources/' . $calculation . '/';
+    if (!str_starts_with($uri, $expectedPrefix) || $entity->getMimeType() !== 'application/pdf') {
+      throw new AccessDeniedHttpException('Offertebron hoort niet bij deze calculatie of is geen PDF.');
+    }
+    $realPath = $this->fileSystem->realpath($uri);
+    if (!$realPath || !is_file($realPath)) {
+      return new Response('Offertebestand ontbreekt.', 404);
+    }
+
+    $binary = (new \Symfony\Component\Process\ExecutableFinder())->find('pdftoppm');
+    if ($binary === NULL) {
+      return new Response('PDF-beeldextractie is niet beschikbaar.', 503);
+    }
+    $tmpBase = sys_get_temp_dir() . '/brebo-quote-' . bin2hex(random_bytes(8));
+    $process = new \Symfony\Component\Process\Process([
+      $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
+      '-jpeg', '-jpegopt', 'quality=82', '-r', '110', $realPath, $tmpBase,
+    ]);
+    $process->setTimeout(20.0);
+    $process->run();
+    $imagePath = $tmpBase . '.jpg';
+    if (!$process->isSuccessful() || !is_file($imagePath)) {
+      @unlink($imagePath);
+      return new Response('Bronpagina kon niet als afbeelding worden opgebouwd.', 502);
+    }
+    $bytes = (string) file_get_contents($imagePath);
+    @unlink($imagePath);
+    $response = new Response($bytes);
+    $response->headers->set('Content-Type', 'image/jpeg');
+    $response->headers->set('Cache-Control', 'private, max-age=300');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    return $response;
+  }
+
   private function assertSignedRequest(Request $request, string $body): void {
     $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
     $timestamp = trim((string) $request->headers->get('X-BREBO-Timestamp', ''));
