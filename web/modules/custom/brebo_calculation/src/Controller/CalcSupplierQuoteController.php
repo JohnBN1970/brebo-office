@@ -212,20 +212,38 @@ final class CalcSupplierQuoteController extends ControllerBase {
       return new Response('Offertebestand ontbreekt.', 404);
     }
 
-    $binary = (new \Symfony\Component\Process\ExecutableFinder())->find('pdftoppm');
-    if ($binary === NULL) {
+    $finder = new \Symfony\Component\Process\ExecutableFinder();
+    $tmpBase = sys_get_temp_dir() . '/brebo-quote-' . bin2hex(random_bytes(8));
+    $imagePath = $tmpBase . '.jpg';
+    $process = NULL;
+    $renderer = '';
+
+    if (($binary = $finder->find('pdftoppm')) !== NULL) {
+      $renderer = 'pdftoppm';
+      $process = new \Symfony\Component\Process\Process([
+        $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
+        '-jpeg', '-jpegopt', 'quality=84', '-r', '130', $realPath, $tmpBase,
+      ]);
+    }
+    elseif (($binary = $finder->find('pdftocairo')) !== NULL) {
+      $renderer = 'pdftocairo';
+      $process = new \Symfony\Component\Process\Process([
+        $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
+        '-jpeg', '-jpegopt', 'quality=84', '-r', '130', $realPath, $tmpBase,
+      ]);
+    }
+    else {
       return new Response('PDF-beeldextractie is niet beschikbaar.', 503);
     }
-    $tmpBase = sys_get_temp_dir() . '/brebo-quote-' . bin2hex(random_bytes(8));
-    $process = new \Symfony\Component\Process\Process([
-      $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
-      '-jpeg', '-jpegopt', 'quality=82', '-r', '110', $realPath, $tmpBase,
-    ]);
+
     $process->setTimeout(20.0);
     $process->run();
-    $imagePath = $tmpBase . '.jpg';
     if (!$process->isSuccessful() || !is_file($imagePath)) {
       @unlink($imagePath);
+      $this->getLogger('brebo_calculation')->warning('Supplier quote visual render failed via @renderer: @error', [
+        '@renderer' => $renderer,
+        '@error' => trim($process->getErrorOutput()),
+      ]);
       return new Response('Bronpagina kon niet als afbeelding worden opgebouwd.', 502);
     }
     $bytes = (string) file_get_contents($imagePath);
@@ -234,6 +252,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     $response->headers->set('Content-Type', 'image/jpeg');
     $response->headers->set('Cache-Control', 'private, max-age=300');
     $response->headers->set('X-Content-Type-Options', 'nosniff');
+    $response->headers->set('X-BREBO-PDF-Renderer', $renderer);
     return $response;
   }
 
