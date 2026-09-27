@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.legacy_source:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalLegacyCalculationSource
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.legacy_calculation_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyGateway
     arguments: ['@entity_type.manager']
@@ -70,7 +74,7 @@ services:
   brebo_calculation.legacy_dry_run:
     class: Drupal\brebo_calculation\Service\LegacyDryRunService
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_calculation.legacy_source'
       - '@brebo_calculation.legacy_rule_mapper'
       - '@brebo_calculation.legacy_cost_mapper'
       - '@brebo_calculation.totalizer'
