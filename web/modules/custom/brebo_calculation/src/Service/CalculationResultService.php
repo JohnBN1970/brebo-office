@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 use Drupal\brebo_calculation\Domain\CalculationParameters;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
 
 /**
  * Builds the canonical commercial result for one calculation version.
@@ -16,7 +15,7 @@ final class CalculationResultService {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationLineReadModelInterface $lineReadModel,
     private readonly CommercialCalculator $commercialCalculator,
   ) {}
 
@@ -70,29 +69,25 @@ final class CalculationResultService {
       ->condition('version', (string) $version['version'])
       ->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $entities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    $lines = $this->lineReadModel->loadMany($lineIds);
 
     $pricedDirect = 0.0;
     $optionsDirect = 0.0;
     $components = [];
     foreach ($rows as $row) {
       $lineId = (int) $row['calc_line_id'];
-      $line = $entities[$lineId] ?? NULL;
-      if (!$line instanceof NodeInterface) {
+      $line = $lines[$lineId] ?? NULL;
+      if (!is_array($line)) {
         continue;
       }
       $ruleType = (string) ($row['rule_type'] ?? 'normal');
       if ($ruleType === 'note') {
         continue;
       }
-      $contractQuantity = $line->hasField('field_brebo_contract_quantity')
-        ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0)
-        : 0.0;
-      $actualRaw = $line->hasField('field_brebo_actual_quantity')
-        ? $line->get('field_brebo_actual_quantity')->value
-        : NULL;
-      $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
-        ? (float) $actualRaw
+      $contractQuantity = (float) ($line['contract_quantity'] ?? 0.0);
+      $actualQuantity = $line['actual_quantity'] ?? NULL;
+      $quantity = $ruleType === 'adjustable' && $actualQuantity !== NULL
+        ? (float) $actualQuantity
         : $contractQuantity;
       $unitDirect = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
       $direct = $quantity * $unitDirect;
@@ -104,9 +99,9 @@ final class CalculationResultService {
       }
       $components['line_' . $lineId] = [
         'kind' => 'row', 'id' => $lineId, 'rule_type' => $ruleType,
-        'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
+        'description' => (string) ($line['description'] ?? ''),
         'quantity' => $quantity,
-        'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
+        'unit' => (string) ($line['unit'] ?? ''),
         'direct_cost' => $direct,
       ];
     }
