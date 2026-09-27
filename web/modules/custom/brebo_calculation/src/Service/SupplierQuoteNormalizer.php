@@ -403,6 +403,7 @@ final class SupplierQuoteNormalizer {
       $details = $this->detailsForPosition((string) $row['position'], $lines);
       $details ??= $this->detailsForPositionOrdinal((string) $row['position'], $lines);
       $row['details'] = $details ?? '';
+      $row['source_page'] = $this->pageForPositionOrdinal((string) $row['position'], $text);
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -618,7 +619,10 @@ final class SupplierQuoteNormalizer {
       ) {
         // Preserve short continuation text belonging to the previous technical
         // label, but reject obvious page/header noise.
-        if (mb_strlen($candidate) <= 240 && !preg_match('/^(?:Pagina|Page|Offerte|Datum|Klant|Project)\\b/ui', $candidate)) {
+        if (mb_strlen($candidate) <= 240
+          && !preg_match('/^(?:Pagina|Page|Offerte|Datum|Klant|Project|BTW|Tel(?:efoon)?|E-?mail|www\\.|Quote\\b|Positie\\b|Aantal\\b|Omschrijving\\b|Prijs\\b|Totaal\\b)/ui', $candidate)
+          && !preg_match('/(?:@|https?:\\/\\/|www\\.)/ui', $candidate)
+        ) {
           $details[] = $candidate;
         }
       }
@@ -629,6 +633,28 @@ final class SupplierQuoteNormalizer {
       return NULL;
     }
     return mb_substr(implode("\n", $details), 0, 8000);
+  }
+
+  /**
+   * Resolve the PDF page containing the visual block for this position.
+   * pdftotext keeps form-feed page separators in its output.
+   */
+  private function pageForPositionOrdinal(string $position, string $text): ?int {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+    $pages = preg_split('/\\f/u', $text) ?: [$text];
+    $seen = 0;
+    foreach ($pages as $pageIndex => $pageText) {
+      preg_match_all('/\\bDeurelement\\b/ui', (string) $pageText, $matches);
+      $count = count($matches[0] ?? []);
+      if ($count > 0 && $ordinal <= $seen + $count) {
+        return $pageIndex + 1;
+      }
+      $seen += $count;
+    }
+    return NULL;
   }
 
   private function decimal(string $raw): float {
