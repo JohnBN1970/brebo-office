@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.legacy_structure_gateway:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationStructureLegacyGateway
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.access_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationAccessGateway
     arguments: ['@entity_type.manager']
@@ -110,7 +114,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_calculation.legacy_structure_gateway'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.price_source_manager:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
