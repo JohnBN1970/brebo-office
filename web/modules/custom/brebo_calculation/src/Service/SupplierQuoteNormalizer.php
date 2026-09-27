@@ -228,7 +228,7 @@ final class SupplierQuoteNormalizer {
     // Position boundaries are authoritative; quantity/unit and price pair are
     // recovered independently inside that block.
     $seen = array_fill_keys(array_column($result, 'position'), TRUE);
-    preg_match_all('/(?<!\\d)(00[1-9]|0[1-9]\\d|[1-9]\\d{2})(?!\\d)/u', $flat, $positionMatches, PREG_OFFSET_CAPTURE);
+    preg_match_all('/(?<![\\d., ])(00[1-9]|0[1-9]\\d)(?![\\d.,])/u', $flat, $positionMatches, PREG_OFFSET_CAPTURE);
     $positionCount = count($positionMatches[0] ?? []);
     for ($p = 0; $p < $positionCount; $p++) {
       $position = (string) $positionMatches[1][$p][0];
@@ -314,7 +314,7 @@ final class SupplierQuoteNormalizer {
     // one rows, the table contains the same monetary value twice. Reconstruct only
     // missing positions and only when product semantics are present.
     $seen = array_fill_keys(array_column($result, 'position'), TRUE);
-    preg_match_all('/(?<!\\d)(00[1-9]|0[1-9]\\d|[1-9]\\d{2})(?!\\d)/u', $flat, $allPositions, PREG_OFFSET_CAPTURE);
+    preg_match_all('/(?<![\\d., ])(00[1-9]|0[1-9]\\d)(?![\\d.,])/u', $flat, $allPositions, PREG_OFFSET_CAPTURE);
     $allPositionCount = count($allPositions[0] ?? []);
     for ($p = 0; $p < $allPositionCount; $p++) {
       $position = (string) $allPositions[1][$p][0];
