@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 
 /** Manages reusable subcalculations and their project applications. */
 final class SubcalculationManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly Connection $database, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
   /** @param array<string,mixed> $values */
-  public function create(int $calculationId, string $version, array $values, AccountInterface $account): int {
-    $this->assertEditableCalculation($calculationId, $version, $account);
+  public function create(int $calculationId, string $version, array $values, int $actorId): int {
+    $this->assertEditableCalculation($calculationId, $version, $actorId);
     $now = time();
     return (int) $this->database->insert('brebo_calculation_subcalculation')->fields([
       'calculation_id' => $calculationId,
@@ -28,14 +28,14 @@ final class SubcalculationManager {
       'context_type' => trim((string) ($values['context_type'] ?? '')) ?: NULL,
       'context_ref' => trim((string) ($values['context_ref'] ?? '')) ?: NULL,
       'created' => $now,
-      'created_by' => (int) $account->id(),
+      'created_by' => $actorId,
       'changed' => $now,
-      'changed_by' => (int) $account->id(),
+      'changed_by' => $actorId,
     ])->execute();
   }
 
-  public function addScope(int $subcalculationId, string $scopeType, string $scopeRef, float $multiplier, AccountInterface $account): int {
-    $sub = $this->loadEditableSubcalculation($subcalculationId, $account);
+  public function addScope(int $subcalculationId, string $scopeType, string $scopeRef, float $multiplier, int $actorId): int {
+    $sub = $this->loadEditableSubcalculation($subcalculationId, $actorId);
     if (!in_array($scopeType, ['structure', 'line'], TRUE)) {
       throw new \InvalidArgumentException('Unsupported subcalculation scope type.');
     }
@@ -51,13 +51,13 @@ final class SubcalculationManager {
       'multiplier' => max(0, $multiplier),
       'sort_order' => $this->nextScopeOrder($subcalculationId),
       'created' => time(),
-      'created_by' => (int) $account->id(),
+      'created_by' => $actorId,
     ])->execute();
   }
 
   /** @param array<string,mixed> $values */
-  public function createApplication(int $subcalculationId, array $values, AccountInterface $account): int {
-    $this->loadEditableSubcalculation($subcalculationId, $account);
+  public function createApplication(int $subcalculationId, array $values, int $actorId): int {
+    $this->loadEditableSubcalculation($subcalculationId, $actorId);
     $now = time();
     return (int) $this->database->insert('brebo_calculation_subcalculation_application')->fields([
       'subcalculation_id' => $subcalculationId,
@@ -67,14 +67,14 @@ final class SubcalculationManager {
       'quantity' => max(0, (float) ($values['quantity'] ?? 1)),
       'status' => 'draft',
       'created' => $now,
-      'created_by' => (int) $account->id(),
+      'created_by' => $actorId,
       'changed' => $now,
-      'changed_by' => (int) $account->id(),
+      'changed_by' => $actorId,
     ])->execute();
   }
 
   /** @param array<string,float|int|string|null> $exceptionCosts */
-  public function addApplicationObject(int $applicationId, string $objectType, string $objectRef, float $factor, bool $exception, ?string $exceptionPayload, AccountInterface $account, array $exceptionCosts = []): int {
+  public function addApplicationObject(int $applicationId, string $objectType, string $objectRef, float $factor, bool $exception, ?string $exceptionPayload, int $actorId, array $exceptionCosts = []): int {
     $application = $this->database->select('brebo_calculation_subcalculation_application', 'a')
       ->fields('a', ['subcalculation_id', 'locked_at'])
       ->condition('id', $applicationId)
@@ -82,7 +82,7 @@ final class SubcalculationManager {
     if (!$application || $application['locked_at'] !== NULL) {
       throw new \RuntimeException('Application is missing or locked.');
     }
-    $this->loadEditableSubcalculation((int) $application['subcalculation_id'], $account);
+    $this->loadEditableSubcalculation((int) $application['subcalculation_id'], $actorId);
     $objectRef = trim($objectRef);
     if ($objectRef === '') {
       throw new \InvalidArgumentException('Canonical object reference is required.');
@@ -113,7 +113,7 @@ final class SubcalculationManager {
       'exception_subcontracting' => $costs['exception_subcontracting'],
       'exception_other' => $costs['exception_other'],
       'created' => time(),
-      'created_by' => (int) $account->id(),
+      'created_by' => $actorId,
     ])->execute();
   }
 
@@ -230,22 +230,17 @@ final class SubcalculationManager {
   }
 
   /** @return array<string,mixed> */
-  private function loadEditableSubcalculation(int $subcalculationId, AccountInterface $account): array {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function loadEditableSubcalculation(int $subcalculationId, int $actorId): array {
     $sub = $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')->condition('id', $subcalculationId)->execute()->fetchAssoc();
     if (!$sub || $sub['status'] !== 'draft' || $sub['locked_at'] !== NULL) {
       throw new \RuntimeException('Only unlocked draft subcalculations may be changed.');
     }
-    $this->assertEditableCalculation((int) $sub['calculation_id'], (string) $sub['version'], $account);
+    $this->assertEditableCalculation((int) $sub['calculation_id'], (string) $sub['version'], $actorId);
     return $sub;
   }
 
-  private function assertEditableCalculation(int $calculationId, string $version, AccountInterface $account): void {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function assertEditableCalculation(int $calculationId, string $version, int $actorId): void {
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['status', 'locked_at'])
       ->condition('calculation_id', $calculationId)
