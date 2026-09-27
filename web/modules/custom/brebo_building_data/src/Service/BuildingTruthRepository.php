@@ -6,9 +6,8 @@ namespace Drupal\brebo_building_data\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_building_data\Contract\AggregateTypeValidatorInterface;
 use Drupal\Core\Lock\LockBackendInterface;
-use Drupal\node\NodeInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -18,7 +17,7 @@ final class BuildingTruthRepository {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly AggregateTypeValidatorInterface $aggregateTypeValidator,
     private readonly TimeInterface $time,
     private readonly LockBackendInterface $lock,
     private readonly BuildingObjectRepository $objects,
@@ -243,18 +242,12 @@ final class BuildingTruthRepository {
   }
 
   private function assertBuilding(int $buildingNid): void {
-    $node = $this->entityTypeManager->getStorage('node')->load($buildingNid);
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_building') {
-      throw new InvalidArgumentException(sprintf('Node %d is not a BREBO building.', $buildingNid));
-    }
+    $this->aggregateTypeValidator->assertType($buildingNid, 'brebo_building');
   }
 
   private function assertProject(?int $projectNid): void {
     if ($projectNid === NULL) return;
-    $node = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_project') {
-      throw new InvalidArgumentException(sprintf('Node %d is not a BREBO project.', $projectNid));
-    }
+    $this->aggregateTypeValidator->assertType($projectNid, 'brebo_project');
   }
 
   private function normalizeFactKey(string $factKey): string {
