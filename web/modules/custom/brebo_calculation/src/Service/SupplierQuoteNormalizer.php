@@ -79,6 +79,7 @@ final class SupplierQuoteNormalizer {
     }
 
     $quoteLines = $this->quoteLines($lines);
+    $classification = $this->classifyScope($text, $quoteLines);
     $suggested = $unique[0] ?? NULL;
     return [
       'status' => $quoteLines !== [] ? 'structured_review' : ($suggested ? 'review' : 'no_price_found'),
@@ -87,10 +88,34 @@ final class SupplierQuoteNormalizer {
         'quantity' => isset($target['quantity']) ? (float) $target['quantity'] : NULL,
         'unit' => (string) ($target['unit'] ?? ''),
       ],
+      'classification' => $classification,
       'lines' => $quoteLines,
       'candidates' => $unique,
       'suggested' => $suggested,
     ];
+  }
+
+  /** @param list<array<string,mixed>> $quoteLines
+   *  @return array{group:string,paragraph:string,discipline:string,subtype:string,confidence:float}|null
+   */
+  private function classifyScope(string $text, array $quoteLines): ?array {
+    $haystack = mb_strtolower($text);
+    $score = 0;
+    foreach (['deurelement', 'jansen janisol', 'jansen economy', 'beglazing', 'profielen:', 'deurbeslag', 'aanlaspaum'] as $needle) {
+      if (str_contains($haystack, $needle)) {
+        $score++;
+      }
+    }
+    if ($quoteLines !== [] && $score >= 3) {
+      return [
+        'group' => 'Kozijnen',
+        'paragraph' => 'Stalen kozijnen en deuren',
+        'discipline' => 'kozijnen',
+        'subtype' => 'stalen_kozijnen_deuren',
+        'confidence' => min(0.99, 0.70 + ($score * 0.04)),
+      ];
+    }
+    return NULL;
   }
 
   /** @param list<string> $lines
