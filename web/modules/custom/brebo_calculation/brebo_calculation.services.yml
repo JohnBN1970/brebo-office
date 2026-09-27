@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.workspace_resource_guard:
+    class: Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard
+    arguments: ['@database']
+
   brebo_calculation.workspace_state:
     class: Drupal\brebo_calculation\Service\CalculationWorkspaceStateService
     arguments:
