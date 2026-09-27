@@ -64,7 +64,6 @@ jobs:
           grep -q "row_id" "$block_order"
           grep -q "dataset.rowId" "$block_order_js"
           row_manager='web/modules/custom/brebo_calculation/src/Service/CalculationRowManager.php'
-          grep -q "createLegacyMirror" "$row_manager"
           grep -q "'calc_line_id'.*'not null' => FALSE" "$install_file"
           price_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
           price_form='web/modules/custom/brebo_calculation/src/Form/CalculationPriceSourceForm.php'
@@ -103,12 +102,20 @@ jobs:
           mirror_policy='web/modules/custom/brebo_calculation/src/Infrastructure/DrupalCalculationLegacyLineMirrorPolicy.php'
           grep -q "legacy_line_mirror_enabled: false" "$mirror_config"
           grep -q "legacy_line_mirror_enabled" "$mirror_policy"
-          grep -q "createLegacyMirrors" "$row_manager"
           grep -q "legacy_line_mirror_maintenance_enabled: false" "$mirror_config"
-          grep -q "maintainLegacyMirrors" "$row_manager"
-          grep -q "maintainLegacyMirrors" "$block_order"
           object_writer='web/modules/custom/brebo_calculation/src/Service/CalculationObjectLineWriter.php'
-          grep -q "maintainLegacyMirrors" "$object_writer"
+          legacy_compatibility='web/modules/custom/brebo_calculation/src/Infrastructure/CalculationLegacyLineCompatibility.php'
+          grep -q "legacy_line_gateway" "$services"
+          grep -q "legacy_line_compatibility" "$services"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
+          grep -q "CalculationLineLegacyGatewayInterface" "$legacy_compatibility"
+          grep -q "createLegacyMirrors" "$legacy_compatibility"
+          grep -q "maintainLegacyMirrors" "$legacy_compatibility"
+          grep -q "legacyCompatibility" "$row_manager"
+          grep -q "legacyCompatibility" "$block_order"
+          grep -q "legacyCompatibility" "$object_writer"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash

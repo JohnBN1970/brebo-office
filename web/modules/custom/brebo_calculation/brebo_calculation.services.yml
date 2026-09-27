@@ -35,6 +35,13 @@ services:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
     arguments: ['@entity_type.manager']
 
+  brebo_calculation.legacy_line_compatibility:
+    class: Drupal\brebo_calculation\Infrastructure\CalculationLegacyLineCompatibility
+    arguments:
+      - '@brebo_calculation.legacy_line_gateway'
+      - '@brebo_calculation.legacy_line_mirror_map'
+      - '@brebo_calculation.legacy_line_mirror_policy'
+
   brebo_calculation.kozijn_price_observation_repository:
     class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
     arguments: ['@database']
@@ -111,29 +118,23 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationRowManager
     arguments:
       - '@database'
-      - '@brebo_calculation.legacy_line_gateway'
+      - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.row_identity_generator'
-      - '@brebo_calculation.legacy_line_mirror_map'
-      - '@brebo_calculation.legacy_line_mirror_policy'
 
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
     arguments:
       - '@database'
       - '@brebo_calculation.row_manager'
-      - '@brebo_calculation.legacy_line_gateway'
-      - '@brebo_calculation.legacy_line_mirror_map'
-      - '@brebo_calculation.legacy_line_mirror_policy'
+      - '@brebo_calculation.legacy_line_compatibility'
 
   brebo_calculation.block_order_manager:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
     arguments:
       - '@database'
-      - '@brebo_calculation.legacy_line_gateway'
+      - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
-      - '@brebo_calculation.legacy_line_mirror_map'
-      - '@brebo_calculation.legacy_line_mirror_policy'
 
   brebo_calculation.norm_library:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
