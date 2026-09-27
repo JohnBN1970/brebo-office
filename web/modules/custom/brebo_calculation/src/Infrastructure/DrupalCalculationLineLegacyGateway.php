@@ -52,6 +52,42 @@ final class DrupalCalculationLineLegacyGateway implements CalculationLineLegacyG
     $line->save();
   }
 
+  public function updateObjectDerived(
+    int $lineId,
+    string $description,
+    string $unit,
+    float $quantity,
+    array $unitCosts,
+    string $sourceDomain,
+    string $sourceReference,
+    string $sourceChecksum,
+    ?string $priceSourceRef,
+    ?string $priceReason,
+  ): void {
+    $line = $this->line($lineId);
+    $line->setTitle($description);
+    $this->setIfPresent($line, 'field_brebo_line_description', $description);
+    $this->setIfPresent($line, 'field_brebo_contract_quantity', number_format($quantity, 4, '.', ''));
+    $this->setIfPresent($line, 'field_brebo_unit', $unit);
+    $this->setIfPresent($line, 'field_brebo_unit_price', number_format(array_sum($unitCosts), 4, '.', ''));
+    $this->setIfPresent($line, 'field_brebo_line_status', 'Niet beoordeeld');
+    $this->setIfPresent($line, 'field_brebo_line_type', 'Calculatieregel');
+    $this->setIfPresent($line, 'field_brebo_note_visibility', 'Intern');
+
+    $note = sprintf('Objectbron %s:%s · checksum %s', $sourceDomain, $sourceReference, $sourceChecksum);
+    if ($priceSourceRef !== NULL && $priceSourceRef !== '') {
+      $note .= ' · prijsbron ' . $priceSourceRef;
+    }
+    if ($priceReason !== NULL && $priceReason !== '') {
+      $note .= ' · ' . $priceReason;
+    }
+    $this->setIfPresent($line, 'field_brebo_line_note', $note);
+
+    $line->setNewRevision(TRUE);
+    $line->setRevisionLogMessage(sprintf('Objectgestuurde calculatieregel uit %s:%s.', $sourceDomain, $sourceReference));
+    $line->save();
+  }
+
   public function duplicate(int $lineId, int $ownerId): int {
     $source = $this->line($lineId);
     $copy = $source->createDuplicate();
