@@ -150,21 +150,35 @@
     }
   });
 
-  document.addEventListener('change', async (event) => {
+  const rowSaveTimers = new Map();
+
+  document.addEventListener('input', (event) => {
     const field = event.target.closest('[data-row-field]');
     if (!field) return;
     const row = field.closest('[data-row-id]');
     const root = field.closest('#brebo-calculation-workspace-v2');
     if (!row || !root) return;
-    field.disabled = true;
-    try {
-      const base = root.dataset.stateUrl.replace(/\/$/, '');
-      await command(root, base + '/rows/' + row.dataset.rowId, 'PATCH', rowPayload(root, row));
-    }
-    catch (error) {
-      window.alert(error.message);
-      field.disabled = false;
-    }
+
+    row.classList.add('is-dirty');
+    const rowId = row.dataset.rowId;
+    window.clearTimeout(rowSaveTimers.get(rowId));
+    rowSaveTimers.set(rowId, window.setTimeout(async () => {
+      const payload = rowPayload(root, row);
+      if (!payload.description.trim() || !payload.unit.trim()) {
+        row.classList.add('is-incomplete');
+        return;
+      }
+      row.classList.remove('is-incomplete');
+      row.classList.add('is-saving');
+      try {
+        const base = root.dataset.stateUrl.replace(/\/$/, '');
+        await command(root, base + '/rows/' + rowId, 'PATCH', payload);
+      }
+      catch (error) {
+        row.classList.remove('is-saving');
+        window.alert(error.message);
+      }
+    }, 650));
   });
 
   document.addEventListener('click', async (event) => {
