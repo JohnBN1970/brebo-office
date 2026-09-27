@@ -67,16 +67,16 @@ final class CalculationResultService {
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')
       ->condition('calculation_id', $calculationId)
       ->condition('version', (string) $version['version'])
-      ->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $lines = $this->lineReadModel->loadMany($lineIds, (string) $version['version']);
+      ->orderBy('row_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rowIds = array_map(static fn (array $row): int => (int) $row['row_id'], $rows);
+    $rowData = $this->lineReadModel->loadMany($rowIds, (string) $version['version']);
 
     $pricedDirect = 0.0;
     $optionsDirect = 0.0;
     $components = [];
     foreach ($rows as $row) {
-      $lineId = (int) $row['calc_line_id'];
-      $line = $lines[$lineId] ?? NULL;
+      $rowId = (int) $row['row_id'];
+      $line = $rowData[$rowId] ?? NULL;
       if (!is_array($line)) {
         continue;
       }
@@ -97,8 +97,8 @@ final class CalculationResultService {
       else {
         $pricedDirect += $direct;
       }
-      $components['line_' . $lineId] = [
-        'kind' => 'row', 'id' => $lineId, 'rule_type' => $ruleType,
+      $components['line_' . $rowId] = [
+        'kind' => 'row', 'id' => $rowId, 'rule_type' => $ruleType,
         'description' => (string) ($line['description'] ?? ''),
         'quantity' => $quantity,
         'unit' => (string) ($line['unit'] ?? ''),
