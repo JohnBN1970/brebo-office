@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.legacy_line_mirror_policy:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyLineMirrorPolicy
+    arguments: ['@config.factory']
+
   brebo_calculation.legacy_line_mirror_map:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationLegacyLineMirrorMap
     arguments: ['@database']
@@ -111,6 +115,7 @@ services:
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.row_identity_generator'
       - '@brebo_calculation.legacy_line_mirror_map'
+      - '@brebo_calculation.legacy_line_mirror_policy'
 
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
