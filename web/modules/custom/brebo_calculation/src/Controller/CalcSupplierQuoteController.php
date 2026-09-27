@@ -73,7 +73,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     }
 
     try {
-      $calculationId = (int) $request->headers->get('X-BREBO-Calculation-Id', 0);
+      $calculationId = (int) $request->headers->get('X-BREBO-Calculation-Id', '0');
       $lineRef = trim((string) $request->headers->get('X-BREBO-Line-Ref', ''));
     }
     catch (\Throwable $e) {
