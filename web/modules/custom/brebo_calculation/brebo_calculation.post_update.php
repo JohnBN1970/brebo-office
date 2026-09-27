@@ -341,3 +341,52 @@ function brebo_calculation_post_update_price_sources_to_row_id(&$sandbox = NULL)
 
   return sprintf('BREBO Calculation price sources linked to %d BREBO row identities.', $updated);
 }
+
+
+/**
+ * Convert subcalculation line scopes from legacy calc-line ids to BREBO row ids.
+ */
+function brebo_calculation_post_update_subcalculation_scopes_to_row_id(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $scopeTable = 'brebo_calculation_subcalculation_scope';
+  $subTable = 'brebo_calculation_subcalculation';
+  $rowTable = 'brebo_calculation_row_domain';
+  $schema = $database->schema();
+
+  foreach ([$scopeTable, $subTable, $rowTable] as $table) {
+    if (!$schema->tableExists($table)) {
+      return 'BREBO Calculation subcalculation row-id migration skipped because required tables are missing.';
+    }
+  }
+
+  $query = $database->select($scopeTable, 'ss');
+  $query->join($subTable, 's', 's.id = ss.subcalculation_id');
+  $query->fields('ss', ['id', 'scope_ref']);
+  $query->fields('s', ['calculation_id', 'version']);
+  $query->condition('ss.scope_type', 'line');
+
+  $updated = 0;
+  foreach ($query->execute() as $scope) {
+    $legacyLineId = (int) $scope->scope_ref;
+    if ($legacyLineId <= 0) {
+      continue;
+    }
+    $rowId = $database->select($rowTable, 'r')
+      ->fields('r', ['row_id'])
+      ->condition('calculation_id', (int) $scope->calculation_id)
+      ->condition('version', (string) $scope->version)
+      ->condition('calc_line_id', $legacyLineId)
+      ->execute()
+      ->fetchField();
+    if (!$rowId) {
+      continue;
+    }
+    $database->update($scopeTable)
+      ->fields(['scope_ref' => (string) (int) $rowId])
+      ->condition('id', (int) $scope->id)
+      ->execute();
+    $updated++;
+  }
+
+  return sprintf('BREBO Calculation converted %d subcalculation line scopes to row_id.', $updated);
+}
