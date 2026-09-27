@@ -12,6 +12,7 @@ use Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard;
 use Drupal\brebo_calculation\Service\CalculationPriceSourceManager;
 use Drupal\brebo_calculation\Service\ObjectExceptionLineManager;
 use Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator;
+use Drupal\brebo_calculation\Service\CalculationParametersManager;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -33,6 +34,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     private readonly CalculationPriceSourceManager $priceSourceManager,
     private readonly ObjectExceptionLineManager $exceptionLineManager,
     private readonly CalcIntegrationRequestAuthenticator $authenticator,
+    private readonly CalculationParametersManager $parametersManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -45,7 +47,20 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $container->get('brebo_calculation.price_source_manager'),
       $container->get('brebo_calculation.object_exception_line_manager'),
       $container->get('brebo_calculation.calc_request_authenticator'),
+      $container->get('brebo_calculation.parameters_manager'),
     );
+  }
+
+  public function updateParameters(Request $request, int $calculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation): array {
+      $this->parametersManager->update(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $input,
+        $this->actorId($input),
+      );
+      return ['calculation_id' => $calculation, 'updated' => TRUE];
+    }, $request);
   }
 
   public function addRow(Request $request, int $calculation): JsonResponse {
