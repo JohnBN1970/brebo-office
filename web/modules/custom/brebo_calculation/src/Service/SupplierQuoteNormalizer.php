@@ -722,8 +722,15 @@ final class SupplierQuoteNormalizer {
     // GABIT's Steel doors quote layout places one product elevation in the
     // left-hand position block. Keep this supplier-specific instead of applying
     // a brittle crop heuristic to unrelated supplier documents.
-    if (!preg_match('/\\bGABIT\\b/ui', $text)
-      || !preg_match('/\\b(?:Quote\\s+Steel\\s+doors|Deurelement|Jansen\\s+Janisol)\\b/ui', $text)
+    // Supplier names are not guaranteed to survive PDF text extraction.
+    // Identify this layout by its stable document vocabulary instead: the
+    // Jansen/Deurelement combination is what actually anchors the drawing.
+    $hasGabItMarker = preg_match('/\\bGABIT\\b/ui', $text)
+      || preg_match('/\\bQuote\\s+Steel\\s+doors\\b/ui', $text);
+    $hasLayoutMarker = preg_match('/\\bDeurelement\\b/ui', $text)
+      && preg_match('/\\bJansen\\s+Janisol(?:\\s+HI)?\\b/ui', $text);
+
+    if ((!$hasGabItMarker && !$hasLayoutMarker)
       || !preg_match('/^00[1-9]$/', $position)
     ) {
       return NULL;
