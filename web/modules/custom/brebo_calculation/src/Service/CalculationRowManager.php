@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
-use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
-use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
-use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorPolicyInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineCompatibilityInterface;
 use Drupal\Core\Database\Connection;
 
 /** Guarded mutations for editable calculation rows. */
@@ -15,11 +13,9 @@ final class CalculationRowManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
+    private readonly CalculationLegacyLineCompatibilityInterface $legacyCompatibility,
     private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationRowIdentityGenerator $rowIdentityGenerator,
-    private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
-    private readonly CalculationLegacyLineMirrorPolicyInterface $legacyMirrorPolicy,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
@@ -47,7 +43,7 @@ final class CalculationRowManager {
       'other_unit_cost' => 0,
     ])->execute();
 
-    $this->createLegacyMirror($calculationId, $version, $rowId, $paragraphKey, $actorId);
+    $this->legacyCompatibility->createForRow($calculationId, $version, $rowId, $paragraphKey, $actorId);
     return $rowId;
   }
 
@@ -120,16 +116,14 @@ final class CalculationRowManager {
     $domain['version'] = $version;
     $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
 
-    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($this->legacyMirrorPolicy->createLegacyMirrors()) {
-      if ($legacyLineId > 0) {
-        $copyLegacyLineId = $this->legacyLineGateway->duplicate($legacyLineId, $actorId);
-        $this->legacyMirrorMap->attach($calculationId, $version, $copyRowId, $copyLegacyLineId);
-      }
-      else {
-        $this->createLegacyMirror($calculationId, $version, $copyRowId, (string) $domain['paragraph_key'], $actorId);
-      }
-    }
+    $this->legacyCompatibility->duplicateForRow(
+      $calculationId,
+      $version,
+      $rowId,
+      $copyRowId,
+      (string) $domain['paragraph_key'],
+      $actorId,
+    );
 
     return $copyRowId;
   }
@@ -143,10 +137,7 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
-      $this->legacyLineGateway->delete($legacyLineId);
-    }
+    $this->legacyCompatibility->deleteForRow($calculationId, $version, $rowId);
   }
 
   public function move(int $calculationId, string $version, int $rowId, string $targetParagraphKey, int $actorId): void {
@@ -164,26 +155,7 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
-      $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
-      if ($targetElementId !== NULL) {
-        $this->legacyLineGateway->move($legacyLineId, $targetElementId);
-      }
-    }
-  }
-
-  private function createLegacyMirror(int $calculationId, string $version, int $rowId, string $paragraphKey, int $actorId): void {
-    if (!$this->legacyMirrorPolicy->createLegacyMirrors()) {
-      return;
-    }
-    $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
-    if ($legacyElementId === NULL) {
-      return;
-    }
-
-    $legacyLineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
-    $this->legacyMirrorMap->attach($calculationId, $version, $rowId, $legacyLineId);
+    $this->legacyCompatibility->moveRow($calculationId, $version, $rowId, $targetParagraphKey);
   }
 
   /** @return array<string,mixed> */
