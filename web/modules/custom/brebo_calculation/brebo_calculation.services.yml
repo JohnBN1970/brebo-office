@@ -111,6 +111,9 @@ services:
   brebo_calculation.supplier_quote_normalizer:
     class: Drupal\brebo_calculation\Service\SupplierQuoteNormalizer
 
+  brebo_calculation.supplier_quote_pdf_text_extractor:
+    class: Drupal\brebo_calculation\Service\SupplierQuotePdfTextExtractor
+
   brebo_calculation.subcalculation_manager:
     class: Drupal\brebo_calculation\Service\SubcalculationManager
     arguments:
