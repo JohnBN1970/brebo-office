@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.legacy_line_gateway:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.kozijn_price_observation_repository:
     class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
     arguments: ['@database']
@@ -71,6 +75,7 @@ services:
     arguments:
       - '@database'
       - '@entity_type.manager'
+      - '@brebo_calculation.legacy_line_gateway'
 
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
