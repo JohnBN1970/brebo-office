@@ -8,6 +8,7 @@ use Drupal\Core\Database\Connection;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorPolicyInterface;
 
 /** Persists one shared order for calculation rows and recipe blocks. */
 final class CalculationBlockOrderManager {
@@ -17,6 +18,7 @@ final class CalculationBlockOrderManager {
     private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
     private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
+    private readonly CalculationLegacyLineMirrorPolicyInterface $legacyMirrorPolicy,
   ) {}
 
   /**
@@ -108,13 +110,15 @@ final class CalculationBlockOrderManager {
         }
 
         if ($type === 'row') {
-          $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraph);
-          if ($targetElementId === NULL) {
-            throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
-          }
-          $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
-          if ($legacyLineId !== NULL) {
-            $this->legacyLineGateway->move($legacyLineId, $targetElementId);
+          if ($this->legacyMirrorPolicy->maintainLegacyMirrors()) {
+            $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraph);
+            if ($targetElementId === NULL) {
+              throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
+            }
+            $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
+            if ($legacyLineId !== NULL) {
+              $this->legacyLineGateway->move($legacyLineId, $targetElementId);
+            }
           }
           $updated = $this->database->update('brebo_calculation_row_domain')
             ->fields(['paragraph_key' => $targetParagraph])
@@ -163,9 +167,11 @@ final class CalculationBlockOrderManager {
         if ($updated !== 1) {
           throw new \RuntimeException('Calculation row no longer belongs to this calculation paragraph.');
         }
-        $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
-        if ($legacyLineId !== NULL) {
-          $this->legacyLineGateway->reorder($legacyLineId, $position);
+        if ($this->legacyMirrorPolicy->maintainLegacyMirrors()) {
+          $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
+          if ($legacyLineId !== NULL) {
+            $this->legacyLineGateway->reorder($legacyLineId, $position);
+          }
         }
       }
       else {
