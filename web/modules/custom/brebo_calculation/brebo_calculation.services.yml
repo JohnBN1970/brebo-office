@@ -96,7 +96,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_calculation.legacy_line_gateway'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.norm_library:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
