@@ -252,7 +252,7 @@ brebo_calculation.workspace_v2_state:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceQueryController::state'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [GET]
   options:
@@ -263,7 +263,7 @@ brebo_calculation.workspace_v2_row_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addRow'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [POST]
   options:
@@ -274,7 +274,7 @@ brebo_calculation.workspace_v2_row_update:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRow'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     row: '\d+'
   methods: [PATCH]
@@ -286,7 +286,7 @@ brebo_calculation.workspace_v2_row_delete:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::deleteRow'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     row: '\d+'
   methods: [DELETE]
@@ -298,7 +298,7 @@ brebo_calculation.workspace_v2_row_move:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::moveRow'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     row: '\d+'
   methods: [POST]
@@ -310,7 +310,7 @@ brebo_calculation.workspace_v2_structure_group_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addMainGroup'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [POST]
   options:
@@ -321,7 +321,7 @@ brebo_calculation.workspace_v2_structure_paragraph_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addParagraph'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [POST]
   options:
@@ -332,7 +332,7 @@ brebo_calculation.workspace_v2_structure_reorder:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::reorderStructure'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     structure: '[A-Za-z0-9_-]+'
   methods: [PATCH]
@@ -345,7 +345,7 @@ brebo_calculation.workspace_v2_recipe_place:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::placeRecipe'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [POST]
   options:
@@ -356,7 +356,7 @@ brebo_calculation.workspace_v2_recipe_update:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRecipe'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     recipe: '\d+'
   methods: [PATCH]
@@ -368,7 +368,7 @@ brebo_calculation.workspace_v2_subcalculation_create:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculation'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
   methods: [POST]
   options:
@@ -379,7 +379,7 @@ brebo_calculation.workspace_v2_subcalculation_scope_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationScope'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     subcalculation: '\d+'
   methods: [POST]
@@ -391,7 +391,7 @@ brebo_calculation.workspace_v2_subcalculation_application_create:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculationApplication'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     subcalculation: '\d+'
   methods: [POST]
@@ -403,7 +403,7 @@ brebo_calculation.workspace_v2_subcalculation_application_object_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationApplicationObject'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     subcalculation: '\d+'
     application: '\d+'
@@ -417,7 +417,7 @@ brebo_calculation.workspace_v2_price_source_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addPriceSource'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     row: '\d+'
   methods: [POST]
@@ -429,7 +429,7 @@ brebo_calculation.workspace_v2_price_source_approve:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::approvePriceSource'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     row: '\d+'
     source: '\d+'
@@ -442,7 +442,7 @@ brebo_calculation.workspace_v2_object_exception_line_add:
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addObjectExceptionLine'
   requirements:
-    _permission: 'edit brebo calculation workbench'
+    _access: 'TRUE'
     calculation: '\d+'
     subcalculation: '\d+'
     application: '\d+'
