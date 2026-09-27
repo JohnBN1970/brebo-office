@@ -86,7 +86,7 @@ final class SubcalculationApplicationObjectsForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $values = (array) $form_state->getValue('add');
-    $this->manager->addApplicationObject((int) $form_state->getValue('application_id'), (string) $values['object_type'], (string) $values['object_ref'], (float) $values['factor'], !empty($values['is_exception']), trim((string) ($values['exception_payload'] ?? '')) ?: NULL, $this->currentUser());
+    $this->manager->addApplicationObject((int) $form_state->getValue('application_id'), (string) $values['object_type'], (string) $values['object_ref'], (float) $values['factor'], !empty($values['is_exception']), trim((string) ($values['exception_payload'] ?? '')) ?: NULL, (int) $this->currentUser()->id());
     $this->messenger()->addStatus('Concreet object aan de toepassing gekoppeld. Voeg financiële afwijkingen toe via Afwijkingsregels.');
     $form_state->setRebuild(TRUE);
   }
