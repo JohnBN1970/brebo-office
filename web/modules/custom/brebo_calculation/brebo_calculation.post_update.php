@@ -296,3 +296,48 @@ function brebo_calculation_post_update_promote_row_order(&$sandbox = NULL): stri
 
   return sprintf('BREBO Calculation row ordering promoted for %d legacy rows.', $updated);
 }
+
+
+/**
+ * Move calculation price-source mappings to BREBO row identities.
+ */
+function brebo_calculation_post_update_price_sources_to_row_id(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_price_source_line';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation price-source mapping is not installed; row-id migration skipped.';
+  }
+  if (!$schema->fieldExists($table, 'row_id')) {
+    $schema->addField($table, 'row_id', [
+      'type' => 'int',
+      'size' => 'big',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ]);
+  }
+
+  $query = $database->select($table, 'm');
+  $query->join('brebo_calculation_row_domain', 'r',
+    'r.calculation_id = m.calculation_id AND r.version = m.version AND r.calc_line_id = m.calc_line_id');
+  $query->fields('m', ['id']);
+  $query->addField('r', 'row_id');
+  $query->isNull('m.row_id');
+  $updated = 0;
+  foreach ($query->execute() as $record) {
+    $database->update($table)
+      ->fields(['row_id' => (int) $record->row_id])
+      ->condition('id', (int) $record->id)
+      ->execute();
+    $updated++;
+  }
+
+  if (!$schema->indexExists($table, 'calculation_row')) {
+    $schema->addIndex($table, 'calculation_row', ['calculation_id', 'version', 'row_id']);
+  }
+  if (!$schema->indexExists($table, 'active_source_row')) {
+    $schema->addIndex($table, 'active_source_row', ['calculation_id', 'version', 'row_id', 'is_active_source']);
+  }
+
+  return sprintf('BREBO Calculation price sources linked to %d BREBO row identities.', $updated);
+}

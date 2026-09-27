@@ -340,9 +340,7 @@ final class CalculationWorkbenchForm extends FormBase {
               '#limit_validation_errors' => [array_merge($fieldPath, ['description']), array_merge($fieldPath, ['unit']), array_merge($fieldPath, ['quantity']), array_merge($fieldPath, ['labour']), array_merge($fieldPath, ['material']), array_merge($fieldPath, ['equipment']), array_merge($fieldPath, ['subcontracting']), array_merge($fieldPath, ['other'])],
               '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Regel opslaan…']],
             ] : ['#markup' => ''],
-            'price_sources' => $legacyLineId > 0
-              ? ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $legacyLineId])]
-              : ['#markup' => ''],
+            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'row' => $rowId])],
           ],
         ];
       }

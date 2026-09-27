@@ -31,13 +31,13 @@ final class CalculationPriceSourceForm extends FormBase {
 
   public function getFormId(): string { return 'brebo_calculation_price_source_form'; }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $line = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation' || !$line) return ['message' => ['#markup' => '<p>Calculatieregel niet gevonden.</p>']];
+  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $row = NULL): array {
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation' || !$row) return ['message' => ['#markup' => '<p>Calculatieregel niet gevonden.</p>']];
     $version = $this->latestVersion((int) $node->id());
     if ($version === NULL) return ['message' => ['#markup' => '<p>Geen actieve calculatieversie gevonden.</p>']];
 
     $row = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')
-      ->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->condition('calc_line_id', $line)
+      ->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->condition('row_id', $row)
       ->execute()->fetchAssoc();
     if (!$row) return ['message' => ['#markup' => '<p>Deze regel hoort niet bij de actieve calculatieversie.</p>']];
 
@@ -45,7 +45,7 @@ final class CalculationPriceSourceForm extends FormBase {
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
     $form['version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
-    $form['line_id'] = ['#type' => 'hidden', '#value' => $line];
+    $form['row_id'] = ['#type' => 'hidden', '#value' => $row];
 
     $summary = [];
     foreach (['labour_unit_cost'=>'Arbeid','material_unit_cost'=>'Materiaal','equipment_unit_cost'=>'Materieel','subcontracting_unit_cost'=>'OA','other_unit_cost'=>'Overig'] as $field => $label) {
@@ -61,7 +61,7 @@ final class CalculationPriceSourceForm extends FormBase {
     $query->join('brebo_calculation_price_source', 's', 's.id = m.price_source_id');
     $query->fields('m');
     $query->fields('s', ['source_type','supplier_name','supplier_email','offer_number','offer_date','valid_until','quoted_total','scope_summary','conditions_summary','internal_note','status']);
-    $query->condition('m.calculation_id', (int) $node->id())->condition('m.version', $version['version'])->condition('m.calc_line_id', $line)->orderBy('m.created', 'DESC');
+    $query->condition('m.calculation_id', (int) $node->id())->condition('m.version', $version['version'])->condition('m.row_id', $row)->orderBy('m.created', 'DESC');
     $records = $query->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
 
     $form['sources'] = ['#type'=>'table','#header'=>['Bron','Leverancier','Referentie','Datum','Kostendrager','Voorstel / EH','Status','Actie'],'#empty'=>'Nog geen prijsbronnen gekoppeld aan deze regel.','#attributes'=>['class'=>['brebo-price-source-table']]];
@@ -107,7 +107,7 @@ final class CalculationPriceSourceForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $sourceId = $this->priceSourceManager->createForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('line_id'),(array)$form_state->getValue('add'),$this->currentUser());
+    $sourceId = $this->priceSourceManager->createForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(array)$form_state->getValue('add'),$this->currentUser());
     $this->messenger()->addStatus($this->t('Prijsbron @id toegevoegd en klaar voor controle.', ['@id'=>$sourceId]));
     $form_state->setRebuild(TRUE);
   }
@@ -115,7 +115,7 @@ final class CalculationPriceSourceForm extends FormBase {
   public function approveSource(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $carrier = (string)($trigger['#cost_carrier']??'subcontracting');
-    $this->priceSourceManager->approveForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('line_id'),(int)($trigger['#price_source_id']??0),$carrier,(float)($trigger['#proposed_unit_cost']??0),'Prijsbron vanuit regelcockpit goedgekeurd.',$this->currentUser());
+    $this->priceSourceManager->approveForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(int)($trigger['#price_source_id']??0),$carrier,(float)($trigger['#proposed_unit_cost']??0),'Prijsbron vanuit regelcockpit goedgekeurd.',$this->currentUser());
     $this->messenger()->addStatus('Prijsbron goedgekeurd en '.(self::CARRIERS[$carrier]??$carrier).'-prijs bijgewerkt.');
     $form_state->setRebuild(TRUE);
   }
