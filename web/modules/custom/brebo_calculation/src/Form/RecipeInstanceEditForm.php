@@ -97,11 +97,11 @@ final class RecipeInstanceEditForm extends FormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $instanceId = (int) $form_state->getValue('recipe_instance');
-    $this->recipeManager->updateQuantity($instanceId, (float) $form_state->getValue('quantity'), $this->currentUser());
+    $this->recipeManager->updateQuantity($instanceId, (float) $form_state->getValue('quantity'), (int) $this->currentUser()->id());
     $parameterRows = (array) $form_state->getValue('parameters');
     $parameterValues = [];
     foreach ($parameterRows as $key => $row) { if (is_array($row) && array_key_exists('value', $row)) $parameterValues[(string) $key] = (string) $row['value']; }
-    if ($parameterValues) $this->recipeManager->updateParameters($instanceId, $parameterValues, $this->currentUser());
+    if ($parameterValues) $this->recipeManager->updateParameters($instanceId, $parameterValues, (int) $this->currentUser()->id());
     $this->messenger()->addStatus($this->t('Receptparameters en hoeveelheid opgeslagen; onderliggende regels zijn herberekend.'));
     $form_state->setRebuild(TRUE);
   }
@@ -113,7 +113,7 @@ final class RecipeInstanceEditForm extends FormBase {
     $manual = $values['manual'] ?? NULL;
     $manualQuantity = ($manual === '' || $manual === NULL) ? NULL : (float) $manual;
     $wastePct = (float) ($values['waste'] ?? 0);
-    $this->recipeManager->updateLineOverride($lineId, $manualQuantity, $wastePct, $this->currentUser());
+    $this->recipeManager->updateLineOverride($lineId, $manualQuantity, $wastePct, (int) $this->currentUser()->id());
     $this->messenger()->addStatus($manualQuantity === NULL ? $this->t('Afvalpercentage opgeslagen; parametrische hoeveelheid blijft actief.') : $this->t('Handmatige regelhoeveelheid en afvalpercentage opgeslagen.'));
     $form_state->setRebuild(TRUE);
   }
@@ -121,19 +121,19 @@ final class RecipeInstanceEditForm extends FormBase {
   public function resetLineOverride(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $lineId = (int) ($trigger['#recipe_line_id'] ?? 0);
-    $this->recipeManager->resetLineQuantityOverride($lineId, $this->currentUser());
+    $this->recipeManager->resetLineQuantityOverride($lineId, (int) $this->currentUser()->id());
     $this->messenger()->addStatus($this->t('Handmatige hoeveelheid verwijderd; de parametrisch berekende hoeveelheid is weer actief.'));
     $form_state->setRebuild(TRUE);
   }
 
-  public function selectMaterial(array &$form, FormStateInterface $form_state): void { $trigger = $form_state->getTriggeringElement(); $lineId = (int) ($trigger['#recipe_line_id'] ?? 0); $values = (array) $form_state->getValue(['lines', 'line_' . $lineId, 'description']); $this->materialSelector->select($lineId, ['article_id' => $values['article_id'] ?? NULL, 'supplier_article_id' => $values['supplier_article_id'] ?? NULL, 'price_id' => $values['price_id'] ?? NULL, 'catalog_import_id' => $values['catalog_import_id'] ?? NULL], $this->currentUser()); $this->messenger()->addStatus($this->t('Artikel en prijs aan receptregel gekoppeld.')); $form_state->setRebuild(TRUE); }
+  public function selectMaterial(array &$form, FormStateInterface $form_state): void { $trigger = $form_state->getTriggeringElement(); $lineId = (int) ($trigger['#recipe_line_id'] ?? 0); $values = (array) $form_state->getValue(['lines', 'line_' . $lineId, 'description']); $this->materialSelector->select($lineId, ['article_id' => $values['article_id'] ?? NULL, 'supplier_article_id' => $values['supplier_article_id'] ?? NULL, 'price_id' => $values['price_id'] ?? NULL, 'catalog_import_id' => $values['catalog_import_id'] ?? NULL], (int) $this->currentUser()->id()); $this->messenger()->addStatus($this->t('Artikel en prijs aan receptregel gekoppeld.')); $form_state->setRebuild(TRUE); }
 
   public function addCustomLine(array &$form, FormStateInterface $form_state): void {
     $instanceId = (int) $form_state->getValue('recipe_instance');
     $values = (array) $form_state->getValue('custom_line');
     $lineType = (string) ($values['line_type'] ?? 'material');
-    $lineId = $this->recipeManager->addCustomLine($instanceId, ['description' => (string) ($values['description'] ?? ''), 'line_type' => $lineType, 'quantity' => (float) ($values['quantity'] ?? 0), 'unit' => trim((string) ($values['unit'] ?? '')) ?: NULL, 'unit_cost' => isset($values['unit_cost']) && $values['unit_cost'] !== '' ? (float) $values['unit_cost'] : NULL], $this->currentUser());
-    if (in_array(strtolower($lineType), ['material', 'materiaal'], TRUE) && !empty($values['article_id']) && !empty($values['supplier_article_id']) && !empty($values['price_id']) && !empty($values['catalog_import_id'])) { $this->materialSelector->select($lineId, ['article_id' => $values['article_id'], 'supplier_article_id' => $values['supplier_article_id'], 'price_id' => $values['price_id'], 'catalog_import_id' => $values['catalog_import_id']], $this->currentUser()); }
+    $lineId = $this->recipeManager->addCustomLine($instanceId, ['description' => (string) ($values['description'] ?? ''), 'line_type' => $lineType, 'quantity' => (float) ($values['quantity'] ?? 0), 'unit' => trim((string) ($values['unit'] ?? '')) ?: NULL, 'unit_cost' => isset($values['unit_cost']) && $values['unit_cost'] !== '' ? (float) $values['unit_cost'] : NULL], (int) $this->currentUser()->id());
+    if (in_array(strtolower($lineType), ['material', 'materiaal'], TRUE) && !empty($values['article_id']) && !empty($values['supplier_article_id']) && !empty($values['price_id']) && !empty($values['catalog_import_id'])) { $this->materialSelector->select($lineId, ['article_id' => $values['article_id'], 'supplier_article_id' => $values['supplier_article_id'], 'price_id' => $values['price_id'], 'catalog_import_id' => $values['catalog_import_id']], (int) $this->currentUser()->id()); }
     $this->messenger()->addStatus($this->t('Regel aan recept toegevoegd.'));
     $form_state->setRebuild(TRUE);
   }
