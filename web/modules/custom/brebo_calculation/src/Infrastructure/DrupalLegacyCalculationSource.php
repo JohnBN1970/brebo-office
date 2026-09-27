@@ -86,6 +86,12 @@ final class DrupalLegacyCalculationSource implements LegacyCalculationSourceInte
         'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
         'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
         'sequence' => (int) ($line->get('field_brebo_line_sequence')->value ?? 0),
+        'budget_hours' => $line->hasField('field_brebo_budget_hours')
+          ? (float) ($line->get('field_brebo_budget_hours')->value ?? 0)
+          : 0.0,
+        'labour_rate' => $line->hasField('field_brebo_labor_rate')
+          ? (float) ($line->get('field_brebo_labor_rate')->value ?? 0)
+          : 0.0,
       ];
     }
 
