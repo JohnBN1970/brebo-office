@@ -42,6 +42,7 @@ jobs:
           grep -q "brebo_calculation_version" "$install_file"
           grep -q "brebo_calculation_row_domain" "$install_file"
           grep -q "brebo_calculation_snapshot" "$install_file"
+          grep -q "row_id" "$install_file"
           grep -q "contract_quantity" "$install_file"
           grep -q "actual_quantity" "$install_file"
           grep -q "budget_hours" "$install_file"
