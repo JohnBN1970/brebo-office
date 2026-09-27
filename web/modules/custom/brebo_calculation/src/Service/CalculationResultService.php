@@ -208,11 +208,13 @@ final class CalculationResultService {
           $unitDirect += (float) $cost;
         }
       }
+      $rowId = (int) ($row['row_id'] ?? 0);
       $legacyId = (int) ($row['legacy_line_id'] ?? 0);
-      $key = $legacyId > 0 ? 'line_' . $legacyId : 'snapshot_row_' . $index;
+      $componentId = $rowId > 0 ? $rowId : $legacyId;
+      $key = $rowId > 0 ? 'line_' . $rowId : ($legacyId > 0 ? 'line_' . $legacyId : 'snapshot_row_' . $index);
       $components[$key] = [
         'kind' => 'row',
-        'id' => $legacyId,
+        'id' => $componentId,
         'rule_type' => $ruleType,
         'description' => (string) ($row['description'] ?? ''),
         'quantity' => $quantity,
