@@ -60,7 +60,7 @@ final class CalculationWorkbenchForm extends FormBase {
       $preview = $this->legacyDryRun->preview((int) $node->id());
       $safe = $preview->isSafeToMigrate();
       $canConvert = $safe
-        && $node->access('update', $this->currentUser())
+        && $node->access('update', (int) $this->currentUser()->id())
         && $this->currentUser()->hasPermission('migrate brebo calculation');
       $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $node->id()])->toString();
       $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
@@ -426,7 +426,7 @@ final class CalculationWorkbenchForm extends FormBase {
   public function addRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement(); $paragraphKey = (string) ($trigger['#paragraph_key'] ?? '');
     if ($paragraphKey === '') { throw new \RuntimeException('Paragraaf ontbreekt bij het toevoegen van de calculatieregel.'); }
-    $lineId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, $this->currentUser());
+    $lineId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, (int) $this->currentUser()->id());
     $form_state->set('quick_entry_line_id', $lineId);
     $form_state->set('ajax_message', 'Calculatieregel toegevoegd. Vul de regel direct in.'); $form_state->setRebuild(TRUE);
   }
@@ -461,7 +461,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $trigger = $form_state->getTriggeringElement();
     $instanceId = (int) ($trigger['#recipe_instance_id'] ?? 0);
     $quantity = (float) $form_state->getValue(['workbench','grid','recipe_' . $instanceId,'quantity']);
-    $this->recipeManager->updateQuantity($instanceId, $quantity, $this->currentUser());
+    $this->recipeManager->updateQuantity($instanceId, $quantity, (int) $this->currentUser()->id());
     $form_state->set('ajax_message', 'Recepthoeveelheid aangepast en onderliggende regels herberekend.');
     $form_state->setRebuild(TRUE);
   }
