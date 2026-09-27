@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 
 /** Manages additive calculation lines for concrete object deviations. */
 final class ObjectExceptionLineManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly Connection $database, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
   /** @param array<string,mixed> $values */
-  public function addLine(int $applicationObjectId, array $values, AccountInterface $account): int {
-    $context = $this->loadEditableContext($applicationObjectId, $account);
+  public function addLine(int $applicationObjectId, array $values, int $actorId): int {
+    $context = $this->loadEditableContext($applicationObjectId, $actorId);
     $description = trim((string) ($values['description'] ?? ''));
     if ($description === '') {
       throw new \InvalidArgumentException('Description is required.');
@@ -51,9 +51,9 @@ final class ObjectExceptionLineManager {
       'note' => trim((string) ($values['note'] ?? '')) ?: NULL,
       'sort_order' => $this->nextSortOrder($applicationObjectId),
       'created' => $now,
-      'created_by' => (int) $account->id(),
+      'created_by' => $actorId,
       'changed' => $now,
-      'changed_by' => (int) $account->id(),
+      'changed_by' => $actorId,
     ])->execute();
 
     if ((int) $context['is_exception'] !== 1) {
@@ -85,10 +85,7 @@ final class ObjectExceptionLineManager {
   }
 
   /** @return array<string,mixed> */
-  private function loadEditableContext(int $applicationObjectId, AccountInterface $account): array {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function loadEditableContext(int $applicationObjectId, int $actorId): array {
     $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
     $query->join('brebo_calculation_subcalculation_application', 'a', 'a.id = o.application_id');
     $query->join('brebo_calculation_subcalculation', 's', 's.id = a.subcalculation_id');
@@ -103,6 +100,13 @@ final class ObjectExceptionLineManager {
     if (!$row) {
       throw new \InvalidArgumentException('Application object not found.');
     }
+    $accessQuery = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
+    $accessQuery->join('brebo_calculation_subcalculation_application', 'a2', 'a2.id = o.application_id');
+    $accessQuery->join('brebo_calculation_subcalculation', 's2', 's2.id = a2.subcalculation_id');
+    $accessQuery->addField('s2', 'calculation_id');
+    $calculationId = (int) $accessQuery->condition('o.id', $applicationObjectId)->execute()->fetchField();
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
+
     if ($row['application_locked_at'] !== NULL || $row['subcalculation_locked_at'] !== NULL || $row['version_locked_at'] !== NULL || $row['subcalculation_status'] !== 'draft' || $row['version_status'] !== 'draft') {
       throw new \RuntimeException('Exception lines can only be changed in an unlocked draft calculation.');
     }
