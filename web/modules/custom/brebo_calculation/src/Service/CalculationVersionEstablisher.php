@@ -7,6 +7,7 @@ namespace Drupal\brebo_calculation\Service;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\brebo_calculation\Contract\CalculationLegacyGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
 /**
@@ -21,6 +22,7 @@ final class CalculationVersionEstablisher {
     private readonly TimeInterface $time,
     private readonly CalculationLineReadModelInterface $lineReadModel,
     private readonly CalculationLegacyGatewayInterface $legacyCalculationGateway,
+    private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
 
   /**
@@ -94,7 +96,7 @@ final class CalculationVersionEstablisher {
       }
       $snapshotRows[] = [
         'row_id' => $rowId,
-        'legacy_line_id' => !empty($domain['calc_line_id']) ? (int) $domain['calc_line_id'] : NULL,
+        'legacy_line_id' => $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId),
         'paragraph_id' => (string) ($domain['paragraph_key'] ?? ''),
         'type' => (string) ($domain['rule_type'] ?? 'normal'),
         'description' => (string) ($component['description'] ?? $line['description']),
