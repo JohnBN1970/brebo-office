@@ -145,6 +145,13 @@ final class CalcSupplierQuoteController extends ControllerBase {
       'quantity' => is_numeric($request->headers->get('X-BREBO-Line-Quantity')) ? (float) $request->headers->get('X-BREBO-Line-Quantity') : NULL,
         'unit' => trim((string) $request->headers->get('X-BREBO-Line-Unit', '')),
       ]);
+
+      // Keep geometry transport separate from text recognition. The next
+      // recognition stage can derive position-specific visual bounds from this
+      // source geometry without supplier-specific crop percentages.
+      if (is_string($extraction['layout_xml'] ?? NULL) && trim((string) $extraction['layout_xml']) !== '') {
+        $proposal['source_layout_available'] = TRUE;
+      }
     }
     catch (\Throwable $e) {
       return $this->stageError('normalization', $e);
