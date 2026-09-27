@@ -298,6 +298,74 @@ final class SupplierQuoteNormalizer {
       $seen[$position] = TRUE;
     }
 
+    // Column reconstruction fallback. Some PDF extractors serialize the visual
+    // price and total columns separately from the description stream. For quantity
+    // one rows, the table contains the same monetary value twice. Reconstruct only
+    // missing positions and only when product semantics are present.
+    $seen = array_fill_keys(array_column($result, 'position'), TRUE);
+    preg_match_all('/(?<!\\d)(00[1-9]|0[1-9]\\d|[1-9]\\d{2})(?!\\d)/u', $flat, $allPositions, PREG_OFFSET_CAPTURE);
+    $allPositionCount = count($allPositions[0] ?? []);
+    for ($p = 0; $p < $allPositionCount; $p++) {
+      $position = (string) $allPositions[1][$p][0];
+      if (isset($seen[$position])) {
+        continue;
+      }
+      $offset = (int) $allPositions[0][$p][1];
+      $nextOffset = $p + 1 < $allPositionCount ? (int) $allPositions[0][$p + 1][1] : strlen($flat);
+      $block = trim(substr($flat, $offset, max(0, $nextOffset - $offset)));
+      if (!preg_match('/\\bDeurelement\\b/ui', $block)) {
+        continue;
+      }
+
+      $quantity = 1.0;
+      $unit = 'Stk';
+      if (preg_match('/\\b(\\d+(?:[.,]\\d+)?)\\s*(Stk|st|pcs?|piece|ea)\\b/ui', mb_substr($block, 0, 250), $qm)) {
+        $quantity = $this->decimal($qm[1]);
+        $unit = $qm[2];
+      }
+
+      preg_match_all('/(?<!\\d)(\\d{1,3}(?:[ .]\\d{3})*|\\d+)\\s*,\\s*(\\d{2})(?!\\d)/u', $block, $ams);
+      $values = array_map(fn(string $raw): float => $this->decimal($raw), $ams[0] ?? []);
+
+      // Find any mathematically valid pair, not necessarily adjacent. Limit the
+      // search to the first monetary values of the position to avoid technical tails.
+      $values = array_slice($values, 0, 16);
+      $pair = NULL;
+      for ($a = 0; $a < count($values); $a++) {
+        if ($values[$a] < 1) {
+          continue;
+        }
+        for ($b = $a + 1; $b < count($values); $b++) {
+          if ($values[$b] < 1) {
+            continue;
+          }
+          if (abs(($values[$a] * $quantity) - $values[$b]) < 0.02) {
+            $pair = [$values[$a], $values[$b]];
+            break 2;
+          }
+        }
+      }
+      if ($pair === NULL) {
+        continue;
+      }
+
+      $description = 'Offertepositie ' . $position;
+      if (preg_match('/\\bDeurelement\\b.*?(?=\\b(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\\s+positie|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\s*:|$)/ui', $block, $dm)) {
+        $description = trim((string) $dm[0]);
+      }
+
+      $result[] = [
+        'position' => $position,
+        'quantity' => $quantity,
+        'unit' => $unit,
+        'description' => mb_substr($description, 0, 500),
+        'unit_price' => $pair[0],
+        'line_total' => $pair[1],
+        'line_no' => 1,
+      ];
+      $seen[$position] = TRUE;
+    }
+
     $unique = [];
     foreach ($result as $row) {
       $unique[$row['position']] ??= $row;
