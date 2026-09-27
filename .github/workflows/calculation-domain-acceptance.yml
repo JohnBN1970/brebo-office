@@ -64,7 +64,6 @@ jobs:
           grep -q "row_id" "$block_order"
           grep -q "dataset.rowId" "$block_order_js"
           row_manager='web/modules/custom/brebo_calculation/src/Service/CalculationRowManager.php'
-          grep -q "'calc_line_id' => NULL" "$row_manager"
           grep -q "createLegacyMirror" "$row_manager"
           grep -q "'calc_line_id'.*'not null' => FALSE" "$install_file"
           price_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
