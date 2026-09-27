@@ -138,7 +138,7 @@ jobs:
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           grep -q "/admin/brebo/calculations/{calculation}/workbench" "$routing"
           redirect_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceRedirectController.php'
-          grep -q "brebo_calculation.workbench" "$redirect_controller"
+          grep -q "brebo_office_core.calculation_dashboard" "$redirect_controller"
           parameters_form='web/modules/custom/brebo_calculation/src/Form/CalculationParametersForm.php'
           structure_form='web/modules/custom/brebo_calculation/src/Form/CalculationStructureForm.php'
           establish_form='web/modules/custom/brebo_calculation/src/Form/CalculationEstablishForm.php'
