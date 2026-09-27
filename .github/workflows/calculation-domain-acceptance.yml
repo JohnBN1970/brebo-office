@@ -67,6 +67,13 @@ jobs:
           grep -q "'calc_line_id' => NULL" "$row_manager"
           grep -q "createLegacyMirror" "$row_manager"
           grep -q "'calc_line_id'.*'not null' => FALSE" "$install_file"
+          price_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
+          price_form='web/modules/custom/brebo_calculation/src/Form/CalculationPriceSourceForm.php'
+          routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
+          grep -q "'row_id' => \$rowId" "$price_manager"
+          grep -q "condition('row_id', \$rowId)" "$price_manager"
+          grep -q "getValue('row_id')" "$price_form"
+          grep -q "workbench/row/{row}/price-sources" "$routing"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
