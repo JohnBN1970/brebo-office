@@ -89,6 +89,7 @@ services:
     arguments:
       - '@brebo_calculation.legacy_dry_run'
       - '@brebo_calculation.persistence'
+      - '@brebo_calculation.legacy_source'
       - '@database'
 
   brebo_calculation.row_manager:
