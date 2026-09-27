@@ -406,10 +406,13 @@ final class SupplierQuoteNormalizer {
       $row['details'] = $details ?? '';
       $row['detail_fields'] = $this->detailFields($details ?? '');
       $row['offer_summary'] = $this->offerSummary((string) $row['description'], $row['detail_fields']);
-      $row['source_page'] = $this->pageForPositionOrdinal((string) $row['position'], $text);
-      // GABIT positions are commonly 001..008. If form-feed metadata is absent
-      // from the extracted text, keep the source visual usable by falling back
-      // to the page that contains the matching Deurelement section.
+      // The live layout-preserving extraction can lose form-feed page
+      // separators. For the proven ordinal Deurelement layout, each position is
+      // a separate source page in the same order as 001..nnn, so keep that page
+      // identity instead of collapsing every visual to page 1.
+      $row['source_page'] = $ordinalDetails !== NULL
+        ? (int) $row['position']
+        : $this->pageForPositionOrdinal((string) $row['position'], $text);
       $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
       $row['source_visual_crop'] = $this->visualCropForPosition((string) $row['position'], $ordinalDetails !== NULL);
       $unique[$row['position']] ??= $row;
@@ -732,10 +735,10 @@ final class SupplierQuoteNormalizer {
       // The live GABIT layout places the elevation in the upper-left of
       // the position page. Keep enough surrounding white space to retain the
       // complete door/kozijn drawing, but stop before the technical text column.
-      'x' => 0.02,
-      'y' => 0.08,
-      'width' => 0.30,
-      'height' => 0.48,
+      'x' => 0.16,
+      'y' => 0.39,
+      'width' => 0.18,
+      'height' => 0.34,
     ];
   }
 
