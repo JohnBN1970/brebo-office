@@ -7,7 +7,6 @@ namespace Drupal\brebo_calculation\Controller;
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 
@@ -26,14 +25,14 @@ final class CalculationReadinessController extends ControllerBase {
     );
   }
 
-  public function status(NodeInterface $node): JsonResponse {
-    if ($node->bundle() !== 'brebo_calculation') {
+  public function status(int $calculation): JsonResponse {
+    if ($calculation <= 0) {
       return new JsonResponse(['status' => 'error', 'message' => 'Calculatie niet gevonden.'], 404);
     }
 
     $version = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
-      ->condition('calculation_id', (int) $node->id())
+      ->condition('calculation_id', $calculation)
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
@@ -53,7 +52,7 @@ final class CalculationReadinessController extends ControllerBase {
       ]);
     }
 
-    $result = $this->readinessInspector->inspect((int) $node->id(), $version);
+    $result = $this->readinessInspector->inspect($calculation, $version);
     $result['version'] = $version;
     return new JsonResponse($result);
   }
