@@ -203,8 +203,8 @@ final class CalculationWorkbenchForm extends FormBase {
       $form['workbench']['empty_state'] = ['#markup' => '<div class="brebo-calc-empty-state"><strong>Start met de calculatiestructuur.</strong><p>Maak eerst een hoofdgroep en paragraaf aan. Daarna voeg je hier direct calculatieregels of recepten toe.</p><a class="button button--primary" href="' . htmlspecialchars($structureUrl) . '">Structuur aanmaken</a></div>'];
     }
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $newLineId = (int) ($form_state->get('quick_entry_line_id') ?? 0);
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('row_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $newRowId = (int) ($form_state->get('quick_entry_row_id') ?? 0);
 
     $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('calculation_id', (int) $node->id())->condition('calculation_version', $version['version'])->orderBy('paragraph_key')->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $recipeLinesByInstance = [];
@@ -291,7 +291,8 @@ final class CalculationWorkbenchForm extends FormBase {
 
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
-        $lineId = (int) $row['calc_line_id'];
+        $rowId = (int) $row['row_id'];
+        $legacyLineId = (int) ($row['calc_line_id'] ?? 0);
         $description = (string) ($row['description'] ?? '');
         $unit = (string) ($row['unit'] ?? '');
         $contractQuantity = (float) ($row['contract_quantity'] ?? 0);
@@ -302,7 +303,7 @@ final class CalculationWorkbenchForm extends FormBase {
           : $contractQuantity;
         $directUnit = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
         $lineTotal = $quantity * $directUnit;
-        $isNewLine = $lineId === $newLineId;
+        $isNewLine = $rowId === $newRowId;
         $ruleLabel = match ($ruleType) {
           'allowance' => 'Stelpost',
           'option' => 'Optie',
@@ -311,35 +312,35 @@ final class CalculationWorkbenchForm extends FormBase {
           'adjustable' => 'Verrekenbaar',
           default => '',
         };
-        $rowAttributes = ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',$ruleType)], 'data-structure-key' => (string) $key, 'data-line-id' => (string) $lineId, 'data-block-type' => 'row', 'data-rule-type' => $ruleType];
+        $rowAttributes = ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',$ruleType)], 'data-structure-key' => (string) $key, 'data-row-id' => (string) $rowId, 'data-block-type' => 'row', 'data-rule-type' => $ruleType];
         if ($isNewLine) { $rowAttributes['data-new-quick-entry'] = '1'; }
-        $fieldPath = ['workbench','grid','line_' . $lineId];
-        $form['workbench']['grid']['line_' . $lineId] = [
+        $fieldPath = ['workbench','grid','row_' . $rowId];
+        $form['workbench']['grid']['row_' . $rowId] = [
           '#attributes' => $rowAttributes,
           'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?? ''))],
           'description' => [
             '#type' => 'container',
             '#attributes' => ['class' => ['brebo-calc-line-description']],
             'type' => $ruleLabel !== '' ? ['#markup' => '<span class="brebo-calc-rule-badge">' . htmlspecialchars($ruleLabel) . '</span>'] : ['#markup' => ''],
-            'value' => $this->editableText($lineId, 'description', $description, $editable, $isNewLine),
+            'value' => $this->editableText($rowId, 'description', $description, $editable, $isNewLine),
           ],
-          'unit' => $this->editableText($lineId, 'unit', $unit, $editable),
-          'quantity' => $this->editableNumber($lineId, 'quantity', $ruleType === 'adjustable' ? $contractQuantity : $quantity, $editable, '0.0001'),
-          'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
-          'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
-          'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
-          'subcontracting' => $this->editableNumber($lineId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
-          'other' => $this->editableNumber($lineId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
+          'unit' => $this->editableText($rowId, 'unit', $unit, $editable),
+          'quantity' => $this->editableNumber($rowId, 'quantity', $ruleType === 'adjustable' ? $contractQuantity : $quantity, $editable, '0.0001'),
+          'labour' => $this->editableNumber($rowId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
+          'material' => $this->editableNumber($rowId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
+          'equipment' => $this->editableNumber($rowId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
+          'subcontracting' => $this->editableNumber($rowId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
+          'other' => $this->editableNumber($rowId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
           'unit_total' => ['#markup' => '<span class="brebo-calc-money">€ ' . number_format($directUnit, 2, ',', '.') . '</span>'],
           'total' => ['#markup' => '<strong class="brebo-calc-money brebo-calc-line-total">€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'],
           'operations' => [
             '#type' => 'container',
             'save' => $editable ? [
-              '#type' => 'submit', '#value' => 'Opslaan', '#submit' => ['::saveRow'], '#line_id' => $lineId,
+              '#type' => 'submit', '#value' => 'Opslaan', '#submit' => ['::saveRow'], '#row_id' => $rowId,
               '#limit_validation_errors' => [array_merge($fieldPath, ['description']), array_merge($fieldPath, ['unit']), array_merge($fieldPath, ['quantity']), array_merge($fieldPath, ['labour']), array_merge($fieldPath, ['material']), array_merge($fieldPath, ['equipment']), array_merge($fieldPath, ['subcontracting']), array_merge($fieldPath, ['other'])],
               '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Regel opslaan…']],
             ] : ['#markup' => ''],
-            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
+            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $legacyLineId])],
           ],
         ];
       }
@@ -422,20 +423,20 @@ final class CalculationWorkbenchForm extends FormBase {
   public function addRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement(); $paragraphKey = (string) ($trigger['#paragraph_key'] ?? '');
     if ($paragraphKey === '') { throw new \RuntimeException('Paragraaf ontbreekt bij het toevoegen van de calculatieregel.'); }
-    $lineId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, (int) $this->currentUser()->id());
-    $form_state->set('quick_entry_line_id', $lineId);
+    $rowId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, (int) $this->currentUser()->id());
+    $form_state->set('quick_entry_row_id', $rowId);
     $form_state->set('ajax_message', 'Calculatieregel toegevoegd. Vul de regel direct in.'); $form_state->setRebuild(TRUE);
   }
 
   public function saveRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
-    $lineId = (int) ($trigger['#line_id'] ?? 0);
-    if ($lineId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
-    $values = (array) $form_state->getValue(['workbench','grid','line_' . $lineId], []);
+    $rowId = (int) ($trigger['#row_id'] ?? 0);
+    if ($rowId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
+    $values = (array) $form_state->getValue(['workbench','grid','row_' . $rowId], []);
     $this->rowManager->updateQuickEntry(
       (int) $form_state->getValue('calculation_id'),
       (string) $form_state->getValue('version'),
-      $lineId,
+      $rowId,
       (string) ($values['description'] ?? ''),
       (string) ($values['unit'] ?? ''),
       (float) ($values['quantity'] ?? 0),
@@ -448,7 +449,7 @@ final class CalculationWorkbenchForm extends FormBase {
       ],
       (int) $this->currentUser()->id(),
     );
-    if ((int) $form_state->get('quick_entry_line_id') === $lineId) { $form_state->set('quick_entry_line_id', 0); }
+    if ((int) $form_state->get('quick_entry_row_id') === $rowId) { $form_state->set('quick_entry_row_id', 0); }
     $form_state->set('ajax_message', 'Calculatieregel opgeslagen.');
     $form_state->setRebuild(TRUE);
   }
@@ -467,14 +468,14 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @return array<string,mixed>|null */
   private function latestVersion(int $calculationId): ?array { $row = $this->database->select('brebo_calculation_version', 'v')->fields('v')->condition('calculation_id', $calculationId)->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc(); return $row ?: NULL; }
 
-  private function editableText(int $lineId, string $field, string $value, bool $editable, bool $autofocus = FALSE): array {
+  private function editableText(int $rowId, string $field, string $value, bool $editable, bool $autofocus = FALSE): array {
     if (!$editable) { return ['#markup' => htmlspecialchars($value)]; }
-    $attributes = ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field];
+    $attributes = ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-row-id' => (string) $rowId, 'data-field' => $field];
     if ($autofocus) { $attributes['autofocus'] = 'autofocus'; }
     return ['#type' => 'textfield', '#default_value' => $value, '#size' => $field === 'unit' ? 8 : 28, '#attributes' => $attributes];
   }
 
-  private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
+  private function editableNumber(int $rowId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-row-id' => (string) $rowId, 'data-field' => $field]]; }
 
   /** @param array<int,array<string,mixed>> $rows */
   private function directTotal(array $rows): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $quantity = (float) ($row['contract_quantity'] ?? 0); $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }

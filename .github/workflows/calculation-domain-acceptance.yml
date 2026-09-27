@@ -56,6 +56,13 @@ jobs:
           workbench_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkbenchController.php'
           ! grep -q "EntityTypeManagerInterface" "$workbench_controller"
           ! grep -q "field_brebo_contract_quantity" "$workbench_controller"
+          workbench_form='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
+          block_order='web/modules/custom/brebo_calculation/src/Service/CalculationBlockOrderManager.php'
+          block_order_js='web/modules/custom/brebo_calculation/js/calculation-block-order.js'
+          grep -q "data-row-id" "$workbench_form"
+          ! grep -q "data-line-id" "$workbench_form"
+          grep -q "row_id" "$block_order"
+          grep -q "dataset.rowId" "$block_order_js"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash

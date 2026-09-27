@@ -19,13 +19,15 @@ final class CalculationObjectLineWriter {
     $description=trim($description);$unit=trim($unit);$sourceDomain=trim($sourceDomain);$sourceReference=trim($sourceReference);$sourceChecksum=trim($sourceChecksum);
     if($description===''||$unit===''||$sourceDomain===''||$sourceReference===''||$sourceChecksum==='') throw new \InvalidArgumentException('Objectgestuurde calculatieregels vereisen omschrijving, eenheid en volledige brontraceerbaarheid.');
     if($quantity<0) throw new \InvalidArgumentException('Calculatiehoeveelheid mag niet negatief zijn.');
-    $lineId=$this->rowManager->add($calculationId,$version,$paragraphKey,$actorId);
+    $rowId=$this->rowManager->add($calculationId,$version,$paragraphKey,$actorId);
     $costs=['labour_unit_cost'=>$this->cost($unitCosts,'labour'),'material_unit_cost'=>$this->cost($unitCosts,'material'),'equipment_unit_cost'=>$this->cost($unitCosts,'equipment'),'subcontracting_unit_cost'=>$this->cost($unitCosts,'subcontracting'),'other_unit_cost'=>$this->cost($unitCosts,'other')];
     $priceSourceRef=trim((string)($priceTrace['source_ref']??''));$priceSourceDate=trim((string)($priceTrace['source_date']??''));$priceConfidence=trim((string)($priceTrace['confidence']??''));$priceReason=trim((string)($priceTrace['reason']??''));
+    $legacyLineId=(int)$this->database->select('brebo_calculation_row_domain','r')->fields('r',['calc_line_id'])->condition('row_id',$rowId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute()->fetchField();
+    if($legacyLineId<=0) throw new \RuntimeException('Legacy calculation-line mirror is missing for the BREBO row.');
     $transaction=$this->database->startTransaction();
     try {
       $this->legacyLineGateway->updateObjectDerived(
-        $lineId,
+        $legacyLineId,
         $description,
         $unit,
         $quantity,
@@ -38,9 +40,9 @@ final class CalculationObjectLineWriter {
       );
       $values=$costs+['description'=>$description,'contract_quantity'=>$quantity,'unit'=>$unit,'source_domain'=>$sourceDomain,'source_reference'=>$sourceReference,'source_checksum'=>$sourceChecksum,'price_source_reference'=>$priceSourceRef?:NULL,'price_source_date'=>$priceSourceDate?:NULL,'price_confidence'=>$priceConfidence?:NULL];
       $supported=[];foreach($values as$field=>$value)if($this->database->schema()->fieldExists('brebo_calculation_row_domain',$field))$supported[$field]=$value;
-      $this->database->update('brebo_calculation_row_domain')->fields($supported)->condition('calc_line_id',$lineId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute();
-    } catch(\Throwable $e){$transaction->rollBack();try{$this->rowManager->delete($calculationId,$version,$lineId,$actorId);}catch(\Throwable){}throw $e;}
-    return $lineId;
+      $this->database->update('brebo_calculation_row_domain')->fields($supported)->condition('row_id',$rowId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute();
+    } catch(\Throwable $e){$transaction->rollBack();try{$this->rowManager->delete($calculationId,$version,$rowId,$actorId);}catch(\Throwable){}throw $e;}
+    return $rowId;
   }
 
   /** @param array<string,float|int> $costs */

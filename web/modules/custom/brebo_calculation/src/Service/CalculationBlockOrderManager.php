@@ -110,10 +110,11 @@ final class CalculationBlockOrderManager {
           if ($targetElementId === NULL) {
             throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
           }
-          $this->legacyLineGateway->move($id, $targetElementId);
+          $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
+          $this->legacyLineGateway->move($legacyLineId, $targetElementId);
           $updated = $this->database->update('brebo_calculation_row_domain')
             ->fields(['paragraph_key' => $targetParagraph])
-            ->condition('calc_line_id', $id)
+            ->condition('row_id', $id)
             ->condition('calculation_id', $calculationId)
             ->condition('version', $version)
             ->execute();
@@ -148,7 +149,17 @@ final class CalculationBlockOrderManager {
       $type = (string) $block['type'];
       $id = (int) $block['id'];
       if ($type === 'row') {
-        $this->legacyLineGateway->reorder($id, $position);
+        $updated = $this->database->update('brebo_calculation_row_domain')
+          ->fields(['sort_order' => $position])
+          ->condition('row_id', $id)
+          ->condition('calculation_id', $calculationId)
+          ->condition('version', $version)
+          ->condition('paragraph_key', $paragraphKey)
+          ->execute();
+        if ($updated !== 1) {
+          throw new \RuntimeException('Calculation row no longer belongs to this calculation paragraph.');
+        }
+        $this->legacyLineGateway->reorder($this->legacyLineId($calculationId, $version, $id), $position);
       }
       else {
         $updated = $this->database->update('brebo_calculation_recipe_instance')
@@ -170,7 +181,7 @@ final class CalculationBlockOrderManager {
   private function expectedBlocks(int $calculationId, string $version, string $paragraphKey): array {
     $expected = [];
     $rowIds = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['calc_line_id'])
+      ->fields('r', ['row_id'])
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
       ->condition('paragraph_key', $paragraphKey)
@@ -195,12 +206,12 @@ final class CalculationBlockOrderManager {
   private function expectedWorkspaceBlocks(int $calculationId, string $version): array {
     $expected = [];
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['calc_line_id', 'paragraph_key'])
+      ->fields('r', ['row_id', 'paragraph_key'])
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
       ->execute();
     foreach ($rows as $row) {
-      $id = (int) $row->calc_line_id;
+      $id = (int) $row->row_id;
       $expected['row:' . $id] = ['type' => 'row', 'id' => $id, 'paragraph' => (string) $row->paragraph_key];
     }
     $recipes = $this->database->select('brebo_calculation_recipe_instance', 'i')
@@ -233,6 +244,20 @@ final class CalculationBlockOrderManager {
     if ($children > 0) {
       throw new \RuntimeException('Only leaf paragraphs may contain calculation blocks.');
     }
+  }
+
+  private function legacyLineId(int $calculationId, string $version, int $rowId): int {
+    $legacyLineId = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r', ['calc_line_id'])
+      ->condition('row_id', $rowId)
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->execute()
+      ->fetchField();
+    if (!$legacyLineId) {
+      throw new \RuntimeException('Legacy calculation-line mirror is missing for the BREBO row.');
+    }
+    return (int) $legacyLineId;
   }
 
   private function assertEditable(int $calculationId, string $version, int $actorId): void {

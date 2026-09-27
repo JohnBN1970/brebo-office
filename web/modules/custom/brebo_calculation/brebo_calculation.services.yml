@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.row_identity_generator:
+    class: Drupal\brebo_calculation\Service\CalculationRowIdentityGenerator
+    arguments: ['@database']
+
   brebo_calculation.legacy_source:
     class: Drupal\brebo_calculation\Infrastructure\DrupalLegacyCalculationSource
     arguments: ['@entity_type.manager']
@@ -82,7 +86,9 @@ services:
 
   brebo_calculation.persistence:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPersistence
-    arguments: ['@database']
+    arguments:
+      - '@database'
+      - '@brebo_calculation.row_identity_generator'
 
   brebo_calculation.guarded_legacy_migrator:
     class: Drupal\brebo_calculation\Service\GuardedLegacyMigrator
@@ -98,6 +104,7 @@ services:
       - '@database'
       - '@brebo_calculation.legacy_line_gateway'
       - '@brebo_calculation.access_gateway'
+      - '@brebo_calculation.row_identity_generator'
 
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter

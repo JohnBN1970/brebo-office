@@ -187,6 +187,7 @@ function brebo_calculation_node_presave(NodeInterface $node): void {
     'unit' => mb_substr((string) ($node->get('field_brebo_unit')->value ?? ''), 0, 32),
     'budget_hours' => $node->hasField('field_brebo_budget_hours') ? (float) ($node->get('field_brebo_budget_hours')->value ?? 0) : 0.0,
     'labour_rate' => $node->hasField('field_brebo_labor_rate') ? (float) ($node->get('field_brebo_labor_rate')->value ?? 0) : 0.0,
+    'sort_order' => $node->hasField('field_brebo_line_sequence') ? (int) ($node->get('field_brebo_line_sequence')->value ?? 0) : 0,
   ];
   $database->update($table)
     ->fields($values)
@@ -369,7 +370,6 @@ function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$f
  * Reorders top-level row/recipe render groups by their persisted shared order.
  */
 function brebo_calculation_reorder_workbench_render_array(array &$grid): void {
-  $storage = \Drupal::entityTypeManager()->getStorage('node');
   $rowIds = [];
   $recipeIds = [];
   foreach ($grid as $rowKey => $row) {
@@ -378,7 +378,7 @@ function brebo_calculation_reorder_workbench_render_array(array &$grid): void {
     }
     $type = (string) ($row['#attributes']['data-block-type'] ?? '');
     if ($type === 'row') {
-      $rowIds[] = (int) ($row['#attributes']['data-line-id'] ?? 0);
+      $rowIds[] = (int) ($row['#attributes']['data-row-id'] ?? 0);
     }
     elseif ($type === 'recipe') {
       $recipeIds[] = (int) ($row['#attributes']['data-recipe-instance-id'] ?? 0);
@@ -386,9 +386,11 @@ function brebo_calculation_reorder_workbench_render_array(array &$grid): void {
   }
 
   $order = [];
-  foreach ($storage->loadMultiple(array_values(array_filter($rowIds))) as $line) {
-    if ($line instanceof NodeInterface && $line->hasField('field_brebo_line_sequence')) {
-      $order['row:' . $line->id()] = (int) $line->get('field_brebo_line_sequence')->value;
+  if ($rowIds) {
+    $query = \Drupal::database()->select('brebo_calculation_row_domain', 'r');
+    $query->fields('r', ['row_id', 'sort_order'])->condition('row_id', array_values(array_filter($rowIds)), 'IN');
+    foreach ($query->execute()->fetchAllAssoc('row_id', \PDO::FETCH_ASSOC) as $id => $record) {
+      $order['row:' . (int) $id] = (int) $record['sort_order'];
     }
   }
   if ($recipeIds) {
@@ -435,7 +437,7 @@ function brebo_calculation_reorder_workbench_render_array(array &$grid): void {
 
       $type = (string) ($child['#attributes']['data-block-type'] ?? '');
       if ($type === 'row') {
-        $id = (int) ($child['#attributes']['data-line-id'] ?? 0);
+        $id = (int) ($child['#attributes']['data-row-id'] ?? 0);
         $groups[] = ['key' => 'row:' . $id, 'rows' => [$childKey]];
         $index++;
         continue;
@@ -491,7 +493,7 @@ function brebo_calculation_save_block_order(array &$form, FormStateInterface $fo
     if (!is_string($paragraphKey) || $paragraphKey === '' || !is_array($blocks)) {
       throw new \InvalidArgumentException('Ongeldige paragraaf in calculatievolgorde.');
     }
-    $manager->apply($calculationId, $version, $paragraphKey, array_values($blocks), \Drupal::currentUser());
+    $manager->apply($calculationId, $version, $paragraphKey, array_values($blocks), (int) \Drupal::currentUser()->id());
   }
 
   $form_state->set('ajax_message', 'Volgorde opgeslagen.');
