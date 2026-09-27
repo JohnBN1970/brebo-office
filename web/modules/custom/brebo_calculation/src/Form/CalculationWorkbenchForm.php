@@ -450,7 +450,7 @@ final class CalculationWorkbenchForm extends FormBase {
         'subcontracting' => (float) ($values['subcontracting'] ?? 0),
         'other' => (float) ($values['other'] ?? 0),
       ],
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     if ((int) $form_state->get('quick_entry_line_id') === $lineId) { $form_state->set('quick_entry_line_id', 0); }
     $form_state->set('ajax_message', 'Calculatieregel opgeslagen.');
