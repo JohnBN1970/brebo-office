@@ -17,3 +17,11 @@ workbench:
     - core/drupalSettings
     - core/once
     - core/drupal.ajax
+
+workspace_v2:
+  version: 2.0
+  css:
+    theme:
+      css/calculation-workspace-v2.css: {}
+  js:
+    js/calculation-workspace-v2.js: {}
