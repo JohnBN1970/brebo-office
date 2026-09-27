@@ -17,7 +17,7 @@ final class DrupalCalculationLineReadModel implements CalculationLineReadModelIn
     private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
-  public function loadMany(array $lineIds): array {
+  public function loadMany(array $lineIds, string $version): array {
     $lineIds = array_values(array_unique(array_map('intval', $lineIds)));
     if ($lineIds === []) {
       return [];
