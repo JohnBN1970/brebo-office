@@ -5,22 +5,22 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 
 /** Persists one shared order for calculation rows and recipe blocks. */
 final class CalculationBlockOrderManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
   /**
    * @param array<int,array{type:string,id:int,paragraph?:string}> $blocks
    */
-  public function apply(int $calculationId, string $version, string $paragraphKey, array $blocks, AccountInterface $account): void {
+  public function apply(int $calculationId, string $version, string $paragraphKey, array $blocks, int $actorId): void {
     $this->assertEditable($calculationId, $version, $account);
     if ($paragraphKey === '__workspace__') {
       $this->applyWorkspace($calculationId, $version, $blocks);
@@ -94,7 +94,6 @@ final class CalculationBlockOrderManager {
       throw new \RuntimeException('Workspace order must contain every current row and recipe exactly once.');
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
     $transaction = $this->database->startTransaction();
     try {
       foreach ($submitted as $block) {
@@ -107,18 +106,11 @@ final class CalculationBlockOrderManager {
         }
 
         if ($type === 'row') {
-          $targetElementId = $this->resolveLegacyElementId($calculationId, $targetParagraph);
+          $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraph);
           if ($targetElementId === NULL) {
             throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
           }
-          $line = $storage->load($id);
-          if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
-            throw new \RuntimeException('Calculation row no longer exists.');
-          }
-          $line->set('field_brebo_calc_element_ref', ['target_id' => $targetElementId]);
-          $line->setNewRevision(TRUE);
-          $line->setRevisionLogMessage('Calculatieregel via calculatiewerkbank naar andere paragraaf verplaatst.');
-          $line->save();
+          $this->legacyLineGateway->move($id, $targetElementId);
           $updated = $this->database->update('brebo_calculation_row_domain')
             ->fields(['paragraph_key' => $targetParagraph])
             ->condition('calc_line_id', $id)
@@ -151,20 +143,12 @@ final class CalculationBlockOrderManager {
 
   /** @param array<int,array{type:string,id:int}> $blocks */
   private function writeParagraphOrder(int $calculationId, string $version, string $paragraphKey, array $blocks): void {
-    $storage = $this->entityTypeManager->getStorage('node');
     $position = 10;
     foreach ($blocks as $block) {
       $type = (string) $block['type'];
       $id = (int) $block['id'];
       if ($type === 'row') {
-        $line = $storage->load($id);
-        if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
-          throw new \RuntimeException('Calculation row no longer exists.');
-        }
-        $line->set('field_brebo_line_sequence', $position);
-        $line->setNewRevision(TRUE);
-        $line->setRevisionLogMessage('Volgorde gewijzigd vanuit de BREBO calculatiewerkbank.');
-        $line->save();
+        $this->legacyLineGateway->reorder($id, $position);
       }
       else {
         $updated = $this->database->update('brebo_calculation_recipe_instance')
@@ -251,24 +235,7 @@ final class CalculationBlockOrderManager {
     }
   }
 
-  private function resolveLegacyElementId(int $calculationId, string $paragraphKey): ?int {
-    if (!preg_match('/(?:element|paragraph)[_:-]?(\d+)/i', $paragraphKey, $matches)) {
-      return NULL;
-    }
-    $candidate = (int) $matches[1];
-    $element = $this->entityTypeManager->getStorage('node')->load($candidate);
-    if ($element instanceof NodeInterface
-      && $element->bundle() === 'brebo_calc_element'
-      && (int) $element->get('field_brebo_calculation_ref')->target_id === $calculationId) {
-      return $candidate;
-    }
-    return NULL;
-  }
-
-  private function assertEditable(int $calculationId, string $version, AccountInterface $account): void {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function assertEditable(int $calculationId, string $version, int $actorId): void {
     $versionRow = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['locked_at', 'status'])
       ->condition('calculation_id', $calculationId)
@@ -277,10 +244,7 @@ final class CalculationBlockOrderManager {
     if (!$versionRow || $versionRow['locked_at'] !== NULL || $versionRow['status'] !== 'draft') {
       throw new \RuntimeException('Only unlocked draft calculation versions may be reordered.');
     }
-    $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
-    if (!$calculation instanceof NodeInterface || !$calculation->access('update', $account)) {
-      throw new \RuntimeException('Calculation update access denied.');
-    }
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
   }
 
 }
