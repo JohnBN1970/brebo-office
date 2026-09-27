@@ -36,6 +36,12 @@ final class CalculationRowManager {
         'version' => $version,
         'paragraph_key' => $paragraphKey,
         'rule_type' => 'normal',
+        'description' => 'Nieuwe calculatieregel',
+        'contract_quantity' => 1,
+        'actual_quantity' => NULL,
+        'unit' => 'post',
+        'budget_hours' => 0,
+        'labour_rate' => 0,
         'labour_unit_cost' => 0,
         'material_unit_cost' => 0,
         'equipment_unit_cost' => 0,
@@ -95,7 +101,11 @@ final class CalculationRowManager {
       $this->legacyLineGateway->updateQuickEntry($lineId, $description, $unit, $quantity, $costs);
 
       $this->database->update('brebo_calculation_row_domain')
-        ->fields($costs)
+        ->fields($costs + [
+          'description' => $description,
+          'contract_quantity' => $quantity,
+          'unit' => $unit,
+        ])
         ->condition('calc_line_id', $lineId)
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
