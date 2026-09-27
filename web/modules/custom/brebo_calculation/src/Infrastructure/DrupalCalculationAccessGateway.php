@@ -18,11 +18,12 @@ final class DrupalCalculationAccessGateway implements CalculationAccessGatewayIn
     private readonly EntityTypeManagerInterface $entityTypeManager,
   ) {}
 
-  public function assertCanUpdate(int $calculationId, int $accountId): void {
-    $account = $this->entityTypeManager->getStorage('user')->load($accountId);
+  public function assertCanEditWorkbench(int $calculationId, int $actorId): void {
+    $account = $this->entityTypeManager->getStorage('user')->load($actorId);
     $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
 
     if (!$account instanceof AccountInterface
+      || !$account->hasPermission('edit brebo calculation workbench')
       || !$calculation instanceof NodeInterface
       || $calculation->bundle() !== 'brebo_calculation'
       || !$calculation->access('update', $account)) {

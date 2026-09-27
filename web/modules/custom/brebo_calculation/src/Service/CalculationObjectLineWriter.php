@@ -6,7 +6,6 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
 use Drupal\node\NodeInterface;
 
 /** Writes object-derived rows through the current BREBO calculation workbench. */
@@ -18,11 +17,11 @@ final class CalculationObjectLineWriter {
   ) {}
 
   /** @param array<string,float|int> $unitCosts @param array<string,mixed> $priceTrace */
-  public function write(int $calculationId,string $version,string $paragraphKey,string $description,float $quantity,string $unit,array $unitCosts,string $sourceDomain,string $sourceReference,string $sourceChecksum,AccountInterface $account,array $priceTrace=[]): int {
+  public function write(int $calculationId,string $version,string $paragraphKey,string $description,float $quantity,string $unit,array $unitCosts,string $sourceDomain,string $sourceReference,string $sourceChecksum,int $actorId,array $priceTrace=[]): int {
     $description=trim($description);$unit=trim($unit);$sourceDomain=trim($sourceDomain);$sourceReference=trim($sourceReference);$sourceChecksum=trim($sourceChecksum);
     if($description===''||$unit===''||$sourceDomain===''||$sourceReference===''||$sourceChecksum==='') throw new \InvalidArgumentException('Objectgestuurde calculatieregels vereisen omschrijving, eenheid en volledige brontraceerbaarheid.');
     if($quantity<0) throw new \InvalidArgumentException('Calculatiehoeveelheid mag niet negatief zijn.');
-    $lineId=$this->rowManager->add($calculationId,$version,$paragraphKey,$account);
+    $lineId=$this->rowManager->add($calculationId,$version,$paragraphKey,$actorId);
     $line=$this->objectEntityTypeManager->getStorage('node')->load($lineId);
     if(!$line instanceof NodeInterface||$line->bundle()!=='brebo_calc_line') throw new \RuntimeException('Aangemaakte calculatieregel kon niet opnieuw worden geladen.');
     $costs=['labour_unit_cost'=>$this->cost($unitCosts,'labour'),'material_unit_cost'=>$this->cost($unitCosts,'material'),'equipment_unit_cost'=>$this->cost($unitCosts,'equipment'),'subcontracting_unit_cost'=>$this->cost($unitCosts,'subcontracting'),'other_unit_cost'=>$this->cost($unitCosts,'other')];
@@ -36,7 +35,7 @@ final class CalculationObjectLineWriter {
       $values=$costs+['source_domain'=>$sourceDomain,'source_reference'=>$sourceReference,'source_checksum'=>$sourceChecksum,'price_source_reference'=>$priceSourceRef?:NULL,'price_source_date'=>$priceSourceDate?:NULL,'price_confidence'=>$priceConfidence?:NULL];
       $supported=[];foreach($values as$field=>$value)if($this->database->schema()->fieldExists('brebo_calculation_row_domain',$field))$supported[$field]=$value;
       $this->database->update('brebo_calculation_row_domain')->fields($supported)->condition('calc_line_id',$lineId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute();
-    } catch(\Throwable $e){$transaction->rollBack();try{$this->rowManager->delete($calculationId,$version,$lineId,$account);}catch(\Throwable){}throw $e;}
+    } catch(\Throwable $e){$transaction->rollBack();try{$this->rowManager->delete($calculationId,$version,$lineId,$actorId);}catch(\Throwable){}throw $e;}
     return $lineId;
   }
 
