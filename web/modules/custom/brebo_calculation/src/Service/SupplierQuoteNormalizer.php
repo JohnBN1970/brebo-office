@@ -81,6 +81,14 @@ final class SupplierQuoteNormalizer {
     $quoteLines = $this->quoteLines($text, $lines);
     if (trim($layoutXml) !== '') {
       $quoteLines = $this->attachPositionGeometry($quoteLines, $layoutXml);
+      // Geometry-aware documents must not keep supplier-specific crop guesses.
+      // Calc will derive the final visual bounds inside source_visual_search_region.
+      foreach ($quoteLines as &$geometryRow) {
+        if (isset($geometryRow['source_visual_search_region'])) {
+          $geometryRow['source_visual_crop'] = NULL;
+        }
+      }
+      unset($geometryRow);
     }
     $classification = $this->classifyScope($text, $quoteLines);
     $suggested = $unique[0] ?? NULL;
