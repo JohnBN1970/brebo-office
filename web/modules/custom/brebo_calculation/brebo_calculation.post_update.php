@@ -188,3 +188,31 @@ function brebo_calculation_post_update_promote_row_domain_authority(&$sandbox = 
 
   return sprintf('BREBO Calculation row authority fields ready; %d legacy calc lines backfilled.', $updated);
 }
+
+
+/**
+ * Introduce a BREBO-owned identity for calculation rows.
+ */
+function brebo_calculation_post_update_add_row_identity(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; row identity migration skipped.';
+  }
+
+  if (!$schema->fieldExists($table, 'row_id')) {
+    $schema->addField($table, 'row_id', [
+      'type' => 'serial',
+      'not null' => TRUE,
+    ], [
+      'primary key' => ['row_id'],
+    ]);
+  }
+
+  if (!$schema->indexExists($table, 'legacy_line_version')) {
+    $schema->addUniqueKey($table, 'legacy_line_version', ['calc_line_id', 'version']);
+  }
+
+  return 'BREBO-owned calculation row identities are active; calc_line_id remains as temporary legacy mapping.';
+}
