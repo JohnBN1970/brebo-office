@@ -1,4 +1,12 @@
 services:
+  brebo_calculation.legacy_calculation_gateway:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyGateway
+    arguments: ['@entity_type.manager']
+
+  brebo_calculation.line_read_model:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineReadModel
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.legacy_structure_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationStructureLegacyGateway
     arguments: ['@entity_type.manager']
@@ -31,7 +39,7 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationResultService
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.commercial_calculator'
 
   brebo_calculation.version_establisher:
@@ -41,7 +49,8 @@ services:
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
-      - '@entity_type.manager'
+      - '@brebo_calculation.line_read_model'
+      - '@brebo_calculation.legacy_calculation_gateway'
 
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer

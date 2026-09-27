@@ -6,9 +6,8 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
 /**
  * Establishes a draft calculation version as one immutable canonical truth.
@@ -20,13 +19,14 @@ final class CalculationVersionEstablisher {
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
     private readonly TimeInterface $time,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationLineReadModelInterface $lineReadModel,
+    private readonly CalculationLegacyGatewayInterface $legacyCalculationGateway,
   ) {}
 
   /**
    * @return array<string,mixed>
    */
-  public function establish(int $calculationId, string $version, AccountInterface $account): array {
+  public function establish(int $calculationId, string $version, int $actorId): array {
     $versionRow = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v')
       ->condition('calculation_id', $calculationId)
@@ -67,6 +67,13 @@ final class CalculationVersionEstablisher {
     $contentHash = hash('sha256', json_encode($hashPayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
 
     $snapshotRows = [];
+    $snapshotLineIds = [];
+    foreach ((array) ($result['components'] ?? []) as $component) {
+      if (is_array($component) && ($component['kind'] ?? '') === 'row' && (int) ($component['id'] ?? 0) > 0) {
+        $snapshotLineIds[] = (int) $component['id'];
+      }
+    }
+    $lineData = $this->lineReadModel->loadMany($snapshotLineIds);
     foreach ((array) ($result['components'] ?? []) as $component) {
       if (!is_array($component) || ($component['kind'] ?? '') !== 'row') {
         continue;
@@ -81,21 +88,20 @@ final class CalculationVersionEstablisher {
         ->condition('version', $version)
         ->execute()
         ->fetchAssoc();
-      $line = $this->entityTypeManager->getStorage('node')->load($lineId);
-      if (!is_array($domain) || !$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+      $line = $lineData[$lineId] ?? NULL;
+      if (!is_array($domain) || !is_array($line)) {
         continue;
       }
-      $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
       $snapshotRows[] = [
         'legacy_line_id' => $lineId,
         'paragraph_id' => (string) ($domain['paragraph_key'] ?? ''),
         'type' => (string) ($domain['rule_type'] ?? 'normal'),
-        'description' => (string) ($component['description'] ?? $line->label()),
-        'quantity' => (float) ($line->get('field_brebo_contract_quantity')->value ?? 0),
-        'actual_quantity' => ($actualRaw === NULL || $actualRaw === '') ? NULL : (float) $actualRaw,
+        'description' => (string) ($component['description'] ?? $line['description']),
+        'quantity' => (float) ($line['contract_quantity'] ?? 0),
+        'actual_quantity' => $line['actual_quantity'] ?? NULL,
         'unit' => (string) ($component['unit'] ?? ''),
-        'budget_hours' => (float) ($line->get('field_brebo_budget_hours')->value ?? 0),
-        'labour_rate' => (float) ($line->get('field_brebo_labor_rate')->value ?? 0),
+        'budget_hours' => (float) ($line['budget_hours'] ?? 0),
+        'labour_rate' => (float) ($line['labour_rate'] ?? 0),
         'unit_costs' => [
           'labour' => (float) ($domain['labour_unit_cost'] ?? 0),
           'material' => (float) ($domain['material_unit_cost'] ?? 0),
@@ -138,14 +144,14 @@ final class CalculationVersionEstablisher {
         'content_hash' => $contentHash,
         'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
         'created' => $lockedAt,
-        'created_by' => (int) $account->id(),
+        'created_by' => $actorId,
       ])->execute();
 
       $updated = $this->database->update('brebo_calculation_version')
         ->fields([
           'status' => 'established',
           'locked_at' => $lockedAt,
-          'locked_by' => (int) $account->id(),
+          'locked_by' => $actorId,
           'content_hash' => $contentHash,
         ])
         ->condition('calculation_id', $calculationId)
@@ -158,14 +164,7 @@ final class CalculationVersionEstablisher {
         throw new \RuntimeException('Calculatieversie veranderde tijdens het vaststellen.');
       }
 
-      $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
-      if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation') {
-        throw new \RuntimeException('Calculatie-node niet gevonden tijdens vaststellen.');
-      }
-      if ($calculation->hasField('field_brebo_calc_status')) {
-        $calculation->set('field_brebo_calc_status', 'Vastgesteld');
-        $calculation->save();
-      }
+      $this->legacyCalculationGateway->markEstablished($calculationId);
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
