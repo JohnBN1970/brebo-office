@@ -7,6 +7,7 @@ namespace Drupal\brebo_calculation\Service;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorPolicyInterface;
 use Drupal\Core\Database\Connection;
 
 /** Guarded mutations for editable calculation rows. */
@@ -18,6 +19,7 @@ final class CalculationRowManager {
     private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationRowIdentityGenerator $rowIdentityGenerator,
     private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
+    private readonly CalculationLegacyLineMirrorPolicyInterface $legacyMirrorPolicy,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
@@ -170,6 +172,9 @@ final class CalculationRowManager {
   }
 
   private function createLegacyMirror(int $calculationId, string $version, int $rowId, string $paragraphKey, int $actorId): void {
+    if (!$this->legacyMirrorPolicy->createLegacyMirrors()) {
+      return;
+    }
     $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
     if ($legacyElementId === NULL) {
       return;
