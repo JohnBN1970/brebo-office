@@ -184,7 +184,11 @@ final class SupplierQuoteNormalizer {
           break;
         }
       }
-      $pair ??= [$money[0], $money[1]];
+      // Never guess from arbitrary monetary-looking values. Dimensions,
+      // ventilation values and technical data can also have two decimals.
+      if ($pair === NULL) {
+        continue;
+      }
       [$unitPriceMatch, $lineTotalMatch] = $pair;
       $unitPrice = (float) $unitPriceMatch['value'];
       $lineTotal = (float) $lineTotalMatch['value'];
@@ -220,7 +224,9 @@ final class SupplierQuoteNormalizer {
       ];
     }
 
-    // Recovery for positions whose table unit/price columns were displaced by PDF extraction.
+    // Recovery for positions whose columns were displaced by PDF extraction.
+    // Position boundaries are authoritative; quantity/unit and price pair are
+    // recovered independently inside that block.
     $seen = array_fill_keys(array_column($result, 'position'), TRUE);
     preg_match_all('/(?<!\\d)(00[1-9]|0[1-9]\\d|[1-9]\\d{2})(?!\\d)/u', $flat, $positionMatches, PREG_OFFSET_CAPTURE);
     $positionCount = count($positionMatches[0] ?? []);
@@ -229,33 +235,61 @@ final class SupplierQuoteNormalizer {
       if (isset($seen[$position])) {
         continue;
       }
+
       $offset = (int) $positionMatches[0][$p][1];
       $nextOffset = $p + 1 < $positionCount ? (int) $positionMatches[0][$p + 1][1] : strlen($flat);
       $block = trim(substr($flat, $offset, max(0, $nextOffset - $offset)));
-      if (!preg_match('/^\\d{3}\\D{0,16}(\\d+(?:[.,]\\d+)?)\\s*(Stk|st|pcs?|piece|ea)\\b/ui', $block, $head)) {
+
+      // A real quote position must contain product semantics. This prevents
+      // dates/page numbers/technical codes from becoming fake positions.
+      if (!preg_match('/\\b(?:Deurelement|kozijn|deur|raam|element)\\b/ui', $block)) {
         continue;
       }
-      $quantity = $this->decimal($head[1]);
-      preg_match_all('/(?<!\\d)(\\d{1,3}(?:[ .]\\d{3})*|\\d+)\\s*,\\s*(\\d{2})(?!\\d)/u', $block, $amounts);
-      $values = array_map(fn(string $raw): float => $this->decimal($raw), $amounts[0] ?? []);
+
+      $quantity = 1.0;
+      $unit = 'Stk';
+      if (preg_match('/^\\d{3}.{0,80}?\\b(\\d+(?:[.,]\\d+)?)\\s*(Stk|st|pcs?|piece|ea)\\b/ui', $block, $head)) {
+        $quantity = $this->decimal($head[1]);
+        $unit = $head[2];
+      }
+
+      preg_match_all('/(?<!\\d)(\\d{1,3}(?:[ .]\\d{3})*|\\d+)\\s*,\\s*(\\d{2})(?!\\d)/u', $block, $amounts, PREG_OFFSET_CAPTURE);
+      $money = [];
+      foreach ($amounts[0] ?? [] as $amountMatch) {
+        $money[] = [
+          'raw' => (string) $amountMatch[0],
+          'offset' => (int) $amountMatch[1],
+          'value' => $this->decimal((string) $amountMatch[0]),
+        ];
+      }
+
       $pair = NULL;
-      for ($a = 0; $a < count($values) - 1; $a++) {
-        if ($values[$a] > 0 && abs(($values[$a] * $quantity) - $values[$a + 1]) < 0.02) {
-          $pair = [$values[$a], $values[$a + 1]];
-          break;
+      for ($a = 0; $a < count($money); $a++) {
+        for ($b = $a + 1; $b < min(count($money), $a + 5); $b++) {
+          $unitPrice = (float) $money[$a]['value'];
+          $lineTotal = (float) $money[$b]['value'];
+          if ($unitPrice < 1 || $lineTotal < 1) {
+            continue;
+          }
+          if (abs(($unitPrice * $quantity) - $lineTotal) < 0.02) {
+            $pair = [$unitPrice, $lineTotal];
+            break 2;
+          }
         }
       }
       if ($pair === NULL) {
         continue;
       }
+
       $description = 'Offertepositie ' . $position;
-      if (preg_match('/\\bDeurelement\\b.*?(?=\\b(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Deurbeslagpakket|Ontwatering|Gewicht\\s+positie)\\s*:|$)/ui', $block, $dm)) {
+      if (preg_match('/\\bDeurelement\\b.*?(?=\\b(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\\s+positie|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\s*:|$)/ui', $block, $dm)) {
         $description = trim((string) $dm[0]);
       }
+
       $result[] = [
         'position' => $position,
         'quantity' => $quantity,
-        'unit' => $head[2],
+        'unit' => $unit,
         'description' => mb_substr($description, 0, 500),
         'unit_price' => $pair[0],
         'line_total' => $pair[1],
