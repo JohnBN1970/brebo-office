@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 
 /** Manages reusable recipes and version-pinned calculation recipe instances. */
 final class RecipeManager {
@@ -13,6 +13,7 @@ final class RecipeManager {
   public function __construct(
     private readonly Connection $database,
     private readonly RecipeFormulaEvaluator $formulaEvaluator,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
   /**
@@ -20,8 +21,8 @@ final class RecipeManager {
    *
    * @param array<string,int|float|string> $parameterValues
    */
-  public function placeRecipe(int $calculationId, string $calculationVersion, string $paragraphKey, int $recipeVersionId, float $quantity, array $parameterValues, AccountInterface $actor): int {
-    $this->assertEditableCalculation($calculationId, $calculationVersion);
+  public function placeRecipe(int $calculationId, string $calculationVersion, string $paragraphKey, int $recipeVersionId, float $quantity, array $parameterValues, int $actorId): int {
+    $this->assertEditableCalculation($calculationId, $calculationVersion, $actorId);
     if ($quantity < 0) { throw new \InvalidArgumentException('Recipe quantity cannot be negative.'); }
     $recipeVersion = $this->database->select('brebo_calculation_recipe_version', 'rv')->fields('rv')->condition('id', $recipeVersionId)->condition('status', 'published')->execute()->fetchAssoc();
     if (!$recipeVersion) { throw new \InvalidArgumentException('Published recipe version not found.'); }
@@ -36,7 +37,7 @@ final class RecipeManager {
     $transaction = $this->database->startTransaction();
     try {
       $sortOrder = (int) $this->database->select('brebo_calculation_recipe_instance', 'i')->condition('calculation_id', $calculationId)->condition('calculation_version', $calculationVersion)->condition('paragraph_key', $paragraphKey)->addExpression('COALESCE(MAX(sort_order), 0) + 10', 'next_order')->execute()->fetchField();
-      $instanceId = (int) $this->database->insert('brebo_calculation_recipe_instance')->fields(['calculation_id' => $calculationId, 'calculation_version' => $calculationVersion, 'paragraph_key' => $paragraphKey, 'recipe_id' => (int) $recipe['id'], 'recipe_version_id' => $recipeVersionId, 'name' => (string) $recipe['name'], 'quantity' => $quantity, 'unit' => (string) $recipeVersion['base_unit'], 'sort_order' => $sortOrder, 'snapshot_payload' => $payload, 'snapshot_hash' => $hash, 'created' => time(), 'created_by' => (int) $actor->id()])->execute();
+      $instanceId = (int) $this->database->insert('brebo_calculation_recipe_instance')->fields(['calculation_id' => $calculationId, 'calculation_version' => $calculationVersion, 'paragraph_key' => $paragraphKey, 'recipe_id' => (int) $recipe['id'], 'recipe_version_id' => $recipeVersionId, 'name' => (string) $recipe['name'], 'quantity' => $quantity, 'unit' => (string) $recipeVersion['base_unit'], 'sort_order' => $sortOrder, 'snapshot_payload' => $payload, 'snapshot_hash' => $hash, 'created' => time(), 'created_by' => $actorId])->execute();
       foreach ($resolved as $key => $value) { $this->database->insert('brebo_calculation_recipe_instance_parameter')->fields(['recipe_instance_id' => $instanceId, 'parameter_key' => $key, 'value' => (string) ($parameterValues[$key] ?? ''), 'calculated_value' => (string) $value])->execute(); }
       $variables = $resolved + ['quantity' => $quantity];
       foreach ($lines as $line) {
@@ -48,18 +49,18 @@ final class RecipeManager {
     catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
   }
 
-  public function updateQuantity(int $instanceId, float $quantity, AccountInterface $actor): void {
+  public function updateQuantity(int $instanceId, float $quantity, int $actorId): void {
     if ($quantity < 0) { throw new \InvalidArgumentException('Recipe quantity cannot be negative.'); }
     $instance = $this->loadInstance($instanceId);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $this->database->update('brebo_calculation_recipe_instance')->fields(['quantity' => $quantity])->condition('id', $instanceId)->execute();
-    $this->recalculate($instanceId, $actor);
+    $this->recalculate($instanceId, $actorId);
   }
 
   /** @param array<string,int|float|string> $values */
-  public function updateParameters(int $instanceId, array $values, AccountInterface $actor): void {
+  public function updateParameters(int $instanceId, array $values, int $actorId): void {
     $instance = $this->loadInstance($instanceId);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $snapshot = json_decode((string) $instance['snapshot_payload'], TRUE, 512, JSON_THROW_ON_ERROR);
     $definitions = is_array($snapshot['parameters'] ?? NULL) ? $snapshot['parameters'] : [];
     $allowed = [];
@@ -69,32 +70,32 @@ final class RecipeManager {
       if ($value !== '' && !is_numeric($value)) { throw new \InvalidArgumentException('Recipe parameter must be numeric: ' . $key); }
       $this->database->update('brebo_calculation_recipe_instance_parameter')->fields(['value' => (string) $value])->condition('recipe_instance_id', $instanceId)->condition('parameter_key', $key)->execute();
     }
-    $this->recalculate($instanceId, $actor);
+    $this->recalculate($instanceId, $actorId);
   }
 
   /** Changes a line override without touching its formula-driven base quantity. */
-  public function updateLineOverride(int $lineId, ?float $manualQuantity, float $wastePct, AccountInterface $actor): void {
+  public function updateLineOverride(int $lineId, ?float $manualQuantity, float $wastePct, int $actorId): void {
     if ($manualQuantity !== NULL && $manualQuantity < 0) { throw new \InvalidArgumentException('Manual recipe line quantity cannot be negative.'); }
     if ($wastePct < 0 || $wastePct > 1000) { throw new \InvalidArgumentException('Recipe line waste percentage is outside the allowed range.'); }
     $line = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')->condition('id', $lineId)->execute()->fetchAssoc();
     if (!$line) { throw new \InvalidArgumentException('Recipe instance line not found.'); }
     $instance = $this->loadInstance((int) $line['recipe_instance_id']);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $this->database->update('brebo_calculation_recipe_instance_line')->fields(['manual_quantity' => $manualQuantity, 'waste_pct' => $wastePct])->condition('id', $lineId)->execute();
   }
 
   /** Removes the manual quantity override so the calculated value becomes active again. */
-  public function resetLineQuantityOverride(int $lineId, AccountInterface $actor): void {
+  public function resetLineQuantityOverride(int $lineId, int $actorId): void {
     $line = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')->condition('id', $lineId)->execute()->fetchAssoc();
     if (!$line) { throw new \InvalidArgumentException('Recipe instance line not found.'); }
     $instance = $this->loadInstance((int) $line['recipe_instance_id']);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $this->database->update('brebo_calculation_recipe_instance_line')->fields(['manual_quantity' => NULL])->condition('id', $lineId)->execute();
   }
 
-  public function recalculate(int $instanceId, AccountInterface $actor): void {
+  public function recalculate(int $instanceId, int $actorId): void {
     $instance = $this->loadInstance($instanceId);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $quantity = (float) $instance['quantity'];
     $snapshot = json_decode((string) $instance['snapshot_payload'], TRUE, 512, JSON_THROW_ON_ERROR);
     $parameters = is_array($snapshot['parameters'] ?? NULL) ? $snapshot['parameters'] : [];
@@ -112,9 +113,9 @@ final class RecipeManager {
   }
 
   /** @param array<string,mixed> $line */
-  public function addCustomLine(int $instanceId, array $line, AccountInterface $actor): int {
+  public function addCustomLine(int $instanceId, array $line, int $actorId): int {
     $instance = $this->loadInstance($instanceId);
-    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version']);
+    $this->assertEditableCalculation((int) $instance['calculation_id'], (string) $instance['calculation_version'], $actorId);
     $sortOrder = (int) $this->database->select('brebo_calculation_recipe_instance_line', 'l')->condition('recipe_instance_id', $instanceId)->addExpression('COALESCE(MAX(sort_order), 0) + 10', 'next_order')->execute()->fetchField();
     return (int) $this->database->insert('brebo_calculation_recipe_instance_line')->fields(['recipe_instance_id' => $instanceId, 'source_recipe_line_id' => NULL, 'line_key' => 'custom-' . bin2hex(random_bytes(8)), 'line_type' => (string) ($line['line_type'] ?? 'material'), 'description' => trim((string) ($line['description'] ?? 'Nieuwe regel')), 'unit' => $line['unit'] ?? NULL, 'quantity_formula' => $line['quantity_formula'] ?? NULL, 'calculated_quantity' => (float) ($line['quantity'] ?? 0), 'manual_quantity' => isset($line['quantity']) ? (float) $line['quantity'] : NULL, 'waste_pct' => (float) ($line['waste_pct'] ?? 0), 'material_ref' => $line['material_ref'] ?? NULL, 'price_source_ref' => $line['price_source_ref'] ?? NULL, 'unit_cost' => $line['unit_cost'] ?? NULL, 'sort_order' => $sortOrder, 'is_custom' => 1])->execute();
   }
@@ -145,7 +146,10 @@ final class RecipeManager {
     return $resolved;
   }
 
-  private function assertEditableCalculation(int $calculationId, string $version): void {
+  private function assertEditableCalculation(int $calculationId, string $version, ?int $actorId = NULL): void {
+    if ($actorId !== NULL) {
+      $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
+    }
     $record = $this->database->select('brebo_calculation_version', 'v')->fields('v', ['status', 'locked_at'])->condition('calculation_id', $calculationId)->condition('version', $version)->execute()->fetchAssoc();
     if (!$record || $record['status'] !== 'draft' || $record['locked_at'] !== NULL) { throw new \RuntimeException('Only unlocked draft calculation versions may be changed.'); }
   }
