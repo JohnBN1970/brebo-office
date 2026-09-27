@@ -810,11 +810,44 @@ final class SupplierQuoteNormalizer {
             continue;
           }
           $row['source_page'] = $pageIndex + 1;
+          $xMin = (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0);
+          $yMin = (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0);
+          $xMax = (float) ($line instanceof \DOMElement ? $line->getAttribute('xMax') : 0);
+          $yMax = (float) ($line instanceof \DOMElement ? $line->getAttribute('yMax') : 0);
           $row['source_position_bounds'] = [
-            'x' => max(0.0, (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0) / $pageWidth),
-            'y' => max(0.0, (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0) / $pageHeight),
-            'width' => min(1.0, max(0.01, ((float) ($line instanceof \DOMElement ? $line->getAttribute('xMax') : 0) - (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0)) / $pageWidth)),
-            'height' => min(1.0, max(0.01, ((float) ($line instanceof \DOMElement ? $line->getAttribute('yMax') : 0) - (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0)) / $pageHeight)),
+            'x' => max(0.0, $xMin / $pageWidth),
+            'y' => max(0.0, $yMin / $pageHeight),
+            'width' => min(1.0, max(0.01, ($xMax - $xMin) / $pageWidth)),
+            'height' => min(1.0, max(0.01, ($yMax - $yMin) / $pageHeight)),
+          ];
+
+          // Derive a position-local visual search region from document geometry.
+          // It spans the content column below the position anchor until the next
+          // position anchor on the same page (or the page footer). This is a
+          // dynamic search area, not the final image crop.
+          $nextY = $pageHeight * 0.94;
+          foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $candidateLine) {
+            if (!$candidateLine instanceof \DOMElement) {
+              continue;
+            }
+            $candidateY = (float) $candidateLine->getAttribute('yMin');
+            if ($candidateY <= $yMax + 2) {
+              continue;
+            }
+            $candidateWords = [];
+            foreach ($xpath->query('.//*[local-name()="word"]', $candidateLine) ?: [] as $candidateWord) {
+              $candidateWords[] = trim((string) $candidateWord->textContent);
+            }
+            if (array_filter($candidateWords, static fn(string $word): bool => (bool) preg_match('/^\\d{3}$/', $word))) {
+              $nextY = min($nextY, $candidateY);
+              break;
+            }
+          }
+          $row['source_visual_search_region'] = [
+            'x' => 0.0,
+            'y' => max(0.0, $yMax / $pageHeight),
+            'width' => 1.0,
+            'height' => max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight)),
           ];
           break 2;
         }
