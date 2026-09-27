@@ -13,7 +13,7 @@ final class SupplierQuoteNormalizer {
    * @param array{description?:string,quantity?:float|int|null,unit?:string} $target
    * @return array<string,mixed>
    */
-  public function normalize(string $text, array $target = []): array {
+  public function normalize(string $text, array $target = [], string $layoutXml = ''): array {
     $text = trim($text);
     if ($text === '') {
       return ['status' => 'no_text', 'target' => $target, 'candidates' => [], 'suggested' => NULL];
@@ -79,6 +79,9 @@ final class SupplierQuoteNormalizer {
     }
 
     $quoteLines = $this->quoteLines($text, $lines);
+    if (trim($layoutXml) !== '') {
+      $quoteLines = $this->attachPositionGeometry($quoteLines, $layoutXml);
+    }
     $classification = $this->classifyScope($text, $quoteLines);
     $suggested = $unique[0] ?? NULL;
     return [
@@ -766,6 +769,59 @@ final class SupplierQuoteNormalizer {
       $seen += $count;
     }
     return NULL;
+  }
+
+  /**
+   * Attach page-relative bounds for the text block that contains each position.
+   * These bounds are detected from PDF geometry, not supplier-specific pixels.
+   *
+   * @param list<array<string,mixed>> $quoteLines
+   * @return list<array<string,mixed>>
+   */
+  private function attachPositionGeometry(array $quoteLines, string $layoutXml): array {
+    if (!class_exists('DOMDocument')) {
+      return $quoteLines;
+    }
+    $dom = new \DOMDocument();
+    if (!@$dom->loadXML($layoutXml)) {
+      return $quoteLines;
+    }
+    $xpath = new \DOMXPath($dom);
+    foreach ($quoteLines as &$row) {
+      $position = (string) ($row['position'] ?? '');
+      if ($position === '') {
+        continue;
+      }
+      foreach ($xpath->query('//*[local-name()="page"]') ?: [] as $pageIndex => $page) {
+        if (!$page instanceof \DOMElement) {
+          continue;
+        }
+        $pageWidth = (float) $page->getAttribute('width');
+        $pageHeight = (float) $page->getAttribute('height');
+        if ($pageWidth <= 0 || $pageHeight <= 0) {
+          continue;
+        }
+        foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $line) {
+          $words = [];
+          foreach ($xpath->query('.//*[local-name()="word"]', $line) ?: [] as $word) {
+            $words[] = trim((string) $word->textContent);
+          }
+          if (!in_array($position, $words, TRUE)) {
+            continue;
+          }
+          $row['source_page'] = $pageIndex + 1;
+          $row['source_position_bounds'] = [
+            'x' => max(0.0, (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0) / $pageWidth),
+            'y' => max(0.0, (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0) / $pageHeight),
+            'width' => min(1.0, max(0.01, ((float) ($line instanceof \DOMElement ? $line->getAttribute('xMax') : 0) - (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0)) / $pageWidth)),
+            'height' => min(1.0, max(0.01, ((float) ($line instanceof \DOMElement ? $line->getAttribute('yMax') : 0) - (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0)) / $pageHeight)),
+          ];
+          break 2;
+        }
+      }
+    }
+    unset($row);
+    return $quoteLines;
   }
 
   private function decimal(string $raw): float {
