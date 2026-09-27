@@ -31,6 +31,7 @@ final class CalculationRowManager {
       $lineId = $this->legacyLineGateway->create($legacyElementId, $actorId);
 
       $this->database->insert('brebo_calculation_row_domain')->fields([
+        'row_id' => $this->nextRowId(),
         'calc_line_id' => $lineId,
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -124,6 +125,7 @@ final class CalculationRowManager {
     try {
       $copyId = $this->legacyLineGateway->duplicate($lineId, $actorId);
       unset($domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
+      $domain['row_id'] = $this->nextRowId();
       $domain['calc_line_id'] = $copyId;
       $domain['calculation_id'] = $calculationId;
       $domain['version'] = $version;
@@ -225,6 +227,12 @@ final class CalculationRowManager {
     if ($children > 0) {
       throw new \RuntimeException('Only leaf paragraphs may contain calculation rows.');
     }
+  }
+
+  private function nextRowId(): int {
+    $query = $this->database->select('brebo_calculation_row_domain', 'r');
+    $query->addExpression('MAX(row_id)', 'max_row_id');
+    return ((int) $query->execute()->fetchField()) + 1;
   }
 
   /** @param array<string, float|int> $unitCosts */
