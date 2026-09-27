@@ -5,19 +5,19 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
+use Drupal\brebo_calculation\Contract\CalculationStructureLegacyGatewayInterface;
 
 /** Creates and reorders calculation structure while preserving legacy identity. */
 final class CalculationStructureManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationStructureLegacyGatewayInterface $legacyStructureGateway,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
-  public function addMainGroup(int $calculationId, string $version, string $code, string $label, AccountInterface $account): string {
+  public function addMainGroup(int $calculationId, string $version, string $code, string $label, int $actorId): string {
     $versionRow = $this->assertEditable($calculationId, $version, $account);
     $code = trim($code);
     $label = trim($label);
@@ -25,21 +25,11 @@ final class CalculationStructureManager {
       throw new \InvalidArgumentException('Main group label is required.');
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $sequence = $this->nextLegacySequence($calculationId, 'brebo_calc_component', 'field_brebo_component_sequence');
     $transaction = $this->database->startTransaction();
     try {
-      $component = $storage->create([
-        'type' => 'brebo_calc_component',
-        'title' => $label,
-        'status' => 1,
-        'uid' => $account->id(),
-        'field_brebo_calculation_ref' => ['target_id' => $calculationId],
-        'field_brebo_component_code' => $code,
-        'field_brebo_component_sequence' => $sequence,
-      ]);
-      $component->save();
-      $nodeKey = 'component_' . $component->id();
+      $legacy = $this->legacyStructureGateway->createMainGroup($calculationId, $code, $label, $actorId);
+      $sequence = $legacy['sequence'];
+      $nodeKey = 'component_' . $legacy['id'];
       $this->database->insert('brebo_calculation_structure')->fields([
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -61,7 +51,7 @@ final class CalculationStructureManager {
     }
   }
 
-  public function addParagraph(int $calculationId, string $version, string $parentKey, string $code, string $label, ?string $locationRef, AccountInterface $account): string {
+  public function addParagraph(int $calculationId, string $version, string $parentKey, string $code, string $label, ?string $locationRef, int $actorId): string {
     $versionRow = $this->assertEditable($calculationId, $version, $account);
     $parent = $this->structureNode($calculationId, $version, $parentKey);
     if ($parent['node_type'] !== 'main_group') {
@@ -78,25 +68,11 @@ final class CalculationStructureManager {
       throw new \InvalidArgumentException('Paragraph label is required.');
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $sequence = $this->nextLegacySequence($calculationId, 'brebo_calc_element', 'field_brebo_element_sequence');
     $transaction = $this->database->startTransaction();
     try {
-      $element = $storage->create([
-        'type' => 'brebo_calc_element',
-        'title' => $label,
-        'status' => 1,
-        'uid' => $account->id(),
-        'field_brebo_calculation_ref' => ['target_id' => $calculationId],
-        'field_brebo_calc_component_ref' => ['target_id' => $componentId],
-        'field_brebo_element_code' => $code,
-        'field_brebo_element_sequence' => $sequence,
-        'field_brebo_element_scope' => $label,
-        'field_brebo_recipe_quantity' => '1.0000',
-        'field_brebo_recipe_unit' => 'post',
-      ]);
-      $element->save();
-      $nodeKey = 'element_' . $element->id();
+      $legacy = $this->legacyStructureGateway->createParagraph($calculationId, $componentId, $code, $label, $actorId);
+      $sequence = $legacy['sequence'];
+      $nodeKey = 'element_' . $legacy['id'];
       $this->database->insert('brebo_calculation_structure')->fields([
         'calculation_id' => $calculationId,
         'version' => $version,
@@ -118,7 +94,7 @@ final class CalculationStructureManager {
     }
   }
 
-  public function reorder(int $calculationId, string $version, string $nodeKey, int $sortOrder, AccountInterface $account): void {
+  public function reorder(int $calculationId, string $version, string $nodeKey, int $sortOrder, int $actorId): void {
     $this->assertEditable($calculationId, $version, $account);
     $node = $this->structureNode($calculationId, $version, $nodeKey);
     $transaction = $this->database->startTransaction();
@@ -131,18 +107,10 @@ final class CalculationStructureManager {
         ->execute();
 
       if ($node['node_type'] === 'main_group' && preg_match('/^component_(\d+)$/', $nodeKey, $matches)) {
-        $entity = $this->entityTypeManager->getStorage('node')->load((int) $matches[1]);
-        if ($entity instanceof NodeInterface && $entity->hasField('field_brebo_component_sequence')) {
-          $entity->set('field_brebo_component_sequence', $sortOrder);
-          $entity->save();
-        }
+        $this->legacyStructureGateway->reorder('main_group', (int) $matches[1], $sortOrder);
       }
       if ($node['node_type'] === 'paragraph' && preg_match('/^element_(\d+)$/', $nodeKey, $matches)) {
-        $entity = $this->entityTypeManager->getStorage('node')->load((int) $matches[1]);
-        if ($entity instanceof NodeInterface && $entity->hasField('field_brebo_element_sequence')) {
-          $entity->set('field_brebo_element_sequence', $sortOrder);
-          $entity->save();
-        }
+        $this->legacyStructureGateway->reorder('paragraph', (int) $matches[1], $sortOrder);
       }
     }
     catch (\Throwable $e) {
@@ -152,10 +120,7 @@ final class CalculationStructureManager {
   }
 
   /** @return array<string,mixed> */
-  private function assertEditable(int $calculationId, string $version, AccountInterface $account): array {
-    if (!$account->hasPermission('edit brebo calculation workbench')) {
-      throw new \RuntimeException('Missing calculation workbench edit permission.');
-    }
+  private function assertEditable(int $calculationId, string $version, int $actorId): array {
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v')
       ->condition('calculation_id', $calculationId)
@@ -164,10 +129,7 @@ final class CalculationStructureManager {
     if (!$row || $row['locked_at'] !== NULL || $row['status'] !== 'draft') {
       throw new \RuntimeException('Only unlocked draft calculation versions may be changed.');
     }
-    $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
-    if (!$calculation instanceof NodeInterface || !$calculation->access('update', $account)) {
-      throw new \RuntimeException('Calculation update access denied.');
-    }
+    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
     return $row;
   }
 
@@ -185,15 +147,5 @@ final class CalculationStructureManager {
     return $node;
   }
 
-  private function nextLegacySequence(int $calculationId, string $bundle, string $sequenceField): int {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $query = $storage->getQuery()->accessCheck(FALSE)->condition('type', $bundle);
-    if ($bundle === 'brebo_calc_component' || $bundle === 'brebo_calc_element') {
-      $query->condition('field_brebo_calculation_ref.target_id', $calculationId);
-    }
-    $ids = $query->sort($sequenceField, 'DESC')->range(0, 1)->execute();
-    $last = $ids ? $storage->load(reset($ids)) : NULL;
-    return $last instanceof NodeInterface ? ((int) $last->get($sequenceField)->value + 10) : 10;
-  }
 
 }

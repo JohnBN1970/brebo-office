@@ -185,7 +185,7 @@ final class CalculationStructureForm extends FormBase {
       $version,
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Hoofdgroep toegevoegd.');
     $form_state->setRebuild(TRUE);
@@ -201,7 +201,7 @@ final class CalculationStructureForm extends FormBase {
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
       trim((string) ($values['location_ref'] ?? '')) ?: NULL,
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Paragraaf toegevoegd.');
     $form_state->setRebuild(TRUE);
@@ -223,7 +223,7 @@ final class CalculationStructureForm extends FormBase {
         $version,
         $key,
         (int) ($values['sort_order'] ?? 0),
-        $this->currentUser(),
+        (int) $this->currentUser()->id(),
       );
     }
     $form_state->set('ajax_message', 'Structuurvolgorde opgeslagen.');
@@ -246,7 +246,7 @@ final class CalculationStructureForm extends FormBase {
       $version,
       $key,
       (int) $current + $delta,
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Structuur verplaatst.');
     $form_state->setRebuild(TRUE);
