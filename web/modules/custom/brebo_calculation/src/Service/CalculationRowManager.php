@@ -18,7 +18,7 @@ final class CalculationRowManager {
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, int $actorId): int {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $this->assertLeafParagraph($calculationId, $version, $paragraphKey);
 
     $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
@@ -67,7 +67,7 @@ final class CalculationRowManager {
     array $unitCosts,
     int $actorId,
   ): void {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $this->domainRow($calculationId, $version, $lineId);
 
     $description = trim($description);
@@ -108,7 +108,7 @@ final class CalculationRowManager {
   }
 
   public function duplicate(int $calculationId, string $version, int $lineId, int $actorId): int {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $domain = $this->domainRow($calculationId, $version, $lineId);
     $transaction = $this->database->startTransaction();
     try {
@@ -127,7 +127,7 @@ final class CalculationRowManager {
   }
 
   public function delete(int $calculationId, string $version, int $lineId, int $actorId): void {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $this->domainRow($calculationId, $version, $lineId);
     $transaction = $this->database->startTransaction();
     try {
@@ -145,7 +145,7 @@ final class CalculationRowManager {
   }
 
   public function move(int $calculationId, string $version, int $lineId, string $targetParagraphKey, int $actorId): void {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $this->domainRow($calculationId, $version, $lineId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
 
