@@ -48,4 +48,17 @@ final class CalculationWorkspaceResourceGuard {
     }
   }
 
+  public function assertApplicationObject(int $calculationId, int $subcalculationId, int $applicationId, int $objectId): void {
+    $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
+    $query->join('brebo_calculation_subcalculation_application', 'a', 'a.id = o.application_id');
+    $query->join('brebo_calculation_subcalculation', 's', 's.id = a.subcalculation_id');
+    $query->condition('o.id', $objectId)
+      ->condition('o.application_id', $applicationId)
+      ->condition('a.subcalculation_id', $subcalculationId)
+      ->condition('s.calculation_id', $calculationId);
+    if (!(int) $query->countQuery()->execute()->fetchField()) {
+      throw new \InvalidArgumentException('Application object does not belong to this calculation context.');
+    }
+  }
+
 }
