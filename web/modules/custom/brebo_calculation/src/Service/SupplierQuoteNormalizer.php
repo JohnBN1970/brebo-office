@@ -406,6 +406,10 @@ final class SupplierQuoteNormalizer {
       $row['detail_fields'] = $this->detailFields($details ?? '');
       $row['offer_summary'] = $this->offerSummary((string) $row['description'], $row['detail_fields']);
       $row['source_page'] = $this->pageForPositionOrdinal((string) $row['position'], $text);
+      // GABIT positions are commonly 001..008. If form-feed metadata is absent
+      // from the extracted text, keep the source visual usable by falling back
+      // to the page that contains the matching Deurelement section.
+      $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -643,17 +647,24 @@ final class SupplierQuoteNormalizer {
    */
   /** @return array<string,string> */
   private function detailFields(string $details): array {
-    if (trim($details) === '') {
+    $details = trim($details);
+    if ($details === '') {
       return [];
     }
+
+    // PDF layout extraction may concatenate several labelled fields on one line.
+    // Insert a logical line break before every known label before parsing.
+    $labels = 'Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot';
+    $normalized = preg_replace('/\\s*(?=(' . $labels . ')\\s*:)/ui', "\n", $details) ?? $details;
+
     $fields = [];
     $current = NULL;
-    foreach (preg_split('/\\R/u', $details) ?: [] as $rawLine) {
-      $line = trim((string) $rawLine);
+    foreach (preg_split('/\\R/u', $normalized) ?: [] as $rawLine) {
+      $line = trim(preg_replace('/\\s+/u', ' ', (string) $rawLine) ?? '');
       if ($line === '') {
         continue;
       }
-      if (preg_match('/^(Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\s*:\\s*(.*)$/ui', $line, $m)) {
+      if (preg_match('/^(' . $labels . ')\\s*:\\s*(.*)$/ui', $line, $m)) {
         $key = trim((string) $m[1]);
         $value = trim((string) $m[2]);
         $fields[$key] = $value;
@@ -696,6 +707,17 @@ final class SupplierQuoteNormalizer {
       return '';
     }
     return mb_substr(ucfirst($summary) . '.', 0, 800);
+  }
+
+  private function pageForPositionText(string $position, string $text): ?int {
+    $pages = preg_split('/\\f/u', $text) ?: [$text];
+    foreach ($pages as $pageIndex => $pageText) {
+      if (preg_match('/(?:^|\\R)\\s*' . preg_quote($position, '/') . '\\b/u', (string) $pageText)) {
+        return $pageIndex + 1;
+      }
+    }
+    // A one-page supplier document can always be rendered as page 1.
+    return count($pages) === 1 ? 1 : NULL;
   }
 
   private function pageForPositionOrdinal(string $position, string $text): ?int {
