@@ -403,6 +403,8 @@ final class SupplierQuoteNormalizer {
       $details = $this->detailsForPosition((string) $row['position'], $lines);
       $details ??= $this->detailsForPositionOrdinal((string) $row['position'], $lines);
       $row['details'] = $details ?? '';
+      $row['detail_fields'] = $this->detailFields($details ?? '');
+      $row['offer_summary'] = $this->offerSummary((string) $row['description'], $row['detail_fields']);
       $row['source_page'] = $this->pageForPositionOrdinal((string) $row['position'], $text);
       $unique[$row['position']] ??= $row;
     }
@@ -639,6 +641,63 @@ final class SupplierQuoteNormalizer {
    * Resolve the PDF page containing the visual block for this position.
    * pdftotext keeps form-feed page separators in its output.
    */
+  /** @return array<string,string> */
+  private function detailFields(string $details): array {
+    if (trim($details) === '') {
+      return [];
+    }
+    $fields = [];
+    $current = NULL;
+    foreach (preg_split('/\\R/u', $details) ?: [] as $rawLine) {
+      $line = trim((string) $rawLine);
+      if ($line === '') {
+        continue;
+      }
+      if (preg_match('/^(Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\s*:\\s*(.*)$/ui', $line, $m)) {
+        $key = trim((string) $m[1]);
+        $value = trim((string) $m[2]);
+        $fields[$key] = $value;
+        $current = $key;
+        continue;
+      }
+      if ($current !== NULL && mb_strlen($line) <= 220) {
+        $fields[$current] = trim($fields[$current] . ' ' . $line);
+      }
+    }
+    return $fields;
+  }
+
+  /** @param array<string,string> $fields */
+  private function offerSummary(string $description, array $fields): string {
+    $parts = [];
+    $system = $fields['Systeem'] ?? $fields['systeem'] ?? '';
+    $glazing = $fields['Beglazing'] ?? $fields['beglazing'] ?? '';
+    $profile = $fields['Profielen'] ?? $fields['profielen'] ?? '';
+    $door = $fields['Omschrijving deur'] ?? $fields['Omschrijving Deur'] ?? '';
+
+    $base = trim(preg_replace('/\\s+/u', ' ', $description) ?? $description);
+    if ($base !== '') {
+      $parts[] = rtrim($base, '.');
+    }
+    if ($system !== '') {
+      $parts[] = 'uitgevoerd in ' . rtrim($system, '.');
+    }
+    if ($glazing !== '') {
+      $parts[] = 'voorzien van ' . rtrim($glazing, '.');
+    }
+    elseif ($profile !== '') {
+      $parts[] = 'met ' . rtrim($profile, '.');
+    }
+    if ($door !== '') {
+      $parts[] = rtrim($door, '.');
+    }
+    $summary = trim(implode(', ', array_values(array_unique($parts))));
+    if ($summary === '') {
+      return '';
+    }
+    return mb_substr(ucfirst($summary) . '.', 0, 800);
+  }
+
   private function pageForPositionOrdinal(string $position, string $text): ?int {
     $ordinal = (int) $position;
     if ($ordinal < 1) {
