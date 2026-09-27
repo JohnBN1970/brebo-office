@@ -1,4 +1,8 @@
 services:
+  brebo_calculation.legacy_calculation_gateway:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyGateway
+    arguments: ['@entity_type.manager']
+
   brebo_calculation.line_read_model:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineReadModel
     arguments: ['@entity_type.manager']
@@ -45,7 +49,8 @@ services:
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
-      - '@entity_type.manager'
+      - '@brebo_calculation.line_read_model'
+      - '@brebo_calculation.legacy_calculation_gateway'
 
   brebo_calculation.totalizer:
     class: Drupal\brebo_calculation\Service\CalculationTotalizer
