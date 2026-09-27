@@ -115,6 +115,12 @@ jobs:
           ! grep -q "element_" "$structure_manager"
           grep -q "mainGroupKey" "$structure_identity"
           grep -q "paragraphKey" "$structure_identity"
+          calculation_access='web/modules/custom/brebo_calculation/src/Infrastructure/DrupalCalculationAccessGateway.php'
+          ! grep -q "NodeInterface" "$calculation_access"
+          ! grep -q "getStorage('node')" "$calculation_access"
+          ! grep -q "access('update'" "$calculation_access"
+          grep -q "brebo_calculation_version" "$calculation_access"
+          grep -q "edit brebo calculation workbench" "$calculation_access"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
