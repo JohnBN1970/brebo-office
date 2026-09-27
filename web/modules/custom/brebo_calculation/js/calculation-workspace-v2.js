@@ -41,6 +41,7 @@
       const key = String(item.node_key || '');
       body += '<section class="brebo-sw-section" data-structure-key="' + esc(key) + '">'
         + '<header><span>' + esc(item.code || '') + '</span><strong>' + esc(item.label || '') + '</strong>'
+        + (item.node_type === 'main_group' && state.editable ? '<button type="button" data-command="add-paragraph" data-parent="' + esc(key) + '">+ Paragraaf</button>' : '')
         + (item.node_type === 'paragraph' && state.editable ? '<button type="button" data-command="add-row" data-paragraph="' + esc(key) + '">+ Regel</button>' : '')
         + '</header>';
 
@@ -81,7 +82,8 @@
       + '<header class="brebo-sw-header"><div><small>' + esc(calculation.code || ('CALC-' + calculation.calculation_id)) + '</small>'
       + '<h1>' + esc(calculation.label || 'Calculatie') + '</h1><span>' + esc(calculation.project_label || 'Geen project gekoppeld') + '</span></div>'
       + '<div class="brebo-sw-status"><span>Versie ' + esc(version.version || '') + '</span><strong>' + esc(version.status || '') + '</strong></div></header>'
-      + '<nav class="brebo-sw-tabs"><button class="is-active">Calculatie</button><button>Deelcalculaties</button><button>Recepten</button><button>Prijsbronnen</button><button>Controle</button></nav>'
+      + '<nav class="brebo-sw-tabs"><button class="is-active">Calculatie</button><button>Deelcalculaties</button><button>Recepten</button><button>Prijsbronnen</button><button>Controle</button>'
+      + (state.editable ? '<span class="brebo-sw-tabs__spacer"></span><button data-command="add-group">+ Hoofdgroep</button>' : '') + '</nav>'
       + '<div class="brebo-sw-kpis"><div><small>Directe kostprijs</small><strong>' + money.format(direct) + '</strong></div>'
       + '<div><small>Verkoopprijs</small><strong>' + money.format(sales) + '</strong></div>'
       + '<div><small>Marge</small><strong>' + money.format(sales - direct) + '</strong></div>'
@@ -179,6 +181,29 @@
         window.alert(error.message);
       }
     }, 650));
+  });
+
+  document.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-command="add-group"], [data-command="add-paragraph"]');
+    if (!button) return;
+    const root = button.closest('#brebo-calculation-workspace-v2');
+    if (!root) return;
+    const isGroup = button.dataset.command === 'add-group';
+    const label = window.prompt(isGroup ? 'Naam hoofdgroep' : 'Naam paragraaf');
+    if (!label || !label.trim()) return;
+    const code = window.prompt('Code (optioneel)') || '';
+    const base = root.dataset.stateUrl.replace(/\/$/, '');
+    const url = isGroup ? base + '/structure/groups' : base + '/structure/paragraphs';
+    const payload = { version: root.dataset.version, label: label.trim(), code: code.trim() };
+    if (!isGroup) payload.parent_key = button.dataset.parent;
+    button.disabled = true;
+    try {
+      await command(root, url, 'POST', payload);
+    }
+    catch (error) {
+      window.alert(error.message);
+      button.disabled = false;
+    }
   });
 
   document.addEventListener('click', async (event) => {
