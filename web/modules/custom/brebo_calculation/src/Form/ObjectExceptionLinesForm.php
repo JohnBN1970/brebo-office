@@ -84,7 +84,7 @@ final class ObjectExceptionLinesForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $this->lineManager->addLine((int) $form_state->getValue('object_id'), (array) $form_state->getValue('add'), $this->currentUser());
+    $this->lineManager->addLine((int) $form_state->getValue('object_id'), (array) $form_state->getValue('add'), (int) $this->currentUser()->id());
     $this->messenger()->addStatus('Afwijkingsregel toegevoegd en doorgerekend.');
     $form_state->setRebuild(TRUE);
   }
