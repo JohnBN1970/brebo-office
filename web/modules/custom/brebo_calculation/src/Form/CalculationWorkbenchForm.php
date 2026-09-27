@@ -476,7 +476,7 @@ final class CalculationWorkbenchForm extends FormBase {
 
   private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
 
-  /** @param array<int,array<string,mixed>> $rows @param array<int,NodeInterface> $lineEntities */
+  /** @param array<int,array<string,mixed>> $rows */
   private function directTotal(array $rows): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $quantity = (float) ($row['contract_quantity'] ?? 0); $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
   /** @param array<int,array<string,mixed>> $lines */
   private function recipeInstanceTotal(array $lines): float { $total = 0.0; foreach ($lines as $line) { $total += $this->recipeLineQuantity($line) * (float) ($line['unit_cost'] ?? 0); } return $total; }
