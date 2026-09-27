@@ -151,6 +151,17 @@ jobs:
           grep -q "/admin/brebo/calculations/{calculation}/structure" "$routing"
           grep -q "/admin/brebo/calculations/{calculation}/establish" "$routing"
           grep -q "/admin/brebo/calculations/{calculation}/readiness" "$routing"
+          workspace_state='web/modules/custom/brebo_calculation/src/Service/CalculationWorkspaceStateService.php'
+          workspace_query='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceQueryController.php'
+          workspace_command='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceCommandController.php'
+          grep -q "brebo-calculation-workspace-v2" "$workspace_state"
+          ! grep -q "NodeInterface" "$workspace_query"
+          ! grep -q "NodeInterface" "$workspace_command"
+          ! grep -q "FormBase" "$workspace_query"
+          ! grep -q "FormBase" "$workspace_command"
+          grep -q "/api/workbench/v2/calculations/{calculation}" "$routing"
+          grep -q "workspace_v2_row_add" "$routing"
+          grep -q "workspace_v2_structure_group_add" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
