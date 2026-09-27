@@ -194,7 +194,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
   }
 
   private function assertSignedRequest(Request $request, string $body): void {
-    $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
+    $secret = trim((string) getenv('BREBO_CALC_SHARED_SECRET') ?: Settings::get('brebo_calc_shared_secret', ''));
     $timestamp = trim((string) $request->headers->get('X-BREBO-Timestamp', ''));
     $requestId = trim((string) $request->headers->get('X-BREBO-Request-Id', ''));
     $signature = trim((string) $request->headers->get('X-BREBO-Signature', ''));
