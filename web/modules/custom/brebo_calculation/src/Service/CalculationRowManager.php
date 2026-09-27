@@ -139,7 +139,7 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
     if ($legacyLineId > 0) {
       $this->legacyLineGateway->delete($legacyLineId);
     }
@@ -160,7 +160,7 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = (int) ($domain['calc_line_id'] ?? 0);
+    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
     if ($legacyLineId > 0) {
       $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
       if ($targetElementId !== NULL) {
