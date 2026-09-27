@@ -53,6 +53,9 @@ jobs:
           services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
           grep -q "brebo_calculation_row_domain" "$read_model"
           grep -q "DatabaseCalculationLineReadModel" "$services"
+          workbench_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkbenchController.php'
+          ! grep -q "EntityTypeManagerInterface" "$workbench_controller"
+          ! grep -q "field_brebo_contract_quantity" "$workbench_controller"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
