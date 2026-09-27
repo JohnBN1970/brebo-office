@@ -389,10 +389,80 @@ final class SupplierQuoteNormalizer {
 
     $unique = [];
     foreach ($result as $row) {
+      if (str_starts_with((string) $row['description'], 'Offertepositie ')) {
+        $layoutDescription = $this->descriptionForPosition((string) $row['position'], $lines);
+        if ($layoutDescription !== NULL) {
+          $row['description'] = $layoutDescription;
+        }
+      }
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
     return array_values($unique);
+  }
+
+  /**
+   * Recover a product description from the original layout-preserving PDF lines.
+   *
+   * Price columns and description columns are deliberately parsed independently:
+   * pdftotext -layout preserves the visual row, while flattening can interleave
+   * technical values with the product description.
+   *
+   * @param list<string> $lines
+   */
+  private function descriptionForPosition(string $position, array $lines): ?string {
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $line = trim((string) $lines[$i]);
+      if (!preg_match('/^' . preg_quote($position, '/') . '\\b/u', $line)) {
+        continue;
+      }
+
+      $parts = [];
+      for ($j = $i; $j < min($count, $i + 14); $j++) {
+        $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$j]) ?? '');
+        if ($candidate === '') {
+          continue;
+        }
+        if ($j > $i && preg_match('/^\\d{3}\\s+\\d+(?:[.,]\\d+)?\\s+[\\pL.]{1,12}\\b/u', $candidate)) {
+          break;
+        }
+
+        if ($parts === []) {
+          if (preg_match('/\\bDeurelement\\b(.*)$/ui', $candidate, $match, PREG_OFFSET_CAPTURE)) {
+            $start = (int) $match[0][1];
+            $candidate = substr($candidate, $start);
+            $candidate = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? $candidate;
+            $parts[] = trim($candidate);
+            if (preg_match('/\\bSysteem\\s*:/ui', (string) $lines[$j])) {
+              break;
+            }
+          }
+          continue;
+        }
+
+        if (preg_match('/\\bSysteem\\s*:/ui', $candidate)) {
+          $before = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? '';
+          if (trim($before) !== '') {
+            $parts[] = trim($before);
+          }
+          break;
+        }
+
+        // Continuation lines of the short commercial description. Stop before
+        // detailed specifications or table-column metadata.
+        if (preg_match('/^(?:Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslag|Prijs|Totaal|EUR)\\b/ui', $candidate)) {
+          break;
+        }
+        $parts[] = $candidate;
+      }
+
+      $description = trim(preg_replace('/\\s+/u', ' ', implode(' ', $parts)) ?? '');
+      if ($description !== '') {
+        return mb_substr($description, 0, 500);
+      }
+    }
+    return NULL;
   }
 
   private function decimal(string $raw): float {
