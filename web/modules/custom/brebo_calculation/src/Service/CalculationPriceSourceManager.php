@@ -21,8 +21,8 @@ final class CalculationPriceSourceManager {
   public function __construct(private readonly Connection $database) {}
 
   /** @param array<string,mixed> $values */
-  public function createForLine(int $calculationId, string $version, int $lineId, array $values, AccountInterface $account): int {
-    $this->assertEditable($calculationId, $version, $lineId, $account);
+  public function createForLine(int $calculationId, string $version, int $rowId, array $values, AccountInterface $account): int {
+    $this->assertEditable($calculationId, $version, $rowId, $account);
     $costCarrier = $this->normalizeCostCarrier((string) ($values['cost_carrier'] ?? 'subcontracting'));
     $now = time();
     $transaction = $this->database->startTransaction();
@@ -59,7 +59,8 @@ final class CalculationPriceSourceManager {
         'price_source_id' => $sourceId,
         'calculation_id' => $calculationId,
         'version' => $version,
-        'calc_line_id' => $lineId,
+        'row_id' => $rowId,
+        'calc_line_id' => $this->legacyLineId($calculationId, $version, $rowId),
         'source_line_ref' => 'cost_carrier:' . $costCarrier,
         'extracted_description' => trim((string) ($values['extracted_description'] ?? '')) ?: NULL,
         'extracted_quantity' => ($values['extracted_quantity'] ?? '') !== '' ? (float) $values['extracted_quantity'] : NULL,
@@ -80,8 +81,8 @@ final class CalculationPriceSourceManager {
     }
   }
 
-  public function approveForLine(int $calculationId, string $version, int $lineId, int $sourceId, string $costCarrier, float $unitCost, ?string $note, AccountInterface $account): void {
-    $this->assertEditable($calculationId, $version, $lineId, $account);
+  public function approveForLine(int $calculationId, string $version, int $rowId, int $sourceId, string $costCarrier, float $unitCost, ?string $note, AccountInterface $account): void {
+    $this->assertEditable($calculationId, $version, $rowId, $account);
     $costCarrier = $this->normalizeCostCarrier($costCarrier);
     if ($unitCost < 0) {
       throw new \InvalidArgumentException('Unit cost cannot be negative.');
@@ -92,7 +93,7 @@ final class CalculationPriceSourceManager {
       ->condition('price_source_id', $sourceId)
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
-      ->condition('calc_line_id', $lineId)
+      ->condition('row_id', $rowId)
       ->execute()->fetchField();
     if (!$mapping) {
       throw new \InvalidArgumentException('Price source is not linked to this calculation row.');
@@ -105,7 +106,7 @@ final class CalculationPriceSourceManager {
         ->fields(['is_active_source' => 0])
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->condition('source_line_ref', 'cost_carrier:' . $costCarrier)
         ->execute();
       $this->database->update('brebo_calculation_price_source_line')
@@ -124,7 +125,7 @@ final class CalculationPriceSourceManager {
         ->fields([$targetField => $unitCost])
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->execute();
       $this->database->update('brebo_calculation_price_source')
         ->fields(['status' => 'accepted', 'changed' => time(), 'changed_by' => (int) $account->id()])
@@ -137,6 +138,17 @@ final class CalculationPriceSourceManager {
     }
   }
 
+  private function legacyLineId(int $calculationId, string $version, int $rowId): ?int {
+    $legacyLineId = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->fields('r', ['calc_line_id'])
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->condition('row_id', $rowId)
+      ->execute()
+      ->fetchField();
+    return $legacyLineId ? (int) $legacyLineId : NULL;
+  }
+
   private function normalizeCostCarrier(string $costCarrier): string {
     if (!isset(self::COST_FIELDS[$costCarrier])) {
       throw new \InvalidArgumentException('Unknown calculation cost carrier.');
@@ -144,7 +156,7 @@ final class CalculationPriceSourceManager {
     return $costCarrier;
   }
 
-  private function assertEditable(int $calculationId, string $version, int $lineId, AccountInterface $account): void {
+  private function assertEditable(int $calculationId, string $version, int $rowId, AccountInterface $account): void {
     if (!$account->hasPermission('edit brebo calculation workbench')) {
       throw new \RuntimeException('Missing calculation workbench edit permission.');
     }
@@ -159,7 +171,7 @@ final class CalculationPriceSourceManager {
     $exists = $this->database->select('brebo_calculation_row_domain', 'r')
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
-      ->condition('calc_line_id', $lineId)
+      ->condition('row_id', $rowId)
       ->countQuery()->execute()->fetchField();
     if (!(int) $exists) {
       throw new \InvalidArgumentException('Calculation row does not belong to this version.');
