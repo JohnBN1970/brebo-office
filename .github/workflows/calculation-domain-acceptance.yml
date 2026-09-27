@@ -83,6 +83,11 @@ jobs:
           grep -q "'id' => \$rowId" "$result_service"
           grep -q "'reference' => (int) (\$row\['row_id'\]" "$readiness"
           grep -q "'row_id' => \$rowId" "$establisher"
+          sub_manager='web/modules/custom/brebo_calculation/src/Service/SubcalculationManager.php'
+          sub_form='web/modules/custom/brebo_calculation/src/Form/SubcalculationDetailForm.php'
+          ! grep -q "calc_line_id" "$sub_manager"
+          ! grep -q "EntityTypeManagerInterface" "$sub_form"
+          grep -q "\['row_id'\]" "$sub_form"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
