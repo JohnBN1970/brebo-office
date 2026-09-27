@@ -11,6 +11,7 @@ use Drupal\brebo_calculation\Service\SubcalculationManager;
 use Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard;
 use Drupal\brebo_calculation\Service\CalculationPriceSourceManager;
 use Drupal\brebo_calculation\Service\ObjectExceptionLineManager;
+use Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator;
 use Drupal\Core\Controller\ControllerBase;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     private readonly CalculationWorkspaceResourceGuard $resourceGuard,
     private readonly CalculationPriceSourceManager $priceSourceManager,
     private readonly ObjectExceptionLineManager $exceptionLineManager,
+    private readonly CalcIntegrationRequestAuthenticator $authenticator,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -42,6 +44,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $container->get('brebo_calculation.workspace_resource_guard'),
       $container->get('brebo_calculation.price_source_manager'),
       $container->get('brebo_calculation.object_exception_line_manager'),
+      $container->get('brebo_calculation.calc_request_authenticator'),
     );
   }
 
@@ -51,7 +54,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $calculation,
         $this->requiredString($input, 'version'),
         $this->requiredString($input, 'paragraph_key'),
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['row_id' => $rowId];
     }, $request, 201);
@@ -68,7 +71,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'unit'),
         $this->requiredFloat($input, 'quantity'),
         $costs,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['row_id' => $row];
     }, $request);
@@ -80,7 +83,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $calculation,
         $this->requiredString($input, 'version'),
         $row,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['row_id' => $row, 'deleted' => TRUE];
     }, $request);
@@ -93,7 +96,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'version'),
         $row,
         $this->requiredString($input, 'paragraph_key'),
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['row_id' => $row];
     }, $request);
@@ -106,7 +109,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'version'),
         trim((string) ($input['code'] ?? '')),
         $this->requiredString($input, 'label'),
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['structure_key' => $key];
     }, $request, 201);
@@ -121,7 +124,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         trim((string) ($input['code'] ?? '')),
         $this->requiredString($input, 'label'),
         ($location = trim((string) ($input['location_ref'] ?? ''))) !== '' ? $location : NULL,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['structure_key' => $key];
     }, $request, 201);
@@ -134,7 +137,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'version'),
         $structure,
         $this->requiredInt($input, 'sort_order'),
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['structure_key' => $structure];
     }, $request);
@@ -150,7 +153,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredInt($input, 'recipe_version_id'),
         $this->requiredFloat($input, 'quantity'),
         $parameters,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['recipe_instance_id' => $instanceId];
     }, $request, 201);
@@ -160,13 +163,13 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     return $this->command(function (array $input) use ($calculation, $recipe): array {
       $this->resourceGuard->assertRecipeInstance($calculation, $recipe);
       if (isset($input['quantity'])) {
-        $this->recipeManager->updateQuantity($recipe, $this->requiredFloat($input, 'quantity'), (int) $this->currentUser()->id());
+        $this->recipeManager->updateQuantity($recipe, $this->requiredFloat($input, 'quantity'), $this->actorId($input));
       }
       if (isset($input['parameters'])) {
         if (!is_array($input['parameters'])) {
           throw new \InvalidArgumentException('parameters must be an object.');
         }
-        $this->recipeManager->updateParameters($recipe, $input['parameters'], (int) $this->currentUser()->id());
+        $this->recipeManager->updateParameters($recipe, $input['parameters'], $this->actorId($input));
       }
       return ['recipe_instance_id' => $recipe];
     }, $request);
@@ -178,7 +181,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $calculation,
         $this->requiredString($input, 'version'),
         $input,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['subcalculation_id' => $id];
     }, $request, 201);
@@ -192,7 +195,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'scope_type'),
         $this->requiredString($input, 'scope_ref'),
         isset($input['multiplier']) && is_numeric($input['multiplier']) ? (float) $input['multiplier'] : 1.0,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['scope_id' => $id, 'subcalculation_id' => $subcalculation];
     }, $request, 201);
@@ -204,7 +207,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $id = $this->subcalculationManager->createApplication(
         $subcalculation,
         $input,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['application_id' => $id, 'subcalculation_id' => $subcalculation];
     }, $request, 201);
@@ -220,7 +223,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         isset($input['factor']) && is_numeric($input['factor']) ? (float) $input['factor'] : 1.0,
         !empty($input['is_exception']),
         ($note = trim((string) ($input['exception_payload'] ?? ''))) !== '' ? $note : NULL,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
         is_array($input['exception_costs'] ?? NULL) ? $input['exception_costs'] : [],
       );
       return ['object_id' => $id, 'application_id' => $application];
@@ -234,7 +237,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'version'),
         $row,
         $input,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['price_source_id' => $sourceId, 'row_id' => $row];
     }, $request, 201);
@@ -250,7 +253,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
         $this->requiredString($input, 'cost_carrier'),
         $this->requiredFloat($input, 'unit_cost'),
         ($note = trim((string) ($input['note'] ?? ''))) !== '' ? $note : NULL,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['price_source_id' => $source, 'row_id' => $row, 'approved' => TRUE];
     }, $request);
@@ -262,7 +265,7 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
       $lineId = $this->exceptionLineManager->addLine(
         $object,
         $input,
-        (int) $this->currentUser()->id(),
+        $this->actorId($input),
       );
       return ['exception_line_id' => $lineId, 'object_id' => $object];
     }, $request, 201);
@@ -277,7 +280,9 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     }
 
     try {
-      $decoded = json_decode($request->getContent(), TRUE, 512, JSON_THROW_ON_ERROR);
+      $body = (string) $request->getContent();
+      $this->authenticator->assertSigned($request, $body);
+      $decoded = json_decode($body, TRUE, 512, JSON_THROW_ON_ERROR);
       if (!is_array($decoded)) {
         throw new \InvalidArgumentException('JSON object expected.');
       }
@@ -289,6 +294,15 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     catch (\RuntimeException $e) {
       return new JsonResponse(['error' => 'command_rejected', 'message' => $e->getMessage()], 409);
     }
+  }
+
+  /** @param array<string,mixed> $input */
+  private function actorId(array $input): int {
+    $actorId = $this->requiredInt($input, 'actor_id');
+    if ($actorId <= 0) {
+      throw new \InvalidArgumentException('actor_id must be a positive integer.');
+    }
+    return $actorId;
   }
 
   /** @param array<string,mixed> $input */
