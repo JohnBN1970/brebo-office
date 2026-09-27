@@ -153,11 +153,41 @@ function brebo_calculation_node_presave(NodeInterface $node): void {
   }
 }
 
+
+/**
+ * Maps the temporary Drupal calculation node to plain BREBO draft start data.
+ *
+ * @return array<string,mixed>
+ */
+function brebo_calculation_draft_start_data(NodeInterface $node): array {
+  $string = static function (NodeInterface $node, string $fieldName, string $default = ''): string {
+    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
+      return $default;
+    }
+    return (string) ($node->get($fieldName)->value ?? $default);
+  };
+  $float = static function (NodeInterface $node, string $fieldName): float {
+    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
+      return 0.0;
+    }
+    return max(0.0, (float) ($node->get($fieldName)->value ?? 0));
+  };
+
+  return [
+    'version' => $string($node, 'field_brebo_calc_version', '1.0'),
+    'general_cost_pct' => $float($node, 'field_brebo_general_cost_pct'),
+    'risk_pct' => $float($node, 'field_brebo_risk_pct'),
+    'profit_pct' => $float($node, 'field_brebo_profit_pct'),
+    'commercial_adjustment' => $float($node, 'field_brebo_com_adjustment'),
+    'price_date' => $string($node, 'field_brebo_price_date'),
+  ];
+}
+
 function brebo_calculation_node_insert(NodeInterface $node): void {
   if ($node->bundle() !== 'brebo_calculation') {
     return;
   }
-  \Drupal::service('brebo_calculation.draft_initializer')->ensure($node);
+  \Drupal::service('brebo_calculation.draft_initializer')->ensure((int) $node->id(), brebo_calculation_draft_start_data($node));
 }
 
 function brebo_calculation_open_workbench_after_create(array &$form, FormStateInterface $form_state): void {
@@ -169,7 +199,7 @@ function brebo_calculation_open_workbench_after_create(array &$form, FormStateIn
   if (!$calculation instanceof NodeInterface || $calculation->bundle() !== 'brebo_calculation' || $calculation->isNew() || $calculation->id() === NULL) {
     return;
   }
-  \Drupal::service('brebo_calculation.draft_initializer')->ensure($calculation);
+  \Drupal::service('brebo_calculation.draft_initializer')->ensure((int) $calculation->id(), brebo_calculation_draft_start_data($calculation));
   $form_state->setRedirect('brebo_calculation.workbench', ['node' => (int) $calculation->id()]);
 }
 
