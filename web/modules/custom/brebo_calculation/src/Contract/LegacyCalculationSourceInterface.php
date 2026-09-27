@@ -16,7 +16,7 @@ interface LegacyCalculationSourceInterface {
    *   lines:array<int,array{
    *     id:int,element_id:int,line_type:string,post_type:string,category:string,
    *     quantity:float,actual_quantity:?float,unit_price:float,description:string,
-   *     unit:string,sequence:int
+   *     unit:string,sequence:int,budget_hours:float,labour_rate:float
    *   }>
    * }
    */

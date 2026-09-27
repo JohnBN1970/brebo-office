@@ -72,9 +72,11 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
 
   public function saveRowDomain(int $calculationId, string $version, int $calcLineId, array $data): void {
     $allowed = [
-      'paragraph_key', 'rule_type', 'location_ref', 'labour_unit_cost',
-      'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost',
-      'other_unit_cost', 'distribution_method', 'distribution_payload',
+      'paragraph_key', 'rule_type', 'location_ref', 'description',
+      'contract_quantity', 'actual_quantity', 'unit', 'budget_hours', 'labour_rate',
+      'labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost',
+      'subcontracting_unit_cost', 'other_unit_cost', 'distribution_method',
+      'distribution_payload',
     ];
     $fields = array_intersect_key($data, array_flip($allowed));
     if (!isset($fields['paragraph_key'], $fields['rule_type'])) {

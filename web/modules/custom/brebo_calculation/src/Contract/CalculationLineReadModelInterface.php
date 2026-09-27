@@ -14,6 +14,6 @@ interface CalculationLineReadModelInterface {
    *
    * @return array<int,array{description:string,contract_quantity:float,actual_quantity:?float,unit:string,budget_hours:float,labour_rate:float}>
    */
-  public function loadMany(array $lineIds): array;
+  public function loadMany(array $lineIds, string $version): array;
 
 }

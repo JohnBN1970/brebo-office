@@ -73,7 +73,7 @@ final class CalculationVersionEstablisher {
         $snapshotLineIds[] = (int) $component['id'];
       }
     }
-    $lineData = $this->lineReadModel->loadMany($snapshotLineIds);
+    $lineData = $this->lineReadModel->loadMany($snapshotLineIds, $version);
     foreach ((array) ($result['components'] ?? []) as $component) {
       if (!is_array($component) || ($component['kind'] ?? '') !== 'row') {
         continue;

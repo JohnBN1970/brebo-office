@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationPersistenceInterface;
+use Drupal\brebo_calculation\Contract\LegacyCalculationSourceInterface;
 use Drupal\brebo_calculation\Domain\CalculationParameters;
 use Drupal\brebo_calculation\Domain\CalculationStatus;
 use Drupal\brebo_calculation\Domain\CalculationVersion;
@@ -23,6 +24,7 @@ final class GuardedLegacyMigrator {
   public function __construct(
     private readonly LegacyDryRunService $dryRun,
     private readonly CalculationPersistenceInterface $persistence,
+    private readonly LegacyCalculationSourceInterface $legacySource,
     private readonly Connection $database,
   ) {}
 
@@ -41,6 +43,11 @@ final class GuardedLegacyMigrator {
     }
 
     $hash = $this->migrationHash($preview);
+    $legacy = $this->legacySource->load($calculationId);
+    $legacyLines = [];
+    foreach ($legacy['lines'] as $legacyLine) {
+      $legacyLines[(int) $legacyLine['id']] = $legacyLine;
+    }
     $domainVersion = new CalculationVersion(
       calculationId: $calculationId,
       version: $version,
@@ -57,10 +64,17 @@ final class GuardedLegacyMigrator {
 
       foreach ($preview->rows as $row) {
         $costs = $row->unitCosts->toArray();
+        $legacyLine = $legacyLines[$row->legacyLineId] ?? NULL;
         $this->persistence->saveRowDomain($calculationId, $version, $row->legacyLineId, [
           'paragraph_key' => $row->paragraphId,
           'rule_type' => $row->type->value,
           'location_ref' => $row->locationRef,
+          'description' => $row->description,
+          'contract_quantity' => $row->quantity,
+          'actual_quantity' => $row->actualQuantity,
+          'unit' => $row->unit,
+          'budget_hours' => is_array($legacyLine) ? (float) ($legacyLine['budget_hours'] ?? 0) : 0.0,
+          'labour_rate' => is_array($legacyLine) ? (float) ($legacyLine['labour_rate'] ?? 0) : 0.0,
           'labour_unit_cost' => $costs['labour'],
           'material_unit_cost' => $costs['material'],
           'equipment_unit_cost' => $costs['equipment'],

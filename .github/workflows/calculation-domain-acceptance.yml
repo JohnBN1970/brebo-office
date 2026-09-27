@@ -42,8 +42,16 @@ jobs:
           grep -q "brebo_calculation_version" "$install_file"
           grep -q "brebo_calculation_row_domain" "$install_file"
           grep -q "brebo_calculation_snapshot" "$install_file"
+          grep -q "contract_quantity" "$install_file"
+          grep -q "actual_quantity" "$install_file"
+          grep -q "budget_hours" "$install_file"
+          grep -q "labour_rate" "$install_file"
           grep -q "calculation_version_node" "$install_file"
           grep -q "calculation_version_snapshot" "$install_file"
+          read_model='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationLineReadModel.php'
+          services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
+          grep -q "brebo_calculation_row_domain" "$read_model"
+          grep -q "DatabaseCalculationLineReadModel" "$services"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
