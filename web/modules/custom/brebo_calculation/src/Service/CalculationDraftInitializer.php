@@ -5,19 +5,16 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\node\NodeInterface;
-
 /** Creates the first editable domain version for a newly created calculation. */
 final class CalculationDraftInitializer {
 
   public function __construct(private readonly Connection $database) {}
 
-  public function ensure(NodeInterface $calculation): string {
-    if ($calculation->bundle() !== 'brebo_calculation' || $calculation->id() === NULL) {
-      throw new \InvalidArgumentException('A saved BREBO calculation is required.');
+  /** @param array<string,mixed> $start */
+  public function ensure(int $calculationId, array $start = []): string {
+    if ($calculationId <= 0) {
+      throw new \InvalidArgumentException('A saved BREBO calculation id is required.');
     }
-
-    $calculationId = (int) $calculation->id();
     $existing = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version'])
       ->condition('calculation_id', $calculationId)
@@ -29,13 +26,13 @@ final class CalculationDraftInitializer {
       return $existing;
     }
 
-    $version = trim($this->stringValue($calculation, 'field_brebo_calc_version', '1.0'));
+    $version = trim((string) ($start['version'] ?? '1.0'));
     $version = $version !== '' ? mb_substr($version, 0, 32) : '1.0';
-    $generalCost = $this->floatValue($calculation, 'field_brebo_general_cost_pct');
-    $risk = $this->floatValue($calculation, 'field_brebo_risk_pct');
-    $profit = $this->floatValue($calculation, 'field_brebo_profit_pct');
-    $adjustment = $this->floatValue($calculation, 'field_brebo_com_adjustment');
-    $priceDate = trim($this->stringValue($calculation, 'field_brebo_price_date')) ?: NULL;
+    $generalCost = max(0.0, (float) ($start['general_cost_pct'] ?? 0));
+    $risk = max(0.0, (float) ($start['risk_pct'] ?? 0));
+    $profit = max(0.0, (float) ($start['profit_pct'] ?? 0));
+    $adjustment = max(0.0, (float) ($start['commercial_adjustment'] ?? 0));
+    $priceDate = trim((string) ($start['price_date'] ?? '')) ?: NULL;
 
     $payload = [
       'calculation_id' => $calculationId,
@@ -74,18 +71,5 @@ final class CalculationDraftInitializer {
     return $version;
   }
 
-  private function stringValue(NodeInterface $node, string $fieldName, string $default = ''): string {
-    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
-      return $default;
-    }
-    return (string) ($node->get($fieldName)->value ?? $default);
-  }
-
-  private function floatValue(NodeInterface $node, string $fieldName): float {
-    if (!$node->hasField($fieldName) || $node->get($fieldName)->isEmpty()) {
-      return 0.0;
-    }
-    return max(0.0, (float) ($node->get($fieldName)->value ?? 0));
-  }
 
 }
