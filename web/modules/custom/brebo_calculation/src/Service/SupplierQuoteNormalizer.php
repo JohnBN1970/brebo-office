@@ -78,17 +78,84 @@ final class SupplierQuoteNormalizer {
       }
     }
 
+    $quoteLines = $this->quoteLines($lines);
     $suggested = $unique[0] ?? NULL;
     return [
-      'status' => $suggested ? 'review' : 'no_price_found',
+      'status' => $quoteLines !== [] ? 'structured_review' : ($suggested ? 'review' : 'no_price_found'),
       'target' => [
         'description' => (string) ($target['description'] ?? ''),
         'quantity' => isset($target['quantity']) ? (float) $target['quantity'] : NULL,
         'unit' => (string) ($target['unit'] ?? ''),
       ],
+      'lines' => $quoteLines,
       'candidates' => $unique,
       'suggested' => $suggested,
     ];
+  }
+
+  /** @param list<string> $lines
+   *  @return list<array{position:string,quantity:float,unit:string,description:string,unit_price:float,line_total:float,line_no:int}>
+   */
+  private function quoteLines(array $lines): array {
+    $result = [];
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $line = trim(preg_replace('/\s+/u', ' ', (string) $lines[$i]) ?? '');
+      if (!preg_match('/^(\d{3})\s+(\d+(?:[.,]\d+)?)\s+([\pL.]+)\s+([\d .]+,\d{2})\s+([\d .]+,\d{2})$/u', $line, $m)) {
+        continue;
+      }
+      $position = $m[1];
+      $quantity = $this->decimal($m[2]);
+      $unitPrice = $this->decimal($m[4]);
+      $lineTotal = $this->decimal($m[5]);
+      if ($quantity <= 0 || $unitPrice < 0 || $lineTotal < 0) {
+        continue;
+      }
+
+      $descriptionParts = [];
+      for ($j = $i + 1; $j < min($count, $i + 10); $j++) {
+        $next = trim(preg_replace('/\s+/u', ' ', (string) $lines[$j]) ?? '');
+        if ($next === '') {
+          continue;
+        }
+        if (preg_match('/^\d{3}\s+\d+(?:[.,]\d+)?\s+[\pL.]+\s+[\d .]+,\d{2}\s+[\d .]+,\d{2}$/u', $next)
+          || preg_match('/^(Positie|Aantal|Prijs|Totaal|EUR)\b/ui', $next)
+          || preg_match('/^Totaalbedrag\b/ui', $next)) {
+          break;
+        }
+        if (preg_match('/^(Systeem|Uw-waarde|Omschrijving deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht|Bovenste|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:/ui', $next)) {
+          if ($descriptionParts !== []) {
+            break;
+          }
+          continue;
+        }
+        $descriptionParts[] = $next;
+        if (count($descriptionParts) >= 3) {
+          break;
+        }
+      }
+
+      $description = trim(implode(' ', $descriptionParts));
+      if ($description === '') {
+        $description = 'Offertepositie ' . $position;
+      }
+      $result[] = [
+        'position' => $position,
+        'quantity' => $quantity,
+        'unit' => trim($m[3]),
+        'description' => mb_substr($description, 0, 500),
+        'unit_price' => $unitPrice,
+        'line_total' => $lineTotal,
+        'line_no' => $i + 1,
+      ];
+    }
+    return $result;
+  }
+
+  private function decimal(string $raw): float {
+    $normalized = str_replace([' ', '.'], '', trim($raw));
+    $normalized = str_replace(',', '.', $normalized);
+    return is_numeric($normalized) ? (float) $normalized : 0.0;
   }
 
   /** @return list<string> */
