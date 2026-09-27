@@ -31,15 +31,15 @@ final class CalculationReadinessInspector {
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
 
-    $lineIds = array_values(array_filter(array_map(
-      static fn (array $row): int => (int) ($row['calc_line_id'] ?? 0),
+    $rowIds = array_values(array_filter(array_map(
+      static fn (array $row): int => (int) ($row['row_id'] ?? 0),
       $rows,
     )));
-    $lineData = $lineIds ? $this->lineReadModel->loadMany($lineIds, $version) : [];
+    $rowData = $rowIds ? $this->lineReadModel->loadMany($rowIds, $version) : [];
 
     foreach ($rows as $row) {
-      $lineId = (int) ($row['calc_line_id'] ?? 0);
-      $line = $lineData[$lineId] ?? NULL;
+      $rowId = (int) ($row['row_id'] ?? 0);
+      $line = $rowData[$rowId] ?? NULL;
       $quantity = is_array($line) ? (float) ($line['contract_quantity'] ?? 0) : 0.0;
       $unitCost = (float) ($row['labour_unit_cost'] ?? 0)
         + (float) ($row['material_unit_cost'] ?? 0)
@@ -47,11 +47,11 @@ final class CalculationReadinessInspector {
         + (float) ($row['subcontracting_unit_cost'] ?? 0)
         + (float) ($row['other_unit_cost'] ?? 0);
       if ($quantity <= 0) {
-        $checks[] = ['level' => 'warning', 'code' => 'row_zero_quantity', 'label' => 'Losse regel zonder hoeveelheid', 'reference' => (int) ($row['calc_line_id'] ?? 0)];
+        $checks[] = ['level' => 'warning', 'code' => 'row_zero_quantity', 'label' => 'Losse regel zonder hoeveelheid', 'reference' => (int) ($row['row_id'] ?? 0)];
         $warnings++;
       }
       if ($unitCost <= 0) {
-        $checks[] = ['level' => 'warning', 'code' => 'row_zero_cost', 'label' => 'Losse regel zonder kostprijs', 'reference' => (int) ($row['calc_line_id'] ?? 0)];
+        $checks[] = ['level' => 'warning', 'code' => 'row_zero_cost', 'label' => 'Losse regel zonder kostprijs', 'reference' => (int) ($row['row_id'] ?? 0)];
         $warnings++;
       }
     }

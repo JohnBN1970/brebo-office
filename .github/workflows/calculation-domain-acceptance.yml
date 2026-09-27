@@ -74,6 +74,15 @@ jobs:
           grep -q "condition('row_id', \$rowId)" "$price_manager"
           grep -q "getValue('row_id')" "$price_form"
           grep -q "workbench/row/{row}/price-sources" "$routing"
+          line_read_model='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationLineReadModel.php'
+          result_service='web/modules/custom/brebo_calculation/src/Service/CalculationResultService.php'
+          readiness='web/modules/custom/brebo_calculation/src/Service/CalculationReadinessInspector.php'
+          establisher='web/modules/custom/brebo_calculation/src/Service/CalculationVersionEstablisher.php'
+          grep -q "condition('row_id', \$rowIds, 'IN')" "$line_read_model"
+          ! grep -q "condition('calc_line_id'" "$line_read_model"
+          grep -q "'id' => \$rowId" "$result_service"
+          grep -q "'reference' => (int) (\$row\['row_id'\]" "$readiness"
+          grep -q "'row_id' => \$rowId" "$establisher"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
