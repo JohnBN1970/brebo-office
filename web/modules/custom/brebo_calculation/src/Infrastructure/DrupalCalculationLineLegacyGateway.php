@@ -119,6 +119,14 @@ final class DrupalCalculationLineLegacyGateway implements CalculationLineLegacyG
     $line->save();
   }
 
+  public function reorder(int $lineId, int $sortOrder): void {
+    $line = $this->line($lineId);
+    $this->setIfPresent($line, 'field_brebo_line_sequence', $sortOrder);
+    $line->setNewRevision(TRUE);
+    $line->setRevisionLogMessage('Volgorde gewijzigd vanuit de BREBO calculatiewerkbank.');
+    $line->save();
+  }
+
   public function nextSequence(int $elementId): int {
     $storage = $this->entityTypeManager->getStorage('node');
     $ids = $storage->getQuery()->accessCheck(FALSE)
