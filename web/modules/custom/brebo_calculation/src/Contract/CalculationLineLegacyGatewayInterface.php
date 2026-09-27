@@ -14,6 +14,20 @@ interface CalculationLineLegacyGatewayInterface {
   /** @param array<string,float> $unitCosts */
   public function updateQuickEntry(int $lineId, string $description, string $unit, float $quantity, array $unitCosts): void;
 
+  /** @param array<string,float> $unitCosts */
+  public function updateObjectDerived(
+    int $lineId,
+    string $description,
+    string $unit,
+    float $quantity,
+    array $unitCosts,
+    string $sourceDomain,
+    string $sourceReference,
+    string $sourceChecksum,
+    ?string $priceSourceRef,
+    ?string $priceReason,
+  ): void;
+
   public function duplicate(int $lineId, int $ownerId): int;
 
   public function delete(int $lineId): void;
