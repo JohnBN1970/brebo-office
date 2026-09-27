@@ -197,6 +197,29 @@ function brebo_calculation_node_presave(NodeInterface $node): void {
 }
 
 
+
+/**
+ * Maps a legacy calculation node into BREBO-owned context.
+ *
+ * @return array<string,mixed>
+ */
+function brebo_calculation_context_data(NodeInterface $node): array {
+  $package = $node->hasField('field_brebo_package_ref') ? $node->get('field_brebo_package_ref')->entity : NULL;
+  $project = $package instanceof NodeInterface && $package->hasField('field_brebo_project_ref')
+    ? $package->get('field_brebo_project_ref')->entity
+    : NULL;
+
+  return [
+    'code' => $node->hasField('field_brebo_calc_code') && !$node->get('field_brebo_calc_code')->isEmpty()
+      ? (string) $node->get('field_brebo_calc_code')->value
+      : '',
+    'label' => (string) $node->label(),
+    'package_id' => $package instanceof NodeInterface ? (int) $package->id() : NULL,
+    'project_id' => $project instanceof NodeInterface ? (int) $project->id() : NULL,
+    'project_label' => $project instanceof NodeInterface ? (string) $project->label() : '',
+  ];
+}
+
 /**
  * Maps the temporary Drupal calculation node to plain BREBO draft start data.
  *
@@ -230,7 +253,15 @@ function brebo_calculation_node_insert(NodeInterface $node): void {
   if ($node->bundle() !== 'brebo_calculation') {
     return;
   }
+  \Drupal::service('brebo_calculation.context')->upsert((int) $node->id(), brebo_calculation_context_data($node));
   \Drupal::service('brebo_calculation.draft_initializer')->ensure((int) $node->id(), brebo_calculation_draft_start_data($node));
+}
+
+function brebo_calculation_node_update(NodeInterface $node): void {
+  if ($node->bundle() !== 'brebo_calculation') {
+    return;
+  }
+  \Drupal::service('brebo_calculation.context')->upsert((int) $node->id(), brebo_calculation_context_data($node));
 }
 
 function brebo_calculation_open_workbench_after_create(array &$form, FormStateInterface $form_state): void {
