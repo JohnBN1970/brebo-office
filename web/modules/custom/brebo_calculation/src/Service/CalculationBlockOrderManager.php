@@ -111,7 +111,9 @@ final class CalculationBlockOrderManager {
             throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
           }
           $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
-          $this->legacyLineGateway->move($legacyLineId, $targetElementId);
+          if ($legacyLineId !== NULL) {
+            $this->legacyLineGateway->move($legacyLineId, $targetElementId);
+          }
           $updated = $this->database->update('brebo_calculation_row_domain')
             ->fields(['paragraph_key' => $targetParagraph])
             ->condition('row_id', $id)
@@ -159,7 +161,10 @@ final class CalculationBlockOrderManager {
         if ($updated !== 1) {
           throw new \RuntimeException('Calculation row no longer belongs to this calculation paragraph.');
         }
-        $this->legacyLineGateway->reorder($this->legacyLineId($calculationId, $version, $id), $position);
+        $legacyLineId = $this->legacyLineId($calculationId, $version, $id);
+        if ($legacyLineId !== NULL) {
+          $this->legacyLineGateway->reorder($legacyLineId, $position);
+        }
       }
       else {
         $updated = $this->database->update('brebo_calculation_recipe_instance')
@@ -246,7 +251,7 @@ final class CalculationBlockOrderManager {
     }
   }
 
-  private function legacyLineId(int $calculationId, string $version, int $rowId): int {
+  private function legacyLineId(int $calculationId, string $version, int $rowId): ?int {
     $legacyLineId = $this->database->select('brebo_calculation_row_domain', 'r')
       ->fields('r', ['calc_line_id'])
       ->condition('row_id', $rowId)
@@ -254,10 +259,7 @@ final class CalculationBlockOrderManager {
       ->condition('version', $version)
       ->execute()
       ->fetchField();
-    if (!$legacyLineId) {
-      throw new \RuntimeException('Legacy calculation-line mirror is missing for the BREBO row.');
-    }
-    return (int) $legacyLineId;
+    return $legacyLineId ? (int) $legacyLineId : NULL;
   }
 
   private function assertEditable(int $calculationId, string $version, int $actorId): void {
