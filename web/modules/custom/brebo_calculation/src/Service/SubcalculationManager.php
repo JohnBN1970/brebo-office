@@ -131,27 +131,27 @@ final class SubcalculationManager {
       ->fields('ss', ['scope_type', 'scope_ref', 'multiplier'])
       ->condition('subcalculation_id', $subcalculationId)
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = [];
+    $rowIds = [];
     foreach ($scopes as $scope) {
       if ($scope['scope_type'] === 'line') {
-        $lineIds[(int) $scope['scope_ref']] = (float) $scope['multiplier'];
+        $rowIds[(int) $scope['scope_ref']] = (float) $scope['multiplier'];
         continue;
       }
       $query = $this->database->select('brebo_calculation_row_domain', 'r');
-      $query->fields('r', ['calc_line_id']);
+      $query->fields('r', ['row_id']);
       $query->condition('r.calculation_id', (int) $sub['calculation_id']);
       $query->condition('r.version', (string) $sub['version']);
       $query->condition('r.paragraph_key', (string) $scope['scope_ref']);
-      foreach ($query->execute()->fetchCol() as $lineId) {
-        $lineIds[(int) $lineId] = (float) $scope['multiplier'];
+      foreach ($query->execute()->fetchCol() as $rowId) {
+        $rowIds[(int) $rowId] = (float) $scope['multiplier'];
       }
     }
-    foreach ($lineIds as $lineId => $multiplier) {
+    foreach ($rowIds as $rowId => $multiplier) {
       $row = $this->database->select('brebo_calculation_row_domain', 'r')
         ->fields('r', ['labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost', 'other_unit_cost'])
         ->condition('calculation_id', (int) $sub['calculation_id'])
         ->condition('version', (string) $sub['version'])
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->execute()->fetchAssoc();
       if (!$row) {
         continue;
@@ -262,7 +262,7 @@ final class SubcalculationManager {
       $exists = $this->database->select('brebo_calculation_row_domain', 'r')
         ->condition('calculation_id', (int) $sub['calculation_id'])
         ->condition('version', (string) $sub['version'])
-        ->condition('calc_line_id', (int) $scopeRef)
+        ->condition('row_id', (int) $scopeRef)
         ->countQuery()->execute()->fetchField();
     }
     else {
