@@ -410,6 +410,7 @@ final class SupplierQuoteNormalizer {
       // from the extracted text, keep the source visual usable by falling back
       // to the page that contains the matching Deurelement section.
       $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
+      $row['source_visual_crop'] = $this->visualCropForPosition((string) $row['position'], $text);
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -709,6 +710,31 @@ final class SupplierQuoteNormalizer {
       return '';
     }
     return mb_substr(ucfirst($summary) . '.', 0, 800);
+  }
+
+  /**
+   * Optional normalized crop rectangle for supplier layouts with a stable,
+   * position-specific product drawing. Absence means: do not invent an image.
+   *
+   * @return array{x:float,y:float,width:float,height:float}|null
+   */
+  private function visualCropForPosition(string $position, string $text): ?array {
+    // GABIT's Steel doors quote layout places one product elevation in the
+    // left-hand position block. Keep this supplier-specific instead of applying
+    // a brittle crop heuristic to unrelated supplier documents.
+    if (!preg_match('/\\bGABIT\\b/ui', $text)
+      || !preg_match('/\\b(?:Quote\\s+Steel\\s+doors|Deurelement|Jansen\\s+Janisol)\\b/ui', $text)
+      || !preg_match('/^00[1-9]$/', $position)
+    ) {
+      return NULL;
+    }
+
+    return [
+      'x' => 0.05,
+      'y' => 0.42,
+      'width' => 0.42,
+      'height' => 0.53,
+    ];
   }
 
   private function pageForPositionText(string $position, string $text): ?int {
