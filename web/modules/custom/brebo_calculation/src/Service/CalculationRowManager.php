@@ -45,6 +45,7 @@ final class CalculationRowManager {
         'unit' => 'post',
         'budget_hours' => 0,
         'labour_rate' => 0,
+        'sort_order' => $this->nextSortOrder($calculationId, $version, $paragraphKey),
         'labour_unit_cost' => 0,
         'material_unit_cost' => 0,
         'equipment_unit_cost' => 0,
@@ -130,6 +131,7 @@ final class CalculationRowManager {
       $copyRowId = $this->rowIdentityGenerator->next();
       $domain['row_id'] = $copyRowId;
       $domain['calc_line_id'] = $copyLegacyLineId;
+      $domain['sort_order'] = $this->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
       $domain['calculation_id'] = $calculationId;
       $domain['version'] = $version;
       $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
@@ -232,6 +234,15 @@ final class CalculationRowManager {
     }
   }
 
+
+  private function nextSortOrder(int $calculationId, string $version, string $paragraphKey): int {
+    $query = $this->database->select('brebo_calculation_row_domain', 'r')
+      ->condition('calculation_id', $calculationId)
+      ->condition('version', $version)
+      ->condition('paragraph_key', $paragraphKey);
+    $query->addExpression('MAX(sort_order)', 'max_sort_order');
+    return ((int) $query->execute()->fetchField()) + 10;
+  }
 
   /** @param array<string, float|int> $unitCosts */
   private function nonNegativeCost(array $unitCosts, string $key): float {
