@@ -36,7 +36,7 @@ final class CalculationObjectLineWriter {
         $priceSourceRef ?: NULL,
         $priceReason ?: NULL,
       );
-      $values=$costs+['source_domain'=>$sourceDomain,'source_reference'=>$sourceReference,'source_checksum'=>$sourceChecksum,'price_source_reference'=>$priceSourceRef?:NULL,'price_source_date'=>$priceSourceDate?:NULL,'price_confidence'=>$priceConfidence?:NULL];
+      $values=$costs+['description'=>$description,'contract_quantity'=>$quantity,'unit'=>$unit,'source_domain'=>$sourceDomain,'source_reference'=>$sourceReference,'source_checksum'=>$sourceChecksum,'price_source_reference'=>$priceSourceRef?:NULL,'price_source_date'=>$priceSourceDate?:NULL,'price_confidence'=>$priceConfidence?:NULL];
       $supported=[];foreach($values as$field=>$value)if($this->database->schema()->fieldExists('brebo_calculation_row_domain',$field))$supported[$field]=$value;
       $this->database->update('brebo_calculation_row_domain')->fields($supported)->condition('calc_line_id',$lineId)->condition('calculation_id',$calculationId)->condition('version',$version)->execute();
     } catch(\Throwable $e){$transaction->rollBack();try{$this->rowManager->delete($calculationId,$version,$lineId,$actorId);}catch(\Throwable){}throw $e;}
