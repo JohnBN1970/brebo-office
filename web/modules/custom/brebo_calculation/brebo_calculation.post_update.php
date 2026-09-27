@@ -390,3 +390,60 @@ function brebo_calculation_post_update_subcalculation_scopes_to_row_id(&$sandbox
 
   return sprintf('BREBO Calculation converted %d subcalculation line scopes to row_id.', $updated);
 }
+
+
+/**
+ * Backfill BREBO-owned calculation context from legacy calculation nodes.
+ */
+function brebo_calculation_post_update_backfill_calculation_context(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_context';
+
+  if (!$schema->tableExists($table)) {
+    $schema->createTable($table, [
+      'description' => 'BREBO-owned calculation identity and Office context.',
+      'fields' => [
+        'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+        'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'package_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'project_label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'updated' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['calculation_id'],
+      'indexes' => ['project' => ['project_id'], 'package' => ['package_id']],
+    ]);
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calculation')->execute();
+  $updated = 0;
+  foreach ($storage->loadMultiple($ids) as $calculation) {
+    if (!$calculation instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $package = $calculation->hasField('field_brebo_package_ref') ? $calculation->get('field_brebo_package_ref')->entity : NULL;
+    $project = $package instanceof \Drupal\node\NodeInterface && $package->hasField('field_brebo_project_ref')
+      ? $package->get('field_brebo_project_ref')->entity
+      : NULL;
+
+    $database->merge($table)
+      ->key(['calculation_id' => (int) $calculation->id()])
+      ->fields([
+        'code' => $calculation->hasField('field_brebo_calc_code') && !$calculation->get('field_brebo_calc_code')->isEmpty()
+          ? mb_substr((string) $calculation->get('field_brebo_calc_code')->value, 0, 64)
+          : NULL,
+        'label' => mb_substr((string) $calculation->label(), 0, 255),
+        'package_id' => $package instanceof \Drupal\node\NodeInterface ? (int) $package->id() : NULL,
+        'project_id' => $project instanceof \Drupal\node\NodeInterface ? (int) $project->id() : NULL,
+        'project_label' => $project instanceof \Drupal\node\NodeInterface ? mb_substr((string) $project->label(), 0, 255) : NULL,
+        'updated' => time(),
+      ])
+      ->execute();
+    $updated++;
+  }
+
+  return sprintf('BREBO Calculation context backfilled for %d calculations.', $updated);
+}
