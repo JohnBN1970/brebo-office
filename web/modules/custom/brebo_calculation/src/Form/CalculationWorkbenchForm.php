@@ -430,8 +430,8 @@ final class CalculationWorkbenchForm extends FormBase {
 
   public function saveRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
-    $lineId = (int) ($trigger['#line_id'] ?? 0);
-    if ($lineId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
+    $rowId = (int) ($trigger['#row_id'] ?? 0);
+    if ($rowId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
     $values = (array) $form_state->getValue(['workbench','grid','row_' . $rowId], []);
     $this->rowManager->updateQuickEntry(
       (int) $form_state->getValue('calculation_id'),
