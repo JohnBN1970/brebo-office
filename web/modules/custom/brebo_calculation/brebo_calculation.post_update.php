@@ -248,6 +248,51 @@ function brebo_calculation_post_update_widen_row_identity(&$sandbox = NULL): str
     'unsigned' => TRUE,
     'not null' => TRUE,
   ]);
+  if (!$schema->indexExists($table, 'row_id')) {
+    $schema->addUniqueKey($table, 'row_id', ['row_id']);
+  }
 
   return 'BREBO Calculation row identity widened for independent allocation.';
+}
+
+
+/**
+ * Promote calculation row ordering into BREBO-owned storage.
+ */
+function brebo_calculation_post_update_promote_row_order(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; row ordering promotion skipped.';
+  }
+  if (!$schema->fieldExists($table, 'sort_order')) {
+    $schema->addField($table, 'sort_order', [
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+
+  $ids = array_map('intval', $database->select($table, 'r')->fields('r', ['calc_line_id'])->distinct()->execute()->fetchCol());
+  if ($ids === []) {
+    return 'BREBO Calculation row ordering field added; no legacy rows required backfill.';
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $updated = 0;
+  foreach (array_chunk($ids, 100) as $chunk) {
+    foreach ($storage->loadMultiple($chunk) as $line) {
+      if (!$line instanceof \Drupal\node\NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+        continue;
+      }
+      $database->update($table)
+        ->fields(['sort_order' => (int) ($line->get('field_brebo_line_sequence')->value ?? 0)])
+        ->condition('calc_line_id', (int) $line->id())
+        ->execute();
+      $updated++;
+    }
+  }
+
+  return sprintf('BREBO Calculation row ordering promoted for %d legacy rows.', $updated);
 }
