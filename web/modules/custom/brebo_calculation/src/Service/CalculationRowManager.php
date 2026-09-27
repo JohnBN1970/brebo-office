@@ -98,10 +98,15 @@ final class CalculationRowManager {
       ->condition('version', $version)
       ->execute();
 
-    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
-      $this->legacyLineGateway->updateQuickEntry($legacyLineId, $description, $unit, $quantity, $costs);
-    }
+    $this->legacyCompatibility->updateQuickEntry(
+      $calculationId,
+      $version,
+      $rowId,
+      $description,
+      $unit,
+      $quantity,
+      $costs,
+    );
   }
 
   public function duplicate(int $calculationId, string $version, int $rowId, int $actorId): int {
