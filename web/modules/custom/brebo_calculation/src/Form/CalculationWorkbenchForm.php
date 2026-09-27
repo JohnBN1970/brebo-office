@@ -241,7 +241,7 @@ final class CalculationWorkbenchForm extends FormBase {
         continue;
       }
       foreach ($rows as $domainRow) {
-        if ($componentKey === 'line_' . (int) ($domainRow['calc_line_id'] ?? 0)) {
+        if ($componentKey === 'line_' . (int) ($domainRow['row_id'] ?? 0)) {
           $paragraphKey = (string) ($domainRow['paragraph_key'] ?? '');
           if (isset($structureDirectTotals[$paragraphKey])) {
             $structureDirectTotals[$paragraphKey] += (float) ($component['direct_cost'] ?? 0);
