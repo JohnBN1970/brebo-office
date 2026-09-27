@@ -88,6 +88,12 @@ jobs:
           ! grep -q "calc_line_id" "$sub_manager"
           ! grep -q "EntityTypeManagerInterface" "$sub_form"
           grep -q "\['row_id'\]" "$sub_form"
+          glass_guard='web/modules/custom/brebo_glass/src/Service/GlassCalculationLinkGuard.php'
+          glass_exporter='web/modules/custom/brebo_glass/src/Service/GlassCalculationExporter.php'
+          ! grep -q "calc_line_id" "$glass_guard"
+          grep -q "row_ids" "$glass_guard"
+          grep -q "material_row_id" "$glass_exporter"
+          grep -q "labour_row_id" "$glass_exporter"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
