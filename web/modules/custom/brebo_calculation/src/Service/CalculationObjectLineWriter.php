@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
+use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorPolicyInterface;
 use Drupal\Core\Database\Connection;
 
 /** Writes object-derived rows through the current BREBO calculation workbench. */
@@ -14,6 +15,7 @@ final class CalculationObjectLineWriter {
     private readonly CalculationRowManager $rowManager,
     private readonly \Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface $legacyLineGateway,
     private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
+    private readonly CalculationLegacyLineMirrorPolicyInterface $legacyMirrorPolicy,
   ) {}
 
   /** @param array<string,float|int> $unitCosts @param array<string,mixed> $priceTrace */
@@ -27,7 +29,7 @@ final class CalculationObjectLineWriter {
     $legacyLineId=$this->legacyMirrorMap->legacyLineId($calculationId,$version,$rowId) ?? 0;
     $transaction=$this->database->startTransaction();
     try {
-      if($legacyLineId>0){
+      if($legacyLineId>0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()){
         $this->legacyLineGateway->updateObjectDerived(
           $legacyLineId,
           $description,

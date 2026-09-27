@@ -20,4 +20,10 @@ final class DrupalCalculationLegacyLineMirrorPolicy implements CalculationLegacy
       ->get('legacy_line_mirror_enabled');
   }
 
+  public function maintainLegacyMirrors(): bool {
+    return (bool) $this->configFactory
+      ->get('brebo_calculation.settings')
+      ->get('legacy_line_mirror_maintenance_enabled');
+  }
+
 }

@@ -124,6 +124,7 @@ services:
       - '@brebo_calculation.row_manager'
       - '@brebo_calculation.legacy_line_gateway'
       - '@brebo_calculation.legacy_line_mirror_map'
+      - '@brebo_calculation.legacy_line_mirror_policy'
 
   brebo_calculation.block_order_manager:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
@@ -132,6 +133,7 @@ services:
       - '@brebo_calculation.legacy_line_gateway'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.legacy_line_mirror_map'
+      - '@brebo_calculation.legacy_line_mirror_policy'
 
   brebo_calculation.norm_library:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary

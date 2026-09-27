@@ -9,4 +9,6 @@ interface CalculationLegacyLineMirrorPolicyInterface {
 
   public function createLegacyMirrors(): bool;
 
+  public function maintainLegacyMirrors(): bool;
+
 }

@@ -103,7 +103,7 @@ final class CalculationRowManager {
       ->execute();
 
     $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0) {
+    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
       $this->legacyLineGateway->updateQuickEntry($legacyLineId, $description, $unit, $quantity, $costs);
     }
   }
@@ -144,7 +144,7 @@ final class CalculationRowManager {
       ->execute();
 
     $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0) {
+    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
       $this->legacyLineGateway->delete($legacyLineId);
     }
   }
@@ -165,7 +165,7 @@ final class CalculationRowManager {
       ->execute();
 
     $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0) {
+    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
       $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
       if ($targetElementId !== NULL) {
         $this->legacyLineGateway->move($legacyLineId, $targetElementId);

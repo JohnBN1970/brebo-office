@@ -104,6 +104,11 @@ jobs:
           grep -q "legacy_line_mirror_enabled: false" "$mirror_config"
           grep -q "legacy_line_mirror_enabled" "$mirror_policy"
           grep -q "createLegacyMirrors" "$row_manager"
+          grep -q "legacy_line_mirror_maintenance_enabled: false" "$mirror_config"
+          grep -q "maintainLegacyMirrors" "$row_manager"
+          grep -q "maintainLegacyMirrors" "$block_order"
+          object_writer='web/modules/custom/brebo_calculation/src/Service/CalculationObjectLineWriter.php'
+          grep -q "maintainLegacyMirrors" "$object_writer"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
