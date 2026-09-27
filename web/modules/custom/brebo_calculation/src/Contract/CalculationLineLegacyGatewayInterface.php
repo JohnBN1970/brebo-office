@@ -34,6 +34,8 @@ interface CalculationLineLegacyGatewayInterface {
 
   public function move(int $lineId, int $targetElementId): void;
 
+  public function reorder(int $lineId, int $sortOrder): void;
+
   public function nextSequence(int $elementId): int;
 
   public function resolveElementId(int $calculationId, string $paragraphKey): ?int;
