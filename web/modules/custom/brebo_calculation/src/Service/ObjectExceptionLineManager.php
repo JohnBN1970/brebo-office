@@ -92,6 +92,7 @@ final class ObjectExceptionLineManager {
     $query->join('brebo_calculation_version', 'v', 'v.calculation_id = s.calculation_id AND v.version = s.version');
     $query->fields('o');
     $query->addField('a', 'locked_at', 'application_locked_at');
+    $query->addField('s', 'calculation_id');
     $query->addField('s', 'status', 'subcalculation_status');
     $query->addField('s', 'locked_at', 'subcalculation_locked_at');
     $query->addField('v', 'status', 'version_status');
@@ -100,12 +101,7 @@ final class ObjectExceptionLineManager {
     if (!$row) {
       throw new \InvalidArgumentException('Application object not found.');
     }
-    $accessQuery = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
-    $accessQuery->join('brebo_calculation_subcalculation_application', 'a2', 'a2.id = o.application_id');
-    $accessQuery->join('brebo_calculation_subcalculation', 's2', 's2.id = a2.subcalculation_id');
-    $accessQuery->addField('s2', 'calculation_id');
-    $calculationId = (int) $accessQuery->condition('o.id', $applicationObjectId)->execute()->fetchField();
-    $this->accessGateway->assertCanEditWorkbench($calculationId, $actorId);
+    $this->accessGateway->assertCanEditWorkbench((int) $row['calculation_id'], $actorId);
 
     if ($row['application_locked_at'] !== NULL || $row['subcalculation_locked_at'] !== NULL || $row['version_locked_at'] !== NULL || $row['subcalculation_status'] !== 'draft' || $row['version_status'] !== 'draft') {
       throw new \RuntimeException('Exception lines can only be changed in an unlocked draft calculation.');
