@@ -82,7 +82,6 @@ services:
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
       - '@brebo_calculation.line_read_model'
-      - '@brebo_calculation.legacy_calculation_gateway'
       - '@brebo_calculation.legacy_line_mirror_map'
 
   brebo_calculation.totalizer:
