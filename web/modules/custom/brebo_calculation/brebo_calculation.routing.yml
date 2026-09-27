@@ -36,7 +36,7 @@ brebo_calculation.migration_confirm:
 brebo_calculation.workbench:
   path: '/admin/brebo/calculations/{calculation}/workbench'
   defaults:
-    _form: '\Drupal\brebo_calculation\Form\CalculationWorkbenchForm'
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceShellController::workspace'
     _title: 'Calculatiewerkbank'
   requirements:
     _permission: 'edit brebo calculation workbench'
@@ -57,6 +57,17 @@ brebo_calculation.project_link:
     parameters:
       node:
         type: entity:node
+
+brebo_calculation.workbench_legacy_form:
+  path: '/admin/brebo/calculations/{calculation}/legacy-form'
+  defaults:
+    _form: '\Drupal\brebo_calculation\Form\CalculationWorkbenchForm'
+    _title: 'Calculatiewerkbank legacy'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  options:
+    _admin_route: true
 
 brebo_calculation.establish:
   path: '/admin/brebo/calculations/{calculation}/establish'
