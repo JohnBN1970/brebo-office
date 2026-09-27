@@ -8,16 +8,18 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
-/** Redirects the legacy Office calculation URL to the BREBO-native workbench. */
+/**
+ * Compatibility redirect from retired Office workbench URLs to the Office dashboard.
+ */
 final class CalculationWorkspaceRedirectController extends ControllerBase {
 
-  public function redirect(int $node): RedirectResponse {
-    if ($node <= 0) {
+  public function redirect(int $calculation): RedirectResponse {
+    if ($calculation <= 0) {
       throw new \InvalidArgumentException('Calculation id is required.');
     }
 
     return new RedirectResponse(
-      Url::fromRoute('brebo_calculation.workbench', ['calculation' => $node])->toString(),
+      Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $calculation])->toString(),
     );
   }
 
