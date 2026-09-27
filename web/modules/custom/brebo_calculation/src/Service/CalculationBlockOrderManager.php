@@ -21,7 +21,7 @@ final class CalculationBlockOrderManager {
    * @param array<int,array{type:string,id:int,paragraph?:string}> $blocks
    */
   public function apply(int $calculationId, string $version, string $paragraphKey, array $blocks, int $actorId): void {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     if ($paragraphKey === '__workspace__') {
       $this->applyWorkspace($calculationId, $version, $blocks);
       return;
