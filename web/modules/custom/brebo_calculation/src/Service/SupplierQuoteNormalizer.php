@@ -401,7 +401,8 @@ final class SupplierQuoteNormalizer {
         }
       }
       $details = $this->detailsForPosition((string) $row['position'], $lines);
-      $details ??= $this->detailsForPositionOrdinal((string) $row['position'], $lines);
+      $ordinalDetails = $this->detailsForPositionOrdinal((string) $row['position'], $lines);
+      $details ??= $ordinalDetails;
       $row['details'] = $details ?? '';
       $row['detail_fields'] = $this->detailFields($details ?? '');
       $row['offer_summary'] = $this->offerSummary((string) $row['description'], $row['detail_fields']);
@@ -410,7 +411,7 @@ final class SupplierQuoteNormalizer {
       // from the extracted text, keep the source visual usable by falling back
       // to the page that contains the matching Deurelement section.
       $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
-      $row['source_visual_crop'] = $this->visualCropForPosition((string) $row['position'], $text);
+      $row['source_visual_crop'] = $this->visualCropForPosition((string) $row['position'], $ordinalDetails !== NULL);
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -718,20 +719,12 @@ final class SupplierQuoteNormalizer {
    *
    * @return array{x:float,y:float,width:float,height:float}|null
    */
-  private function visualCropForPosition(string $position, string $text): ?array {
-    // GABIT's Steel doors quote layout places one product elevation in the
-    // left-hand position block. Keep this supplier-specific instead of applying
-    // a brittle crop heuristic to unrelated supplier documents.
-    // The same Deurelement sequence already drives the proven ordinal
-    // description/page recovery above. Reuse that recognized layout signal for
-    // the visual instead of depending on supplier/header text surviving PDF
-    // extraction.
-    preg_match_all('/\\bDeurelement\\b/ui', $text, $elements);
-    $ordinal = (int) $position;
-    if (!preg_match('/^00[1-9]$/', $position)
-      || $ordinal < 1
-      || $ordinal > count($elements[0] ?? [])
-    ) {
+  private function visualCropForPosition(string $position, bool $recognizedOrdinalLayout): ?array {
+    // Reuse the exact ordinal Deurelement recognition that already recovered
+    // the technical detail for this position. Do not independently re-parse the
+    // flattened PDF text here: that was the reason valid live positions lost
+    // their visual crop while their details were recognized correctly.
+    if (!$recognizedOrdinalLayout || !preg_match('/^00[1-9]$/', $position)) {
       return NULL;
     }
 
