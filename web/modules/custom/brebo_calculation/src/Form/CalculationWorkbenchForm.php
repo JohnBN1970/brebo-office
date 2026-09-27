@@ -17,7 +17,6 @@ use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** AJAX spreadsheet editor for the active calculation version. */
@@ -53,19 +52,17 @@ final class CalculationWorkbenchForm extends FormBase {
 
   public function getFormId(): string { return 'brebo_calculation_workbench_form'; }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
-    $calculationId = (int) $node->id();
     $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
       $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $calculationId])->toString();
       $preview = $this->legacyDryRun->preview((int) $calculationId);
       $safe = $preview->isSafeToMigrate();
-      $canConvert = $safe
-        && $node->access('update', (int) $this->currentUser()->id())
-        && $this->currentUser()->hasPermission('migrate brebo calculation');
+      $canConvert = $safe && $this->currentUser()->hasPermission('migrate brebo calculation');
       $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $calculationId])->toString();
       $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
       $description = $safe

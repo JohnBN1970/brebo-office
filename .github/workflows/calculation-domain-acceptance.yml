@@ -133,6 +133,12 @@ jobs:
           grep -q "CalculationContextService" "$workbench_form"
           grep -q "calculationContext->get" "$workbench_form"
           grep -q "accessGateway->assertCanEditWorkbench" "$workbench_form"
+          ! grep -q "NodeInterface" "$workbench_form"
+          ! grep -q "\$node->" "$workbench_form"
+          routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
+          grep -q "/admin/brebo/calculations/{calculation}/workbench" "$routing"
+          redirect_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceRedirectController.php'
+          grep -q "brebo_calculation.workbench" "$redirect_controller"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
