@@ -4,20 +4,20 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
 use Drupal\brebo_calculation\Service\CalculationVersionEstablisher;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /** Confirms establishment of one calculation version. */
 final class CalculationEstablishForm extends ConfirmFormBase {
 
-  private ?NodeInterface $calculation = NULL;
+  private int $calculationId = 0;
   private string $version = '';
   private bool $blocked = FALSE;
 
@@ -25,6 +25,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
     private readonly CalculationVersionEstablisher $establisher,
     private readonly CalculationReadinessInspector $readinessInspector,
     private readonly Connection $database,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -32,6 +33,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
       $container->get('brebo_calculation.version_establisher'),
       $container->get('brebo_calculation.readiness_inspector'),
       $container->get('database'),
+      $container->get('brebo_calculation.access_gateway'),
     );
   }
 
@@ -52,21 +54,24 @@ final class CalculationEstablishForm extends ConfirmFormBase {
   }
 
   public function getCancelUrl(): Url {
-    return Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $this->calculation?->id() ?? 0]);
+    return Url::fromRoute('brebo_calculation.workbench', ['calculation' => $this->calculationId]);
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $this->calculationId = (int) $calculation;
+    if ($this->calculationId <= 0) {
       throw new NotFoundHttpException();
     }
-    if (!$node->access('update', $this->currentUser())) {
+    try {
+      $this->accessGateway->assertCanEditWorkbench($this->calculationId, (int) $this->currentUser()->id());
+    }
+    catch (\RuntimeException) {
       throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException();
     }
-    $this->calculation = $node;
 
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['version', 'status', 'locked_at'])
-      ->condition('calculation_id', (int) $node->id())
+      ->condition('calculation_id', $this->calculationId)
       ->orderBy('id', 'DESC')
       ->range(0, 1)
       ->execute()
@@ -80,7 +85,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
       throw new \RuntimeException('Alleen een open conceptversie kan worden vastgesteld.');
     }
 
-    $readiness = $this->readinessInspector->inspect((int) $node->id(), $this->version);
+    $readiness = $this->readinessInspector->inspect($this->calculationId, $this->version);
     if ((int) ($readiness['blocking'] ?? 0) > 0) {
       $this->blocked = TRUE;
       $form['blocked'] = [
@@ -100,7 +105,7 @@ final class CalculationEstablishForm extends ConfirmFormBase {
       '#markup' => '<p><strong>Versie:</strong> ' . htmlspecialchars($this->version) . '</p>',
     ];
     $form['version'] = ['#type' => 'hidden', '#value' => $this->version];
-    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => $this->calculationId];
 
     $form = parent::buildForm($form, $form_state);
     if ($this->blocked) {
@@ -110,14 +115,14 @@ final class CalculationEstablishForm extends ConfirmFormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    if (!$this->calculation instanceof NodeInterface || !$this->calculation->access('update', $this->currentUser())) {
+    if ($this->calculationId <= 0) {
       throw new \Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException();
     }
-    $calculationId = (int) $this->calculation->id();
+    $calculationId = $this->calculationId;
     $version = $this->version;
-    $this->establisher->establish($calculationId, $version, $this->currentUser());
+    $this->establisher->establish($calculationId, $version, (int) $this->currentUser()->id());
     $this->messenger()->addStatus('Calculatieversie ' . $version . ' is vastgesteld en vergrendeld.');
-    $form_state->setRedirect('brebo_office_core.calculation_dashboard', ['node' => $calculationId]);
+    $form_state->setRedirect('brebo_calculation.workbench', ['calculation' => $calculationId]);
   }
 
 }
