@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Domain\CalculationRow;
-use Drupal\brebo_calculation\Domain\ClassificationSystem;
 use Drupal\brebo_calculation\Domain\LegacyDryRunResult;
 use Drupal\brebo_calculation\Domain\StructureNode;
 use Drupal\brebo_calculation\Domain\StructureNodeType;
