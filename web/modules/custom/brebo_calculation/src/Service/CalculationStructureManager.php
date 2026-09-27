@@ -18,7 +18,7 @@ final class CalculationStructureManager {
   ) {}
 
   public function addMainGroup(int $calculationId, string $version, string $code, string $label, int $actorId): string {
-    $versionRow = $this->assertEditable($calculationId, $version, $account);
+    $versionRow = $this->assertEditable($calculationId, $version, $actorId);
     $code = trim($code);
     $label = trim($label);
     if ($label === '') {
@@ -52,7 +52,7 @@ final class CalculationStructureManager {
   }
 
   public function addParagraph(int $calculationId, string $version, string $parentKey, string $code, string $label, ?string $locationRef, int $actorId): string {
-    $versionRow = $this->assertEditable($calculationId, $version, $account);
+    $versionRow = $this->assertEditable($calculationId, $version, $actorId);
     $parent = $this->structureNode($calculationId, $version, $parentKey);
     if ($parent['node_type'] !== 'main_group') {
       throw new \InvalidArgumentException('Paragraphs must currently be attached to a main group.');
@@ -95,7 +95,7 @@ final class CalculationStructureManager {
   }
 
   public function reorder(int $calculationId, string $version, string $nodeKey, int $sortOrder, int $actorId): void {
-    $this->assertEditable($calculationId, $version, $account);
+    $this->assertEditable($calculationId, $version, $actorId);
     $node = $this->structureNode($calculationId, $version, $nodeKey);
     $transaction = $this->database->startTransaction();
     try {

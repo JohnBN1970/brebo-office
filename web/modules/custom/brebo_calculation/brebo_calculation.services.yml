@@ -36,6 +36,9 @@ services:
     arguments: ['@entity_type.manager']
 
   brebo_calculation.legacy_line_compatibility:
+    class: Drupal\brebo_calculation\Infrastructure\NoopCalculationLegacyLineCompatibility
+
+  brebo_calculation.legacy_line_compatibility.drupal:
     class: Drupal\brebo_calculation\Infrastructure\CalculationLegacyLineCompatibility
     arguments:
       - '@brebo_calculation.legacy_line_gateway'
