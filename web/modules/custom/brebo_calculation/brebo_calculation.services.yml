@@ -1,4 +1,10 @@
 services:
+  brebo_calculation.parameters_manager:
+    class: Drupal\brebo_calculation\Service\CalculationParametersManager
+    arguments:
+      - '@database'
+      - '@brebo_calculation.access_gateway'
+
   brebo_calculation.calc_request_authenticator:
     class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
     arguments: ['@cache.default']
