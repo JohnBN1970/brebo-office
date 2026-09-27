@@ -4,19 +4,18 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
 
 /** Guarded mutations for editable calculation rows. */
 final class CalculationRowManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, AccountInterface $account): int {
@@ -199,10 +198,7 @@ final class CalculationRowManager {
     if (!$row || $row['locked_at'] !== NULL || $row['status'] !== 'draft') {
       throw new \RuntimeException('Only unlocked draft calculation versions may be changed.');
     }
-    $calculation = $this->entityTypeManager->getStorage('node')->load($calculationId);
-    if (!$calculation instanceof NodeInterface || !$calculation->access('update', $account)) {
-      throw new \RuntimeException('Calculation update access denied.');
-    }
+    $this->accessGateway->assertCanUpdate($calculationId, (int) $account->id());
   }
 
   private function assertLeafParagraph(int $calculationId, string $version, string $paragraphKey): void {
