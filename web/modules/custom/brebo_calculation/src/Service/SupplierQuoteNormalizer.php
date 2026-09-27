@@ -122,84 +122,104 @@ final class SupplierQuoteNormalizer {
    *  @return list<array{position:string,quantity:float,unit:string,description:string,unit_price:float,line_total:float,line_no:int}>
    */
   private function quoteLines(string $text, array $lines): array {
-    $result = [];
     $flat = trim(preg_replace('/\s+/u', ' ', $text) ?? '');
     if ($flat === '') {
       return [];
     }
 
-    // Match quote rows even when PDF extraction split table columns across lines.
-    // Example: 001 1 Stk 9 674,17 9 674,17
+    // Anchor on position + quantity + unit. PDF extraction may move the price
+    // columns before or after descriptive text, especially on rows containing
+    // extra visuals/sub-items such as ventilation grilles.
     preg_match_all(
-      '/(?<!\d)(\d{3})\s+(\d+(?:[.,]\d+)?)\s+([\pL.]{1,12})\s+([\d .]+,\d{2})\s+([\d .]+,\d{2})(?!\d)/u',
+      '/(?<!\d)(\d{3})\s+(\d+(?:[.,]\d+)?)\s+([\pL.]{1,12})(?!\pL)/u',
       $flat,
-      $matches,
+      $anchors,
       PREG_OFFSET_CAPTURE
     );
 
-    $count = count($matches[0] ?? []);
-    for ($i = 0; $i < $count; $i++) {
-      $position = (string) $matches[1][$i][0];
-      $quantity = $this->decimal((string) $matches[2][$i][0]);
-      $unit = trim((string) $matches[3][$i][0]);
-      $unitPrice = $this->decimal((string) $matches[4][$i][0]);
-      $lineTotal = $this->decimal((string) $matches[5][$i][0]);
-      if ($quantity <= 0 || $unitPrice < 0 || $lineTotal < 0) {
+    $result = [];
+    $anchorCount = count($anchors[0] ?? []);
+    for ($i = 0; $i < $anchorCount; $i++) {
+      $position = (string) $anchors[1][$i][0];
+      $quantity = $this->decimal((string) $anchors[2][$i][0]);
+      $unit = trim((string) $anchors[3][$i][0]);
+      if ($quantity <= 0) {
         continue;
       }
 
-      $matchText = (string) $matches[0][$i][0];
-      $offset = (int) $matches[0][$i][1];
-      $after = $offset + strlen($matchText);
-      $nextOffset = $i + 1 < $count ? (int) $matches[0][$i + 1][1] : strlen($flat);
-      $segment = trim(substr($flat, $after, max(0, $nextOffset - $after)));
+      $anchorText = (string) $anchors[0][$i][0];
+      $offset = (int) $anchors[0][$i][1];
+      $afterAnchor = $offset + strlen($anchorText);
+      $nextOffset = $i + 1 < $anchorCount ? (int) $anchors[0][$i + 1][1] : strlen($flat);
+      $block = trim(substr($flat, $afterAnchor, max(0, $nextOffset - $afterAnchor)));
+      $block = preg_split('/\b(?:Totaalbedrag\s+netto|Alle\s+prijzen\s+zijn\s+NETTO)\b/ui', $block)[0] ?? $block;
 
-      // Cut trailing document totals/conditions from the final position.
-      $segment = preg_split('/\b(?:Totaalbedrag\s+netto|Alle\s+prijzen\s+zijn\s+NETTO|Positie\s+Aantal\s+Omschrijving\s+Prijs\s+Totaal)\b/ui', $segment)[0] ?? $segment;
-
-      // Prefer the product heading and first descriptive continuation, not technical tail fields.
-      $segment = preg_split('/\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:/ui', $segment)[0] ?? $segment;
-      $segment = trim(preg_replace('/\s+/u', ' ', $segment) ?? '');
-
-      if ($segment === '') {
-        $segment = 'Offertepositie ' . $position;
+      // Currency amounts have exactly two decimals. This avoids dimensions
+      // (2030, 3090), U-values (1,5) and weights (339,677).
+      preg_match_all('/(?<!\d)(\d{1,3}(?:[ .]\d{3})*|\d+)\s*,\s*(\d{2})(?!\d)/u', $block, $moneyMatches, PREG_OFFSET_CAPTURE);
+      if (count($moneyMatches[0] ?? []) < 2) {
+        continue;
       }
 
-      // Approximate source line for review/debugging.
-      $prefix = substr($flat, 0, $offset);
-      $lineNo = max(1, substr_count($prefix, "\n") + 1);
+      $money = [];
+      foreach ($moneyMatches[0] as $moneyMatch) {
+        $money[] = [
+          'raw' => (string) $moneyMatch[0],
+          'offset' => (int) $moneyMatch[1],
+          'value' => $this->decimal((string) $moneyMatch[0]),
+        ];
+      }
+
+      // Prefer an adjacent equal pair (unit price == line total for qty 1),
+      // otherwise use the first plausible pair in the position block.
+      $pair = NULL;
+      for ($m = 0; $m < count($money) - 1; $m++) {
+        $left = $money[$m];
+        $right = $money[$m + 1];
+        if ($left['value'] <= 0 || $right['value'] <= 0) {
+          continue;
+        }
+        if (abs(($left['value'] * $quantity) - $right['value']) < 0.02) {
+          $pair = [$left, $right];
+          break;
+        }
+      }
+      $pair ??= [$money[0], $money[1]];
+      [$unitPriceMatch, $lineTotalMatch] = $pair;
+      $unitPrice = (float) $unitPriceMatch['value'];
+      $lineTotal = (float) $lineTotalMatch['value'];
+
+      // Description can occur before or after the price columns in extracted PDF text.
+      $descriptionSource = $block;
+      if (preg_match('/\bDeurelement\b.*?(?=\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:)/ui', $block, $descriptionMatch)) {
+        $description = trim((string) $descriptionMatch[0]);
+      }
+      else {
+        // Remove the two selected prices and common table labels before using
+        // the leading descriptive text as fallback.
+        foreach ([$unitPriceMatch['raw'], $lineTotalMatch['raw']] as $rawAmount) {
+          $descriptionSource = preg_replace('/'.preg_quote($rawAmount, '/').'/', ' ', $descriptionSource, 1) ?? $descriptionSource;
+        }
+        $descriptionSource = preg_replace('/\b(?:Prijs|Totaal|EUR|Positie|Aantal|Omschrijving)\b/ui', ' ', $descriptionSource) ?? $descriptionSource;
+        $descriptionSource = preg_split('/\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie)\s*:/ui', $descriptionSource)[0] ?? $descriptionSource;
+        $description = trim(preg_replace('/\s+/u', ' ', $descriptionSource) ?? '');
+      }
+
+      if ($description === '') {
+        $description = 'Offertepositie ' . $position;
+      }
 
       $result[] = [
         'position' => $position,
         'quantity' => $quantity,
         'unit' => $unit,
-        'description' => mb_substr($segment, 0, 500),
+        'description' => mb_substr($description, 0, 500),
         'unit_price' => $unitPrice,
         'line_total' => $lineTotal,
-        'line_no' => $lineNo,
+        'line_no' => 1,
       ];
     }
 
-    // Fallback to line-wise detection for extractors that preserve table rows cleanly.
-    if ($result === []) {
-      foreach ($lines as $index => $rawLine) {
-        $line = trim(preg_replace('/\s+/u', ' ', (string) $rawLine) ?? '');
-        if (!preg_match('/^(\d{3})\s+(\d+(?:[.,]\d+)?)\s+([\pL.]+)\s+([\d .]+,\d{2})\s+([\d .]+,\d{2})$/u', $line, $m)) {
-          continue;
-        }
-        $result[] = [
-          'position' => $m[1],
-          'quantity' => $this->decimal($m[2]),
-          'unit' => trim($m[3]),
-          'description' => 'Offertepositie ' . $m[1],
-          'unit_price' => $this->decimal($m[4]),
-          'line_total' => $this->decimal($m[5]),
-          'line_no' => $index + 1,
-        ];
-      }
-    }
-
-    // De-duplicate positions; first complete occurrence wins.
     $unique = [];
     foreach ($result as $row) {
       $unique[$row['position']] ??= $row;
@@ -207,7 +227,6 @@ final class SupplierQuoteNormalizer {
     ksort($unique, SORT_NATURAL);
     return array_values($unique);
   }
-
 
   private function decimal(string $raw): float {
     $normalized = str_replace([' ', '.'], '', trim($raw));
