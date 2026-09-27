@@ -418,46 +418,49 @@ final class SupplierQuoteNormalizer {
         continue;
       }
 
-      $parts = [];
-      for ($j = $i; $j < min($count, $i + 14); $j++) {
+      // Search the complete logical position section. Some supplier PDFs place
+      // auxiliary rows (e.g. ventilation grille / finish) between the table row
+      // and the actual Deurelement description.
+      $descriptionParts = [];
+      $collecting = FALSE;
+      for ($j = $i; $j < min($count, $i + 80); $j++) {
         $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$j]) ?? '');
         if ($candidate === '') {
           continue;
         }
-        if ($j > $i && preg_match('/^\\d{3}\\s+\\d+(?:[.,]\\d+)?\\s+[\\pL.]{1,12}\\b/u', $candidate)) {
+
+        if ($j > $i && (
+          preg_match('/^\\d{3}\\s+\\d+(?:[.,]\\d+)?\\s+[\\pL.]{1,12}\\b/u', $candidate)
+          || preg_match('/^Positie\\s+Aantal\\s+Omschrijving\\s+Prijs\\s+Totaal\\b/ui', $candidate)
+        )) {
           break;
         }
 
-        if ($parts === []) {
-          if (preg_match('/\\bDeurelement\\b(.*)$/ui', $candidate, $match, PREG_OFFSET_CAPTURE)) {
-            $start = (int) $match[0][1];
-            $candidate = substr($candidate, $start);
-            $candidate = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? $candidate;
-            $parts[] = trim($candidate);
-            if (preg_match('/\\bSysteem\\s*:/ui', (string) $lines[$j])) {
-              break;
-            }
+        if (!$collecting) {
+          $deurelementPos = mb_stripos($candidate, 'Deurelement');
+          if ($deurelementPos === FALSE) {
+            continue;
           }
-          continue;
+          $candidate = mb_substr($candidate, $deurelementPos);
+          $collecting = TRUE;
         }
 
         if (preg_match('/\\bSysteem\\s*:/ui', $candidate)) {
           $before = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? '';
           if (trim($before) !== '') {
-            $parts[] = trim($before);
+            $descriptionParts[] = trim($before);
           }
           break;
         }
 
-        // Continuation lines of the short commercial description. Stop before
-        // detailed specifications or table-column metadata.
         if (preg_match('/^(?:Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslag|Prijs|Totaal|EUR)\\b/ui', $candidate)) {
           break;
         }
-        $parts[] = $candidate;
+
+        $descriptionParts[] = $candidate;
       }
 
-      $description = trim(preg_replace('/\\s+/u', ' ', implode(' ', $parts)) ?? '');
+      $description = trim(preg_replace('/\\s+/u', ' ', implode(' ', $descriptionParts)) ?? '');
       if ($description !== '') {
         return mb_substr($description, 0, 500);
       }
