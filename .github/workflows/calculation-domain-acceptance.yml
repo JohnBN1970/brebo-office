@@ -174,6 +174,15 @@ jobs:
           grep -q "assertApplication" "$resource_guard"
           grep -q "workspace_v2_recipe_place" "$routing"
           grep -q "workspace_v2_subcalculation_create" "$routing"
+          price_source_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
+          exception_line_manager='web/modules/custom/brebo_calculation/src/Service/ObjectExceptionLineManager.php'
+          ! grep -q "AccountInterface" "$price_source_manager"
+          ! grep -q "AccountInterface" "$exception_line_manager"
+          grep -q "CalculationAccessGatewayInterface" "$price_source_manager"
+          grep -q "CalculationAccessGatewayInterface" "$exception_line_manager"
+          grep -q "assertApplicationObject" "$resource_guard"
+          grep -q "workspace_v2_price_source_add" "$routing"
+          grep -q "workspace_v2_object_exception_line_add" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
