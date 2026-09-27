@@ -67,33 +67,34 @@ final class CalculationVersionEstablisher {
     $contentHash = hash('sha256', json_encode($hashPayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
 
     $snapshotRows = [];
-    $snapshotLineIds = [];
+    $snapshotRowIds = [];
     foreach ((array) ($result['components'] ?? []) as $component) {
       if (is_array($component) && ($component['kind'] ?? '') === 'row' && (int) ($component['id'] ?? 0) > 0) {
-        $snapshotLineIds[] = (int) $component['id'];
+        $snapshotRowIds[] = (int) $component['id'];
       }
     }
-    $lineData = $this->lineReadModel->loadMany($snapshotLineIds, $version);
+    $rowData = $this->lineReadModel->loadMany($snapshotRowIds, $version);
     foreach ((array) ($result['components'] ?? []) as $component) {
       if (!is_array($component) || ($component['kind'] ?? '') !== 'row') {
         continue;
       }
-      $lineId = (int) ($component['id'] ?? 0);
-      if ($lineId <= 0) {
+      $rowId = (int) ($component['id'] ?? 0);
+      if ($rowId <= 0) {
         continue;
       }
       $domain = $this->database->select('brebo_calculation_row_domain', 'r')
         ->fields('r')
-        ->condition('calc_line_id', $lineId)
+        ->condition('row_id', $rowId)
         ->condition('version', $version)
         ->execute()
         ->fetchAssoc();
-      $line = $lineData[$lineId] ?? NULL;
+      $line = $rowData[$rowId] ?? NULL;
       if (!is_array($domain) || !is_array($line)) {
         continue;
       }
       $snapshotRows[] = [
-        'legacy_line_id' => $lineId,
+        'row_id' => $rowId,
+        'legacy_line_id' => !empty($domain['calc_line_id']) ? (int) $domain['calc_line_id'] : NULL,
         'paragraph_id' => (string) ($domain['paragraph_key'] ?? ''),
         'type' => (string) ($domain['rule_type'] ?? 'normal'),
         'description' => (string) ($component['description'] ?? $line['description']),
