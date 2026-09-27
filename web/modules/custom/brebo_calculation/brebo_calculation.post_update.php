@@ -229,3 +229,25 @@ function brebo_calculation_post_update_add_row_identity(&$sandbox = NULL): strin
 
   return 'BREBO-owned calculation row identities are backfilled and unique; calc_line_id remains the temporary legacy mapping.';
 }
+
+
+/**
+ * Widen BREBO calculation row ids for independent random identity allocation.
+ */
+function brebo_calculation_post_update_widen_row_identity(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'row_id')) {
+    return 'BREBO Calculation row identity is not installed; widening skipped.';
+  }
+
+  $schema->changeField($table, 'row_id', 'row_id', [
+    'type' => 'int',
+    'size' => 'big',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ]);
+
+  return 'BREBO Calculation row identity widened for independent allocation.';
+}
