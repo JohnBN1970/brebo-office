@@ -244,3 +244,96 @@ brebo_calculation.calc_supplier_quote_preview:
   methods: [GET]
   options:
     no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_state:
+  path: '/api/workbench/v2/calculations/{calculation}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceQueryController::state'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_add:
+  path: '/api/workbench/v2/calculations/{calculation}/rows'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addRow'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_update:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRow'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_delete:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::deleteRow'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [DELETE]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_move:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/move'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::moveRow'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_group_add:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/groups'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addMainGroup'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_paragraph_add:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/paragraphs'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addParagraph'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_reorder:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/{structure}/order'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::reorderStructure'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    structure: '[A-Za-z0-9_-]+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
