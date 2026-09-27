@@ -36,6 +36,7 @@ final class CalculationWorkbenchLaunchController {
       'v' => 1,
       'calculation_id' => (int) $node->id(),
       'project_id' => $projectId,
+      'actor_id' => (int) \Drupal::currentUser()->id(),
       'exp' => time() + 90,
       'nonce' => bin2hex(random_bytes(16)),
     ];
