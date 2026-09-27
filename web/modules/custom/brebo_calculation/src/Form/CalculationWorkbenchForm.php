@@ -57,7 +57,7 @@ final class CalculationWorkbenchForm extends FormBase {
     if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
-    $calculationId = (int) $calculationId;
+    $calculationId = (int) $node->id();
     $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
       $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $calculationId])->toString();
