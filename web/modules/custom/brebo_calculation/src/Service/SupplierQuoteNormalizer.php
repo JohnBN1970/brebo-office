@@ -220,6 +220,50 @@ final class SupplierQuoteNormalizer {
       ];
     }
 
+    // Recovery for positions whose table unit/price columns were displaced by PDF extraction.
+    $seen = array_fill_keys(array_column($result, 'position'), TRUE);
+    preg_match_all('/(?<!\\d)(00[1-9]|0[1-9]\\d|[1-9]\\d{2})(?!\\d)/u', $flat, $positionMatches, PREG_OFFSET_CAPTURE);
+    $positionCount = count($positionMatches[0] ?? []);
+    for ($p = 0; $p < $positionCount; $p++) {
+      $position = (string) $positionMatches[1][$p][0];
+      if (isset($seen[$position])) {
+        continue;
+      }
+      $offset = (int) $positionMatches[0][$p][1];
+      $nextOffset = $p + 1 < $positionCount ? (int) $positionMatches[0][$p + 1][1] : strlen($flat);
+      $block = trim(substr($flat, $offset, max(0, $nextOffset - $offset)));
+      if (!preg_match('/^\\d{3}\\D{0,16}(\\d+(?:[.,]\\d+)?)\\s*(Stk|st|pcs?|piece|ea)\\b/ui', $block, $head)) {
+        continue;
+      }
+      $quantity = $this->decimal($head[1]);
+      preg_match_all('/(?<!\\d)(\\d{1,3}(?:[ .]\\d{3})*|\\d+)\\s*,\\s*(\\d{2})(?!\\d)/u', $block, $amounts);
+      $values = array_map(fn(string $raw): float => $this->decimal($raw), $amounts[0] ?? []);
+      $pair = NULL;
+      for ($a = 0; $a < count($values) - 1; $a++) {
+        if ($values[$a] > 0 && abs(($values[$a] * $quantity) - $values[$a + 1]) < 0.02) {
+          $pair = [$values[$a], $values[$a + 1]];
+          break;
+        }
+      }
+      if ($pair === NULL) {
+        continue;
+      }
+      $description = 'Offertepositie ' . $position;
+      if (preg_match('/\\bDeurelement\\b.*?(?=\\b(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Deurbeslagpakket|Ontwatering|Gewicht\\s+positie)\\s*:|$)/ui', $block, $dm)) {
+        $description = trim((string) $dm[0]);
+      }
+      $result[] = [
+        'position' => $position,
+        'quantity' => $quantity,
+        'unit' => $head[2],
+        'description' => mb_substr($description, 0, 500),
+        'unit_price' => $pair[0],
+        'line_total' => $pair[1],
+        'line_no' => 1,
+      ];
+      $seen[$position] = TRUE;
+    }
+
     $unique = [];
     foreach ($result as $row) {
       $unique[$row['position']] ??= $row;
