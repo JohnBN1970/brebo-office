@@ -409,3 +409,43 @@ brebo_calculation.workspace_v2_subcalculation_application_object_add:
   methods: [POST]
   options:
     no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_price_source_add:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/price-sources'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addPriceSource'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_price_source_approve:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/price-sources/{source}/approve'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::approvePriceSource'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    row: '\d+'
+    source: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_object_exception_line_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications/{application}/objects/{object}/exception-lines'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addObjectExceptionLine'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
+    subcalculation: '\d+'
+    application: '\d+'
+    object: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
