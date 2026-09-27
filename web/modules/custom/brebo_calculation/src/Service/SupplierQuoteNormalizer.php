@@ -400,6 +400,9 @@ final class SupplierQuoteNormalizer {
           $row['description'] = $layoutDescription;
         }
       }
+      $details = $this->detailsForPosition((string) $row['position'], $lines);
+      $details ??= $this->detailsForPositionOrdinal((string) $row['position'], $lines);
+      $row['details'] = $details ?? '';
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -531,6 +534,101 @@ final class SupplierQuoteNormalizer {
 
     // Do not guess unless the requested ordinal actually exists.
     return $descriptions[$ordinal - 1] ?? NULL;
+  }
+
+  /**
+   * Recover technical detail belonging to a quote position.
+   *
+   * @param list<string> $lines
+   */
+  private function detailsForPosition(string $position, array $lines): ?string {
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $line = trim((string) $lines[$i]);
+      if (!preg_match('/^' . preg_quote($position, '/') . '\\b/u', $line)) {
+        continue;
+      }
+      return $this->technicalDetailsFromSection($lines, $i, min($count, $i + 100));
+    }
+    return NULL;
+  }
+
+  /**
+   * Fallback when PDF extraction serializes the position and description
+   * columns independently. The visual order of Deurelement blocks is retained.
+   *
+   * @param list<string> $lines
+   */
+  private function detailsForPositionOrdinal(string $position, array $lines): ?string {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+
+    $starts = [];
+    foreach ($lines as $index => $rawLine) {
+      if (mb_stripos((string) $rawLine, 'Deurelement') !== FALSE) {
+        $starts[] = $index;
+      }
+    }
+    $start = $starts[$ordinal - 1] ?? NULL;
+    if ($start === NULL) {
+      return NULL;
+    }
+    $end = $starts[$ordinal] ?? min(count($lines), $start + 100);
+    return $this->technicalDetailsFromSection($lines, $start, $end);
+  }
+
+  /**
+   * Keep useful technical/commercial content while excluding price-table noise.
+   *
+   * @param list<string> $lines
+   */
+  private function technicalDetailsFromSection(array $lines, int $start, int $end): ?string {
+    $labels = '(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot|Ventilatierooster)';
+    $details = [];
+    $collectContinuation = FALSE;
+
+    for ($i = $start; $i < $end; $i++) {
+      $candidate = trim(preg_replace('/\\s+/u', ' ', (string) ($lines[$i] ?? '')) ?? '');
+      if ($candidate === '') {
+        continue;
+      }
+      if ($i > $start && preg_match('/^\\d{3}\\s+\\d+(?:[.,]\\d+)?\\s+[\\pL.]{1,12}\\b/u', $candidate)) {
+        break;
+      }
+      if (preg_match('/^(?:Positie\\s+Aantal|Totaalbedrag\\s+netto|Alle\\s+prijzen\\s+zijn\\s+NETTO)/ui', $candidate)) {
+        continue;
+      }
+      if (preg_match('/\\b' . $labels . '\\s*:/ui', $candidate, $match, PREG_OFFSET_CAPTURE)) {
+        $offset = (int) $match[0][1];
+        $details[] = trim(mb_substr($candidate, $offset));
+        $collectContinuation = TRUE;
+        continue;
+      }
+      if (preg_match('/^' . $labels . '\\b/ui', $candidate)) {
+        $details[] = $candidate;
+        $collectContinuation = TRUE;
+        continue;
+      }
+      if ($collectContinuation
+        && !preg_match('/^Deurelement\\b/ui', $candidate)
+        && !preg_match('/^(?:Prijs|Totaal|EUR)\\b/ui', $candidate)
+        && !preg_match('/^\\d{1,3}(?:[ .]\\d{3})*,\\d{2}(?:\\s+\\d{1,3}(?:[ .]\\d{3})*,\\d{2})?$/u', $candidate)
+      ) {
+        // Preserve short continuation text belonging to the previous technical
+        // label, but reject obvious page/header noise.
+        if (mb_strlen($candidate) <= 240 && !preg_match('/^(?:Pagina|Page|Offerte|Datum|Klant|Project)\\b/ui', $candidate)) {
+          $details[] = $candidate;
+        }
+      }
+    }
+
+    $details = array_values(array_unique(array_filter(array_map('trim', $details))));
+    if ($details === []) {
+      return NULL;
+    }
+    return mb_substr(implode("\n", $details), 0, 8000);
   }
 
   private function decimal(string $raw): float {
