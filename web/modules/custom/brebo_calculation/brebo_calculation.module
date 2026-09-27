@@ -159,6 +159,9 @@ function brebo_calculation_node_presave(NodeInterface $node): void {
   $database = \Drupal::database();
   $schema = $database->schema();
   $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return;
+  }
   foreach (['description', 'contract_quantity', 'actual_quantity', 'unit', 'budget_hours', 'labour_rate'] as $field) {
     if (!$schema->fieldExists($table, $field)) {
       return;
