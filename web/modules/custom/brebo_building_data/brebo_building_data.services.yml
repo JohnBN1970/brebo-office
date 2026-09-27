@@ -19,7 +19,7 @@ services:
     class: Drupal\brebo_building_data\Service\BuildingTruthRepository
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_building_data.aggregate_type_validator'
       - '@datetime.time'
       - '@lock'
       - '@brebo_building_data.object_repository'
