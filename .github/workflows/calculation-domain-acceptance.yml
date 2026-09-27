@@ -109,6 +109,13 @@ jobs:
           grep -q "maintainLegacyMirrors" "$block_order"
           object_writer='web/modules/custom/brebo_calculation/src/Service/CalculationObjectLineWriter.php'
           grep -q "maintainLegacyMirrors" "$object_writer"
+          legacy_compatibility='web/modules/custom/brebo_calculation/src/Infrastructure/CalculationLegacyLineCompatibility.php'
+          grep -q "legacy_line_gateway" "$services"
+          grep -q "legacy_line_compatibility" "$services"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
+          ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
+          grep -q "CalculationLineLegacyGatewayInterface" "$legacy_compatibility"
 
       - name: Prove calculation creation-to-workbench flow
         shell: bash
