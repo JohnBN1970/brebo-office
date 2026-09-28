@@ -13,10 +13,14 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard
     arguments: ['@database']
 
+  brebo_calculation.workspace_read_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceReadRepository
+    arguments: ['@database']
+
   brebo_calculation.workspace_state:
     class: Drupal\brebo_calculation\Service\CalculationWorkspaceStateService
     arguments:
-      - '@database'
+      - '@brebo_calculation.workspace_read_repository'
       - '@brebo_calculation.context'
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
