@@ -213,10 +213,14 @@ services:
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.structure_identity_generator'
 
+  brebo_calculation.price_source_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPriceSourceRepository
+    arguments: ['@database']
+
   brebo_calculation.price_source_manager:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.price_source_repository'
 
   brebo_calculation.supplier_quote_normalizer:
     class: Drupal\brebo_calculation\Service\SupplierQuoteNormalizer
@@ -274,10 +278,14 @@ services:
   brebo_calculation.recipe_price_health_inspector:
     class: Drupal\brebo_calculation\Service\RecipePriceHealthInspector
 
+  brebo_calculation.readiness_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationReadinessRepository
+    arguments: ['@database']
+
   brebo_calculation.readiness_inspector:
     class: Drupal\brebo_calculation\Service\CalculationReadinessInspector
     arguments:
-      - '@database'
+      - '@brebo_calculation.readiness_repository'
       - '@brebo_calculation.recipe_price_health_inspector'
       - '@brebo_calculation.line_read_model'
 
