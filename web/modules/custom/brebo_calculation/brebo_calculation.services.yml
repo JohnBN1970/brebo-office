@@ -234,10 +234,14 @@ services:
   brebo_calculation.recipe_formula_evaluator:
     class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
 
+  brebo_calculation.recipe_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseRecipeRepository
+    arguments: ['@database']
+
   brebo_calculation.recipe_manager:
     class: Drupal\brebo_calculation\Service\RecipeManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.recipe_repository'
       - '@brebo_calculation.recipe_formula_evaluator'
       - '@brebo_calculation.access_gateway'
 
