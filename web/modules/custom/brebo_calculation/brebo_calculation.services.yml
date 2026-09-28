@@ -101,10 +101,14 @@ services:
       - '@brebo_calculation.kozijn_price_engine'
       - '@brebo_calculation.commercial_calculator'
 
+  brebo_calculation.result_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationResultRepository
+    arguments: ['@database']
+
   brebo_calculation.result:
     class: Drupal\brebo_calculation\Service\CalculationResultService
     arguments:
-      - '@database'
+      - '@brebo_calculation.result_repository'
       - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.commercial_calculator'
 
