@@ -216,15 +216,23 @@ services:
   brebo_calculation.supplier_quote_pdf_text_extractor:
     class: Drupal\brebo_calculation\Service\SupplierQuotePdfTextExtractor
 
+  brebo_calculation.subcalculation_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseSubcalculationRepository
+    arguments: ['@database']
+
   brebo_calculation.subcalculation_manager:
     class: Drupal\brebo_calculation\Service\SubcalculationManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.subcalculation_repository'
+
+  brebo_calculation.object_exception_line_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseObjectExceptionLineRepository
+    arguments: ['@database']
 
   brebo_calculation.object_exception_line_manager:
     class: Drupal\brebo_calculation\Service\ObjectExceptionLineManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.object_exception_line_repository'
 
   brebo_calculation.draft_initializer:
     class: Drupal\brebo_calculation\Service\CalculationDraftInitializer
