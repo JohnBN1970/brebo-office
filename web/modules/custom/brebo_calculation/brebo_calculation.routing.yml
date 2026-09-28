@@ -462,3 +462,14 @@ brebo_calculation.workspace_v2_parameters_update:
   methods: [PATCH]
   options:
     no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_launch_consume:
+  path: '/api/workbench/v2/launch/consume'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationLaunchConsumeController::consume'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
+  options:
+    no_cache: TRUE
