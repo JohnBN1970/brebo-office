@@ -49,4 +49,18 @@ final class CalcIntegrationRequestAuthenticator {
     $this->cache->set($replayKey, TRUE, $now + 600);
   }
 
+  public function claimLaunchNonce(string $nonce, int $expiresAt): void {
+    $now = time();
+    if (!preg_match('/^[0-9a-f]{32}$/i', $nonce) || $expiresAt < $now || $expiresAt > $now + 180) {
+      throw new AccessDeniedHttpException('Expired or malformed launch nonce.');
+    }
+
+    $key = 'brebo_calc_launch_nonce:' . hash('sha256', strtolower($nonce));
+    if ($this->cache->get($key)) {
+      throw new AccessDeniedHttpException('Launch token already consumed.');
+    }
+
+    $this->cache->set($key, TRUE, $expiresAt + 60);
+  }
+
 }
