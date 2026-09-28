@@ -186,9 +186,13 @@ services:
       - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
 
+  brebo_calculation.norm_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormRepository
+    arguments: ['@database']
+
   brebo_calculation.norm_library:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.norm_repository']
 
   brebo_calculation.norm_feedback:
     class: Drupal\brebo_calculation\Service\CalculationNormFeedbackService
