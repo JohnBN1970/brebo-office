@@ -4,24 +4,18 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationDraftRepositoryInterface;
 /** Creates the first editable domain version for a newly created calculation. */
 final class CalculationDraftInitializer {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly CalculationDraftRepositoryInterface $repository) {}
 
   /** @param array<string,mixed> $start */
   public function ensure(int $calculationId, array $start = []): string {
     if ($calculationId <= 0) {
       throw new \InvalidArgumentException('A saved BREBO calculation id is required.');
     }
-    $existing = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['version'])
-      ->condition('calculation_id', $calculationId)
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchField();
+    $existing = $this->repository->latestVersion($calculationId);
     if (is_string($existing) && $existing !== '') {
       return $existing;
     }
@@ -49,7 +43,7 @@ final class CalculationDraftInitializer {
       'price_date' => $priceDate,
     ];
 
-    $this->database->insert('brebo_calculation_version')->fields([
+    $this->repository->insertVersion([
       'calculation_id' => $calculationId,
       'version' => $version,
       'status' => 'draft',
@@ -66,7 +60,7 @@ final class CalculationDraftInitializer {
       'locked_at' => NULL,
       'locked_by' => NULL,
       'content_hash' => hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION)),
-    ])->execute();
+    ]);
 
     return $version;
   }
