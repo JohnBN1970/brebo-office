@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\ObjectExceptionLineRepositoryInterface;
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 
 /** Manages additive calculation lines for concrete object deviations. */
 final class ObjectExceptionLineManager {
 
-  public function __construct(private readonly Connection $database, private readonly CalculationAccessGatewayInterface $accessGateway) {}
+  public function __construct(private readonly ObjectExceptionLineRepositoryInterface $repository, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
   /** @param array<string,mixed> $values */
   public function addLine(int $applicationObjectId, array $values, int $actorId): int {
@@ -36,7 +36,7 @@ final class ObjectExceptionLineManager {
       }
     }
     $now = time();
-    $id = (int) $this->database->insert('brebo_calculation_subcalculation_object_exception_line')->fields([
+    $id = $this->repository->insertLine([
       'application_object_id' => $applicationObjectId,
       'code' => trim((string) ($values['code'] ?? '')) ?: NULL,
       'description' => $description,
@@ -49,28 +49,22 @@ final class ObjectExceptionLineManager {
       'other_unit_cost' => (float) ($values['other_unit_cost'] ?? 0),
       'price_source_ref' => trim((string) ($values['price_source_ref'] ?? '')) ?: NULL,
       'note' => trim((string) ($values['note'] ?? '')) ?: NULL,
-      'sort_order' => $this->nextSortOrder($applicationObjectId),
+      'sort_order' => $this->repository->nextSortOrder($applicationObjectId),
       'created' => $now,
       'created_by' => $actorId,
       'changed' => $now,
       'changed_by' => $actorId,
-    ])->execute();
+    ]);
 
     if ((int) $context['is_exception'] !== 1) {
-      $this->database->update('brebo_calculation_subcalculation_application_object')
-        ->fields(['is_exception' => 1])
-        ->condition('id', $applicationObjectId)
-        ->execute();
+      $this->repository->markApplicationObjectException($applicationObjectId);
     }
     return $id;
   }
 
   /** @return array<string,float> */
   public function objectLineTotals(int $applicationObjectId): array {
-    $rows = $this->database->select('brebo_calculation_subcalculation_object_exception_line', 'l')
-      ->fields('l', ['quantity', 'labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost', 'other_unit_cost'])
-      ->condition('application_object_id', $applicationObjectId)
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->lines($applicationObjectId);
     $totals = ['labour' => 0.0, 'material' => 0.0, 'equipment' => 0.0, 'subcontracting' => 0.0, 'other' => 0.0, 'direct' => 0.0];
     foreach ($rows as $row) {
       $q = (float) $row['quantity'];
@@ -86,18 +80,7 @@ final class ObjectExceptionLineManager {
 
   /** @return array<string,mixed> */
   private function loadEditableContext(int $applicationObjectId, int $actorId): array {
-    $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
-    $query->join('brebo_calculation_subcalculation_application', 'a', 'a.id = o.application_id');
-    $query->join('brebo_calculation_subcalculation', 's', 's.id = a.subcalculation_id');
-    $query->join('brebo_calculation_version', 'v', 'v.calculation_id = s.calculation_id AND v.version = s.version');
-    $query->fields('o');
-    $query->addField('a', 'locked_at', 'application_locked_at');
-    $query->addField('s', 'calculation_id');
-    $query->addField('s', 'status', 'subcalculation_status');
-    $query->addField('s', 'locked_at', 'subcalculation_locked_at');
-    $query->addField('v', 'status', 'version_status');
-    $query->addField('v', 'locked_at', 'version_locked_at');
-    $row = $query->condition('o.id', $applicationObjectId)->execute()->fetchAssoc();
+    $row = $this->repository->editableContext($applicationObjectId);
     if (!$row) {
       throw new \InvalidArgumentException('Application object not found.');
     }
@@ -109,10 +92,4 @@ final class ObjectExceptionLineManager {
     return $row;
   }
 
-  private function nextSortOrder(int $applicationObjectId): int {
-    $query = $this->database->select('brebo_calculation_subcalculation_object_exception_line', 'l');
-    $query->addExpression('MAX(sort_order)', 'max_order');
-    $max = $query->condition('application_object_id', $applicationObjectId)->execute()->fetchField();
-    return ((int) $max) + 10;
-  }
 }
