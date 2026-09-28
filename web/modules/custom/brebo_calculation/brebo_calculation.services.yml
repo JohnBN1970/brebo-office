@@ -156,10 +156,14 @@ services:
       - '@brebo_calculation.legacy_source'
       - '@database'
 
+  brebo_calculation.row_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationRowRepository
+    arguments: ['@database']
+
   brebo_calculation.row_manager:
     class: Drupal\brebo_calculation\Service\CalculationRowManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.row_repository'
       - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.row_identity_generator'
@@ -190,10 +194,14 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationNormVersionManager
     arguments: ['@database']
 
+  brebo_calculation.structure_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationStructureRepository
+    arguments: ['@database']
+
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.structure_repository'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.structure_identity_generator'
 
