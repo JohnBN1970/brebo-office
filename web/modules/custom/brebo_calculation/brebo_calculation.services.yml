@@ -1,8 +1,12 @@
 services:
+  brebo_calculation.parameters_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationParametersRepository
+    arguments: ['@database']
+
   brebo_calculation.parameters_manager:
     class: Drupal\brebo_calculation\Service\CalculationParametersManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.parameters_repository'
       - '@brebo_calculation.access_gateway'
 
   brebo_calculation.calc_request_authenticator:
