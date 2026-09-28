@@ -422,7 +422,11 @@ final class SupplierQuoteNormalizer {
       // from the extracted text, keep the source visual usable by falling back
       // to the page that contains the matching Deurelement section.
       $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
-      $row['source_visual_crop'] = $this->visualCropForPosition((string) $row['position'], $ordinalDetails !== NULL);
+      // Do not emit supplier-specific hardcoded crops. If PDF geometry is
+      // available, attachPositionGeometry() will provide a dynamic search
+      // region and Calc will detect the visual. Without geometry, prefer no
+      // image over a guessed/legacy crop.
+      $row['source_visual_crop'] = NULL;
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -724,31 +728,6 @@ final class SupplierQuoteNormalizer {
     return mb_substr(ucfirst($summary) . '.', 0, 800);
   }
 
-  /**
-   * Optional normalized crop rectangle for supplier layouts with a stable,
-   * position-specific product drawing. Absence means: do not invent an image.
-   *
-   * @return array{x:float,y:float,width:float,height:float}|null
-   */
-  private function visualCropForPosition(string $position, bool $recognizedOrdinalLayout): ?array {
-    // Reuse the exact ordinal Deurelement recognition that already recovered
-    // the technical detail for this position. Do not independently re-parse the
-    // flattened PDF text here: that was the reason valid live positions lost
-    // their visual crop while their details were recognized correctly.
-    if (!$recognizedOrdinalLayout || !preg_match('/^00[1-9]$/', $position)) {
-      return NULL;
-    }
-
-    return [
-      // The live GABIT layout places the elevation in the upper-left of
-      // the position page. Keep enough surrounding white space to retain the
-      // complete door/kozijn drawing, but stop before the technical text column.
-      'x' => 0.02,
-      'y' => 0.08,
-      'width' => 0.30,
-      'height' => 0.48,
-    ];
-  }
 
   private function pageForPositionText(string $position, string $text): ?int {
     $pages = preg_split('/\\f/u', $text) ?: [$text];
