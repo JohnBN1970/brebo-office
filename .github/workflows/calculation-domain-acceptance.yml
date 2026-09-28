@@ -252,6 +252,7 @@ jobs:
           install_file='web/modules/custom/brebo_calculation/brebo_calculation.install'
           services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
           manager='web/modules/custom/brebo_calculation/src/Service/RecipeManager.php'
+          repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseRecipeRepository.php'
           evaluator='web/modules/custom/brebo_calculation/src/Service/RecipeFormulaEvaluator.php'
           grep -q "brebo_calculation_recipe_version" "$install_file"
           grep -q "brebo_calculation_recipe_instance_line" "$install_file"
@@ -259,9 +260,9 @@ jobs:
           grep -q "snapshot_hash" "$install_file"
           grep -q "brebo_calculation.recipe_manager" "$services"
           grep -q "brebo_calculation.recipe_formula_evaluator" "$services"
-          grep -q "status', 'published'" "$manager"
+          grep -q "status', 'published'" "$repository"
           grep -q "Only unlocked draft calculation versions may be changed" "$manager"
-          grep -q "is_custom', 0" "$manager"
+          grep -q "is_custom', 0" "$repository"
           grep -q "is_custom' => 1" "$manager"
           grep -q "Division by zero in recipe formula" "$evaluator"
           php web/modules/custom/brebo_calculation/tests/recipe_formula_smoke.php
