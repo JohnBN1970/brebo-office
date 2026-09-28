@@ -547,3 +547,18 @@ brebo_office_core.calc_workbench_launch:
     parameters:
       node:
         type: entity:node
+
+
+brebo_office_core.calc_project_context_v2:
+  path: '/api/workbench/v2/projects/{node}/calculation-context'
+  defaults:
+    _controller: '\Drupal\brebo_office_core\Controller\CalculationWorkbenchContextController::project'
+  requirements:
+    _access: 'TRUE'
+    node: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+    parameters:
+      node:
+        type: entity:node
