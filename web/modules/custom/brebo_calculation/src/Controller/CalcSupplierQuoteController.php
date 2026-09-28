@@ -171,6 +171,8 @@ final class CalcSupplierQuoteController extends ControllerBase {
         'text' => (string) ($extraction['text'] ?? ''),
         'confidence' => (float) ($extraction['confidence'] ?? 0),
         'extractor' => (string) ($extraction['extractor'] ?? ''),
+        'layout_mode' => (string) ($extraction['layout_mode'] ?? ''),
+        'layout_available' => trim((string) ($extraction['layout_xml'] ?? '')) !== '',
       ],
       'proposal' => $proposal,
     ], 201, ['Cache-Control' => 'no-store, private']);

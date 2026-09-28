@@ -795,11 +795,13 @@ final class SupplierQuoteNormalizer {
       return $quoteLines;
     }
     $xpath = new \DOMXPath($dom);
+
     foreach ($quoteLines as &$row) {
       $position = (string) ($row['position'] ?? '');
       if ($position === '') {
         continue;
       }
+
       foreach ($xpath->query('//*[local-name()="page"]') ?: [] as $pageIndex => $page) {
         if (!$page instanceof \DOMElement) {
           continue;
@@ -809,82 +811,95 @@ final class SupplierQuoteNormalizer {
         if ($pageWidth <= 0 || $pageHeight <= 0) {
           continue;
         }
+
+        // bbox-layout exposes lines; bbox exposes only words. Support both.
+        $anchors = [];
         foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $line) {
+          if (!$line instanceof \DOMElement) {
+            continue;
+          }
           $words = [];
           foreach ($xpath->query('.//*[local-name()="word"]', $line) ?: [] as $word) {
             $words[] = trim((string) $word->textContent);
           }
-          if (!in_array($position, $words, TRUE)) {
+          if (in_array($position, $words, TRUE)) {
+            $anchors[] = $line;
+          }
+        }
+        if ($anchors === []) {
+          foreach ($xpath->query('.//*[local-name()="word"]', $page) ?: [] as $word) {
+            if ($word instanceof \DOMElement && trim((string) $word->textContent) === $position) {
+              $anchors[] = $word;
+            }
+          }
+        }
+        if ($anchors === []) {
+          continue;
+        }
+
+        $anchor = $anchors[0];
+        $xMin = (float) $anchor->getAttribute('xMin');
+        $yMin = (float) $anchor->getAttribute('yMin');
+        $xMax = (float) $anchor->getAttribute('xMax');
+        $yMax = (float) $anchor->getAttribute('yMax');
+
+        $row['source_page'] = $pageIndex + 1;
+        $row['source_position_bounds'] = [
+          'x' => max(0.0, $xMin / $pageWidth),
+          'y' => max(0.0, $yMin / $pageHeight),
+          'width' => min(1.0, max(0.001, ($xMax - $xMin) / $pageWidth)),
+          'height' => min(1.0, max(0.001, ($yMax - $yMin) / $pageHeight)),
+        ];
+
+        // Find the next 3-digit position below this anchor. Word geometry works
+        // for both bbox and bbox-layout, so this remains runtime-independent.
+        $nextY = $pageHeight * 0.94;
+        foreach ($xpath->query('.//*[local-name()="word"]', $page) ?: [] as $candidateWord) {
+          if (!$candidateWord instanceof \DOMElement) {
             continue;
           }
-          $row['source_page'] = $pageIndex + 1;
-          $xMin = (float) ($line instanceof \DOMElement ? $line->getAttribute('xMin') : 0);
-          $yMin = (float) ($line instanceof \DOMElement ? $line->getAttribute('yMin') : 0);
-          $xMax = (float) ($line instanceof \DOMElement ? $line->getAttribute('xMax') : 0);
-          $yMax = (float) ($line instanceof \DOMElement ? $line->getAttribute('yMax') : 0);
-          $row['source_position_bounds'] = [
-            'x' => max(0.0, $xMin / $pageWidth),
-            'y' => max(0.0, $yMin / $pageHeight),
-            'width' => min(1.0, max(0.01, ($xMax - $xMin) / $pageWidth)),
-            'height' => min(1.0, max(0.01, ($yMax - $yMin) / $pageHeight)),
-          ];
-
-          // Derive a position-local visual search region from document geometry.
-          // It spans the content column below the position anchor until the next
-          // position anchor on the same page (or the page footer). This is a
-          // dynamic search area, not the final image crop.
-          $nextY = $pageHeight * 0.94;
-          foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $candidateLine) {
-            if (!$candidateLine instanceof \DOMElement) {
-              continue;
-            }
-            $candidateY = (float) $candidateLine->getAttribute('yMin');
-            if ($candidateY <= $yMax + 2) {
-              continue;
-            }
-            $candidateWords = [];
-            foreach ($xpath->query('.//*[local-name()="word"]', $candidateLine) ?: [] as $candidateWord) {
-              $candidateWords[] = trim((string) $candidateWord->textContent);
-            }
-            if (array_filter($candidateWords, static fn(string $word): bool => (bool) preg_match('/^\\d{3}$/', $word))) {
-              $nextY = min($nextY, $candidateY);
-              break;
-            }
+          $candidateText = trim((string) $candidateWord->textContent);
+          $candidateY = (float) $candidateWord->getAttribute('yMin');
+          if ($candidateY <= $yMax + 2 || !preg_match('/^\\d{3}$/', $candidateText)) {
+            continue;
           }
-          $searchY = max(0.0, $yMax / $pageHeight);
-          $searchHeight = max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight));
-          $row['source_visual_search_region'] = [
-            'x' => 0.0,
-            'y' => $searchY,
-            'width' => 1.0,
-            'height' => $searchHeight,
-          ];
-
-          // Export text-line bounds inside this position region. Calc can mask
-          // these rectangles before graphic-component detection, so headings,
-          // labels, prices and technical text cannot pollute the visual crop.
-          $textRegions = [];
-          foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $textLine) {
-            if (!$textLine instanceof \DOMElement) {
-              continue;
-            }
-            $tx0 = (float) $textLine->getAttribute('xMin');
-            $ty0 = (float) $textLine->getAttribute('yMin');
-            $tx1 = (float) $textLine->getAttribute('xMax');
-            $ty1 = (float) $textLine->getAttribute('yMax');
-            if ($ty1 < $yMax || $ty0 > $nextY || $tx1 <= $tx0 || $ty1 <= $ty0) {
-              continue;
-            }
-            $textRegions[] = [
-              'x' => max(0.0, min(1.0, $tx0 / $pageWidth)),
-              'y' => max(0.0, min(1.0, $ty0 / $pageHeight)),
-              'width' => max(0.001, min(1.0, ($tx1 - $tx0) / $pageWidth)),
-              'height' => max(0.001, min(1.0, ($ty1 - $ty0) / $pageHeight)),
-            ];
-          }
-          $row['source_text_regions'] = $textRegions;
-          break 2;
+          $nextY = min($nextY, $candidateY);
         }
+
+        $row['source_visual_search_region'] = [
+          'x' => 0.0,
+          'y' => max(0.0, $yMax / $pageHeight),
+          'width' => 1.0,
+          'height' => max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight)),
+        ];
+
+        // Text masks: use line boxes where available, otherwise individual
+        // word boxes from classic -bbox output.
+        $textRegions = [];
+        $textNodes = $xpath->query('.//*[local-name()="line"]', $page);
+        if (!$textNodes || $textNodes->length === 0) {
+          $textNodes = $xpath->query('.//*[local-name()="word"]', $page);
+        }
+        foreach ($textNodes ?: [] as $textNode) {
+          if (!$textNode instanceof \DOMElement) {
+            continue;
+          }
+          $tx0 = (float) $textNode->getAttribute('xMin');
+          $ty0 = (float) $textNode->getAttribute('yMin');
+          $tx1 = (float) $textNode->getAttribute('xMax');
+          $ty1 = (float) $textNode->getAttribute('yMax');
+          if ($ty1 < $yMax || $ty0 > $nextY || $tx1 <= $tx0 || $ty1 <= $ty0) {
+            continue;
+          }
+          $textRegions[] = [
+            'x' => max(0.0, min(1.0, $tx0 / $pageWidth)),
+            'y' => max(0.0, min(1.0, $ty0 / $pageHeight)),
+            'width' => max(0.001, min(1.0, ($tx1 - $tx0) / $pageWidth)),
+            'height' => max(0.001, min(1.0, ($ty1 - $ty0) / $pageHeight)),
+          ];
+        }
+        $row['source_text_regions'] = $textRegions;
+        break;
       }
     }
     unset($row);

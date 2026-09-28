@@ -40,11 +40,20 @@ final class SupplierQuotePdfTextExtractor {
     // supplier-specific crop. It is optional so environments with older
     // Poppler keep the existing text path working.
     $layoutXml = '';
-    $bbox = new Process([$binary, '-bbox-layout', '-enc', 'UTF-8', $path, '-']);
-    $bbox->setTimeout(20.0);
-    $bbox->run();
-    if ($bbox->isSuccessful()) {
-      $layoutXml = trim($bbox->getOutput());
+    $layoutMode = '';
+
+    // Prefer line-aware geometry, but older Poppler builds can lack
+    // -bbox-layout. Fall back to the older and widely available -bbox mode;
+    // the normalizer can derive anchors/search regions from word boxes too.
+    foreach (['-bbox-layout', '-bbox'] as $bboxMode) {
+      $bbox = new Process([$binary, $bboxMode, '-enc', 'UTF-8', $path, '-']);
+      $bbox->setTimeout(20.0);
+      $bbox->run();
+      if ($bbox->isSuccessful() && trim($bbox->getOutput()) !== '') {
+        $layoutXml = trim($bbox->getOutput());
+        $layoutMode = $bboxMode;
+        break;
+      }
     }
 
     return [
@@ -53,6 +62,7 @@ final class SupplierQuotePdfTextExtractor {
       'extractor' => 'local_pdftotext_layout_v1',
       'confidence' => 0.99,
       'layout_xml' => $layoutXml,
+      'layout_mode' => $layoutMode,
     ];
   }
 
