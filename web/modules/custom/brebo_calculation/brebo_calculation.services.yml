@@ -261,10 +261,15 @@ services:
       - '@brebo_calculation.recipe_formula_evaluator'
       - '@brebo_calculation.access_gateway'
 
+  brebo_calculation.recipe_material_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseRecipeMaterialRepository
+    arguments: ['@database']
+
   brebo_calculation.recipe_material_selector:
     class: Drupal\brebo_calculation\Service\RecipeMaterialSelector
     arguments:
-      - '@database'
+      - '@brebo_calculation.recipe_material_repository'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.recipe_price_health_inspector:
     class: Drupal\brebo_calculation\Service\RecipePriceHealthInspector
