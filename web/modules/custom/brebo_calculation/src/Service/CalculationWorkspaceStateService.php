@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationWorkspaceReadRepositoryInterface;
 
 /**
  * Builds one framework-neutral read model for the calculation workspace.
@@ -12,7 +12,7 @@ use Drupal\Core\Database\Connection;
 final class CalculationWorkspaceStateService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationWorkspaceReadRepositoryInterface $repository,
     private readonly CalculationContextService $contextService,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
@@ -24,55 +24,16 @@ final class CalculationWorkspaceStateService {
       throw new \InvalidArgumentException('Calculation id is required.');
     }
 
-    $version = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v')
-      ->condition('calculation_id', $calculationId)
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
+    $version = $this->repository->latestVersion($calculationId);
     if (!$version) {
       throw new \RuntimeException('Calculation version not found.');
     }
 
     $versionName = (string) $version['version'];
-    $structure = $this->database->select('brebo_calculation_structure', 's')
-      ->fields('s')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $versionName)
-      ->orderBy('sort_order')
-      ->orderBy('depth')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $versionName)
-      ->orderBy('paragraph_key')
-      ->orderBy('sort_order')
-      ->orderBy('row_id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
-    $recipes = $this->database->select('brebo_calculation_recipe_instance', 'i')
-      ->fields('i')
-      ->condition('calculation_id', $calculationId)
-      ->condition('calculation_version', $versionName)
-      ->orderBy('paragraph_key')
-      ->orderBy('sort_order')
-      ->orderBy('id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
-    $subcalculations = $this->database->select('brebo_calculation_subcalculation', 's')
-      ->fields('s')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $versionName)
-      ->orderBy('label')
-      ->orderBy('id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $structure = $this->repository->structure($calculationId, $versionName);
+    $rows = $this->repository->rows($calculationId, $versionName);
+    $recipes = $this->repository->recipes($calculationId, $versionName);
+    $subcalculations = $this->repository->subcalculations($calculationId, $versionName);
 
     return [
       'contract' => 'brebo-calculation-workspace-v2',
