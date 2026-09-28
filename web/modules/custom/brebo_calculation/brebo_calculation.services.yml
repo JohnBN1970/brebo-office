@@ -29,9 +29,13 @@ services:
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
 
+  brebo_calculation.context_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationContextRepository
+    arguments: ['@database']
+
   brebo_calculation.context:
     class: Drupal\brebo_calculation\Service\CalculationContextService
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.context_repository']
 
   brebo_calculation.structure_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationStructureIdentityGenerator
@@ -246,10 +250,14 @@ services:
     arguments:
       - '@brebo_calculation.object_exception_line_repository'
 
+  brebo_calculation.draft_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationDraftRepository
+    arguments: ['@database']
+
   brebo_calculation.draft_initializer:
     class: Drupal\brebo_calculation\Service\CalculationDraftInitializer
     arguments:
-      - '@database'
+      - '@brebo_calculation.draft_repository'
 
   brebo_calculation.recipe_formula_evaluator:
     class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
