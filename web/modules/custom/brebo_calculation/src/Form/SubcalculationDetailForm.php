@@ -124,7 +124,7 @@ final class SubcalculationDetailForm extends FormBase {
     }
     foreach ($requested as $key => [$type, $ref]) {
       if (!isset($existingKeys[$key])) {
-        $this->manager->addScope($subId, $type, $ref, 1.0, $this->currentUser());
+        $this->manager->addScope($subId, $type, $ref, 1.0, (int) $this->currentUser()->id());
       }
     }
     $this->messenger()->addStatus('Scope van de deelcalculatie opgeslagen.');

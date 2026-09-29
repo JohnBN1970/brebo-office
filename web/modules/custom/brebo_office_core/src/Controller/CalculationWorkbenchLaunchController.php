@@ -26,7 +26,7 @@ final class CalculationWorkbenchLaunchController {
     }
 
     $projectId = (int) $package->get('field_brebo_project_ref')->target_id;
-    $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
+    $secret = trim((string) getenv('BREBO_CALC_SHARED_SECRET') ?: Settings::get('brebo_calc_shared_secret', ''));
     $baseUrl = rtrim(trim((string) Settings::get('brebo_calc_base_url', getenv('BREBO_CALC_BASE_URL') ?: 'https://calculatie.brebobv.nl')), '/');
     if ($secret === '' || $baseUrl === '') {
       throw new AccessDeniedHttpException('BREBO Calc is niet geconfigureerd.');
@@ -36,6 +36,7 @@ final class CalculationWorkbenchLaunchController {
       'v' => 1,
       'calculation_id' => (int) $node->id(),
       'project_id' => $projectId,
+      'actor_id' => (int) \Drupal::currentUser()->id(),
       'exp' => time() + 90,
       'nonce' => bin2hex(random_bytes(16)),
     ];

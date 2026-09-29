@@ -126,8 +126,8 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<div class="brebo-calc-command__title"><div><small>Calculatie</small><h1>' . htmlspecialchars($code) . '</h1><p>' . htmlspecialchars($calculationLabel) . '</p></div>'
         . '<div class="brebo-calc-command__actions">'
         . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $calculationId])->toString()) . '">Basisgegevens</a>'
-        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $calculationId])->toString()) . '">Parameters</a>'
-        . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['node' => $calculationId])->toString()) . '">Versie vaststellen</a>' : '')
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Parameters</a>'
+        . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['calculation' => $calculationId])->toString()) . '">Versie vaststellen</a>' : '')
         . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $calculationId])->toString()) . '">Offerte maken</a>'
         . '</div></div>'
         . '<div class="brebo-calc-command__context"><span><strong>Project</strong>' . htmlspecialchars($projectLabel) . '</span><span><strong>Versie</strong>' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong>' . htmlspecialchars($statusLabel) . '</span></div>'
@@ -144,16 +144,16 @@ final class CalculationWorkbenchForm extends FormBase {
     $form['workbench']['navigation'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__navigation']], '#weight' => -20];
     $form['workbench']['navigation']['subcalculations'] = ['#type' => 'link', '#title' => 'Deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId]), '#attributes' => ['class' => ['button', 'button--primary']]];
     $form['workbench']['navigation']['recipes'] = ['#type' => 'link', '#title' => 'Recept plaatsen', '#url' => Url::fromRoute('brebo_calculation.recipe_place', ['node' => $calculationId]), '#attributes' => ['class' => ['button']]];
-    $form['workbench']['navigation']['structure'] = ['#type' => 'link', '#title' => 'Calculatiestructuur', '#url' => Url::fromRoute('brebo_calculation.structure', ['node' => $calculationId]), '#attributes' => ['class' => ['button']]];
-    $form['workbench']['navigation']['parameters'] = ['#type' => 'link', '#title' => 'Parameters & opslagen', '#url' => Url::fromRoute('brebo_calculation.parameters', ['node' => $calculationId]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['navigation']['structure'] = ['#type' => 'link', '#title' => 'Calculatiestructuur', '#url' => Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['navigation']['parameters'] = ['#type' => 'link', '#title' => 'Parameters & opslagen', '#url' => Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId]), '#attributes' => ['class' => ['button']]];
     $form['workbench']['panels'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-command-panels']], '#weight' => -15];
 
     $form['workbench']['panels']['actions'] = [
       '#markup' => '<section class="brebo-calc-panel"><h2>Acties</h2><div class="brebo-calc-panel__actions">'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['node' => $calculationId])->toString()) . '">Structuur beheren</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId])->toString()) . '">Structuur beheren</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.recipe_place', ['node' => $calculationId])->toString()) . '">Recept plaatsen</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId])->toString()) . '">Deelcalculaties</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $calculationId])->toString()) . '">Opslagen & parameters</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Opslagen & parameters</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['node' => $calculationId])->toString()) . '">Project koppelen</a>'
         . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $calculationId])->toString()) . '">Open in Calculatie</a>'
         . '</div></section>',
@@ -208,7 +208,7 @@ final class CalculationWorkbenchForm extends FormBase {
 
     $structure = $this->database->select('brebo_calculation_structure', 's')->fields('s')->condition('calculation_id', (int) $calculationId)->condition('version', $version['version'])->orderBy('sort_order')->orderBy('depth')->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
     if (!$structure) {
-      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['node' => $calculationId])->toString();
+      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId])->toString();
       $form['workbench']['empty_state'] = ['#markup' => '<div class="brebo-calc-empty-state"><strong>Start met de calculatiestructuur.</strong><p>Maak eerst een hoofdgroep en paragraaf aan. Daarna voeg je hier direct calculatieregels of recepten toe.</p><a class="button button--primary" href="' . htmlspecialchars($structureUrl) . '">Structuur aanmaken</a></div>'];
     }
 

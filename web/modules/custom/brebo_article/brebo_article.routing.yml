@@ -24,3 +24,14 @@ brebo_article.import:
     _title: 'Artikelcatalogus importeren'
   requirements:
     _permission: 'administer brebo articles'
+
+
+brebo_article.workbench_search_v2:
+  path: '/api/workbench/v2/articles'
+  defaults:
+    _controller: '\Drupal\brebo_article\Controller\ArticleSearchController::workbenchSearch'
+  requirements:
+    _access: 'TRUE'
+  methods: [GET]
+  options:
+    no_cache: TRUE

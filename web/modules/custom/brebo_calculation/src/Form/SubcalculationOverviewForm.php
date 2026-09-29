@@ -82,7 +82,7 @@ final class SubcalculationOverviewForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $id = $this->manager->create((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), (array) $form_state->getValue('add'), $this->currentUser());
+    $id = $this->manager->create((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), (array) $form_state->getValue('add'), (int) $this->currentUser()->id());
     $this->messenger()->addStatus($this->t('Deelcalculatie @id aangemaakt.', ['@id' => $id]));
     $form_state->setRebuild(TRUE);
   }

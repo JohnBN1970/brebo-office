@@ -58,18 +58,21 @@ jobs:
           ! grep -q "field_brebo_contract_quantity" "$workbench_controller"
           workbench_form='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           block_order='web/modules/custom/brebo_calculation/src/Service/CalculationBlockOrderManager.php'
+          block_order_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationBlockOrderRepository.php'
           block_order_js='web/modules/custom/brebo_calculation/js/calculation-block-order.js'
           grep -q "data-row-id" "$workbench_form"
           ! grep -q "data-line-id" "$workbench_form"
-          grep -q "row_id" "$block_order"
+          grep -q "row_id" "$block_order_repository"
+          ! grep -q "Drupal\\Core\\Database" "$block_order"
           grep -q "dataset.rowId" "$block_order_js"
           row_manager='web/modules/custom/brebo_calculation/src/Service/CalculationRowManager.php'
           grep -q "'calc_line_id'.*'not null' => FALSE" "$install_file"
           price_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
+          price_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationPriceSourceRepository.php'
           price_form='web/modules/custom/brebo_calculation/src/Form/CalculationPriceSourceForm.php'
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           grep -q "'row_id' => \$rowId" "$price_manager"
-          grep -q "condition('row_id', \$rowId)" "$price_manager"
+          grep -q "condition('row_id', \$rowId)" "$price_repository"
           grep -q "getValue('row_id')" "$price_form"
           grep -q "workbench/row/{row}/price-sources" "$routing"
           line_read_model='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationLineReadModel.php'
@@ -116,10 +119,12 @@ jobs:
           grep -q "mainGroupKey" "$structure_identity"
           grep -q "paragraphKey" "$structure_identity"
           calculation_access='web/modules/custom/brebo_calculation/src/Infrastructure/DrupalCalculationAccessGateway.php'
+          calculation_access_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationAccessRepository.php'
           ! grep -q "NodeInterface" "$calculation_access"
           ! grep -q "getStorage('node')" "$calculation_access"
           ! grep -q "access('update'" "$calculation_access"
-          grep -q "brebo_calculation_version" "$calculation_access"
+          grep -q "brebo_calculation_version" "$calculation_access_repository"
+          ! grep -q "Drupal\\Core\\Database" "$calculation_access"
           grep -q "edit brebo calculation workbench" "$calculation_access"
           version_establisher='web/modules/custom/brebo_calculation/src/Service/CalculationVersionEstablisher.php'
           ! grep -q "CalculationLegacyGatewayInterface" "$version_establisher"
@@ -127,9 +132,11 @@ jobs:
           grep -q "'status' => 'established'" "$version_establisher"
           grep -q "'locked_at' => \$lockedAt" "$version_establisher"
           context_service='web/modules/custom/brebo_calculation/src/Service/CalculationContextService.php'
+          context_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationContextRepository.php'
           workbench_form='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           grep -q "brebo_calculation_context" "$install_file"
-          grep -q "brebo_calculation_context" "$context_service"
+          grep -q "brebo_calculation_context" "$context_repository"
+          ! grep -q "Drupal\\Core\\Database" "$context_service"
           grep -q "CalculationContextService" "$workbench_form"
           grep -q "calculationContext->get" "$workbench_form"
           grep -q "accessGateway->assertCanEditWorkbench" "$workbench_form"
@@ -138,7 +145,55 @@ jobs:
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           grep -q "/admin/brebo/calculations/{calculation}/workbench" "$routing"
           redirect_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceRedirectController.php'
-          grep -q "brebo_calculation.workbench" "$redirect_controller"
+          grep -q "brebo_office_core.calculation_dashboard" "$redirect_controller"
+          parameters_form='web/modules/custom/brebo_calculation/src/Form/CalculationParametersForm.php'
+          structure_form='web/modules/custom/brebo_calculation/src/Form/CalculationStructureForm.php'
+          establish_form='web/modules/custom/brebo_calculation/src/Form/CalculationEstablishForm.php'
+          readiness_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationReadinessController.php'
+          ! grep -q "NodeInterface" "$parameters_form"
+          ! grep -q "NodeInterface" "$structure_form"
+          ! grep -q "NodeInterface" "$establish_form"
+          ! grep -q "NodeInterface" "$readiness_controller"
+          grep -q "/admin/brebo/calculations/{calculation}/parameters" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/structure" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/establish" "$routing"
+          grep -q "/admin/brebo/calculations/{calculation}/readiness" "$routing"
+          workspace_state='web/modules/custom/brebo_calculation/src/Service/CalculationWorkspaceStateService.php'
+          workspace_query='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceQueryController.php'
+          workspace_command='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceCommandController.php'
+          grep -q "brebo-calculation-workspace-v2" "$workspace_state"
+          ! grep -q "NodeInterface" "$workspace_query"
+          ! grep -q "NodeInterface" "$workspace_command"
+          ! grep -q "FormBase" "$workspace_query"
+          ! grep -q "FormBase" "$workspace_command"
+          grep -q "/api/workbench/v2/calculations/{calculation}" "$routing"
+          grep -q "workspace_v2_row_add" "$routing"
+          grep -q "workspace_v2_structure_group_add" "$routing"
+          recipe_manager='web/modules/custom/brebo_calculation/src/Service/RecipeManager.php'
+          subcalc_manager='web/modules/custom/brebo_calculation/src/Service/SubcalculationManager.php'
+          resource_guard='web/modules/custom/brebo_calculation/src/Service/CalculationWorkspaceResourceGuard.php'
+          ! grep -q "AccountInterface" "$recipe_manager"
+          ! grep -q "AccountInterface" "$subcalc_manager"
+          grep -q "CalculationAccessGatewayInterface" "$recipe_manager"
+          grep -q "CalculationAccessGatewayInterface" "$subcalc_manager"
+          grep -q "assertRecipeInstance" "$resource_guard"
+          grep -q "assertSubcalculation" "$resource_guard"
+          grep -q "assertApplication" "$resource_guard"
+          grep -q "workspace_v2_recipe_place" "$routing"
+          grep -q "workspace_v2_subcalculation_create" "$routing"
+          price_source_manager='web/modules/custom/brebo_calculation/src/Service/CalculationPriceSourceManager.php'
+          exception_line_manager='web/modules/custom/brebo_calculation/src/Service/ObjectExceptionLineManager.php'
+          ! grep -q "AccountInterface" "$price_source_manager"
+          ! grep -q "AccountInterface" "$exception_line_manager"
+          grep -q "CalculationAccessGatewayInterface" "$price_source_manager"
+          grep -q "CalculationAccessGatewayInterface" "$exception_line_manager"
+          grep -q "assertApplicationObject" "$resource_guard"
+          grep -q "workspace_v2_price_source_add" "$routing"
+          grep -q "workspace_v2_object_exception_line_add" "$routing"
+          services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
+          ! grep -q "workspace_route_subscriber" "$services"
+          grep -q "CalculationWorkspaceRedirectController::redirect" "$routing"
+          grep -q "/api/workbench/v2/calculations/{calculation}" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$object_writer"
@@ -160,6 +215,7 @@ jobs:
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           workbench='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           initializer='web/modules/custom/brebo_calculation/src/Service/CalculationDraftInitializer.php'
+          draft_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationDraftRepository.php'
           libraries='web/modules/custom/brebo_calculation/brebo_calculation.libraries.yml'
           create_js='web/modules/custom/brebo_calculation/js/calculation-create.js'
           onboarding_css='web/modules/custom/brebo_calculation/css/calculation-onboarding.css'
@@ -167,7 +223,8 @@ jobs:
           grep -q "brebo_calculation_node_insert" "$module"
           grep -q "Opslaan en calculatiewerkbank openen" "$module"
           grep -q "brebo_calculation.draft_initializer" "$services"
-          grep -q "brebo_calculation_version" "$initializer"
+          grep -q "brebo_calculation_version" "$draft_repository"
+          ! grep -q "Drupal\\Core\\Database" "$initializer"
           grep -q "brebo_calculation.workbench" "$routing"
           grep -q "Deelcalculaties" "$workbench"
           grep -q "calculation-onboarding.css" "$libraries"
@@ -204,6 +261,7 @@ jobs:
           install_file='web/modules/custom/brebo_calculation/brebo_calculation.install'
           services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
           manager='web/modules/custom/brebo_calculation/src/Service/RecipeManager.php'
+          repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseRecipeRepository.php'
           evaluator='web/modules/custom/brebo_calculation/src/Service/RecipeFormulaEvaluator.php'
           grep -q "brebo_calculation_recipe_version" "$install_file"
           grep -q "brebo_calculation_recipe_instance_line" "$install_file"
@@ -211,9 +269,9 @@ jobs:
           grep -q "snapshot_hash" "$install_file"
           grep -q "brebo_calculation.recipe_manager" "$services"
           grep -q "brebo_calculation.recipe_formula_evaluator" "$services"
-          grep -q "status', 'published'" "$manager"
+          grep -q "status', 'published'" "$repository"
           grep -q "Only unlocked draft calculation versions may be changed" "$manager"
-          grep -q "is_custom', 0" "$manager"
+          grep -q "is_custom', 0" "$repository"
           grep -q "is_custom' => 1" "$manager"
           grep -q "Division by zero in recipe formula" "$evaluator"
           php web/modules/custom/brebo_calculation/tests/recipe_formula_smoke.php
@@ -225,14 +283,16 @@ jobs:
         run: |
           set -euo pipefail
           migrator='web/modules/custom/brebo_calculation/src/Service/GuardedLegacyMigrator.php'
+          migration_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseLegacyMigrationRepository.php'
           audit='web/modules/custom/brebo_calculation/src/Controller/MigrationAuditController.php'
           confirm='web/modules/custom/brebo_calculation/src/Form/MigrationConfirmForm.php'
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           permissions='web/modules/custom/brebo_calculation/brebo_calculation.permissions.yml'
           grep -q "isSafeToMigrate" "$migrator"
           grep -q "target migration version already exists" "$migrator"
-          grep -q "startTransaction" "$migrator"
+          grep -q "startTransaction" "$migration_repository"
           grep -q "assertWritten" "$migrator"
+          ! grep -q "Drupal\\Core\\Database" "$migrator"
           grep -q "Omzetten naar nieuwe calculatie" "$confirm"
           grep -q "migration_overview" "$routing"
           grep -q "migration_confirm" "$routing"

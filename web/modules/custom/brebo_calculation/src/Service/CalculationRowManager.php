@@ -6,13 +6,13 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineCompatibilityInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationRowRepositoryInterface;
 
 /** Guarded mutations for editable calculation rows. */
 final class CalculationRowManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationRowRepositoryInterface $repository,
     private readonly CalculationLegacyLineCompatibilityInterface $legacyCompatibility,
     private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationRowIdentityGenerator $rowIdentityGenerator,
@@ -23,7 +23,7 @@ final class CalculationRowManager {
     $this->assertLeafParagraph($calculationId, $version, $paragraphKey);
 
     $rowId = $this->rowIdentityGenerator->next();
-    $this->database->insert('brebo_calculation_row_domain')->fields([
+    $this->repository->insert([
       'row_id' => $rowId,
       'calculation_id' => $calculationId,
       'version' => $version,
@@ -35,13 +35,13 @@ final class CalculationRowManager {
       'unit' => 'post',
       'budget_hours' => 0,
       'labour_rate' => 0,
-      'sort_order' => $this->nextSortOrder($calculationId, $version, $paragraphKey),
+      'sort_order' => $this->repository->nextSortOrder($calculationId, $version, $paragraphKey),
       'labour_unit_cost' => 0,
       'material_unit_cost' => 0,
       'equipment_unit_cost' => 0,
       'subcontracting_unit_cost' => 0,
       'other_unit_cost' => 0,
-    ])->execute();
+    ]);
 
     $this->legacyCompatibility->createForRow($calculationId, $version, $rowId, $paragraphKey, $actorId);
     return $rowId;
@@ -87,21 +87,21 @@ final class CalculationRowManager {
       'other_unit_cost' => $this->nonNegativeCost($unitCosts, 'other'),
     ];
 
-    $this->database->update('brebo_calculation_row_domain')
-      ->fields($costs + [
+    $this->repository->update($calculationId, $version, $rowId, $costs + [
         'description' => $description,
         'contract_quantity' => $quantity,
         'unit' => $unit,
-      ])
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute();
+      ]);
 
-    $legacyLineId = $this->legacyMirrorMap->legacyLineId($calculationId, $version, $rowId) ?? 0;
-    if ($legacyLineId > 0 && $this->legacyMirrorPolicy->maintainLegacyMirrors()) {
-      $this->legacyLineGateway->updateQuickEntry($legacyLineId, $description, $unit, $quantity, $costs);
-    }
+    $this->legacyCompatibility->updateQuickEntry(
+      $calculationId,
+      $version,
+      $rowId,
+      $description,
+      $unit,
+      $quantity,
+      $costs,
+    );
   }
 
   public function duplicate(int $calculationId, string $version, int $rowId, int $actorId): int {
@@ -111,10 +111,10 @@ final class CalculationRowManager {
     unset($domain['row_id'], $domain['calculation_id'], $domain['version']);
     $copyRowId = $this->rowIdentityGenerator->next();
     $domain['row_id'] = $copyRowId;
-    $domain['sort_order'] = $this->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
+    $domain['sort_order'] = $this->repository->nextSortOrder($calculationId, $version, (string) $domain['paragraph_key']);
     $domain['calculation_id'] = $calculationId;
     $domain['version'] = $version;
-    $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
+    $this->repository->insert($domain);
 
     $this->legacyCompatibility->duplicateForRow(
       $calculationId,
@@ -131,11 +131,7 @@ final class CalculationRowManager {
   public function delete(int $calculationId, string $version, int $rowId, int $actorId): void {
     $this->assertEditable($calculationId, $version, $actorId);
     $domain = $this->domainRow($calculationId, $version, $rowId);
-    $this->database->delete('brebo_calculation_row_domain')
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute();
+    $this->repository->delete($calculationId, $version, $rowId);
 
     $this->legacyCompatibility->deleteForRow($calculationId, $version, $rowId);
   }
@@ -145,27 +141,17 @@ final class CalculationRowManager {
     $domain = $this->domainRow($calculationId, $version, $rowId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
 
-    $this->database->update('brebo_calculation_row_domain')
-      ->fields([
-        'paragraph_key' => $targetParagraphKey,
-        'sort_order' => $this->nextSortOrder($calculationId, $version, $targetParagraphKey),
-      ])
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute();
+    $this->repository->update($calculationId, $version, $rowId, [
+      'paragraph_key' => $targetParagraphKey,
+      'sort_order' => $this->repository->nextSortOrder($calculationId, $version, $targetParagraphKey),
+    ]);
 
     $this->legacyCompatibility->moveRow($calculationId, $version, $rowId, $targetParagraphKey);
   }
 
   /** @return array<string,mixed> */
   private function domainRow(int $calculationId, string $version, int $rowId): array {
-    $row = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r')
-      ->condition('row_id', $rowId)
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()->fetchAssoc();
+    $row = $this->repository->row($calculationId, $version, $rowId);
     if (!$row) {
       throw new \InvalidArgumentException('Row does not belong to this calculation version.');
     }
@@ -173,11 +159,7 @@ final class CalculationRowManager {
   }
 
   private function assertEditable(int $calculationId, string $version, int $actorId): void {
-    $row = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['locked_at', 'status'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()->fetchAssoc();
+    $row = $this->repository->versionState($calculationId, $version);
     if (!$row || $row['locked_at'] !== NULL || $row['status'] !== 'draft') {
       throw new \RuntimeException('Only unlocked draft calculation versions may be changed.');
     }
@@ -185,34 +167,16 @@ final class CalculationRowManager {
   }
 
   private function assertLeafParagraph(int $calculationId, string $version, string $paragraphKey): void {
-    $node = $this->database->select('brebo_calculation_structure', 's')
-      ->fields('s', ['node_key', 'node_type'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('node_key', $paragraphKey)
-      ->execute()->fetchAssoc();
+    $node = $this->repository->structureNode($calculationId, $version, $paragraphKey);
     if (!$node || $node['node_type'] !== 'paragraph') {
       throw new \InvalidArgumentException('Rows can only be attached to paragraphs.');
     }
-    $children = (int) $this->database->select('brebo_calculation_structure', 's')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('parent_key', $paragraphKey)
-      ->countQuery()->execute()->fetchField();
+    $children = $this->repository->structureChildCount($calculationId, $version, $paragraphKey);
     if ($children > 0) {
       throw new \RuntimeException('Only leaf paragraphs may contain calculation rows.');
     }
   }
 
-
-  private function nextSortOrder(int $calculationId, string $version, string $paragraphKey): int {
-    $query = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('paragraph_key', $paragraphKey);
-    $query->addExpression('MAX(sort_order)', 'max_sort_order');
-    return ((int) $query->execute()->fetchField()) + 10;
-  }
 
   /** @param array<string, float|int> $unitCosts */
   private function nonNegativeCost(array $unitCosts, string $key): float {
