@@ -33,6 +33,10 @@ final class CalculationWorkbenchLaunchController implements ContainerInjectionIn
     );
   }
 
+  public function launchLegacy(int $node): TrustedRedirectResponse {
+    return $this->launch($node);
+  }
+
   public function launch(int $calculation): TrustedRedirectResponse {
     if ($calculation <= 0) {
       throw new NotFoundHttpException('Calculatie niet gevonden.');
