@@ -12,6 +12,35 @@ final class SubcalculationManager {
 
   public function __construct(private readonly SubcalculationRepositoryInterface $repository, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
+  /** @return list<array<string,mixed>> */
+  public function list(int $calculationId, string $version): array {
+    return $this->repository->subcalculations($calculationId, $version);
+  }
+
+  /** @return array<string,mixed>|null */
+  public function get(int $subcalculationId): ?array {
+    return $this->repository->subcalculation($subcalculationId);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function scopes(int $subcalculationId): array {
+    return $this->repository->scopes($subcalculationId);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function applications(int $subcalculationId): array {
+    return $this->repository->applications($subcalculationId);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function applicationObjects(int $applicationId): array {
+    return $this->repository->applicationObjectsDetailed($applicationId);
+  }
+
+  public function scopeCount(int $subcalculationId): int { return $this->repository->scopeCount($subcalculationId); }
+  public function applicationCount(int $subcalculationId): int { return $this->repository->applicationCount($subcalculationId); }
+  public function exceptionObjectCount(int $applicationId): int { return $this->repository->exceptionObjectCount($applicationId); }
+
   /** @param array<string,mixed> $values */
   public function create(int $calculationId, string $version, array $values, int $actorId): int {
     $this->assertEditableCalculation($calculationId, $version, $actorId);
