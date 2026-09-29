@@ -53,7 +53,7 @@ final class CalculationPriceSourceForm extends FormBase {
     }
     $form['summary'] = [
       '#type' => 'container', '#attributes' => ['class' => ['brebo-price-source-summary']],
-      'back' => ['#type' => 'link', '#title' => '← Terug naar calculatie', '#url' => Url::fromRoute('brebo_calculation.workbench', ['node' => $node->id()]), '#attributes' => ['class' => ['button','button--small']]],
+      'back' => ['#type' => 'link', '#title' => '← Terug naar calculatie', '#url' => Url::fromRoute('brebo_calculation.workbench', ['calculation' => $node->id()]), '#attributes' => ['class' => ['button','button--small']]],
       'costs' => ['#markup' => '<div class="brebo-price-source-costs">' . implode('', $summary) . '</div>'],
     ];
 
