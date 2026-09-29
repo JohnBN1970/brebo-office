@@ -185,3 +185,9 @@ services:
     arguments:
       - '@database'
       - '@datetime.time'
+
+  brebo_calculation.calculation_fact:
+    class: Drupal\brebo_calculation\Service\CalculationFactService
+    arguments:
+      - '@database'
+      - '@datetime.time'
