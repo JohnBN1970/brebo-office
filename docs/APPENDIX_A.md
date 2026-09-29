@@ -55,10 +55,11 @@ BREBO Office wordt niet vanuit beschikbare Drupal-contenttypen ontworpen. Het pr
 
 1. BMS / procesarchitectuur;
 2. CIM en objectrelaties;
-3. Drupal-contentmodel;
-4. API's en integraties;
-5. workflows;
-6. AI-ondersteuning.
+3. BREBO-domein-/softwarekern en contracten;
+4. infrastructuuradapters, waaronder Drupal/database/providers;
+5. API's en integraties;
+6. workflows en gebruikersinterfaces;
+7. AI-ondersteuning.
 
 **Beheersregel**
 
@@ -235,6 +236,47 @@ Voor persoonlijke mailboxen geldt als standaard een expliciete, gebruikersgestuu
 **Technische uitwerking**
 
 De nadere regels staan in `docs/MAIL_PRIVACY_AVG.md`.
+
+
+---
+
+## A-012 — BREBO-softwarekern is onafhankelijk van Drupal en gebruikersinterfaces
+
+**Status:** Vastgesteld — ontwikkeltraject, referentie-implementatie bewezen in Calculatie op 29 september 2026.
+
+**Besluit**
+
+Drupal, React/Calc en andere gebruikersinterfaces zijn geen eigenaar van BREBO-businesslogica of canonieke operationele waarheid. De BREBO-softwarekern bevat de domeinregels; frameworks, databases, providers en interfaces worden via expliciete contracten/adapters aangesloten.
+
+**Vast patroon**
+
+~~~text
+BREBO-domeinservice
+-> contract
+-> infrastructuuradapter
+-> Drupal/database/provider
+
+BREBO-domeinservice
+-> API-contract
+-> vervangbare interface
+~~~
+
+**Beheersregels**
+
+- domeinservices bevatten geen directe Drupal Database API;
+- domeinservices bevatten geen Drupal entity-/account-/requesttypes tenzij het expliciet een adapter betreft;
+- een gebruikersinterface mag geen tweede domeinwaarheid of eigen rekenmotor introduceren;
+- externe providers worden achter adapters begrensd;
+- versie-, lock-, audit-, validatie- en rekenregels blijven in de kern;
+- CI/acceptance bewaakt waar praktisch mogelijk dat frameworkafhankelijkheid niet teruglekt in de kern.
+
+**Referentie-implementatie**
+
+Calculatie PR #953 is de eerste volledige toepassing. Workspace v2 vormt de interfacegrens richting Calc; actieve calculatie-services, access checks en legacy migratie zijn achter contracten/Infrastructure-adapters geplaatst.
+
+**Vervolg**
+
+Finance en Projecten worden niet opnieuw ontworpen. De bestaande functionele ketens worden gecontroleerd geaudit en naar hetzelfde patroon gebracht, met behoud van hun huidige businessregels en operationele veiligheid.
 
 ---
 

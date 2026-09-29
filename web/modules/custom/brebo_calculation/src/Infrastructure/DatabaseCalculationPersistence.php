@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Infrastructure;
 
+use Drupal\brebo_calculation\Service\CalculationRowIdentityGenerator;
 use Drupal\brebo_calculation\Contract\CalculationPersistenceInterface;
 use Drupal\brebo_calculation\Domain\CalculationSnapshot;
 use Drupal\brebo_calculation\Domain\CalculationVersion;
@@ -71,10 +72,15 @@ final class DatabaseCalculationPersistence implements CalculationPersistenceInte
   }
 
   public function saveRowDomain(int $calculationId, string $version, int $calcLineId, array $data): void {
+    if (!isset($data['row_id'])) {
+      $data['row_id'] = $this->rowIdentityGenerator->next();
+    }
     $allowed = [
-      'paragraph_key', 'rule_type', 'location_ref', 'labour_unit_cost',
-      'material_unit_cost', 'equipment_unit_cost', 'subcontracting_unit_cost',
-      'other_unit_cost', 'distribution_method', 'distribution_payload',
+      'row_id', 'paragraph_key', 'rule_type', 'location_ref', 'description',
+      'contract_quantity', 'actual_quantity', 'unit', 'budget_hours', 'labour_rate',
+      'labour_unit_cost', 'material_unit_cost', 'equipment_unit_cost',
+      'subcontracting_unit_cost', 'other_unit_cost', 'distribution_method',
+      'distribution_payload',
     ];
     $fields = array_intersect_key($data, array_flip($allowed));
     if (!isset($fields['paragraph_key'], $fields['rule_type'])) {

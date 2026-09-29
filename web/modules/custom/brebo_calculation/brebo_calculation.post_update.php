@@ -134,3 +134,316 @@ function brebo_calculation_post_update_add_object_price_provenance(&$sandbox = N
   }
   return $added ? 'BREBO Calculation price provenance added: '.implode(', ',$added).'.' : 'BREBO Calculation price provenance already exists.';
 }
+
+
+/**
+ * Promote primary calculation-line values into BREBO-owned row storage.
+ */
+function brebo_calculation_post_update_promote_row_domain_authority(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; authority promotion skipped.';
+  }
+
+  $fields = [
+    'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''],
+    'contract_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+    'actual_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+    'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+    'budget_hours' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+    'labour_rate' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+  ];
+  foreach ($fields as $name => $definition) {
+    if (!$schema->fieldExists($table, $name)) {
+      $schema->addField($table, $name, $definition);
+    }
+  }
+
+  $ids = array_map('intval', $database->select($table, 'r')->fields('r', ['calc_line_id'])->distinct()->execute()->fetchCol());
+  if ($ids === []) {
+    return 'BREBO Calculation row authority fields added; no existing rows required backfill.';
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $updated = 0;
+  foreach (array_chunk($ids, 100) as $chunk) {
+    foreach ($storage->loadMultiple($chunk) as $line) {
+      if (!$line instanceof \Drupal\node\NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+        continue;
+      }
+      $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+      $database->update($table)->fields([
+        'description' => mb_substr((string) ($line->get('field_brebo_line_description')->value ?? $line->label()), 0, 255),
+        'contract_quantity' => (float) ($line->get('field_brebo_contract_quantity')->value ?? 0),
+        'actual_quantity' => ($actualRaw === NULL || $actualRaw === '') ? NULL : (float) $actualRaw,
+        'unit' => mb_substr((string) ($line->get('field_brebo_unit')->value ?? ''), 0, 32),
+        'budget_hours' => $line->hasField('field_brebo_budget_hours') ? (float) ($line->get('field_brebo_budget_hours')->value ?? 0) : 0.0,
+        'labour_rate' => $line->hasField('field_brebo_labor_rate') ? (float) ($line->get('field_brebo_labor_rate')->value ?? 0) : 0.0,
+      ])->condition('calc_line_id', (int) $line->id())->execute();
+      $updated++;
+    }
+  }
+
+  return sprintf('BREBO Calculation row authority fields ready; %d legacy calc lines backfilled.', $updated);
+}
+
+
+/**
+ * Introduce a BREBO-owned identity for calculation rows.
+ */
+function brebo_calculation_post_update_add_row_identity(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; row identity migration skipped.';
+  }
+
+  if (!$schema->fieldExists($table, 'row_id')) {
+    $schema->addField($table, 'row_id', [
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ]);
+  }
+
+  $next = (int) $database->select($table, 'r')->addExpression('MAX(row_id)', 'max_row_id')->execute()->fetchField();
+  $query = $database->select($table, 'r')->fields('r', ['calc_line_id', 'version'])->isNull('row_id');
+  foreach ($query->execute() as $row) {
+    $next++;
+    $database->update($table)
+      ->fields(['row_id' => $next])
+      ->condition('calc_line_id', (int) $row->calc_line_id)
+      ->condition('version', (string) $row->version)
+      ->execute();
+  }
+
+  if (!$schema->indexExists($table, 'row_id')) {
+    $schema->addUniqueKey($table, 'row_id', ['row_id']);
+  }
+  if (!$schema->indexExists($table, 'legacy_line_version')) {
+    $schema->addUniqueKey($table, 'legacy_line_version', ['calc_line_id', 'version']);
+  }
+
+  return 'BREBO-owned calculation row identities are backfilled and unique; calc_line_id remains the temporary legacy mapping.';
+}
+
+
+/**
+ * Widen BREBO calculation row ids for independent random identity allocation.
+ */
+function brebo_calculation_post_update_widen_row_identity(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'row_id')) {
+    return 'BREBO Calculation row identity is not installed; widening skipped.';
+  }
+
+  $schema->changeField($table, 'row_id', 'row_id', [
+    'type' => 'int',
+    'size' => 'big',
+    'unsigned' => TRUE,
+    'not null' => TRUE,
+  ]);
+  if (!$schema->indexExists($table, 'row_id')) {
+    $schema->addUniqueKey($table, 'row_id', ['row_id']);
+  }
+
+  return 'BREBO Calculation row identity widened for independent allocation.';
+}
+
+
+/**
+ * Promote calculation row ordering into BREBO-owned storage.
+ */
+function brebo_calculation_post_update_promote_row_order(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_row_domain';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation row domain is not installed; row ordering promotion skipped.';
+  }
+  if (!$schema->fieldExists($table, 'sort_order')) {
+    $schema->addField($table, 'sort_order', [
+      'type' => 'int',
+      'not null' => TRUE,
+      'default' => 0,
+    ]);
+  }
+
+  $ids = array_map('intval', $database->select($table, 'r')->fields('r', ['calc_line_id'])->distinct()->execute()->fetchCol());
+  if ($ids === []) {
+    return 'BREBO Calculation row ordering field added; no legacy rows required backfill.';
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $updated = 0;
+  foreach (array_chunk($ids, 100) as $chunk) {
+    foreach ($storage->loadMultiple($chunk) as $line) {
+      if (!$line instanceof \Drupal\node\NodeInterface || $line->bundle() !== 'brebo_calc_line') {
+        continue;
+      }
+      $database->update($table)
+        ->fields(['sort_order' => (int) ($line->get('field_brebo_line_sequence')->value ?? 0)])
+        ->condition('calc_line_id', (int) $line->id())
+        ->execute();
+      $updated++;
+    }
+  }
+
+  return sprintf('BREBO Calculation row ordering promoted for %d legacy rows.', $updated);
+}
+
+
+/**
+ * Move calculation price-source mappings to BREBO row identities.
+ */
+function brebo_calculation_post_update_price_sources_to_row_id(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_price_source_line';
+  if (!$schema->tableExists($table)) {
+    return 'BREBO Calculation price-source mapping is not installed; row-id migration skipped.';
+  }
+  if (!$schema->fieldExists($table, 'row_id')) {
+    $schema->addField($table, 'row_id', [
+      'type' => 'int',
+      'size' => 'big',
+      'unsigned' => TRUE,
+      'not null' => FALSE,
+    ]);
+  }
+
+  $query = $database->select($table, 'm');
+  $query->join('brebo_calculation_row_domain', 'r',
+    'r.calculation_id = m.calculation_id AND r.version = m.version AND r.calc_line_id = m.calc_line_id');
+  $query->fields('m', ['id']);
+  $query->addField('r', 'row_id');
+  $query->isNull('m.row_id');
+  $updated = 0;
+  foreach ($query->execute() as $record) {
+    $database->update($table)
+      ->fields(['row_id' => (int) $record->row_id])
+      ->condition('id', (int) $record->id)
+      ->execute();
+    $updated++;
+  }
+
+  if (!$schema->indexExists($table, 'calculation_row')) {
+    $schema->addIndex($table, 'calculation_row', ['calculation_id', 'version', 'row_id']);
+  }
+  if (!$schema->indexExists($table, 'active_source_row')) {
+    $schema->addIndex($table, 'active_source_row', ['calculation_id', 'version', 'row_id', 'is_active_source']);
+  }
+
+  return sprintf('BREBO Calculation price sources linked to %d BREBO row identities.', $updated);
+}
+
+
+/**
+ * Convert subcalculation line scopes from legacy calc-line ids to BREBO row ids.
+ */
+function brebo_calculation_post_update_subcalculation_scopes_to_row_id(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $scopeTable = 'brebo_calculation_subcalculation_scope';
+  $subTable = 'brebo_calculation_subcalculation';
+  $rowTable = 'brebo_calculation_row_domain';
+  $schema = $database->schema();
+
+  foreach ([$scopeTable, $subTable, $rowTable] as $table) {
+    if (!$schema->tableExists($table)) {
+      return 'BREBO Calculation subcalculation row-id migration skipped because required tables are missing.';
+    }
+  }
+
+  $query = $database->select($scopeTable, 'ss');
+  $query->join($subTable, 's', 's.id = ss.subcalculation_id');
+  $query->fields('ss', ['id', 'scope_ref']);
+  $query->fields('s', ['calculation_id', 'version']);
+  $query->condition('ss.scope_type', 'line');
+
+  $updated = 0;
+  foreach ($query->execute() as $scope) {
+    $legacyLineId = (int) $scope->scope_ref;
+    if ($legacyLineId <= 0) {
+      continue;
+    }
+    $rowId = $database->select($rowTable, 'r')
+      ->fields('r', ['row_id'])
+      ->condition('calculation_id', (int) $scope->calculation_id)
+      ->condition('version', (string) $scope->version)
+      ->condition('calc_line_id', $legacyLineId)
+      ->execute()
+      ->fetchField();
+    if (!$rowId) {
+      continue;
+    }
+    $database->update($scopeTable)
+      ->fields(['scope_ref' => (string) (int) $rowId])
+      ->condition('id', (int) $scope->id)
+      ->execute();
+    $updated++;
+  }
+
+  return sprintf('BREBO Calculation converted %d subcalculation line scopes to row_id.', $updated);
+}
+
+
+/**
+ * Backfill BREBO-owned calculation context from legacy calculation nodes.
+ */
+function brebo_calculation_post_update_backfill_calculation_context(&$sandbox = NULL): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+  $table = 'brebo_calculation_context';
+
+  if (!$schema->tableExists($table)) {
+    $schema->createTable($table, [
+      'description' => 'BREBO-owned calculation identity and Office context.',
+      'fields' => [
+        'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'code' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+        'label' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'package_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'project_label' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+        'updated' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['calculation_id'],
+      'indexes' => ['project' => ['project_id'], 'package' => ['package_id']],
+    ]);
+  }
+
+  $storage = \Drupal::entityTypeManager()->getStorage('node');
+  $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_calculation')->execute();
+  $updated = 0;
+  foreach ($storage->loadMultiple($ids) as $calculation) {
+    if (!$calculation instanceof \Drupal\node\NodeInterface) {
+      continue;
+    }
+    $package = $calculation->hasField('field_brebo_package_ref') ? $calculation->get('field_brebo_package_ref')->entity : NULL;
+    $project = $package instanceof \Drupal\node\NodeInterface && $package->hasField('field_brebo_project_ref')
+      ? $package->get('field_brebo_project_ref')->entity
+      : NULL;
+
+    $database->merge($table)
+      ->key(['calculation_id' => (int) $calculation->id()])
+      ->fields([
+        'code' => $calculation->hasField('field_brebo_calc_code') && !$calculation->get('field_brebo_calc_code')->isEmpty()
+          ? mb_substr((string) $calculation->get('field_brebo_calc_code')->value, 0, 64)
+          : NULL,
+        'label' => mb_substr((string) $calculation->label(), 0, 255),
+        'package_id' => $package instanceof \Drupal\node\NodeInterface ? (int) $package->id() : NULL,
+        'project_id' => $project instanceof \Drupal\node\NodeInterface ? (int) $project->id() : NULL,
+        'project_label' => $project instanceof \Drupal\node\NodeInterface ? mb_substr((string) $project->label(), 0, 255) : NULL,
+        'updated' => time(),
+      ])
+      ->execute();
+    $updated++;
+  }
+
+  return sprintf('BREBO Calculation context backfilled for %d calculations.', $updated);
+}

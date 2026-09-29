@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 use Drupal\brebo_calculation\Domain\CalculationParameters;
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_calculation\Contract\CalculationResultRepositoryInterface;
 
 /**
  * Builds the canonical commercial result for one calculation version.
@@ -15,8 +14,8 @@ use Drupal\node\NodeInterface;
 final class CalculationResultService {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationResultRepositoryInterface $repository,
+    private readonly CalculationLineReadModelInterface $lineReadModel,
     private readonly CommercialCalculator $commercialCalculator,
   ) {}
 
@@ -24,26 +23,13 @@ final class CalculationResultService {
    * @return array<string,mixed>
    */
   public function calculate(int $calculationId, ?string $versionName = NULL): array {
-    $query = $this->database->select('brebo_calculation_version', 'v')->fields('v')
-      ->condition('calculation_id', $calculationId);
-    if ($versionName !== NULL) {
-      $query->condition('version', $versionName);
-    }
-    else {
-      $query->orderBy('id', 'DESC')->range(0, 1);
-    }
-    $version = $query->execute()->fetchAssoc();
+    $version = $this->repository->version($calculationId, $versionName);
     if (!is_array($version)) {
       throw new \RuntimeException('Calculatiedomeinversie niet gevonden.');
     }
 
     if ((string) $version['status'] !== 'draft' || $version['locked_at'] !== NULL) {
-      $snapshot = $this->database->select('brebo_calculation_snapshot', 's')
-        ->fields('s', ['payload'])
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', (string) $version['version'])
-        ->execute()
-        ->fetchField();
+      $snapshot = $this->repository->snapshotPayload($calculationId, (string) $version['version']);
       if (is_string($snapshot) && $snapshot !== '') {
         $payload = json_decode($snapshot, TRUE, 512, JSON_THROW_ON_ERROR);
         if (is_array($payload)) {
@@ -65,34 +51,27 @@ final class CalculationResultService {
       priceLevel: $version['price_level'] ?: NULL,
     );
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', (string) $version['version'])
-      ->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $entities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    $rows = $this->repository->rows($calculationId, (string) $version['version']);
+    $rowIds = array_map(static fn (array $row): int => (int) $row['row_id'], $rows);
+    $rowData = $this->lineReadModel->loadMany($rowIds, (string) $version['version']);
 
     $pricedDirect = 0.0;
     $optionsDirect = 0.0;
     $components = [];
     foreach ($rows as $row) {
-      $lineId = (int) $row['calc_line_id'];
-      $line = $entities[$lineId] ?? NULL;
-      if (!$line instanceof NodeInterface) {
+      $rowId = (int) $row['row_id'];
+      $line = $rowData[$rowId] ?? NULL;
+      if (!is_array($line)) {
         continue;
       }
       $ruleType = (string) ($row['rule_type'] ?? 'normal');
       if ($ruleType === 'note') {
         continue;
       }
-      $contractQuantity = $line->hasField('field_brebo_contract_quantity')
-        ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0)
-        : 0.0;
-      $actualRaw = $line->hasField('field_brebo_actual_quantity')
-        ? $line->get('field_brebo_actual_quantity')->value
-        : NULL;
-      $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
-        ? (float) $actualRaw
+      $contractQuantity = (float) ($line['contract_quantity'] ?? 0.0);
+      $actualQuantity = $line['actual_quantity'] ?? NULL;
+      $quantity = $ruleType === 'adjustable' && $actualQuantity !== NULL
+        ? (float) $actualQuantity
         : $contractQuantity;
       $unitDirect = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
       $direct = $quantity * $unitDirect;
@@ -102,24 +81,19 @@ final class CalculationResultService {
       else {
         $pricedDirect += $direct;
       }
-      $components['line_' . $lineId] = [
-        'kind' => 'row', 'id' => $lineId, 'rule_type' => $ruleType,
-        'description' => (string) ($line->get('field_brebo_line_description')->value ?? $line->label()),
+      $components['line_' . $rowId] = [
+        'kind' => 'row', 'id' => $rowId, 'rule_type' => $ruleType,
+        'description' => (string) ($line['description'] ?? ''),
         'quantity' => $quantity,
-        'unit' => (string) ($line->get('field_brebo_unit')->value ?? ''),
+        'unit' => (string) ($line['unit'] ?? ''),
         'direct_cost' => $direct,
       ];
     }
 
-    $instances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')
-      ->condition('calculation_id', $calculationId)
-      ->condition('calculation_version', (string) $version['version'])
-      ->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $instances = $this->repository->recipeInstances($calculationId, (string) $version['version']);
     if ($instances) {
       $ids = array_map(static fn (array $instance): int => (int) $instance['id'], $instances);
-      $recipeRows = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')
-        ->condition('recipe_instance_id', $ids, 'IN')
-        ->orderBy('recipe_instance_id')->orderBy('sort_order')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+      $recipeRows = $this->repository->recipeLines($ids);
       $byInstance = [];
       foreach ($recipeRows as $recipeRow) {
         $byInstance[(int) $recipeRow['recipe_instance_id']][] = $recipeRow;
@@ -213,11 +187,13 @@ final class CalculationResultService {
           $unitDirect += (float) $cost;
         }
       }
+      $rowId = (int) ($row['row_id'] ?? 0);
       $legacyId = (int) ($row['legacy_line_id'] ?? 0);
-      $key = $legacyId > 0 ? 'line_' . $legacyId : 'snapshot_row_' . $index;
+      $componentId = $rowId > 0 ? $rowId : $legacyId;
+      $key = $rowId > 0 ? 'line_' . $rowId : ($legacyId > 0 ? 'line_' . $legacyId : 'snapshot_row_' . $index);
       $components[$key] = [
         'kind' => 'row',
-        'id' => $legacyId,
+        'id' => $componentId,
         'rule_type' => $ruleType,
         'description' => (string) ($row['description'] ?? ''),
         'quantity' => $quantity,

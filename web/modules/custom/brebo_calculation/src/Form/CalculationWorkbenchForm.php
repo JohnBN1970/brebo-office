@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
+use Drupal\brebo_calculation\Service\CalculationContextService;
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
 use Drupal\brebo_calculation\Service\LegacyDryRunService;
 use Drupal\brebo_calculation\Service\CalculationResultService;
@@ -12,11 +14,9 @@ use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\brebo_calculation\Service\RecipeManager;
 use Drupal\brebo_calculation\Service\RecipePriceHealthInspector;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** AJAX spreadsheet editor for the active calculation version. */
@@ -24,7 +24,8 @@ final class CalculationWorkbenchForm extends FormBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $calculationEntityTypeManager,
+    private readonly CalculationContextService $calculationContext,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
     private readonly CalculationRowManager $rowManager,
     private readonly CalculationStructureManager $structureManager,
     private readonly RecipeManager $recipeManager,
@@ -37,7 +38,8 @@ final class CalculationWorkbenchForm extends FormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_calculation.context'),
+      $container->get('brebo_calculation.access_gateway'),
       $container->get('brebo_calculation.row_manager'),
       $container->get('brebo_calculation.structure_manager'),
       $container->get('brebo_calculation.recipe_manager'),
@@ -50,19 +52,18 @@ final class CalculationWorkbenchForm extends FormBase {
 
   public function getFormId(): string { return 'brebo_calculation_workbench_form'; }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
-    $version = $this->latestVersion((int) $node->id());
+    $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
-      $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $node->id()])->toString();
-      $preview = $this->legacyDryRun->preview((int) $node->id());
+      $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $calculationId])->toString();
+      $preview = $this->legacyDryRun->preview((int) $calculationId);
       $safe = $preview->isSafeToMigrate();
-      $canConvert = $safe
-        && $node->access('update', $this->currentUser())
-        && $this->currentUser()->hasPermission('migrate brebo calculation');
-      $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $node->id()])->toString();
+      $canConvert = $safe && $this->currentUser()->hasPermission('migrate brebo calculation');
+      $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $calculationId])->toString();
       $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
       $description = $safe
         ? ($canConvert
@@ -85,9 +86,17 @@ final class CalculationWorkbenchForm extends FormBase {
       ];
     }
     $locked = $version['locked_at'] !== NULL;
-    $editable = !$locked && $version['status'] === 'draft' && $node->access('update') && $this->currentUser()->hasPermission('edit brebo calculation workbench');
-    $result = $this->resultService->calculate((int) $node->id(), (string) $version['version']);
-    $readiness = $this->readinessInspector->inspect((int) $node->id(), (string) $version['version']);
+    $canEdit = FALSE;
+    try {
+      $this->accessGateway->assertCanEditWorkbench($calculationId, (int) $this->currentUser()->id());
+      $canEdit = TRUE;
+    }
+    catch (\RuntimeException) {
+      $canEdit = FALSE;
+    }
+    $editable = !$locked && $version['status'] === 'draft' && $canEdit;
+    $result = $this->resultService->calculate($calculationId, (string) $version['version']);
+    $readiness = $this->readinessInspector->inspect($calculationId, (string) $version['version']);
     $commercial = (array) ($result['commercial_result'] ?? []);
     $directCost = (float) ($result['priced_direct_cost'] ?? 0);
     $salesPrice = (float) ($commercial['sales_price'] ?? 0);
@@ -97,14 +106,14 @@ final class CalculationWorkbenchForm extends FormBase {
 
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
-    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $calculationId];
     $form['version'] = ['#type' => 'hidden', '#value' => $version['version']];
     $form['workbench'] = ['#type' => 'container', '#attributes' => ['id' => 'brebo-calculation-workbench', 'class' => ['brebo-calc-workbench']]];
 
-    $package = $node->hasField('field_brebo_package_ref') ? $node->get('field_brebo_package_ref')->entity : NULL;
-    $project = $package instanceof NodeInterface && $package->hasField('field_brebo_project_ref') ? $package->get('field_brebo_project_ref')->entity : NULL;
-    $code = $node->hasField('field_brebo_calc_code') && !$node->get('field_brebo_calc_code')->isEmpty() ? (string) $node->get('field_brebo_calc_code')->value : (string) $node->label();
-    $projectLabel = $project instanceof NodeInterface ? (string) $project->label() : 'Geen project gekoppeld';
+    $context = $this->calculationContext->get($calculationId) ?? [];
+    $code = trim((string) ($context['code'] ?? '')) ?: ('CALC-' . $calculationId);
+    $calculationLabel = trim((string) ($context['label'] ?? '')) ?: ('Calculatie ' . $calculationId);
+    $projectLabel = trim((string) ($context['project_label'] ?? '')) ?: 'Geen project gekoppeld';
     $statusLabel = (string) $version['status'];
     $readinessLabel = match ((string) $readiness['status']) {
       'ready' => 'Gereed voor offerte',
@@ -114,12 +123,12 @@ final class CalculationWorkbenchForm extends FormBase {
 
     $form['workbench']['hero'] = [
       '#markup' => '<section class="brebo-calc-command">'
-        . '<div class="brebo-calc-command__title"><div><small>Calculatie</small><h1>' . htmlspecialchars($code) . '</h1><p>' . htmlspecialchars((string) $node->label()) . '</p></div>'
+        . '<div class="brebo-calc-command__title"><div><small>Calculatie</small><h1>' . htmlspecialchars($code) . '</h1><p>' . htmlspecialchars($calculationLabel) . '</p></div>'
         . '<div class="brebo-calc-command__actions">'
-        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])->toString()) . '">Basisgegevens</a>'
-        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()])->toString()) . '">Parameters</a>'
-        . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['node' => $node->id()])->toString()) . '">Versie vaststellen</a>' : '')
-        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()])->toString()) . '">Offerte maken</a>'
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $calculationId])->toString()) . '">Basisgegevens</a>'
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Parameters</a>'
+        . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['calculation' => $calculationId])->toString()) . '">Versie vaststellen</a>' : '')
+        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $calculationId])->toString()) . '">Offerte maken</a>'
         . '</div></div>'
         . '<div class="brebo-calc-command__context"><span><strong>Project</strong>' . htmlspecialchars($projectLabel) . '</span><span><strong>Versie</strong>' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong>' . htmlspecialchars($statusLabel) . '</span></div>'
         . '<div class="brebo-calc-kpis">'
@@ -133,20 +142,20 @@ final class CalculationWorkbenchForm extends FormBase {
     ];
     $form['workbench']['meta'] = ['#markup' => '<div class="brebo-calc-workbench__meta"><span><strong>Versie</strong> ' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong> ' . htmlspecialchars((string) $version['status']) . '</span><span><strong>Classificatie</strong> ' . htmlspecialchars(strtoupper((string) $version['classification_system'])) . '</span><span class="' . ($locked ? 'is-locked' : 'is-open') . '">' . ($locked ? '🔒 Vergrendeld' : ($editable ? '● Bewerkbaar' : '○ Alleen lezen')) . '</span></div>'];
     $form['workbench']['navigation'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__navigation']], '#weight' => -20];
-    $form['workbench']['navigation']['subcalculations'] = ['#type' => 'link', '#title' => 'Deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()]), '#attributes' => ['class' => ['button', 'button--primary']]];
-    $form['workbench']['navigation']['recipes'] = ['#type' => 'link', '#title' => 'Recept plaatsen', '#url' => Url::fromRoute('brebo_calculation.recipe_place', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
-    $form['workbench']['navigation']['structure'] = ['#type' => 'link', '#title' => 'Calculatiestructuur', '#url' => Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
-    $form['workbench']['navigation']['parameters'] = ['#type' => 'link', '#title' => 'Parameters & opslagen', '#url' => Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['navigation']['subcalculations'] = ['#type' => 'link', '#title' => 'Deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId]), '#attributes' => ['class' => ['button', 'button--primary']]];
+    $form['workbench']['navigation']['recipes'] = ['#type' => 'link', '#title' => 'Recept plaatsen', '#url' => Url::fromRoute('brebo_calculation.recipe_place', ['node' => $calculationId]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['navigation']['structure'] = ['#type' => 'link', '#title' => 'Calculatiestructuur', '#url' => Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId]), '#attributes' => ['class' => ['button']]];
+    $form['workbench']['navigation']['parameters'] = ['#type' => 'link', '#title' => 'Parameters & opslagen', '#url' => Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId]), '#attributes' => ['class' => ['button']]];
     $form['workbench']['panels'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-command-panels']], '#weight' => -15];
 
     $form['workbench']['panels']['actions'] = [
       '#markup' => '<section class="brebo-calc-panel"><h2>Acties</h2><div class="brebo-calc-panel__actions">'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString()) . '">Structuur beheren</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.recipe_place', ['node' => $node->id()])->toString()) . '">Recept plaatsen</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()])->toString()) . '">Deelcalculaties</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['node' => $node->id()])->toString()) . '">Opslagen & parameters</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['node' => $node->id()])->toString()) . '">Project koppelen</a>'
-        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $node->id()])->toString()) . '">Open in Calculatie</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId])->toString()) . '">Structuur beheren</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.recipe_place', ['node' => $calculationId])->toString()) . '">Recept plaatsen</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId])->toString()) . '">Deelcalculaties</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Opslagen & parameters</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['node' => $calculationId])->toString()) . '">Project koppelen</a>'
+        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $calculationId])->toString()) . '">Open in Calculatie</a>'
         . '</div></section>',
     ];
 
@@ -197,18 +206,16 @@ final class CalculationWorkbenchForm extends FormBase {
     $form['workbench']['messages'] = ['#type' => 'container', '#attributes' => ['class' => ['brebo-calc-workbench__ajax-message']]];
     if ($form_state->get('ajax_message')) { $form['workbench']['messages']['text'] = ['#markup' => '<div class="messages messages--status">' . htmlspecialchars((string) $form_state->get('ajax_message')) . '</div>']; }
 
-    $structure = $this->database->select('brebo_calculation_structure', 's')->fields('s')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('sort_order')->orderBy('depth')->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
+    $structure = $this->database->select('brebo_calculation_structure', 's')->fields('s')->condition('calculation_id', (int) $calculationId)->condition('version', $version['version'])->orderBy('sort_order')->orderBy('depth')->execute()->fetchAllAssoc('node_key', \PDO::FETCH_ASSOC);
     if (!$structure) {
-      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['node' => $node->id()])->toString();
+      $structureUrl = Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId])->toString();
       $form['workbench']['empty_state'] = ['#markup' => '<div class="brebo-calc-empty-state"><strong>Start met de calculatiestructuur.</strong><p>Maak eerst een hoofdgroep en paragraaf aan. Daarna voeg je hier direct calculatieregels of recepten toe.</p><a class="button button--primary" href="' . htmlspecialchars($structureUrl) . '">Structuur aanmaken</a></div>'];
     }
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $node->id())->condition('version', $version['version'])->orderBy('calc_line_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = array_map(static fn (array $row): int => (int) $row['calc_line_id'], $rows);
-    $lineEntities = $lineIds ? $this->calculationEntityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
-    $newLineId = (int) ($form_state->get('quick_entry_line_id') ?? 0);
+    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', (int) $calculationId)->condition('version', $version['version'])->orderBy('row_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $newRowId = (int) ($form_state->get('quick_entry_row_id') ?? 0);
 
-    $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('calculation_id', (int) $node->id())->condition('calculation_version', $version['version'])->orderBy('paragraph_key')->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $recipeInstances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('calculation_id', (int) $calculationId)->condition('calculation_version', $version['version'])->orderBy('paragraph_key')->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $recipeLinesByInstance = [];
     $allRecipeLines = [];
     if ($recipeInstances) {
@@ -243,7 +250,7 @@ final class CalculationWorkbenchForm extends FormBase {
         continue;
       }
       foreach ($rows as $domainRow) {
-        if ($componentKey === 'line_' . (int) ($domainRow['calc_line_id'] ?? 0)) {
+        if ($componentKey === 'line_' . (int) ($domainRow['row_id'] ?? 0)) {
           $paragraphKey = (string) ($domainRow['paragraph_key'] ?? '');
           if (isset($structureDirectTotals[$paragraphKey])) {
             $structureDirectTotals[$paragraphKey] += (float) ($component['direct_cost'] ?? 0);
@@ -293,20 +300,18 @@ final class CalculationWorkbenchForm extends FormBase {
 
       foreach ($rows as $row) {
         if ((string) $row['paragraph_key'] !== (string) $key) { continue; }
-        $lineId = (int) $row['calc_line_id'];
-        $line = $lineEntities[$lineId] ?? NULL;
-        if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') { continue; }
-        $description = $line->hasField('field_brebo_line_description') ? (string) $line->get('field_brebo_line_description')->value : (string) $line->label();
-        $unit = $line->hasField('field_brebo_unit') ? (string) $line->get('field_brebo_unit')->value : '';
-        $contractQuantity = $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0;
-        $actualRaw = $line->hasField('field_brebo_actual_quantity') ? $line->get('field_brebo_actual_quantity')->value : NULL;
+        $rowId = (int) $row['row_id'];
+        $description = (string) ($row['description'] ?? '');
+        $unit = (string) ($row['unit'] ?? '');
+        $contractQuantity = (float) ($row['contract_quantity'] ?? 0);
+        $actualRaw = $row['actual_quantity'] ?? NULL;
         $ruleType = (string) ($row['rule_type'] ?? 'normal');
         $quantity = $ruleType === 'adjustable' && $actualRaw !== NULL && $actualRaw !== ''
           ? (float) $actualRaw
           : $contractQuantity;
         $directUnit = (float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost'];
         $lineTotal = $quantity * $directUnit;
-        $isNewLine = $lineId === $newLineId;
+        $isNewLine = $rowId === $newRowId;
         $ruleLabel = match ($ruleType) {
           'allowance' => 'Stelpost',
           'option' => 'Optie',
@@ -315,35 +320,35 @@ final class CalculationWorkbenchForm extends FormBase {
           'adjustable' => 'Verrekenbaar',
           default => '',
         };
-        $rowAttributes = ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',$ruleType)], 'data-structure-key' => (string) $key, 'data-line-id' => (string) $lineId, 'data-block-type' => 'row', 'data-rule-type' => $ruleType];
+        $rowAttributes = ['class' => ['brebo-calc-workbench__line','rule-' . str_replace('_','-',$ruleType)], 'data-structure-key' => (string) $key, 'data-row-id' => (string) $rowId, 'data-block-type' => 'row', 'data-rule-type' => $ruleType];
         if ($isNewLine) { $rowAttributes['data-new-quick-entry'] = '1'; }
-        $fieldPath = ['workbench','grid','line_' . $lineId];
-        $form['workbench']['grid']['line_' . $lineId] = [
+        $fieldPath = ['workbench','grid','row_' . $rowId];
+        $form['workbench']['grid']['row_' . $rowId] = [
           '#attributes' => $rowAttributes,
           'code' => ['#markup' => htmlspecialchars((string) ($row['code'] ?? ''))],
           'description' => [
             '#type' => 'container',
             '#attributes' => ['class' => ['brebo-calc-line-description']],
             'type' => $ruleLabel !== '' ? ['#markup' => '<span class="brebo-calc-rule-badge">' . htmlspecialchars($ruleLabel) . '</span>'] : ['#markup' => ''],
-            'value' => $this->editableText($lineId, 'description', $description, $editable, $isNewLine),
+            'value' => $this->editableText($rowId, 'description', $description, $editable, $isNewLine),
           ],
-          'unit' => $this->editableText($lineId, 'unit', $unit, $editable),
-          'quantity' => $this->editableNumber($lineId, 'quantity', $ruleType === 'adjustable' ? $contractQuantity : $quantity, $editable, '0.0001'),
-          'labour' => $this->editableNumber($lineId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
-          'material' => $this->editableNumber($lineId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
-          'equipment' => $this->editableNumber($lineId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
-          'subcontracting' => $this->editableNumber($lineId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
-          'other' => $this->editableNumber($lineId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
+          'unit' => $this->editableText($rowId, 'unit', $unit, $editable),
+          'quantity' => $this->editableNumber($rowId, 'quantity', $ruleType === 'adjustable' ? $contractQuantity : $quantity, $editable, '0.0001'),
+          'labour' => $this->editableNumber($rowId, 'labour_unit_cost', (float) $row['labour_unit_cost'], $editable),
+          'material' => $this->editableNumber($rowId, 'material_unit_cost', (float) $row['material_unit_cost'], $editable),
+          'equipment' => $this->editableNumber($rowId, 'equipment_unit_cost', (float) $row['equipment_unit_cost'], $editable),
+          'subcontracting' => $this->editableNumber($rowId, 'subcontracting_unit_cost', (float) $row['subcontracting_unit_cost'], $editable),
+          'other' => $this->editableNumber($rowId, 'other_unit_cost', (float) $row['other_unit_cost'], $editable),
           'unit_total' => ['#markup' => '<span class="brebo-calc-money">€ ' . number_format($directUnit, 2, ',', '.') . '</span>'],
           'total' => ['#markup' => '<strong class="brebo-calc-money brebo-calc-line-total">€ ' . number_format($lineTotal, 2, ',', '.') . '</strong>'],
           'operations' => [
             '#type' => 'container',
             'save' => $editable ? [
-              '#type' => 'submit', '#value' => 'Opslaan', '#submit' => ['::saveRow'], '#line_id' => $lineId,
+              '#type' => 'submit', '#value' => 'Opslaan', '#submit' => ['::saveRow'], '#row_id' => $rowId,
               '#limit_validation_errors' => [array_merge($fieldPath, ['description']), array_merge($fieldPath, ['unit']), array_merge($fieldPath, ['quantity']), array_merge($fieldPath, ['labour']), array_merge($fieldPath, ['material']), array_merge($fieldPath, ['equipment']), array_merge($fieldPath, ['subcontracting']), array_merge($fieldPath, ['other'])],
               '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Regel opslaan…']],
             ] : ['#markup' => ''],
-            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $node->id(), 'line' => $lineId])],
+            'price_sources' => ['#type' => 'link', '#title' => 'Prijzen', '#attributes' => ['class' => ['brebo-calc-row-link']], '#url' => Url::fromRoute('brebo_calculation.price_sources', ['node' => $calculationId, 'row' => $rowId])],
           ],
         ];
       }
@@ -369,7 +374,7 @@ final class CalculationWorkbenchForm extends FormBase {
           'quantity' => $editable ? ['#type' => 'number', '#default_value' => (float) $instance['quantity'], '#step' => '0.0001', '#min' => 0, '#attributes' => ['class' => ['brebo-calc-recipe-quantity']]] : ['#markup' => number_format((float) $instance['quantity'], 4, ',', '.')],
           'labour' => ['#markup' => ''], 'material' => ['#markup' => ''], 'equipment' => ['#markup' => ''], 'subcontracting' => ['#markup' => ''], 'other' => ['#markup' => ''], 'unit_total' => ['#markup' => ''],
           'total' => ['#markup' => '<strong>€ ' . number_format($recipeTotal, 2, ',', '.') . '</strong>'],
-          'operations' => ['#type' => 'container', 'edit' => ['#type' => 'link', '#title' => 'Bewerken', '#url' => Url::fromRoute('brebo_calculation.recipe_instance_edit', ['node' => $node->id(), 'recipe_instance' => $instanceId])], 'save' => $editable ? ['#type' => 'submit', '#value' => 'Herbereken', '#submit' => ['::updateRecipeQuantity'], '#recipe_instance_id' => $instanceId, '#limit_validation_errors' => [['workbench','grid','recipe_' . $instanceId,'quantity']], '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Recept herberekenen…']]] : ['#markup' => '']],
+          'operations' => ['#type' => 'container', 'edit' => ['#type' => 'link', '#title' => 'Bewerken', '#url' => Url::fromRoute('brebo_calculation.recipe_instance_edit', ['node' => $calculationId, 'recipe_instance' => $instanceId])], 'save' => $editable ? ['#type' => 'submit', '#value' => 'Herbereken', '#submit' => ['::updateRecipeQuantity'], '#recipe_instance_id' => $instanceId, '#limit_validation_errors' => [['workbench','grid','recipe_' . $instanceId,'quantity']], '#ajax' => ['callback' => '::ajaxRefresh', 'wrapper' => 'brebo-calculation-workbench', 'progress' => ['type' => 'throbber', 'message' => 'Recept herberekenen…']]] : ['#markup' => '']],
         ];
 
         foreach ($instanceLines as $recipeLine) {
@@ -426,20 +431,20 @@ final class CalculationWorkbenchForm extends FormBase {
   public function addRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement(); $paragraphKey = (string) ($trigger['#paragraph_key'] ?? '');
     if ($paragraphKey === '') { throw new \RuntimeException('Paragraaf ontbreekt bij het toevoegen van de calculatieregel.'); }
-    $lineId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, $this->currentUser());
-    $form_state->set('quick_entry_line_id', $lineId);
+    $rowId = $this->rowManager->add((int) $form_state->getValue('calculation_id'), (string) $form_state->getValue('version'), $paragraphKey, (int) $this->currentUser()->id());
+    $form_state->set('quick_entry_row_id', $rowId);
     $form_state->set('ajax_message', 'Calculatieregel toegevoegd. Vul de regel direct in.'); $form_state->setRebuild(TRUE);
   }
 
   public function saveRow(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
-    $lineId = (int) ($trigger['#line_id'] ?? 0);
-    if ($lineId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
-    $values = (array) $form_state->getValue(['workbench','grid','line_' . $lineId], []);
+    $rowId = (int) ($trigger['#row_id'] ?? 0);
+    if ($rowId <= 0) { throw new \RuntimeException('Calculatieregel ontbreekt bij opslaan.'); }
+    $values = (array) $form_state->getValue(['workbench','grid','row_' . $rowId], []);
     $this->rowManager->updateQuickEntry(
       (int) $form_state->getValue('calculation_id'),
       (string) $form_state->getValue('version'),
-      $lineId,
+      $rowId,
       (string) ($values['description'] ?? ''),
       (string) ($values['unit'] ?? ''),
       (float) ($values['quantity'] ?? 0),
@@ -450,9 +455,9 @@ final class CalculationWorkbenchForm extends FormBase {
         'subcontracting' => (float) ($values['subcontracting'] ?? 0),
         'other' => (float) ($values['other'] ?? 0),
       ],
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
-    if ((int) $form_state->get('quick_entry_line_id') === $lineId) { $form_state->set('quick_entry_line_id', 0); }
+    if ((int) $form_state->get('quick_entry_row_id') === $rowId) { $form_state->set('quick_entry_row_id', 0); }
     $form_state->set('ajax_message', 'Calculatieregel opgeslagen.');
     $form_state->setRebuild(TRUE);
   }
@@ -461,7 +466,7 @@ final class CalculationWorkbenchForm extends FormBase {
     $trigger = $form_state->getTriggeringElement();
     $instanceId = (int) ($trigger['#recipe_instance_id'] ?? 0);
     $quantity = (float) $form_state->getValue(['workbench','grid','recipe_' . $instanceId,'quantity']);
-    $this->recipeManager->updateQuantity($instanceId, $quantity, $this->currentUser());
+    $this->recipeManager->updateQuantity($instanceId, $quantity, (int) $this->currentUser()->id());
     $form_state->set('ajax_message', 'Recepthoeveelheid aangepast en onderliggende regels herberekend.');
     $form_state->setRebuild(TRUE);
   }
@@ -471,17 +476,17 @@ final class CalculationWorkbenchForm extends FormBase {
   /** @return array<string,mixed>|null */
   private function latestVersion(int $calculationId): ?array { $row = $this->database->select('brebo_calculation_version', 'v')->fields('v')->condition('calculation_id', $calculationId)->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc(); return $row ?: NULL; }
 
-  private function editableText(int $lineId, string $field, string $value, bool $editable, bool $autofocus = FALSE): array {
+  private function editableText(int $rowId, string $field, string $value, bool $editable, bool $autofocus = FALSE): array {
     if (!$editable) { return ['#markup' => htmlspecialchars($value)]; }
-    $attributes = ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field];
+    $attributes = ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-row-id' => (string) $rowId, 'data-field' => $field];
     if ($autofocus) { $attributes['autofocus'] = 'autofocus'; }
     return ['#type' => 'textfield', '#default_value' => $value, '#size' => $field === 'unit' ? 8 : 28, '#attributes' => $attributes];
   }
 
-  private function editableNumber(int $lineId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-line-id' => (string) $lineId, 'data-field' => $field]]; }
+  private function editableNumber(int $rowId, string $field, float $value, bool $editable, string $step = '0.01'): array { if (!$editable) { return ['#markup' => number_format($value, 4, ',', '.')]; } return ['#type' => 'number', '#default_value' => $value, '#step' => $step, '#min' => 0, '#attributes' => ['class' => ['brebo-calc-inline-edit', 'brebo-calc-quick-entry'], 'data-row-id' => (string) $rowId, 'data-field' => $field]]; }
 
-  /** @param array<int,array<string,mixed>> $rows @param array<int,NodeInterface> $lineEntities */
-  private function directTotal(array $rows, array $lineEntities): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $lineId = (int) $row['calc_line_id']; $line = $lineEntities[$lineId] ?? NULL; $quantity = $line instanceof NodeInterface && $line->hasField('field_brebo_contract_quantity') ? (float) $line->get('field_brebo_contract_quantity')->value : 0.0; $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
+  /** @param array<int,array<string,mixed>> $rows */
+  private function directTotal(array $rows): float { $total = 0.0; foreach ($rows as $row) { if (in_array((string) ($row['rule_type'] ?? ''), ['option', 'note'], TRUE)) { continue; } $quantity = (float) ($row['contract_quantity'] ?? 0); $total += $quantity * ((float) $row['labour_unit_cost'] + (float) $row['material_unit_cost'] + (float) $row['equipment_unit_cost'] + (float) $row['subcontracting_unit_cost'] + (float) $row['other_unit_cost']); } return $total; }
   /** @param array<int,array<string,mixed>> $lines */
   private function recipeInstanceTotal(array $lines): float { $total = 0.0; foreach ($lines as $line) { $total += $this->recipeLineQuantity($line) * (float) ($line['unit_cost'] ?? 0); } return $total; }
   /** @param array<int,array<int,array<string,mixed>>> $linesByInstance */

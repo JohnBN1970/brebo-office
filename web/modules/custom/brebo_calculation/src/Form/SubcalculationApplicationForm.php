@@ -90,7 +90,7 @@ final class SubcalculationApplicationForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $id = $this->manager->createApplication((int) $form_state->getValue('subcalculation_id'), (array) $form_state->getValue('add'), $this->currentUser());
+    $id = $this->manager->createApplication((int) $form_state->getValue('subcalculation_id'), (array) $form_state->getValue('add'), (int) $this->currentUser()->id());
     $this->messenger()->addStatus($this->t('Toepassing @id aangemaakt.', ['@id' => $id]));
     $form_state->setRebuild(TRUE);
   }

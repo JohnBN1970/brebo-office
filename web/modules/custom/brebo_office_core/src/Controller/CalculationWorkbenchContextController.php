@@ -83,7 +83,7 @@ final class CalculationWorkbenchContextController implements ContainerInjectionI
   }
 
   private function assertSignedRequest(Request $request): void {
-    $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
+    $secret = trim((string) getenv('BREBO_CALC_SHARED_SECRET') ?: Settings::get('brebo_calc_shared_secret', ''));
     if ($secret === '') {
       throw new AccessDeniedHttpException('Calc integration is not configured.');
     }

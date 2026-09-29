@@ -4,11 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Service\CalculationStructureManager;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** AJAX structure editor for calculation main groups and paragraphs. */
@@ -17,12 +17,14 @@ final class CalculationStructureForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly CalculationStructureManager $structureManager,
+    private readonly CalculationAccessGatewayInterface $accessGateway,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
       $container->get('brebo_calculation.structure_manager'),
+      $container->get('brebo_calculation.access_gateway'),
     );
   }
 
@@ -30,31 +32,39 @@ final class CalculationStructureForm extends FormBase {
     return 'brebo_calculation_structure_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
 
-    $version = $this->latestVersion((int) $node->id());
+    $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
       return ['message' => ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie.</p>']];
     }
 
+    $canEdit = FALSE;
+    try {
+      $this->accessGateway->assertCanEditWorkbench($calculationId, (int) $this->currentUser()->id());
+      $canEdit = TRUE;
+    }
+    catch (\RuntimeException) {
+      $canEdit = FALSE;
+    }
     $editable = $version['status'] === 'draft'
       && $version['locked_at'] === NULL
-      && $node->access('update')
-      && $this->currentUser()->hasPermission('edit brebo calculation workbench');
+      && $canEdit;
 
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
-    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => $calculationId];
     $form['version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
 
     // Keep authoritative context server-side for partial AJAX submits. The
     // structure buttons deliberately limit validation to their own subtree,
     // so top-level hidden values are not a reliable mutation context.
     $form_state->set('calculation_context', [
-      'calculation_id' => (int) $node->id(),
+      'calculation_id' => $calculationId,
       'version' => (string) $version['version'],
     ]);
 
@@ -71,7 +81,7 @@ final class CalculationStructureForm extends FormBase {
 
     $structure = $this->database->select('brebo_calculation_structure', 's')
       ->fields('s')
-      ->condition('calculation_id', (int) $node->id())
+      ->condition('calculation_id', $calculationId)
       ->condition('version', $version['version'])
       ->orderBy('sort_order')
       ->orderBy('depth')
@@ -185,7 +195,7 @@ final class CalculationStructureForm extends FormBase {
       $version,
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Hoofdgroep toegevoegd.');
     $form_state->setRebuild(TRUE);
@@ -201,7 +211,7 @@ final class CalculationStructureForm extends FormBase {
       (string) ($values['code'] ?? ''),
       (string) ($values['label'] ?? ''),
       trim((string) ($values['location_ref'] ?? '')) ?: NULL,
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Paragraaf toegevoegd.');
     $form_state->setRebuild(TRUE);
@@ -223,7 +233,7 @@ final class CalculationStructureForm extends FormBase {
         $version,
         $key,
         (int) ($values['sort_order'] ?? 0),
-        $this->currentUser(),
+        (int) $this->currentUser()->id(),
       );
     }
     $form_state->set('ajax_message', 'Structuurvolgorde opgeslagen.');
@@ -246,7 +256,7 @@ final class CalculationStructureForm extends FormBase {
       $version,
       $key,
       (int) $current + $delta,
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
     $form_state->set('ajax_message', 'Structuur verplaatst.');
     $form_state->setRebuild(TRUE);

@@ -2,6 +2,24 @@
 
 Dit register bevat wijzigingen die relevant zijn voor werking, beheersing, architectuur of procesvoering van BREBO Office.
 
+## 2026-09-29 — BREBO-softwarekern los van Drupal en Calc-interface
+
+| Onderdeel | Vastlegging |
+| --- | --- |
+| Status | Architectuurmijlpaal op PR #953; draft/mergeable met groene Calculation domain acceptance en Project Render Smoke vóór documentupdate |
+| Scope | Calculatie als eerste referentie-implementatie van organisatiebrede kern-/adapterarchitectuur |
+| Aanleiding | Voorkomen dat Drupal of een specifieke gebruikersinterface businesslogica, calculatiewaarheid en toekomstige modulearchitectuur bepaalt |
+| Resultaat | Domeinservices via contracten; database/framework/providerlogica in Infrastructure; Calc via Workspace v2 als vervangbare interface |
+| Beheersing | CI/acceptance bewaakt contracten, migratie-invarianten en terugval; geen lokale Calc-calculatiewaarheid en geen directe Drupal Database in actieve calculatie-services |
+| Vervolg | Architectuurslag formeel mergen; daarna Finance en Projecten volgens hetzelfde patroon auditen en ontkoppelen |
+
+### Belangrijkste technische gevolgen
+
+- workspace state, parameters, rows, structure, recipes, deelcalculaties, results, readiness, price sources, normen, context, establishment, ordering, access en legacy migration zijn achter contracten/adapters gebracht;
+- Workspace v1 is uit de actieve Calc-runtime gehaald; Workspace v2 is de actieve contractgrens;
+- Calculatie geldt voortaan als referentiemodel voor de BREBO-softwarekern;
+- documentatie, roadmap en continuïteit zijn per 29 september 2026 op deze architectuur bijgewerkt.
+
 ## 2026-08-10 — Veilige Integration API-testvoorziening
 
 | Onderdeel | Vastlegging |

@@ -4,13 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Controller;
 
-use Drupal\Core\Cache\CacheBackendInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\File\FileExists;
 use Drupal\Core\File\FileSystemInterface;
-use Drupal\Core\Site\Settings;
 use Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider;
 use Drupal\brebo_calculation\Service\SupplierQuoteNormalizer;
+use Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator;
 use Drupal\brebo_calculation\Service\SupplierQuotePdfTextExtractor;
 use Drupal\file\Entity\File;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -37,7 +36,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     private readonly ManagedDocumentTextExtractionProvider $extractor,
     private readonly SupplierQuotePdfTextExtractor $pdfTextExtractor,
     private readonly SupplierQuoteNormalizer $normalizer,
-    private readonly CacheBackendInterface $cache,
+    private readonly CalcIntegrationRequestAuthenticator $authenticator,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -46,14 +45,14 @@ final class CalcSupplierQuoteController extends ControllerBase {
       $container->get('brebo_data_intake.managed_document_text_extraction_provider'),
       $container->get('brebo_calculation.supplier_quote_pdf_text_extractor'),
       $container->get('brebo_calculation.supplier_quote_normalizer'),
-      $container->get('cache.default'),
+      $container->get('brebo_calculation.calc_request_authenticator'),
     );
   }
 
   public function upload(Request $request): JsonResponse {
     try {
       $bytes = (string) $request->getContent();
-      $this->assertSignedRequest($request, $bytes);
+      $this->authenticator->assertSigned($request, $bytes);
     }
     catch (AccessDeniedHttpException $e) {
       throw $e;
@@ -158,7 +157,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
     }
 
     return new JsonResponse([
-      'contract' => 'brebo-office-calc-quote-source-v1',
+      'contract' => 'brebo-calculation-supplier-quote-v2',
       'source' => [
         'file_id' => (int) $file->id(),
         'calculation_id' => $calculationId,
@@ -179,7 +178,7 @@ final class CalcSupplierQuoteController extends ControllerBase {
   }
 
   public function preview(Request $request, int $calculation, int $file): Response {
-    $this->assertSignedRequest($request, '');
+    $this->authenticator->assertSigned($request, '');
     $entity = File::load($file);
     if (!$entity) {
       return new Response('Offertebron niet gevonden.', 404);
@@ -263,30 +262,6 @@ final class CalcSupplierQuoteController extends ControllerBase {
     $response->headers->set('X-Content-Type-Options', 'nosniff');
     $response->headers->set('X-BREBO-PDF-Renderer', $renderer);
     return $response;
-  }
-
-  private function assertSignedRequest(Request $request, string $body): void {
-    $secret = trim((string) Settings::get('brebo_calc_shared_secret', getenv('BREBO_CALC_SHARED_SECRET') ?: ''));
-    $timestamp = trim((string) $request->headers->get('X-BREBO-Timestamp', ''));
-    $requestId = trim((string) $request->headers->get('X-BREBO-Request-Id', ''));
-    $signature = trim((string) $request->headers->get('X-BREBO-Signature', ''));
-    if ($secret === '' || !ctype_digit($timestamp) || !preg_match('/^[0-9a-fA-F-]{36}$/', $requestId) || !str_starts_with($signature, 'v1=')) {
-      throw new AccessDeniedHttpException('Invalid Calc authentication.');
-    }
-    $now = time();
-    if (abs($now - (int) $timestamp) > 300) {
-      throw new AccessDeniedHttpException('Expired request.');
-    }
-    $replayKey = 'brebo_calc_quote_request:' . hash('sha256', $requestId);
-    if ($this->cache->get($replayKey)) {
-      throw new AccessDeniedHttpException('Replayed request.');
-    }
-    $canonical = $request->getMethod() . "\n" . $request->getRequestUri() . "\n" . hash('sha256', $body) . "\n" . $timestamp . "\n" . $requestId;
-    $expected = 'v1=' . hash_hmac('sha256', $canonical, $secret);
-    if (!hash_equals($expected, $signature)) {
-      throw new AccessDeniedHttpException('Invalid signature.');
-    }
-    $this->cache->set($replayKey, TRUE, $now + 600);
   }
 
   private function stageError(string $stage, \Throwable $error): JsonResponse {

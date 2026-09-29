@@ -7,7 +7,6 @@ namespace Drupal\brebo_calculation\Form;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /**
@@ -27,17 +26,18 @@ final class CalculationParametersForm extends FormBase {
     return 'brebo_calculation_parameters_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       throw new \InvalidArgumentException('Calculation expected.');
     }
-    $version = $this->latestVersion((int) $node->id());
+    $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
       return ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie.</p>'];
     }
 
     $locked = $version['locked_at'] !== NULL || (string) $version['status'] !== 'draft';
-    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => $calculationId];
     $form['version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
     $form['content_hash'] = ['#type' => 'hidden', '#value' => (string) ($version['content_hash'] ?? '')];
 
@@ -153,7 +153,7 @@ final class CalculationParametersForm extends FormBase {
     }
 
     $this->messenger()->addStatus('Calculatieparameters opgeslagen. De commerciële uitkomst wordt met deze versieparameters herberekend.');
-    $form_state->setRedirect('brebo_calculation.parameters', ['node' => $calculationId]);
+    $form_state->setRedirect('brebo_calculation.parameters', ['calculation' => $calculationId]);
   }
 
   /** @return array<string,mixed>|null */

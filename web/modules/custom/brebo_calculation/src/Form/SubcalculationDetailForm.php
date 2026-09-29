@@ -6,7 +6,6 @@ namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\SubcalculationManager;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -18,14 +17,12 @@ final class SubcalculationDetailForm extends FormBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly SubcalculationManager $manager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager'),
       $container->get('brebo_calculation.subcalculation_manager'),
     );
   }
@@ -64,8 +61,6 @@ final class SubcalculationDetailForm extends FormBase {
       ->condition('calculation_id', (int) $node->id())
       ->condition('version', (string) $sub['version'])
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $lineIds = array_map(static fn(array $r): int => (int) $r['calc_line_id'], $domains);
-    $lines = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
     $byParagraph = [];
     foreach ($domains as $domain) {
       $byParagraph[$domain['paragraph_key']][] = $domain;
@@ -85,20 +80,19 @@ final class SubcalculationDetailForm extends FormBase {
         'scope_ref' => ['#type' => 'hidden', '#value' => $key],
       ];
       foreach ($byParagraph[$key] ?? [] as $domain) {
-        $lineId = (int) $domain['calc_line_id'];
-        $line = $lines[$lineId] ?? NULL;
-        $description = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_line_description')->value ?? $line->label()) : 'Regel ' . $lineId;
-        $quantity = $line instanceof NodeInterface ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0) : 0;
-        $unit = $line instanceof NodeInterface ? (string) ($line->get('field_brebo_unit')->value ?? '') : '';
-        $form['scope']['line_' . $lineId] = [
-          'selected' => ['#type' => 'checkbox', '#default_value' => isset($selectedKeys['line:' . $lineId])],
+        $rowId = (int) $domain['row_id'];
+        $description = (string) ($domain['description'] ?? ('Regel ' . $rowId));
+        $quantity = (float) ($domain['contract_quantity'] ?? 0);
+        $unit = (string) ($domain['unit'] ?? '');
+        $form['scope']['line_' . $rowId] = [
+          'selected' => ['#type' => 'checkbox', '#default_value' => isset($selectedKeys['line:' . $rowId])],
           'code' => ['#markup' => ''],
           'description' => ['#markup' => str_repeat('&nbsp;&nbsp;&nbsp;', ((int) $item['depth']) + 1) . htmlspecialchars($description)],
           'type' => ['#markup' => htmlspecialchars((string) $domain['rule_type'])],
           'quantity' => ['#markup' => number_format($quantity, 4, ',', '.')],
           'unit' => ['#markup' => htmlspecialchars($unit)],
           'scope_type' => ['#type' => 'hidden', '#value' => 'line'],
-          'scope_ref' => ['#type' => 'hidden', '#value' => (string) $lineId],
+          'scope_ref' => ['#type' => 'hidden', '#value' => (string) $rowId],
         ];
       }
     }
@@ -130,7 +124,7 @@ final class SubcalculationDetailForm extends FormBase {
     }
     foreach ($requested as $key => [$type, $ref]) {
       if (!isset($existingKeys[$key])) {
-        $this->manager->addScope($subId, $type, $ref, 1.0, $this->currentUser());
+        $this->manager->addScope($subId, $type, $ref, 1.0, (int) $this->currentUser()->id());
       }
     }
     $this->messenger()->addStatus('Scope van de deelcalculatie opgeslagen.');

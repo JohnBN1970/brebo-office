@@ -4,17 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_calculation\Contract\CalculationReadinessRepositoryInterface;
+use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
 /** Aggregates calculation quality checks into an offer-readiness status. */
 final class CalculationReadinessInspector {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationReadinessRepositoryInterface $repository,
     private readonly RecipePriceHealthInspector $priceHealthInspector,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationLineReadModelInterface $lineReadModel,
   ) {}
 
   /**
@@ -25,46 +24,34 @@ final class CalculationReadinessInspector {
     $blocking = 0;
     $warnings = 0;
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->rows($calculationId, $version);
 
-    $lineIds = array_values(array_filter(array_map(
-      static fn (array $row): int => (int) ($row['calc_line_id'] ?? 0),
+    $rowIds = array_values(array_filter(array_map(
+      static fn (array $row): int => (int) ($row['row_id'] ?? 0),
       $rows,
     )));
-    $lineEntities = $lineIds ? $this->entityTypeManager->getStorage('node')->loadMultiple($lineIds) : [];
+    $rowData = $rowIds ? $this->lineReadModel->loadMany($rowIds, $version) : [];
 
     foreach ($rows as $row) {
-      $lineId = (int) ($row['calc_line_id'] ?? 0);
-      $line = $lineEntities[$lineId] ?? NULL;
-      $quantity = $line instanceof NodeInterface && $line->bundle() === 'brebo_calc_line' && $line->hasField('field_brebo_contract_quantity')
-        ? (float) ($line->get('field_brebo_contract_quantity')->value ?? 0)
-        : 0.0;
+      $rowId = (int) ($row['row_id'] ?? 0);
+      $line = $rowData[$rowId] ?? NULL;
+      $quantity = is_array($line) ? (float) ($line['contract_quantity'] ?? 0) : 0.0;
       $unitCost = (float) ($row['labour_unit_cost'] ?? 0)
         + (float) ($row['material_unit_cost'] ?? 0)
         + (float) ($row['equipment_unit_cost'] ?? 0)
         + (float) ($row['subcontracting_unit_cost'] ?? 0)
         + (float) ($row['other_unit_cost'] ?? 0);
       if ($quantity <= 0) {
-        $checks[] = ['level' => 'warning', 'code' => 'row_zero_quantity', 'label' => 'Losse regel zonder hoeveelheid', 'reference' => (int) ($row['calc_line_id'] ?? 0)];
+        $checks[] = ['level' => 'warning', 'code' => 'row_zero_quantity', 'label' => 'Losse regel zonder hoeveelheid', 'reference' => (int) ($row['row_id'] ?? 0)];
         $warnings++;
       }
       if ($unitCost <= 0) {
-        $checks[] = ['level' => 'warning', 'code' => 'row_zero_cost', 'label' => 'Losse regel zonder kostprijs', 'reference' => (int) ($row['calc_line_id'] ?? 0)];
+        $checks[] = ['level' => 'warning', 'code' => 'row_zero_cost', 'label' => 'Losse regel zonder kostprijs', 'reference' => (int) ($row['row_id'] ?? 0)];
         $warnings++;
       }
     }
 
-    $instanceLines = $this->database->select('brebo_calculation_recipe_instance_line', 'l');
-    $instanceLines->join('brebo_calculation_recipe_instance', 'i', 'i.id = l.recipe_instance_id');
-    $instanceLines->fields('l');
-    $instanceLines->condition('i.calculation_id', $calculationId);
-    $instanceLines->condition('i.calculation_version', $version);
-    $recipeLines = $instanceLines->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $recipeLines = $this->repository->recipeLines($calculationId, $version);
 
     foreach ($recipeLines as $line) {
       $health = $this->priceHealthInspector->inspect($line);

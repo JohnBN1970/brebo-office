@@ -16,7 +16,7 @@ final class GlassCalculationExporter {
     private readonly CalculationObjectLineWriter $writer,
   ) {}
 
-  /** @return array{material_line_id:int,labour_line_id:int,material_priced:bool,labour_priced:bool} */
+  /** @return array{material_row_id:int,labour_row_id:int,material_priced:bool,labour_priced:bool} */
   public function export(int $positionId,int $calculationId,string $version,string $paragraphKey,AccountInterface $account): array {
     $this->linkGuard->assertNotExported($positionId,$calculationId,$version);
     $context=$this->contextBuilder->build($positionId);
@@ -43,8 +43,8 @@ final class GlassCalculationExporter {
     );
 
     return [
-      'material_line_id'=>$material,
-      'labour_line_id'=>$labour,
+      'material_row_id'=>$material,
+      'labour_row_id'=>$labour,
       'material_priced'=>(bool)$prices['material']['priced'],
       'labour_priced'=>(bool)$prices['labour']['priced'],
     ];

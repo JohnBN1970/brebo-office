@@ -30,7 +30,7 @@ final class GlassCalculationLinkGuard {
     }
   }
 
-  /** @return array{state:string,current_checksum:string,exported_checksums:array<int,string>,line_ids:array<int,int>,message:string} */
+  /** @return array{state:string,current_checksum:string,exported_checksums:array<int,string>,row_ids:array<int,int>,message:string} */
   public function status(int $positionId, int $calculationId, string $version): array {
     $position = $this->positions->find($positionId);
     if (!$position) {
@@ -38,7 +38,7 @@ final class GlassCalculationLinkGuard {
     }
     $current = trim((string) ($position['approval_checksum'] ?? ''));
     $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['calc_line_id', 'source_checksum'])
+      ->fields('r', ['row_id', 'source_checksum'])
       ->condition('calculation_id', $calculationId)
       ->condition('version', $version)
       ->condition('source_domain', 'brebo_glass_position')
@@ -46,13 +46,13 @@ final class GlassCalculationLinkGuard {
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
     if ($rows === []) {
-      return ['state'=>'not_exported','current_checksum'=>$current,'exported_checksums'=>[],'line_ids'=>[],'message'=>'Glaspositie is nog niet in deze calculatieversie opgenomen.'];
+      return ['state'=>'not_exported','current_checksum'=>$current,'exported_checksums'=>[],'row_ids'=>[],'message'=>'Glaspositie is nog niet in deze calculatieversie opgenomen.'];
     }
-    $checksums=[];$lineIds=[];
+    $checksums=[];$rowIds=[];
     foreach ($rows as $row) {
       $checksum=trim((string) ($row['source_checksum'] ?? ''));
       if ($checksum !== '') $checksums[$checksum]=$checksum;
-      $lineIds[]=(int) $row['calc_line_id'];
+      $rowIds[]=(int) $row['row_id'];
     }
     $exported=array_values($checksums);
     $fresh=$current !== '' && count($exported) === 1 && hash_equals($current, $exported[0]);
@@ -60,7 +60,7 @@ final class GlassCalculationLinkGuard {
       'state'=>$fresh?'current':'stale',
       'current_checksum'=>$current,
       'exported_checksums'=>$exported,
-      'line_ids'=>$lineIds,
+      'row_ids'=>$rowIds,
       'message'=>$fresh?'Calculatie is gebaseerd op de actuele technische glasvrijgave.':'Bronobject gewijzigd — hercalculatie vereist.',
     ];
   }

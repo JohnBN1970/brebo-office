@@ -6,7 +6,7 @@ namespace Drupal\brebo_calculation\Access;
 
 use Drupal\brebo_calculation\Service\CalculationReadinessInspector;
 use Drupal\Core\Access\AccessResult;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationAccessRepositoryInterface;
 use Drupal\Core\Routing\Access\AccessInterface;
 use Drupal\node\NodeInterface;
 
@@ -14,7 +14,7 @@ use Drupal\node\NodeInterface;
 final class OfferReadinessAccessCheck implements AccessInterface {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationAccessRepositoryInterface $repository,
     private readonly CalculationReadinessInspector $readinessInspector,
   ) {}
 
@@ -23,17 +23,9 @@ final class OfferReadinessAccessCheck implements AccessInterface {
       return AccessResult::forbidden('Offer readiness applies only to calculations.');
     }
 
-    $version = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['version'])
-      ->condition('calculation_id', (int) $node->id())
-      ->condition('status', 'established')
-      ->isNotNull('locked_at')
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchField();
+    $version = $this->repository->latestEstablishedVersion((int) $node->id());
 
-    if (!is_string($version) || $version === '') {
+    if ($version === NULL) {
       return AccessResult::forbidden('A calculation version is required before an offer can be created.')
         ->addCacheableDependency($node);
     }

@@ -34,19 +34,15 @@ brebo_calculation.migration_confirm:
         type: entity:node
 
 brebo_calculation.workbench:
-  path: '/admin/brebo/calculations/{node}/workbench'
+  path: '/admin/brebo/calculations/{calculation}/workbench'
   defaults:
-    _form: '\Drupal\brebo_calculation\Form\CalculationWorkbenchForm'
-    _title: 'Calculatiewerkbank'
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceRedirectController::redirect'
+    _title: 'Calculatie'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
+    calculation: '\d+'
   options:
     _admin_route: true
-    parameters:
-      node:
-        type: entity:node
-
 
 brebo_calculation.project_link:
   path: '/admin/brebo/calculations/{node}/project-link'
@@ -62,32 +58,27 @@ brebo_calculation.project_link:
       node:
         type: entity:node
 
+
 brebo_calculation.establish:
-  path: '/admin/brebo/calculations/{node}/establish'
+  path: '/admin/brebo/calculations/{calculation}/establish'
   defaults:
     _form: '\Drupal\brebo_calculation\Form\CalculationEstablishForm'
     _title: 'Calculatieversie vaststellen'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
+    calculation: '\d+'
   options:
     _admin_route: true
-    parameters:
-      node:
-        type: entity:node
 
 brebo_calculation.readiness:
-  path: '/admin/brebo/calculations/{node}/readiness'
+  path: '/admin/brebo/calculations/{calculation}/readiness'
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationReadinessController::status'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
+    calculation: '\d+'
   options:
     _admin_route: true
-    parameters:
-      node:
-        type: entity:node
 
 brebo_calculation.recipe_place:
   path: '/admin/brebo/calculations/{node}/workbench/recipes/place'
@@ -196,7 +187,7 @@ brebo_calculation.object_exception_lines:
         type: entity:node
 
 brebo_calculation.price_sources:
-  path: '/admin/brebo/calculations/{node}/workbench/line/{line}/price-sources'
+  path: '/admin/brebo/calculations/{node}/workbench/row/{row}/price-sources'
   defaults:
     _form: '\Drupal\brebo_calculation\Form\CalculationPriceSourceForm'
     _title: 'Prijsbronnen calculatieregel'
@@ -211,32 +202,26 @@ brebo_calculation.price_sources:
         type: entity:node
 
 brebo_calculation.structure:
-  path: '/admin/brebo/calculations/{node}/structure'
+  path: '/admin/brebo/calculations/{calculation}/structure'
   defaults:
     _form: '\Drupal\brebo_calculation\Form\CalculationStructureForm'
     _title: 'Calculatiestructuur'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
+    calculation: '\d+'
   options:
     _admin_route: true
-    parameters:
-      node:
-        type: entity:node
 
 brebo_calculation.parameters:
-  path: '/admin/brebo/calculations/{node}/parameters'
+  path: '/admin/brebo/calculations/{calculation}/parameters'
   defaults:
     _form: '\Drupal\brebo_calculation\Form\CalculationParametersForm'
     _title: 'Calculatieparameters'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    node: '\d+'
+    calculation: '\d+'
   options:
     _admin_route: true
-    parameters:
-      node:
-        type: entity:node
 
 brebo_calculation.calc_supplier_quote_upload:
   path: '/api/workbench/v1/calculations/{calculation}/supplier-quotes'
@@ -261,8 +246,260 @@ brebo_calculation.calc_supplier_quote_preview:
   options:
     no_cache: TRUE
 
-brebo_calculation.calc_supplier_quote_position_visual:
-  path: '/api/workbench/v1/calculations/{calculation}/supplier-quotes/{file}/visual/{page}'
+
+brebo_calculation.workspace_v2_state:
+  path: '/api/workbench/v2/calculations/{calculation}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceQueryController::state'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_add:
+  path: '/api/workbench/v2/calculations/{calculation}/rows'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addRow'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_update:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRow'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_delete:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::deleteRow'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [DELETE]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_row_move:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/move'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::moveRow'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_group_add:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/groups'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addMainGroup'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_paragraph_add:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/paragraphs'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addParagraph'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_structure_reorder:
+  path: '/api/workbench/v2/calculations/{calculation}/structure/{structure}/order'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::reorderStructure'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    structure: '[A-Za-z0-9_-]+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_recipe_place:
+  path: '/api/workbench/v2/calculations/{calculation}/recipes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::placeRecipe'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_recipe_update:
+  path: '/api/workbench/v2/calculations/{calculation}/recipes/{recipe}'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateRecipe'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    recipe: '\d+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_create:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculation'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_scope_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/scopes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationScope'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    subcalculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_application_create:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::createSubcalculationApplication'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    subcalculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_subcalculation_application_object_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications/{application}/objects'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addSubcalculationApplicationObject'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    subcalculation: '\d+'
+    application: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_price_source_add:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/price-sources'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addPriceSource'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    row: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_price_source_approve:
+  path: '/api/workbench/v2/calculations/{calculation}/rows/{row}/price-sources/{source}/approve'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::approvePriceSource'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    row: '\d+'
+    source: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_object_exception_line_add:
+  path: '/api/workbench/v2/calculations/{calculation}/subcalculations/{subcalculation}/applications/{application}/objects/{object}/exception-lines'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::addObjectExceptionLine'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    subcalculation: '\d+'
+    application: '\d+'
+    object: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_parameters_update:
+  path: '/api/workbench/v2/calculations/{calculation}/parameters'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::updateParameters'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [PATCH]
+  options:
+    no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_launch_consume:
+  path: '/api/workbench/v2/launch/consume'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationLaunchConsumeController::consume'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_supplier_quote_upload:
+  path: '/api/workbench/v2/calculations/{calculation}/supplier-quotes'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::upload'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_supplier_quote_preview:
+  path: '/api/workbench/v2/calculations/{calculation}/supplier-quotes/{file}/preview'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::preview'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\d+'
+    file: '\d+'
+  methods: [GET]
+  options:
+    no_cache: TRUE
+
+brebo_calculation.workspace_v2_supplier_quote_visual:
+  path: '/api/workbench/v2/calculations/{calculation}/supplier-quotes/{file}/visual/{page}'
   defaults:
     _controller: '\Drupal\brebo_calculation\Controller\CalcSupplierQuoteController::positionVisual'
   requirements:
@@ -275,13 +512,13 @@ brebo_calculation.calc_supplier_quote_position_visual:
     no_cache: TRUE
 
 
-brebo_calculation.document_set_propose:
-  path: '/api/workbench/v1/calculations/{calculation}/document-set/propose'
+brebo_calculation.workspace_v2_document_set_propose:
+  path: '/api/workbench/v2/calculations/{calculation}/document-set/propose'
   defaults:
-    _controller: '\Drupal\brebo_calculation\Controller\CalculationDocumentSetController::propose'
+    _controller: '\\Drupal\\brebo_calculation\\Controller\\CalculationDocumentSetController::propose'
   requirements:
     _permission: 'edit brebo calculation workbench'
-    calculation: '\d+'
+    calculation: '\\d+'
   methods: [POST]
   options:
     no_cache: TRUE

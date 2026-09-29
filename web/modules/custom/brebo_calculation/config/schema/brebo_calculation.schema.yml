@@ -1,0 +1,10 @@
+brebo_calculation.settings:
+  type: config_object
+  label: 'BREBO Calculation settings'
+  mapping:
+    legacy_line_mirror_enabled:
+      type: boolean
+      label: 'Create legacy Drupal calculation-line mirrors'
+    legacy_line_mirror_maintenance_enabled:
+      type: boolean
+      label: 'Maintain existing legacy Drupal calculation-line mirrors'
