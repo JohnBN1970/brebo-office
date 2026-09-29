@@ -20,7 +20,7 @@ final class RecipePlacementForm extends FormBase {
     private readonly CalculationWorkspaceStateService $workspaceState,
     private readonly RecipeRepositoryInterface $recipeRepository,
     private readonly RecipeManager $recipeManager,
-    private readonly RequestStack $requestStack,
+    private readonly RequestStack $recipeRequestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -87,7 +87,7 @@ final class RecipePlacementForm extends FormBase {
     }
 
     $selectedVersion = (int) ($form_state->getValue(['recipe', 'version_id']) ?: array_key_first($recipes));
-    $requestedParagraph = trim((string) $this->requestStack->getCurrentRequest()?->query->get('paragraph', ''));
+    $requestedParagraph = trim((string) $this->recipeRequestStack->getCurrentRequest()?->query->get('paragraph', ''));
     $selectedParagraph = (string) ($form_state->getValue(['recipe', 'paragraph_key']) ?: (isset($paragraphs[$requestedParagraph]) ? $requestedParagraph : array_key_first($paragraphs)));
 
     $form['recipe'] = [
