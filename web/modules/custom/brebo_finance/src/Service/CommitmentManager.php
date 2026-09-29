@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
 use Drupal\brebo_finance\Contract\CommitmentRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_finance\Contract\CommitmentNumberIssuerInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -19,8 +17,7 @@ final class CommitmentManager {
     private readonly VatCalculator $vatCalculator,
     private readonly FinancialPhaseGateManager $phaseGateManager,
     private readonly FinancialEuroTraceFindingSynchronizer $euroTraceSynchronizer,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly ProjectDocumentNumberIssuer $documentNumberIssuer,
+    private readonly CommitmentNumberIssuerInterface $numberIssuer,
   ) {}
 
   public function createDraft(int $projectNid, string $supplierName, ?string $supplierRef, int $userId): int {
@@ -31,11 +28,6 @@ final class CommitmentManager {
       throw new RuntimeException('Purchasing is blocked until the working budget baseline is locked.');
     }
     $this->phaseGateManager->requireRelease($projectNid, 'procurement_release');
-
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
-      throw new UnexpectedValueException('A BREBO project is required for commitment numbering.');
-    }
 
     $now = time();
     $temporaryNumber = 'PENDING-' . strtoupper(bin2hex(random_bytes(6)));
@@ -56,7 +48,7 @@ final class CommitmentManager {
     ]);
 
     try {
-      $receipt = $this->documentNumberIssuer->issueAssignment($project, (string) $commitmentId, (int) date('Y', $now));
+      $receipt = $this->numberIssuer->issue($projectNid, $commitmentId, (int) date('Y', $now));
       $commitmentNumber = trim((string) ($receipt['number'] ?? ''));
       if ($commitmentNumber === '') {
         throw new RuntimeException('Administration-aware assignment numbering returned no number.');
