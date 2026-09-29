@@ -42,8 +42,12 @@ final class CalculationFactService {
       if ($width !== NULL && $height !== NULL) {
         $this->insertFact($setId, $documentId, 'width_mm', $position, NULL, $width, 'mm', $page, $description, 'dimension_pattern', 0.92, $now);
         $this->insertFact($setId, $documentId, 'height_mm', $position, NULL, $height, 'mm', $page, $description, 'dimension_pattern', 0.92, $now);
+        $top = ($width / 1000.0) * $quantity;
+        $bottom = ($width / 1000.0) * $quantity;
+        $left = ($height / 1000.0) * $quantity;
+        $right = ($height / 1000.0) * $quantity;
         $area = ($width / 1000.0) * ($height / 1000.0) * $quantity;
-        $perimeter = 2.0 * (($width / 1000.0) + ($height / 1000.0)) * $quantity;
+        $perimeter = $top + $bottom + $left + $right;
         $this->database->insert('brebo_calculation_takeoff')->fields([
           'set_id' => $setId,
           'position_ref' => $position,
@@ -52,9 +56,13 @@ final class CalculationFactService {
           'height_mm' => $height,
           'area_m2' => $area,
           'perimeter_m' => $perimeter,
+          'top_m' => $top,
+          'bottom_m' => $bottom,
+          'left_m' => $left,
+          'right_m' => $right,
           'created' => $now,
         ])->execute();
-        $takeoff[] = compact('position', 'quantity', 'width', 'height', 'area', 'perimeter');
+        $takeoff[] = compact('position', 'quantity', 'width', 'height', 'area', 'perimeter', 'top', 'bottom', 'left', 'right');
       }
       $facts[] = $position;
     }
