@@ -2,6 +2,30 @@
 
 Dit document is de actuele Finance-continuïteitsaanvulling op `docs/BREBO_CONTINUITEIT.md` en vervangt voor het hervatpunt de Finance-aanvulling van 2026-08-24. Bij een nieuwe chat of ontwikkelsessie moet deze stand samen met de actuele `develop`-branch en open PR's worden gelezen. Ga niet terug naar oudere Finance-architectuur of alleen backend-afronding.
 
+## Update 29 september 2026 — architectuurcontinuiteit
+
+De functionele Finance-continuiteit hieronder blijft leidend voor betaalcentrum, Moneybird, bank, controle en reconciliatie. De technische architectuurvolgorde is echter aangescherpt door de bewezen calculatie-ontkoppeling.
+
+Finance volgt als volgende grote vakmodule het patroon:
+
+~~~text
+BREBO Finance-domein
+-> contracten
+-> infrastructuuradapters
+   -> Drupal Database
+   -> Moneybird
+   -> ABN AMRO
+   -> overige providers
+
+BREBO Finance-domein
+-> API/UI-contracten
+-> Finance-cockpit / betaalcentrum / management / AI
+~~~
+
+Nieuwe en bestaande Finance-businesslogica hoort niet afhankelijk te zijn van Drupal-entities, controllers of provider-SDK's wanneer dit via een contract/adapter kan worden begrensd.
+
+De eerdere programmaformulering "Finance afronden -> module-audit -> Calculatie later opnieuw oppakken" is technisch achterhaald: Calculatie heeft inmiddels de referentiearchitectuur geleverd. Finance wordt nu functioneel verder gesloten én gecontroleerd naar hetzelfde kern-/adapterpatroon gebracht. Bestaande betalings-, four-eyes-, reconciliatie- en fail-closedregels blijven daarbij onaangetast.
+
 ## Huidige prioriteit
 
 De vastgestelde programma-volgorde is:
