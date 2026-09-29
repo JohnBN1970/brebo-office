@@ -209,7 +209,9 @@ function brebo_calculation_post_update_add_row_identity(&$sandbox = NULL): strin
     ]);
   }
 
-  $next = (int) $database->select($table, 'r')->addExpression('MAX(row_id)', 'max_row_id')->execute()->fetchField();
+  $maxQuery = $database->select($table, 'r');
+  $maxQuery->addExpression('MAX(row_id)', 'max_row_id');
+  $next = (int) $maxQuery->execute()->fetchField();
   $query = $database->select($table, 'r')->fields('r', ['calc_line_id', 'version'])->isNull('row_id');
   foreach ($query->execute() as $row) {
     $next++;
