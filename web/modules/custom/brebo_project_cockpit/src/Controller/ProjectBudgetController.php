@@ -91,7 +91,7 @@ final class ProjectBudgetController extends ControllerBase {
         $this->value($calculation, 'field_brebo_calc_code'),
         $package instanceof NodeInterface ? $package->label() : '—',
         $this->value($calculation, 'field_brebo_calc_status'),
-        ['data' => Link::fromTextAndUrl($this->t('Calculatie openen'), Url::fromRoute('brebo_calculation.workbench', ['node' => $calculation->id()]))->toRenderable()],
+        ['data' => Link::fromTextAndUrl($this->t('Calculatie openen'), Url::fromRoute('brebo_calculation.workbench', ['calculation' => $calculation->id()]))->toRenderable()],
       ];
     }
 
