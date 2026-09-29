@@ -179,3 +179,9 @@ services:
     class: Drupal\brebo_calculation\Routing\CalculationWorkspaceRouteSubscriber
     tags:
       - { name: event_subscriber }
+
+  brebo_calculation.calculation_document_set:
+    class: Drupal\brebo_calculation\Service\CalculationDocumentSetService
+    arguments:
+      - '@database'
+      - '@datetime.time'
