@@ -100,9 +100,15 @@ services:
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@brebo_finance.payment_release_repository', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.payment_batch_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePaymentBatchRepository
+    arguments: ['@database']
+  brebo_finance.payment_recipient_gateway:
+    class: Drupal\brebo_finance\Infrastructure\PurchaseInvoicePaymentRecipientGateway
+    arguments: ['@brebo_finance.purchase_invoice_importer']
   brebo_finance.payment_batch_manager:
     class: Drupal\brebo_finance\Service\PaymentBatchManager
-    arguments: ['@database', '@brebo_finance.purchase_invoice_importer', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.payment_batch_repository', '@brebo_finance.payment_recipient_gateway', '@brebo_finance.vat_calculator']
   brebo_finance.bank_transaction_reconciliation_manager:
     class: Drupal\brebo_finance\Service\BankTransactionReconciliationManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.purchase_invoice_integration_client']
