@@ -214,13 +214,21 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
     arguments: ['@brebo_calculation.norm_repository']
 
+  brebo_calculation.norm_feedback_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormFeedbackRepository
+    arguments: ['@database']
+
   brebo_calculation.norm_feedback:
     class: Drupal\brebo_calculation\Service\CalculationNormFeedbackService
+    arguments: ['@brebo_calculation.norm_feedback_repository']
+
+  brebo_calculation.norm_version_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormVersionRepository
     arguments: ['@database']
 
   brebo_calculation.norm_version_manager:
     class: Drupal\brebo_calculation\Service\CalculationNormVersionManager
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.norm_version_repository']
 
   brebo_calculation.structure_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationStructureRepository
