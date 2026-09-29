@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Contract;
 
 interface CalculationBlockOrderRepositoryInterface {
+  public function transactional(callable $callback): mixed;
   public function isEditableVersion(int $calculationId, string $version): bool;
 
   /** @return array<string,array{type:string,id:int}> */
