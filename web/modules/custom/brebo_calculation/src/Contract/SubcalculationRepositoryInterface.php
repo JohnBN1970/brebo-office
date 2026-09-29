@@ -20,6 +20,8 @@ interface SubcalculationRepositoryInterface {
   /** @return list<array<string,mixed>> */
   public function applicationObjectsDetailed(int $applicationId): array;
   public function exceptionObjectCount(int $applicationId): int;
+  /** @return array{object_count:int,factor_sum:float} */
+  public function applicationObjectStats(int $applicationId): array;
   public function deleteScope(int $scopeId): void;
 
   /** @param array<string,mixed> $values */

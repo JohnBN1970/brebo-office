@@ -60,6 +60,11 @@ final class SubcalculationManager {
   public function scopeCount(int $subcalculationId): int { return $this->repository->scopeCount($subcalculationId); }
   public function applicationCount(int $subcalculationId): int { return $this->repository->applicationCount($subcalculationId); }
   public function exceptionObjectCount(int $applicationId): int { return $this->repository->exceptionObjectCount($applicationId); }
+  /** @return array{object_count:int,factor_sum:float} */
+  public function applicationObjectStats(int $applicationId): array {
+    return $this->repository->applicationObjectStats($applicationId);
+  }
+
 
   /** @param array<string,mixed> $values */
   public function create(int $calculationId, string $version, array $values, int $actorId): int {

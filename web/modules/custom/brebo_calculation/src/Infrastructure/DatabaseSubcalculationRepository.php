@@ -47,6 +47,16 @@ final class DatabaseSubcalculationRepository implements SubcalculationRepository
     return (int) $this->database->select('brebo_calculation_subcalculation_application_object', 'o')->condition('application_id', $applicationId)->condition('is_exception', 1)->countQuery()->execute()->fetchField();
   }
 
+
+  public function applicationObjectStats(int $applicationId): array {
+    $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
+    $query->condition('application_id', $applicationId);
+    $query->addExpression('COUNT(*)', 'object_count');
+    $query->addExpression('COALESCE(SUM(factor), 0)', 'factor_sum');
+    $row = $query->execute()->fetchAssoc() ?: ['object_count' => 0, 'factor_sum' => 0];
+    return ['object_count' => (int) $row['object_count'], 'factor_sum' => (float) $row['factor_sum']];
+  }
+
   public function deleteScope(int $scopeId): void {
     $this->database->delete('brebo_calculation_subcalculation_scope')->condition('id', $scopeId)->execute();
   }
