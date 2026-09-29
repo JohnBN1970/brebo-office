@@ -125,7 +125,10 @@ final class RecipeManager {
    *
    * Available variables in recipe formulas:
    * top_m, bottom_m, left_m, right_m, perimeter_m, area_m2,
-   * width_mm, height_mm, quantity and passes.
+   * width_mm, height_mm, quantity, element_quantity and passes.
+   *
+   * Geometry variables are per element. Use quantity/element_quantity in the
+   * formula when the result must cover all elements.
    *
    * @param array<string,int|float|string> $parameterValues
    */
@@ -148,6 +151,7 @@ final class RecipeManager {
       'width_mm' => (float) ($takeoff['width_mm'] ?? 0),
       'height_mm' => (float) ($takeoff['height_mm'] ?? 0),
       'passes' => $passes,
+      'element_quantity' => (float) ($takeoff['quantity'] ?? 1),
     ];
     return $this->placeRecipe(
       $calculationId,
