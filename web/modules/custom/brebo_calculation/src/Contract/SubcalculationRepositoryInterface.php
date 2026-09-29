@@ -37,6 +37,8 @@ interface SubcalculationRepositoryInterface {
   public function subcalculation(int $subcalculationId): ?array;
   /** @return list<array<string,mixed>> */
   public function scopes(int $subcalculationId): array;
+  /** @return list<array<string,mixed>> */
+  public function selectedScopes(int $subcalculationId): array;
   /** @return list<int> */
   public function rowIdsForParagraph(int $calculationId, string $version, string $paragraphKey): array;
   /** @return array<string,mixed>|null */
