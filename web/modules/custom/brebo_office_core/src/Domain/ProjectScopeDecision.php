@@ -40,6 +40,14 @@ final readonly class ProjectScopeDecision {
     if (trim($sourceType) === '' || trim($sourceRef) === '') {
       throw new \InvalidArgumentException('Scope decision source type and reference are required.');
     }
+    if ($statementType !== ProjectScopeStatementType::DECIDED
+      && $disposition !== ProjectScopeDisposition::UNRESOLVED) {
+      throw new \InvalidArgumentException('Requested and observed statements cannot establish commercial scope.');
+    }
+    if ($statementType === ProjectScopeStatementType::DECIDED
+      && $disposition === ProjectScopeDisposition::UNRESOLVED) {
+      throw new \InvalidArgumentException('A confirmed scope decision requires a final disposition.');
+    }
     if ($confirmedBy <= 0 || $confirmedAt <= 0) {
       throw new \InvalidArgumentException('Scope decision requires explicit human confirmation.');
     }
