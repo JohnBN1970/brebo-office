@@ -1,112 +1,297 @@
-# BREBO Office Calculatie – Continuiteit
+# BREBO Office Calculatie — Continuiteit
 
-Laatst bijgewerkt: 2026-08-18
+Laatst bijgewerkt: 2026-09-29
 
-## Vastgestelde richting
+## Doel
 
-De calculatiemodule wordt doorontwikkeld als BREBO Office-werkbank, niet als klassiek Drupal-formulier.
+Dit document is het actieve hervatpunt voor BREBO Calculatie. Een nieuwe chat of ontwikkelsessie begint hier, samen met:
 
-Vaste gebruikersflow:
+1. docs/BREBO_CONTINUITEIT.md;
+2. docs/BREBO_CALCULATIE_ARCHITECTUUR.md;
+3. de actuele GitHub-stand van brebo-office en calc;
+4. open PR's en de laatste groene acceptance-runs.
 
-`Nieuwe calculatie` → compacte popup → naam → direct werkbank.
+Ga niet terug naar de situatie waarin Drupal, een Drupal-formulier of de Calc-interface bepaalt hoe een calculatie werkt.
 
-BREBO Office vult systeemvelden automatisch, waaronder calculatiecode, eerste versie, conceptstatus, prijspeildatum en auteur. Werkpakket is geen verplichte tussenlaag in de primaire calculatieflow.
+## Vastgestelde hoofdarchitectuur
+
+Calculatie is de eerste referentie-implementatie van de BREBO-softwarekern.
+
+~~~text
+BREBO calculatiedomein
+  -> businessregels
+  -> validatie
+  -> versie/lock/audit
+  -> rekenen/totaliseren
+  -> recepten/deelcalculaties
+  -> prijsbronnen/readiness
+  -> canonieke resultaten
+        |
+        v
+contracten
+        |
+        v
+infrastructuuradapters
+  -> Drupal Database
+  -> Drupal entities waar nog nodig
+  -> externe bronnen/providers
+
+BREBO calculatiedomein
+        |
+        v
+Workspace/API-contracten
+        |
+        +-> Calc-interface
+        +-> Office-dashboard
+        +-> Output/offerte
+        +-> AI
+        +-> latere apps
+~~~
+
+### Harde grens
+
+- Domeinservices bevatten geen directe Drupal Database API.
+- Domeinservices bevatten geen NodeInterface, AccountInterface, EntityTypeManagerInterface of UI-frameworkafhankelijkheid.
+- Drupal/database/providerlogica hoort in Infrastructure-adapters.
+- Calc is een vervangbare interface en bevat geen tweede calculatiemotor of lokale calculatiewaarheid.
+- De BREBO-kern is authoritative voor state, regels, resultaten en locks.
+- API-contracten zijn expliciete grenzen; terugval naar oude v1-runtimecontracten is ongewenst en wordt door CI bewaakt.
+- Een framework of interface moet vervangen kunnen worden zonder de calculatiekern opnieuw te bouwen.
+
+## Architectuurmijlpaal 29 september 2026 — PR #953
+
+Op branch architecture/calculation-recipes-subcalculations-id-routes is de actieve calculatiekern gecontroleerd losgetrokken van directe Drupal/databasekennis.
+
+Op de actuele branch zijn onder meer achter contracten/adapters geplaatst:
+
+- workspace read state;
+- parameters;
+- rows;
+- structure;
+- recipes en recipe instances;
+- materiaal-/prijsselectie;
+- deelcalculaties;
+- objectuitzonderingen;
+- canonieke calculation results/KPI-input;
+- normen, norm feedback en norm versioning;
+- price sources;
+- readiness;
+- calculation context;
+- draft initialization;
+- version establishment/snapshot/lock;
+- object-derived row writes;
+- block ordering en paragraph moves;
+- row/structure identity generation;
+- access checks;
+- workspace resource ownership;
+- kozijnprijsobservatie-opslag;
+- legacy migration.
+
+GuardedLegacyMigrator kent zelf geen Drupal Database meer; transactionele verificatie zit in een Infrastructure-repository.
+
+Bewezen gates op deze architectuurslag:
+
+- BREBO Project Render Smoke;
+- Calculation domain acceptance.
+
+Beide waren groen vóór de continuïteitsupdate. PR #953 is draft/mergeable totdat de architectuurslag formeel wordt gemerged.
+
+## Calc-interface — vaste scheiding
+
+De aparte calc repo is de gebruikersinterface en niet de rekenmotor.
+
+Actieve keten:
+
+~~~text
+Office/BREBO calculatiekern
+-> Workspace v2 API
+-> Calc-interface
+-> command
+-> Office/BREBO calculatiekern
+~~~
+
+Niet meer toegestaan:
+
+~~~text
+Drupal
+-> lokale Calc calculations/calculation_versions/calculation_lines
+-> React-berekeningen
+~~~
+
+Calc bewaart lokaal uitsluitend interface-/sessie-/replayinformatie waar nodig. Calculatie-ID, project-ID en actor-ID zijn verwijzingen naar de kern; calculatieresultaten komen uit Office.
+
+De /api/workbench/v1/... routefamilie is uit de actieve Calc-runtime verwijderd. CI moet terugval naar v1 blokkeren.
 
 ## Calculatiestructuur
 
 Vast model:
 
-Calculatie → hoofdgroep → paragraaf → gemengde blokken → recept of losse regel → onderliggende calculatieregels → materiaal-/prijsbron → kostprijs.
+~~~text
+Calculatie
+-> hoofdgroep
+-> paragraaf
+-> gemengde blokken
+   -> losse regel
+   -> recept
+-> onderliggende regels
+-> prijs-/brontrace
+-> directe kosten
+-> commerciële opbouw
+-> canoniek resultaat
+~~~
 
-Losse calculatieregels en recepten moeten in dezelfde paragraaf volledig door elkaar kunnen worden gebruikt en later ook in één sorteerstroom kunnen worden geplaatst.
+Losse regels en recepten delen één sorteerstroom binnen paragrafen.
+
+Regeltypen blijven onder meer:
+
+- normaal;
+- stelpost;
+- optie;
+- notitie;
+- verdisconterend;
+- verrekenbaar.
+
+Kostendragers blijven gescheiden van regeltypen:
+
+- arbeid;
+- materiaal;
+- materieel;
+- onderaanneming;
+- overig.
 
 ## Recepten
 
-Recepten zijn een kernonderdeel van BREBO Office Calculatie.
+Recepten blijven kernfunctionaliteit.
 
-Een recept:
+Een geplaatst recept:
 
-- bestaat uit meerdere regels;
-- kan materiaal, arbeid, materieel, onderaanneming en overige regels bevatten;
-- heeft een recepthoeveelheid;
-- kan meerdere invoer- en afgeleide parameters bevatten;
-- berekent onderliggende hoeveelheden parametrisch;
-- kan binnen een calculatie worden aangepast;
-- kan binnen de calculatie extra eigen regels krijgen;
-- wordt bij plaatsing als versievaste snapshot opgeslagen;
-- mag door wijzigingen in de centrale receptbibliotheek nooit stilzwijgend bestaande calculaties wijzigen.
+- heeft een versievaste snapshot;
+- bevat parametrische regels;
+- kan custom regels bevatten;
+- behoudt custom regels bij herberekening;
+- gebruikt gecontroleerde formule-evaluatie zonder eval();
+- kan artikel-/prijsreferenties vastzetten;
+- wijzigt bestaande calculaties niet stilzwijgend wanneer de centrale bibliotheek verandert.
 
-Voorbeeld: `Kozijn vervangen` kan regels bevatten voor kozijn, stelkozijn, flexpur, bevestigingsmateriaal, klein materiaal, arbeid montage, kitwerk en materieel.
+## Deelcalculaties
 
-## Formulemotor
+Deelcalculaties zijn herbruikbare scopes binnen dezelfde financiële waarheid. Zij mogen geen parallelle calculatiewereld worden.
 
-De formulemotor ondersteunt gecontroleerde rekenexpressies met variabelen, basisoperatoren, haakjes en toegestane functies. Er wordt bewust geen `eval()` gebruikt.
+Ondersteund model omvat onder meer:
 
-De recepthoeveelheid en parameters voeden de formules van onderliggende regels. Custom regels blijven bij herberekenen intact.
+- selectie van regels/paragrafen;
+- vermenigvuldigingsfactor;
+- toepassing op concrete objecten/woningen;
+- objectuitzonderingen;
+- eigen totalen afgeleid uit dezelfde bron;
+- versie-/lockgedrag via de centrale calculatiekern.
 
-## Materialen en prijslijsten
+Voor woningtypen geldt: typecalculatie x concrete woningen, met individuele uitzonderingen waar nodig.
 
-De centrale artikelstam uit `brebo_article` is de enige materiaalbron voor calculaties en recepten. Er wordt geen tweede artikelwereld naast gebouwd.
+## Hoeveelheden
 
-De bestaande artikelstam bevat onder andere:
+Vaste scheiding:
 
-- BREBO-artikel;
-- leverancier;
-- leveranciersartikel;
-- catalogusimport;
-- prijsversies/staffels;
-- prijsdatum.
+~~~text
+Begroot
+Voorbereid
+Gerealiseerd
+~~~
 
-Een materiaalregel in een recept kan via de centrale artikelpicker een concreet artikel en leverancier kiezen. De gekozen artikel-/prijscombinatie wordt gevalideerd en als referentie op de receptregel vastgelegd. De prijsdatum is de datum van de daadwerkelijk gekozen prijs/catalogusimport en niet automatisch de aanmaakdatum van de calculatie.
+Geen van deze werelden overschrijft een andere stilzwijgend. Verschillen zijn stuurinformatie voor faalkosten, inkoop, uitvoering en normverbetering.
 
-Dezelfde picker wordt gebruikt voor bestaande materiaalregels en nieuw toegevoegde custom materiaalregels.
+## Prijsbronnen en leveranciersoffertes
 
-## Huidige implementatie
+Prijsbronnen blijven herleidbaar naar bron en menselijke beoordeling.
 
-Op `develop` aanwezig:
+Vaste principes:
 
-- receptdatamodel met bibliotheek, versies, parameters, regels, instanties en snapshots;
-- `RecipeFormulaEvaluator`;
-- `RecipeManager`;
-- formule-smoketest;
-- recept plaatsen vanuit de calculatiewerkbank;
-- receptinstanties en onderliggende regels zichtbaar in de werkbank;
-- recepteditor;
-- recepthoeveelheid wijzigen en parametrisch herberekenen;
-- custom regels aan een geplaatst recept toevoegen;
-- `RecipeMaterialSelector`;
-- centrale artikelpicker gekoppeld aan receptmateriaalregels;
-- automatische opslag na artikelkeuze;
-- artikelpicker ook beschikbaar bij het toevoegen van custom materiaalregels.
+- extractie is voorstel, geen automatische financiële waarheid;
+- leverancier/offerte/document blijft traceerbaar;
+- prijsbron en kostendrager zijn afzonderlijke begrippen;
+- goedkeuring schrijft pas daarna naar de relevante kostendrager;
+- leveranciersofferteherkenning, preview en visuele bewijspositie lopen via Workspace v2;
+- documentherkenningslogica mag functioneel verder verbeteren zonder opnieuw een lokale Calc-waarheid te introduceren.
 
-Belangrijke recente commits:
+## Normen en leren
 
-- `93cb37e4` documentatie receptarchitectuur;
-- `cf92824b` receptdatamodel;
-- `1ef3a322` veilige formulemotor;
-- `0776bd6b` RecipeManager;
-- `dab65036` receptinstanties in werkbank;
-- `e999ea90` recepthoeveelheid en herberekening;
-- `27310b61` recepteditor;
-- `38c32757` materiaal-selector;
-- `9e361481` artikelpicker in recepteditor;
-- `90f4fb01` automatische opslag artikelkeuze;
-- `f37015b2` artikelpicker voor custom materiaalregels.
+Normen, normfeedback en normversies zijn nu achter repositorycontracten geplaatst.
 
-## Eerstvolgende ontwikkellijn
+Werkelijke projectdata kan toekomstige calculaties voeden, maar:
 
-1. Invoerparameters van geplaatste recepten bewerkbaar maken en daarna automatisch herberekenen.
-2. Custom en gegenereerde receptregels verder inline bewerkbaar maken waar functioneel nodig.
-3. Losse regels en recepten samenbrengen in één echte sorteerstroom per paragraaf.
-4. Receptbibliotheek-UX verder uitbouwen.
-5. Nieuwe-calculatie-popup als primaire aanmaakroute afmaken.
-6. AI-laag toevoegen voor calculatienaam, receptvoorstellen, parameterassistentie en materiaalalternatieven.
+- nooit blind;
+- altijd met context;
+- altijd traceerbaar;
+- vervangende normversies zijn expliciet en versioneerbaar.
 
-## Harde regels
+## Readiness en vaststellen
 
-- Geen parallel calculatiemodel introduceren.
-- Bestaande calculatie-, locking-, audit- en financiële invarianten blijven leidend.
-- Een gelockte/niet-draft calculatieversie mag niet worden gewijzigd.
-- Receptsnapshots blijven reproduceerbaar.
-- Materiaalprijzen blijven herleidbaar naar leverancier, prijsversie/catalogusimport en prijsdatum.
-- Kwaliteit en controleerbaarheid gaan voor snelheid.
+Een calculatieversie kan alleen worden vastgesteld wanneer de readiness-gates dit toestaan.
+
+Vaststellen omvat:
+
+- canonical result;
+- structure;
+- relevante row-data;
+- content hash;
+- immutable snapshot;
+- lockstatus;
+- actor/audit.
+
+Een vastgestelde versie verandert nooit stilzwijgend.
+
+## Werkbank/UI
+
+De spreadsheetachtige werkbank blijft de primaire bediening.
+
+UI-polijsting wordt bewust los gehouden van de kernarchitectuur. Een andere chat/ontwikkellijn mag de Calc-interface verder verbeteren zolang:
+
+- geen businesslogica naar React verhuist;
+- geen lokale calculatiewaarheid terugkomt;
+- Workspace/API-contracten gerespecteerd blijven.
+
+## Nog open — functioneel
+
+De architectuurscheiding betekent niet dat Calculatie functioneel klaar is.
+
+Belangrijke open lijnen:
+
+1. werkbank verder afmaken zonder kernlogica naar de UI te verplaatsen;
+2. prijsbronnen/offertes/artikelkeuze verder operatorvriendelijk maken;
+3. deelcalculaties/woningtypen volledig door de gebruikersflow sluiten;
+4. parameters/commerciële opbouw en regelafhankelijke norm/urenbediening verder verfijnen;
+5. kolommen vrij instelbaar maken waar functioneel nodig;
+6. documentherkenning en bewijspositie verder verbeteren;
+7. offerte/output via generieke Outputgenerator sluiten;
+8. hoeveelheden-/productiemotor voor begroot/voorbereid/gerealiseerd uitbouwen;
+9. AI-assistentie bovenop de kern toevoegen, nooit als tweede waarheid;
+10. legacy-tabellen en compatibilitylagen pas fysiek verwijderen nadat rollback/migratiebewijs dit veilig maakt.
+
+## Organisatiebrede vervolgroute
+
+Calculatie is nu het patroon voor de rest van BREBO Office.
+
+Volgorde:
+
+~~~text
+Calculatie-architectuur formeel afronden
+-> kern-/adaptergrens permanent borgen
+-> Finance volgens hetzelfde patroon auditen en ontkoppelen
+-> Projecten volgens hetzelfde patroon auditen en ontkoppelen
+-> Inzet/overige vakmodules laten volgen waar nodig
+~~~
+
+Niet opnieuw per module een andere architectuur uitvinden.
+
+## Hervatregel
+
+Bij hervatten van Calculatie:
+
+1. controleer eerst de actuele head van PR #953 en de laatste acceptance-runs;
+2. indien #953 nog niet gemerged is: eerst architectuurslag schoon afronden;
+3. indien gemerged: behoud de contract/adaptergrens en pak functionele werkbank-/prijsbron-/deelcalculatie-/outputtaken;
+4. raak UI-werk uit andere ontwikkelchats niet onnodig aan;
+5. introduceer geen nieuwe directe Drupal Database- of frameworkafhankelijkheid in domeinservices;
+6. introduceer geen lokale Calc-calculatiewaarheid.
+
+Kwaliteit, reproduceerbaarheid en faalkostenpreventie gaan voor snelheid.
