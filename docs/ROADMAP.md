@@ -6,7 +6,7 @@ BREBO Office gefaseerd ontwikkelen tot een betrouwbaar digitaal bedrijfs- en geb
 
 ## Peildatum
 
-25 augustus 2026.
+29 september 2026.
 
 ## Leidende bronnen
 
@@ -15,18 +15,26 @@ De roadmap volgt de volgende bronvolgorde:
 1. het vastgestelde BREBO Proceshandboek;
 2. het Canonical Information Model (CIM) en het domein-/objectmodel;
 3. Appendix A voor vastgestelde aanvullingen en ontwikkelbesluiten;
-4. de actuele Drupal-implementatie en technische documentatie.
+4. de actuele BREBO-domeinarchitectuur en technische documentatie;
+5. de actuele Drupal-/interface-implementatie als adapter op die kern.
 
-Bij strijdigheid wordt niet vanuit de software teruggeredeneerd naar de bedrijfsnorm. De software wordt aangepast aan de vastgestelde functionele bron.
+Bij strijdigheid wordt niet vanuit de software teruggeredeneerd naar de bedrijfsnorm. De software wordt aangepast aan de vastgestelde functionele bron. Drupal, React/Calc en andere interfaces zijn daarbij implementatie-/presentatielagen en geen bron van domeinwaarheid.
 
 ## Totale voortgang
 
-BREBO Office is de prototypefase voorbij. Meerdere echte bedrijfsprocessen zijn operationeel of substantieel gebouwd. De actuele indicatieve voortgang is:
+BREBO Office is de prototypefase voorbij. Meerdere echte bedrijfsprocessen zijn operationeel of substantieel gebouwd.
 
-- circa **70% richting een breed dagelijks bruikbaar BREBO Office**;
-- circa **55-60% richting de volledige eindvisie**.
+**De percentages uit augustus 2026 zijn per 29 september vervallen als actuele technische stuurinformatie.** De scope en architectuur zijn sindsdien wezenlijk veranderd, onder meer door de expliciete scheiding tussen BREBO-domeinkern, infrastructuuradapters en vervangbare interfaces. Voortgang wordt daarom per functionele keten, acceptancebewijs en architectuurmijlpaal beoordeeld in plaats van met één totaalpercentage.
 
-Deze percentages zijn stuurinformatie en geen formele acceptatiecriteria. De eindvisie is sinds de vorige peildatum verbreed met onder meer Finance/Moneybird, Inzet, klantportaal, digitale control, Outputgenerator en verdere managementsturing.
+De eerstvolgende organisatiebrede architectuurbeweging is:
+
+```text
+Calculatie als bewezen referentiemodel
+-> softwarekerngrens borgen
+-> Finance volgens hetzelfde patroon ontkoppelen
+-> Projecten volgens hetzelfde patroon ontkoppelen
+-> overige vakmodules gecontroleerd laten volgen
+```
 
 | Fase | Actuele status | Indicatief |
 | --- | --- | ---: |
@@ -39,6 +47,27 @@ Deze percentages zijn stuurinformatie en geen formele acceptatiecriteria. De ein
 | 6. Digitale rollen | bouwstenen aanwezig; operationalisering nog niet gesloten | 45% |
 | 7. Feedback en organisatorisch leren | richting en deelbouwstenen aanwezig | 30% |
 | 8. Dashboards en managementsturing | Project Cockpit en financiële sturing aanwezig; portfolio/directie verder uitbouwen | 55% |
+
+## Architectuurmijlpaal — BREBO softwarekern
+
+**Status: referentiepatroon bewezen in Calculatie; organisatiebrede uitrol gestart**
+
+Per 29 september 2026 geldt:
+
+```text
+Domeinservice
+-> contract/interface
+-> infrastructuuradapter
+-> Drupal/database/provider
+
+Domeinservice
+-> API-contract
+-> vervangbare gebruikersinterface
+```
+
+Calculatie is de eerste referentie-implementatie. Op PR #953 zijn actieve calculatie-services, access checks en legacy migration losgetrokken van directe Drupal Database-kennis. Workspace v2 is de actieve Calc-contractgrens en Calc bewaart geen lokale calculatiewaarheid meer.
+
+De roadmap voor Finance, Projecten en volgende vakmodules gebruikt dit patroon als standaard. Nieuwe code mag niet opnieuw Drupal of een specifieke interface tot eigenaar van businesslogica maken.
 
 ## Fase 0 — Procesfundering en governance
 
@@ -160,7 +189,9 @@ De Project Cockpit is een echte operationele stuurlaag met projectcontext voor o
 
 ### Calculatie
 
-De calculatiemodule beschikt over een spreadsheetachtige hiërarchische werkbank, AJAX/autosave, subtotalen, commerciële opbouw, scenariovergelijking en een prijsbronnenfundering. Eerstvolgende functionele stap is prijsbronnen rechtstreeks vanuit calculatieregels bedienen, controleren en naar OA laten boeken met volledige herleidbaarheid.
+Calculatie is naast functionele werkbank nu ook het architecturale referentiemodel voor BREBO Office. De domein-/rekenservices zijn achter contracten en infrastructuuradapters geplaatst; Calc en Drupal zijn niet langer eigenaar van calculatiewaarheid.
+
+De eerstvolgende calculatiestappen zijn daarom functioneel en integratief: werkbank/prijsbronnen/documentherkenning/output verder afronden, zonder opnieuw domeinlogica in Calc of Drupal-controllers te introduceren.
 
 ### Finance en Moneybird
 
@@ -184,16 +215,16 @@ De generieke Outputgenerator is architectonisch vastgesteld als platformvoorzien
 
 ## Actuele hoofdprioriteiten
 
-1. `sboffice` als enige canonieke runtimewaarheid bevestigen en legacy/runtimeconfiguratie opschonen.
-2. Mail/Zoho-readiness aantoonbaar sluiten en daarna historische migratie gecontroleerd uitvoeren.
-3. Finance/Moneybird voor leveranciers, inkoopfacturen en financiële controles verder sluiten.
-4. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
-5. Digitale rollen operationaliseren bovenop betrouwbare dossier- en controldata.
-6. Calculatieprijsbronnen en inkooponderbouwing sluiten.
-7. Klantportaal veilig verder openen na access/publication/security-hardening.
-8. Outputgenerator implementeren.
-9. Management- en portfoliosturing verder uitbouwen.
-10. Canonieke gebouw-/projectconsolidatie en legacy-afbouw continu bewaken.
+1. Calculatie-architectuurslag PR #953 afronden/mergen en de kern-/adaptergrens permanent in CI borgen.
+2. Finance gecontroleerd auditen en ontkoppelen volgens het bewezen calculatiepatroon.
+3. Projecten gecontroleerd auditen en ontkoppelen volgens hetzelfde patroon.
+4. `sboffice` als enige canonieke runtimewaarheid bevestigen en legacy/runtimeconfiguratie opschonen.
+5. Mail/Zoho-readiness aantoonbaar sluiten en daarna historische migratie gecontroleerd uitvoeren.
+6. Finance/Moneybird leveranciers-, inkoopfactuur- en financiële controleketens verder sluiten binnen de nieuwe kernarchitectuur.
+7. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
+8. Digitale rollen en calculatie-/inkooponderbouwing verder sluiten op betrouwbare kernservices.
+9. Klantportaal en Outputgenerator veilig verder uitbouwen via expliciete contracten/projecties.
+10. Managementsturing, canonieke gebouw-/projectconsolidatie en legacy-afbouw continu bewaken.
 
 ## Actuele positie
 
