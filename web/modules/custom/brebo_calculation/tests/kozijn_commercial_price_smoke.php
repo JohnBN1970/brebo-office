@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../src/Domain/CalculationParameters.php';
 require_once __DIR__ . '/../src/Domain/CommercialResult.php';
 require_once __DIR__ . '/../src/Service/CommercialCalculator.php';
+require_once __DIR__ . '/kozijn_price_observation_fixture.php';
 require_once __DIR__ . '/../src/Service/KozijnPriceEngine.php';
 require_once __DIR__ . '/../src/Service/KozijnCommercialPriceService.php';
 
@@ -13,7 +14,7 @@ use Drupal\brebo_calculation\Service\CommercialCalculator;
 use Drupal\brebo_calculation\Service\KozijnCommercialPriceService;
 use Drupal\brebo_calculation\Service\KozijnPriceEngine;
 
-$service = new KozijnCommercialPriceService(new KozijnPriceEngine(), new CommercialCalculator());
+$service = new KozijnCommercialPriceService(new KozijnPriceEngine(brebo_kozijn_test_observation_provider()), new CommercialCalculator());
 $params = new CalculationParameters(commercialMethod: 'single_margin', singleMarginPct: 10.0);
 $result = $service->calculate([
   'width_mm' => 1200,

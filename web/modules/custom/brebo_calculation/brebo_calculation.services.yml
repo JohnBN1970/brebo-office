@@ -5,6 +5,7 @@ services:
 
   brebo_calculation.kozijn_price_engine:
     class: Drupal\brebo_calculation\Service\KozijnPriceEngine
+    arguments: ['@brebo_calculation.kozijn_price_observation_repository']
 
   brebo_calculation.commercial_calculator:
     class: Drupal\brebo_calculation\Service\CommercialCalculator
