@@ -186,14 +186,12 @@ brebo_office_core.calculations:
 brebo_office_core.calculation_dashboard:
   path: '/calculaties/{node}'
   defaults:
-    _controller: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboard'
-    _title_callback: '\Drupal\brebo_office_core\Controller\OfficeController::calculationDashboardTitle'
+    _controller: '\Drupal\brebo_office_core\Controller\CalculationWorkbenchLaunchController::launchLegacy'
   requirements:
-    _entity_access: 'node.view'
+    _permission: 'edit brebo calculation workbench'
+    node: '\d+'
   options:
-    parameters:
-      node:
-        type: entity:node
+    no_cache: TRUE
 
 
 brebo_office_core.create_offer_version:
@@ -537,16 +535,14 @@ brebo_office_core.calc_project_context:
 
 
 brebo_office_core.calc_workbench_launch:
-  path: '/calculaties/{node}/open-in-calc'
+  path: '/calculaties/{calculation}/open-in-calc'
   defaults:
     _controller: '\Drupal\brebo_office_core\Controller\CalculationWorkbenchLaunchController::launch'
   requirements:
-    _entity_access: 'node.view'
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\d+'
   options:
     no_cache: TRUE
-    parameters:
-      node:
-        type: entity:node
 
 
 brebo_office_core.calc_project_context_v2:

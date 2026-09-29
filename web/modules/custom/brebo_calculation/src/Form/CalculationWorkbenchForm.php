@@ -155,7 +155,7 @@ final class CalculationWorkbenchForm extends FormBase {
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId])->toString()) . '">Deelcalculaties</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Opslagen & parameters</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['node' => $calculationId])->toString()) . '">Project koppelen</a>'
-        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $calculationId])->toString()) . '">Open in Calculatie</a>'
+        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['calculation' => $calculationId])->toString()) . '">Open in Calculatie</a>'
         . '</div></section>',
     ];
 

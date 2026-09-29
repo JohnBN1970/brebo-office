@@ -3369,7 +3369,7 @@ final class OfficeController extends ControllerBase {
         ],
         'open_calc_workbench' => [
           '#type' => 'link', '#title' => $this->t('Open in Calculatie'),
-          '#url' => Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('brebo_office_core.calc_workbench_launch', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
         'add_adjustment' => [

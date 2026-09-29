@@ -19,7 +19,7 @@ final class CalculationWorkspaceRedirectController extends ControllerBase {
     }
 
     return new RedirectResponse(
-      Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $calculation])->toString(),
+      Url::fromRoute('brebo_office_core.calc_workbench_launch', ['calculation' => $calculation])->toString(),
     );
   }
 
