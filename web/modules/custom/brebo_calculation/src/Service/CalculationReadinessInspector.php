@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationReadinessRepositoryInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
 /** Aggregates calculation quality checks into an offer-readiness status. */
 final class CalculationReadinessInspector {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationReadinessRepositoryInterface $repository,
     private readonly RecipePriceHealthInspector $priceHealthInspector,
     private readonly CalculationLineReadModelInterface $lineReadModel,
   ) {}
@@ -24,12 +24,7 @@ final class CalculationReadinessInspector {
     $blocking = 0;
     $warnings = 0;
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->rows($calculationId, $version);
 
     $rowIds = array_values(array_filter(array_map(
       static fn (array $row): int => (int) ($row['row_id'] ?? 0),
@@ -56,12 +51,7 @@ final class CalculationReadinessInspector {
       }
     }
 
-    $instanceLines = $this->database->select('brebo_calculation_recipe_instance_line', 'l');
-    $instanceLines->join('brebo_calculation_recipe_instance', 'i', 'i.id = l.recipe_instance_id');
-    $instanceLines->fields('l');
-    $instanceLines->condition('i.calculation_id', $calculationId);
-    $instanceLines->condition('i.calculation_version', $version);
-    $recipeLines = $instanceLines->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $recipeLines = $this->repository->recipeLines($calculationId, $version);
 
     foreach ($recipeLines as $line) {
       $health = $this->priceHealthInspector->inspect($line);

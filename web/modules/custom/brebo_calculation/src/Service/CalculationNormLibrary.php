@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationNormRepositoryInterface;
 
 /** Resolves active BREBO productivity and material norms. */
 final class CalculationNormLibrary {
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly CalculationNormRepositoryInterface $repository) {}
 
   /** @param array<string,mixed> $context */
   public function value(string $domain,string $normKey,array $context,float $fallback): float {
-    if(!$this->database->schema()->tableExists('brebo_calculation_norm')) return $fallback;
-    $rows=$this->database->select('brebo_calculation_norm','n')->fields('n')->condition('domain',$domain)->condition('norm_key',$normKey)->condition('active',1)->orderBy('priority','DESC')->orderBy('id','DESC')->execute()->fetchAllAssoc('id',\PDO::FETCH_ASSOC);
+    $rows = $this->repository->activeNorms($domain, $normKey);
     foreach($rows as$row){$conditions=json_decode((string)($row['conditions_json']??''),TRUE);if(!is_array($conditions))$conditions=[];if($this->matches($conditions,$context))return(float)$row['value'];}
     return $fallback;
   }

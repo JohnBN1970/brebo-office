@@ -1,11 +1,53 @@
 services:
+  brebo_calculation.parameters_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationParametersRepository
+    arguments: ['@database']
+
+  brebo_calculation.parameters_manager:
+    class: Drupal\brebo_calculation\Service\CalculationParametersManager
+    arguments:
+      - '@brebo_calculation.parameters_repository'
+      - '@brebo_calculation.access_gateway'
+
+  brebo_calculation.calc_request_authenticator:
+    class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
+    arguments: ['@cache.default']
+
+  brebo_calculation.workspace_resource_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceResourceRepository
+    arguments: ['@database']
+
+  brebo_calculation.workspace_resource_guard:
+    class: Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard
+    arguments: ['@brebo_calculation.workspace_resource_repository']
+
+  brebo_calculation.workspace_read_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceReadRepository
+    arguments: ['@database']
+
+  brebo_calculation.workspace_state:
+    class: Drupal\brebo_calculation\Service\CalculationWorkspaceStateService
+    arguments:
+      - '@brebo_calculation.workspace_read_repository'
+      - '@brebo_calculation.context'
+      - '@brebo_calculation.result'
+      - '@brebo_calculation.readiness_inspector'
+
+  brebo_calculation.context_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationContextRepository
+    arguments: ['@database']
+
   brebo_calculation.context:
     class: Drupal\brebo_calculation\Service\CalculationContextService
+    arguments: ['@brebo_calculation.context_repository']
+
+  brebo_calculation.identity_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationIdentityRepository
     arguments: ['@database']
 
   brebo_calculation.structure_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationStructureIdentityGenerator
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.identity_repository']
 
   brebo_calculation.legacy_line_mirror_policy:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyLineMirrorPolicy
@@ -17,7 +59,7 @@ services:
 
   brebo_calculation.row_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationRowIdentityGenerator
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.identity_repository']
 
   brebo_calculation.legacy_source:
     class: Drupal\brebo_calculation\Infrastructure\DrupalLegacyCalculationSource
@@ -35,11 +77,15 @@ services:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationStructureLegacyGateway
     arguments: ['@entity_type.manager']
 
+  brebo_calculation.access_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationAccessRepository
+    arguments: ['@database']
+
   brebo_calculation.access_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationAccessGateway
     arguments:
       - '@entity_type.manager'
-      - '@database'
+      - '@brebo_calculation.access_repository'
 
   brebo_calculation.legacy_line_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
@@ -55,9 +101,13 @@ services:
       - '@brebo_calculation.legacy_line_mirror_map'
       - '@brebo_calculation.legacy_line_mirror_policy'
 
+  brebo_calculation.kozijn_price_observation_store:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseKozijnPriceObservationStore
+    arguments: ['@database']
+
   brebo_calculation.kozijn_price_observation_repository:
     class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.kozijn_price_observation_store']
 
   brebo_calculation.kozijn_price_engine:
     class: Drupal\brebo_calculation\Service\KozijnPriceEngine
@@ -71,17 +121,25 @@ services:
       - '@brebo_calculation.kozijn_price_engine'
       - '@brebo_calculation.commercial_calculator'
 
+  brebo_calculation.result_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationResultRepository
+    arguments: ['@database']
+
   brebo_calculation.result:
     class: Drupal\brebo_calculation\Service\CalculationResultService
     arguments:
-      - '@database'
+      - '@brebo_calculation.result_repository'
       - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.commercial_calculator'
+
+  brebo_calculation.establishment_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationEstablishmentRepository
+    arguments: ['@database']
 
   brebo_calculation.version_establisher:
     class: Drupal\brebo_calculation\Service\CalculationVersionEstablisher
     arguments:
-      - '@database'
+      - '@brebo_calculation.establishment_repository'
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
@@ -118,59 +176,95 @@ services:
       - '@database'
       - '@brebo_calculation.row_identity_generator'
 
+  brebo_calculation.legacy_migration_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseLegacyMigrationRepository
+    arguments: ['@database']
+
   brebo_calculation.guarded_legacy_migrator:
     class: Drupal\brebo_calculation\Service\GuardedLegacyMigrator
     arguments:
       - '@brebo_calculation.legacy_dry_run'
       - '@brebo_calculation.persistence'
       - '@brebo_calculation.legacy_source'
-      - '@database'
+      - '@brebo_calculation.legacy_migration_repository'
+
+  brebo_calculation.row_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationRowRepository
+    arguments: ['@database']
 
   brebo_calculation.row_manager:
     class: Drupal\brebo_calculation\Service\CalculationRowManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.row_repository'
       - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.row_identity_generator'
 
+  brebo_calculation.object_line_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationObjectLineRepository
+    arguments: ['@database']
+
   brebo_calculation.object_line_writer:
     class: Drupal\brebo_calculation\Service\CalculationObjectLineWriter
     arguments:
-      - '@database'
+      - '@brebo_calculation.object_line_repository'
       - '@brebo_calculation.row_manager'
       - '@brebo_calculation.legacy_line_compatibility'
+
+  brebo_calculation.block_order_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationBlockOrderRepository
+    arguments: ['@database']
 
   brebo_calculation.block_order_manager:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.block_order_repository'
       - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
 
+  brebo_calculation.norm_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormRepository
+    arguments: ['@database']
+
   brebo_calculation.norm_library:
     class: Drupal\brebo_calculation\Service\CalculationNormLibrary
+    arguments: ['@brebo_calculation.norm_repository']
+
+  brebo_calculation.norm_feedback_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormFeedbackRepository
     arguments: ['@database']
 
   brebo_calculation.norm_feedback:
     class: Drupal\brebo_calculation\Service\CalculationNormFeedbackService
+    arguments: ['@brebo_calculation.norm_feedback_repository']
+
+  brebo_calculation.norm_version_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationNormVersionRepository
     arguments: ['@database']
 
   brebo_calculation.norm_version_manager:
     class: Drupal\brebo_calculation\Service\CalculationNormVersionManager
+    arguments: ['@brebo_calculation.norm_version_repository']
+
+  brebo_calculation.structure_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationStructureRepository
     arguments: ['@database']
 
   brebo_calculation.structure_manager:
     class: Drupal\brebo_calculation\Service\CalculationStructureManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.structure_repository'
       - '@brebo_calculation.access_gateway'
       - '@brebo_calculation.structure_identity_generator'
+
+  brebo_calculation.price_source_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationPriceSourceRepository
+    arguments: ['@database']
 
   brebo_calculation.price_source_manager:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.price_source_repository'
 
   brebo_calculation.supplier_quote_normalizer:
     class: Drupal\brebo_calculation\Service\SupplierQuoteNormalizer
@@ -178,49 +272,75 @@ services:
   brebo_calculation.supplier_quote_pdf_text_extractor:
     class: Drupal\brebo_calculation\Service\SupplierQuotePdfTextExtractor
 
+  brebo_calculation.subcalculation_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseSubcalculationRepository
+    arguments: ['@database']
+
   brebo_calculation.subcalculation_manager:
     class: Drupal\brebo_calculation\Service\SubcalculationManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.subcalculation_repository'
+
+  brebo_calculation.object_exception_line_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseObjectExceptionLineRepository
+    arguments: ['@database']
 
   brebo_calculation.object_exception_line_manager:
     class: Drupal\brebo_calculation\Service\ObjectExceptionLineManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.object_exception_line_repository'
+
+  brebo_calculation.draft_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationDraftRepository
+    arguments: ['@database']
 
   brebo_calculation.draft_initializer:
     class: Drupal\brebo_calculation\Service\CalculationDraftInitializer
     arguments:
-      - '@database'
+      - '@brebo_calculation.draft_repository'
 
   brebo_calculation.recipe_formula_evaluator:
     class: Drupal\brebo_calculation\Service\RecipeFormulaEvaluator
 
+  brebo_calculation.recipe_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseRecipeRepository
+    arguments: ['@database']
+
   brebo_calculation.recipe_manager:
     class: Drupal\brebo_calculation\Service\RecipeManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.recipe_repository'
       - '@brebo_calculation.recipe_formula_evaluator'
+      - '@brebo_calculation.access_gateway'
+
+  brebo_calculation.recipe_material_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseRecipeMaterialRepository
+    arguments: ['@database']
 
   brebo_calculation.recipe_material_selector:
     class: Drupal\brebo_calculation\Service\RecipeMaterialSelector
     arguments:
-      - '@database'
+      - '@brebo_calculation.recipe_material_repository'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.recipe_price_health_inspector:
     class: Drupal\brebo_calculation\Service\RecipePriceHealthInspector
 
+  brebo_calculation.readiness_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationReadinessRepository
+    arguments: ['@database']
+
   brebo_calculation.readiness_inspector:
     class: Drupal\brebo_calculation\Service\CalculationReadinessInspector
     arguments:
-      - '@database'
+      - '@brebo_calculation.readiness_repository'
       - '@brebo_calculation.recipe_price_health_inspector'
       - '@brebo_calculation.line_read_model'
 
   brebo_calculation.offer_readiness_access:
     class: Drupal\brebo_calculation\Access\OfferReadinessAccessCheck
     arguments:
-      - '@database'
+      - '@brebo_calculation.access_repository'
       - '@brebo_calculation.readiness_inspector'
     tags:
       - { name: access_check, applies_to: _brebo_offer_ready }
@@ -228,7 +348,7 @@ services:
   brebo_calculation.offer_confirmed_access:
     class: Drupal\brebo_calculation\Access\OfferConfirmedAccessCheck
     arguments:
-      - '@database'
+      - '@brebo_calculation.access_repository'
       - '@brebo_calculation.readiness_inspector'
       - '@request_stack'
     tags:
@@ -236,10 +356,5 @@ services:
 
   brebo_calculation.offer_readiness_route_subscriber:
     class: Drupal\brebo_calculation\Routing\OfferReadinessRouteSubscriber
-    tags:
-      - { name: event_subscriber }
-
-  brebo_calculation.workspace_route_subscriber:
-    class: Drupal\brebo_calculation\Routing\CalculationWorkspaceRouteSubscriber
     tags:
       - { name: event_subscriber }

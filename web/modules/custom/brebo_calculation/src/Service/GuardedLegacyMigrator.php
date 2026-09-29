@@ -11,7 +11,7 @@ use Drupal\brebo_calculation\Domain\CalculationStatus;
 use Drupal\brebo_calculation\Domain\CalculationVersion;
 use Drupal\brebo_calculation\Domain\ClassificationSystem;
 use Drupal\brebo_calculation\Domain\MigrationWriteResult;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\LegacyMigrationRepositoryInterface;
 
 /**
  * Writes a legacy calculation only after a fresh clean dry-run.
@@ -25,7 +25,7 @@ final class GuardedLegacyMigrator {
     private readonly LegacyDryRunService $dryRun,
     private readonly CalculationPersistenceInterface $persistence,
     private readonly LegacyCalculationSourceInterface $legacySource,
-    private readonly Connection $database,
+    private readonly LegacyMigrationRepositoryInterface $repository,
   ) {}
 
   public function migrate(int $calculationId, string $version = 'migration-1'): MigrationWriteResult {
@@ -33,7 +33,7 @@ final class GuardedLegacyMigrator {
     if ($version === '') {
       throw new \InvalidArgumentException('Migration version is required.');
     }
-    if ($this->versionExists($calculationId, $version)) {
+    if ($this->repository->versionExists($calculationId, $version)) {
       throw new \RuntimeException('Calculation migration blocked: target migration version already exists.');
     }
 
@@ -57,8 +57,7 @@ final class GuardedLegacyMigrator {
       contentHash: $hash,
     );
 
-    $transaction = $this->database->startTransaction();
-    try {
+    $this->repository->transactional(function () use ($calculationId, $version, $domainVersion, $preview, $legacyLines, $hash): void {
       $this->persistence->saveVersion($calculationId, $domainVersion);
       $this->persistence->replaceStructure($calculationId, $version, $domainVersion->classificationSystem, $preview->structure);
 
@@ -83,12 +82,7 @@ final class GuardedLegacyMigrator {
         ]);
       }
 
-      $this->assertWritten($calculationId, $version, count($preview->structure), count($preview->rows), $hash);
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
-    }
+      $this->repository->assertWritten($calculationId, $version, count($preview->structure), count($preview->rows), $hash);    });
 
     return new MigrationWriteResult(
       calculationId: $calculationId,
@@ -97,33 +91,6 @@ final class GuardedLegacyMigrator {
       rowCount: count($preview->rows),
       contentHash: $hash,
     );
-  }
-
-  private function versionExists(int $calculationId, string $version): bool {
-    return (bool) $this->database->select('brebo_calculation_version', 'v')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->countQuery()->execute()->fetchField();
-  }
-
-  private function assertWritten(int $calculationId, string $version, int $structureCount, int $rowCount, string $hash): void {
-    $storedStructure = (int) $this->database->select('brebo_calculation_structure', 's')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->countQuery()->execute()->fetchField();
-    $storedRows = (int) $this->database->select('brebo_calculation_row_domain', 'r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->countQuery()->execute()->fetchField();
-    $storedHash = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['content_hash'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()->fetchField();
-
-    if ($storedStructure !== $structureCount || $storedRows !== $rowCount || $storedHash !== $hash) {
-      throw new \RuntimeException('Calculation migration verification failed; transaction will be rolled back.');
-    }
   }
 
   private function migrationHash(object $preview): string {

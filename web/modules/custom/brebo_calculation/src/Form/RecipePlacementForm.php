@@ -160,7 +160,7 @@ final class RecipePlacementForm extends FormBase {
       (int) $values['version_id'],
       (float) $values['quantity'],
       $parameterValues,
-      $this->currentUser(),
+      (int) $this->currentUser()->id(),
     );
 
     $this->messenger()->addStatus($this->t('Recept geplaatst als calculatieblok @id.', ['@id' => $instanceId]));

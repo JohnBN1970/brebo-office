@@ -2,7 +2,36 @@
 
 ## Status
 
-Dit document legt de nieuwe functionele hoofdstructuur van de BREBO Office-calculatie vast. De bestaande rekenvelden en koppelingen worden waar zinvol hergebruikt, maar de gebruikerswerkplek wordt opnieuw opgebouwd rond een herkenbare calculatiestructuur.
+Dit document legt de functionele én technische hoofdstructuur van BREBO Calculatie vast. De bestaande rekenvelden en koppelingen worden waar zinvol hergebruikt. De gebruikerswerkplek is een vervangbare interface boven de BREBO-calculatiekern en bepaalt de domeinlogica niet.
+
+## Architectuurgrens — vastgesteld 29 september 2026
+
+De calculatiearchitectuur bestaat uit een framework-onafhankelijke BREBO-domeinkern met expliciete contracten naar infrastructuur en interfaces.
+
+~~~text
+Calculatiedomein
+-> contracts
+-> Infrastructure adapters
+   -> Drupal Database
+   -> Drupal entities
+   -> externe providers
+
+Calculatiedomein
+-> Workspace/API contracts
+-> vervangbare interfaces
+   -> Calc
+   -> Office
+   -> Output/offerte
+   -> AI
+~~~
+
+Drupal en Calc zijn geen eigenaar van de calculatiewaarheid.
+
+Domeinservices bevatten businessregels, validatie, versie-/lockgedrag, totalisering, readiness en resultaatsamenstelling. Opslag, frameworktypes en providerkoppelingen horen in adapters. Nieuwe domeinservices mogen geen directe Drupal Database API, NodeInterface, AccountInterface of EntityTypeManager gebruiken.
+
+De actieve Calc-interface gebruikt Workspace v2 en bewaart geen eigen calculatieversies/-regels als tweede waarheid. Terugval naar Workspace v1 of lokale Calc-calculatielogica is architectonisch niet toegestaan.
+
+PR #953 vormt de eerste volledige referentie-implementatie van deze grens. Dezelfde architectuur is het patroon voor Finance, Projecten en volgende BREBO-vakmodules.
 
 ## Kernprincipe
 
@@ -532,3 +561,22 @@ De hoofdwerkruimte krijgt minimaal tabs voor:
 Bestaande `brebo_calc_line`-velden worden niet verwijderd voordat per veld is vastgesteld of zij behouden, afgeleid, naar regel-detail verplaatst, gemigreerd of verwijderd worden. Bestaande koppelingen met RFQ/inkoop worden bij voorkeur behouden.
 
 Vastgesteld: 16 augustus 2026.
+
+## Implementatiestatus architectuur — 29 september 2026
+
+Op de actieve architectuurbranch zijn de belangrijkste calculatiegebieden via contracten en Infrastructure-adapters gescheiden van Drupal/database:
+
+- state/queries;
+- parameters;
+- rows/structure;
+- recipes/materials;
+- deelcalculaties/uitzonderingen;
+- result/readiness;
+- price sources/normen;
+- context/draft/establishment;
+- ordering/identities;
+- access/resource guards;
+- legacy migration.
+
+De acceptance-gates bewaken zowel functionaliteit als de nieuwe grens. Na merge moet de CI expliciet voorkomen dat directe framework-/databaseafhankelijkheid opnieuw in domeinservices verschijnt.
+

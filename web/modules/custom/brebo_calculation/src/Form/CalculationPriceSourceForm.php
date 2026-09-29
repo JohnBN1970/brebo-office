@@ -107,7 +107,7 @@ final class CalculationPriceSourceForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    $sourceId = $this->priceSourceManager->createForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(array)$form_state->getValue('add'),$this->currentUser());
+    $sourceId = $this->priceSourceManager->createForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(array)$form_state->getValue('add'),(int) $this->currentUser()->id());
     $this->messenger()->addStatus($this->t('Prijsbron @id toegevoegd en klaar voor controle.', ['@id'=>$sourceId]));
     $form_state->setRebuild(TRUE);
   }
@@ -115,7 +115,7 @@ final class CalculationPriceSourceForm extends FormBase {
   public function approveSource(array &$form, FormStateInterface $form_state): void {
     $trigger = $form_state->getTriggeringElement();
     $carrier = (string)($trigger['#cost_carrier']??'subcontracting');
-    $this->priceSourceManager->approveForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(int)($trigger['#price_source_id']??0),$carrier,(float)($trigger['#proposed_unit_cost']??0),'Prijsbron vanuit regelcockpit goedgekeurd.',$this->currentUser());
+    $this->priceSourceManager->approveForLine((int)$form_state->getValue('calculation_id'),(string)$form_state->getValue('version'),(int)$form_state->getValue('row_id'),(int)($trigger['#price_source_id']??0),$carrier,(float)($trigger['#proposed_unit_cost']??0),'Prijsbron vanuit regelcockpit goedgekeurd.',(int) $this->currentUser()->id());
     $this->messenger()->addStatus('Prijsbron goedgekeurd en '.(self::CARRIERS[$carrier]??$carrier).'-prijs bijgewerkt.');
     $form_state->setRebuild(TRUE);
   }

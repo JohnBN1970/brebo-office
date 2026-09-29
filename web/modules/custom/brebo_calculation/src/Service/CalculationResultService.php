@@ -6,7 +6,7 @@ namespace Drupal\brebo_calculation\Service;
 
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 use Drupal\brebo_calculation\Domain\CalculationParameters;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationResultRepositoryInterface;
 
 /**
  * Builds the canonical commercial result for one calculation version.
@@ -14,7 +14,7 @@ use Drupal\Core\Database\Connection;
 final class CalculationResultService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationResultRepositoryInterface $repository,
     private readonly CalculationLineReadModelInterface $lineReadModel,
     private readonly CommercialCalculator $commercialCalculator,
   ) {}
@@ -23,26 +23,13 @@ final class CalculationResultService {
    * @return array<string,mixed>
    */
   public function calculate(int $calculationId, ?string $versionName = NULL): array {
-    $query = $this->database->select('brebo_calculation_version', 'v')->fields('v')
-      ->condition('calculation_id', $calculationId);
-    if ($versionName !== NULL) {
-      $query->condition('version', $versionName);
-    }
-    else {
-      $query->orderBy('id', 'DESC')->range(0, 1);
-    }
-    $version = $query->execute()->fetchAssoc();
+    $version = $this->repository->version($calculationId, $versionName);
     if (!is_array($version)) {
       throw new \RuntimeException('Calculatiedomeinversie niet gevonden.');
     }
 
     if ((string) $version['status'] !== 'draft' || $version['locked_at'] !== NULL) {
-      $snapshot = $this->database->select('brebo_calculation_snapshot', 's')
-        ->fields('s', ['payload'])
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', (string) $version['version'])
-        ->execute()
-        ->fetchField();
+      $snapshot = $this->repository->snapshotPayload($calculationId, (string) $version['version']);
       if (is_string($snapshot) && $snapshot !== '') {
         $payload = json_decode($snapshot, TRUE, 512, JSON_THROW_ON_ERROR);
         if (is_array($payload)) {
@@ -64,10 +51,7 @@ final class CalculationResultService {
       priceLevel: $version['price_level'] ?: NULL,
     );
 
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', (string) $version['version'])
-      ->orderBy('row_id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->rows($calculationId, (string) $version['version']);
     $rowIds = array_map(static fn (array $row): int => (int) $row['row_id'], $rows);
     $rowData = $this->lineReadModel->loadMany($rowIds, (string) $version['version']);
 
@@ -106,15 +90,10 @@ final class CalculationResultService {
       ];
     }
 
-    $instances = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')
-      ->condition('calculation_id', $calculationId)
-      ->condition('calculation_version', (string) $version['version'])
-      ->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $instances = $this->repository->recipeInstances($calculationId, (string) $version['version']);
     if ($instances) {
       $ids = array_map(static fn (array $instance): int => (int) $instance['id'], $instances);
-      $recipeRows = $this->database->select('brebo_calculation_recipe_instance_line', 'l')->fields('l')
-        ->condition('recipe_instance_id', $ids, 'IN')
-        ->orderBy('recipe_instance_id')->orderBy('sort_order')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+      $recipeRows = $this->repository->recipeLines($ids);
       $byInstance = [];
       foreach ($recipeRows as $recipeRow) {
         $byInstance[(int) $recipeRow['recipe_instance_id']][] = $recipeRow;

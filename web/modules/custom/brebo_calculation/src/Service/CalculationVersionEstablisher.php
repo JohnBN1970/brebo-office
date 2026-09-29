@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationEstablishmentRepositoryInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 
@@ -15,7 +15,7 @@ use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
 final class CalculationVersionEstablisher {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationEstablishmentRepositoryInterface $repository,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
     private readonly TimeInterface $time,
@@ -27,12 +27,7 @@ final class CalculationVersionEstablisher {
    * @return array<string,mixed>
    */
   public function establish(int $calculationId, string $version, int $actorId): array {
-    $versionRow = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->execute()
-      ->fetchAssoc();
+    $versionRow = $this->repository->version($calculationId, $version);
 
     if (!is_array($versionRow)) {
       throw new \RuntimeException('Calculatieversie niet gevonden.');
@@ -47,14 +42,7 @@ final class CalculationVersionEstablisher {
     }
 
     $result = $this->resultService->calculate($calculationId, $version);
-    $structure = $this->database->select('brebo_calculation_structure', 's')
-      ->fields('s')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->orderBy('sort_order')
-      ->orderBy('depth')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $structure = $this->repository->structure($calculationId, $version);
 
     $hashResult = $result;
     unset($hashResult['content_hash'], $hashResult['status'], $hashResult['locked_at'], $hashResult['source']);
@@ -82,12 +70,7 @@ final class CalculationVersionEstablisher {
       if ($rowId <= 0) {
         continue;
       }
-      $domain = $this->database->select('brebo_calculation_row_domain', 'r')
-        ->fields('r')
-        ->condition('row_id', $rowId)
-        ->condition('version', $version)
-        ->execute()
-        ->fetchAssoc();
+      $domain = $this->repository->rowDomain($rowId, $version);
       $line = $rowData[$rowId] ?? NULL;
       if (!is_array($domain) || !is_array($line)) {
         continue;
@@ -127,49 +110,24 @@ final class CalculationVersionEstablisher {
       'readiness' => $readiness,
     ];
 
-    $transaction = $this->database->startTransaction();
-    try {
-      $existing = (bool) $this->database->select('brebo_calculation_snapshot', 's')
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->countQuery()
-        ->execute()
-        ->fetchField();
-      if ($existing) {
-        throw new \RuntimeException('Voor deze calculatieversie bestaat al een immutable snapshot.');
-      }
-
-      $this->database->insert('brebo_calculation_snapshot')->fields([
+    $this->repository->persistSnapshotAndLock(
+      $calculationId,
+      $version,
+      [
         'calculation_id' => $calculationId,
         'version' => $version,
         'content_hash' => $contentHash,
         'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
         'created' => $lockedAt,
         'created_by' => $actorId,
-      ])->execute();
-
-      $updated = $this->database->update('brebo_calculation_version')
-        ->fields([
-          'status' => 'established',
-          'locked_at' => $lockedAt,
-          'locked_by' => $actorId,
-          'content_hash' => $contentHash,
-        ])
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->condition('status', 'draft')
-        ->isNull('locked_at')
-        ->execute();
-
-      if ($updated !== 1) {
-        throw new \RuntimeException('Calculatieversie veranderde tijdens het vaststellen.');
-      }
-
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
-    }
+      ],
+      [
+        'status' => 'established',
+        'locked_at' => $lockedAt,
+        'locked_by' => $actorId,
+        'content_hash' => $contentHash,
+      ],
+    );
 
     $snapshotResult['status'] = 'established';
     $snapshotResult['locked_at'] = $lockedAt;

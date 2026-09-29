@@ -1,7 +1,35 @@
 # BREBO Project Continuity
 
-Peildatum: 5 september 2026
+Peildatum: 29 september 2026
 Status: actief overdrachtsdocument voor de laatste website-/projectpublicatieslices.
+
+## Update 29 september 2026 — architectuurcontinuiteit
+
+De projectcontinuiteit blijft inhoudelijk geldig, maar de technische hoofdarchitectuur is aangescherpt.
+
+Projecten volgen vanaf nu hetzelfde patroon dat in Calculatie is bewezen:
+
+~~~text
+BREBO projectdomein
+-> contracten
+-> infrastructuuradapters
+-> Drupal/database/publicatieproviders
+
+BREBO projectdomein
+-> API/projectiecontracten
+-> Office / website / portaal / AI
+~~~
+
+Daarmee geldt:
+
+- brebo_project blijft het canonieke tijdelijke projectobject;
+- Drupal is implementatie-/adapterlaag en niet de eigenaar van projectbusinesslogica;
+- website en portaal blijven consumers van expliciete projecties;
+- publicatielogica mag geen tweede projectwaarheid worden;
+- een volgende Project-architectuurslag begint met inventariseren welke businessregels nog rechtstreeks Drupal/framework/database kennen en brengt die achter contracten/adapters;
+- bestaande projectpublicatie- en veiligheidsgrenzen blijven behouden tijdens die ontkoppeling.
+
+Calculatie PR #953 is het referentiemodel voor deze aanpak. Projecten wordt niet opnieuw ontworpen; de bestaande canonieke objecten en werkende ketens worden gecontroleerd ontkoppeld.
 
 ## Canonieke waarheid
 
