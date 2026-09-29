@@ -11,7 +11,7 @@ Deze map bevat de bestuurlijke en technische documentatie van BREBO Office.
 | [Calculatie continuïteit](BREBO_CALCULATIE_CONTINUITEIT.md) | Actief hervatpunt voor Calculatie, inclusief kern-/adaptergrens en Workspace v2 |
 | [Calculatiearchitectuur](BREBO_CALCULATIE_ARCHITECTUUR.md) | Functionele en technische calculatiearchitectuur; referentiemodel voor de BREBO-softwarekern |
 | [Project continuïteit](BREBO_PROJECT_CONTINUITY.md) | Actueel project-/publicatiehervatpunt en toepassing van de kern-/adapterarchitectuur |
-| [Finance continuïteit 2026-09-05 + update 2026-09-29](BREBO_CONTINUITEIT_FINANCE_2026-09-05.md) | Actuele Finance-werkstand en architectuurvervolg vanuit het calculatiereferentiemodel |
+| [Finance continuïteit 2026-09-29](BREBO_CONTINUITEIT_FINANCE_2026-09-29.md) | Actuele Finance-werkstand en architectuurvervolg vanuit het calculatiereferentiemodel |
 | [Wijzigingsregister](WIJZIGINGSREGISTER.md) | Herleidbare vastlegging van belangrijke wijzigingen en besluiten |
 | [BMS-backlog](BMS_BACKLOG.md) | Geprioriteerde proces- en ontwikkelopgaven |
 | [CIM](CIM.md) | Repository-referentie voor het Canonical Information Model en het principe dat het gebouw centraal staat |
