@@ -19,6 +19,13 @@ final class RecipeManager {
   /**
    * Places a published recipe version into an editable calculation version.
    *
+   * Available variables in recipe formulas:
+   * top_m, bottom_m, left_m, right_m, perimeter_m, area_m2,
+   * width_mm, height_mm, quantity, element_quantity and passes.
+   *
+   * Geometry variables are per element. Use quantity/element_quantity in the
+   * formula when the result must cover all elements.
+   *
    * @param array<string,int|float|string> $parameterValues
    */
   public function placeRecipe(int $calculationId, string $calculationVersion, string $paragraphKey, int $recipeVersionId, float $quantity, array $parameterValues, int $actorId, array $contextVariables = []): int {
@@ -97,6 +104,9 @@ final class RecipeManager {
     $parameters = is_array($snapshot['parameters'] ?? NULL) ? $snapshot['parameters'] : [];
     $stored = $this->repository->instanceParameterValues($instanceId);
     $contextVariables = is_array($snapshot['context_variables'] ?? NULL) ? $snapshot['context_variables'] : [];
+    // element_quantity is an explicit alias of the current recipe quantity.
+    // Keep it synchronized when users edit the placed instance quantity.
+    $contextVariables['element_quantity'] = $quantity;
     $resolved = $this->resolveParameters($parameters, $stored, $quantity, $contextVariables);
     foreach ($resolved as $key => $value) { $this->repository->updateInstanceParameter($instanceId, $key, ['calculated_value' => (string) $value]); }
     $variables = $contextVariables + $resolved + ['quantity' => $quantity];
@@ -147,6 +157,7 @@ final class RecipeManager {
       'width_mm' => (float) ($takeoff['width_mm'] ?? 0),
       'height_mm' => (float) ($takeoff['height_mm'] ?? 0),
       'passes' => $passes,
+      'element_quantity' => (float) ($takeoff['quantity'] ?? 1),
     ];
     return $this->placeRecipe(
       $calculationId,
