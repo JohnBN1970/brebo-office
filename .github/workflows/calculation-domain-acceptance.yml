@@ -150,8 +150,8 @@ jobs:
           office_routing='web/modules/custom/brebo_office_core/brebo_office_core.routing.yml'
           ! grep -q "NodeInterface" "$calc_launch"
           grep -q "CalculationContextService" "$calc_launch"
-          grep -q "function launch(int \\$calculation)" "$calc_launch"
-          grep -q "function launchLegacy(int \\$node)" "$calc_launch"
+          grep -Fq 'function launch(int $calculation)' "$calc_launch"
+          grep -Fq 'function launchLegacy(int $node)' "$calc_launch"
           grep -q "/calculaties/{calculation}/open-in-calc" "$office_routing"
           grep -q "CalculationWorkbenchLaunchController::launchLegacy" "$office_routing"
           parameters_form='web/modules/custom/brebo_calculation/src/Form/CalculationParametersForm.php'
