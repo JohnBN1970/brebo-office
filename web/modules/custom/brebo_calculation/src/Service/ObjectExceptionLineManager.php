@@ -12,6 +12,16 @@ final class ObjectExceptionLineManager {
 
   public function __construct(private readonly ObjectExceptionLineRepositoryInterface $repository, private readonly CalculationAccessGatewayInterface $accessGateway) {}
 
+  /** @return array<string,mixed>|null */
+  public function context(int $applicationObjectId): ?array {
+    return $this->repository->context($applicationObjectId);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function lines(int $applicationObjectId): array {
+    return $this->repository->lines($applicationObjectId);
+  }
+
   /** @param array<string,mixed> $values */
   public function addLine(int $applicationObjectId, array $values, int $actorId): int {
     $context = $this->loadEditableContext($applicationObjectId, $actorId);
