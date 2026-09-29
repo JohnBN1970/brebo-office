@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\WorkingBudgetApprovalRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -36,7 +36,7 @@ final class WorkingBudgetApprovalManager {
     ],
   ];
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly WorkingBudgetApprovalRepositoryInterface $repository) {}
 
   /**
    * Records one review decision and locks after all disciplines approve.
@@ -69,34 +69,23 @@ final class WorkingBudgetApprovalManager {
       }
     }
 
-    $budget = $this->database->select('brebo_finance_budget', 'b')
-      ->fields('b', ['id', 'project_nid', 'budget_type', 'status'])
-      ->condition('id', $budgetId)
-      ->execute()
-      ->fetchAssoc();
-    if ($budget === FALSE || $budget['budget_type'] !== 'working') {
+    $budget = $this->repository->budget($budgetId);
+    if ($budget === NULL || $budget['budget_type'] !== 'working') {
       throw new UnexpectedValueException('A working budget is required.');
     }
     if ($budget['status'] === 'locked') {
       throw new RuntimeException('The original working budget baseline is immutable.');
     }
 
-    $transaction = $this->database->startTransaction();
-    try {
+    return $this->repository->transactional(function () use ($budgetId, $discipline, $decision, $checklist, $note, $userId, $budget): bool {
       $now = time();
-      $this->database->merge('brebo_finance_budget_approval')
-        ->keys([
-          'budget_id' => $budgetId,
-          'discipline' => $discipline,
-        ])
-        ->fields([
-          'decision' => $decision,
-          'checklist_payload' => json_encode($checklist, JSON_THROW_ON_ERROR),
-          'note' => trim($note) !== '' ? trim($note) : NULL,
-          'decided' => $now,
-          'decided_by' => $userId,
-        ])
-        ->execute();
+      $this->repository->saveDecision($budgetId, $discipline, [
+        'decision' => $decision,
+        'checklist_payload' => json_encode($checklist, JSON_THROW_ON_ERROR),
+        'note' => trim($note) !== '' ? trim($note) : NULL,
+        'decided' => $now,
+        'decided_by' => $userId,
+      ]);
 
       $status = $decision === 'rejected' ? 'rejected' : 'in_review';
       $locked = FALSE;
@@ -118,13 +107,9 @@ final class WorkingBudgetApprovalManager {
           'approved_by' => $userId,
         ];
       }
-      $this->database->update('brebo_finance_budget')
-        ->fields($fields)
-        ->condition('id', $budgetId)
-        ->execute();
+      $this->repository->updateBudget($budgetId, $fields);
 
-      $this->database->insert('brebo_finance_audit')
-        ->fields([
+      $this->repository->insertAudit([
           'project_nid' => (int) $budget['project_nid'],
           'entity_type' => 'working_budget',
           'entity_id' => $budgetId,
@@ -139,23 +124,12 @@ final class WorkingBudgetApprovalManager {
           'reason' => trim($note) !== '' ? trim($note) : 'Working-budget discipline review.',
           'created' => $now,
           'created_by' => $userId,
-        ])
-        ->execute();
+        ]);
 
-      return $locked;
-    }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
-  }
+      return $locked;    });
 
   private function allDisciplinesApproved(int $budgetId): bool {
-    $decisions = $this->database->select('brebo_finance_budget_approval', 'a')
-      ->fields('a', ['discipline', 'decision'])
-      ->condition('budget_id', $budgetId)
-      ->execute()
-      ->fetchAllKeyed();
+    $decisions = $this->repository->decisions($budgetId);
 
     foreach (array_keys(self::REQUIRED_CHECKS) as $discipline) {
       if (($decisions[$discipline] ?? NULL) !== 'approved') {
@@ -170,15 +144,7 @@ final class WorkingBudgetApprovalManager {
    * Prevents approval of labour money without an executable hours baseline.
    */
   private function assertLabourBaselineComplete(int $budgetId): void {
-    $query = $this->database->select('brebo_finance_budget_line', 'l');
-    $query->fields('l', ['id']);
-    $query->condition('budget_id', $budgetId);
-    $query->condition('cost_code', 'arbeid');
-    $invalid = $query->orConditionGroup()
-      ->condition('budget_hours', '0.0000', '<=')
-      ->condition('hourly_cost_ex_vat', '0.0000', '<=');
-    $query->condition($invalid);
-    if ((int) $query->countQuery()->execute()->fetchField() > 0) {
+    if ($this->repository->hasInvalidLabourBaseline($budgetId)) {
       throw new UnexpectedValueException(
         'Every labour line requires approved budget hours and an hourly cost before baseline locking.',
       );
@@ -189,33 +155,7 @@ final class WorkingBudgetApprovalManager {
    * Hashes the operational baseline independently from its calculation source.
    */
   private function baselineHash(int $budgetId): string {
-    $rows = $this->database->select('brebo_finance_budget_line', 'l')
-      ->fields('l', [
-        'line_key',
-        'parent_line_id',
-        'cost_code',
-        'work_package',
-        'description',
-        'quantity',
-        'unit',
-        'unit_cost_ex_vat',
-        'amount_ex_vat',
-        'budget_hours',
-        'hourly_cost_ex_vat',
-        'vat_code',
-        'vat_rate',
-        'vat_amount',
-        'amount_inc_vat',
-        'vat_reverse_charge',
-        'non_deductible_vat_amount',
-        'source_line_ref',
-        'sort_order',
-      ])
-      ->condition('budget_id', $budgetId)
-      ->orderBy('sort_order')
-      ->orderBy('id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->baselineRows($budgetId);
 
     if ($rows === []) {
       throw new UnexpectedValueException('An empty working budget cannot become a baseline.');
