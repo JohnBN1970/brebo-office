@@ -83,8 +83,8 @@ final class SubcalculationApplicationForm extends FormBase {
     $form['add']['quantity'] = ['#type' => 'number', '#title' => 'Aantal / vermenigvuldigingsfactor', '#default_value' => 1, '#min' => 0, '#step' => '0.0001', '#required' => TRUE];
     $form['add']['submit'] = ['#type' => 'submit', '#value' => 'Toepassing aanmaken', '#button_type' => 'primary'];
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['scope'] = ['#type' => 'link', '#title' => 'Scope samenstellen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_detail', ['node' => $node->id(), 'subcalculation' => $subcalculation])];
-    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()])];
+    $form['actions']['scope'] = ['#type' => 'link', '#title' => 'Scope samenstellen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_detail', ['calculation' => (int) $node->id(), 'subcalculation' => $subcalculation])];
+    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['calculation' => (int) $node->id()])];
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
     return $form;
   }

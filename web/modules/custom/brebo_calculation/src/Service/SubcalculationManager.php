@@ -27,6 +27,26 @@ final class SubcalculationManager {
     return $this->repository->scopes($subcalculationId);
   }
 
+
+  /** @return list<array<string,mixed>> */
+  public function selectedScopes(int $subcalculationId): array {
+    return $this->repository->selectedScopes($subcalculationId);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function structure(int $calculationId, string $version): array {
+    return $this->repository->structure($calculationId, $version);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function rowDomains(int $calculationId, string $version): array {
+    return $this->repository->rowDomains($calculationId, $version);
+  }
+
+  public function removeScope(int $scopeId): void {
+    $this->repository->deleteScope($scopeId);
+  }
+
   /** @return list<array<string,mixed>> */
   public function applications(int $subcalculationId): array {
     return $this->repository->applications($subcalculationId);

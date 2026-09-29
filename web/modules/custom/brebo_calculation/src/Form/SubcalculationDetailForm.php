@@ -5,24 +5,20 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\SubcalculationManager;
-use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Edit the calculation scope of one reusable subcalculation. */
 final class SubcalculationDetailForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
     private readonly SubcalculationManager $manager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
       $container->get('brebo_calculation.subcalculation_manager'),
     );
   }
@@ -31,36 +27,27 @@ final class SubcalculationDetailForm extends FormBase {
     return 'brebo_calculation_subcalculation_detail_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $subcalculation = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation' || !$subcalculation) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL, ?int $subcalculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0 || !$subcalculation) {
       throw new \InvalidArgumentException('Calculation and subcalculation expected.');
     }
-    $sub = $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')
-      ->condition('id', $subcalculation)
-      ->condition('calculation_id', (int) $node->id())
-      ->execute()->fetchAssoc();
-    if (!$sub) {
+    $sub = $this->manager->get($subcalculation);
+    if (!$sub || (int) $sub['calculation_id'] !== $calculationId) {
       throw new \InvalidArgumentException('Subcalculation does not belong to this calculation.');
     }
 
     $form['subcalculation_id'] = ['#type' => 'hidden', '#value' => $subcalculation];
     $form['heading'] = ['#markup' => '<div class="brebo-calc-workbench__meta"><span><strong>' . htmlspecialchars((string) $sub['label']) . '</strong></span><span>' . htmlspecialchars((string) ($sub['unit_label'] ?: 'eenheid')) . '</span><span>' . htmlspecialchars((string) $sub['status']) . '</span></div>'];
 
-    $selected = $this->database->select('brebo_calculation_subcalculation_scope', 'ss')->fields('ss', ['scope_type', 'scope_ref'])
-      ->condition('subcalculation_id', $subcalculation)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $selected = $this->manager->selectedScopes($subcalculation);
     $selectedKeys = [];
     foreach ($selected as $scope) {
       $selectedKeys[$scope['scope_type'] . ':' . $scope['scope_ref']] = TRUE;
     }
 
-    $structure = $this->database->select('brebo_calculation_structure', 's')->fields('s')
-      ->condition('calculation_id', (int) $node->id())
-      ->condition('version', (string) $sub['version'])
-      ->orderBy('sort_order')->orderBy('depth')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $domains = $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')
-      ->condition('calculation_id', (int) $node->id())
-      ->condition('version', (string) $sub['version'])
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $structure = $this->manager->structure($calculationId, (string) $sub['version']);
+    $domains = $this->manager->rowDomains($calculationId, (string) $sub['version']);
     $byParagraph = [];
     foreach ($domains as $domain) {
       $byParagraph[$domain['paragraph_key']][] = $domain;
@@ -99,7 +86,7 @@ final class SubcalculationDetailForm extends FormBase {
 
     $form['actions'] = ['#type' => 'actions'];
     $form['actions']['save'] = ['#type' => 'submit', '#value' => 'Scope opslaan', '#button_type' => 'primary'];
-    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['node' => $node->id()])];
+    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar deelcalculaties', '#url' => Url::fromRoute('brebo_calculation.subcalculations', ['calculation' => $calculationId])];
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
     return $form;
   }
@@ -112,14 +99,13 @@ final class SubcalculationDetailForm extends FormBase {
         $requested[$row['scope_type'] . ':' . $row['scope_ref']] = [$row['scope_type'], (string) $row['scope_ref']];
       }
     }
-    $existing = $this->database->select('brebo_calculation_subcalculation_scope', 'ss')->fields('ss', ['id', 'scope_type', 'scope_ref'])
-      ->condition('subcalculation_id', $subId)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $existing = $this->manager->selectedScopes($subId);
     $existingKeys = [];
     foreach ($existing as $scope) {
       $key = $scope['scope_type'] . ':' . $scope['scope_ref'];
       $existingKeys[$key] = (int) $scope['id'];
       if (!isset($requested[$key])) {
-        $this->database->delete('brebo_calculation_subcalculation_scope')->condition('id', (int) $scope['id'])->execute();
+        $this->manager->removeScope((int) $scope['id']);
       }
     }
     foreach ($requested as $key => [$type, $ref]) {
