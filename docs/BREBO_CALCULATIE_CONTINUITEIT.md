@@ -259,7 +259,7 @@ Sinds de architectuurslag zijn ook de volgende functionele lijnen aantoonbaar ve
 - Bestaande take-off-rijen worden via update hook herberekend vanuit de canonieke BxH-afmetingen, zodat oude reeds met aantal vermenigvuldigde geometrie geen dubbele verbruiken veroorzaakt.
 - `element_quantity` volgt bij herberekening altijd de actuele recepthoeveelheid en kan daardoor niet stilzwijgend afwijken van `quantity`.
 - In de aparte Calc-repo zijn de productielijnen verder doorgetrokken van uittrekstaat/recept naar traceerbare calculatieregels, netto/bruto/verlies, praktische zaagoptimalisatie, materiaalconversie, plaatnesting, materiaal-kostprijs en reproduceerbare Calc -> Office execution handoff.
-- De eerstvolgende Calc-prijsstap is deterministische artikelprijsselectie op calculatiedatum, geldigheid, leverancier en bron; bij gelijkwaardige geldige kandidaten wordt niet gegokt maar expliciete keuze vereist.
+- Calc PR #65 is gemerged: artikelprijsselectie is deterministisch op calculatiedatum, geldigheid, leverancier en bron; ongeldige kalenderdatums worden geweigerd en bij gelijkwaardige geldige kandidaten wordt niet gegokt maar expliciete keuze vereist.
 
 Vaste hoeveelhedenregel:
 
