@@ -29,6 +29,11 @@ final class DatabaseRecipeRepository implements RecipeRepositoryInterface {
     return $this->database->select('brebo_calculation_recipe_line', 'l')->fields('l')->condition('recipe_version_id', $recipeVersionId)->orderBy('sort_order')->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
+  public function takeoff(int $takeoffId): ?array {
+    $row = $this->database->select('brebo_calculation_takeoff', 't')->fields('t')->condition('id', $takeoffId)->execute()->fetchAssoc();
+    return $row ?: NULL;
+  }
+
   public function instance(int $instanceId): ?array {
     $row = $this->database->select('brebo_calculation_recipe_instance', 'i')->fields('i')->condition('id', $instanceId)->execute()->fetchAssoc();
     return $row ?: NULL;

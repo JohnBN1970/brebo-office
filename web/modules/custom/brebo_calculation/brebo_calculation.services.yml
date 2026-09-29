@@ -358,3 +358,15 @@ services:
     class: Drupal\brebo_calculation\Routing\OfferReadinessRouteSubscriber
     tags:
       - { name: event_subscriber }
+
+  brebo_calculation.calculation_document_set:
+    class: Drupal\brebo_calculation\Service\CalculationDocumentSetService
+    arguments:
+      - '@database'
+      - '@datetime.time'
+
+  brebo_calculation.calculation_fact:
+    class: Drupal\brebo_calculation\Service\CalculationFactService
+    arguments:
+      - '@database'
+      - '@datetime.time'

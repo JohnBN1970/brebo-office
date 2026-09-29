@@ -22,6 +22,9 @@ interface RecipeRepositoryInterface {
   public function lines(int $recipeVersionId): array;
 
   /** @return array<string,mixed>|null */
+  public function takeoff(int $takeoffId): ?array;
+
+  /** @return array<string,mixed>|null */
   public function instance(int $instanceId): ?array;
 
   /** @return array<string,mixed>|null */

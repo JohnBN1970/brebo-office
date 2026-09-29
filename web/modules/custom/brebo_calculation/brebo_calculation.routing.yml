@@ -510,3 +510,15 @@ brebo_calculation.workspace_v2_supplier_quote_visual:
   methods: [GET]
   options:
     no_cache: TRUE
+
+
+brebo_calculation.workspace_v2_document_set_propose:
+  path: '/api/workbench/v2/calculations/{calculation}/document-set/propose'
+  defaults:
+    _controller: '\\Drupal\\brebo_calculation\\Controller\\CalculationDocumentSetController::propose'
+  requirements:
+    _permission: 'edit brebo calculation workbench'
+    calculation: '\\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE

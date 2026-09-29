@@ -13,7 +13,7 @@ final class SupplierQuoteNormalizer {
    * @param array{description?:string,quantity?:float|int|null,unit?:string} $target
    * @return array<string,mixed>
    */
-  public function normalize(string $text, array $target = []): array {
+  public function normalize(string $text, array $target = [], string $layoutXml = ''): array {
     $text = trim($text);
     if ($text === '') {
       return ['status' => 'no_text', 'target' => $target, 'candidates' => [], 'suggested' => NULL];
@@ -79,6 +79,17 @@ final class SupplierQuoteNormalizer {
     }
 
     $quoteLines = $this->quoteLines($text, $lines);
+    if (trim($layoutXml) !== '') {
+      $quoteLines = $this->attachPositionGeometry($quoteLines, $layoutXml);
+      // Geometry-aware documents must not keep supplier-specific crop guesses.
+      // Calc will derive the final visual bounds inside source_visual_search_region.
+      foreach ($quoteLines as &$geometryRow) {
+        if (isset($geometryRow['source_visual_search_region'])) {
+          $geometryRow['source_visual_crop'] = NULL;
+        }
+      }
+      unset($geometryRow);
+    }
     $classification = $this->classifyScope($text, $quoteLines);
     $suggested = $unique[0] ?? NULL;
     return [
@@ -101,7 +112,7 @@ final class SupplierQuoteNormalizer {
   private function classifyScope(string $text, array $quoteLines): ?array {
     $haystack = mb_strtolower($text);
     $score = 0;
-    foreach (['deurelement', 'jansen janisol', 'jansen economy', 'beglazing', 'profielen:', 'deurbeslag', 'aanlaspaum'] as $needle) {
+    foreach (['deurelement', 'door element', 'window element', 'system:', 'systeem:', 'glazing:', 'beglazing', 'profiles:', 'profielen:'] as $needle) {
       if (str_contains($haystack, $needle)) {
         $score++;
       }
@@ -195,7 +206,7 @@ final class SupplierQuoteNormalizer {
 
       // Description can occur before or after the price columns in extracted PDF text.
       $descriptionSource = $block;
-      if (preg_match('/\bDeurelement\b.*?(?=\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:)/ui', $block, $descriptionMatch)) {
+      if (preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b.*?(?=\b(?:Systeem|System|Uw-waarde|Uw\s+value|Omschrijving\s+deur|Door\s+Description|Kleur|Colours?|Profielen|Profiles?|Beglazing|Glazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:)/ui', $block, $descriptionMatch)) {
         $description = trim((string) $descriptionMatch[0]);
       }
       else {
@@ -205,7 +216,7 @@ final class SupplierQuoteNormalizer {
           $descriptionSource = preg_replace('/'.preg_quote($rawAmount, '/').'/', ' ', $descriptionSource, 1) ?? $descriptionSource;
         }
         $descriptionSource = preg_replace('/\b(?:Prijs|Totaal|EUR|Positie|Aantal|Omschrijving)\b/ui', ' ', $descriptionSource) ?? $descriptionSource;
-        $descriptionSource = preg_split('/\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie)\s*:/ui', $descriptionSource)[0] ?? $descriptionSource;
+        $descriptionSource = preg_split('/\b(?:Systeem|System|Uw-waarde|Uw\s+value|Omschrijving\s+deur|Door\s+Description|Kleur|Colours?|Profielen|Profiles?|Beglazing|Glazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie)\s*:/ui', $descriptionSource)[0] ?? $descriptionSource;
         $description = trim(preg_replace('/\s+/u', ' ', $descriptionSource) ?? '');
       }
 
@@ -387,14 +398,85 @@ final class SupplierQuoteNormalizer {
       $seen[$position] = TRUE;
     }
 
+    // Recover explicit non-position commercial rows such as packing/freight.
+    // These are real quote costs, unlike subtotal/grand-total/control rows.
+    $commercialLabels = [
+      'packing' => 'Verpakking',
+      'packaging' => 'Verpakking',
+      'transport' => 'Transport',
+      'freight' => 'Transport',
+      'delivery' => 'Transport',
+      'shipping' => 'Transport',
+    ];
+    $commercialIndex = 1;
+    foreach ($lines as $lineIndex => $rawLine) {
+      $line = trim(preg_replace('/\s+/u', ' ', (string) $rawLine) ?? '');
+      if ($line === '' || preg_match('/\b(?:grand\s+total|subtotal|sub\s+total|total\s+net|totaal|vat|btw|tax)\b/ui', $line)) {
+        continue;
+      }
+      if (!preg_match('/^([\pL][\pL\s\/-]{1,40}?)\s+(?:EUR\s*)?(\d{1,3}(?:[ .]\d{3})*|\d+)[,.](\d{2})\s*$/ui', $line, $commercialMatch)) {
+        continue;
+      }
+      $sourceLabel = mb_strtolower(trim($commercialMatch[1]));
+      $description = NULL;
+      foreach ($commercialLabels as $needle => $normalizedLabel) {
+        if (str_contains($sourceLabel, $needle)) {
+          $description = $normalizedLabel;
+          break;
+        }
+      }
+      if ($description === NULL) {
+        continue;
+      }
+      $value = $this->decimal($commercialMatch[2] . ',' . $commercialMatch[3]);
+      if ($value <= 0) {
+        continue;
+      }
+      $result[] = [
+        'position' => 'C' . str_pad((string) $commercialIndex++, 2, '0', STR_PAD_LEFT),
+        'quantity' => 1.0,
+        'unit' => 'st',
+        'description' => $description,
+        'unit_price' => $value,
+        'line_total' => $value,
+        'line_no' => $lineIndex + 1,
+        'details' => 'Bronregel: ' . $line,
+        'detail_fields' => [['Bronregel', $line]],
+        'offer_summary' => $description,
+        'source_page' => NULL,
+        'source_visual_crop' => NULL,
+      ];
+    }
+
     $unique = [];
     foreach ($result as $row) {
       if (str_starts_with((string) $row['description'], 'Offertepositie ')) {
         $layoutDescription = $this->descriptionForPosition((string) $row['position'], $lines);
+        // Some layout extractors serialize the position/price columns separately
+        // from the description column. In that case there is no line starting
+        // with the position near its Deurelement text. Recover by the stable
+        // visual order of product descriptions, but only as a last resort.
+        $layoutDescription ??= $this->descriptionForPositionOrdinal((string) $row['position'], $lines);
         if ($layoutDescription !== NULL) {
           $row['description'] = $layoutDescription;
         }
       }
+      $details = $this->detailsForPosition((string) $row['position'], $lines);
+      $ordinalDetails = $this->detailsForPositionOrdinal((string) $row['position'], $lines);
+      $details ??= $ordinalDetails;
+      $row['details'] = $details ?? '';
+      $row['detail_fields'] = $this->detailFields($details ?? '');
+      $row['offer_summary'] = $this->offerSummary((string) $row['description'], $row['detail_fields']);
+      $row['source_page'] = $this->pageForPositionOrdinal((string) $row['position'], $text);
+      // GABIT positions are commonly 001..008. If form-feed metadata is absent
+      // from the extracted text, keep the source visual usable by falling back
+      // to the page that contains the matching Deurelement section.
+      $row['source_page'] ??= $this->pageForPositionText((string) $row['position'], $text);
+      // Do not emit supplier-specific hardcoded crops. If PDF geometry is
+      // available, attachPositionGeometry() will provide a dynamic search
+      // region and Calc will detect the visual. Without geometry, prefer no
+      // image over a guessed/legacy crop.
+      $row['source_visual_crop'] = NULL;
       $unique[$row['position']] ??= $row;
     }
     ksort($unique, SORT_NATURAL);
@@ -437,11 +519,10 @@ final class SupplierQuoteNormalizer {
         }
 
         if (!$collecting) {
-          $deurelementPos = mb_stripos($candidate, 'Deurelement');
-          if ($deurelementPos === FALSE) {
+          if (!preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate, $heading, PREG_OFFSET_CAPTURE)) {
             continue;
           }
-          $candidate = mb_substr($candidate, $deurelementPos);
+          $candidate = mb_substr($candidate, (int) $heading[0][1]);
           $collecting = TRUE;
         }
 
@@ -466,6 +547,390 @@ final class SupplierQuoteNormalizer {
       }
     }
     return NULL;
+  }
+
+  /**
+   * Recover a description when PDF extraction separated table columns.
+   *
+   * Supplier quote positions are ordered 001..nnn and the description column
+   * retains that same visual order even when its position numbers are emitted
+   * elsewhere in the extracted text.
+   *
+   * @param list<string> $lines
+   */
+  private function descriptionForPositionOrdinal(string $position, array $lines): ?string {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+
+    $descriptions = [];
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$i]) ?? '');
+      if (!preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate, $heading, PREG_OFFSET_CAPTURE)) {
+        continue;
+      }
+
+      $parts = [];
+      $candidate = mb_substr($candidate, (int) $heading[0][1]);
+      for ($j = $i; $j < min($count, $i + 20); $j++) {
+        if ($j > $i) {
+          $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$j]) ?? '');
+        }
+        if ($candidate === '') {
+          continue;
+        }
+
+        if ($j > $i && preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate) ? 0 : FALSE !== FALSE) {
+          break;
+        }
+        if (preg_match('/\\bSysteem\\s*:/ui', $candidate)) {
+          $before = preg_split('/\\bSysteem\\s*:/ui', $candidate)[0] ?? '';
+          if (trim($before) !== '') {
+            $parts[] = trim($before);
+          }
+          break;
+        }
+        if ($j > $i && preg_match('/^(?:Uw-waarde|Omschrijving\\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslag|Prijs|Totaal|EUR)\\b/ui', $candidate)) {
+          break;
+        }
+        $parts[] = $candidate;
+      }
+
+      $description = trim(preg_replace('/\\s+/u', ' ', implode(' ', $parts)) ?? '');
+      if ($description !== '') {
+        $descriptions[] = mb_substr($description, 0, 500);
+      }
+    }
+
+    // Do not guess unless the requested ordinal actually exists.
+    return $descriptions[$ordinal - 1] ?? NULL;
+  }
+
+  /**
+   * Recover technical detail belonging to a quote position.
+   *
+   * @param list<string> $lines
+   */
+  private function detailsForPosition(string $position, array $lines): ?string {
+    $count = count($lines);
+    for ($i = 0; $i < $count; $i++) {
+      $line = trim((string) $lines[$i]);
+      if (!preg_match('/^' . preg_quote($position, '/') . '\\b/u', $line)) {
+        continue;
+      }
+      return $this->technicalDetailsFromSection($lines, $i, min($count, $i + 100));
+    }
+    return NULL;
+  }
+
+  /**
+   * Fallback when PDF extraction serializes the position and description
+   * columns independently. The visual order of Deurelement blocks is retained.
+   *
+   * @param list<string> $lines
+   */
+  private function detailsForPositionOrdinal(string $position, array $lines): ?string {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+
+    $starts = [];
+    foreach ($lines as $index => $rawLine) {
+      if (preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', (string) $rawLine) === 1) {
+        $starts[] = $index;
+      }
+    }
+    $start = $starts[$ordinal - 1] ?? NULL;
+    if ($start === NULL) {
+      return NULL;
+    }
+    $end = $starts[$ordinal] ?? min(count($lines), $start + 100);
+    return $this->technicalDetailsFromSection($lines, $start, $end);
+  }
+
+  /**
+   * Keep useful technical/commercial content while excluding price-table noise.
+   *
+   * @param list<string> $lines
+   */
+  private function technicalDetailsFromSection(array $lines, int $start, int $end): ?string {
+    $labels = '(?:Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot|Ventilatierooster)';
+    $details = [];
+    $collectContinuation = FALSE;
+
+    for ($i = $start; $i < $end; $i++) {
+      $candidate = trim(preg_replace('/\\s+/u', ' ', (string) ($lines[$i] ?? '')) ?? '');
+      if ($candidate === '') {
+        continue;
+      }
+      if ($i > $start && preg_match('/^\\d{3}\\s+\\d+(?:[.,]\\d+)?\\s+[\\pL.]{1,12}\\b/u', $candidate)) {
+        break;
+      }
+      if (preg_match('/^(?:Positie\\s+Aantal|Totaalbedrag\\s+netto|Alle\\s+prijzen\\s+zijn\\s+NETTO)/ui', $candidate)) {
+        continue;
+      }
+      if (preg_match('/\\b' . $labels . '\\s*:/ui', $candidate, $match, PREG_OFFSET_CAPTURE)) {
+        $offset = (int) $match[0][1];
+        $details[] = trim(mb_substr($candidate, $offset));
+        $collectContinuation = TRUE;
+        continue;
+      }
+      if (preg_match('/^' . $labels . '\\b/ui', $candidate)) {
+        $details[] = $candidate;
+        $collectContinuation = TRUE;
+        continue;
+      }
+      if ($collectContinuation
+        && !preg_match('/^Deurelement\\b/ui', $candidate)
+        && !preg_match('/^(?:Prijs|Totaal|EUR)\\b/ui', $candidate)
+        && !preg_match('/^\\d{1,3}(?:[ .]\\d{3})*,\\d{2}(?:\\s+\\d{1,3}(?:[ .]\\d{3})*,\\d{2})?$/u', $candidate)
+      ) {
+        // Preserve short continuation text belonging to the previous technical
+        // label, but reject obvious page/header noise.
+        if (mb_strlen($candidate) <= 240
+          && !preg_match('/^(?:Pagina|Page|Offerte|Datum|Klant|Project|BTW|Tel(?:efoon)?|E-?mail|www\\.|Quote\\b|Positie\\b|Aantal\\b|Omschrijving\\b|Prijs\\b|Totaal\\b)/ui', $candidate)
+          && !preg_match('/(?:@|https?:\\/\\/|www\\.)/ui', $candidate)
+        ) {
+          $details[] = $candidate;
+        }
+      }
+    }
+
+    $details = array_values(array_unique(array_filter(array_map('trim', $details))));
+    if ($details === []) {
+      return NULL;
+    }
+    return mb_substr(implode("\n", $details), 0, 8000);
+  }
+
+  /**
+   * Resolve the PDF page containing the visual block for this position.
+   * pdftotext keeps form-feed page separators in its output.
+   */
+  /** @return array<string,string> */
+  private function detailFields(string $details): array {
+    $details = trim($details);
+    if ($details === '') {
+      return [];
+    }
+
+    // PDF layout extraction may concatenate several labelled fields on one line.
+    // Insert a logical line break before every known label before parsing.
+    $labels = 'Systeem|Uw-waarde|Omschrijving\\s+deur|Kleur(?:\\s+van\\s+het\\s+houtwerk)?|Profielen|Beglazing|Beschläge|Deurbeslag(?:pakket)?|Ontwatering|Gewicht\\s+positie(?:\\s*\\(zonder\\s+toebehoren\\))?|Ventilatierooster|Bovenste\\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot';
+    $normalized = preg_replace('/\\s*(?=(' . $labels . ')\\s*:)/ui', "\n", $details) ?? $details;
+    // Recover labels that lost their colon during column serialization.
+    $normalized = preg_replace('/\\s+(?=(Bovenste\\s+sluiter|Gewicht\\s+positie(?:\\s*\\(zonder\\s+toebehoren\\))?|Ontwatering|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\\b)/ui', "\n", $normalized) ?? $normalized;
+
+    $fields = [];
+    $current = NULL;
+    foreach (preg_split('/\\R/u', $normalized) ?: [] as $rawLine) {
+      $line = trim(preg_replace('/\\s+/u', ' ', (string) $rawLine) ?? '');
+      if ($line === '') {
+        continue;
+      }
+      if (preg_match('/^(' . $labels . ')\\s*:?\\s*(.*)$/ui', $line, $m)) {
+        $key = trim((string) $m[1]);
+        $value = trim((string) $m[2]);
+        $fields[$key] = $value;
+        $current = $key;
+        continue;
+      }
+      if ($current !== NULL && mb_strlen($line) <= 220) {
+        $fields[$current] = trim($fields[$current] . ' ' . $line);
+      }
+    }
+    return $fields;
+  }
+
+  /** @param array<string,string> $fields */
+  private function offerSummary(string $description, array $fields): string {
+    $parts = [];
+    $system = $fields['Systeem'] ?? $fields['systeem'] ?? '';
+    $glazing = $fields['Beglazing'] ?? $fields['beglazing'] ?? '';
+    $profile = $fields['Profielen'] ?? $fields['profielen'] ?? '';
+    $door = $fields['Omschrijving deur'] ?? $fields['Omschrijving Deur'] ?? '';
+
+    $base = trim(preg_replace('/\\s+/u', ' ', $description) ?? $description);
+    if ($base !== '') {
+      $parts[] = rtrim($base, '.');
+    }
+    if ($system !== '') {
+      $parts[] = 'uitgevoerd in ' . rtrim($system, '.');
+    }
+    if ($glazing !== '') {
+      $parts[] = 'voorzien van ' . rtrim($glazing, '.');
+    }
+    elseif ($profile !== '') {
+      $parts[] = 'met ' . rtrim($profile, '.');
+    }
+    if ($door !== '') {
+      $parts[] = rtrim($door, '.');
+    }
+    $summary = trim(implode(', ', array_values(array_unique($parts))));
+    if ($summary === '') {
+      return '';
+    }
+    return mb_substr(ucfirst($summary) . '.', 0, 800);
+  }
+
+
+  private function pageForPositionText(string $position, string $text): ?int {
+    $pages = preg_split('/\\f/u', $text) ?: [$text];
+    foreach ($pages as $pageIndex => $pageText) {
+      if (preg_match('/(?:^|\\R)\\s*' . preg_quote($position, '/') . '\\b/u', (string) $pageText)) {
+        return $pageIndex + 1;
+      }
+    }
+    // A one-page supplier document can always be rendered as page 1.
+    return count($pages) === 1 ? 1 : NULL;
+  }
+
+  private function pageForPositionOrdinal(string $position, string $text): ?int {
+    $ordinal = (int) $position;
+    if ($ordinal < 1) {
+      return NULL;
+    }
+    $pages = preg_split('/\\f/u', $text) ?: [$text];
+    $seen = 0;
+    foreach ($pages as $pageIndex => $pageText) {
+      preg_match_all('/\\bDeurelement\\b/ui', (string) $pageText, $matches);
+      $count = count($matches[0] ?? []);
+      if ($count > 0 && $ordinal <= $seen + $count) {
+        return $pageIndex + 1;
+      }
+      $seen += $count;
+    }
+    return NULL;
+  }
+
+  /**
+   * Attach page-relative bounds for the text block that contains each position.
+   * These bounds are detected from PDF geometry, not supplier-specific pixels.
+   *
+   * @param list<array<string,mixed>> $quoteLines
+   * @return list<array<string,mixed>>
+   */
+  private function attachPositionGeometry(array $quoteLines, string $layoutXml): array {
+    if (!class_exists('DOMDocument')) {
+      return $quoteLines;
+    }
+    $dom = new \DOMDocument();
+    if (!@$dom->loadXML($layoutXml)) {
+      return $quoteLines;
+    }
+    $xpath = new \DOMXPath($dom);
+
+    foreach ($quoteLines as &$row) {
+      $position = (string) ($row['position'] ?? '');
+      if ($position === '') {
+        continue;
+      }
+
+      foreach ($xpath->query('//*[local-name()="page"]') ?: [] as $pageIndex => $page) {
+        if (!$page instanceof \DOMElement) {
+          continue;
+        }
+        $pageWidth = (float) $page->getAttribute('width');
+        $pageHeight = (float) $page->getAttribute('height');
+        if ($pageWidth <= 0 || $pageHeight <= 0) {
+          continue;
+        }
+
+        // bbox-layout exposes lines; bbox exposes only words. Support both.
+        $anchors = [];
+        foreach ($xpath->query('.//*[local-name()="line"]', $page) ?: [] as $line) {
+          if (!$line instanceof \DOMElement) {
+            continue;
+          }
+          $words = [];
+          foreach ($xpath->query('.//*[local-name()="word"]', $line) ?: [] as $word) {
+            $words[] = trim((string) $word->textContent);
+          }
+          if (in_array($position, $words, TRUE)) {
+            $anchors[] = $line;
+          }
+        }
+        if ($anchors === []) {
+          foreach ($xpath->query('.//*[local-name()="word"]', $page) ?: [] as $word) {
+            if ($word instanceof \DOMElement && trim((string) $word->textContent) === $position) {
+              $anchors[] = $word;
+            }
+          }
+        }
+        if ($anchors === []) {
+          continue;
+        }
+
+        $anchor = $anchors[0];
+        $xMin = (float) $anchor->getAttribute('xMin');
+        $yMin = (float) $anchor->getAttribute('yMin');
+        $xMax = (float) $anchor->getAttribute('xMax');
+        $yMax = (float) $anchor->getAttribute('yMax');
+
+        $row['source_page'] = $pageIndex + 1;
+        $row['source_position_bounds'] = [
+          'x' => max(0.0, $xMin / $pageWidth),
+          'y' => max(0.0, $yMin / $pageHeight),
+          'width' => min(1.0, max(0.001, ($xMax - $xMin) / $pageWidth)),
+          'height' => min(1.0, max(0.001, ($yMax - $yMin) / $pageHeight)),
+        ];
+
+        // Find the next 3-digit position below this anchor. Word geometry works
+        // for both bbox and bbox-layout, so this remains runtime-independent.
+        $nextY = $pageHeight * 0.94;
+        foreach ($xpath->query('.//*[local-name()="word"]', $page) ?: [] as $candidateWord) {
+          if (!$candidateWord instanceof \DOMElement) {
+            continue;
+          }
+          $candidateText = trim((string) $candidateWord->textContent);
+          $candidateY = (float) $candidateWord->getAttribute('yMin');
+          if ($candidateY <= $yMax + 2 || !preg_match('/^\\d{3}$/', $candidateText)) {
+            continue;
+          }
+          $nextY = min($nextY, $candidateY);
+        }
+
+        $row['source_visual_search_region'] = [
+          'x' => 0.0,
+          'y' => max(0.0, $yMax / $pageHeight),
+          'width' => 1.0,
+          'height' => max(0.03, min(1.0, ($nextY - $yMax) / $pageHeight)),
+        ];
+
+        // Text masks: use line boxes where available, otherwise individual
+        // word boxes from classic -bbox output.
+        $textRegions = [];
+        $textNodes = $xpath->query('.//*[local-name()="line"]', $page);
+        if (!$textNodes || $textNodes->length === 0) {
+          $textNodes = $xpath->query('.//*[local-name()="word"]', $page);
+        }
+        foreach ($textNodes ?: [] as $textNode) {
+          if (!$textNode instanceof \DOMElement) {
+            continue;
+          }
+          $tx0 = (float) $textNode->getAttribute('xMin');
+          $ty0 = (float) $textNode->getAttribute('yMin');
+          $tx1 = (float) $textNode->getAttribute('xMax');
+          $ty1 = (float) $textNode->getAttribute('yMax');
+          if ($ty1 < $yMax || $ty0 > $nextY || $tx1 <= $tx0 || $ty1 <= $ty0) {
+            continue;
+          }
+          $textRegions[] = [
+            'x' => max(0.0, min(1.0, $tx0 / $pageWidth)),
+            'y' => max(0.0, min(1.0, $ty0 / $pageHeight)),
+            'width' => max(0.001, min(1.0, ($tx1 - $tx0) / $pageWidth)),
+            'height' => max(0.001, min(1.0, ($ty1 - $ty0) / $pageHeight)),
+          ];
+        }
+        $row['source_text_regions'] = $textRegions;
+        break;
+      }
+    }
+    unset($row);
+    return $quoteLines;
   }
 
   private function decimal(string $raw): float {

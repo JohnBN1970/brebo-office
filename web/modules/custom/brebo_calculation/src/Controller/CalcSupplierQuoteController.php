@@ -143,7 +143,14 @@ final class CalcSupplierQuoteController extends ControllerBase {
       'description' => trim((string) $request->headers->get('X-BREBO-Line-Description', '')),
       'quantity' => is_numeric($request->headers->get('X-BREBO-Line-Quantity')) ? (float) $request->headers->get('X-BREBO-Line-Quantity') : NULL,
         'unit' => trim((string) $request->headers->get('X-BREBO-Line-Unit', '')),
-      ]);
+      ], (string) ($extraction['layout_xml'] ?? ''));
+
+      // Keep geometry transport separate from text recognition. The next
+      // recognition stage can derive position-specific visual bounds from this
+      // source geometry without supplier-specific crop percentages.
+      if (is_string($extraction['layout_xml'] ?? NULL) && trim((string) $extraction['layout_xml']) !== '') {
+        $proposal['source_layout_available'] = TRUE;
+      }
     }
     catch (\Throwable $e) {
       return $this->stageError('normalization', $e);
@@ -163,6 +170,8 @@ final class CalcSupplierQuoteController extends ControllerBase {
         'text' => (string) ($extraction['text'] ?? ''),
         'confidence' => (float) ($extraction['confidence'] ?? 0),
         'extractor' => (string) ($extraction['extractor'] ?? ''),
+        'layout_mode' => (string) ($extraction['layout_mode'] ?? ''),
+        'layout_available' => trim((string) ($extraction['layout_xml'] ?? '')) !== '',
       ],
       'proposal' => $proposal,
     ], 201, ['Cache-Control' => 'no-store, private']);
@@ -189,6 +198,69 @@ final class CalcSupplierQuoteController extends ControllerBase {
     $response->headers->set('Content-Disposition', 'inline; filename="' . addcslashes((string) $entity->getFilename(), '"\\') . '"');
     $response->headers->set('Cache-Control', 'no-store, private');
     $response->headers->set('X-Content-Type-Options', 'nosniff');
+    return $response;
+  }
+
+  public function positionVisual(Request $request, int $calculation, int $file, int $page): Response {
+    $this->assertSignedRequest($request, '');
+    if ($page < 1 || $page > 500) {
+      return new Response('Ongeldige bronpagina.', 400);
+    }
+    $entity = File::load($file);
+    if (!$entity) {
+      return new Response('Offertebron niet gevonden.', 404);
+    }
+    $uri = (string) $entity->getFileUri();
+    $expectedPrefix = 'private://brebo/calculation-price-sources/' . $calculation . '/';
+    if (!str_starts_with($uri, $expectedPrefix) || $entity->getMimeType() !== 'application/pdf') {
+      throw new AccessDeniedHttpException('Offertebron hoort niet bij deze calculatie of is geen PDF.');
+    }
+    $realPath = $this->fileSystem->realpath($uri);
+    if (!$realPath || !is_file($realPath)) {
+      return new Response('Offertebestand ontbreekt.', 404);
+    }
+
+    $finder = new \Symfony\Component\Process\ExecutableFinder();
+    $tmpBase = sys_get_temp_dir() . '/brebo-quote-' . bin2hex(random_bytes(8));
+    $imagePath = $tmpBase . '.jpg';
+    $process = NULL;
+    $renderer = '';
+
+    if (($binary = $finder->find('pdftoppm')) !== NULL) {
+      $renderer = 'pdftoppm';
+      $process = new \Symfony\Component\Process\Process([
+        $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
+        '-jpeg', '-jpegopt', 'quality=84', '-r', '130', $realPath, $tmpBase,
+      ]);
+    }
+    elseif (($binary = $finder->find('pdftocairo')) !== NULL) {
+      $renderer = 'pdftocairo';
+      $process = new \Symfony\Component\Process\Process([
+        $binary, '-f', (string) $page, '-l', (string) $page, '-singlefile',
+        '-jpeg', '-jpegopt', 'quality=84', '-r', '130', $realPath, $tmpBase,
+      ]);
+    }
+    else {
+      return new Response('PDF-beeldextractie is niet beschikbaar.', 503);
+    }
+
+    $process->setTimeout(20.0);
+    $process->run();
+    if (!$process->isSuccessful() || !is_file($imagePath)) {
+      @unlink($imagePath);
+      $this->getLogger('brebo_calculation')->warning('Supplier quote visual render failed via @renderer: @error', [
+        '@renderer' => $renderer,
+        '@error' => trim($process->getErrorOutput()),
+      ]);
+      return new Response('Bronpagina kon niet als afbeelding worden opgebouwd.', 502);
+    }
+    $bytes = (string) file_get_contents($imagePath);
+    @unlink($imagePath);
+    $response = new Response($bytes);
+    $response->headers->set('Content-Type', 'image/jpeg');
+    $response->headers->set('Cache-Control', 'private, max-age=300');
+    $response->headers->set('X-Content-Type-Options', 'nosniff');
+    $response->headers->set('X-BREBO-PDF-Renderer', $renderer);
     return $response;
   }
 

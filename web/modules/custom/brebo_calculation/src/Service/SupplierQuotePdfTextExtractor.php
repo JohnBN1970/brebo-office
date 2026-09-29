@@ -11,7 +11,7 @@ use Symfony\Component\Process\Process;
 final class SupplierQuotePdfTextExtractor {
 
   /**
-   * @return array{status:string,text:string,extractor:string,confidence:float}
+   * @return array{status:string,text:string,extractor:string,confidence:float,layout_xml?:string}
    */
   public function extract(string $path): array {
     if ($path === '' || !is_file($path) || !is_readable($path)) {
@@ -35,11 +35,34 @@ final class SupplierQuotePdfTextExtractor {
       return $this->empty('no_embedded_pdf_text');
     }
 
+    // Keep PDF geometry beside the readable text. Bounding-box XML gives
+    // the recognition layer page and word coordinates without guessing a
+    // supplier-specific crop. It is optional so environments with older
+    // Poppler keep the existing text path working.
+    $layoutXml = '';
+    $layoutMode = '';
+
+    // Prefer line-aware geometry, but older Poppler builds can lack
+    // -bbox-layout. Fall back to the older and widely available -bbox mode;
+    // the normalizer can derive anchors/search regions from word boxes too.
+    foreach (['-bbox-layout', '-bbox'] as $bboxMode) {
+      $bbox = new Process([$binary, $bboxMode, '-enc', 'UTF-8', $path, '-']);
+      $bbox->setTimeout(20.0);
+      $bbox->run();
+      if ($bbox->isSuccessful() && trim($bbox->getOutput()) !== '') {
+        $layoutXml = trim($bbox->getOutput());
+        $layoutMode = $bboxMode;
+        break;
+      }
+    }
+
     return [
       'status' => 'extracted',
       'text' => $text,
       'extractor' => 'local_pdftotext_layout_v1',
       'confidence' => 0.99,
+      'layout_xml' => $layoutXml,
+      'layout_mode' => $layoutMode,
     ];
   }
 

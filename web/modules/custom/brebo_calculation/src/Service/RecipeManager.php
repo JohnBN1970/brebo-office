@@ -21,7 +21,7 @@ final class RecipeManager {
    *
    * @param array<string,int|float|string> $parameterValues
    */
-  public function placeRecipe(int $calculationId, string $calculationVersion, string $paragraphKey, int $recipeVersionId, float $quantity, array $parameterValues, int $actorId): int {
+  public function placeRecipe(int $calculationId, string $calculationVersion, string $paragraphKey, int $recipeVersionId, float $quantity, array $parameterValues, int $actorId, array $contextVariables = []): int {
     $this->assertEditableCalculation($calculationId, $calculationVersion, $actorId);
     if ($quantity < 0) { throw new \InvalidArgumentException('Recipe quantity cannot be negative.'); }
     $recipeVersion = $this->repository->publishedVersion($recipeVersionId);
@@ -29,15 +29,15 @@ final class RecipeManager {
     $recipe = $this->repository->recipe((int) $recipeVersion['recipe_id']);
     if (!$recipe) { throw new \RuntimeException('Recipe identity not found.'); }
     $parameters = $this->repository->parameters($recipeVersionId);
-    $resolved = $this->resolveParameters($parameters, $parameterValues, $quantity);
+    $resolved = $this->resolveParameters($parameters, $parameterValues, $quantity, $contextVariables);
     $lines = $this->repository->lines($recipeVersionId);
-    $snapshot = ['recipe' => ['id' => (int) $recipe['id'], 'key' => (string) $recipe['recipe_key'], 'name' => (string) $recipe['name']], 'version' => ['id' => $recipeVersionId, 'version' => (string) $recipeVersion['version']], 'parameters' => $parameters, 'lines' => $lines];
+    $snapshot = ['recipe' => ['id' => (int) $recipe['id'], 'key' => (string) $recipe['recipe_key'], 'name' => (string) $recipe['name']], 'version' => ['id' => $recipeVersionId, 'version' => (string) $recipeVersion['version']], 'parameters' => $parameters, 'lines' => $lines, 'context_variables' => $contextVariables];
     $payload = json_encode($snapshot, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $hash = hash('sha256', $payload);
     $sortOrder = $this->repository->nextInstanceSortOrder($calculationId, $calculationVersion, $paragraphKey);
       $instanceId = $this->repository->insertInstance(['calculation_id' => $calculationId, 'calculation_version' => $calculationVersion, 'paragraph_key' => $paragraphKey, 'recipe_id' => (int) $recipe['id'], 'recipe_version_id' => $recipeVersionId, 'name' => (string) $recipe['name'], 'quantity' => $quantity, 'unit' => (string) $recipeVersion['base_unit'], 'sort_order' => $sortOrder, 'snapshot_payload' => $payload, 'snapshot_hash' => $hash, 'created' => time(), 'created_by' => $actorId]);
       foreach ($resolved as $key => $value) { $this->repository->insertInstanceParameter(['recipe_instance_id' => $instanceId, 'parameter_key' => $key, 'value' => (string) ($parameterValues[$key] ?? ''), 'calculated_value' => (string) $value]); }
-      $variables = $resolved + ['quantity' => $quantity];
+      $variables = $contextVariables + $resolved + ['quantity' => $quantity];
       foreach ($lines as $line) {
         $calculatedQuantity = $this->formulaEvaluator->evaluate((string) ($line['quantity_formula'] ?? ''), $variables);
         $this->repository->insertInstanceLine(['recipe_instance_id' => $instanceId, 'source_recipe_line_id' => (int) $line['id'], 'line_key' => (string) $line['line_key'], 'line_type' => (string) $line['line_type'], 'description' => (string) $line['description'], 'unit' => $line['unit'], 'quantity_formula' => $line['quantity_formula'], 'calculated_quantity' => $calculatedQuantity, 'manual_quantity' => NULL, 'waste_pct' => $line['waste_pct'], 'material_ref' => $line['material_ref'], 'price_source_ref' => $line['price_source_ref'], 'unit_cost' => $line['unit_cost'], 'sort_order' => (int) $line['sort_order'], 'is_custom' => 0]);
@@ -96,9 +96,10 @@ final class RecipeManager {
     $snapshot = json_decode((string) $instance['snapshot_payload'], TRUE, 512, JSON_THROW_ON_ERROR);
     $parameters = is_array($snapshot['parameters'] ?? NULL) ? $snapshot['parameters'] : [];
     $stored = $this->repository->instanceParameterValues($instanceId);
-    $resolved = $this->resolveParameters($parameters, $stored, $quantity);
+    $contextVariables = is_array($snapshot['context_variables'] ?? NULL) ? $snapshot['context_variables'] : [];
+    $resolved = $this->resolveParameters($parameters, $stored, $quantity, $contextVariables);
     foreach ($resolved as $key => $value) { $this->repository->updateInstanceParameter($instanceId, $key, ['calculated_value' => (string) $value]); }
-    $variables = $resolved + ['quantity' => $quantity];
+    $variables = $contextVariables + $resolved + ['quantity' => $quantity];
     foreach ($this->repository->formulaLines($instanceId) as $line) {
       $calculatedQuantity = $this->formulaEvaluator->evaluate((string) $line['quantity_formula'], $variables);
       $this->repository->updateInstanceLine((int) $line['id'], ['calculated_quantity' => $calculatedQuantity]);
@@ -113,6 +114,52 @@ final class RecipeManager {
     return (int) $this->repository->insertInstanceLine(['recipe_instance_id' => $instanceId, 'source_recipe_line_id' => NULL, 'line_key' => 'custom-' . bin2hex(random_bytes(8)), 'line_type' => (string) ($line['line_type'] ?? 'material'), 'description' => trim((string) ($line['description'] ?? 'Nieuwe regel')), 'unit' => $line['unit'] ?? NULL, 'quantity_formula' => $line['quantity_formula'] ?? NULL, 'calculated_quantity' => (float) ($line['quantity'] ?? 0), 'manual_quantity' => isset($line['quantity']) ? (float) $line['quantity'] : NULL, 'waste_pct' => (float) ($line['waste_pct'] ?? 0), 'material_ref' => $line['material_ref'] ?? NULL, 'price_source_ref' => $line['price_source_ref'] ?? NULL, 'unit_cost' => $line['unit_cost'] ?? NULL, 'sort_order' => $sortOrder, 'is_custom' => 1]);
   }
 
+  /**
+   * Places a published recipe using one geometry take-off row as formula context.
+   *
+   * @param array<string,int|float|string> $parameterValues
+   */
+  public function placeRecipeFromTakeoff(
+    int $calculationId,
+    string $calculationVersion,
+    string $paragraphKey,
+    int $recipeVersionId,
+    int $takeoffId,
+    float $passes,
+    array $parameterValues,
+    int $actorId,
+  ): int {
+    if ($passes < 0) {
+      throw new \InvalidArgumentException('Recipe passes cannot be negative.');
+    }
+    $takeoff = $this->repository->takeoff($takeoffId);
+    if (!$takeoff) {
+      throw new \InvalidArgumentException('Calculation take-off row not found.');
+    }
+    $context = [
+      'takeoff_id' => $takeoffId,
+      'top_m' => (float) ($takeoff['top_m'] ?? 0),
+      'bottom_m' => (float) ($takeoff['bottom_m'] ?? 0),
+      'left_m' => (float) ($takeoff['left_m'] ?? 0),
+      'right_m' => (float) ($takeoff['right_m'] ?? 0),
+      'perimeter_m' => (float) ($takeoff['perimeter_m'] ?? 0),
+      'area_m2' => (float) ($takeoff['area_m2'] ?? 0),
+      'width_mm' => (float) ($takeoff['width_mm'] ?? 0),
+      'height_mm' => (float) ($takeoff['height_mm'] ?? 0),
+      'passes' => $passes,
+    ];
+    return $this->placeRecipe(
+      $calculationId,
+      $calculationVersion,
+      $paragraphKey,
+      $recipeVersionId,
+      (float) ($takeoff['quantity'] ?? 1),
+      $parameterValues,
+      $actorId,
+      $context,
+    );
+  }
+
   /** @return array<string,mixed> */
   private function loadInstance(int $instanceId): array {
     $instance = $this->repository->instance($instanceId);
@@ -122,13 +169,13 @@ final class RecipeManager {
 
 
   /** @param list<array<string,mixed>> $parameters @param array<string,int|float|string> $values @return array<string,float> */
-  private function resolveParameters(array $parameters, array $values, float $quantity): array {
+  private function resolveParameters(array $parameters, array $values, float $quantity, array $contextVariables = []): array {
     $resolved = [];
     foreach ($parameters as $parameter) {
       $key = (string) $parameter['parameter_key']; $raw = $values[$key] ?? $parameter['default_value'] ?? NULL;
       if ($raw !== NULL && $raw !== '' && is_numeric($raw)) { $resolved[$key] = (float) $raw; continue; }
       $formula = trim((string) ($parameter['formula'] ?? ''));
-      if ($formula !== '') { $resolved[$key] = $this->formulaEvaluator->evaluate($formula, $resolved + ['quantity' => $quantity]); continue; }
+      if ($formula !== '') { $resolved[$key] = $this->formulaEvaluator->evaluate($formula, $contextVariables + $resolved + ['quantity' => $quantity]); continue; }
       if ((int) $parameter['required'] === 1) { throw new \InvalidArgumentException('Required recipe parameter missing: ' . $key); }
       $resolved[$key] = 0.0;
     }
