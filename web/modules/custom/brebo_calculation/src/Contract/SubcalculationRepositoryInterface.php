@@ -5,6 +5,23 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Contract;
 
 interface SubcalculationRepositoryInterface {
+  /** @return list<array<string,mixed>> */
+  public function subcalculations(int $calculationId, string $version): array;
+  /** @return list<array<string,mixed>> */
+  public function applications(int $subcalculationId): array;
+  /** @return list<array<string,mixed>> */
+  public function structure(int $calculationId, string $version): array;
+  /** @return list<array<string,mixed>> */
+  public function rowDomains(int $calculationId, string $version): array;
+  public function scopeCount(int $subcalculationId): int;
+  public function applicationCount(int $subcalculationId): int;
+  /** @return array<string,mixed>|null */
+  public function applicationForSubcalculation(int $applicationId, int $subcalculationId): ?array;
+  /** @return list<array<string,mixed>> */
+  public function applicationObjectsDetailed(int $applicationId): array;
+  public function exceptionObjectCount(int $applicationId): int;
+  public function deleteScope(int $scopeId): void;
+
   /** @param array<string,mixed> $values */
   public function insertSubcalculation(array $values): int;
   /** @param array<string,mixed> $values */

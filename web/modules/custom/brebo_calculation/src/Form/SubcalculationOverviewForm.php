@@ -5,43 +5,47 @@ declare(strict_types=1);
 namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\SubcalculationManager;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Service\CalculationWorkspaceStateService;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Manage reusable subcalculations for one calculation. */
 final class SubcalculationOverviewForm extends FormBase {
 
-  public function __construct(private readonly Connection $database, private readonly SubcalculationManager $manager) {}
+  public function __construct(private readonly CalculationWorkspaceStateService $workspaceState, private readonly SubcalculationManager $manager) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'), $container->get('brebo_calculation.subcalculation_manager'));
+    return new static($container->get('brebo_calculation.workspace_state'), $container->get('brebo_calculation.subcalculation_manager'));
   }
 
   public function getFormId(): string { return 'brebo_calculation_subcalculation_overview_form'; }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
-    $version = $this->latestVersion((int) $node->id());
-    if ($version === NULL) {
+    try {
+      $state = $this->workspaceState->state($calculationId);
+    }
+    catch (\RuntimeException) {
       return ['message' => ['#markup' => '<p>Geen actieve calculatieversie gevonden.</p>']];
     }
+    $version = (array) $state['version'];
     $form['#tree'] = TRUE;
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
-    $form['calculation_id'] = ['#type' => 'hidden', '#value' => (int) $node->id()];
+    $form['calculation_id'] = ['#type' => 'hidden', '#value' => $calculationId];
     $form['version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
-    $records = $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')->condition('calculation_id', (int) $node->id())->condition('version', (string) $version['version'])->orderBy('label')->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+    $records = $this->manager->list($calculationId, (string) $version['version']);
 
     $form['intro'] = ['#markup' => '<p>Deelcalculaties zijn herbruikbare rekeneenheden. Dit kan een woningtype zijn, maar net zo goed een repeterend geveldeel, balkon, kozijnmodule, dakvlak, trappenhuis, galerijvak, bouwdeel of vrij werkpakket.</p>'];
     $form['overview'] = ['#type' => 'table', '#header' => ['Code', 'Deelcalculatie', 'Type', 'Rekeneenheid', 'Scope', 'Toepassingen', 'Directe kostprijs / eenheid', 'Status', 'Actie'], '#empty' => 'Nog geen deelcalculaties aangemaakt.', '#attributes' => ['class' => ['brebo-subcalculation-table']]];
-    foreach ($records as $id => $record) {
-      $scopeCount = (int) $this->database->select('brebo_calculation_subcalculation_scope', 'ss')->condition('subcalculation_id', (int) $id)->countQuery()->execute()->fetchField();
-      $applicationCount = (int) $this->database->select('brebo_calculation_subcalculation_application', 'a')->condition('subcalculation_id', (int) $id)->countQuery()->execute()->fetchField();
+    foreach ($records as $record) {
+      $id = (int) $record['id'];
+      $scopeCount = $this->manager->scopeCount($id);
+      $applicationCount = $this->manager->applicationCount($id);
       $totals = $this->manager->totals((int) $id);
       $form['overview']['sub_' . $id] = [
         'code' => ['#markup' => htmlspecialchars((string) ($record['code'] ?: '—'))],
@@ -52,7 +56,7 @@ final class SubcalculationOverviewForm extends FormBase {
         'applications' => ['#markup' => (string) $applicationCount],
         'direct' => ['#markup' => '<strong>€ ' . number_format($totals['direct'], 2, ',', '.') . '</strong>'],
         'status' => ['#markup' => htmlspecialchars((string) $record['status'])],
-        'action' => ['#type' => 'link', '#title' => 'Samenstellen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_detail', ['node' => $node->id(), 'subcalculation' => $id])],
+        'action' => ['#type' => 'link', '#title' => 'Samenstellen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_detail', ['calculation' => $calculationId, 'subcalculation' => $id])],
       ];
     }
 
@@ -93,9 +97,4 @@ final class SubcalculationOverviewForm extends FormBase {
     ][$type] ?? $type;
   }
 
-  /** @return array<string,mixed>|null */
-  private function latestVersion(int $calculationId): ?array {
-    $record = $this->database->select('brebo_calculation_version', 'v')->fields('v')->condition('calculation_id', $calculationId)->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc();
-    return $record ?: NULL;
-  }
 }
