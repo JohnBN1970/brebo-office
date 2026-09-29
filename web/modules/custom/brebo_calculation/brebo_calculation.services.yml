@@ -13,9 +13,13 @@ services:
     class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
     arguments: ['@cache.default']
 
+  brebo_calculation.workspace_resource_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceResourceRepository
+    arguments: ['@database']
+
   brebo_calculation.workspace_resource_guard:
     class: Drupal\brebo_calculation\Service\CalculationWorkspaceResourceGuard
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.workspace_resource_repository']
 
   brebo_calculation.workspace_read_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceReadRepository
@@ -97,9 +101,13 @@ services:
       - '@brebo_calculation.legacy_line_mirror_map'
       - '@brebo_calculation.legacy_line_mirror_policy'
 
+  brebo_calculation.kozijn_price_observation_store:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseKozijnPriceObservationStore
+    arguments: ['@database']
+
   brebo_calculation.kozijn_price_observation_repository:
     class: Drupal\brebo_calculation\Service\KozijnPriceObservationRepository
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.kozijn_price_observation_store']
 
   brebo_calculation.kozijn_price_engine:
     class: Drupal\brebo_calculation\Service\KozijnPriceEngine
