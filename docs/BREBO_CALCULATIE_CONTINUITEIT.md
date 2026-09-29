@@ -250,6 +250,29 @@ UI-polijsting wordt bewust los gehouden van de kernarchitectuur. Een andere chat
 - geen lokale calculatiewaarheid terugkomt;
 - Workspace/API-contracten gerespecteerd blijven.
 
+## Actuele functionele stand — 29 september 2026 ochtend
+
+Sinds de architectuurslag zijn ook de volgende functionele lijnen aantoonbaar verder gesloten:
+
+- PR #973 herstelt de historische Office-workbench-URL als compatibiliteitsroute naar de signed Calc-launch. Bestaande bookmarks en referentiecalculaties, waaronder node 41 / testcalculatie 001, blijven bereikbaar zonder calculatiewaarheid terug naar Drupal te brengen.
+- PR #974 maakt de geometrische uittrekstaat semantisch zuiver: breedte, hoogte, zijden, oppervlak en omtrek zijn per element; `quantity` / `element_quantity` blijven afzonderlijke vermenigvuldigingsvariabelen.
+- Bestaande take-off-rijen worden via update hook herberekend vanuit de canonieke BxH-afmetingen, zodat oude reeds met aantal vermenigvuldigde geometrie geen dubbele verbruiken veroorzaakt.
+- `element_quantity` volgt bij herberekening altijd de actuele recepthoeveelheid en kan daardoor niet stilzwijgend afwijken van `quantity`.
+- In de aparte Calc-repo zijn de productielijnen verder doorgetrokken van uittrekstaat/recept naar traceerbare calculatieregels, netto/bruto/verlies, praktische zaagoptimalisatie, materiaalconversie, plaatnesting, materiaal-kostprijs en reproduceerbare Calc -> Office execution handoff.
+- De eerstvolgende Calc-prijsstap is deterministische artikelprijsselectie op calculatiedatum, geldigheid, leverancier en bron; bij gelijkwaardige geldige kandidaten wordt niet gegokt maar expliciete keuze vereist.
+
+Vaste hoeveelhedenregel:
+
+~~~text
+bronmaat / geometrie per element
+x aantal elementen
+x aantal arbeidsgangen / toepassingsfactor
++ expliciet verlies
+-> bruto materiaal-/arbeidsbehoefte
+-> verpakkings-/zaag-/plaatoptimalisatie
+-> herleidbare kostprijs
+~~~
+
 ## Nog open — functioneel
 
 De architectuurscheiding betekent niet dat Calculatie functioneel klaar is.
