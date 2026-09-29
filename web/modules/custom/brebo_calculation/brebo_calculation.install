@@ -210,3 +210,60 @@ function brebo_calculation_update_11002(): void {
     $schema->createTable('brebo_calculation_document_set_item', brebo_calculation_document_set_item_schema());
   }
 }
+
+
+/** Structured, provenance-preserving calculation facts. */
+function brebo_calculation_fact_schema(): array {
+  return [
+    'description' => 'Structured facts extracted for calculation, preserving document provenance.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'set_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'fact_type' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'position_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'value_text' => ['type' => 'text', 'not null' => FALSE],
+      'value_number' => ['type' => 'numeric', 'precision' => 19, 'scale' => 6, 'not null' => FALSE],
+      'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE],
+      'source_page' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_fragment' => ['type' => 'text', 'not null' => FALSE],
+      'extraction_method' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'confidence' => ['type' => 'numeric', 'precision' => 5, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'review_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'proposed'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['set_type' => ['set_id', 'fact_type'], 'document' => ['document_id'], 'position' => ['position_ref']],
+  ];
+}
+
+/** First quantity take-off rows derived from reviewed/proposed facts. */
+function brebo_calculation_takeoff_schema(): array {
+  return [
+    'description' => 'Source-independent quantity take-off derived from calculation facts.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'set_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'position_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'quantity' => ['type' => 'numeric', 'precision' => 19, 'scale' => 4, 'not null' => TRUE, 'default' => 1],
+      'width_mm' => ['type' => 'numeric', 'precision' => 19, 'scale' => 2, 'not null' => FALSE],
+      'height_mm' => ['type' => 'numeric', 'precision' => 19, 'scale' => 2, 'not null' => FALSE],
+      'area_m2' => ['type' => 'numeric', 'precision' => 19, 'scale' => 6, 'not null' => FALSE],
+      'perimeter_m' => ['type' => 'numeric', 'precision' => 19, 'scale' => 6, 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['set_position' => ['set_id', 'position_ref']],
+  ];
+}
+
+/** Install calculation facts and take-off storage. */
+function brebo_calculation_update_11003(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_fact')) {
+    $schema->createTable('brebo_calculation_fact', brebo_calculation_fact_schema());
+  }
+  if (!$schema->tableExists('brebo_calculation_takeoff')) {
+    $schema->createTable('brebo_calculation_takeoff', brebo_calculation_takeoff_schema());
+  }
+}
