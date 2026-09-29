@@ -22,7 +22,7 @@ final class OfferReviewConfirmForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly CalculationReadinessInspector $readinessInspector,
-    private readonly RequestStack $requestStack,
+    private readonly RequestStack $requestStackService,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -125,7 +125,7 @@ final class OfferReviewConfirmForm extends FormBase {
     $readiness = $this->readinessInspector->inspect($calculationId, $version);
     $status = (string) ($readiness['status'] ?? 'blocked');
 
-    $session = $this->requestStack->getCurrentRequest()?->getSession();
+    $session = $this->requestStackService->getCurrentRequest()?->getSession();
     $key = 'brebo_calculation_offer_review_confirmation.' . $calculationId;
     if ($status === 'review') {
       $session?->set($key, [
