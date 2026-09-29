@@ -4,26 +4,31 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Form;
 
+use Drupal\brebo_calculation\Contract\RecipeRepositoryInterface;
+use Drupal\brebo_calculation\Service\CalculationWorkspaceStateService;
 use Drupal\brebo_calculation\Service\RecipeManager;
-use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
+use Symfony\Component\HttpFoundation\RequestStack;
 
 /** Places a published reusable recipe into a calculation leaf paragraph. */
 final class RecipePlacementForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationWorkspaceStateService $workspaceState,
+    private readonly RecipeRepositoryInterface $recipeRepository,
     private readonly RecipeManager $recipeManager,
+    private readonly RequestStack $requestStack,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_calculation.workspace_state'),
+      $container->get('brebo_calculation.recipe_repository'),
       $container->get('brebo_calculation.recipe_manager'),
+      $container->get('request_stack'),
     );
   }
 
@@ -31,18 +36,24 @@ final class RecipePlacementForm extends FormBase {
     return 'brebo_calculation_recipe_placement_form';
   }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_calculation') {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0) {
       return ['message' => ['#markup' => '<p>Calculatie niet gevonden.</p>']];
     }
 
-    $calculationId = (int) $node->id();
-    $version = $this->latestVersion($calculationId);
+    try {
+      $state = $this->workspaceState->state($calculationId);
+    }
+    catch (\RuntimeException) {
+      return ['message' => ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie.</p>']];
+    }
+
+    $version = is_array($state['version'] ?? NULL) ? $state['version'] : NULL;
     if ($version === NULL) {
       return ['message' => ['#markup' => '<p>Deze calculatie heeft nog geen domeinversie.</p>']];
     }
 
-    $editable = $version['status'] === 'draft' && $version['locked_at'] === NULL && $node->access('update');
     $form['#tree'] = TRUE;
     $form['calculation_id'] = ['#type' => 'hidden', '#value' => $calculationId];
     $form['calculation_version'] = ['#type' => 'hidden', '#value' => (string) $version['version']];
@@ -54,16 +65,16 @@ final class RecipePlacementForm extends FormBase {
     $form['back'] = [
       '#type' => 'link',
       '#title' => 'Terug naar calculatiewerkbank',
-      '#url' => Url::fromRoute('brebo_calculation.workbench', ['node' => $calculationId]),
+      '#url' => Url::fromRoute('brebo_calculation.workbench', ['calculation' => $calculationId]),
       '#attributes' => ['class' => ['button']],
     ];
 
-    if (!$editable) {
+    if (empty($state['editable'])) {
       $form['readonly'] = ['#markup' => '<p><strong>Deze calculatieversie is niet bewerkbaar. Recepten kunnen alleen in een ontgrendelde conceptversie worden geplaatst.</strong></p>'];
       return $form;
     }
 
-    $paragraphs = $this->leafParagraphOptions($calculationId, (string) $version['version']);
+    $paragraphs = $this->leafParagraphOptions((array) ($state['structure'] ?? []));
     $recipes = $this->publishedRecipeOptions();
 
     if ($paragraphs === []) {
@@ -76,7 +87,7 @@ final class RecipePlacementForm extends FormBase {
     }
 
     $selectedVersion = (int) ($form_state->getValue(['recipe', 'version_id']) ?: array_key_first($recipes));
-    $requestedParagraph = trim((string) \Drupal::request()->query->get('paragraph', ''));
+    $requestedParagraph = trim((string) $this->requestStack->getCurrentRequest()?->query->get('paragraph', ''));
     $selectedParagraph = (string) ($form_state->getValue(['recipe', 'paragraph_key']) ?: (isset($paragraphs[$requestedParagraph]) ? $requestedParagraph : array_key_first($paragraphs)));
 
     $form['recipe'] = [
@@ -110,7 +121,7 @@ final class RecipePlacementForm extends FormBase {
       '#required' => TRUE,
     ];
 
-    $parameters = $this->parametersForVersion($selectedVersion);
+    $parameters = $this->recipeRepository->parameters($selectedVersion);
     if ($parameters !== []) {
       $form['recipe']['parameters'] = [
         '#type' => 'details',
@@ -164,35 +175,15 @@ final class RecipePlacementForm extends FormBase {
     );
 
     $this->messenger()->addStatus($this->t('Recept geplaatst als calculatieblok @id.', ['@id' => $instanceId]));
-    $form_state->setRedirect('brebo_calculation.workbench', ['node' => (int) $form_state->getValue('calculation_id')]);
+    $form_state->setRedirect('brebo_calculation.workbench', ['calculation' => (int) $form_state->getValue('calculation_id')]);
   }
 
   public function ajaxRefresh(array &$form, FormStateInterface $form_state): array {
     return $form['recipe'];
   }
 
-  /** @return array<string,mixed>|null */
-  private function latestVersion(int $calculationId): ?array {
-    $row = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v')
-      ->condition('calculation_id', $calculationId)
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
-    return $row ?: NULL;
-  }
-
-  /** @return array<string,string> */
-  private function leafParagraphOptions(int $calculationId, string $version): array {
-    $records = $this->database->select('brebo_calculation_structure', 's')
-      ->fields('s', ['node_key', 'parent_key', 'node_type', 'depth', 'code', 'label', 'sort_order'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->orderBy('sort_order')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
+  /** @param list<array<string,mixed>> $records @return array<string,string> */
+  private function leafParagraphOptions(array $records): array {
     $parents = [];
     foreach ($records as $record) {
       if (!empty($record['parent_key'])) {
@@ -202,43 +193,24 @@ final class RecipePlacementForm extends FormBase {
 
     $options = [];
     foreach ($records as $record) {
-      $key = (string) $record['node_key'];
-      if ((string) $record['node_type'] !== 'paragraph' || isset($parents[$key])) {
+      $key = (string) ($record['node_key'] ?? '');
+      if ($key === '' || (string) ($record['node_type'] ?? '') !== 'paragraph' || isset($parents[$key])) {
         continue;
       }
-      $indent = str_repeat('— ', max(0, (int) $record['depth'] - 1));
+      $indent = str_repeat('— ', max(0, (int) ($record['depth'] ?? 0) - 1));
       $code = trim((string) ($record['code'] ?? ''));
-      $options[$key] = $indent . ($code !== '' ? $code . ' · ' : '') . (string) $record['label'];
+      $options[$key] = $indent . ($code !== '' ? $code . ' · ' : '') . (string) ($record['label'] ?? $key);
     }
     return $options;
   }
 
   /** @return array<int,string> */
   private function publishedRecipeOptions(): array {
-    $query = $this->database->select('brebo_calculation_recipe_version', 'rv');
-    $query->join('brebo_calculation_recipe', 'r', 'r.id = rv.recipe_id');
-    $query->fields('rv', ['id', 'version', 'base_unit']);
-    $query->addField('r', 'name', 'recipe_name');
-    $query->condition('rv.status', 'published');
-    $query->condition('r.status', 'active');
-    $query->orderBy('r.name');
-    $query->orderBy('rv.published', 'DESC');
-
     $options = [];
-    foreach ($query->execute() as $record) {
-      $options[(int) $record->id] = $record->recipe_name . ' · v' . $record->version . ' · per ' . $record->base_unit;
+    foreach ($this->recipeRepository->publishedVersions() as $record) {
+      $options[(int) $record['id']] = $record['recipe_name'] . ' · v' . $record['version'] . ' · per ' . $record['base_unit'];
     }
     return $options;
-  }
-
-  /** @return list<array<string,mixed>> */
-  private function parametersForVersion(int $recipeVersionId): array {
-    return $this->database->select('brebo_calculation_recipe_parameter', 'p')
-      ->fields('p')
-      ->condition('recipe_version_id', $recipeVersionId)
-      ->orderBy('sort_order')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
   }
 
 }

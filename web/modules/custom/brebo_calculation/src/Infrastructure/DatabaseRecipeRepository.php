@@ -16,6 +16,27 @@ final class DatabaseRecipeRepository implements RecipeRepositoryInterface {
     return $row ?: NULL;
   }
 
+
+  public function publishedVersions(): array {
+    $query = $this->database->select('brebo_calculation_recipe_version', 'rv');
+    $query->join('brebo_calculation_recipe', 'r', 'r.id = rv.recipe_id');
+    $query->fields('rv', ['id', 'version', 'base_unit']);
+    $query->addField('r', 'name', 'recipe_name');
+    $query->condition('rv.status', 'published');
+    $query->condition('r.status', 'active');
+    $query->orderBy('r.name');
+    $query->orderBy('rv.published', 'DESC');
+    return array_map(
+      static fn(array $row): array => [
+        'id' => (int) $row['id'],
+        'version' => (string) $row['version'],
+        'base_unit' => (string) $row['base_unit'],
+        'recipe_name' => (string) $row['recipe_name'],
+      ],
+      $query->execute()->fetchAll(\PDO::FETCH_ASSOC),
+    );
+  }
+
   public function recipe(int $recipeId): ?array {
     $row = $this->database->select('brebo_calculation_recipe', 'r')->fields('r')->condition('id', $recipeId)->execute()->fetchAssoc();
     return $row ?: NULL;
