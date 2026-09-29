@@ -126,7 +126,9 @@ final class WorkingBudgetApprovalManager {
           'created_by' => $userId,
         ]);
 
-      return $locked;    });
+      return $locked;
+    });
+  }
 
   private function allDisciplinesApproved(int $budgetId): bool {
     $decisions = $this->repository->decisions($budgetId);
