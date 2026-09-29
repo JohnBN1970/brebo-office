@@ -283,14 +283,16 @@ jobs:
         run: |
           set -euo pipefail
           migrator='web/modules/custom/brebo_calculation/src/Service/GuardedLegacyMigrator.php'
+          migration_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseLegacyMigrationRepository.php'
           audit='web/modules/custom/brebo_calculation/src/Controller/MigrationAuditController.php'
           confirm='web/modules/custom/brebo_calculation/src/Form/MigrationConfirmForm.php'
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           permissions='web/modules/custom/brebo_calculation/brebo_calculation.permissions.yml'
           grep -q "isSafeToMigrate" "$migrator"
           grep -q "target migration version already exists" "$migrator"
-          grep -q "startTransaction" "$migrator"
+          grep -q "startTransaction" "$migration_repository"
           grep -q "assertWritten" "$migrator"
+          ! grep -q "Drupal\\Core\\Database" "$migrator"
           grep -q "Omzetten naar nieuwe calculatie" "$confirm"
           grep -q "migration_overview" "$routing"
           grep -q "migration_confirm" "$routing"
