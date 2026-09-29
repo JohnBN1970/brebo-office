@@ -69,21 +69,21 @@ final class OfficeController extends ControllerBase {
         ? ((bool) $node->get('field_brebo_contact_active')->value ? (string) $this->t('Actief') : (string) $this->t('Inactief'))
         : $this->fieldValue($node, $status_field);
       $view_url = match ($bundle) {
-        'brebo_building' => Url::fromRoute('brebo_office_core.building_dashboard', ['node' => $node->id()]),
-        'brebo_organization' => Url::fromRoute('brebo_office_core.organization_dashboard', ['node' => $node->id()]),
-        'brebo_contact' => Url::fromRoute('brebo_office_core.contact_dashboard', ['node' => $node->id()]),
-        'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()]),
-        'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['node' => $node->id()]),
-        'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $node->id()]),
-        'brebo_work_budget' => Url::fromRoute('brebo_office_core.work_budget_dashboard', ['node' => $node->id()]),
-        'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['node' => $node->id()]),
+        'brebo_building' => Url::fromRoute('brebo_office_core.building_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_organization' => Url::fromRoute('brebo_office_core.organization_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_contact' => Url::fromRoute('brebo_office_core.contact_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_project' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_work_package' => Url::fromRoute('brebo_office_core.work_package_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_calculation' => Url::fromRoute('brebo_office_core.calculation_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_work_budget' => Url::fromRoute('brebo_office_core.work_budget_dashboard', ['calculation' => (int) $node->id()]),
+        'brebo_dwelling' => Url::fromRoute('brebo_office_core.dwelling_dossier', ['calculation' => (int) $node->id()]),
         default => $node->toUrl(),
       };
       $name = ['data' => Link::fromTextAndUrl($node->label(), $view_url)->toRenderable()];
       $changed = \Drupal::service('date.formatter')->format($node->getChangedTime(), 'short');
       $edit = ['data' => Link::fromTextAndUrl(
         $this->t('Bewerken'),
-        Url::fromRoute('entity.node.edit_form', ['node' => $node->id()])
+        Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()])
       )->toRenderable()];
 
       if ($bundle === 'brebo_organization') {
@@ -319,7 +319,7 @@ final class OfficeController extends ControllerBase {
         'edit' => [
           '#type' => 'link',
           '#title' => $this->t('Woning bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'add' => [
@@ -558,7 +558,7 @@ final class OfficeController extends ControllerBase {
         'edit' => [
           '#type' => 'link',
           '#title' => $this->t('Werkpakket bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'add_gate' => [
@@ -749,13 +749,13 @@ final class OfficeController extends ControllerBase {
         'edit' => [
           '#type' => 'link',
           '#title' => $this->t('Gebouw bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'geocode' => [
           '#type' => 'link',
           '#title' => $has_coordinates ? $this->t('Locatie opnieuw bepalen') : $this->t('Locatie bepalen'),
-          '#url' => Url::fromRoute('brebo_office_core.building_geocode', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('brebo_office_core.building_geocode', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'add_zone' => [
@@ -1648,7 +1648,7 @@ final class OfficeController extends ControllerBase {
         'edit' => [
           '#type' => 'link',
           '#title' => $this->t('Projectinstellingen bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'add_scope' => [
@@ -1798,21 +1798,21 @@ final class OfficeController extends ControllerBase {
           $lens_insight['percent'] . '%',
           (string) $this->t('Opname, analyse, risico en advies'),
           [$lens_insight['signal'], $lens_insight['label']],
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-route'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-route'])
         ),
         'control' => $status_card(
           (string) $this->t('Regie'),
           $lens_control['percent'] . '%',
           (string) $this->t('Besluiten, communicatie, planning en geld'),
           [$lens_control['signal'], $lens_control['label']],
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-communication'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-communication'])
         ),
         'realization' => $status_card(
           (string) $this->t('Realisatie'),
           $lens_realization['percent'] . '%',
           (string) $this->t('Uitvoering, bewijs, controle en oplevering'),
           [$lens_realization['signal'], $lens_realization['label']],
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-objects'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-objects'])
         ),
       ],
       'buildings_heading' => [
@@ -1902,7 +1902,7 @@ final class OfficeController extends ControllerBase {
         'overview' => [
           '#type' => 'link',
           '#title' => $this->t('Overzicht'),
-          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], [
             'query' => ['comm_view' => 'overview'], 'fragment' => 'tab-communication',
           ]),
           '#attributes' => ['class' => $communication_view === 'overview' ? ['is-active'] : []],
@@ -1910,7 +1910,7 @@ final class OfficeController extends ControllerBase {
         'contacts' => [
           '#type' => 'link',
           '#title' => $this->t('Contactmomenten'),
-          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], [
             'query' => ['comm_view' => 'contacts'], 'fragment' => 'tab-communication',
           ]),
           '#attributes' => ['class' => $communication_view === 'contacts' ? ['is-active'] : []],
@@ -1918,7 +1918,7 @@ final class OfficeController extends ControllerBase {
         'followup' => [
           '#type' => 'link',
           '#title' => $this->t('Opvolging'),
-          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], [
             'query' => ['comm_view' => 'followup'], 'fragment' => 'tab-communication',
           ]),
           '#attributes' => ['class' => $communication_view === 'followup' ? ['is-active'] : []],
@@ -1926,7 +1926,7 @@ final class OfficeController extends ControllerBase {
         'processing' => [
           '#type' => 'link',
           '#title' => $this->t('Verwerking & transcripties'),
-          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], [
             'query' => ['comm_view' => 'processing'], 'fragment' => 'tab-communication',
           ]),
           '#attributes' => ['class' => $communication_view === 'processing' ? ['is-active'] : []],
@@ -1934,7 +1934,7 @@ final class OfficeController extends ControllerBase {
         'review' => [
           '#type' => 'link',
           '#title' => $this->t('Controle & vaststelling'),
-          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], [
+          '#url' => Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], [
             'query' => ['comm_view' => 'review'], 'fragment' => 'tab-communication',
           ]),
           '#attributes' => ['class' => $communication_view === 'review' ? ['is-active'] : []],
@@ -2095,7 +2095,7 @@ final class OfficeController extends ControllerBase {
           $route_counts['Gereed'] . ' / ' . $route_total,
           (string) $this->t('Routeonderdelen gereed'),
           $route_signal,
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-route'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-route'])
         ),
         'quality' => $status_card(
           (string) $this->t('Kwaliteit'),
@@ -2109,7 +2109,7 @@ final class OfficeController extends ControllerBase {
           $approved . ' / ' . count($controls),
           (string) $this->t('Controles met akkoord'),
           $evidence_signal,
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-objects'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-objects'])
         ),
         'objects' => $status_card(
           (string) $this->t('Objectmodel'),
@@ -2119,7 +2119,7 @@ final class OfficeController extends ControllerBase {
             '@dwellings' => count($dwellings),
           ]),
           $object_signal,
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-objects'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-objects'])
         ),
         'deviations' => $status_card(
           (string) $this->t('Afwijkingen'),
@@ -2133,7 +2133,7 @@ final class OfficeController extends ControllerBase {
           (string) $blocked_positions,
           (string) $this->t('Geblokkeerde posities'),
           $release_signal,
-          Url::fromRoute('brebo_office_core.project_dashboard', ['node' => $node->id()], ['fragment' => 'tab-objects'])
+          Url::fromRoute('brebo_office_core.project_dashboard', ['calculation' => (int) $node->id()], ['fragment' => 'tab-objects'])
         ),
       ],
       'clusters_heading' => ['#markup' => '<h2>' . $this->t('Clusters') . '</h2>'],
@@ -3364,12 +3364,12 @@ final class OfficeController extends ControllerBase {
         '#attributes' => ['class' => ['brebo-list-actions']],
         'edit' => [
           '#type' => 'link', '#title' => $this->t('Calculatie bewerken'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'open_calc_workbench' => [
           '#type' => 'link', '#title' => $this->t('Open in Calculatie'),
-          '#url' => Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('brebo_office_core.calc_workbench_launch', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
         ],
         'add_adjustment' => [
@@ -3381,14 +3381,14 @@ final class OfficeController extends ControllerBase {
         ],
         'create_offer' => [
           '#type' => 'link', '#title' => $this->t('Nieuwe offerteversie'),
-          '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button', 'button--primary']],
           '#access' => $node->access('update')
             && $this->currentUser()->hasPermission('create brebo_offer_version content'),
         ],
         'generate_work_budget' => [
           '#type' => 'link', '#title' => $this->t('Werkbegroting maken'),
-          '#url' => Url::fromRoute('brebo_office_core.generate_work_budget', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('brebo_office_core.generate_work_budget', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
           '#access' => in_array($this->fieldValue($node, 'field_brebo_calc_status'), ['Vastgesteld', 'Definitief budget'], TRUE)
             && $node->access('update'),
@@ -3600,7 +3600,7 @@ final class OfficeController extends ControllerBase {
       'tail_costs_edit' => [
         '#type' => 'link',
         '#title' => $this->t('Staartkosten bewerken'),
-        '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+        '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
         '#attributes' => ['class' => ['button', 'button--primary']],
         '#access' => $node->access('update'),
       ],
@@ -3628,7 +3628,7 @@ final class OfficeController extends ControllerBase {
       'offer_versions_action' => [
         '#type' => 'link',
         '#title' => $this->t('Nieuwe offerteversie'),
-        '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $node->id()]),
+        '#url' => Url::fromRoute('brebo_office_core.create_offer_version', ['calculation' => (int) $node->id()]),
         '#attributes' => ['class' => ['button', 'button--primary']],
         '#access' => $node->access('update')
           && $this->currentUser()->hasPermission('create brebo_offer_version content'),
@@ -3859,7 +3859,7 @@ final class OfficeController extends ControllerBase {
         'edit' => [
           '#type' => 'link',
           '#title' => $this->t('Werkbegroting beheren'),
-          '#url' => Url::fromRoute('entity.node.edit_form', ['node' => $node->id()]),
+          '#url' => Url::fromRoute('entity.node.edit_form', ['calculation' => (int) $node->id()]),
           '#attributes' => ['class' => ['button']],
         ],
         'all' => [
