@@ -52,6 +52,12 @@ final class SubcalculationManager {
     return $this->repository->applications($subcalculationId);
   }
 
+
+  /** @return array<string,mixed>|null */
+  public function applicationForSubcalculation(int $applicationId, int $subcalculationId): ?array {
+    return $this->repository->applicationForSubcalculation($applicationId, $subcalculationId);
+  }
+
   /** @return list<array<string,mixed>> */
   public function applicationObjects(int $applicationId): array {
     return $this->repository->applicationObjectsDetailed($applicationId);

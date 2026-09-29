@@ -6,25 +6,21 @@ namespace Drupal\brebo_calculation\Form;
 
 use Drupal\brebo_calculation\Service\ObjectExceptionLineManager;
 use Drupal\brebo_calculation\Service\SubcalculationManager;
-use Drupal\Core\Database\Connection;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Manage concrete canonical objects for one subcalculation application. */
 final class SubcalculationApplicationObjectsForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
     private readonly SubcalculationManager $manager,
     private readonly ObjectExceptionLineManager $exceptionLineManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
       $container->get('brebo_calculation.subcalculation_manager'),
       $container->get('brebo_calculation.object_exception_line_manager'),
     );
@@ -32,13 +28,14 @@ final class SubcalculationApplicationObjectsForm extends FormBase {
 
   public function getFormId(): string { return 'brebo_calculation_subcalculation_application_objects_form'; }
 
-  public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $subcalculation = NULL, ?int $application = NULL): array {
-    if (!$node instanceof NodeInterface || !$subcalculation || !$application) {
+  public function buildForm(array $form, FormStateInterface $form_state, ?int $calculation = NULL, ?int $subcalculation = NULL, ?int $application = NULL): array {
+    $calculationId = (int) $calculation;
+    if ($calculationId <= 0 || !$subcalculation || !$application) {
       throw new \InvalidArgumentException('Calculation, subcalculation and application expected.');
     }
-    $app = $this->database->select('brebo_calculation_subcalculation_application', 'a')->fields('a')->condition('id', $application)->condition('subcalculation_id', $subcalculation)->execute()->fetchAssoc();
-    $sub = $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')->condition('id', $subcalculation)->condition('calculation_id', (int) $node->id())->execute()->fetchAssoc();
-    if (!$app || !$sub) {
+    $app = $this->manager->applicationForSubcalculation($application, $subcalculation);
+    $sub = $this->manager->get($subcalculation);
+    if (!$app || !$sub || (int) $sub['calculation_id'] !== $calculationId) {
       throw new \InvalidArgumentException('Application does not belong to this calculation.');
     }
 
@@ -47,9 +44,10 @@ final class SubcalculationApplicationObjectsForm extends FormBase {
     $form['application_id'] = ['#type' => 'hidden', '#value' => $application];
     $form['summary'] = ['#markup' => '<div class="brebo-calc-workbench__meta"><span><strong>' . htmlspecialchars((string) $sub['label']) . '</strong></span><span>' . htmlspecialchars((string) ($app['application_ref'] ?: 'Toepassing ' . $application)) . '</span><span>Standaard: <strong>€ ' . number_format($applicationTotals['base'], 2, ',', '.') . '</strong></span><span>Legacy-afwijking: <strong>€ ' . number_format($applicationTotals['exceptions'], 2, ',', '.') . '</strong></span></div>'];
 
-    $objects = $this->database->select('brebo_calculation_subcalculation_application_object', 'o')->fields('o')->condition('application_id', $application)->orderBy('object_type')->orderBy('object_ref')->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+    $objects = $this->manager->applicationObjects($application);
     $form['objects'] = ['#type' => 'table', '#header' => ['Object', 'Factor', 'Standaard', 'Afwijkingsregels', 'Legacy-afwijking', 'Objecttotaal', 'Toelichting', 'Actie'], '#empty' => 'Nog geen concrete objecten gekoppeld.'];
-    foreach ($objects as $id => $object) {
+    foreach ($objects as $object) {
+      $id = (int) $object['id'];
       $factor = (float) $object['factor'];
       $base = $unitTotals['direct'] * $factor;
       $legacyException = ((float) $object['exception_labour'] + (float) $object['exception_material'] + (float) $object['exception_equipment'] + (float) $object['exception_subcontracting'] + (float) $object['exception_other']) * $factor;
@@ -64,7 +62,7 @@ final class SubcalculationApplicationObjectsForm extends FormBase {
         'legacy_exception' => ['#markup' => '€ ' . number_format($legacyException, 2, ',', '.')],
         'total' => ['#markup' => '<strong>€ ' . number_format($objectTotal, 2, ',', '.') . '</strong>'],
         'note' => ['#markup' => htmlspecialchars((string) ($object['exception_payload'] ?: '—'))],
-        'action' => ['#type' => 'link', '#title' => 'Afwijkingsregels', '#url' => Url::fromRoute('brebo_calculation.object_exception_lines', ['node' => $node->id(), 'subcalculation' => $subcalculation, 'application' => $application, 'object' => $id])],
+        'action' => ['#type' => 'link', '#title' => 'Afwijkingsregels', '#url' => Url::fromRoute('brebo_calculation.object_exception_lines', ['node' => $calculationId, 'subcalculation' => $subcalculation, 'application' => $application, 'object' => $id])],
       ];
     }
 
@@ -79,7 +77,7 @@ final class SubcalculationApplicationObjectsForm extends FormBase {
     $form['add']['submit'] = ['#type' => 'submit', '#value' => 'Object koppelen', '#button_type' => 'primary'];
 
     $form['actions'] = ['#type' => 'actions'];
-    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar toepassingen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_applications', ['node' => $node->id(), 'subcalculation' => $subcalculation])];
+    $form['actions']['back'] = ['#type' => 'link', '#title' => 'Terug naar toepassingen', '#url' => Url::fromRoute('brebo_calculation.subcalculation_applications', ['calculation' => $calculationId, 'subcalculation' => $subcalculation])];
     $form['#attached']['library'][] = 'brebo_calculation/workbench';
     return $form;
   }
