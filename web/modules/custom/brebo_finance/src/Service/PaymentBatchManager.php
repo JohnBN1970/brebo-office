@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PaymentBatchRepositoryInterface;
+use Drupal\brebo_finance\Contract\PaymentRecipientGatewayInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -13,14 +14,14 @@ use UnexpectedValueException;
 final class PaymentBatchManager {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly PurchaseInvoiceImporter $invoiceImporter,
+    private readonly PaymentBatchRepositoryInterface $repository,
+    private readonly PaymentRecipientGatewayInterface $recipients,
     private readonly VatCalculator $decimal,
   ) {}
 
   /** Creates one draft batch and immutable recipient snapshots for its items. */
   public function prepare(array $releaseIds, string $executionDate, int $userId): int {
-    $this->ensureStorage();
+    $this->repository->ensureStorage();
     $releaseIds = array_values(array_unique(array_map('intval', $releaseIds)));
     if ($releaseIds === []) {
       throw new InvalidArgumentException('Select at least one approved payment release.');
@@ -32,8 +33,7 @@ final class PaymentBatchManager {
       throw new InvalidArgumentException('Execution date may not be in the past.');
     }
 
-    $transaction = $this->database->startTransaction();
-    try {
+    return $this->repository->transactional(function () use ($releaseIds, $executionDate, $userId): int {
       $items = [];
       $currency = NULL;
       $projectIds = [];
@@ -57,7 +57,7 @@ final class PaymentBatchManager {
           throw new RuntimeException("Payment release {$releaseId} is already present in an active payment batch.");
         }
 
-        $recipient = $this->invoiceImporter->paymentRecipientSnapshot((int) $invoice['id'], $userId);
+        $recipient = $this->recipients->snapshot((int) $invoice['id'], $userId);
         $projectIds[(int) $invoice['project_nid']] = TRUE;
         $regular = (string) $release['regular_account_amount'];
         $gAccount = (string) $release['g_account_amount'];
@@ -82,7 +82,7 @@ final class PaymentBatchManager {
       $now = time();
       $batchNumber = 'BRB-' . gmdate('Ymd-His', $now) . '-' . strtoupper(substr(hash('sha256', implode(',', $releaseIds) . ':' . $now), 0, 8));
       $draftHash = $this->hash(['batch_number' => $batchNumber, 'execution_date' => $executionDate, 'currency' => $currency, 'items' => $items]);
-      $batchId = (int) $this->database->insert('brebo_finance_payment_batch')->fields([
+      $batchId = $this->repository->insertBatch([
         'batch_number' => $batchNumber,
         'status' => 'draft',
         'execution_date' => $executionDate,
@@ -95,10 +95,10 @@ final class PaymentBatchManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])->execute();
+      ]);
 
       foreach ($items as $position => $item) {
-        $this->database->insert('brebo_finance_payment_batch_item')->fields([
+        $this->repository->insertItem([
           'batch_id' => $batchId,
           'position' => $position + 1,
           'project_nid' => $item['project_nid'],
@@ -116,7 +116,7 @@ final class PaymentBatchManager {
           'status' => 'prepared',
           'created' => $now,
           'created_by' => $userId,
-        ])->execute();
+        ]);
       }
 
       $this->auditBatch($batchId, 'payment_batch_prepared', $userId, [
@@ -125,16 +125,12 @@ final class PaymentBatchManager {
         'release_ids' => $releaseIds,
       ]);
       return $batchId;
-    }
-    catch (\Throwable $e) {
-      $transaction->rollBack();
-      throw $e;
-    }
+    });
   }
 
   /** Runs deterministic controls and seals the exact reviewed payload. */
   public function controllerReview(int $batchId, int $userId): array {
-    $this->ensureStorage();
+    $this->repository->ensureStorage();
     $batch = $this->loadBatch($batchId, ['draft', 'reviewed']);
     $items = $this->loadItems($batchId);
     if ($items === []) {
@@ -161,7 +157,7 @@ final class PaymentBatchManager {
       if ((string) $item['currency'] !== 'EUR') {
         $blockers[] = "Betaalinstructie {$item['id']} is niet in EUR.";
       }
-      if (!$this->invoiceImporter->paymentRecipientUnchanged((int) $invoice['id'], (string) $item['recipient_hash'], $userId)) {
+      if (!$this->recipients->unchanged((int) $invoice['id'], (string) $item['recipient_hash'], $userId)) {
         $blockers[] = "Betaalrekening van factuur {$invoice['id']} is gewijzigd na voorbereiding.";
       }
       if ((string) $item['instruction_type'] === 'g_account') {
@@ -179,7 +175,7 @@ final class PaymentBatchManager {
     $verdict = $blockers !== [] ? 'red' : ($warnings !== [] ? 'orange' : 'green');
     $payloadHash = $this->currentPayloadHash($batch, $items);
     $now = time();
-    $this->database->update('brebo_finance_payment_batch')->fields([
+    $this->repository->updateBatch($batchId, [
       'status' => 'reviewed',
       'controller_verdict' => $verdict,
       'controller_payload' => json_encode(['blockers' => $blockers, 'warnings' => $warnings], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
@@ -188,7 +184,7 @@ final class PaymentBatchManager {
       'reviewed_by' => $userId,
       'changed' => $now,
       'changed_by' => $userId,
-    ])->condition('id', $batchId)->execute();
+    ]);
     $this->auditBatch($batchId, 'payment_batch_controller_reviewed', $userId, [
       'verdict' => $verdict,
       'blockers' => $blockers,
@@ -200,7 +196,7 @@ final class PaymentBatchManager {
 
   /** Four-eyes release. A red deterministic verdict can never be overridden. */
   public function release(int $batchId, string $note, int $userId): void {
-    $this->ensureStorage();
+    $this->repository->ensureStorage();
     $batch = $this->loadBatch($batchId, ['reviewed']);
     if (trim($note) === '') {
       throw new InvalidArgumentException('A release note is required.');
@@ -218,13 +214,13 @@ final class PaymentBatchManager {
       throw new RuntimeException('Payment batch changed after controller review; run a new review.');
     }
     foreach ($items as $item) {
-      if (!$this->invoiceImporter->paymentRecipientUnchanged((int) $item['invoice_id'], (string) $item['recipient_hash'], $userId)) {
+      if (!$this->recipients->unchanged((int) $item['invoice_id'], (string) $item['recipient_hash'], $userId)) {
         throw new RuntimeException('Recipient changed after controller review; payment-run release is blocked.');
       }
     }
 
     $now = time();
-    $this->database->update('brebo_finance_payment_batch')->fields([
+    $this->repository->updateBatch($batchId, [
       'status' => 'released',
       'release_note' => trim($note),
       'released' => $now,
@@ -232,11 +228,8 @@ final class PaymentBatchManager {
       'sealed_hash' => $currentHash,
       'changed' => $now,
       'changed_by' => $userId,
-    ])->condition('id', $batchId)->execute();
-    $this->database->update('brebo_finance_payment_batch_item')
-      ->fields(['status' => 'released'])
-      ->condition('batch_id', $batchId)
-      ->execute();
+    ]);
+    $this->repository->updateItems($batchId, ['status' => 'released']);
     $this->auditBatch($batchId, 'payment_batch_released', $userId, [
       'sealed_hash' => $currentHash,
       'note' => trim($note),
@@ -245,7 +238,7 @@ final class PaymentBatchManager {
 
   /** Returns the exact sealed batch payload used by bank/SEPA adapters. */
   public function sealedPayload(int $batchId): array {
-    $this->ensureStorage();
+    $this->repository->ensureStorage();
     $batch = $this->loadBatch($batchId, ['released', 'submitted', 'executed', 'reconciled']);
     $items = $this->loadItems($batchId);
     $hash = $this->currentPayloadHash($batch, $items);
@@ -274,122 +267,32 @@ final class PaymentBatchManager {
     ];
   }
 
-  /** Creates the payment-center storage for both upgraded and fresh environments. */
-  private function ensureStorage(): void {
-    $schema = $this->database->schema();
-    $money = ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0];
-    $user = ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE];
-
-    if (!$schema->tableExists('brebo_finance_payment_batch')) {
-      $schema->createTable('brebo_finance_payment_batch', [
-        'description' => 'Four-eyes controlled immutable payment run awaiting bank execution.',
-        'fields' => [
-          'id' => ['type' => 'serial', 'not null' => TRUE],
-          'batch_number' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-          'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'],
-          'execution_date' => ['type' => 'varchar', 'length' => 10, 'not null' => TRUE],
-          'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
-          'item_count' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-          'control_sum' => $money,
-          'payload_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-          'controller_verdict' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'pending'],
-          'controller_payload' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE],
-          'reviewed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-          'reviewed_by' => $user,
-          'release_note' => ['type' => 'text', 'not null' => FALSE],
-          'released' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-          'released_by' => $user,
-          'sealed_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
-          'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'created_by' => $user,
-          'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'changed_by' => $user,
-        ],
-        'primary key' => ['id'],
-        'unique keys' => ['batch_number' => ['batch_number']],
-        'indexes' => [
-          'status_execution' => ['status', 'execution_date'],
-          'controller_verdict' => ['controller_verdict'],
-        ],
-      ]);
-    }
-
-    if (!$schema->tableExists('brebo_finance_payment_batch_item')) {
-      $schema->createTable('brebo_finance_payment_batch_item', [
-        'description' => 'Immutable creditor instruction belonging to a controlled payment run.',
-        'fields' => [
-          'id' => ['type' => 'serial', 'not null' => TRUE],
-          'batch_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'position' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'release_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'invoice_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'instruction_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
-          'amount' => $money,
-          'currency' => ['type' => 'varchar', 'length' => 3, 'not null' => TRUE, 'default' => 'EUR'],
-          'creditor_name' => ['type' => 'varchar', 'length' => 140, 'not null' => TRUE],
-          'creditor_iban' => ['type' => 'varchar', 'length' => 34, 'not null' => TRUE],
-          'creditor_bic' => ['type' => 'varchar', 'length' => 11, 'not null' => FALSE],
-          'recipient_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
-          'end_to_end_id' => ['type' => 'varchar', 'length' => 35, 'not null' => TRUE],
-          'remittance_information' => ['type' => 'varchar', 'length' => 140, 'not null' => TRUE],
-          'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'prepared'],
-          'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-          'created_by' => $user,
-        ],
-        'primary key' => ['id'],
-        'unique keys' => [
-          'batch_position' => ['batch_id', 'position'],
-          'batch_end_to_end' => ['batch_id', 'end_to_end_id'],
-        ],
-        'indexes' => [
-          'batch_status' => ['batch_id', 'status'],
-          'release' => ['release_id'],
-          'invoice' => ['invoice_id'],
-        ],
-      ]);
-    }
-  }
-
   private function loadBatch(int $id, array $statuses): array {
-    $row = $this->database->select('brebo_finance_payment_batch', 'b')->fields('b')->condition('id', $id)->execute()->fetchAssoc();
-    if ($row === FALSE || !in_array($row['status'], $statuses, TRUE)) {
+    $row = $this->repository->batch($id);
+    if ($row === NULL || !in_array($row['status'], $statuses, TRUE)) {
       throw new UnexpectedValueException('Payment batch has an invalid state.');
     }
     return $row;
   }
 
   private function loadRelease(int $id): array {
-    $row = $this->database->select('brebo_finance_payment_release', 'r')->fields('r')->condition('id', $id)->execute()->fetchAssoc();
-    if ($row === FALSE) {
-      throw new UnexpectedValueException('Payment release does not exist.');
-    }
+    $row = $this->repository->release($id);
+    if ($row === NULL) throw new UnexpectedValueException('Payment release does not exist.');
     return $row;
   }
 
   private function loadInvoice(int $id): array {
-    $row = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i')->condition('id', $id)->execute()->fetchAssoc();
-    if ($row === FALSE) {
-      throw new UnexpectedValueException('Purchase invoice does not exist.');
-    }
+    $row = $this->repository->invoice($id);
+    if ($row === NULL) throw new UnexpectedValueException('Purchase invoice does not exist.');
     return $row;
   }
 
   private function loadItems(int $batchId): array {
-    return $this->database->select('brebo_finance_payment_batch_item', 'i')
-      ->fields('i')
-      ->condition('batch_id', $batchId)
-      ->orderBy('position')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->items($batchId);
   }
 
   private function releaseAlreadyInOpenBatch(int $releaseId): bool {
-    $query = $this->database->select('brebo_finance_payment_batch_item', 'i');
-    $query->innerJoin('brebo_finance_payment_batch', 'b', 'b.id = i.batch_id');
-    $query->condition('i.release_id', $releaseId)
-      ->condition('b.status', ['cancelled', 'rejected', 'executed', 'reconciled'], 'NOT IN');
-    return (bool) $query->countQuery()->execute()->fetchField();
+    return $this->repository->releaseInOpenBatch($releaseId);
   }
 
   private function sumItems(array $items): string {
@@ -427,7 +330,7 @@ final class PaymentBatchManager {
   }
 
   private function auditBatch(int $batchId, string $action, int $userId, array $payload): void {
-    $this->database->insert('brebo_finance_audit')->fields([
+    $this->repository->insertAudit([
       'project_nid' => 0,
       'entity_type' => 'payment_batch',
       'entity_id' => $batchId,
@@ -436,7 +339,7 @@ final class PaymentBatchManager {
       'reason' => 'Controlled BREBO payment-run workflow.',
       'created' => time(),
       'created_by' => $userId,
-    ])->execute();
+    ]);
   }
 
 }
