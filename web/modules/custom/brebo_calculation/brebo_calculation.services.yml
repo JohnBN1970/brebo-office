@@ -37,9 +37,13 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationContextService
     arguments: ['@brebo_calculation.context_repository']
 
+  brebo_calculation.identity_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationIdentityRepository
+    arguments: ['@database']
+
   brebo_calculation.structure_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationStructureIdentityGenerator
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.identity_repository']
 
   brebo_calculation.legacy_line_mirror_policy:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLegacyLineMirrorPolicy
@@ -51,7 +55,7 @@ services:
 
   brebo_calculation.row_identity_generator:
     class: Drupal\brebo_calculation\Service\CalculationRowIdentityGenerator
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.identity_repository']
 
   brebo_calculation.legacy_source:
     class: Drupal\brebo_calculation\Infrastructure\DrupalLegacyCalculationSource
