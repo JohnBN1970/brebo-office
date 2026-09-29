@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\WorkingBudgetImportRepositoryInterface;
 use RuntimeException;
 use UnexpectedValueException;
 
@@ -23,10 +22,7 @@ final class WorkingBudgetImporter {
     'other' => 'overig',
   ];
 
-  public function __construct(
-    private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-  ) {}
+  public function __construct(private readonly WorkingBudgetImportRepositoryInterface $repository) {}
 
   /**
    * Imports one calculation snapshot as a draft working budget.
@@ -40,50 +36,30 @@ final class WorkingBudgetImporter {
     string $calculationVersion,
     int $userId,
   ): int {
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') {
+    if (!$this->repository->isBreboProject($projectNid)) {
       throw new UnexpectedValueException('A valid BREBO project is required.');
     }
 
-    $version = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['status', 'content_hash'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $calculationVersion)
-      ->execute()
-      ->fetchAssoc();
-    if ($version === FALSE || !in_array($version['status'], self::ALLOWED_SOURCE_STATUSES, TRUE)) {
+    $version = $this->repository->calculationVersion($calculationId, $calculationVersion);
+    if ($version === NULL || !in_array($version['status'], self::ALLOWED_SOURCE_STATUSES, TRUE)) {
       throw new UnexpectedValueException('Only an established or final-budget calculation may create a working budget.');
     }
 
-    $snapshot = $this->database->select('brebo_calculation_snapshot', 's')
-      ->fields('s', ['content_hash', 'payload'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $calculationVersion)
-      ->execute()
-      ->fetchAssoc();
-    if ($snapshot === FALSE) {
+    $snapshot = $this->repository->calculationSnapshot($calculationId, $calculationVersion);
+    if ($snapshot === NULL) {
       throw new UnexpectedValueException('The locked calculation snapshot is missing.');
     }
 
     $payload = json_decode($snapshot['payload'], TRUE, 512, JSON_THROW_ON_ERROR);
     $this->validateSnapshot($payload, $snapshot['content_hash'], $calculationId, $calculationVersion);
 
-    $existing = $this->database->select('brebo_finance_budget', 'b')
-      ->condition('project_nid', $projectNid)
-      ->condition('source_calculation_id', $calculationId)
-      ->condition('source_calculation_version', $calculationVersion)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ((int) $existing > 0) {
+    if ($this->repository->workingBudgetExists($projectNid, $calculationId, $calculationVersion)) {
       throw new RuntimeException('This calculation snapshot already has a working budget for the project.');
     }
 
-    $transaction = $this->database->startTransaction();
-    try {
+    return $this->repository->transactional(function () use ($projectNid, $calculationId, $calculationVersion, $userId, $snapshot, $payload): int {
       $now = time();
-      $budgetId = (int) $this->database->insert('brebo_finance_budget')
-        ->fields([
+      $budgetId = $this->repository->insertBudget([
           'project_nid' => $projectNid,
           'version' => $this->workingBudgetVersion($calculationId, $calculationVersion),
           'budget_type' => 'working',
@@ -97,8 +73,7 @@ final class WorkingBudgetImporter {
           'created_by' => $userId,
           'changed' => $now,
           'changed_by' => $userId,
-        ])
-        ->execute();
+        ]);
 
       $sortOrder = 0;
       $labourByRate = [];
@@ -129,8 +104,7 @@ final class WorkingBudgetImporter {
             continue;
           }
 
-          $this->database->insert('brebo_finance_budget_line')
-            ->fields([
+          $this->repository->insertBudgetLine([
               'budget_id' => $budgetId,
               'line_key' => sprintf('calc-%d-%d-%s', $calculationId, $rowIndex + 1, $component),
               'cost_code' => $costCode,
@@ -154,8 +128,7 @@ final class WorkingBudgetImporter {
               'created_by' => $userId,
               'changed' => $now,
               'changed_by' => $userId,
-            ])
-            ->execute();
+            ]);
         }
       }
 
@@ -164,8 +137,7 @@ final class WorkingBudgetImporter {
         $rate = (float) $rateKey;
         $hours = (float) $labour['hours'];
         $amount = $hours * $rate;
-        $this->database->insert('brebo_finance_budget_line')
-          ->fields([
+        $this->repository->insertBudgetLine([
             'budget_id' => $budgetId,
             'line_key' => sprintf('labour-rate-%s', str_replace('.', '-', $rateKey)),
             'cost_code' => 'arbeid',
@@ -189,16 +161,14 @@ final class WorkingBudgetImporter {
             'created_by' => $userId,
             'changed' => $now,
             'changed_by' => $userId,
-          ])
-          ->execute();
+          ]);
       }
 
       if ($sortOrder === 0) {
         throw new UnexpectedValueException('The snapshot contains no transferable direct-cost lines.');
       }
 
-      $this->database->insert('brebo_finance_audit')
-        ->fields([
+      $this->repository->insertAudit([
           'project_nid' => $projectNid,
           'entity_type' => 'working_budget',
           'entity_id' => $budgetId,
@@ -213,15 +183,10 @@ final class WorkingBudgetImporter {
           'reason' => 'Controlled transfer from approved calculation to draft working budget.',
           'created' => $now,
           'created_by' => $userId,
-        ])
-        ->execute();
+        ]);
 
       return $budgetId;
-    }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
+    });
   }
 
   /**
