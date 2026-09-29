@@ -175,7 +175,7 @@ final class CalculationProjectLinkForm extends FormBase {
     $calculation->save();
 
     $this->messenger()->addStatus($this->t('Calculatie is aan het project gekoppeld.'));
-    $form_state->setRedirect('brebo_calculation.workbench', ['node' => $calculation->id()]);
+    $form_state->setRedirect('brebo_calculation.workbench', ['calculation' => $calculation->id()]);
   }
 
 }
