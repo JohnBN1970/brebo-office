@@ -6,6 +6,8 @@ namespace Drupal\brebo_calculation\Contract;
 
 interface ObjectExceptionLineRepositoryInterface {
   /** @return array<string,mixed>|null */
+  public function context(int $applicationObjectId): ?array;
+  /** @return array<string,mixed>|null */
   public function editableContext(int $applicationObjectId): ?array;
   /** @param array<string,mixed> $values */
   public function insertLine(array $values): int;
