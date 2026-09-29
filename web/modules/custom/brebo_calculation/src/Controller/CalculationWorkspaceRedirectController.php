@@ -9,7 +9,7 @@ use Drupal\Core\Url;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 
 /**
- * Compatibility redirect from retired Office workbench URLs to the Office dashboard.
+ * Compatibility redirect from retired Office workbench URLs to the signed Calc launch.
  */
 final class CalculationWorkspaceRedirectController extends ControllerBase {
 
@@ -19,7 +19,7 @@ final class CalculationWorkspaceRedirectController extends ControllerBase {
     }
 
     return new RedirectResponse(
-      Url::fromRoute('brebo_office_core.calculation_dashboard', ['node' => $calculation])->toString(),
+      Url::fromRoute('brebo_office_core.calc_workbench_launch', ['node' => $calculation])->toString(),
     );
   }
 
