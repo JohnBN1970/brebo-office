@@ -4,28 +4,50 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\brebo_calculation\Service\CalculationContextService;
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Routing\TrustedRedirectResponse;
+use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Site\Settings;
-use Drupal\node\NodeInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * Creates a short-lived signed launch token for BREBO Calc.
+ *
+ * The launch uses BREBO calculation identity/context and no longer requires
+ * the calculation to resolve as a Drupal node.
  */
-final class CalculationWorkbenchLaunchController {
+final class CalculationWorkbenchLaunchController implements ContainerInjectionInterface {
 
-  public function launch(NodeInterface $node): TrustedRedirectResponse {
-    if ($node->bundle() !== 'brebo_calculation') {
-      throw new NotFoundHttpException();
+  public function __construct(
+    private readonly CalculationContextService $calculationContext,
+    private readonly AccountProxyInterface $currentUser,
+  ) {}
+
+  public static function create(ContainerInterface $container): static {
+    return new static(
+      $container->get('brebo_calculation.context'),
+      $container->get('current_user'),
+    );
+  }
+
+  public function launch(int $calculation): TrustedRedirectResponse {
+    if ($calculation <= 0) {
+      throw new NotFoundHttpException('Calculatie niet gevonden.');
     }
 
-    $package = $node->hasField('field_brebo_package_ref') ? $node->get('field_brebo_package_ref')->entity : NULL;
-    if (!$package instanceof NodeInterface || !$package->hasField('field_brebo_project_ref') || $package->get('field_brebo_project_ref')->isEmpty()) {
+    $context = $this->calculationContext->get($calculation);
+    if (!$context) {
+      throw new NotFoundHttpException('Calculatiecontext niet gevonden.');
+    }
+
+    $projectId = (int) ($context['project_id'] ?? 0);
+    if ($projectId <= 0) {
       throw new NotFoundHttpException('Geen project gekoppeld aan deze calculatie.');
     }
 
-    $projectId = (int) $package->get('field_brebo_project_ref')->target_id;
     $secret = trim((string) getenv('BREBO_CALC_SHARED_SECRET') ?: Settings::get('brebo_calc_shared_secret', ''));
     $baseUrl = rtrim(trim((string) Settings::get('brebo_calc_base_url', getenv('BREBO_CALC_BASE_URL') ?: 'https://calculatie.brebobv.nl')), '/');
     if ($secret === '' || $baseUrl === '') {
@@ -34,9 +56,9 @@ final class CalculationWorkbenchLaunchController {
 
     $payload = [
       'v' => 1,
-      'calculation_id' => (int) $node->id(),
+      'calculation_id' => $calculation,
       'project_id' => $projectId,
-      'actor_id' => (int) \Drupal::currentUser()->id(),
+      'actor_id' => (int) $this->currentUser->id(),
       'exp' => time() + 90,
       'nonce' => bin2hex(random_bytes(16)),
     ];
