@@ -21,7 +21,7 @@ final class ProjectScopeTruthServiceTest extends TestCase {
       29,
       'rear_ground_floor_pui.replacement',
       ProjectScopeStatementType::REQUESTED,
-      ProjectScopeDisposition::OUT_OF_SCOPE,
+      ProjectScopeDisposition::UNRESOLVED,
       'Aanvraag bevat een dubbelzinnig aandachtspunt over vervanging achterzijde BG.',
       'email',
       'WAK29-18904-2@2026-03-30T13:01',
@@ -54,6 +54,49 @@ final class ProjectScopeTruthServiceTest extends TestCase {
     self::assertSame('third_party', $service->currentTruth(29)[0]['disposition']);
     self::assertCount(2, $service->history(29, 'rear_ground_floor_pui.replacement'));
     self::assertSame('superseded', $service->history(29, 'rear_ground_floor_pui.replacement')[1]['status']);
+  }
+
+  public function testObservationCannotSilentlyBecomeOfferScope(): void {
+    $this->expectException(\InvalidArgumentException::class);
+    new ProjectScopeDecision(
+      29, 'rear.first_floor.wood_rot', ProjectScopeStatementType::OBSERVED,
+      ProjectScopeDisposition::IN_SCOPE, 'Sikkens constateert houtrot.', 'technical_advice',
+      'Sikkens-P1660499', NULL, 'Houtrot voorgevel 29-1.', 'VG-29-1', 42, 1, 1774875000,
+    );
+  }
+
+  public function testWakkerstraatGoldenScopeContainsExpectedCommercialDecisions(): void {
+    $repository = new InMemoryProjectScopeDecisionRepository();
+    $service = new ProjectScopeTruthService($repository);
+
+    $expected = [
+      ['painting.entire_building', ProjectScopeDisposition::IN_SCOPE],
+      ['wood_rot.repair_or_replace', ProjectScopeDisposition::IN_SCOPE],
+      ['front.frames.upvc_replacement', ProjectScopeDisposition::ALTERNATIVE],
+      ['rear_ground_floor_pui.replacement', ProjectScopeDisposition::THIRD_PARTY],
+      ['rear_ground_floor_pui.painting', ProjectScopeDisposition::IN_SCOPE],
+      ['roof.renovation', ProjectScopeDisposition::DECLINED],
+      ['roof.insulation', ProjectScopeDisposition::DECLINED],
+    ];
+
+    foreach ($expected as [$subject, $disposition]) {
+      $service->confirm(new ProjectScopeDecision(
+        29, $subject, ProjectScopeStatementType::DECIDED, $disposition,
+        'Bevestigde Wakkerstraat-scope.', 'golden_case', 'WAK29', NULL, NULL, NULL, NULL, 1, 1774875000,
+      ));
+    }
+
+    $truth = $service->currentTruth(29);
+    self::assertCount(7, $truth);
+    $bySubject = [];
+    foreach ($truth as $row) {
+      $bySubject[$row['subject_key']] = $row['disposition'];
+    }
+    self::assertSame('third_party', $bySubject['rear_ground_floor_pui.replacement']);
+    self::assertSame('in_scope', $bySubject['rear_ground_floor_pui.painting']);
+    self::assertSame('alternative', $bySubject['front.frames.upvc_replacement']);
+    self::assertSame('declined', $bySubject['roof.renovation']);
+    self::assertSame('declined', $bySubject['roof.insulation']);
   }
 
   public function testCannotSupersedeDifferentSubject(): void {
