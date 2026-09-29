@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_finance\Contract\BankReconciliationRepositoryInterface;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceReadbackGatewayInterface;
 
 /** Deterministically classifies ABN mutations and closes Moneybird evidence. */
 final class BankTransactionReconciliationManager {
@@ -12,7 +13,7 @@ final class BankTransactionReconciliationManager {
   public function __construct(
     private readonly BankReconciliationRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
-    private readonly PurchaseInvoiceIntegrationClient $moneybird,
+    private readonly PurchaseInvoiceReadbackGatewayInterface $invoiceReadback,
   ) {}
 
   public function reconcile(array $activity): array {
@@ -41,7 +42,7 @@ final class BankTransactionReconciliationManager {
   }
 
   private function closeMoneybird(array $activity, array $item): array {
-    try { $remote = $this->moneybird->fetchAll(); }
+    try { $remote = $this->invoiceReadback->all(); }
     catch (\Throwable) { return $this->persist($activity, $item, 'orange', 'moneybird_reconciliation_unavailable', 'ABN-uitvoering is exact, maar Moneybird kon niet worden gecontroleerd.', 'unavailable'); }
     $moneybirdId = $this->repository->invoiceMoneybirdId((int) $item['invoice_id']);
     $invoice = NULL;
