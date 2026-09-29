@@ -171,6 +171,13 @@ jobs:
           grep -q "workspace_v2_structure_group_add" "$routing"
           recipe_manager='web/modules/custom/brebo_calculation/src/Service/RecipeManager.php'
           subcalc_manager='web/modules/custom/brebo_calculation/src/Service/SubcalculationManager.php'
+          recipe_placement='web/modules/custom/brebo_calculation/src/Form/RecipePlacementForm.php'
+          ! grep -q "NodeInterface" "$recipe_placement"
+          ! grep -q "Drupal\\Core\\Database" "$recipe_placement"
+          ! grep -q "\\Drupal::request" "$recipe_placement"
+          grep -q "CalculationWorkspaceStateService" "$recipe_placement"
+          grep -q "RecipeRepositoryInterface" "$recipe_placement"
+          grep -q "/admin/brebo/calculations/{calculation}/workbench/recipes/place" "$routing"
           resource_guard='web/modules/custom/brebo_calculation/src/Service/CalculationWorkspaceResourceGuard.php'
           ! grep -q "AccountInterface" "$recipe_manager"
           ! grep -q "AccountInterface" "$subcalc_manager"
