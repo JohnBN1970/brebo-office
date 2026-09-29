@@ -10,6 +10,47 @@ use Drupal\Core\Database\Connection;
 final class DatabaseSubcalculationRepository implements SubcalculationRepositoryInterface {
   public function __construct(private readonly Connection $database) {}
 
+  public function subcalculations(int $calculationId, string $version): array {
+    return $this->database->select('brebo_calculation_subcalculation', 's')->fields('s')->condition('calculation_id', $calculationId)->condition('version', $version)->orderBy('label')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public function applications(int $subcalculationId): array {
+    return $this->database->select('brebo_calculation_subcalculation_application', 'a')->fields('a')->condition('subcalculation_id', $subcalculationId)->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public function structure(int $calculationId, string $version): array {
+    return $this->database->select('brebo_calculation_structure', 's')->fields('s')->condition('calculation_id', $calculationId)->condition('version', $version)->orderBy('sort_order')->orderBy('depth')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public function rowDomains(int $calculationId, string $version): array {
+    return $this->database->select('brebo_calculation_row_domain', 'r')->fields('r')->condition('calculation_id', $calculationId)->condition('version', $version)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public function scopeCount(int $subcalculationId): int {
+    return (int) $this->database->select('brebo_calculation_subcalculation_scope', 'ss')->condition('subcalculation_id', $subcalculationId)->countQuery()->execute()->fetchField();
+  }
+
+  public function applicationCount(int $subcalculationId): int {
+    return (int) $this->database->select('brebo_calculation_subcalculation_application', 'a')->condition('subcalculation_id', $subcalculationId)->countQuery()->execute()->fetchField();
+  }
+
+  public function applicationForSubcalculation(int $applicationId, int $subcalculationId): ?array {
+    $row=$this->database->select('brebo_calculation_subcalculation_application', 'a')->fields('a')->condition('id', $applicationId)->condition('subcalculation_id', $subcalculationId)->execute()->fetchAssoc();
+    return $row ?: NULL;
+  }
+
+  public function applicationObjectsDetailed(int $applicationId): array {
+    return $this->database->select('brebo_calculation_subcalculation_application_object', 'o')->fields('o')->condition('application_id', $applicationId)->orderBy('object_type')->orderBy('object_ref')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
+  public function exceptionObjectCount(int $applicationId): int {
+    return (int) $this->database->select('brebo_calculation_subcalculation_application_object', 'o')->condition('application_id', $applicationId)->condition('is_exception', 1)->countQuery()->execute()->fetchField();
+  }
+
+  public function deleteScope(int $scopeId): void {
+    $this->database->delete('brebo_calculation_subcalculation_scope')->condition('id', $scopeId)->execute();
+  }
+
   public function insertSubcalculation(array $values): int {
     return (int) $this->database->insert('brebo_calculation_subcalculation')->fields($values)->execute();
   }
