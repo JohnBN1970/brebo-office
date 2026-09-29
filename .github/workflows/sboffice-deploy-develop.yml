@@ -232,7 +232,7 @@ jobs:
           remote_php="/opt/alt/php83/usr/bin/php"
           [[ -x "$remote_php" ]] || { echo "::error::Required remote PHP 8.3 binary not found: $remote_php"; exit 1; }
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
-          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          drush=("$remote_php" -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d error_reporting=-1 -d log_errors=1 -d error_log=/tmp/brebo-drush-php-error.log vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
           "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication brebo_data_intake -y
           echo "MODULE_ENABLE_OK=1"
@@ -260,7 +260,13 @@ jobs:
           grep -n 'financeEntityTypeManager' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not contain financeEntityTypeManager."; exit 1; }
           echo "CONTROLLERS_DEPLOY_PROOF_OK=1"
 
-          "${drush[@]}" cr -vvv
+          rm -f /tmp/brebo-drush-php-error.log
+          if ! "${drush[@]}" cr -vvv; then
+            echo "::error::Drupal cache rebuild failed; PHP diagnostics follow."
+            [[ ! -s /tmp/brebo-drush-php-error.log ]] || cat /tmp/brebo-drush-php-error.log
+            exit 1
+          fi
+          rm -f /tmp/brebo-drush-php-error.log
           echo "CACHE_REBUILD_OK=1"
 
           "${drush[@]}" php:eval '
