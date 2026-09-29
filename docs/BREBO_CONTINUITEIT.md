@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele peildatum: 6 september 2026.**
+**Actuele peildatum: 29 september 2026.**
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -18,10 +18,10 @@ Lees eerst, in deze volgorde:
 4. `docs/ROADMAP.md`;
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
 6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor presentatie/UI;
-7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` voor calculatie;
+7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` en `docs/BREBO_CALCULATIE_CONTINUITEIT.md` voor calculatie;
 8. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor document-/rapportoutput;
 9. dit continuïteitsdocument;
-10. de actuele GitHub-stand van `develop` en open pull requests.
+10. de actuele GitHub-stand van `develop` en open pull requests, met bijzondere aandacht voor architectuurbranches die nog niet gemerged zijn.
 
 Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onderwerp al in deze bronnen is vastgesteld.
 
@@ -30,13 +30,62 @@ Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onde
 - Het gebouw staat centraal als permanente projectoverstijgende kaartenbak.
 - Het project is het tijdelijke stuurmechanisme voor scope, tijd, geld, mensen, toegang, uitvoering en kwaliteit.
 - Projectscope selecteert tijdelijk permanente gebouwobjecten.
-- BMS en CIM zijn leidend; Drupal is de technische vertaling.
+- BMS en CIM zijn leidend voor bedrijfs- en informatiesemantiek.
+- De BREBO-softwarekern bezit domeinregels en canonieke operationele waarheid; Drupal, React/Calc en andere interfaces zijn vervangbare adapters/consumers en mogen die waarheid niet bepalen.
 - Eén keer vastleggen, overal hergebruiken.
 - Communicatiekanalen en andere bronnen zijn aanvoerkanalen, geen tweede dossierwaarheid.
 - AI en digitale rollen signaleren en bereiden voor; formele materiële besluiten blijven binnen aantoonbaar mandaat.
 - Geen aannames wanneer bewijs nodig is.
 - Belangrijke implementatie geldt pas als duurzaam wanneer zij in GitHub staat.
 - Externe toegang gebruikt uitsluitend expliciet vrijgegeven projecties; BREBO Office blijft de bron.
+
+## Organisatiebrede softwarearchitectuur — vastgesteld 29 september 2026
+
+De architectuursprong die in Calculatie is bewezen geldt voortaan als standaardpatroon voor BREBO Office als geheel.
+
+```text
+BREBO-domein / softwarekern
+-> contracten
+-> infrastructuuradapters
+-> Drupal/database/externe providers
+
+BREBO-domein / softwarekern
+-> API-contracten
+-> vervangbare interfaces
+   -> Office-dashboard
+   -> Calc-interface
+   -> Finance-interface
+   -> Project-interface
+   -> Inzet-interface
+   -> AI / output / portaal
+```
+
+Harde grens:
+
+- domeinservices bevatten businessregels, validatie, versie-/lockregels, totalisering en beslislogica;
+- domeinservices kennen geen Drupal Database API, NodeInterface, AccountInterface, EntityTypeManager of UI-framework;
+- opslag, Drupal-entities, sessies, requests en provider-SDK's horen in adapters/infrastructuur;
+- een interface mag geen tweede domeinwaarheid, rekenmotor of lokale calculatiedatabase introduceren;
+- API-contracten zijn de grens tussen kern en interfaces;
+- een framework of interface moet vervangbaar zijn zonder de kern opnieuw te bouwen.
+
+Calculatie is het eerste volledig uitgewerkte referentiemodel voor deze scheiding. Finance en Projecten volgen dit patroon bij hun volgende architectuur-/consolidatieslag.
+
+### Bewezen calculatie-ontkoppeling — PR #953
+
+Op architectuurbranch `architecture/calculation-recipes-subcalculations-id-routes` is Calculatie als referentie-implementatie losgetrokken van directe Drupal/databasekennis.
+
+Bewezen op de actuele branch:
+
+- Calc gebruikt Workspace v2-contracten; v1 is uit de actieve Calc-runtime verwijderd en CI blokkeert terugval;
+- leveranciersofferteherkenning, projectcontext en artikelzoeken lopen via v2-contracten;
+- workspace state, parameters, rows, structure, recipes, deelcalculaties, uitzonderingen, resultaten, normen, materiaal-/prijsselectie, price sources, readiness, context, draft-init, establishment, block ordering, identities, access en legacy migration werken via contracten + infrastructuuradapters;
+- actieve calculatie-services en access checks bevatten geen directe Drupal Database-afhankelijkheid;
+- `GuardedLegacyMigrator` is eveneens achter een infrastructuurrepository geplaatst;
+- Project Render Smoke en Calculation domain acceptance zijn groen op de architectuurbranch;
+- PR #953 is draft/mergeable totdat deze architectuurslag formeel wordt gemerged.
+
+Belangrijke continuiteitsregel: na merge mag deze scheiding niet worden teruggedraaid door nieuwe directe databasecalls of Drupal-frameworktypes in domeinservices. CI/acceptance moet die grens expliciet blijven bewaken.
 
 ## Centrale bron- en intakearchitectuur
 
@@ -122,7 +171,7 @@ consolideren
 
 ## Calculatie
 
-`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` blijft leidend.
+`docs/BREBO_CALCULATIE_ARCHITECTUUR.md` en `docs/BREBO_CALCULATIE_CONTINUITEIT.md` blijven leidend. De oude opvatting dat Drupal of de Calc-interface de calculatiewaarheid beheert is vervallen; de BREBO-calculatiekern is authoritative en interfaces zijn vervangbaar.
 
 Gebouwd/op `develop` aanwezig:
 
@@ -225,16 +274,16 @@ Bronobject(en)
 
 ## Eerstvolgende technische punten — organisatiebreed
 
-1. Centrale intake-reviewbesluiten bouwen: accepteren, afwijzen, herclassificeren en opnieuw koppelen, met audit en concurrency.
-2. Destination-contracten tussen centrale intake en vakmodules expliciet maken zonder directe adapter-writes.
-3. Finance/Moneybird leveranciers- en inkoopfactuurketen verder sluiten op dezelfde intake/masterdatafundering.
-4. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
-5. Digitale rollen operationaliseren op betrouwbare dossier- en controldata.
-6. Calculatieprijsbronnen rechtstreeks in de werkbank bedienbaar maken.
-7. Klantportaal access/publication/security-hardening afronden voordat publieke toegang wordt geopend.
-8. Generieke Outputgenerator implementeren.
-9. Management-/portfoliosturing verder uitbouwen.
-10. Canonieke gebouw-/projectconsolidatie en legacy-afbouw blijven bewaken.
+1. PR #953 afronden/mergen en de softwarekerngrens als permanente CI-/acceptance-invariant vastzetten.
+2. Finance inventariseren op domeinlogica versus Drupal/UI/providerlogica en gecontroleerd naar hetzelfde contract/adapterpatroon brengen.
+3. Projecten inventariseren op domeinlogica versus Drupal/UI/publicatielogica en gecontroleerd naar hetzelfde contract/adapterpatroon brengen.
+4. Centrale intake-reviewbesluiten bouwen: accepteren, afwijzen, herclassificeren en opnieuw koppelen, met audit en concurrency.
+5. Destination-contracten tussen centrale intake en vakmodules expliciet maken zonder directe adapter-writes.
+6. Finance/Moneybird leveranciers- en inkoopfactuurketen verder sluiten op dezelfde intake/masterdatafundering.
+7. Bestaande acties, signalen, readiness en controls verbinden tot één centrale controlemotor.
+8. Digitale rollen operationaliseren op betrouwbare dossier- en controldata.
+9. Calculatiefunctionele werkbank, prijsbronnen en output verder afronden zonder de kern-/interfacegrens te doorbreken.
+10. Klantportaal, Outputgenerator, managementsturing en canonieke gebouw-/projectconsolidatie verder uitbouwen.
 
 ## Ontwikkelregel bij nieuwe chats
 
