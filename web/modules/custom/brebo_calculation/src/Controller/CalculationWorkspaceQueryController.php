@@ -15,7 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 final class CalculationWorkspaceQueryController extends ControllerBase {
 
   public function __construct(
-    private readonly CalculationWorkspaceStateService $stateService,
+    private readonly CalculationWorkspaceStateService $workspaceStateService,
     private readonly CalcIntegrationRequestAuthenticator $authenticator,
   ) {}
 
@@ -29,7 +29,7 @@ final class CalculationWorkspaceQueryController extends ControllerBase {
   public function state(Request $request, int $calculation): JsonResponse {
     try {
       $this->authenticator->assertSigned($request, '');
-      $state = $this->stateService->state($calculation);
+      $state = $this->workspaceStateService->state($calculation);
       return new JsonResponse($state, 200, ['Cache-Control' => 'no-store, private']);
     }
     catch (\InvalidArgumentException $e) {
