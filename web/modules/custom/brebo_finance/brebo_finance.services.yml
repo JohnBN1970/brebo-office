@@ -112,9 +112,12 @@ services:
   brebo_finance.bank_reconciliation_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseBankReconciliationRepository
     arguments: ['@database']
+  brebo_finance.purchase_invoice_readback_gateway:
+    class: Drupal\brebo_finance\Infrastructure\MoneybirdPurchaseInvoiceReadbackGateway
+    arguments: ['@brebo_finance.purchase_invoice_integration_client']
   brebo_finance.bank_transaction_reconciliation_manager:
     class: Drupal\brebo_finance\Service\BankTransactionReconciliationManager
-    arguments: ['@brebo_finance.bank_reconciliation_repository', '@brebo_finance.vat_calculator', '@brebo_finance.purchase_invoice_integration_client']
+    arguments: ['@brebo_finance.bank_reconciliation_repository', '@brebo_finance.vat_calculator', '@brebo_finance.purchase_invoice_readback_gateway']
   brebo_finance.project_financial_position:
     class: Drupal\brebo_finance\Service\ProjectFinancialPosition
     arguments: ['@database', '@brebo_finance.vat_calculator']
