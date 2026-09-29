@@ -42,11 +42,13 @@ final class CalculationFactService {
       if ($width !== NULL && $height !== NULL) {
         $this->insertFact($setId, $documentId, 'width_mm', $position, NULL, $width, 'mm', $page, $description, 'dimension_pattern', 0.92, $now);
         $this->insertFact($setId, $documentId, 'height_mm', $position, NULL, $height, 'mm', $page, $description, 'dimension_pattern', 0.92, $now);
-        $top = ($width / 1000.0) * $quantity;
-        $bottom = ($width / 1000.0) * $quantity;
-        $left = ($height / 1000.0) * $quantity;
-        $right = ($height / 1000.0) * $quantity;
-        $area = ($width / 1000.0) * ($height / 1000.0) * $quantity;
+        // Keep the take-off as geometry truth per element. Quantity is stored
+        // separately and recipes decide how often a side/area is consumed.
+        $top = $width / 1000.0;
+        $bottom = $width / 1000.0;
+        $left = $height / 1000.0;
+        $right = $height / 1000.0;
+        $area = ($width / 1000.0) * ($height / 1000.0);
         $perimeter = $top + $bottom + $left + $right;
         $this->database->insert('brebo_calculation_takeoff')->fields([
           'set_id' => $setId,
