@@ -398,6 +398,56 @@ final class SupplierQuoteNormalizer {
       $seen[$position] = TRUE;
     }
 
+    // Recover explicit non-position commercial rows such as packing/freight.
+    // These are real quote costs, unlike subtotal/grand-total/control rows.
+    $commercialLabels = [
+      'packing' => 'Verpakking',
+      'packaging' => 'Verpakking',
+      'transport' => 'Transport',
+      'freight' => 'Transport',
+      'delivery' => 'Transport',
+      'shipping' => 'Transport',
+    ];
+    $commercialIndex = 1;
+    foreach ($lines as $lineIndex => $rawLine) {
+      $line = trim(preg_replace('/\s+/u', ' ', (string) $rawLine) ?? '');
+      if ($line === '' || preg_match('/\b(?:grand\s+total|subtotal|sub\s+total|total\s+net|totaal|vat|btw|tax)\b/ui', $line)) {
+        continue;
+      }
+      if (!preg_match('/^([\pL][\pL\s\/-]{1,40}?)\s+(?:EUR\s*)?(\d{1,3}(?:[ .]\d{3})*|\d+)[,.](\d{2})\s*$/ui', $line, $commercialMatch)) {
+        continue;
+      }
+      $sourceLabel = mb_strtolower(trim($commercialMatch[1]));
+      $description = NULL;
+      foreach ($commercialLabels as $needle => $normalizedLabel) {
+        if (str_contains($sourceLabel, $needle)) {
+          $description = $normalizedLabel;
+          break;
+        }
+      }
+      if ($description === NULL) {
+        continue;
+      }
+      $value = $this->decimal($commercialMatch[2] . ',' . $commercialMatch[3]);
+      if ($value <= 0) {
+        continue;
+      }
+      $result[] = [
+        'position' => 'C' . str_pad((string) $commercialIndex++, 2, '0', STR_PAD_LEFT),
+        'quantity' => 1.0,
+        'unit' => 'st',
+        'description' => $description,
+        'unit_price' => $value,
+        'line_total' => $value,
+        'line_no' => $lineIndex + 1,
+        'details' => 'Bronregel: ' . $line,
+        'detail_fields' => [['Bronregel', $line]],
+        'offer_summary' => $description,
+        'source_page' => NULL,
+        'source_visual_crop' => NULL,
+      ];
+    }
+
     $unique = [];
     foreach ($result as $row) {
       if (str_starts_with((string) $row['description'], 'Offertepositie ')) {
