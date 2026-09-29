@@ -41,7 +41,7 @@ function brebo_calculation_form_node_form_alter(array &$form, FormStateInterface
     $form['brebo_calculation_onboarding']['action'] = [
       '#type' => 'link',
       '#title' => 'Calculatiewerkbank openen',
-      '#url' => \Drupal\Core\Url::fromRoute('brebo_calculation.workbench', ['node' => (int) $calculation->id()]),
+      '#url' => \Drupal\Core\Url::fromRoute('brebo_calculation.workbench', ['calculation' => (int) $calculation->id()]),
       '#attributes' => ['class' => ['button', 'button--primary']],
     ];
   }
@@ -274,7 +274,7 @@ function brebo_calculation_open_workbench_after_create(array &$form, FormStateIn
     return;
   }
   \Drupal::service('brebo_calculation.draft_initializer')->ensure((int) $calculation->id(), brebo_calculation_draft_start_data($calculation));
-  $form_state->setRedirect('brebo_calculation.workbench', ['node' => (int) $calculation->id()]);
+  $form_state->setRedirect('brebo_calculation.workbench', ['calculation' => (int) $calculation->id()]);
 }
 
 function brebo_calculation_form_brebo_calculation_workbench_form_alter(array &$form, FormStateInterface $form_state): void {
