@@ -22,7 +22,7 @@ final class DatabaseCalculationContextRepository implements CalculationContextRe
 
   public function upsert(int $calculationId, array $context): void {
     $this->database->merge('brebo_calculation_context')
-      ->key(['calculation_id' => $calculationId])
+      ->key('calculation_id', $calculationId)
       ->fields($context)
       ->execute();
   }

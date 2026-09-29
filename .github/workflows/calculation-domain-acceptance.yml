@@ -133,6 +133,12 @@ jobs:
           grep -q "'locked_at' => \$lockedAt" "$version_establisher"
           context_service='web/modules/custom/brebo_calculation/src/Service/CalculationContextService.php'
           context_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationContextRepository.php'
+          post_updates='web/modules/custom/brebo_calculation/brebo_calculation.post_update.php'
+          ! grep -Fq -- "->key(['calculation_id'" "$context_repository"
+          grep -Fq -- '->key('"'"'calculation_id'"'"', $calculationId)' "$context_repository"
+          ! grep -Fq -- "->key(['calculation_id'" "$post_updates"
+          grep -Fq -- 'addIndex($table, '"'"'calculation_row'"'"', ['"'"'calculation_id'"'"', '"'"'version'"'"', '"'"'row_id'"'"'], $tableSpec)' "$post_updates"
+          grep -Fq -- 'addIndex($table, '"'"'active_source_row'"'"', ['"'"'calculation_id'"'"', '"'"'version'"'"', '"'"'row_id'"'"', '"'"'is_active_source'"'"'], $tableSpec)' "$post_updates"
           workbench_form='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           grep -q "brebo_calculation_context" "$install_file"
           grep -q "brebo_calculation_context" "$context_repository"
