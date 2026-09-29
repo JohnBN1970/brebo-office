@@ -191,10 +191,14 @@ services:
       - '@brebo_calculation.row_manager'
       - '@brebo_calculation.legacy_line_compatibility'
 
+  brebo_calculation.block_order_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationBlockOrderRepository
+    arguments: ['@database']
+
   brebo_calculation.block_order_manager:
     class: Drupal\brebo_calculation\Service\CalculationBlockOrderManager
     arguments:
-      - '@database'
+      - '@brebo_calculation.block_order_repository'
       - '@brebo_calculation.legacy_line_compatibility'
       - '@brebo_calculation.access_gateway'
 
