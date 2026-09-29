@@ -92,7 +92,7 @@ final class MigrationConfirmForm extends ConfirmFormBase {
         '@hash' => $result->contentHash,
       ],
     ));
-    $form_state->setRedirect('brebo_calculation.workbench', ['node' => $this->calculationId]);
+    $form_state->setRedirect('brebo_calculation.workbench', ['calculation' => $this->calculationId]);
   }
 
 }
