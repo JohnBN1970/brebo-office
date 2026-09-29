@@ -2,6 +2,8 @@
 
 Recipes may be placed against a BREBO calculation take-off row.
 
+Geometry variables are **per element**. The element count is separate as `quantity` / `element_quantity`.
+
 Available formula variables:
 
 - `top_m`
@@ -12,16 +14,17 @@ Available formula variables:
 - `area_m2`
 - `width_mm`
 - `height_mm`
-- `quantity`
+- `quantity` (number of elements)
+- `element_quantity` (explicit alias for number of elements)
 - `passes`
 
 Examples:
 
-- kit rondom, één gang: `perimeter_m`
-- kit binnen + buiten: `perimeter_m * 2` or `perimeter_m * passes`
-- vensterbank: `bottom_m`
-- kantelaaf drie zijden: `left_m + top_m + right_m`
-- compriband drie zijden: `(left_m + top_m + right_m) * passes`
-- plaatmateriaal op oppervlak: `area_m2`
+- kit rondom, één gang voor alle elementen: `perimeter_m * quantity`
+- kit binnen + buiten: `perimeter_m * quantity * passes`
+- vensterbank: `bottom_m * quantity`
+- kantelaaf drie zijden: `(left_m + top_m + right_m) * quantity`
+- compriband drie zijden: `(left_m + top_m + right_m) * quantity * passes`
+- plaatmateriaal op oppervlak: `area_m2 * quantity`
 
 The take-off stores geometry only. The recipe decides which sides and how many passes are used.
