@@ -176,13 +176,17 @@ services:
       - '@database'
       - '@brebo_calculation.row_identity_generator'
 
+  brebo_calculation.legacy_migration_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseLegacyMigrationRepository
+    arguments: ['@database']
+
   brebo_calculation.guarded_legacy_migrator:
     class: Drupal\brebo_calculation\Service\GuardedLegacyMigrator
     arguments:
       - '@brebo_calculation.legacy_dry_run'
       - '@brebo_calculation.persistence'
       - '@brebo_calculation.legacy_source'
-      - '@database'
+      - '@brebo_calculation.legacy_migration_repository'
 
   brebo_calculation.row_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationRowRepository
