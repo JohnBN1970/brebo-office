@@ -112,7 +112,7 @@ final class SupplierQuoteNormalizer {
   private function classifyScope(string $text, array $quoteLines): ?array {
     $haystack = mb_strtolower($text);
     $score = 0;
-    foreach (['deurelement', 'jansen janisol', 'jansen economy', 'beglazing', 'profielen:', 'deurbeslag', 'aanlaspaum'] as $needle) {
+    foreach (['deurelement', 'door element', 'window element', 'system:', 'systeem:', 'glazing:', 'beglazing', 'profiles:', 'profielen:'] as $needle) {
       if (str_contains($haystack, $needle)) {
         $score++;
       }
@@ -206,7 +206,7 @@ final class SupplierQuoteNormalizer {
 
       // Description can occur before or after the price columns in extracted PDF text.
       $descriptionSource = $block;
-      if (preg_match('/\bDeurelement\b.*?(?=\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:)/ui', $block, $descriptionMatch)) {
+      if (preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b.*?(?=\b(?:Systeem|System|Uw-waarde|Uw\s+value|Omschrijving\s+deur|Door\s+Description|Kleur|Colours?|Profielen|Profiles?|Beglazing|Glazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie|Bovenste\s+sluiter|Bander|Drukknop|Rozet|PZ-cilinder|Slot)\s*:)/ui', $block, $descriptionMatch)) {
         $description = trim((string) $descriptionMatch[0]);
       }
       else {
@@ -216,7 +216,7 @@ final class SupplierQuoteNormalizer {
           $descriptionSource = preg_replace('/'.preg_quote($rawAmount, '/').'/', ' ', $descriptionSource, 1) ?? $descriptionSource;
         }
         $descriptionSource = preg_replace('/\b(?:Prijs|Totaal|EUR|Positie|Aantal|Omschrijving)\b/ui', ' ', $descriptionSource) ?? $descriptionSource;
-        $descriptionSource = preg_split('/\b(?:Systeem|Uw-waarde|Omschrijving\s+deur|Kleur|Profielen|Beglazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie)\s*:/ui', $descriptionSource)[0] ?? $descriptionSource;
+        $descriptionSource = preg_split('/\b(?:Systeem|System|Uw-waarde|Uw\s+value|Omschrijving\s+deur|Door\s+Description|Kleur|Colours?|Profielen|Profiles?|Beglazing|Glazing|Beschläge|Deurbeslagpakket|Ontwatering|Gewicht\s+positie)\s*:/ui', $descriptionSource)[0] ?? $descriptionSource;
         $description = trim(preg_replace('/\s+/u', ' ', $descriptionSource) ?? '');
       }
 
@@ -469,11 +469,10 @@ final class SupplierQuoteNormalizer {
         }
 
         if (!$collecting) {
-          $deurelementPos = mb_stripos($candidate, 'Deurelement');
-          if ($deurelementPos === FALSE) {
+          if (!preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate, $heading, PREG_OFFSET_CAPTURE)) {
             continue;
           }
-          $candidate = mb_substr($candidate, $deurelementPos);
+          $candidate = mb_substr($candidate, (int) $heading[0][1]);
           $collecting = TRUE;
         }
 
@@ -519,13 +518,12 @@ final class SupplierQuoteNormalizer {
     $count = count($lines);
     for ($i = 0; $i < $count; $i++) {
       $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$i]) ?? '');
-      $deurelementPos = mb_stripos($candidate, 'Deurelement');
-      if ($deurelementPos === FALSE) {
+      if (!preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate, $heading, PREG_OFFSET_CAPTURE)) {
         continue;
       }
 
       $parts = [];
-      $candidate = mb_substr($candidate, $deurelementPos);
+      $candidate = mb_substr($candidate, (int) $heading[0][1]);
       for ($j = $i; $j < min($count, $i + 20); $j++) {
         if ($j > $i) {
           $candidate = trim(preg_replace('/\\s+/u', ' ', (string) $lines[$j]) ?? '');
@@ -534,7 +532,7 @@ final class SupplierQuoteNormalizer {
           continue;
         }
 
-        if ($j > $i && mb_stripos($candidate, 'Deurelement') !== FALSE) {
+        if ($j > $i && preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', $candidate) ? 0 : FALSE !== FALSE) {
           break;
         }
         if (preg_match('/\\bSysteem\\s*:/ui', $candidate)) {
@@ -591,7 +589,7 @@ final class SupplierQuoteNormalizer {
 
     $starts = [];
     foreach ($lines as $index => $rawLine) {
-      if (mb_stripos((string) $rawLine, 'Deurelement') !== FALSE) {
+      if (preg_match('/\b(?:Deurelement|Door\s+Element|Window\s+Element)\b/ui', (string) $rawLine) === 1) {
         $starts[] = $index;
       }
     }
