@@ -172,6 +172,13 @@ jobs:
           recipe_manager='web/modules/custom/brebo_calculation/src/Service/RecipeManager.php'
           subcalc_manager='web/modules/custom/brebo_calculation/src/Service/SubcalculationManager.php'
           subcalc_overview='web/modules/custom/brebo_calculation/src/Form/SubcalculationOverviewForm.php'
+          subcalc_detail='web/modules/custom/brebo_calculation/src/Form/SubcalculationDetailForm.php'
+          ! grep -q "NodeInterface" "$subcalc_detail"
+          ! grep -q "Drupal\\Core\\Database" "$subcalc_detail"
+          grep -q "manager->get" "$subcalc_detail"
+          grep -q "manager->structure" "$subcalc_detail"
+          grep -q "manager->rowDomains" "$subcalc_detail"
+          grep -q "/admin/brebo/calculations/{calculation}/workbench/subcalculations/{subcalculation}" "$routing"
           ! grep -q "NodeInterface" "$subcalc_overview"
           ! grep -q "Drupal\\Core\\Database" "$subcalc_overview"
           grep -q "CalculationWorkspaceStateService" "$subcalc_overview"
