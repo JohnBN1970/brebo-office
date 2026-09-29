@@ -90,6 +90,14 @@ final class DatabaseSubcalculationRepository implements SubcalculationRepository
       ->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
+
+  public function selectedScopes(int $subcalculationId): array {
+    return $this->database->select('brebo_calculation_subcalculation_scope', 'ss')
+      ->fields('ss', ['id', 'scope_type', 'scope_ref'])
+      ->condition('subcalculation_id', $subcalculationId)
+      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+  }
+
   public function rowIdsForParagraph(int $calculationId, string $version, string $paragraphKey): array {
     return array_map('intval', $this->database->select('brebo_calculation_row_domain', 'r')
       ->fields('r', ['row_id'])
