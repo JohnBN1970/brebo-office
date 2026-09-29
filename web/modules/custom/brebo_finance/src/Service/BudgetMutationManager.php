@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\BudgetMutationRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -15,7 +15,7 @@ use UnexpectedValueException;
 final class BudgetMutationManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly BudgetMutationRepositoryInterface $repository,
     private readonly VatCalculator $vatCalculator,
   ) {}
 
@@ -44,8 +44,7 @@ final class BudgetMutationManager {
 
     $budget = $this->loadLockedBudget($budgetId);
     $now = time();
-    return (int) $this->database->insert('brebo_finance_budget_mutation')
-      ->fields([
+    return $this->repository->insertMutation([
         'project_nid' => $budget['project_nid'],
         'budget_id' => $budgetId,
         'mutation_number' => trim($mutationNumber),
@@ -64,8 +63,7 @@ final class BudgetMutationManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
   public function addLine(
@@ -84,11 +82,9 @@ final class BudgetMutationManager {
     }
 
     $vat = $this->vatCalculator->calculate($adjustmentExVat, $vatRate, $reverseCharge);
-    $transaction = $this->database->startTransaction();
-    try {
+    return $this->repository->transactional(function () use ($mutationId, $budgetLineId, $description, $adjustmentExVat, $vatRate, $reverseCharge, $userId, $vat): int {
       $now = time();
-      $lineId = (int) $this->database->insert('brebo_finance_budget_mutation_line')
-        ->fields([
+      $lineId = $this->repository->insertMutationLine([
           'mutation_id' => $mutationId,
           'budget_line_id' => $budgetLineId,
           'description' => trim($description) !== '' ? trim($description) : 'Budgetmutatie',
@@ -101,16 +97,11 @@ final class BudgetMutationManager {
           'created_by' => $userId,
           'changed' => $now,
           'changed_by' => $userId,
-        ])
-        ->execute();
+        ]);
 
       $this->refreshTotals($mutationId, $now, $userId);
       return $lineId;
-    }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
+    });
   }
 
   /**
@@ -138,20 +129,16 @@ final class BudgetMutationManager {
     }
 
     $now = time();
-    $this->database->update('brebo_finance_budget_mutation')
-      ->fields([
+    $this->repository->updateMutation($mutationId, [
         'status' => $decision,
         'approved' => $decision === 'approved' ? $now : NULL,
         'approved_by' => $decision === 'approved' ? $userId : NULL,
         'approval_note' => trim($note),
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->condition('id', $mutationId)
-      ->execute();
+      ]);
 
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->insertAudit([
         'project_nid' => $mutation['project_nid'],
         'entity_type' => 'budget_mutation',
         'entity_id' => $mutationId,
@@ -164,74 +151,44 @@ final class BudgetMutationManager {
         'reason' => trim($note),
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
   private function loadLockedBudget(int $budgetId): array {
-    $record = $this->database->select('brebo_finance_budget', 'b')
-      ->fields('b')
-      ->condition('id', $budgetId)
-      ->condition('budget_type', 'working')
-      ->condition('status', 'locked')
-      ->execute()
-      ->fetchAssoc();
-    if ($record === FALSE) {
+    $record = $this->repository->lockedWorkingBudget($budgetId);
+    if ($record === NULL) {
       throw new UnexpectedValueException('A locked working budget is required.');
     }
     return $record;
   }
 
   private function loadEditableMutation(int $mutationId): array {
-    $record = $this->database->select('brebo_finance_budget_mutation', 'm')
-      ->fields('m')
-      ->condition('id', $mutationId)
-      ->execute()
-      ->fetchAssoc();
-    if ($record === FALSE || !in_array($record['status'], ['draft', 'in_review'], TRUE)) {
+    $record = $this->repository->editableMutation($mutationId);
+    if ($record === NULL || !in_array($record['status'], ['draft', 'in_review'], TRUE)) {
       throw new UnexpectedValueException('An editable budget mutation is required.');
     }
     return $record;
   }
 
   private function assertBudgetLineBelongsToBudget(int $lineId, int $budgetId): void {
-    $exists = $this->database->select('brebo_finance_budget_line', 'l')
-      ->condition('id', $lineId)
-      ->condition('budget_id', $budgetId)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if (!(bool) $exists) {
+    if (!$this->repository->budgetLineBelongsToBudget($lineId, $budgetId)) {
       throw new UnexpectedValueException('Mutation line does not belong to the locked baseline.');
     }
   }
 
   private function hasLines(int $mutationId): bool {
-    return (bool) $this->database->select('brebo_finance_budget_mutation_line', 'l')
-      ->condition('mutation_id', $mutationId)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
+    return $this->repository->mutationHasLines($mutationId);
   }
 
   private function refreshTotals(int $mutationId, int $now, int $userId): void {
-    $query = $this->database->select('brebo_finance_budget_mutation_line', 'l');
-    $query->condition('mutation_id', $mutationId);
-    $query->addExpression('COALESCE(SUM(adjustment_ex_vat), 0)', 'amount_ex_vat');
-    $query->addExpression('COALESCE(SUM(vat_amount), 0)', 'vat_amount');
-    $query->addExpression('COALESCE(SUM(adjustment_inc_vat), 0)', 'amount_inc_vat');
-    $totals = $query->execute()->fetchAssoc();
-
-    $this->database->update('brebo_finance_budget_mutation')
-      ->fields([
-        'amount_ex_vat' => $totals['amount_ex_vat'],
-        'vat_amount' => $totals['vat_amount'],
-        'amount_inc_vat' => $totals['amount_inc_vat'],
-        'changed' => $now,
-        'changed_by' => $userId,
-      ])
-      ->condition('id', $mutationId)
-      ->execute();
+    $totals = $this->repository->mutationTotals($mutationId);
+    $this->repository->updateMutation($mutationId, [
+      'amount_ex_vat' => $totals['amount_ex_vat'],
+      'vat_amount' => $totals['vat_amount'],
+      'amount_inc_vat' => $totals['amount_inc_vat'],
+      'changed' => $now,
+      'changed_by' => $userId,
+    ]);
   }
 
 }
