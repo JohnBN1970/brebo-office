@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\IntegrityConstraintViolationException;
+use Drupal\brebo_finance\Contract\BankReconciliationRepositoryInterface;
 
 /** Deterministically classifies ABN mutations and closes Moneybird evidence. */
 final class BankTransactionReconciliationManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly BankReconciliationRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
     private readonly PurchaseInvoiceIntegrationClient $moneybird,
   ) {}
 
   public function reconcile(array $activity): array {
-    $this->ensureStorage();
+    $this->repository->ensureStorage();
     $transactionId = trim((string) ($activity['transaction_id'] ?? ''));
     $amount = (string) ($activity['amount'] ?? '0');
     $currency = strtoupper(trim((string) ($activity['currency'] ?? 'EUR')));
@@ -28,14 +27,7 @@ final class BankTransactionReconciliationManager {
     $existing = $this->existingByTransaction($transactionId);
     if ($existing) return $this->result((string) $existing['traffic_light'], (string) $existing['reason_code'], 'Bankmutatie is al beoordeeld.', $existing);
 
-    $candidates = [];
-    if ($endToEndId !== '' && $this->database->schema()->tableExists('brebo_finance_payment_batch_item')) {
-      $query = $this->database->select('brebo_finance_payment_batch_item', 'i');
-      $query->join('brebo_finance_payment_batch', 'b', 'b.id = i.batch_id');
-      $query->fields('i')->addField('b', 'status', 'batch_status');
-      $query->condition('i.end_to_end_id', $endToEndId)->condition('b.status', ['released', 'submitted', 'executed', 'reconciled'], 'IN');
-      $candidates = $query->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
-    }
+    $candidates = $endToEndId !== '' ? $this->repository->batchItemsByEndToEndId($endToEndId, ['released', 'submitted', 'executed', 'reconciled']) : [];
     if (count($candidates) === 1) {
       $item = reset($candidates);
       $amountOk = $this->decimal->compare((string) $item['amount'], ltrim($amount, '-')) === 0;
@@ -51,8 +43,7 @@ final class BankTransactionReconciliationManager {
   private function closeMoneybird(array $activity, array $item): array {
     try { $remote = $this->moneybird->fetchAll(); }
     catch (\Throwable) { return $this->persist($activity, $item, 'orange', 'moneybird_reconciliation_unavailable', 'ABN-uitvoering is exact, maar Moneybird kon niet worden gecontroleerd.', 'unavailable'); }
-    $local = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i', ['moneybird_id'])->condition('id', (int) $item['invoice_id'])->execute()->fetchAssoc();
-    $moneybirdId = (string) ($local['moneybird_id'] ?? '');
+    $moneybirdId = $this->repository->invoiceMoneybirdId((int) $item['invoice_id']);
     $invoice = NULL;
     foreach ($remote as $candidate) if ((string) ($candidate['id'] ?? '') === $moneybirdId) { $invoice = $candidate; break; }
     if (!$invoice) return $this->persist($activity, $item, 'orange', 'moneybird_invoice_missing', 'ABN-uitvoering is exact, maar de gekoppelde Moneybird-inkoopfactuur ontbreekt in de readback.', 'missing');
@@ -77,35 +68,16 @@ final class BankTransactionReconciliationManager {
   }
 
   private function persist(array $activity, ?array $item, string $light, string $reason, string $message, string $moneybirdState): array {
-    $now = time();
-    $transactionId = trim((string) ($activity['transaction_id'] ?? ''));
-    $fields = ['bank_provider'=>'abnamro','bank_transaction_id'=>$transactionId,'booking_date'=>(string)($activity['booking_date']??''),'amount'=>(string)($activity['amount']??'0'),'currency'=>strtoupper((string)($activity['currency']??'EUR')),'counterparty_iban'=>$this->normalizeIban((string)($activity['counterparty_iban']??'')),'end_to_end_id'=>(string)($activity['end_to_end_id']??''),'batch_id'=>$item?(int)$item['batch_id']:NULL,'batch_item_id'=>$item?(int)$item['id']:NULL,'invoice_id'=>$item?(int)$item['invoice_id']:NULL,'release_id'=>$item?(int)$item['release_id']:NULL,'traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'moneybird_state'=>$moneybirdState,'created'=>$now,'changed'=>$now];
-    try {
-      $this->database->insert('brebo_finance_bank_reconciliation')->fields($fields)->execute();
-    }
-    catch (IntegrityConstraintViolationException $error) {
-      // At-least-once bank feeds may deliver the same transaction concurrently.
-      // The unique provider+transaction key is the authority. If another worker
-      // won the race, return that persisted verdict rather than surfacing a 500.
-      $existing = $this->existingByTransaction($transactionId);
-      if (!$existing) {
-        throw $error;
-      }
-      return $this->result((string) $existing['traffic_light'], (string) $existing['reason_code'], 'Bankmutatie is gelijktijdig al beoordeeld.', $existing);
-    }
+    $now=time();$transactionId=trim((string)($activity['transaction_id']??''));
+    $fields=['bank_provider'=>'abnamro','bank_transaction_id'=>$transactionId,'booking_date'=>(string)($activity['booking_date']??''),'amount'=>(string)($activity['amount']??'0'),'currency'=>strtoupper((string)($activity['currency']??'EUR')),'counterparty_iban'=>$this->normalizeIban((string)($activity['counterparty_iban']??'')),'end_to_end_id'=>(string)($activity['end_to_end_id']??''),'batch_id'=>$item?(int)$item['batch_id']:NULL,'batch_item_id'=>$item?(int)$item['id']:NULL,'invoice_id'=>$item?(int)$item['invoice_id']:NULL,'release_id'=>$item?(int)$item['release_id']:NULL,'traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'moneybird_state'=>$moneybirdState,'created'=>$now,'changed'=>$now];
+    if(!$this->repository->insert($fields)){$existing=$this->existingByTransaction($transactionId);if($existing)return $this->result((string)$existing['traffic_light'],(string)$existing['reason_code'],'Bankmutatie is gelijktijdig al beoordeeld.',$existing);throw new RuntimeException('Bank reconciliation could not be persisted.');}
     return $this->result($light,$reason,$message,$fields);
   }
 
   private function existingByTransaction(string $transactionId): array|false {
-    return $this->database->select('brebo_finance_bank_reconciliation', 'r')
-      ->fields('r')
-      ->condition('bank_provider', 'abnamro')
-      ->condition('bank_transaction_id', $transactionId)
-      ->execute()
-      ->fetchAssoc();
+    return $this->repository->existing('abnamro',$transactionId) ?: FALSE;
   }
 
   private function result(string $light,string $reason,string $message,array $evidence):array{return['traffic_light'=>$light,'reason_code'=>$reason,'message'=>$message,'evidence'=>$evidence];}
   private function normalizeIban(string $iban):string{return strtoupper((string)preg_replace('/\s+/','',trim($iban)));}
-  private function ensureStorage():void{$schema=$this->database->schema();if($schema->tableExists('brebo_finance_bank_reconciliation'))return;$schema->createTable('brebo_finance_bank_reconciliation',['description'=>'Bank to BREBO to Moneybird reconciliation evidence.','fields'=>['id'=>['type'=>'serial','not null'=>TRUE],'bank_provider'=>['type'=>'varchar','length'=>24,'not null'=>TRUE],'bank_transaction_id'=>['type'=>'varchar','length'=>128,'not null'=>TRUE],'booking_date'=>['type'=>'varchar','length'=>32,'not null'=>FALSE],'amount'=>['type'=>'numeric','precision'=>18,'scale'=>4,'not null'=>TRUE],'currency'=>['type'=>'varchar','length'=>3,'not null'=>TRUE],'counterparty_iban'=>['type'=>'varchar','length'=>34,'not null'=>FALSE],'end_to_end_id'=>['type'=>'varchar','length'=>64,'not null'=>FALSE],'batch_id'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],'batch_item_id'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],'invoice_id'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],'release_id'=>['type'=>'int','unsigned'=>TRUE,'not null'=>FALSE],'traffic_light'=>['type'=>'varchar','length'=>16,'not null'=>TRUE],'reason_code'=>['type'=>'varchar','length'=>64,'not null'=>TRUE],'message'=>['type'=>'text','not null'=>TRUE],'moneybird_state'=>['type'=>'varchar','length'=>24,'not null'=>TRUE,'default'=>'pending'],'created'=>['type'=>'int','unsigned'=>TRUE,'not null'=>TRUE],'changed'=>['type'=>'int','unsigned'=>TRUE,'not null'=>TRUE]],'primary key'=>['id'],'unique keys'=>['provider_transaction'=>['bank_provider','bank_transaction_id']],'indexes'=>['traffic_light'=>['traffic_light'],'invoice_id'=>['invoice_id'],'batch_id'=>['batch_id'],'moneybird_state'=>['moneybird_state']]]);}
 }
