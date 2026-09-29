@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
+use Drupal\brebo_calculation\Contract\CalculationLineLegacyGatewayInterface;
 use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountInterface;
@@ -15,43 +16,24 @@ final class CalculationRowManager {
   public function __construct(
     private readonly Connection $database,
     private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly CalculationLineLegacyGatewayInterface $legacyLineGateway,
   ) {}
 
   public function add(int $calculationId, string $version, string $paragraphKey, AccountInterface $account): int {
     $this->assertEditable($calculationId, $version, $account);
     $this->assertLeafParagraph($calculationId, $version, $paragraphKey);
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $legacyElementId = $this->resolveLegacyElementId($calculationId, $paragraphKey);
+    $legacyElementId = $this->legacyLineGateway->resolveElementId($calculationId, $paragraphKey);
     if ($legacyElementId === NULL) {
       throw new \RuntimeException('No legacy calculation element is mapped to this paragraph yet.');
     }
 
-    $sequence = $this->nextSequence($legacyElementId);
     $transaction = $this->database->startTransaction();
     try {
-      $line = $storage->create([
-        'type' => 'brebo_calc_line',
-        'title' => 'Nieuwe calculatieregel',
-        'status' => 1,
-        'uid' => $account->id(),
-        'field_brebo_calc_element_ref' => ['target_id' => $legacyElementId],
-        'field_brebo_line_sequence' => $sequence,
-        'field_brebo_line_post_type' => 'Vaste post',
-        'field_brebo_cost_category' => 'Overig',
-        'field_brebo_line_description' => 'Nieuwe calculatieregel',
-        'field_brebo_contract_quantity' => '1.0000',
-        'field_brebo_unit' => 'post',
-        'field_brebo_unit_price' => '0.0000',
-        'field_brebo_hours_input_mode' => 'Normuren',
-        'field_brebo_line_status' => 'Niet beoordeeld',
-        'field_brebo_line_type' => 'Calculatieregel',
-        'field_brebo_note_visibility' => 'Intern',
-      ]);
-      $line->save();
+      $lineId = $this->legacyLineGateway->create($legacyElementId, (int) $account->id());
 
       $this->database->insert('brebo_calculation_row_domain')->fields([
-        'calc_line_id' => (int) $line->id(),
+        'calc_line_id' => $lineId,
         'calculation_id' => $calculationId,
         'version' => $version,
         'paragraph_key' => $paragraphKey,
@@ -62,7 +44,7 @@ final class CalculationRowManager {
         'subcontracting_unit_cost' => 0,
         'other_unit_cost' => 0,
       ])->execute();
-      return (int) $line->id();
+      return $lineId;
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -110,22 +92,9 @@ final class CalculationRowManager {
       'other_unit_cost' => $this->nonNegativeCost($unitCosts, 'other'),
     ];
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $line = $storage->load($lineId);
-    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
-      throw new \InvalidArgumentException('Calculation row not found.');
-    }
-
     $transaction = $this->database->startTransaction();
     try {
-      $line->setTitle($description);
-      $this->setIfPresent($line, 'field_brebo_line_description', $description);
-      $this->setIfPresent($line, 'field_brebo_contract_quantity', number_format($quantity, 4, '.', ''));
-      $this->setIfPresent($line, 'field_brebo_unit', $unit);
-      $this->setIfPresent($line, 'field_brebo_unit_price', number_format(array_sum($costs), 4, '.', ''));
-      $line->setNewRevision(TRUE);
-      $line->setRevisionLogMessage('Calculatieregel via quick-entry in de calculatiewerkbank bijgewerkt.');
-      $line->save();
+      $this->legacyLineGateway->updateQuickEntry($lineId, $description, $unit, $quantity, $costs);
 
       $this->database->update('brebo_calculation_row_domain')
         ->fields($costs)
@@ -143,32 +112,15 @@ final class CalculationRowManager {
   public function duplicate(int $calculationId, string $version, int $lineId, AccountInterface $account): int {
     $this->assertEditable($calculationId, $version, $account);
     $domain = $this->domainRow($calculationId, $version, $lineId);
-    $storage = $this->entityTypeManager->getStorage('node');
-    $source = $storage->load($lineId);
-    if (!$source instanceof NodeInterface || $source->bundle() !== 'brebo_calc_line') {
-      throw new \InvalidArgumentException('Calculation row not found.');
-    }
-
-    $copy = $source->createDuplicate();
-    $copy->setOwnerId((int) $account->id());
-    $copy->setTitle($source->label() . ' (kopie)');
-    if ($copy->hasField('field_brebo_line_description')) {
-      $copy->set('field_brebo_line_description', ((string) $source->get('field_brebo_line_description')->value) . ' (kopie)');
-    }
-    if ($copy->hasField('field_brebo_line_sequence')) {
-      $elementId = (int) $source->get('field_brebo_calc_element_ref')->target_id;
-      $copy->set('field_brebo_line_sequence', $this->nextSequence($elementId));
-    }
-
     $transaction = $this->database->startTransaction();
     try {
-      $copy->save();
+      $copyId = $this->legacyLineGateway->duplicate($lineId, (int) $account->id());
       unset($domain['calc_line_id'], $domain['calculation_id'], $domain['version']);
-      $domain['calc_line_id'] = (int) $copy->id();
+      $domain['calc_line_id'] = $copyId;
       $domain['calculation_id'] = $calculationId;
       $domain['version'] = $version;
       $this->database->insert('brebo_calculation_row_domain')->fields($domain)->execute();
-      return (int) $copy->id();
+      return $copyId;
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -179,12 +131,6 @@ final class CalculationRowManager {
   public function delete(int $calculationId, string $version, int $lineId, AccountInterface $account): void {
     $this->assertEditable($calculationId, $version, $account);
     $this->domainRow($calculationId, $version, $lineId);
-    $storage = $this->entityTypeManager->getStorage('node');
-    $line = $storage->load($lineId);
-    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
-      throw new \InvalidArgumentException('Calculation row not found.');
-    }
-
     $transaction = $this->database->startTransaction();
     try {
       $this->database->delete('brebo_calculation_row_domain')
@@ -192,7 +138,7 @@ final class CalculationRowManager {
         ->condition('calculation_id', $calculationId)
         ->condition('version', $version)
         ->execute();
-      $line->delete();
+      $this->legacyLineGateway->delete($lineId);
     }
     catch (\Throwable $e) {
       $transaction->rollBack();
@@ -205,26 +151,14 @@ final class CalculationRowManager {
     $this->domainRow($calculationId, $version, $lineId);
     $this->assertLeafParagraph($calculationId, $version, $targetParagraphKey);
 
-    $targetElementId = $this->resolveLegacyElementId($calculationId, $targetParagraphKey);
+    $targetElementId = $this->legacyLineGateway->resolveElementId($calculationId, $targetParagraphKey);
     if ($targetElementId === NULL) {
       throw new \RuntimeException('Target paragraph has no safe legacy element mapping.');
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $line = $storage->load($lineId);
-    if (!$line instanceof NodeInterface || $line->bundle() !== 'brebo_calc_line') {
-      throw new \InvalidArgumentException('Calculation row not found.');
-    }
-
     $transaction = $this->database->startTransaction();
     try {
-      $line->set('field_brebo_calc_element_ref', ['target_id' => $targetElementId]);
-      if ($line->hasField('field_brebo_line_sequence')) {
-        $line->set('field_brebo_line_sequence', $this->nextSequence($targetElementId));
-      }
-      $line->setNewRevision(TRUE);
-      $line->setRevisionLogMessage('Calculatieregel via nieuwe calculatiewerkbank naar andere paragraaf verplaatst.');
-      $line->save();
+      $this->legacyLineGateway->move($lineId, $targetElementId);
 
       $this->database->update('brebo_calculation_row_domain')
         ->fields(['paragraph_key' => $targetParagraphKey])
@@ -291,29 +225,6 @@ final class CalculationRowManager {
     }
   }
 
-  private function nextSequence(int $elementId): int {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(FALSE)
-      ->condition('type', 'brebo_calc_line')
-      ->condition('field_brebo_calc_element_ref.target_id', $elementId)
-      ->sort('field_brebo_line_sequence', 'DESC')->range(0, 1)->execute();
-    $last = $ids ? $storage->load(reset($ids)) : NULL;
-    return $last instanceof NodeInterface ? ((int) $last->get('field_brebo_line_sequence')->value + 10) : 10;
-  }
-
-  private function resolveLegacyElementId(int $calculationId, string $paragraphKey): ?int {
-    if (preg_match('/(?:element|paragraph)[_:-]?(\d+)/i', $paragraphKey, $matches)) {
-      $candidate = (int) $matches[1];
-      $element = $this->entityTypeManager->getStorage('node')->load($candidate);
-      if ($element instanceof NodeInterface
-        && $element->bundle() === 'brebo_calc_element'
-        && (int) $element->get('field_brebo_calculation_ref')->target_id === $calculationId) {
-        return $candidate;
-      }
-    }
-    return NULL;
-  }
-
   /** @param array<string, float|int> $unitCosts */
   private function nonNegativeCost(array $unitCosts, string $key): float {
     $value = (float) ($unitCosts[$key] ?? 0.0);
@@ -323,10 +234,5 @@ final class CalculationRowManager {
     return $value;
   }
 
-  private function setIfPresent(NodeInterface $line, string $field, mixed $value): void {
-    if ($line->hasField($field)) {
-      $line->set($field, $value);
-    }
-  }
 
 }
