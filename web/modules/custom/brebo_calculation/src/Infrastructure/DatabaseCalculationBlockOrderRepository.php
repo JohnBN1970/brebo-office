@@ -11,6 +11,17 @@ final class DatabaseCalculationBlockOrderRepository implements CalculationBlockO
 
   public function __construct(private readonly Connection $database) {}
 
+  public function transactional(callable $callback): mixed {
+    $transaction = $this->database->startTransaction();
+    try {
+      return $callback();
+    }
+    catch (\Throwable $e) {
+      $transaction->rollBack();
+      throw $e;
+    }
+  }
+
   public function isEditableVersion(int $calculationId, string $version): bool {
     $row = $this->database->select('brebo_calculation_version', 'v')
       ->fields('v', ['locked_at', 'status'])
