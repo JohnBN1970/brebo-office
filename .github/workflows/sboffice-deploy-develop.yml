@@ -358,6 +358,36 @@ jobs:
           [[ "$control_status" != "500" && "$control_status" != "000" && "$control_status" != "404" ]]
           echo "CONTROL_CENTER_HTTP_SMOKE_OK=$control_status"
 
+          # Prove the production Office -> Calc context bridge against project 4538.
+          # This uses the same HMAC contract as Calc without exposing the secret.
+          "${drush[@]}" php:eval '
+            $projectId = 4538;
+            $secret = trim((string) getenv("BREBO_CALC_SHARED_SECRET") ?: \\Drupal\\Core\\Site\\Settings::get("brebo_calc_shared_secret", ""));
+            if ($secret === "") { throw new \\RuntimeException("BREBO Calc shared secret is not configured."); }
+            $path = "/api/workbench/v1/projects/" . $projectId . "/calculation-context";
+            $timestamp = (string) time();
+            $requestId = \\Drupal::service("uuid")->generate();
+            $bodyHash = hash("sha256", "");
+            $canonical = "GET\\n{$path}\\n{$bodyHash}\\n{$timestamp}\\n{$requestId}";
+            $signature = "v1=" . hash_hmac("sha256", $canonical, $secret);
+            $response = \\Drupal::httpClient()->request("GET", "https://sboffice.brebobv.nl" . $path, [
+              "headers" => [
+                "Accept" => "application/json",
+                "X-BREBO-Timestamp" => $timestamp,
+                "X-BREBO-Request-Id" => $requestId,
+                "X-BREBO-Signature" => $signature,
+              ],
+              "http_errors" => FALSE,
+              "timeout" => 15,
+            ]);
+            $status = $response->getStatusCode();
+            $payload = json_decode((string) $response->getBody(), TRUE);
+            if ($status !== 200) { throw new \\RuntimeException("Calc context endpoint returned HTTP " . $status); }
+            if (($payload["contract"] ?? "") !== "brebo-office-calc-context-v1") { throw new \\RuntimeException("Calc context contract mismatch."); }
+            if ((int) ($payload["project"]["id"] ?? 0) !== $projectId) { throw new \\RuntimeException("Calc context project mismatch."); }
+            print "CALC_CONTEXT_BRIDGE_OK=1\\n";
+          '
+
           sandbox_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/admin/brebo/sandbox-reset)"
           [[ "$sandbox_status" != "500" && "$sandbox_status" != "000" && "$sandbox_status" != "404" ]]
           echo "SANDBOX_RESET_HTTP_SMOKE_OK=$sandbox_status"
