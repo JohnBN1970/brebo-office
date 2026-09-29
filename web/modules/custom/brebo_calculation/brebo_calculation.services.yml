@@ -116,10 +116,14 @@ services:
       - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.commercial_calculator'
 
+  brebo_calculation.establishment_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationEstablishmentRepository
+    arguments: ['@database']
+
   brebo_calculation.version_establisher:
     class: Drupal\brebo_calculation\Service\CalculationVersionEstablisher
     arguments:
-      - '@database'
+      - '@brebo_calculation.establishment_repository'
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
       - '@datetime.time'
