@@ -158,3 +158,55 @@ function brebo_calculation_update_11001(): void {
     $schema->createTable('brebo_kozijn_price_observation', $definition);
   }
 }
+
+
+/** Versioned document selection used by the digital work preparer. */
+function brebo_calculation_document_set_schema(): array {
+  return [
+    'description' => 'Versioned selection of Office project documents proposed for a calculation.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'proposed'],
+      'selection_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'v1'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'indexes' => ['project_calculation' => ['project_id', 'calculation_id'], 'status' => ['status']],
+  ];
+}
+
+/** Documents selected or proposed inside a calculation document set. */
+function brebo_calculation_document_set_item_schema(): array {
+  return [
+    'description' => 'Reviewable Office document candidates for a calculation document set.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'set_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'role' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'relevance' => ['type' => 'numeric', 'precision' => 5, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'selection_source' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'system'],
+      'review_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'proposed'],
+      'exclusion_reason' => ['type' => 'text', 'not null' => FALSE],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['set_document' => ['set_id', 'document_id']],
+    'indexes' => ['set_review' => ['set_id', 'review_status'], 'document' => ['document_id']],
+  ];
+}
+
+/** Install CalculationDocumentSet storage. */
+function brebo_calculation_update_11002(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_document_set')) {
+    $schema->createTable('brebo_calculation_document_set', brebo_calculation_document_set_schema());
+  }
+  if (!$schema->tableExists('brebo_calculation_document_set_item')) {
+    $schema->createTable('brebo_calculation_document_set_item', brebo_calculation_document_set_item_schema());
+  }
+}
