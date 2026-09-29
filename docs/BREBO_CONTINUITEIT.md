@@ -19,9 +19,11 @@ Lees eerst, in deze volgorde:
 5. `docs/BMS_CIM_DRUPAL_ALIGNMENT.md`;
 6. `docs/BREBO_OFFICE_UI_DESIGN_SYSTEM.md` voor presentatie/UI;
 7. `docs/BREBO_CALCULATIE_ARCHITECTUUR.md` en `docs/BREBO_CALCULATIE_CONTINUITEIT.md` voor calculatie;
-8. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor document-/rapportoutput;
-9. dit continuïteitsdocument;
-10. de actuele GitHub-stand van `develop` en open pull requests, met bijzondere aandacht voor architectuurbranches die nog niet gemerged zijn.
+8. `docs/BREBO_CONTINUITEIT_FINANCE_2026-09-29.md` voor Finance;
+9. `docs/BREBO_PROJECT_CONTINUITY.md` voor Projecten/publicatie;
+10. `docs/BREBO_OUTPUTGENERATOR_ARCHITECTUUR.md` voor document-/rapportoutput;
+11. dit continuïteitsdocument;
+12. de actuele GitHub-stand van `develop` en open pull requests, met bijzondere aandacht voor architectuurbranches die nog niet gemerged zijn.
 
 Verzin geen nieuwe architectuur of module-eigen presentatietaal wanneer een onderwerp al in deze bronnen is vastgesteld.
 
