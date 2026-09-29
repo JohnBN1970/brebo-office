@@ -92,7 +92,7 @@ final class OfferReviewConfirmForm extends FormBase {
     $form['actions']['back'] = [
       '#type' => 'link',
       '#title' => $this->t('Terug naar calculatiewerkbank'),
-      '#url' => Url::fromRoute('brebo_calculation.workbench', ['node' => $calculationId]),
+      '#url' => Url::fromRoute('brebo_calculation.workbench', ['calculation' => $calculationId]),
       '#attributes' => ['class' => ['button']],
     ];
 
