@@ -286,3 +286,47 @@ function brebo_calculation_update_11003(): void {
     $schema->createTable('brebo_calculation_takeoff', brebo_calculation_takeoff_schema());
   }
 }
+
+
+/**
+ * Normalize existing take-off geometry to per-element semantics.
+ *
+ * Older rows stored side lengths, area and perimeter already multiplied by
+ * quantity. Width and height are per element, so recompute geometry from those
+ * canonical dimensions and keep quantity as a separate multiplier.
+ */
+function brebo_calculation_update_11004(): void {
+  $database = \Drupal::database();
+  if (!$database->schema()->tableExists('brebo_calculation_takeoff')) {
+    return;
+  }
+
+  $result = $database->select('brebo_calculation_takeoff', 't')
+    ->fields('t', ['id', 'width_mm', 'height_mm'])
+    ->isNotNull('width_mm')
+    ->isNotNull('height_mm')
+    ->execute();
+
+  foreach ($result as $row) {
+    $width = (float) $row->width_mm;
+    $height = (float) $row->height_mm;
+    $top = $width / 1000.0;
+    $bottom = $top;
+    $left = $height / 1000.0;
+    $right = $left;
+    $area = ($width / 1000.0) * ($height / 1000.0);
+    $perimeter = $top + $bottom + $left + $right;
+
+    $database->update('brebo_calculation_takeoff')
+      ->fields([
+        'top_m' => $top,
+        'bottom_m' => $bottom,
+        'left_m' => $left,
+        'right_m' => $right,
+        'area_m2' => $area,
+        'perimeter_m' => $perimeter,
+      ])
+      ->condition('id', (int) $row->id)
+      ->execute();
+  }
+}
