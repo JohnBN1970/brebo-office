@@ -152,6 +152,8 @@ jobs:
           grep -q "/admin/brebo/calculations/{calculation}/workbench" "$routing"
           redirect_controller='web/modules/custom/brebo_calculation/src/Controller/CalculationWorkspaceRedirectController.php'
           grep -q "brebo_office_core.calc_workbench_launch" "$redirect_controller"
+          ! grep -Fq 'function redirect(' "$redirect_controller"
+          grep -Fq 'function redirectToCalc(int $calculation)' "$redirect_controller"
           calc_launch='web/modules/custom/brebo_office_core/src/Controller/CalculationWorkbenchLaunchController.php'
           office_routing='web/modules/custom/brebo_office_core/brebo_office_core.routing.yml'
           ! grep -q "NodeInterface" "$calc_launch"
@@ -237,7 +239,7 @@ jobs:
           grep -q "workspace_v2_object_exception_line_add" "$routing"
           services='web/modules/custom/brebo_calculation/brebo_calculation.services.yml'
           ! grep -q "workspace_route_subscriber" "$services"
-          grep -q "CalculationWorkspaceRedirectController::redirect" "$routing"
+          grep -q "CalculationWorkspaceRedirectController::redirectToCalc" "$routing"
           grep -q "/api/workbench/v2/calculations/{calculation}" "$routing"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$row_manager"
           ! grep -q "CalculationLineLegacyGatewayInterface" "$block_order"
