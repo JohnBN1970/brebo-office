@@ -11,5 +11,3 @@ interface CalculationNormFeedbackRepositoryInterface {
   /** @return array<string,mixed> */
   public function summary(string $domain, string $normKey): array;
 }
-
-}
