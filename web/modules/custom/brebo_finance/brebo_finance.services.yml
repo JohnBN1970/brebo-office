@@ -6,9 +6,13 @@ services:
     arguments: ['@database', '@entity_type.manager']
     tags:
       - { name: brebo_data_intake.destination }
+  brebo_finance.working_budget_import_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseWorkingBudgetImportRepository
+    arguments: ['@database', '@entity_type.manager']
+
   brebo_finance.working_budget_importer:
     class: Drupal\brebo_finance\Service\WorkingBudgetImporter
-    arguments: ['@database', '@entity_type.manager']
+    arguments: ['@brebo_finance.working_budget_import_repository']
   brebo_finance.working_budget_approval_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseWorkingBudgetApprovalRepository
     arguments: ['@database']
