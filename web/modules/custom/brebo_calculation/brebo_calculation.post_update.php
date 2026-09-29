@@ -334,11 +334,18 @@ function brebo_calculation_post_update_price_sources_to_row_id(&$sandbox = NULL)
     $updated++;
   }
 
+  if (!function_exists('brebo_calculation_price_source_line_schema')) {
+    \Drupal::moduleHandler()->loadInclude('brebo_calculation', 'install');
+  }
+  if (!function_exists('brebo_calculation_price_source_line_schema')) {
+    throw new \RuntimeException('BREBO Calculation price-source schema definition could not be loaded.');
+  }
+  $tableSpec = brebo_calculation_price_source_line_schema();
   if (!$schema->indexExists($table, 'calculation_row')) {
-    $schema->addIndex($table, 'calculation_row', ['calculation_id', 'version', 'row_id']);
+    $schema->addIndex($table, 'calculation_row', ['calculation_id', 'version', 'row_id'], $tableSpec);
   }
   if (!$schema->indexExists($table, 'active_source_row')) {
-    $schema->addIndex($table, 'active_source_row', ['calculation_id', 'version', 'row_id', 'is_active_source']);
+    $schema->addIndex($table, 'active_source_row', ['calculation_id', 'version', 'row_id', 'is_active_source'], $tableSpec);
   }
 
   return sprintf('BREBO Calculation price sources linked to %d BREBO row identities.', $updated);
@@ -432,7 +439,7 @@ function brebo_calculation_post_update_backfill_calculation_context(&$sandbox = 
       : NULL;
 
     $database->merge($table)
-      ->key(['calculation_id' => (int) $calculation->id()])
+      ->key('calculation_id', (int) $calculation->id())
       ->fields([
         'code' => $calculation->hasField('field_brebo_calc_code') && !$calculation->get('field_brebo_calc_code')->isEmpty()
           ? mb_substr((string) $calculation->get('field_brebo_calc_code')->value, 0, 64)
