@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalculationIdentityRepositoryInterface;
 
 /** Generates BREBO-owned calculation structure keys. */
 final class CalculationStructureIdentityGenerator {
@@ -12,7 +12,7 @@ final class CalculationStructureIdentityGenerator {
   private const MAX_SAFE_INTEGER = 9007199254740991;
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CalculationIdentityRepositoryInterface $repository,
   ) {}
 
   public function mainGroupKey(int $calculationId, string $version): string {
@@ -26,14 +26,7 @@ final class CalculationStructureIdentityGenerator {
   private function nextId(int $calculationId, string $version): int {
     for ($attempt = 0; $attempt < 10; $attempt++) {
       $id = random_int(1, self::MAX_SAFE_INTEGER);
-      $exists = (bool) $this->database->select('brebo_calculation_structure', 's')
-        ->condition('calculation_id', $calculationId)
-        ->condition('version', $version)
-        ->condition('node_key', ['group_' . $id, 'paragraph_' . $id], 'IN')
-        ->countQuery()
-        ->execute()
-        ->fetchField();
-      if (!$exists) {
+      if (!$this->repository->structureIdentityExists($calculationId, $version, $id)) {
         return $id;
       }
     }
