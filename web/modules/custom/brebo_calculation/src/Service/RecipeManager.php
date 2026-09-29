@@ -102,6 +102,9 @@ final class RecipeManager {
     $result = $this->database->select('brebo_calculation_recipe_instance_parameter', 'p')->fields('p')->condition('recipe_instance_id', $instanceId)->execute();
     foreach ($result as $parameter) { $stored[(string) $parameter->parameter_key] = (string) $parameter->value; }
     $contextVariables = is_array($snapshot['context_variables'] ?? NULL) ? $snapshot['context_variables'] : [];
+    // element_quantity is an explicit alias of the current recipe quantity.
+    // Keep it synchronized when users edit the placed instance quantity.
+    $contextVariables['element_quantity'] = $quantity;
     $resolved = $this->resolveParameters($parameters, $stored, $quantity, $contextVariables);
     foreach ($resolved as $key => $value) { $this->database->update('brebo_calculation_recipe_instance_parameter')->fields(['calculated_value' => (string) $value])->condition('recipe_instance_id', $instanceId)->condition('parameter_key', $key)->execute(); }
     $variables = $contextVariables + $resolved + ['quantity' => $quantity];
