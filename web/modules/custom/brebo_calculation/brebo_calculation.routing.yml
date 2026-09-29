@@ -235,7 +235,7 @@ brebo_calculation.calc_supplier_quote_preview:
 brebo_calculation.workspace_v2_state:
   path: '/api/workbench/v2/calculations/{calculation}'
   defaults:
-    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceQueryController::state'
+    _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceQueryController::workspaceState'
   requirements:
     _access: 'TRUE'
     calculation: '\d+'

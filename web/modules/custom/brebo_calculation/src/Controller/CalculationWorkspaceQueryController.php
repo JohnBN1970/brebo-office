@@ -26,7 +26,7 @@ final class CalculationWorkspaceQueryController extends ControllerBase {
     );
   }
 
-  public function state(Request $request, int $calculation): JsonResponse {
+  public function workspaceState(Request $request, int $calculation): JsonResponse {
     try {
       $this->authenticator->assertSigned($request, '');
       $state = $this->workspaceStateService->state($calculation);
