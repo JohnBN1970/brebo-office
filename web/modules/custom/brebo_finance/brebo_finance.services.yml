@@ -9,9 +9,13 @@ services:
   brebo_finance.working_budget_importer:
     class: Drupal\brebo_finance\Service\WorkingBudgetImporter
     arguments: ['@database', '@entity_type.manager']
+  brebo_finance.working_budget_approval_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseWorkingBudgetApprovalRepository
+    arguments: ['@database']
+
   brebo_finance.working_budget_approval_manager:
     class: Drupal\brebo_finance\Service\WorkingBudgetApprovalManager
-    arguments: ['@database']
+    arguments: ['@brebo_finance.working_budget_approval_repository']
   brebo_finance.financial_phase_gate_manager:
     class: Drupal\brebo_finance\Service\FinancialPhaseGateManager
     arguments: ['@database']
