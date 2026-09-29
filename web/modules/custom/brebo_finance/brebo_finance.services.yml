@@ -60,9 +60,13 @@ services:
   brebo_finance.performance_receipt_manager:
     class: Drupal\brebo_finance\Service\PerformanceReceiptManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer', '@brebo_finance.performance_evidence_review_manager', '@brebo_finance.performance_evidence_requirement_resolver', '@brebo_finance.performance_location_manager']
+  brebo_finance.budget_mutation_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseBudgetMutationRepository
+    arguments: ['@database']
+
   brebo_finance.budget_mutation_manager:
     class: Drupal\brebo_finance\Service\BudgetMutationManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.budget_mutation_repository', '@brebo_finance.vat_calculator']
   brebo_finance.three_way_match_manager:
     class: Drupal\brebo_finance\Service\ThreeWayMatchManager
     arguments: ['@database', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer']
