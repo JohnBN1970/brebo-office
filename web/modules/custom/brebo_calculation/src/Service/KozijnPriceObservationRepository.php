@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\KozijnPriceObservationStoreInterface;
 
 /** Stores and reads approved, traceable kozijn price observations. */
 final class KozijnPriceObservationRepository {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly KozijnPriceObservationStoreInterface $store) {}
 
   /** @param array<string,mixed> $values */
   public function add(array $values, ?int $userId = NULL): int {
@@ -35,7 +35,7 @@ final class KozijnPriceObservationRepository {
       throw new \InvalidArgumentException('Invalid kozijn price observation.');
     }
 
-    return (int) $this->database->insert('brebo_kozijn_price_observation')->fields([
+    return $this->store->insert([
       'system' => $system,
       'brand' => $this->nullable($values['brand'] ?? NULL),
       'width_mm' => $width,
@@ -55,19 +55,12 @@ final class KozijnPriceObservationRepository {
       'metadata' => isset($values['metadata']) ? json_encode($values['metadata'], JSON_THROW_ON_ERROR) : NULL,
       'created' => time(),
       'created_by' => $userId,
-    ])->execute();
+    ]);
   }
 
   /** @return array<int,array<string,mixed>> */
   public function approved(string $system, string $type, int $fields = 1): array {
-    return $this->database->select('brebo_kozijn_price_observation', 'o')
-      ->fields('o')
-      ->condition('system', $system)
-      ->condition('configuration_type', $type)
-      ->condition('fields_count', $fields)
-      ->condition('status', 'approved')
-      ->orderBy('observed_at', 'DESC')
-      ->execute()->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+    return $this->store->approved($system, $type, $fields);
   }
 
   private function nullable(mixed $value): ?string {
