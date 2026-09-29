@@ -12,6 +12,10 @@ interface RecipeRepositoryInterface {
   /** @return array<string,mixed>|null */
   public function publishedVersion(int $recipeVersionId): ?array;
 
+  /** @return list<array{id:int,version:string,base_unit:string,recipe_name:string}> */
+  public function publishedVersions(): array;
+
+
   /** @return array<string,mixed>|null */
   public function recipe(int $recipeId): ?array;
 
