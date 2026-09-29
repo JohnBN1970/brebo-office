@@ -73,11 +73,15 @@ services:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationStructureLegacyGateway
     arguments: ['@entity_type.manager']
 
+  brebo_calculation.access_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationAccessRepository
+    arguments: ['@database']
+
   brebo_calculation.access_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationAccessGateway
     arguments:
       - '@entity_type.manager'
-      - '@database'
+      - '@brebo_calculation.access_repository'
 
   brebo_calculation.legacy_line_gateway:
     class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationLineLegacyGateway
@@ -324,7 +328,7 @@ services:
   brebo_calculation.offer_readiness_access:
     class: Drupal\brebo_calculation\Access\OfferReadinessAccessCheck
     arguments:
-      - '@database'
+      - '@brebo_calculation.access_repository'
       - '@brebo_calculation.readiness_inspector'
     tags:
       - { name: access_check, applies_to: _brebo_offer_ready }
@@ -332,7 +336,7 @@ services:
   brebo_calculation.offer_confirmed_access:
     class: Drupal\brebo_calculation\Access\OfferConfirmedAccessCheck
     arguments:
-      - '@database'
+      - '@brebo_calculation.access_repository'
       - '@brebo_calculation.readiness_inspector'
       - '@request_stack'
     tags:
