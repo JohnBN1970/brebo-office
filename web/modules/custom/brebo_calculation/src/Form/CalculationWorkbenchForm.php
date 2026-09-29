@@ -59,11 +59,11 @@ final class CalculationWorkbenchForm extends FormBase {
     }
     $version = $this->latestVersion($calculationId);
     if ($version === NULL) {
-      $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['calculation' => $calculationId])->toString();
+      $auditUrl = Url::fromRoute('brebo_calculation.migration_audit', ['node' => $calculationId])->toString();
       $preview = $this->legacyDryRun->preview((int) $calculationId);
       $safe = $preview->isSafeToMigrate();
       $canConvert = $safe && $this->currentUser()->hasPermission('migrate brebo calculation');
-      $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['calculation' => $calculationId])->toString();
+      $convertUrl = Url::fromRoute('brebo_calculation.migration_confirm', ['node' => $calculationId])->toString();
       $title = $safe ? 'Klaar om naar de nieuwe calculatiewerkbank om te zetten.' : 'Deze calculatie kan nog niet veilig worden omgezet.';
       $description = $safe
         ? ($canConvert
@@ -125,10 +125,10 @@ final class CalculationWorkbenchForm extends FormBase {
       '#markup' => '<section class="brebo-calc-command">'
         . '<div class="brebo-calc-command__title"><div><small>Calculatie</small><h1>' . htmlspecialchars($code) . '</h1><p>' . htmlspecialchars($calculationLabel) . '</p></div>'
         . '<div class="brebo-calc-command__actions">'
-        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['calculation' => $calculationId])->toString()) . '">Basisgegevens</a>'
+        . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('entity.node.edit_form', ['node' => $calculationId])->toString()) . '">Basisgegevens</a>'
         . '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Parameters</a>'
         . ($editable ? '<a class="button" href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.establish', ['calculation' => $calculationId])->toString()) . '">Versie vaststellen</a>' : '')
-        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['calculation' => $calculationId])->toString()) . '">Offerte maken</a>'
+        . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.create_offer_version', ['node' => $calculationId])->toString()) . '">Offerte maken</a>'
         . '</div></div>'
         . '<div class="brebo-calc-command__context"><span><strong>Project</strong>' . htmlspecialchars($projectLabel) . '</span><span><strong>Versie</strong>' . htmlspecialchars((string) $version['version']) . '</span><span><strong>Status</strong>' . htmlspecialchars($statusLabel) . '</span></div>'
         . '<div class="brebo-calc-kpis">'
@@ -152,9 +152,9 @@ final class CalculationWorkbenchForm extends FormBase {
       '#markup' => '<section class="brebo-calc-panel"><h2>Acties</h2><div class="brebo-calc-panel__actions">'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.structure', ['calculation' => $calculationId])->toString()) . '">Structuur beheren</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.recipe_place', ['calculation' => $calculationId])->toString()) . '">Recept plaatsen</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['calculation' => $calculationId])->toString()) . '">Deelcalculaties</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.subcalculations', ['node' => $calculationId])->toString()) . '">Deelcalculaties</a>'
         . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.parameters', ['calculation' => $calculationId])->toString()) . '">Opslagen & parameters</a>'
-        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['calculation' => $calculationId])->toString()) . '">Project koppelen</a>'
+        . '<a href="' . htmlspecialchars(Url::fromRoute('brebo_calculation.project_link', ['node' => $calculationId])->toString()) . '">Project koppelen</a>'
         . '<a class="button button--primary" href="' . htmlspecialchars(Url::fromRoute('brebo_office_core.calc_workbench_launch', ['calculation' => $calculationId])->toString()) . '">Open in Calculatie</a>'
         . '</div></section>',
     ];
