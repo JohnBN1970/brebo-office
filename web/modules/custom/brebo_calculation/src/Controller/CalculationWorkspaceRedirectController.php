@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
  */
 final class CalculationWorkspaceRedirectController extends ControllerBase {
 
-  public function redirect(int $calculation): RedirectResponse {
+  public function redirectToCalc(int $calculation): RedirectResponse {
     if ($calculation <= 0) {
       throw new \InvalidArgumentException('Calculation id is required.');
     }
