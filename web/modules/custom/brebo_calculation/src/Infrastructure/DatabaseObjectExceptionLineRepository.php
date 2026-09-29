@@ -10,6 +10,17 @@ use Drupal\Core\Database\Connection;
 final class DatabaseObjectExceptionLineRepository implements ObjectExceptionLineRepositoryInterface {
   public function __construct(private readonly Connection $database) {}
 
+  public function context(int $applicationObjectId): ?array {
+    $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
+    $query->join('brebo_calculation_subcalculation_application', 'a', 'a.id = o.application_id');
+    $query->join('brebo_calculation_subcalculation', 's', 's.id = a.subcalculation_id');
+    $query->fields('o');
+    $query->addField('a', 'subcalculation_id');
+    $query->addField('s', 'calculation_id');
+    $row = $query->condition('o.id', $applicationObjectId)->execute()->fetchAssoc();
+    return $row ?: NULL;
+  }
+
   public function editableContext(int $applicationObjectId): ?array {
     $query = $this->database->select('brebo_calculation_subcalculation_application_object', 'o');
     $query->join('brebo_calculation_subcalculation_application', 'a', 'a.id = o.application_id');
