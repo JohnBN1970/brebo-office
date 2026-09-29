@@ -1,5 +1,7 @@
 # BREBO Office — Continuïteit Finance — 2026-09-05
 
+> Historisch document. Voor hervatten na 29 september 2026 is `docs/BREBO_CONTINUITEIT_FINANCE_2026-09-29.md` leidend.
+
 Dit document is de actuele Finance-continuïteitsaanvulling op `docs/BREBO_CONTINUITEIT.md` en vervangt voor het hervatpunt de Finance-aanvulling van 2026-08-24. Bij een nieuwe chat of ontwikkelsessie moet deze stand samen met de actuele `develop`-branch en open PR's worden gelezen. Ga niet terug naar oudere Finance-architectuur of alleen backend-afronding.
 
 ## Update 29 september 2026 — architectuurcontinuiteit
