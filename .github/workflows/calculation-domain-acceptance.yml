@@ -211,6 +211,7 @@ jobs:
           routing='web/modules/custom/brebo_calculation/brebo_calculation.routing.yml'
           workbench='web/modules/custom/brebo_calculation/src/Form/CalculationWorkbenchForm.php'
           initializer='web/modules/custom/brebo_calculation/src/Service/CalculationDraftInitializer.php'
+          draft_repository='web/modules/custom/brebo_calculation/src/Infrastructure/DatabaseCalculationDraftRepository.php'
           libraries='web/modules/custom/brebo_calculation/brebo_calculation.libraries.yml'
           create_js='web/modules/custom/brebo_calculation/js/calculation-create.js'
           onboarding_css='web/modules/custom/brebo_calculation/css/calculation-onboarding.css'
@@ -218,7 +219,8 @@ jobs:
           grep -q "brebo_calculation_node_insert" "$module"
           grep -q "Opslaan en calculatiewerkbank openen" "$module"
           grep -q "brebo_calculation.draft_initializer" "$services"
-          grep -q "brebo_calculation_version" "$initializer"
+          grep -q "brebo_calculation_version" "$draft_repository"
+          ! grep -q "Drupal\\Core\\Database" "$initializer"
           grep -q "brebo_calculation.workbench" "$routing"
           grep -q "Deelcalculaties" "$workbench"
           grep -q "calculation-onboarding.css" "$libraries"
