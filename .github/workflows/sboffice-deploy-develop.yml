@@ -380,7 +380,7 @@ jobs:
             $timestamp = (string) time();
             $requestId = \Drupal::service("uuid")->generate();
             $bodyHash = hash("sha256", "");
-            $canonical = "GET\\n{$path}\\n{$bodyHash}\\n{$timestamp}\\n{$requestId}";
+            $canonical = "GET\n{$path}\n{$bodyHash}\n{$timestamp}\n{$requestId}";
             $signature = "v1=" . hash_hmac("sha256", $canonical, $secret);
             $response = \Drupal::httpClient()->request("GET", "http://127.0.0.1" . $path, [
               "headers" => [
@@ -399,8 +399,8 @@ jobs:
               $body = trim((string) $response->getBody());
               $body = preg_replace("/\\s+/", " ", $body) ?? "";
               $safeBody = substr($body, 0, 1200);
-              print "CALC_CONTEXT_HTTP_STATUS=" . $status . "\\n";
-              print "CALC_CONTEXT_HTTP_BODY=" . $safeBody . "\\n";
+              print "CALC_CONTEXT_HTTP_STATUS=" . $status . "\n";
+              print "CALC_CONTEXT_HTTP_BODY=" . $safeBody . "\n";
               $db = \Drupal::database();
               if ($db->schema()->tableExists("watchdog")) {
                 $rows = $db->select("watchdog", "w")
@@ -418,7 +418,7 @@ jobs:
                     }
                   }
                   $message = preg_replace("/\\s+/", " ", $message) ?? $message;
-                  print "WATCHDOG wid=" . $row->wid . " type=" . $row->type . " severity=" . $row->severity . " message=" . substr($message, 0, 1200) . "\\n";
+                  print "WATCHDOG wid=" . $row->wid . " type=" . $row->type . " severity=" . $row->severity . " message=" . substr($message, 0, 1200) . "\n";
                 }
               }
               throw new \RuntimeException("Calc context endpoint returned HTTP " . $status);
