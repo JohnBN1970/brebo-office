@@ -346,7 +346,7 @@ jobs:
             print "INZET_RUNTIME_CONTRACT_OK=1\n";
           '
 
-          login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
+          # HTTP smoke tests must run with Drupal out of maintenance mode.\n          "${drush[@]}" state:set system.maintenance_mode 0 --input-format=integer\n          "${drush[@]}" cr\n          echo "MAINTENANCE_MODE_OFF_OK=1"\n\n          login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
           [[ "$login_status" == "200" ]]
           echo "PUBLIC_LOGIN_OK=1"
 
