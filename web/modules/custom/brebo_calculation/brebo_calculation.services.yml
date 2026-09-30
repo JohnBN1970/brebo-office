@@ -370,3 +370,8 @@ services:
     arguments:
       - '@database'
       - '@datetime.time'
+
+  brebo_calculation.calculation_context_snapshot:
+    class: Drupal\brebo_calculation\Service\CalculationContextSnapshotService
+    arguments:
+      - '@database'
