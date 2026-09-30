@@ -399,7 +399,29 @@ jobs:
               $body = trim((string) $response->getBody());
               $body = preg_replace("/\\s+/", " ", $body) ?? "";
               $safeBody = substr($body, 0, 1200);
-              throw new \RuntimeException("Calc context endpoint returned HTTP " . $status . ($safeBody !== "" ? " body=" . $safeBody : ""));
+              print "CALC_CONTEXT_HTTP_STATUS=" . $status . "\\n";
+              print "CALC_CONTEXT_HTTP_BODY=" . $safeBody . "\\n";
+              $db = \Drupal::database();
+              if ($db->schema()->tableExists("watchdog")) {
+                $rows = $db->select("watchdog", "w")
+                  ->fields("w", ["wid", "type", "message", "variables", "severity", "timestamp"])
+                  ->condition("timestamp", time() - 180)
+                  ->orderBy("wid", "DESC")
+                  ->range(0, 20)
+                  ->execute();
+                foreach ($rows as $row) {
+                  $message = (string) $row->message;
+                  $variables = @unserialize((string) $row->variables, ["allowed_classes" => FALSE]);
+                  if (is_array($variables)) {
+                    foreach ($variables as $key => $value) {
+                      if (is_scalar($value)) { $message = str_replace((string) $key, (string) $value, $message); }
+                    }
+                  }
+                  $message = preg_replace("/\\s+/", " ", $message) ?? $message;
+                  print "WATCHDOG wid=" . $row->wid . " type=" . $row->type . " severity=" . $row->severity . " message=" . substr($message, 0, 1200) . "\\n";
+                }
+              }
+              throw new \RuntimeException("Calc context endpoint returned HTTP " . $status);
             }
             if (($payload["contract"] ?? "") !== "brebo-office-calc-context-v1") { throw new \RuntimeException("Calc context contract mismatch."); }
             if ((int) ($payload["project"]["id"] ?? 0) !== $projectId) { throw new \RuntimeException("Calc context project mismatch."); }
