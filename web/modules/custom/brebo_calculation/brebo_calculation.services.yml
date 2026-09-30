@@ -370,3 +370,13 @@ services:
     arguments:
       - '@database'
       - '@datetime.time'
+
+
+  brebo_calculation.document_context_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationDocumentContextRepository
+    arguments: ['@database']
+
+  brebo_calculation.document_context:
+    class: Drupal\brebo_calculation\Service\CalculationDocumentContextService
+    arguments:
+      - '@brebo_calculation.document_context_repository'
