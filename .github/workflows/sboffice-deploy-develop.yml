@@ -370,9 +370,10 @@ jobs:
             $bodyHash = hash("sha256", "");
             $canonical = "GET\\n{$path}\\n{$bodyHash}\\n{$timestamp}\\n{$requestId}";
             $signature = "v1=" . hash_hmac("sha256", $canonical, $secret);
-            $response = \Drupal::httpClient()->request("GET", "https://sboffice.brebobv.nl" . $path, [
+            $response = \Drupal::httpClient()->request("GET", "http://127.0.0.1" . $path, [
               "headers" => [
                 "Accept" => "application/json",
+                "Host" => "sboffice.brebobv.nl",
                 "X-BREBO-Timestamp" => $timestamp,
                 "X-BREBO-Request-Id" => $requestId,
                 "X-BREBO-Signature" => $signature,
