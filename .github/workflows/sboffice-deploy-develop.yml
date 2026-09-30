@@ -383,7 +383,12 @@ jobs:
             ]);
             $status = $response->getStatusCode();
             $payload = json_decode((string) $response->getBody(), TRUE);
-            if ($status !== 200) { throw new \RuntimeException("Calc context endpoint returned HTTP " . $status); }
+            if ($status !== 200) {
+              $body = trim((string) $response->getBody());
+              $body = preg_replace("/\\s+/", " ", $body) ?? "";
+              $safeBody = substr($body, 0, 1200);
+              throw new \RuntimeException("Calc context endpoint returned HTTP " . $status . ($safeBody !== "" ? " body=" . $safeBody : ""));
+            }
             if (($payload["contract"] ?? "") !== "brebo-office-calc-context-v1") { throw new \RuntimeException("Calc context contract mismatch."); }
             if ((int) ($payload["project"]["id"] ?? 0) !== $projectId) { throw new \RuntimeException("Calc context project mismatch."); }
             print "CALC_CONTEXT_BRIDGE_OK=1\\n";
