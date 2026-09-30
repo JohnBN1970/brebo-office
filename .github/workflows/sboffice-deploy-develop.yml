@@ -234,6 +234,18 @@ jobs:
           [[ "$("$remote_php" -r 'echo PHP_MAJOR_VERSION . "." . PHP_MINOR_VERSION;')" == "8.3" ]]
           drush=("$remote_php" -d memory_limit=512M -d display_errors=1 -d display_startup_errors=1 -d error_reporting=-1 -d log_errors=1 -d error_log=/tmp/brebo-drush-php-error.log vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
 
+          # Never leave BREBO Office stuck in Drupal maintenance mode, even if
+          # a later deployment step fails. Recover first, and recover again on exit.
+          disable_maintenance() {
+            "${drush[@]}" php:eval '\Drupal::state()->set("system.maintenance_mode", FALSE);' >/dev/null 2>&1 || true
+            "${drush[@]}" cr >/dev/null 2>&1 || true
+          }
+          trap disable_maintenance EXIT ERR INT TERM
+          disable_maintenance
+          maintenance_state="$("${drush[@]}" php:eval 'print \Drupal::state()->get("system.maintenance_mode", FALSE) ? "1" : "0";')"
+          [[ "$maintenance_state" == "0" ]] || { echo "::error::Unable to disable Drupal maintenance mode."; exit 1; }
+          echo "MAINTENANCE_MODE_RECOVERED=1"
+
           "${drush[@]}" pm:enable editor ckeditor5 brebo_building_data brebo_document_data brebo_mail_intake brebo_resident_service brebo_glass brebo_calculation brebo_finance brebo_control brebo_procurement_control brebo_contract_control brebo_inzet brebo_project_cockpit brebo_sandbox_reset brebo_project_publication brebo_data_intake -y
           echo "MODULE_ENABLE_OK=1"
 
@@ -346,7 +358,7 @@ jobs:
             print "INZET_RUNTIME_CONTRACT_OK=1\n";
           '
 
-          # HTTP smoke tests must run with Drupal out of maintenance mode.\n          "${drush[@]}" state:set system.maintenance_mode 0 --input-format=integer\n          "${drush[@]}" cr\n          echo "MAINTENANCE_MODE_OFF_OK=1"\n\n          login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
+          login_status="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 https://sboffice.brebobv.nl/user/login)"
           [[ "$login_status" == "200" ]]
           echo "PUBLIC_LOGIN_OK=1"
 
