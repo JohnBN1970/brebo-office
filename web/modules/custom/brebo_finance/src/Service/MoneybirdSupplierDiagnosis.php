@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceSupplierSourceRepositoryInterface;
 use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 
 /**
@@ -13,7 +13,7 @@ use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 final class MoneybirdSupplierDiagnosis {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PurchaseInvoiceSupplierSourceRepositoryInterface $supplierSources,
     private readonly OrganizationReferenceGatewayInterface $organizations,
   ) {}
 
@@ -21,15 +21,11 @@ final class MoneybirdSupplierDiagnosis {
    * Returns a mutation-free classification of unique supplier contacts.
    */
   public function diagnose(): array {
-    $rows = $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i', ['supplier_ref', 'supplier_name'])
-      ->condition('supplier_ref', '', '<>')
-      ->orderBy('supplier_name')
-      ->execute()
-      ->fetchAllAssoc('supplier_ref');
+    $snapshot = $this->supplierSources->snapshot();
+    $rows = $snapshot['suppliers'];
 
     $result = [
-      'invoice_count' => (int) $this->database->select('brebo_finance_purchase_invoice', 'i')->countQuery()->execute()->fetchField(),
+      'invoice_count' => (int) $snapshot['invoice_count'],
       'unique_contacts' => count($rows),
       'by_moneybird_id' => [],
       'by_exact_name' => [],
@@ -39,8 +35,8 @@ final class MoneybirdSupplierDiagnosis {
     ];
 
     foreach ($rows as $row) {
-      $contactId = trim((string) $row->supplier_ref);
-      $name = trim((string) $row->supplier_name);
+      $contactId = trim((string) $row['contact_id']);
+      $name = trim((string) $row['name']);
       if ($contactId === '' || $name === '') {
         $result['invalid'][] = ['contact_id' => $contactId, 'name' => $name];
         continue;
