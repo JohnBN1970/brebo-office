@@ -375,3 +375,8 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationContextSnapshotService
     arguments:
       - '@database'
+
+  brebo_calculation.recipe_catalog:
+    class: Drupal\brebo_calculation\Service\RecipeCatalogService
+    arguments:
+      - '@brebo_calculation.recipe_repository'
