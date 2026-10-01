@@ -8,9 +8,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
 /**
  * Builds a 30/60/90 day liquidity view from explicit bank roles and cash events.
@@ -26,7 +24,7 @@ final class PortfolioLiquidityProjection {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly VatCalculator $decimal,
   ) {}
@@ -35,7 +33,7 @@ final class PortfolioLiquidityProjection {
    * @param array<string, mixed> $businessHealth Normalized BusinessHealthBuilder payload.
    * @return array<string, mixed>
    */
-  public function build(AccountInterface $account, array $businessHealth): array {
+  public function build(int $actorUid, array $businessHealth): array {
     $accounts = is_array($businessHealth['liquidity']['accounts'] ?? NULL)
       ? array_values($businessHealth['liquidity']['accounts'])
       : [];
@@ -95,7 +93,7 @@ final class PortfolioLiquidityProjection {
       $reasons[] = 'Er is geen EUR-bankrekening als reguliere liquiditeitsrekening geclassificeerd.';
     }
 
-    $projectIds = $this->viewableProjectIds($account);
+    $projectIds = $this->projects->viewableIds($actorUid);
     $eventsAvailable = $this->cashEventSchemaAvailable();
     if (!$eventsAvailable) {
       $reasons[] = 'De brongebonden cash-eventtabel is niet beschikbaar.';
@@ -197,19 +195,6 @@ final class PortfolioLiquidityProjection {
     $query->orderBy('due_date', 'ASC');
     $query->orderBy('id', 'ASC');
     return array_values($query->execute()->fetchAll(\PDO::FETCH_ASSOC));
-  }
-
-  /** @return list<int> */
-  private function viewableProjectIds(AccountInterface $account): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', 'brebo_project')->execute();
-    $result = [];
-    foreach ($storage->loadMultiple($ids) as $project) {
-      if ($project instanceof NodeInterface && $project->access('view', $account)) {
-        $result[] = (int) $project->id();
-      }
-    }
-    return $result;
   }
 
   private function cashEventSchemaAvailable(): bool {
