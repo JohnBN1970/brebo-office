@@ -38,7 +38,7 @@ final class FinancialNotificationController extends ControllerBase {
     $totalExposure = 0.0;
     $decisions = [];
     foreach ($this->decisionInbox->pending() as $decision) {
-      $canAct = $this->assignmentResolver->canAct($this->currentUser(), (string) $decision['gate'], (string) $decision['authorization']['level']);
+      $canAct = $this->assignmentResolver->canAct((int) $this->currentUser()->id(), (string) $decision['gate'], (string) $decision['authorization']['level']);
       if (!$canAct['authorized']) continue;
       $band = (string) ($decision['priority']['band'] ?? 'this_week');
       if (isset($counts[$band])) $counts[$band]++;

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_finance\Contract\FinancialActorGatewayInterface;
 
 /** Resolves which active BREBO users can decide a financial gate exception. */
 final class FinancialDecisionAssignmentResolver {
@@ -25,7 +24,7 @@ final class FinancialDecisionAssignmentResolver {
     'project_closeout' => 'approve brebo closeout gate exception',
   ];
 
-  public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {}
+  public function __construct(private readonly FinancialActorGatewayInterface $actors) {}
 
   /**
    * @return array<string, mixed>
@@ -43,31 +42,23 @@ final class FinancialDecisionAssignmentResolver {
       ];
     }
 
-    $storage = $this->entityTypeManager->getStorage('user');
-    $uids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('status', 1)
-      ->condition('uid', 0, '>')
-      ->sort('uid', 'ASC')
-      ->execute();
-
-    $users = $storage->loadMultiple($uids);
     $candidates = [];
-    foreach ($users as $user) {
-      if ((int) $user->id() === $requesterUid) {
+    foreach ($this->actors->activeActors() as $actor) {
+      $uid = (int) $actor['uid'];
+      if ($uid === $requesterUid) {
         continue;
       }
-      if (!$user->hasPermission('approve brebo finance') || !$user->hasPermission($gatePermission)) {
+      if (!$this->actors->hasPermission($uid, 'approve brebo finance') || !$this->actors->hasPermission($uid, $gatePermission)) {
         continue;
       }
-      if ($levelPermission !== NULL && !$user->hasPermission($levelPermission)) {
+      if ($levelPermission !== NULL && !$this->actors->hasPermission($uid, $levelPermission)) {
         continue;
       }
       $candidates[] = [
-        'uid' => (int) $user->id(),
-        'display_name' => (string) $user->getDisplayName(),
-        'mail' => (string) $user->getEmail(),
-        'roles' => array_values($user->getRoles(TRUE)),
+        'uid' => $uid,
+        'display_name' => (string) $actor['display_name'],
+        'mail' => (string) $actor['mail'],
+        'roles' => array_values($actor['roles']),
         'required_gate_permission' => $gatePermission,
         'required_level_permission' => $levelPermission,
       ];
@@ -90,19 +81,19 @@ final class FinancialDecisionAssignmentResolver {
    *
    * @return array<string, mixed>
    */
-  public function canAct(AccountInterface $account, string $gate, string $level): array {
+  public function canAct(int $actorUid, string $gate, string $level): array {
     $gatePermission = self::GATE_PERMISSIONS[$gate] ?? NULL;
     $levelPermission = self::LEVEL_PERMISSIONS[$level] ?? NULL;
     $authorized = $gatePermission !== NULL
-      && $account->hasPermission('approve brebo finance')
-      && $account->hasPermission($gatePermission)
-      && ($levelPermission === NULL || $account->hasPermission($levelPermission));
+      && $this->actors->hasPermission($actorUid, 'approve brebo finance')
+      && $this->actors->hasPermission($actorUid, $gatePermission)
+      && ($levelPermission === NULL || $this->actors->hasPermission($actorUid, $levelPermission));
 
     return [
       'authorized' => $authorized,
       'gate' => $gate,
       'level' => $level,
-      'uid' => (int) $account->id(),
+      'uid' => $actorUid,
       'required_gate_permission' => $gatePermission,
       'required_level_permission' => $levelPermission,
     ];
