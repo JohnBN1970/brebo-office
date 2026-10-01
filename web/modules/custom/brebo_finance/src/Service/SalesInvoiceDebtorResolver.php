@@ -4,49 +4,29 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SalesInvoiceDebtorSourceRepositoryInterface;
 use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 
 /** Resolves the canonical debtor relation for a finalized sales invoice. */
 final class SalesInvoiceDebtorResolver {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly SalesInvoiceDebtorSourceRepositoryInterface $sources,
     private readonly OrganizationReferenceGatewayInterface $organizations,
   ) {}
 
   /** @return array{organization_id:int,name:string,email:string,draft_id:int} */
   public function resolve(int $salesInvoiceId): array {
-    $invoice = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i', ['invoice_number'])
-      ->condition('id', $salesInvoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if ($invoice === FALSE || trim((string) $invoice['invoice_number']) === '') {
+    $source = $this->sources->source($salesInvoiceId);
+    if ($source === NULL) {
       throw new \RuntimeException('Definitieve verkoopfactuur is niet beschikbaar.');
     }
-
-    $outbox = $this->database->select('brebo_finance_sales_invoice_outbox', 'o')
-      ->fields('o', ['draft_id', 'payload'])
-      ->condition('command_type', 'sales_invoice.register')
-      ->orderBy('created', 'DESC')
-      ->execute();
-    $draftId = 0;
-    foreach ($outbox as $row) {
-      $payload = json_decode((string) $row->payload, TRUE);
-      if (is_array($payload) && (string) ($payload['source']['invoice_number'] ?? '') === (string) $invoice['invoice_number']) {
-        $draftId = (int) $row->draft_id;
-        break;
-      }
-    }
+    $draftId = (int) $source['draft_id'];
     if ($draftId <= 0) {
       throw new \RuntimeException('Canonieke bron van deze verkoopfactuur kon niet worden teruggevonden.');
     }
 
-    $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
-    $organizationId = is_array($context) ? (int) ($context['customer_organization_nid'] ?? 0) : 0;
+    $organizationId = (int) $source['organization_id'];
     $organization = $this->organizations->get($organizationId);
     if ($organization === NULL) {
       throw new \RuntimeException('Canonieke debiteurrelatie ontbreekt.');
