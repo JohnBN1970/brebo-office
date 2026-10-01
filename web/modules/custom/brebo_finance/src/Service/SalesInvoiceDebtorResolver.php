@@ -5,9 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\node\NodeInterface;
 
 /** Resolves the canonical debtor relation for a finalized sales invoice. */
 final class SalesInvoiceDebtorResolver {
@@ -15,7 +14,7 @@ final class SalesInvoiceDebtorResolver {
   public function __construct(
     private readonly Connection $database,
     private readonly KeyValueFactoryInterface $keyValueFactory,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OrganizationReferenceGatewayInterface $organizations,
   ) {}
 
   /** @return array{organization_id:int,name:string,email:string,draft_id:int} */
@@ -48,15 +47,15 @@ final class SalesInvoiceDebtorResolver {
 
     $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
     $organizationId = is_array($context) ? (int) ($context['customer_organization_nid'] ?? 0) : 0;
-    $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL;
-    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') {
+    $organization = $this->organizations->get($organizationId);
+    if ($organization === NULL) {
       throw new \RuntimeException('Canonieke debiteurrelatie ontbreekt.');
     }
-    $email = $organization->hasField('field_brebo_org_email') ? trim((string) $organization->get('field_brebo_org_email')->value) : '';
+    $email = trim((string) $organization['email']);
     if ($email === '' || filter_var($email, FILTER_VALIDATE_EMAIL) === FALSE) {
       throw new \RuntimeException('Debiteur heeft geen geldig centraal e-mailadres.');
     }
 
-    return ['organization_id' => $organizationId, 'name' => (string) $organization->label(), 'email' => $email, 'draft_id' => $draftId];
+    return ['organization_id' => $organizationId, 'name' => (string) $organization['name'], 'email' => $email, 'draft_id' => $draftId];
   }
 }

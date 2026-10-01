@@ -5,20 +5,16 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 
 /**
  * Read-only diagnosis for Moneybird suppliers present on purchase invoices.
  */
 final class MoneybirdSupplierDiagnosis {
 
-  private const BUNDLE = 'brebo_organization';
-  private const MONEYBIRD_FIELD = 'field_brebo_moneybird_contact_id';
-
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OrganizationReferenceGatewayInterface $organizations,
   ) {}
 
   /**
@@ -32,7 +28,6 @@ final class MoneybirdSupplierDiagnosis {
       ->execute()
       ->fetchAllAssoc('supplier_ref');
 
-    $storage = $this->entityTypeManager->getStorage('node');
     $result = [
       'invoice_count' => (int) $this->database->select('brebo_finance_purchase_invoice', 'i')->countQuery()->execute()->fetchField(),
       'unique_contacts' => count($rows),
@@ -51,12 +46,7 @@ final class MoneybirdSupplierDiagnosis {
         continue;
       }
 
-      $idMatches = $storage->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('type', self::BUNDLE)
-        ->condition(self::MONEYBIRD_FIELD, $contactId)
-        ->range(0, 3)
-        ->execute();
+      $idMatches = $this->organizations->findIdsByMoneybirdContactId($contactId);
       if (count($idMatches) === 1) {
         $result['by_moneybird_id'][] = ['contact_id' => $contactId, 'name' => $name, 'organization_nid' => (int) reset($idMatches)];
         continue;
@@ -66,21 +56,15 @@ final class MoneybirdSupplierDiagnosis {
         continue;
       }
 
-      $nameIds = $storage->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('type', self::BUNDLE)
-        ->condition('title', $name)
-        ->range(0, 5)
-        ->execute();
+      $nameIds = $this->organizations->findIdsByExactName($name);
       if ($nameIds === []) {
         $result['new'][] = ['contact_id' => $contactId, 'name' => $name];
         continue;
       }
 
-      $nodes = $storage->loadMultiple($nameIds);
-      $unlinked = array_values(array_filter($nodes, static fn ($node): bool => $node instanceof NodeInterface && $node->hasField(self::MONEYBIRD_FIELD) && $node->get(self::MONEYBIRD_FIELD)->isEmpty()));
+      $unlinked = array_values(array_filter($nameIds, fn (int $organizationId): bool => $this->organizations->isMoneybirdUnlinked($organizationId)));
       if (count($nameIds) === 1 && count($unlinked) === 1) {
-        $result['by_exact_name'][] = ['contact_id' => $contactId, 'name' => $name, 'organization_nid' => (int) $unlinked[0]->id()];
+        $result['by_exact_name'][] = ['contact_id' => $contactId, 'name' => $name, 'organization_nid' => (int) $unlinked[0]];
         continue;
       }
 
