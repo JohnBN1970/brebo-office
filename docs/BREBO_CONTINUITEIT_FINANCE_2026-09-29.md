@@ -42,6 +42,8 @@ Daarmee kent de Finance-domeinservice geen Drupal node/entity meer. De database-
 
 Dezelfde grens wordt nu ook gebruikt door de Finance operating layer voor projecttoegang. Controllers hoeven daardoor geen Drupal node meer te laden om projectbestaan of view-toegang vast te stellen; die kennis blijft tijdelijk opgesloten in de adapter.
 
+Ook de projectpagina, cockpit-API en financiële ledger gebruiken nu dezelfde projectgrens. Projectlabel, bestaan en toegang zijn daarmee uit deze Finance-controllers gehaald; alleen de tijdelijke adapter kent de Drupal-node.
+
 De eerdere programmaformulering "Finance afronden -> module-audit -> Calculatie later opnieuw oppakken" is technisch achterhaald: Calculatie heeft inmiddels de referentiearchitectuur geleverd. Finance wordt nu functioneel verder gesloten én gecontroleerd naar hetzelfde kern-/adapterpatroon gebracht. Bestaande betalings-, four-eyes-, reconciliatie- en fail-closedregels blijven daarbij onaangetast.
 
 ## Huidige prioriteit
