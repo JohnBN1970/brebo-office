@@ -37,7 +37,7 @@ final class PaymentCenterController extends ControllerBase {
   }
 
   public function page(): array {
-    $work = $this->workQueues->build($this->currentUser());
+    $work = $this->workQueues->build((int) $this->currentUser()->id());
     $queueLabels = [
       'to_code' => ['Te coderen', 'Project, factuurregels of commitmentkoppeling ontbreekt.'],
       'blocked' => ['Geblokkeerd', 'Prestatie-, match- of controlafwijking vraagt eerst oplossing.'],

@@ -21,6 +21,19 @@ final class DrupalProjectReferenceGateway implements ProjectReferenceGatewayInte
     private readonly AccountProxyInterface $currentUser,
   ) {}
 
+  public function canViewAs(int $projectId, int $actorUid): bool {
+    if ($projectId <= 0 || $actorUid <= 0) {
+      return FALSE;
+    }
+
+    $project = $this->entityTypeManager->getStorage('node')->load($projectId);
+    $account = $this->entityTypeManager->getStorage('user')->load($actorUid);
+    return $project !== NULL
+      && $project->bundle() === 'brebo_project'
+      && $account !== NULL
+      && $project->access('view', $account);
+  }
+
   public function canView(int $projectId): bool {
     if ($projectId <= 0) {
       return FALSE;

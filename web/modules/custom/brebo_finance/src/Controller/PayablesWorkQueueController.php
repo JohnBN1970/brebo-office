@@ -21,7 +21,7 @@ final class PayablesWorkQueueController extends ControllerBase {
   }
 
   public function page(): array {
-    $data = $this->builder->build($this->currentUser());
+    $data = $this->builder->build((int) $this->currentUser()->id());
     $labels = [
       'to_code' => ['Te coderen', 'Project, factuurregels of commitmentkoppeling ontbreekt.'],
       'blocked' => ['Geblokkeerd', 'Prestatie-, match- of controlafwijking vraagt eerst oplossing.'],
@@ -97,7 +97,7 @@ final class PayablesWorkQueueController extends ControllerBase {
   }
 
   public function api(): JsonResponse {
-    $response = new JsonResponse($this->builder->build($this->currentUser()));
+    $response = new JsonResponse($this->builder->build((int) $this->currentUser()->id()));
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     $response->headers->set('X-Content-Type-Options', 'nosniff');
     return $response;

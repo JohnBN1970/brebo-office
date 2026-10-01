@@ -235,3 +235,5 @@ Pas wanneer deze flow in productie door een normale geautoriseerde gebruiker van
 De financiële afsluiting en euro-trace gebruiken eveneens de gedeelde projectgrens; ook daar worden Drupal-projectnodes niet meer rechtstreeks door Finance-controllers geladen.
 
 Ook muterende projectfase-overgangen zijn achter een `ProjectLifecycleGatewayInterface` geplaatst. Finance bewaakt gates, closeout en audit; de tijdelijke adapter is als enige verantwoordelijk voor het lezen/schrijven van de huidige Drupal-projectstatus.
+
+De payables-werkvoorraad en het geïntegreerde Betaalcentrum gebruiken projecttoegang en projectlabels nu via dezelfde projectgrens. De queue-builder kent geen Drupal entities of `AccountInterface` meer; controllers geven alleen de actor-UID door.

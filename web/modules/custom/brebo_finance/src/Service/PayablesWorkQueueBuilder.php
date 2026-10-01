@@ -5,20 +5,19 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
 /** Builds the daily operational payables queues from authoritative finance state. */
 final class PayablesWorkQueueBuilder {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
   /** @return array<string,mixed> */
-  public function build(AccountInterface $account): array {
+  public function build(int $actorUid): array {
     $queues = [
       'to_code' => [],
       'blocked' => [],
@@ -44,11 +43,10 @@ final class PayablesWorkQueueBuilder {
       $projectNid = (int) ($invoice['project_nid'] ?? 0);
       $projectLabel = 'Niet gekoppeld';
       if ($projectNid > 0) {
-        $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-        if ($project === NULL || $project->bundle() !== 'brebo_project' || !$project->access('view', $account)) {
+        if (!$this->projects->exists($projectNid) || !$this->projects->canViewAs($projectNid, $actorUid)) {
           continue;
         }
-        $projectLabel = (string) $project->label();
+        $projectLabel = $this->projects->label($projectNid) ?? ('Project #' . $projectNid);
       }
 
       $control = $this->controlViewBuilder->build((int) $invoice['id']);
