@@ -13,6 +13,8 @@ interface ProjectReferenceGatewayInterface {
 
   public function canView(int $projectId): bool;
 
+  public function canViewAs(int $projectId, int $actorUid): bool;
+
   public function label(int $projectId): ?string;
 
 }
