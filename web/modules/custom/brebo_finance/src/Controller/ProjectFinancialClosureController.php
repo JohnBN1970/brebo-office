@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\brebo_finance\Service\ProjectFinancialClosureManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -15,8 +15,8 @@ use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 final class ProjectFinancialClosureController extends ControllerBase {
-  public function __construct(private readonly ProjectFinancialClosureManager $closureManager, private readonly EntityTypeManagerInterface $financeEntityTypeManager) {}
-  public static function create(ContainerInterface $container): static { return new static($container->get('brebo_finance.project_financial_closure_manager'), $container->get('entity_type.manager')); }
+  public function __construct(private readonly ProjectFinancialClosureManager $closureManager, private readonly ProjectReferenceGatewayInterface $projects) {}
+  public static function create(ContainerInterface $container): static { return new static($container->get('brebo_finance.project_financial_closure_manager'), $container->get('brebo_finance.project_reference_gateway')); }
 
   public function closureState(int $project_nid): JsonResponse {
     $this->assertProject($project_nid);
@@ -33,8 +33,7 @@ final class ProjectFinancialClosureController extends ControllerBase {
   }
 
   private function assertProject(int $projectNid): void {
-    $project = $this->financeEntityTypeManager->getStorage('node')->load($projectNid);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') throw new NotFoundHttpException('BREBO project does not exist.');
-    if (!$project->access('view', $this->currentUser())) throw new AccessDeniedHttpException('No access to this BREBO project.');
+    if (!$this->projects->exists($projectNid)) throw new NotFoundHttpException('BREBO project does not exist.');
+    if (!$this->projects->canView($projectNid)) throw new AccessDeniedHttpException('No access to this BREBO project.');
   }
 }
