@@ -174,6 +174,23 @@ final class CalculationWorkspaceCommandController extends ControllerBase {
     }, $request, 201);
   }
 
+  public function placeRecipeFromTakeoff(Request $request, int $calculation): JsonResponse {
+    return $this->command(function (array $input) use ($calculation): array {
+      $parameters = is_array($input['parameters'] ?? NULL) ? $input['parameters'] : [];
+      $instanceId = $this->recipeManager->placeRecipeFromTakeoff(
+        $calculation,
+        $this->requiredString($input, 'version'),
+        $this->requiredString($input, 'paragraph_key'),
+        $this->requiredInt($input, 'recipe_version_id'),
+        $this->requiredInt($input, 'takeoff_id'),
+        isset($input['passes']) ? $this->requiredFloat($input, 'passes') : 1.0,
+        $parameters,
+        $this->actorId($input),
+      );
+      return ['recipe_instance_id' => $instanceId, 'takeoff_id' => $this->requiredInt($input, 'takeoff_id')];
+    }, $request, 201);
+  }
+
   public function updateRecipe(Request $request, int $calculation, int $recipe): JsonResponse {
     return $this->command(function (array $input) use ($calculation, $recipe): array {
       $this->resourceGuard->assertRecipeInstance($calculation, $recipe);
