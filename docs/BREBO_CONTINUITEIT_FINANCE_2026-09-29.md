@@ -231,3 +231,5 @@ Finance is nog niet 100% klaar. Voor definitieve afronding blijven naast de geï
 Bij hervatten van Finance: **niet opnieuw het Betaalcentrum ontwerpen en niet terug naar een losse `Te doen`-werkplek. Bouw de bestaande payables-statussen en acties in het Betaalcentrum tot één doorlopende operationele werkplek.**
 
 Pas wanneer deze flow in productie door een normale geautoriseerde gebruiker van factuur tot betaalbatch en reconciliatie bedienbaar is, volgt de Finance-eindaudit. Daarna pas de organisatiebrede module-audit.
+
+De financiële afsluiting en euro-trace gebruiken eveneens de gedeelde projectgrens; ook daar worden Drupal-projectnodes niet meer rechtstreeks door Finance-controllers geladen.
