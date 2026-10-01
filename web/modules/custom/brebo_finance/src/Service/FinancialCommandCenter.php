@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Session\AccountInterface;
-use Drupal\node\NodeInterface;
 
 /** Builds a management-wide financial command center from verified sources. */
 final class FinancialCommandCenter {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly FinancialCockpitBuilder $cockpitBuilder,
     private readonly FinancialDecisionInbox $decisionInbox,
     private readonly FinancialDecisionAssignmentResolver $assignmentResolver,
@@ -27,7 +26,7 @@ final class FinancialCommandCenter {
    * @return array<string, mixed>
    */
   public function dashboard(AccountInterface $account): array {
-    $projectIds = $this->viewableProjectIds($account);
+    $projectIds = $this->projects->viewableIds((int) $account->id());
     $portfolio = [
       'project_count' => count($projectIds),
       'billable_not_invoiced_ex_vat' => $this->sumByStatus('brebo_finance_billing_instalment', 'amount_ex_vat', $projectIds, ['billable']),
@@ -72,7 +71,7 @@ final class FinancialCommandCenter {
 
   /** @return array<string, mixed> */
   public function build(AccountInterface $account): array {
-    $projects = $this->entityTypeManager->getStorage('node')->loadByProperties(['type' => 'brebo_project']);
+    $projectIds = $this->projects->viewableIds((int) $account->id());
     $portfolio = [
       'project_count' => 0,
       'billable_not_invoiced_ex_vat' => 0.0,
@@ -88,9 +87,8 @@ final class FinancialCommandCenter {
     ];
     $rows = [];
 
-    foreach ($projects as $project) {
-      if (!$project->access('view', $account)) continue;
-      $cockpit = $this->cockpitBuilder->build((int) $project->id());
+    foreach ($projectIds as $projectId) {
+      $cockpit = $this->cockpitBuilder->build($projectId);
       $portfolio['project_count']++;
       $portfolio['billable_not_invoiced_ex_vat'] += (float) ($cockpit['billing_position']['billable_not_invoiced_ex_vat'] ?? 0);
       $portfolio['invoiced_ex_vat'] += (float) ($cockpit['billing_position']['invoiced_ex_vat'] ?? 0);
@@ -103,8 +101,8 @@ final class FinancialCommandCenter {
       $portfolio['pending_payment_releases'] += (int) ($cockpit['workflow']['payment_releases_pending'] ?? 0);
       $portfolio['forecast_stale_count'] += !empty($cockpit['forecast_is_stale']) ? 1 : 0;
       $rows[] = [
-        'project_nid' => (int) $project->id(),
-        'title' => (string) $project->label(),
+        'project_nid' => $projectId,
+        'title' => $this->projects->label($projectId) ?? ('Project #' . $projectId),
         'forecast' => $cockpit['forecast'],
         'forecast_is_stale' => (bool) $cockpit['forecast_is_stale'],
         'billing_position' => $cockpit['billing_position'],
@@ -165,17 +163,6 @@ final class FinancialCommandCenter {
       'error_code' => $syncStatus === 'failed' ? 'moneybird_receivables_sync_failed' : NULL,
       'operator_message' => $syncStatus === 'failed' ? 'De Moneybird debiteurensynchronisatie is mislukt. Controleer de beheerlogs of probeer de synchronisatie opnieuw.' : NULL,
     ];
-  }
-
-  /** @return list<int> */
-  private function viewableProjectIds(AccountInterface $account): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(TRUE)->condition('type', 'brebo_project')->execute();
-    $result = [];
-    foreach ($storage->loadMultiple($ids) as $project) {
-      if ($project instanceof NodeInterface && $project->access('view', $account)) $result[] = (int) $project->id();
-    }
-    return $result;
   }
 
   /** @param list<int> $projectIds @param list<string> $statuses */
