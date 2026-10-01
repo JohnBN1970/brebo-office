@@ -36,6 +36,11 @@ final class CalculationWorkspaceStateService {
     $recipes = $this->repository->recipes($calculationId, $versionName);
     $subcalculations = $this->repository->subcalculations($calculationId, $versionName);
 
+    $calcResult = $this->calcResultSnapshot->latest($calculationId);
+    if ($calcResult !== NULL) {
+      $calcResult['current_for_office_version'] = (string) ($calcResult['payload']['office_version'] ?? '') === $versionName;
+    }
+
     return [
       'contract' => 'brebo-calculation-workspace-v2',
       'calculation' => $this->contextService->get($calculationId) ?? [
@@ -53,7 +58,7 @@ final class CalculationWorkspaceStateService {
       'recipes' => $recipes,
       'subcalculations' => $subcalculations,
       'result' => $this->resultService->calculate($calculationId, $versionName),
-      'calc_result' => $this->calcResultSnapshot->latest($calculationId),
+      'calc_result' => $calcResult,
       'readiness' => $this->readinessInspector->inspect($calculationId, $versionName),
     ];
   }
