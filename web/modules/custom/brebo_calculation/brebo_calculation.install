@@ -286,10 +286,6 @@ function brebo_calculation_position_component_schema(): array {
     'fields' => [
       'id' => ['type' => 'serial', 'not null' => TRUE],
       'set_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'building_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      'dwelling_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'building_zone_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-      'product_position_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
       'position_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
       'component_ref' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE],
@@ -312,12 +308,8 @@ function brebo_calculation_position_component_schema(): array {
     'primary key' => ['id'],
     'unique keys' => ['set_component' => ['set_id', 'component_ref']],
     'indexes' => [
-      'building_position' => ['building_id', 'position_ref'],
       'set_position' => ['set_id', 'position_ref'],
       'set_parent' => ['set_id', 'parent_component_ref'],
-      'dwelling' => ['dwelling_id'],
-      'building_zone' => ['building_zone_id'],
-      'product_position' => ['product_position_id'],
       'document' => ['document_id'],
       'review_status' => ['review_status'],
     ],
@@ -426,25 +418,5 @@ function brebo_calculation_update_11007(): void {
   $schema = \Drupal::database()->schema();
   if (!$schema->tableExists('brebo_calculation_position_component')) {
     $schema->createTable('brebo_calculation_position_component', brebo_calculation_position_component_schema());
-  }
-}
-
-
-/** Move take-off component ownership to the permanent Building object. */
-function brebo_calculation_update_11008(): void {
-  $schema = \Drupal::database()->schema();
-  if (!$schema->tableExists('brebo_calculation_position_component')) {
-    return;
-  }
-  $fields = [
-    'building_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    'dwelling_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    'building_zone_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-    'product_position_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
-  ];
-  foreach ($fields as $name => $definition) {
-    if (!$schema->fieldExists('brebo_calculation_position_component', $name)) {
-      $schema->addField('brebo_calculation_position_component', $name, $definition);
-    }
   }
 }
