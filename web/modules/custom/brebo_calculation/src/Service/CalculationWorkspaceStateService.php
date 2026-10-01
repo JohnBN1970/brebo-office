@@ -36,9 +36,9 @@ final class CalculationWorkspaceStateService {
     $recipes = $this->repository->recipes($calculationId, $versionName);
     $subcalculations = $this->repository->subcalculations($calculationId, $versionName);
 
-    $calcResult = $this->calcResultSnapshot->latest($calculationId);
+    $calcResult = $this->calcResultSnapshot->latestReadModel($calculationId);
     if ($calcResult !== NULL) {
-      $calcResult['current_for_office_version'] = (string) ($calcResult['payload']['office_version'] ?? '') === $versionName;
+      $calcResult['current_for_office_version'] = (string) ($calcResult['office_version'] ?? '') === $versionName;
     }
 
     return [
