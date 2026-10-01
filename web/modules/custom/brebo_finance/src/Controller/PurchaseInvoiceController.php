@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
 use Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder;
@@ -18,14 +18,14 @@ final class PurchaseInvoiceController extends ControllerBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $financeEntityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.purchase_invoice_control_view_builder'),
     );
   }
@@ -282,8 +282,7 @@ final class PurchaseInvoiceController extends ControllerBase {
     if ($projectNid <= 0) {
       return 'Niet gekoppeld';
     }
-    $project = $this->financeEntityTypeManager->getStorage('node')->load($projectNid);
-    return $project ? (string) $project->label() : 'Project #' . $projectNid;
+    return $this->projects->label($projectNid) ?? 'Project #' . $projectNid;
   }
 
   private function money(mixed $value): string {
