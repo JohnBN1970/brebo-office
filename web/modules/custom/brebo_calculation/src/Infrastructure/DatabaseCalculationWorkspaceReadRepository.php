@@ -78,6 +78,38 @@ final class DatabaseCalculationWorkspaceReadRepository implements CalculationWor
         ->orderBy('id')
         ->execute()
         ->fetchAll(\PDO::FETCH_ASSOC);
+
+      foreach ($instance['lines'] as &$line) {
+        $line['packaging'] = NULL;
+        if (
+          preg_match('/article:(\\d+):supplier_article:(\\d+)/', (string) ($line['material_ref'] ?? ''), $materialMatch) &&
+          preg_match('/article_price:(\\d+):catalog:(\\d+):date:([^:]+)/', (string) ($line['price_source_ref'] ?? ''), $priceMatch)
+        ) {
+          $query = $this->database->select('brebo_supplier_article', 'sa');
+          $query->join('brebo_article', 'a', 'a.id = sa.article_id');
+          $query->join('brebo_article_price', 'p', 'p.supplier_article_id = sa.id');
+          $query->fields('a', ['base_unit']);
+          $query->fields('sa', ['order_unit', 'use_unit', 'conversion_factor', 'minimum_order']);
+          $query->fields('p', ['quantity_from', 'net_price', 'valid_from']);
+          $query->condition('a.id', (int) $materialMatch[1]);
+          $query->condition('sa.id', (int) $materialMatch[2]);
+          $query->condition('p.id', (int) $priceMatch[1]);
+          $packaging = $query->execute()->fetchAssoc();
+          if ($packaging) {
+            $line['packaging'] = [
+              'base_unit' => (string) $packaging['base_unit'],
+              'use_unit' => $packaging['use_unit'] !== NULL ? (string) $packaging['use_unit'] : NULL,
+              'order_unit' => $packaging['order_unit'] !== NULL ? (string) $packaging['order_unit'] : NULL,
+              'conversion_factor' => (float) $packaging['conversion_factor'],
+              'minimum_order' => (float) $packaging['minimum_order'],
+              'quantity_from' => (float) $packaging['quantity_from'],
+              'net_price' => (float) $packaging['net_price'],
+              'price_date' => (string) $packaging['valid_from'],
+            ];
+          }
+        }
+      }
+      unset($line);
     }
     unset($instance);
 
