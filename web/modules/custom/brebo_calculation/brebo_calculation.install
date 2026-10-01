@@ -279,6 +279,43 @@ function brebo_calculation_fact_schema(): array {
   ];
 }
 
+/** Generic hierarchical components/vakken extracted below a calculation position. */
+function brebo_calculation_position_component_schema(): array {
+  return [
+    'description' => 'Source-preserving hierarchical components below a calculation position.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'not null' => TRUE],
+      'set_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'document_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'position_ref' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'component_ref' => ['type' => 'varchar', 'length' => 96, 'not null' => TRUE],
+      'parent_component_ref' => ['type' => 'varchar', 'length' => 96, 'not null' => FALSE],
+      'component_type' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'classification_ref' => ['type' => 'varchar', 'length' => 128, 'not null' => FALSE],
+      'description' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE],
+      'quantity' => ['type' => 'numeric', 'precision' => 19, 'scale' => 4, 'not null' => TRUE, 'default' => 1],
+      'width_mm' => ['type' => 'numeric', 'precision' => 19, 'scale' => 2, 'not null' => FALSE],
+      'height_mm' => ['type' => 'numeric', 'precision' => 19, 'scale' => 2, 'not null' => FALSE],
+      'area_m2' => ['type' => 'numeric', 'precision' => 19, 'scale' => 6, 'not null' => FALSE],
+      'perimeter_m' => ['type' => 'numeric', 'precision' => 19, 'scale' => 6, 'not null' => FALSE],
+      'source_page' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+      'source_fragment' => ['type' => 'text', 'not null' => FALSE],
+      'extraction_method' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE],
+      'confidence' => ['type' => 'numeric', 'precision' => 5, 'scale' => 4, 'not null' => TRUE, 'default' => 0],
+      'review_status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'proposed'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['set_component' => ['set_id', 'component_ref']],
+    'indexes' => [
+      'set_position' => ['set_id', 'position_ref'],
+      'set_parent' => ['set_id', 'parent_component_ref'],
+      'document' => ['document_id'],
+      'review_status' => ['review_status'],
+    ],
+  ];
+}
+
 /** First quantity take-off rows derived from reviewed/proposed facts. */
 function brebo_calculation_takeoff_schema(): array {
   return [
@@ -372,5 +409,14 @@ function brebo_calculation_update_11005(): void {
       'not null' => FALSE,
       'description' => 'JSON applicability criteria used by external Calc to propose this recipe without name-based assumptions.',
     ]);
+  }
+}
+
+
+/** Add generic hierarchical position components/vakken to calculation context. */
+function brebo_calculation_update_11007(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_position_component')) {
+    $schema->createTable('brebo_calculation_position_component', brebo_calculation_position_component_schema());
   }
 }

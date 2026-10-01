@@ -34,6 +34,7 @@ final class CalculationContextSnapshotService {
         'document_set' => NULL,
         'documents' => [],
         'facts' => [],
+        'components' => [],
         'takeoff' => [],
         'review' => [
           'has_context' => FALSE,
@@ -96,6 +97,38 @@ final class CalculationContextSnapshotService {
       ];
     }
 
+    $components = [];
+    if ($this->database->schema()->tableExists('brebo_calculation_position_component')) {
+      $query = $this->database->select('brebo_calculation_position_component', 'c');
+      $query->fields('c', ['id', 'document_id', 'position_ref', 'component_ref', 'parent_component_ref', 'component_type', 'classification_ref', 'description', 'quantity', 'width_mm', 'height_mm', 'area_m2', 'perimeter_m', 'source_page', 'source_fragment', 'extraction_method', 'confidence', 'review_status', 'created']);
+      $query->condition('c.set_id', $setId);
+      $query->orderBy('c.position_ref', 'ASC');
+      $query->orderBy('c.parent_component_ref', 'ASC');
+      $query->orderBy('c.component_ref', 'ASC');
+      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $row) {
+        $components[] = [
+          'id' => (int) $row['id'],
+          'document_id' => $row['document_id'] !== NULL ? (int) $row['document_id'] : NULL,
+          'position_ref' => (string) $row['position_ref'],
+          'component_ref' => (string) $row['component_ref'],
+          'parent_component_ref' => $row['parent_component_ref'] !== NULL ? (string) $row['parent_component_ref'] : NULL,
+          'component_type' => $row['component_type'] !== NULL ? (string) $row['component_type'] : NULL,
+          'classification_ref' => $row['classification_ref'] !== NULL ? (string) $row['classification_ref'] : NULL,
+          'description' => $row['description'] !== NULL ? (string) $row['description'] : NULL,
+          'quantity' => (float) $row['quantity'],
+          'width_mm' => $row['width_mm'] !== NULL ? (float) $row['width_mm'] : NULL,
+          'height_mm' => $row['height_mm'] !== NULL ? (float) $row['height_mm'] : NULL,
+          'area_m2' => $row['area_m2'] !== NULL ? (float) $row['area_m2'] : NULL,
+          'perimeter_m' => $row['perimeter_m'] !== NULL ? (float) $row['perimeter_m'] : NULL,
+          'source_page' => $row['source_page'] !== NULL ? (int) $row['source_page'] : NULL,
+          'source_fragment' => $row['source_fragment'],
+          'extraction_method' => $row['extraction_method'],
+          'confidence' => (float) $row['confidence'],
+          'review_status' => (string) $row['review_status'],
+        ];
+      }
+    }
+
     $takeoff = [];
     $query = $this->database->select('brebo_calculation_takeoff', 't');
     $query->fields('t', ['id', 'position_ref', 'quantity', 'width_mm', 'height_mm', 'area_m2', 'perimeter_m', 'top_m', 'bottom_m', 'left_m', 'right_m', 'created']);
@@ -119,12 +152,16 @@ final class CalculationContextSnapshotService {
 
     $proposedDocuments = count(array_filter($documents, static fn(array $d): bool => $d['review_status'] === 'proposed'));
     $proposedFacts = count(array_filter($facts, static fn(array $f): bool => $f['review_status'] === 'proposed'));
+    $proposedComponents = count(array_filter($components, static fn(array $component): bool => $component['review_status'] === 'proposed'));
     $unresolved = [];
     if ($proposedDocuments > 0) {
       $unresolved[] = $proposedDocuments . ' document(en) wachten nog op review.';
     }
     if ($proposedFacts > 0) {
       $unresolved[] = $proposedFacts . ' feit(en) wachten nog op review.';
+    }
+    if ($proposedComponents > 0) {
+      $unresolved[] = $proposedComponents . ' component(en) wachten nog op review.';
     }
     if (!$takeoff) {
       $unresolved[] = 'Er is nog geen geometrische uittrekstaat beschikbaar.';
@@ -142,11 +179,13 @@ final class CalculationContextSnapshotService {
       ],
       'documents' => $documents,
       'facts' => $facts,
+      'components' => $components,
       'takeoff' => $takeoff,
       'review' => [
         'has_context' => TRUE,
         'proposed_documents' => $proposedDocuments,
         'proposed_facts' => $proposedFacts,
+        'proposed_components' => $proposedComponents,
         'unresolved' => $unresolved,
       ],
     ];
