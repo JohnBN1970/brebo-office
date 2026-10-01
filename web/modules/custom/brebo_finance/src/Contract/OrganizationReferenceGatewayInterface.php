@@ -18,4 +18,7 @@ interface OrganizationReferenceGatewayInterface {
 
   public function isMoneybirdUnlinked(int $organizationId): bool;
 
+  /** @return list<array{id:int,name:string,email:string,moneybird_contact_id:string,kvk:string,vat:string}> */
+  public function identityIndex(): array;
+
 }
