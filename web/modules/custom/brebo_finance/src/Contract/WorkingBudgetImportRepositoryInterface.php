@@ -6,8 +6,6 @@ namespace Drupal\brebo_finance\Contract;
 
 interface WorkingBudgetImportRepositoryInterface {
 
-  public function isBreboProject(int $projectNid): bool;
-
   /** @return array<string,mixed>|null */
   public function calculationVersion(int $calculationId, string $calculationVersion): ?array;
 
