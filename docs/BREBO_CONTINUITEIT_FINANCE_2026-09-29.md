@@ -239,3 +239,5 @@ Ook muterende projectfase-overgangen zijn achter een `ProjectLifecycleGatewayInt
 De payables-werkvoorraad en het geïntegreerde Betaalcentrum gebruiken projecttoegang en projectlabels nu via dezelfde projectgrens. De queue-builder kent geen Drupal entities of `AccountInterface` meer; controllers geven alleen de actor-UID door.
 
 Het organisatiebrede FinancialCommandCenter haalt de voor een actor zichtbare projecten en projectlabels nu via `ProjectReferenceGatewayInterface`. De service bevat daardoor geen Drupal entity manager of NodeInterface meer; dashboardaggregaties en Finance-beslislogica blijven ongewijzigd.
+
+De bronneutrale inkoopfactuur-intake valideert projectkoppelingen nu via `ProjectReferenceGatewayInterface`; de intake-service zelf kent geen Drupal projectnodes of entity manager meer. Daarmee blijft ook document/intake-routing bruikbaar wanneer projectopslag later buiten Drupal komt te liggen.
