@@ -8,14 +8,13 @@ use Drupal\brebo_finance\Service\SalesInvoiceNumberManager;
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Queue\QueueFactory;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Finalizes, sends and registers a standalone BREBO sales invoice. */
@@ -27,7 +26,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     private readonly Connection $database,
     private readonly QueueFactory $queueFactory,
     private readonly KeyValueFactoryInterface $keyValueFactory,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OrganizationReferenceGatewayInterface $organizations,
     private readonly MailManagerInterface $mailManager,
     private readonly SalesInvoiceNumberManager $numberManager,
     private readonly SalesInvoiceOutputBuilder $outputBuilder,
@@ -36,7 +35,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'),
+      $container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('brebo_finance.organization_reference_gateway'), $container->get('plugin.manager.mail'),
       new SalesInvoiceNumberManager($container->get('config.factory'), $container->get('keyvalue'), $container->get('lock')),
       new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('brebo_finance.organization_reference_gateway'), $container->get('brebo_office_core.simple_pdf_renderer')),
       $container->get('brebo_mail_intake.outbound_attachments'),
@@ -61,7 +60,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     $context = $this->context($draftId); $organization = $this->loadOrganization((int) ($context['customer_organization_nid'] ?? 0));
     $moneybirdContactId = $organization->hasField('field_brebo_moneybird_contact_id') ? trim((string) $organization->get('field_brebo_moneybird_contact_id')->value) : '';
     if ($moneybirdContactId === '') throw new \RuntimeException('De gekozen debiteur heeft nog geen Moneybird contact-ID. Koppel de relatie eerst voordat deze factuur definitief wordt vrijgegeven.');
-    $recipient = $organization->hasField('field_brebo_org_email') ? trim((string) $organization->get('field_brebo_org_email')->value) : '';
+    $recipient = trim((string) $organization['email']);
     $lines = $this->loadLines($draftId); if ($lines === []) throw new \RuntimeException('Invoice draft contains no lines.');
 
     if (!empty($context['g_account_on'])) {
@@ -73,7 +72,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     $gSummary = !empty($context['g_account_on'])
       ? '<br><strong>' . $this->t('G-rekening:') . '</strong> ' . number_format((float) ($context['g_account_percentage'] ?? 0), 2, ',', '.') . '% · € ' . number_format((float) ($context['g_account_amount'] ?? 0), 2, ',', '.')
       : '';
-    $form['summary'] = ['#markup' => '<p><strong>' . $this->t('Debiteur:') . '</strong> ' . htmlspecialchars((string) $organization->label()) . '<br><strong>' . $this->t('Klantreferentie:') . '</strong> ' . htmlspecialchars((string) ($context['customer_ref'] ?? '—')) . '<br><strong>' . $this->t('Bedrag incl. btw:') . '</strong> € ' . number_format((float) $row['amount_inc_vat'], 2, ',', '.') . $gSummary . '<br><strong>' . $this->t('Regels:') . '</strong> ' . count($lines) . '</p><p>' . $this->t('BREBO Office bevriest nu btw-snapshot, betaalinstructies, definitieve PDF en factuurnummer. Daarna wordt dezelfde factuur administratief naar Moneybird gesynchroniseerd.') . '</p>'];
+    $form['summary'] = ['#markup' => '<p><strong>' . $this->t('Debiteur:') . '</strong> ' . htmlspecialchars((string) $organization['name']) . '<br><strong>' . $this->t('Klantreferentie:') . '</strong> ' . htmlspecialchars((string) ($context['customer_ref'] ?? '—')) . '<br><strong>' . $this->t('Bedrag incl. btw:') . '</strong> € ' . number_format((float) $row['amount_inc_vat'], 2, ',', '.') . $gSummary . '<br><strong>' . $this->t('Regels:') . '</strong> ' . count($lines) . '</p><p>' . $this->t('BREBO Office bevriest nu btw-snapshot, betaalinstructies, definitieve PDF en factuurnummer. Daarna wordt dezelfde factuur administratief naar Moneybird gesynchroniseerd.') . '</p>'];
     $form['recipient'] = ['#type' => 'email', '#title' => $this->t('Verzenden naar'), '#required' => TRUE, '#default_value' => $recipient];
     $form['subject'] = ['#type' => 'textfield', '#title' => $this->t('Onderwerp'), '#required' => TRUE, '#maxlength' => 255, '#default_value' => 'Factuur BREBO', '#description' => $this->t('Het definitieve factuurnummer wordt automatisch toegevoegd.')];
     $form['message'] = ['#type' => 'textarea', '#title' => $this->t('Bericht'), '#rows' => 5, '#default_value' => "Geachte heer/mevrouw,\n\nBijgaand ontvangt u onze factuur.\n\nMet kleurrijke groet,\nBREBO Bouw en Advies BV"];
@@ -124,7 +123,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
   /** @return array<string,mixed> */
   private function context(int $draftId): array { $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []); if (!is_array($context) || empty($context['customer_organization_nid'])) throw new \RuntimeException('Standalone invoice draft has no canonical debtor context.'); return $context; }
   private function saveContext(int $draftId, array $context): void { $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, $context); }
-  private function loadOrganization(int $organizationId): NodeInterface { $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL; if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') throw new \RuntimeException('Canonical debtor organisation is unavailable.'); return $organization; }
+  private function loadOrganization(int $organizationId): array { $organization = $organizationId > 0 ? $this->organizations->get($organizationId) : NULL; if ($organization === NULL) throw new \RuntimeException('Canonical debtor organisation is unavailable.'); return $organization; }
   /** @return array<int,array<string,mixed>> */
   private function loadLines(int $draftId): array { return array_values($this->database->select('brebo_finance_sales_invoice_draft_line', 'l')->fields('l')->condition('draft_id', $draftId)->orderBy('line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC)); }
 
