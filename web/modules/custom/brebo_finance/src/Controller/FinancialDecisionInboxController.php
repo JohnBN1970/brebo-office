@@ -34,7 +34,7 @@ final class FinancialDecisionInboxController extends ControllerBase {
     if ($onlyMine) {
       $account = $this->currentUser();
       $items = array_values(array_filter($items, function (array $item) use ($account): bool {
-        return $this->assignmentResolver->canAct($account, (string) $item['gate'], (string) $item['authorization']['level'])['authorized'];
+        return $this->assignmentResolver->canAct((int) $account->id(), (string) $item['gate'], (string) $item['authorization']['level'])['authorized'];
       }));
     }
 
