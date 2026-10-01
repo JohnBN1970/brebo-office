@@ -45,7 +45,7 @@ final class FinancialCommandCenter {
     $priority = ['now' => 0, 'today' => 0, 'this_week' => 0];
     foreach ($this->decisionInbox->pending() as $decision) {
       if (!in_array((int) ($decision['project_nid'] ?? 0), $projectIds, TRUE)) continue;
-      $canAct = $this->assignmentResolver->canAct($account, (string) $decision['gate'], (string) $decision['authorization']['level']);
+      $canAct = $this->assignmentResolver->canAct((int) $account->id(), (string) $decision['gate'], (string) $decision['authorization']['level']);
       if (!$canAct['authorized']) continue;
       $band = (string) ($decision['priority']['band'] ?? 'this_week');
       if (isset($priority[$band])) $priority[$band]++;
@@ -120,7 +120,7 @@ final class FinancialCommandCenter {
     $decisionExposure = 0.0;
     $priority = ['now' => 0, 'today' => 0, 'this_week' => 0];
     foreach ($this->decisionInbox->pending() as $decision) {
-      $canAct = $this->assignmentResolver->canAct($account, (string) $decision['gate'], (string) $decision['authorization']['level']);
+      $canAct = $this->assignmentResolver->canAct((int) $account->id(), (string) $decision['gate'], (string) $decision['authorization']['level']);
       if (!$canAct['authorized']) continue;
       $band = (string) ($decision['priority']['band'] ?? 'this_week');
       if (isset($priority[$band])) $priority[$band]++;
