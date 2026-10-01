@@ -243,3 +243,5 @@ Het organisatiebrede FinancialCommandCenter haalt de voor een actor zichtbare pr
 De bronneutrale inkoopfactuur-intake valideert projectkoppelingen nu via `ProjectReferenceGatewayInterface`; de intake-service zelf kent geen Drupal projectnodes of entity manager meer. Daarmee blijft ook document/intake-routing bruikbaar wanneer projectopslag later buiten Drupal komt te liggen.
 
 Financiële beslisserstoewijzing en autorisatie lopen nu via `FinancialActorGatewayInterface`. De Finance-resolver kent geen Drupal user entities of `AccountInterface` meer; actieve gebruikers, rollen en permissies zitten achter een tijdelijke Drupal-adapter. De bestaande gate-, niveau- en vier-ogenregels blijven leidend.
+
+Leveranciers- en debiteurenrelaties worden nu voor Finance gelezen via `OrganizationReferenceGatewayInterface`. `SalesInvoiceDebtorResolver` en `MoneybirdSupplierDiagnosis` kennen geen Drupal node/entity manager meer; alleen de tijdelijke adapter weet dat organisaties momenteel nog als `brebo_organization` nodes worden opgeslagen. De financiële incasso- en Moneybird-diagnoselogica blijft ongewijzigd.
