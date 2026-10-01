@@ -68,7 +68,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
     $form['intro'] = ['#markup' => '<p>' . $this->t($draftId > 0 ? 'Bewerk dit losse factuurconcept. Zolang het concept niet is vrijgegeven blijft het wijzigbaar en heeft het nog geen definitief factuurnummer.' : 'Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
     $form['customer'] = ['#type' => 'fieldset', '#title' => $this->t('Debiteur')];
-    $form['customer']['customer_organization'] = ['#type' => 'entity_autocomplete', '#title' => $this->t('Organisatie / debiteur'), '#target_type' => 'node', '#selection_settings' => ['target_bundles' => ['brebo_organization']], '#required' => TRUE, '#default_value' => !empty($context['customer_organization_nid']) ? $this->organizationDefaultValue((int) $context['customer_organization_nid']) : NULL, '#description' => $this->t('Kies de centrale BREBO-relatie. Bij Overnemen gebruikt Office de betaaltermijn van deze klant en anders de BREBO-standaard van 14 dagen.')];
+    $form['customer']['customer_organization'] = ['#type' => 'select', '#title' => $this->t('Organisatie / debiteur'), '#options' => $this->organizations->choices(), '#empty_option' => $this->t('- Kies debiteur -'), '#required' => TRUE, '#default_value' => !empty($context['customer_organization_nid']) ? (int) $context['customer_organization_nid'] : NULL, '#description' => $this->t('Kies de centrale BREBO-relatie. Bij Overnemen gebruikt Office de betaaltermijn van deze klant en anders de BREBO-standaard van 14 dagen.')];
     $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Klantreferentie / inkooporder'), '#maxlength' => 255, '#default_value' => (string) ($context['customer_ref'] ?? '')];
 
     $form['invoice'] = ['#type' => 'fieldset', '#title' => $this->t('Factuur')];
@@ -161,13 +161,6 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
     $this->messenger()->addStatus($this->t('Losse factuur @number is als concept opgeslagen. Btw en eventuele G-rekeningverdeling zijn vastgelegd; definitief nummer volgt pas bij vrijgave.', ['@number' => $draftNumber]));
     $form_state->setRedirect('brebo_finance.sales_workspace');
-  }
-
-  private function organizationDefaultValue(int $organizationId): ?\Drupal\node\NodeInterface {
-    if ($organizationId <= 0) return NULL;
-    $storage = \Drupal::entityTypeManager()->getStorage('node');
-    $node = $storage->load($organizationId);
-    return $node instanceof \Drupal\node\NodeInterface && $node->bundle() === 'brebo_organization' ? $node : NULL;
   }
 
   /** @return array{0:int,1:string} */
