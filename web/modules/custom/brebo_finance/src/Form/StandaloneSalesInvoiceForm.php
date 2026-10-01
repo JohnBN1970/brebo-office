@@ -6,12 +6,11 @@ namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\SalesTaxSettings;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Creates or edits a non-project sales invoice draft. */
@@ -20,7 +19,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly KeyValueFactoryInterface $keyValueFactory,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OrganizationReferenceGatewayInterface $organizations,
     private readonly SalesTaxSettings $taxSettings,
   ) {}
 
@@ -28,7 +27,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     return new static(
       $container->get('database'),
       $container->get('keyvalue'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.organization_reference_gateway'),
       new SalesTaxSettings($container->get('config.factory')),
     );
   }
@@ -69,7 +68,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
     $form['intro'] = ['#markup' => '<p>' . $this->t($draftId > 0 ? 'Bewerk dit losse factuurconcept. Zolang het concept niet is vrijgegeven blijft het wijzigbaar en heeft het nog geen definitief factuurnummer.' : 'Gebruik dit alleen wanneer de verkoopfactuur niet bij een project hoort. Er wordt nu alleen een concept gemaakt; het definitieve factuurnummer ontstaat pas bij verzenden.') . '</p>'];
     $form['customer'] = ['#type' => 'fieldset', '#title' => $this->t('Debiteur')];
-    $form['customer']['customer_organization'] = ['#type' => 'entity_autocomplete', '#title' => $this->t('Organisatie / debiteur'), '#target_type' => 'node', '#selection_settings' => ['target_bundles' => ['brebo_organization']], '#required' => TRUE, '#default_value' => !empty($context['customer_organization_nid']) ? $this->entityTypeManager->getStorage('node')->load((int) $context['customer_organization_nid']) : NULL, '#description' => $this->t('Kies de centrale BREBO-relatie. Bij Overnemen gebruikt Office de betaaltermijn van deze klant en anders de BREBO-standaard van 14 dagen.')];
+    $form['customer']['customer_organization'] = ['#type' => 'entity_autocomplete', '#title' => $this->t('Organisatie / debiteur'), '#target_type' => 'node', '#selection_settings' => ['target_bundles' => ['brebo_organization']], '#required' => TRUE, '#default_value' => !empty($context['customer_organization_nid']) ? $this->organizationDefaultValue((int) $context['customer_organization_nid']) : NULL, '#description' => $this->t('Kies de centrale BREBO-relatie. Bij Overnemen gebruikt Office de betaaltermijn van deze klant en anders de BREBO-standaard van 14 dagen.')];
     $form['customer']['customer_ref'] = ['#type' => 'textfield', '#title' => $this->t('Klantreferentie / inkooporder'), '#maxlength' => 255, '#default_value' => (string) ($context['customer_ref'] ?? '')];
 
     $form['invoice'] = ['#type' => 'fieldset', '#title' => $this->t('Factuur')];
@@ -115,8 +114,8 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     if ((string) $form_state->getValue('payment_term') === 'custom' && $form_state->getValue('custom_payment_term_days') === '') $form_state->setErrorByName('custom_payment_term_days', $this->t('Vul het afwijkende aantal betalingsdagen in.'));
-    $organizationId = (int) ($form_state->getValue('customer_organization') ?? 0); $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL;
-    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') $form_state->setErrorByName('customer_organization', $this->t('Kies een geldige organisatie uit de centrale Relaties-administratie.'));
+    $organizationId = (int) ($form_state->getValue('customer_organization') ?? 0); $organization = $organizationId > 0 ? $this->organizations->get($organizationId) : NULL;
+    if ($organization === NULL) $form_state->setErrorByName('customer_organization', $this->t('Kies een geldige organisatie uit de centrale Relaties-administratie.'));
     if ((bool) $form_state->getValue('g_account_on') && ((float) $form_state->getValue('g_account_percentage') <= 0 || (float) $form_state->getValue('g_account_percentage') > 100)) $form_state->setErrorByName('g_account_percentage', $this->t('Kies een G-rekeningpercentage groter dan 0 en maximaal 100.'));
     $hasLine = FALSE;
     foreach ($form_state->get('line_indexes') ?? [1] as $i) {
@@ -136,7 +135,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       $lines[] = ['description' => $description, 'quantity' => $quantity, 'unit' => trim((string) $form_state->getValue('unit_' . $i)), 'unit_price_ex_vat' => $unitPrice, 'amount_ex_vat' => $amountEx, 'vat_code' => $vat['code'], 'vat_label' => $vat['label'], 'vat_rate' => (float) $vat['rate'], 'vat_treatment' => $vat['treatment'], 'vat_amount' => $vatAmount, 'amount_inc_vat' => $amountInc];
     }
 
-    $organizationId = (int) $form_state->getValue('customer_organization'); $organization = $this->entityTypeManager->getStorage('node')->load($organizationId);
+    $organizationId = (int) $form_state->getValue('customer_organization'); $organization = $this->organizations->get($organizationId);
     if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') throw new \RuntimeException('Canonical debtor organisation is unavailable.');
     [$paymentDays, $paymentSource] = $this->resolvePaymentTerm($organization, (string) $form_state->getValue('payment_term'), $form_state->getValue('custom_payment_term_days'));
     $invoiceDate = (string) $form_state->getValue('invoice_date'); $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $invoiceDate); if ($date === FALSE) throw new \RuntimeException('Ongeldige factuurdatum.');
@@ -156,7 +155,7 @@ final class StandaloneSalesInvoiceForm extends FormBase {
       foreach ($lines as $delta => $line) {
         $this->database->insert('brebo_finance_sales_invoice_draft_line')->fields(['draft_id' => $draftId, 'project_nid' => 0, 'line_number' => $delta + 1, 'source_type' => 'standalone', 'source_id' => 0, 'description' => $line['description'], 'amount_ex_vat' => number_format($line['amount_ex_vat'], 4, '.', ''), 'vat_code' => $line['vat_code'], 'vat_rate' => number_format($line['vat_rate'], 4, '.', ''), 'vat_amount' => number_format($line['vat_amount'], 4, '.', ''), 'amount_inc_vat' => number_format($line['amount_inc_vat'], 4, '.', ''), 'created' => $now, 'created_by' => $actor])->execute();
       }
-      $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, ['origin' => 'standalone', 'customer_organization_nid' => $organizationId, 'customer_name' => $organization->label(), 'customer_ref' => trim((string) $form_state->getValue('customer_ref')), 'payment_term_days' => $paymentDays, 'payment_term_source' => $paymentSource, 'due_date_calculated' => TRUE, 'vat_snapshot' => array_values(array_map(static fn(array $line): array => ['code' => $line['vat_code'], 'label' => $line['vat_label'], 'rate' => $line['vat_rate'], 'treatment' => $line['vat_treatment']], $lines)), 'g_account_on' => $gOn, 'g_account_percentage' => $split['percentage'], 'g_account_amount' => $split['g_amount'], 'regular_account_amount' => $split['regular_amount'], 'regular_iban' => $gConfig['regular_iban'], 'g_account_iban' => $gOn ? $gConfig['g_iban'] : '', 'lines' => $lines]);
+      $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, ['origin' => 'standalone', 'customer_organization_nid' => $organizationId, 'customer_name' => $organization['name'], 'customer_ref' => trim((string) $form_state->getValue('customer_ref')), 'payment_term_days' => $paymentDays, 'payment_term_source' => $paymentSource, 'due_date_calculated' => TRUE, 'vat_snapshot' => array_values(array_map(static fn(array $line): array => ['code' => $line['vat_code'], 'label' => $line['vat_label'], 'rate' => $line['vat_rate'], 'treatment' => $line['vat_treatment']], $lines)), 'g_account_on' => $gOn, 'g_account_percentage' => $split['percentage'], 'g_account_amount' => $split['g_amount'], 'regular_account_amount' => $split['regular_amount'], 'regular_iban' => $gConfig['regular_iban'], 'g_account_iban' => $gOn ? $gConfig['g_iban'] : '', 'lines' => $lines]);
     }
     catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
 
@@ -164,11 +163,18 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     $form_state->setRedirect('brebo_finance.sales_workspace');
   }
 
+  private function organizationDefaultValue(int $organizationId): ?\Drupal\node\NodeInterface {
+    if ($organizationId <= 0) return NULL;
+    $storage = \Drupal::entityTypeManager()->getStorage('node');
+    $node = $storage->load($organizationId);
+    return $node instanceof \Drupal\node\NodeInterface && $node->bundle() === 'brebo_organization' ? $node : NULL;
+  }
+
   /** @return array{0:int,1:string} */
-  private function resolvePaymentTerm(NodeInterface $organization, string $choice, mixed $custom): array {
+  private function resolvePaymentTerm(array $organization, string $choice, mixed $custom): array {
     if ($choice === 'custom') return [max(0, (int) $custom), 'invoice'];
     if ($choice !== 'inherit' && is_numeric($choice)) return [max(0, (int) $choice), 'invoice'];
-    if ($organization->hasField('field_brebo_payment_term_days')) { $value = $organization->get('field_brebo_payment_term_days')->value; if (is_numeric($value)) return [max(0, (int) $value), 'customer']; }
+    if (isset($organization['payment_term_days']) && is_numeric($organization['payment_term_days'])) return [max(0, (int) $organization['payment_term_days']), 'customer'];
     $value = \Drupal::config('brebo_finance.sales')->get('numbering.default_payment_term_days'); return [is_numeric($value) ? max(0, (int) $value) : 14, 'brebo_default'];
   }
 }
