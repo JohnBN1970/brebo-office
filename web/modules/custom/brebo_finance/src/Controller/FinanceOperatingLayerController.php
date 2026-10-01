@@ -6,8 +6,8 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\brebo_finance\Service\CommitmentManager;
 use Drupal\brebo_finance\Service\WorkingBudgetApprovalManager;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -22,7 +22,7 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly WorkingBudgetApprovalManager $budgetApprovalManager,
     private readonly CommitmentManager $commitmentManager,
     private readonly AccountProxyInterface $currentUser,
@@ -31,7 +31,7 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('database'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.working_budget_approval_manager'),
       $container->get('brebo_finance.commitment_manager'),
       $container->get('current_user'),
@@ -76,11 +76,10 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
   }
 
   private function assertProjectAccess(int $projectNid): void {
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') {
+    if (!$this->projects->exists($projectNid)) {
       throw new NotFoundHttpException('BREBO project does not exist.');
     }
-    if (!$project->access('view', $this->currentUser)) {
+    if (!$this->projects->canView($projectNid)) {
       throw new AccessDeniedHttpException('No access to this BREBO project.');
     }
   }
