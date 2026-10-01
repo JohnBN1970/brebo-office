@@ -6,19 +6,10 @@ namespace Drupal\brebo_finance\Infrastructure;
 
 use Drupal\brebo_finance\Contract\WorkingBudgetImportRepositoryInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 
 final class DatabaseWorkingBudgetImportRepository implements WorkingBudgetImportRepositoryInterface {
 
-  public function __construct(
-    private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-  ) {}
-
-  public function isBreboProject(int $projectNid): bool {
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    return $project !== NULL && $project->bundle() === 'brebo_project';
-  }
+  public function __construct(private readonly Connection $database) {}
 
   public function calculationVersion(int $calculationId, string $calculationVersion): ?array {
     $row = $this->database->select('brebo_calculation_version', 'v')
