@@ -20,7 +20,7 @@ final class CollectionDebtorProfileForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      new SalesInvoiceDebtorResolver($container->get('database'), $container->get('keyvalue'), $container->get('entity_type.manager')),
+      $container->get('brebo_finance.sales_invoice_debtor_resolver'),
       new CollectionDebtorProfileRepository($container->get('keyvalue')),
     );
   }
