@@ -72,4 +72,33 @@ final class DrupalOrganizationReferenceGateway implements OrganizationReferenceG
       && $node->get(self::MONEYBIRD_FIELD)->isEmpty();
   }
 
+  public function identityIndex(): array {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', 'brebo_organization')
+      ->execute();
+    $result = [];
+    foreach ($storage->loadMultiple($ids) as $organization) {
+      if ($organization->bundle() !== 'brebo_organization') {
+        continue;
+      }
+      $value = static function ($node, string $field): string {
+        return $node->hasField($field) && !$node->get($field)->isEmpty()
+          ? trim((string) ($node->get($field)->value ?? ''))
+          : '';
+      };
+      $result[] = [
+        'id' => (int) $organization->id(),
+        'name' => (string) $organization->label(),
+        'email' => $value($organization, 'field_brebo_org_email'),
+        'moneybird_contact_id' => $value($organization, 'field_brebo_moneybird_contact_id'),
+        'kvk' => $value($organization, 'field_brebo_org_kvk'),
+        'vat' => $value($organization, 'field_brebo_org_vat'),
+      ];
+    }
+    return $result;
+  }
+
+
 }
