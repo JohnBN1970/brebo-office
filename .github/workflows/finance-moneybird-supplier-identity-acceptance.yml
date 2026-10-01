@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php'
+      - 'web/modules/custom/brebo_finance/src/Contract/OrganizationReferenceGatewayInterface.php'
+      - 'web/modules/custom/brebo_finance/src/Infrastructure/DrupalOrganizationReferenceGateway.php'
       - '.github/workflows/finance-moneybird-supplier-identity-diagnosis.yml'
       - '.github/workflows/finance-moneybird-supplier-identity-acceptance.yml'
   workflow_dispatch:
@@ -20,8 +22,11 @@ jobs:
         run: |
           set -euo pipefail
           php -l web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
+          php -l web/modules/custom/brebo_finance/src/Contract/OrganizationReferenceGatewayInterface.php
+          php -l web/modules/custom/brebo_finance/src/Infrastructure/DrupalOrganizationReferenceGateway.php
       - name: Guard read-only workflow
         run: |
           set -euo pipefail
-          ! grep -Eq '->save\(|->create\(' web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
+          ! grep -Eq -- '->save\(|->create\(' web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
+          ! grep -Eq 'EntityTypeManagerInterface|NodeInterface' web/modules/custom/brebo_finance/src/Service/MoneybirdSupplierIdentityDiagnosis.php
           grep -q 'MONEYBIRD_SUPPLIER_IDENTITY_DIAGNOSIS=PASS' .github/workflows/finance-moneybird-supplier-identity-diagnosis.yml
