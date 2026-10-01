@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\brebo_finance\Service\FinancialCockpitBuilder;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -20,27 +20,24 @@ final class FinancialCockpitController implements ContainerInjectionInterface {
 
   public function __construct(
     private readonly FinancialCockpitBuilder $cockpitBuilder,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly AccountProxyInterface $currentUser,
   ) {}
 
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('brebo_finance.financial_cockpit_builder'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.project_reference_gateway'),
       $container->get('current_user'),
     );
   }
 
   public function view(string $projectNid): JsonResponse {
     $projectId = (int) $projectNid;
-    $project = $this->entityTypeManager
-      ->getStorage('node')
-      ->load($projectId);
-    if ($project === NULL) {
+    if (!$this->projects->exists($projectId)) {
       throw new NotFoundHttpException('BREBO project does not exist.');
     }
-    if (!$project->access('view', $this->currentUser)) {
+    if (!$this->projects->canView($projectId)) {
       throw new AccessDeniedHttpException('No access to this BREBO project.');
     }
 
