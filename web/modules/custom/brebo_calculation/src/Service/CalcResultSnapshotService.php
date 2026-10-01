@@ -110,7 +110,6 @@ final class CalcResultSnapshotService {
       'calculation_id' => (int) ($payload['calculation_id'] ?? $calculationId),
       'office_version' => (string) ($payload['office_version'] ?? ''),
       'calc_version' => (string) ($payload['calc_version'] ?? ''),
-      'current_for_office_version' => TRUE,
       'commercial_summary' => [
         'purchase' => (float) ($summary['purchase'] ?? 0),
         'sales' => (float) ($summary['sales'] ?? 0),
