@@ -52,7 +52,7 @@ final class DatabaseCalculationWorkspaceReadRepository implements CalculationWor
   }
 
   public function recipes(int $calculationId, string $version): array {
-    return $this->database->select('brebo_calculation_recipe_instance', 'i')
+    $instances = $this->database->select('brebo_calculation_recipe_instance', 'i')
       ->fields('i')
       ->condition('calculation_id', $calculationId)
       ->condition('calculation_version', $version)
@@ -61,6 +61,27 @@ final class DatabaseCalculationWorkspaceReadRepository implements CalculationWor
       ->orderBy('id')
       ->execute()
       ->fetchAll(\PDO::FETCH_ASSOC);
+
+    foreach ($instances as &$instance) {
+      $instanceId = (int) $instance['id'];
+      $instance['parameters'] = $this->database->select('brebo_calculation_recipe_instance_parameter', 'p')
+        ->fields('p')
+        ->condition('recipe_instance_id', $instanceId)
+        ->orderBy('id')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+
+      $instance['lines'] = $this->database->select('brebo_calculation_recipe_instance_line', 'l')
+        ->fields('l')
+        ->condition('recipe_instance_id', $instanceId)
+        ->orderBy('sort_order')
+        ->orderBy('id')
+        ->execute()
+        ->fetchAll(\PDO::FETCH_ASSOC);
+    }
+    unset($instance);
+
+    return $instances;
   }
 
   public function subcalculations(int $calculationId, string $version): array {
