@@ -18,6 +18,14 @@ services:
     class: Drupal\brebo_finance\Infrastructure\DrupalOrganizationReferenceGateway
     arguments: ['@entity_type.manager']
 
+  brebo_finance.supplier_organization_gateway:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSupplierOrganizationGateway
+    arguments: ['@entity_type.manager']
+
+  brebo_finance.moneybird_supplier_resolver:
+    class: Drupal\brebo_finance\Service\MoneybirdSupplierResolver
+    arguments: ['@brebo_finance.supplier_organization_gateway']
+
   brebo_finance.sales_invoice_debtor_resolver:
     class: Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver
     arguments: ['@database', '@keyvalue', '@brebo_finance.organization_reference_gateway']
