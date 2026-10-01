@@ -11,4 +11,6 @@ interface ProjectReferenceGatewayInterface {
 
   public function exists(int $projectId): bool;
 
+  public function canView(int $projectId): bool;
+
 }
