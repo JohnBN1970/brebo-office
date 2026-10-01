@@ -75,6 +75,26 @@ final class DrupalOrganizationReferenceGateway implements OrganizationReferenceG
       && $node->get(self::MONEYBIRD_FIELD)->isEmpty();
   }
 
+
+  public function choices(): array {
+    $storage = $this->entityTypeManager->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', self::BUNDLE)
+      ->condition('status', 1)
+      ->sort('title', 'ASC')
+      ->range(0, 1000)
+      ->execute();
+
+    $choices = [];
+    foreach ($storage->loadMultiple($ids) as $organization) {
+      if ($organization instanceof NodeInterface && $organization->bundle() === self::BUNDLE) {
+        $choices[(int) $organization->id()] = (string) $organization->label();
+      }
+    }
+    return $choices;
+  }
+
   public function identityIndex(): array {
     $storage = $this->entityTypeManager->getStorage('node');
     $ids = $storage->getQuery()
