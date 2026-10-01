@@ -16,6 +16,7 @@ final class CalculationWorkspaceStateService {
     private readonly CalculationContextService $contextService,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
+    private readonly CalcResultSnapshotService $calcResultSnapshot,
   ) {}
 
   /** @return array<string,mixed> */
@@ -52,6 +53,7 @@ final class CalculationWorkspaceStateService {
       'recipes' => $recipes,
       'subcalculations' => $subcalculations,
       'result' => $this->resultService->calculate($calculationId, $versionName),
+      'calc_result' => $this->calcResultSnapshot->latest($calculationId),
       'readiness' => $this->readinessInspector->inspect($calculationId, $versionName),
     ];
   }
