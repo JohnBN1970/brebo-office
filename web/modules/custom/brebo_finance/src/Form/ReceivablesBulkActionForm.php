@@ -38,7 +38,7 @@ final class ReceivablesBulkActionForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     $dunning = new ReceivablesDunningManager($container->get('database'), $container->get('keyvalue'), $container->get('config.factory'));
-    $resolver = new SalesInvoiceDebtorResolver($container->get('database'), $container->get('keyvalue'), $container->get('entity_type.manager'));
+    $resolver = $container->get('brebo_finance.sales_invoice_debtor_resolver');
     $profiles = new CollectionDebtorProfileRepository($container->get('keyvalue'));
     $builder = new CollectionDossierBuilder($container->get('database'), $dunning);
     $provider = new NlLegalCollectionProvider($container->get('http_client'), $container->get('config.factory'));
