@@ -17,4 +17,7 @@ interface ProjectReferenceGatewayInterface {
 
   public function label(int $projectId): ?string;
 
+  /** @return list<int> */
+  public function viewableIds(int $actorUid): array;
+
 }
