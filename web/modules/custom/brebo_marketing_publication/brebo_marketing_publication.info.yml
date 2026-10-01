@@ -1,0 +1,7 @@
+name: 'BREBO Marketing Publication'
+type: module
+description: 'Controlled marketing publication dossiers for BREBO Office.'
+package: BREBO
+core_version_requirement: ^10 || ^11
+dependencies:
+  - drupal:node
