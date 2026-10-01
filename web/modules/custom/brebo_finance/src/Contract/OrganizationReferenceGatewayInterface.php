@@ -7,7 +7,7 @@ namespace Drupal\brebo_finance\Contract;
 /** Resolves canonical organization relations without exposing Drupal entities. */
 interface OrganizationReferenceGatewayInterface {
 
-  /** @return array{id:int,name:string,email:string}|null */
+  /** @return array{id:int,name:string,email:string,payment_term_days:?int}|null */
   public function get(int $organizationId): ?array;
 
   /** @return list<int> */
