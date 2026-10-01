@@ -80,7 +80,7 @@ function brebo_calculation_recipe_schema(): array {
     ],
     'brebo_calculation_recipe_version' => [
       'description' => 'Immutable published versions of reusable recipes.',
-      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'], 'description' => ['type' => 'text', 'not null' => FALSE], 'base_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'st'], 'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
+      'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE], 'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'draft'], 'description' => ['type' => 'text', 'not null' => FALSE], 'base_unit' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'st'], 'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => FALSE], 'applicability' => ['type' => 'text', 'size' => 'big', 'not null' => FALSE], 'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'created_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'published_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE]],
       'primary key' => ['id'], 'unique keys' => ['recipe_version' => ['recipe_id', 'version']], 'indexes' => ['recipe_status' => ['recipe_id', 'status']],
     ],
     'brebo_calculation_recipe_parameter' => [
@@ -328,5 +328,22 @@ function brebo_calculation_update_11004(): void {
       ])
       ->condition('id', (int) $row->id)
       ->execute();
+  }
+}
+
+
+/** Add explicit machine-readable applicability metadata to recipe versions. */
+function brebo_calculation_update_11005(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_recipe_version')) {
+    return;
+  }
+  if (!$schema->fieldExists('brebo_calculation_recipe_version', 'applicability')) {
+    $schema->addField('brebo_calculation_recipe_version', 'applicability', [
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => FALSE,
+      'description' => 'JSON applicability criteria used by external Calc to propose this recipe without name-based assumptions.',
+    ]);
   }
 }
