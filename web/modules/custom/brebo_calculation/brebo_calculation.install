@@ -420,3 +420,38 @@ function brebo_calculation_update_11007(): void {
     $schema->createTable('brebo_calculation_position_component', brebo_calculation_position_component_schema());
   }
 }
+
+/** Immutable results published by the external Calc engine. */
+function brebo_calculation_calc_result_snapshot_schema(): array {
+  return [
+    'description' => 'Versioned Calc-engine result snapshots; Office stores and presents these without recalculation.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'calculation_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'office_version' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'calc_version' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'content_hash' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'direct_cost' => ['type' => 'numeric', 'precision' => 19, 'scale' => 4, 'not null' => TRUE],
+      'markup_amount' => ['type' => 'numeric', 'precision' => 19, 'scale' => 4, 'not null' => TRUE],
+      'sales_price' => ['type' => 'numeric', 'precision' => 19, 'scale' => 4, 'not null' => TRUE],
+      'payload_json' => ['type' => 'text', 'size' => 'big', 'not null' => TRUE],
+      'published_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      'published_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['calculation_hash' => ['calculation_id', 'content_hash']],
+    'indexes' => [
+      'calculation_published' => ['calculation_id', 'published_at'],
+      'calculation_version' => ['calculation_id', 'office_version'],
+    ],
+  ];
+}
+
+/** Add immutable external Calc result snapshots. */
+function brebo_calculation_update_11008(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_calc_result_snapshot')) {
+    $schema->createTable('brebo_calculation_calc_result_snapshot', brebo_calculation_calc_result_snapshot_schema());
+  }
+}
+

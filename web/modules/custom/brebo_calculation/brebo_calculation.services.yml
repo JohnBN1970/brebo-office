@@ -9,6 +9,10 @@ services:
       - '@brebo_calculation.parameters_repository'
       - '@brebo_calculation.access_gateway'
 
+  brebo_calculation.calc_result_snapshot:
+    class: Drupal\brebo_calculation\Service\CalcResultSnapshotService
+    arguments: ['@database']
+
   brebo_calculation.calc_request_authenticator:
     class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
     arguments: ['@cache.default']
@@ -32,6 +36,7 @@ services:
       - '@brebo_calculation.context'
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
+      - '@brebo_calculation.calc_result_snapshot'
 
   brebo_calculation.context_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationContextRepository
