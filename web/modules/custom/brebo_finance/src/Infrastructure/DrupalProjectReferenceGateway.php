@@ -32,6 +32,17 @@ final class DrupalProjectReferenceGateway implements ProjectReferenceGatewayInte
       && $project->access('view', $this->currentUser);
   }
 
+  public function label(int $projectId): ?string {
+    if ($projectId <= 0) {
+      return NULL;
+    }
+
+    $project = $this->entityTypeManager->getStorage('node')->load($projectId);
+    return $project !== NULL && $project->bundle() === 'brebo_project'
+      ? (string) $project->label()
+      : NULL;
+  }
+
   public function exists(int $projectId): bool {
     if ($projectId <= 0) {
       return FALSE;
