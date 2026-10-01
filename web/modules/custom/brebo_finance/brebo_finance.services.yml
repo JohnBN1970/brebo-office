@@ -26,9 +26,13 @@ services:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierResolver
     arguments: ['@brebo_finance.supplier_organization_gateway']
 
+  brebo_finance.sales_invoice_debtor_source_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseSalesInvoiceDebtorSourceRepository
+    arguments: ['@database', '@keyvalue']
+
   brebo_finance.sales_invoice_debtor_resolver:
     class: Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver
-    arguments: ['@database', '@keyvalue', '@brebo_finance.organization_reference_gateway']
+    arguments: ['@brebo_finance.sales_invoice_debtor_source_repository', '@brebo_finance.organization_reference_gateway']
 
   brebo_finance.moneybird_supplier_diagnosis:
     class: Drupal\brebo_finance\Service\MoneybirdSupplierDiagnosis
