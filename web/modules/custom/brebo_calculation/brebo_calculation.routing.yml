@@ -336,6 +336,17 @@ brebo_calculation.workspace_v2_recipe_place:
   options:
     no_cache: TRUE
 
+brebo_calculation.workspace_v2_recipe_place_from_takeoff:
+  path: '/api/workbench/v2/calculations/{calculation}/recipes/from-takeoff'
+  defaults:
+    _controller: '\\Drupal\\brebo_calculation\\Controller\\CalculationWorkspaceCommandController::placeRecipeFromTakeoff'
+  requirements:
+    _access: 'TRUE'
+    calculation: '\\d+'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
 brebo_calculation.workspace_v2_recipe_update:
   path: '/api/workbench/v2/calculations/{calculation}/recipes/{recipe}'
   defaults:
