@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Database\Connection;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\brebo_finance\Service\PurchaseInvoiceCodingManager;
 use Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient;
@@ -22,7 +22,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceCodingManager $codingManager,
     private readonly PurchaseInvoiceIntegrationClient $integrationClient,
     private readonly AccountProxyInterface $currentUser,
@@ -31,7 +31,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
   public static function create(ContainerInterface $container): self {
     return new self(
       $container->get('database'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.purchase_invoice_coding_manager'),
       $container->get('brebo_finance.purchase_invoice_integration_client'),
       $container->get('current_user'),
@@ -115,25 +115,15 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
 
   /** @return array<int,array{id:int,label:string}> */
   private function projectChoices(): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', 'brebo_project')
-      ->condition('status', 1)
-      ->sort('title', 'ASC')
-      ->range(0, 500)
-      ->execute();
-    if ($ids === []) {
-      return [];
-    }
     $projects = [];
-    foreach ($storage->loadMultiple($ids) as $project) {
-      if (!$project->access('view', $this->currentUser)) {
-        continue;
-      }
-      $projects[] = ['id' => (int) $project->id(), 'label' => (string) $project->label()];
+    foreach ($this->projects->viewableIds((int) $this->currentUser->id()) as $projectId) {
+      $projects[] = [
+        'id' => $projectId,
+        'label' => $this->projects->label($projectId) ?? ('Project #' . $projectId),
+      ];
     }
-    return $projects;
+    usort($projects, static fn (array $a, array $b): int => strcasecmp($a['label'], $b['label']));
+    return array_slice($projects, 0, 500);
   }
 
   /** Return the current source payload without making Finance unavailable on integration errors. */
@@ -230,11 +220,10 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
     if ($projectNid <= 0) {
       throw new BadRequestHttpException('A valid BREBO project is required.');
     }
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') {
+    if (!$this->projects->exists($projectNid)) {
       throw new NotFoundHttpException('BREBO project does not exist.');
     }
-    if (!$project->access('view', $this->currentUser)) {
+    if (!$this->projects->canViewAs($projectNid, (int) $this->currentUser->id())) {
       throw new AccessDeniedHttpException('No access to this BREBO project.');
     }
   }
