@@ -233,3 +233,5 @@ Bij hervatten van Finance: **niet opnieuw het Betaalcentrum ontwerpen en niet te
 Pas wanneer deze flow in productie door een normale geautoriseerde gebruiker van factuur tot betaalbatch en reconciliatie bedienbaar is, volgt de Finance-eindaudit. Daarna pas de organisatiebrede module-audit.
 
 De financiële afsluiting en euro-trace gebruiken eveneens de gedeelde projectgrens; ook daar worden Drupal-projectnodes niet meer rechtstreeks door Finance-controllers geladen.
+
+Ook muterende projectfase-overgangen zijn achter een `ProjectLifecycleGatewayInterface` geplaatst. Finance bewaakt gates, closeout en audit; de tijdelijke adapter is als enige verantwoordelijk voor het lezen/schrijven van de huidige Drupal-projectstatus.

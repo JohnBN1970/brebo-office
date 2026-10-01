@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\brebo_finance\Contract\ProjectLifecycleGatewayInterface;
 use Drupal\brebo_office_core\Project\ProjectLifecycle;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
 use InvalidArgumentException;
 use RuntimeException;
-use UnexpectedValueException;
 
 /**
  * Central authority for financially protected BREBO project phase transitions.
@@ -29,7 +28,7 @@ final class ProjectPhaseTransitionManager {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectLifecycleGatewayInterface $projects,
     private readonly FinancialPhaseGateManager $phaseGateManager,
   ) {}
 
@@ -44,27 +43,19 @@ final class ProjectPhaseTransitionManager {
       throw new InvalidArgumentException('A human actor and transition reason are required.');
     }
 
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    if ($project === NULL || $project->bundle() !== 'brebo_project') {
-      throw new UnexpectedValueException('BREBO project does not exist.');
-    }
-
     $definition = self::TRANSITIONS[$transition];
     $this->phaseGateManager->requireRelease($projectNid, $definition['gate']);
-
-    $statusField = $this->resolveStatusField($project);
-    $before = (string) $project->get($statusField)->value;
-    $target = $definition['target'];
-    if (ProjectLifecycle::normalize($before) === $target) {
-      return;
-    }
 
     if ($transition === 'close_project') {
       $this->assertCloseoutReady($projectNid);
     }
 
-    $project->set($statusField, $target);
-    $project->save();
+    $target = $definition['target'];
+    $result = $this->projects->transition($projectNid, $target);
+    if (!$result['changed']) {
+      return;
+    }
+    $before = $result['before'];
 
     $this->database->insert('brebo_finance_audit')->fields([
       'project_nid' => $projectNid,
@@ -112,19 +103,6 @@ final class ProjectPhaseTransitionManager {
     if ($openBilling > 0) {
       throw new RuntimeException('Project closeout is blocked while billing instalments remain open.');
     }
-  }
-
-  /**
-   * Keeps the transition authority compatible with the project model while the
-   * canonical project status field is being consolidated.
-   */
-  private function resolveStatusField(object $project): string {
-    foreach (['field_brebo_project_status', 'field_brebo_status'] as $fieldName) {
-      if ($project->hasField($fieldName)) {
-        return $fieldName;
-      }
-    }
-    throw new RuntimeException('BREBO project has no canonical project status field; protected transition cannot be performed.');
   }
 
 }
