@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\brebo_finance\Contract\WorkingBudgetImportRepositoryInterface;
 use RuntimeException;
 use UnexpectedValueException;
@@ -22,7 +23,10 @@ final class WorkingBudgetImporter {
     'other' => 'overig',
   ];
 
-  public function __construct(private readonly WorkingBudgetImportRepositoryInterface $repository) {}
+  public function __construct(
+    private readonly WorkingBudgetImportRepositoryInterface $repository,
+    private readonly ProjectReferenceGatewayInterface $projects,
+  ) {}
 
   /**
    * Imports one calculation snapshot as a draft working budget.
@@ -36,7 +40,7 @@ final class WorkingBudgetImporter {
     string $calculationVersion,
     int $userId,
   ): int {
-    if (!$this->repository->isBreboProject($projectNid)) {
+    if (!$this->projects->exists($projectNid)) {
       throw new UnexpectedValueException('A valid BREBO project is required.');
     }
 
