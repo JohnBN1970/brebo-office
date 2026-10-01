@@ -61,6 +61,7 @@ final class RecipeCatalogService {
         'version' => (string) $published['version'],
         'base_unit' => (string) $published['base_unit'],
         'published' => isset($published['published']) ? (int) $published['published'] : NULL,
+        'applicability' => $this->decodeApplicability($published['applicability'] ?? NULL),
         'parameters' => $parameters,
         'lines' => $lines,
       ];
@@ -70,6 +71,15 @@ final class RecipeCatalogService {
       'catalog_version' => hash('sha256', json_encode($recipes, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)),
       'recipes' => $recipes,
     ];
+  }
+
+  /** @return array<string,mixed>|null */
+  private function decodeApplicability(mixed $value): ?array {
+    if ($value === NULL || trim((string) $value) === '') {
+      return NULL;
+    }
+    $decoded = json_decode((string) $value, TRUE);
+    return is_array($decoded) ? $decoded : NULL;
   }
 
 }
