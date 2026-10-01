@@ -6,6 +6,7 @@ namespace Drupal\brebo_finance\Infrastructure;
 
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\Core\Session\AccountProxyInterface;
 
 /**
  * Transitional Drupal adapter for BREBO project identity.
@@ -15,7 +16,21 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
  */
 final class DrupalProjectReferenceGateway implements ProjectReferenceGatewayInterface {
 
-  public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {}
+  public function __construct(
+    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly AccountProxyInterface $currentUser,
+  ) {}
+
+  public function canView(int $projectId): bool {
+    if ($projectId <= 0) {
+      return FALSE;
+    }
+
+    $project = $this->entityTypeManager->getStorage('node')->load($projectId);
+    return $project !== NULL
+      && $project->bundle() === 'brebo_project'
+      && $project->access('view', $this->currentUser);
+  }
 
   public function exists(int $projectId): bool {
     if ($projectId <= 0) {
