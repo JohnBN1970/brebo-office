@@ -44,13 +44,17 @@ final class ProjectPhaseTransitionManager {
     }
 
     $definition = self::TRANSITIONS[$transition];
+    $target = $definition['target'];
+    if ($this->projects->status($projectNid) === $target) {
+      return;
+    }
+
     $this->phaseGateManager->requireRelease($projectNid, $definition['gate']);
 
     if ($transition === 'close_project') {
       $this->assertCloseoutReady($projectNid);
     }
 
-    $target = $definition['target'];
     $result = $this->projects->transition($projectNid, $target);
     if (!$result['changed']) {
       return;
