@@ -241,3 +241,5 @@ De payables-werkvoorraad en het geïntegreerde Betaalcentrum gebruiken projectto
 Het organisatiebrede FinancialCommandCenter haalt de voor een actor zichtbare projecten en projectlabels nu via `ProjectReferenceGatewayInterface`. De service bevat daardoor geen Drupal entity manager of NodeInterface meer; dashboardaggregaties en Finance-beslislogica blijven ongewijzigd.
 
 De bronneutrale inkoopfactuur-intake valideert projectkoppelingen nu via `ProjectReferenceGatewayInterface`; de intake-service zelf kent geen Drupal projectnodes of entity manager meer. Daarmee blijft ook document/intake-routing bruikbaar wanneer projectopslag later buiten Drupal komt te liggen.
+
+Financiële beslisserstoewijzing en autorisatie lopen nu via `FinancialActorGatewayInterface`. De Finance-resolver kent geen Drupal user entities of `AccountInterface` meer; actieve gebruikers, rollen en permissies zitten achter een tijdelijke Drupal-adapter. De bestaande gate-, niveau- en vier-ogenregels blijven leidend.
