@@ -24,6 +24,21 @@ BREBO Finance-domein
 
 Nieuwe en bestaande Finance-businesslogica hoort niet afhankelijk te zijn van Drupal-entities, controllers of provider-SDK's wanneer dit via een contract/adapter kan worden begrensd.
 
+
+### Ontkoppelslag gestart — projectidentiteit
+
+De eerste Finance-ontkoppelslag volgt dit patroon nu concreet voor de werkbegrotingsimport:
+
+```text
+WorkingBudgetImporter
+-> ProjectReferenceGatewayInterface
+   -> DrupalProjectReferenceGateway (tijdelijke adapter)
+-> WorkingBudgetImportRepositoryInterface
+   -> DatabaseWorkingBudgetImportRepository
+```
+
+Daarmee kent de Finance-domeinservice geen Drupal node/entity meer. De database-repository is weer uitsluitend verantwoordelijk voor Finance/calculatie-data. Zodra projectopslag buiten Drupal canoniek is, wordt alleen de projectadapter vervangen; de Finance-businesslogica blijft staan.
+
 De eerdere programmaformulering "Finance afronden -> module-audit -> Calculatie later opnieuw oppakken" is technisch achterhaald: Calculatie heeft inmiddels de referentiearchitectuur geleverd. Finance wordt nu functioneel verder gesloten én gecontroleerd naar hetzelfde kern-/adapterpatroon gebracht. Bestaande betalings-, four-eyes-, reconciliatie- en fail-closedregels blijven daarbij onaangetast.
 
 ## Huidige prioriteit
