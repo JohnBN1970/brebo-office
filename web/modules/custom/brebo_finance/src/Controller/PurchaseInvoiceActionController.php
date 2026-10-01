@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\brebo_finance\Service\PaymentReleaseManager;
 use Drupal\brebo_finance\Service\PerformanceReceiptManager;
 use Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder;
@@ -23,7 +23,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $financeEntityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
     private readonly ThreeWayMatchManager $matchManager,
     private readonly PaymentReleaseManager $paymentReleaseManager,
     private readonly PerformanceReceiptManager $performanceReceiptManager,
@@ -33,7 +33,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('database'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.three_way_match_manager'),
       $container->get('brebo_finance.payment_release_manager'),
       $container->get('brebo_finance.performance_receipt_manager'),
@@ -200,11 +200,10 @@ final class PurchaseInvoiceActionController extends ControllerBase {
     if ($projectNid <= 0) {
       throw new BadRequestHttpException('Purchase invoice must be coded to a project first.');
     }
-    $project = $this->financeEntityTypeManager->getStorage('node')->load($projectNid);
-    if (!$project || $project->bundle() !== 'brebo_project') {
+    if (!$this->projects->exists($projectNid)) {
       throw new NotFoundHttpException('Project not found.');
     }
-    if (!$project->access('view', $this->currentUser())) {
+    if (!$this->projects->canViewAs($projectNid, (int) $this->currentUser()->id())) {
       throw new AccessDeniedHttpException('Project access denied.');
     }
     return $invoice;
