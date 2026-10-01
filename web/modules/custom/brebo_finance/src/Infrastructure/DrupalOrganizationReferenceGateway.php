@@ -30,6 +30,9 @@ final class DrupalOrganizationReferenceGateway implements OrganizationReferenceG
       'id' => (int) $node->id(),
       'name' => (string) $node->label(),
       'email' => $email,
+      'payment_term_days' => $node->hasField('field_brebo_payment_term_days') && is_numeric($node->get('field_brebo_payment_term_days')->value)
+        ? max(0, (int) $node->get('field_brebo_payment_term_days')->value)
+        : NULL,
     ];
   }
 
