@@ -77,6 +77,66 @@ final class CalcResultSnapshotService {
     return ['snapshot_id' => (int) $id, 'content_hash' => $hash, 'created' => TRUE, 'published_at' => $publishedAt];
   }
 
+  public function latestReadModel(int $calculationId): ?array {
+    $snapshot = $this->latest($calculationId);
+    if ($snapshot === NULL) {
+      return NULL;
+    }
+    $payload = is_array($snapshot['payload'] ?? NULL) ? $snapshot['payload'] : [];
+    $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
+    $lines = is_array($payload['lines'] ?? NULL) ? array_values($payload['lines']) : [];
+
+    return [
+      'snapshot_id' => (int) $snapshot['snapshot_id'],
+      'content_hash' => (string) $snapshot['content_hash'],
+      'published_by' => (int) $snapshot['published_by'],
+      'published_at' => (int) $snapshot['published_at'],
+      'calculation_id' => (int) ($payload['calculation_id'] ?? $calculationId),
+      'office_version' => (string) ($payload['office_version'] ?? ''),
+      'calc_version' => (string) ($payload['calc_version'] ?? ''),
+      'totals' => [
+        'direct_cost' => (float) ($totals['direct_cost'] ?? 0),
+        'markup_amount' => (float) ($totals['markup_amount'] ?? 0),
+        'sales_price' => (float) ($totals['sales_price'] ?? 0),
+      ],
+      'lines' => array_map(static function (mixed $line): array {
+        $line = is_array($line) ? $line : [];
+        $unitCosts = is_array($line['unit_costs'] ?? NULL) ? $line['unit_costs'] : [];
+        $source = is_array($line['source'] ?? NULL) ? $line['source'] : [];
+        return [
+          'sort_order' => (int) ($line['sort_order'] ?? 0),
+          'line_type' => (string) ($line['line_type'] ?? ''),
+          'parent_ref' => $line['parent_ref'] ?? NULL,
+          'code' => $line['code'] ?? NULL,
+          'description' => (string) ($line['description'] ?? ''),
+          'unit' => $line['unit'] ?? NULL,
+          'quantity' => $line['quantity'] ?? NULL,
+          'labour_norm' => $line['labour_norm'] ?? NULL,
+          'labour_total_hours' => $line['labour_total_hours'] ?? NULL,
+          'labour_hours_input_mode' => $line['labour_hours_input_mode'] ?? NULL,
+          'unit_costs' => [
+            'labour' => (float) ($unitCosts['labour'] ?? 0),
+            'material' => (float) ($unitCosts['material'] ?? 0),
+            'equipment' => (float) ($unitCosts['equipment'] ?? 0),
+            'subcontracting' => (float) ($unitCosts['subcontracting'] ?? 0),
+            'other' => (float) ($unitCosts['other'] ?? 0),
+          ],
+          'source' => [
+            'type' => (string) ($source['type'] ?? 'manual'),
+            'office_source_id' => $source['office_source_id'] ?? NULL,
+            'reference' => $source['reference'] ?? NULL,
+            'supplier' => $source['supplier'] ?? NULL,
+            'unit_price' => $source['unit_price'] ?? NULL,
+            'price_date' => $source['price_date'] ?? NULL,
+            'document_id' => $source['document_id'] ?? NULL,
+            'details' => $source['details'] ?? NULL,
+          ],
+        ];
+      }, $lines),
+      'source' => is_array($payload['source'] ?? NULL) ? $payload['source'] : [],
+    ];
+  }
+
   public function latest(int $calculationId): ?array {
     $row = $this->database->select('brebo_calculation_calc_result_snapshot', 's')
       ->fields('s')
