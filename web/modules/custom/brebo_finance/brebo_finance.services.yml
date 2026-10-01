@@ -6,6 +6,10 @@ services:
     arguments: ['@database', '@entity_type.manager']
     tags:
       - { name: brebo_data_intake.destination }
+  brebo_finance.project_lifecycle_gateway:
+    class: Drupal\brebo_finance\Infrastructure\DrupalProjectLifecycleGateway
+    arguments: ['@entity_type.manager']
+
   brebo_finance.project_reference_gateway:
     class: Drupal\brebo_finance\Infrastructure\DrupalProjectReferenceGateway
     arguments: ['@entity_type.manager', '@current_user']
@@ -49,7 +53,7 @@ services:
     arguments: ['@database', '@queue']
   brebo_finance.project_phase_transition_manager:
     class: Drupal\brebo_finance\Service\ProjectPhaseTransitionManager
-    arguments: ['@database', '@entity_type.manager', '@brebo_finance.financial_phase_gate_manager']
+    arguments: ['@database', '@brebo_finance.project_lifecycle_gateway', '@brebo_finance.financial_phase_gate_manager']
   brebo_finance.commitment_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseCommitmentRepository
     arguments: ['@database']
