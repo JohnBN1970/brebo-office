@@ -57,19 +57,33 @@ final class PortalPublicationManager {
     }
 
     $now = $this->time->getRequestTime();
-    $this->database->update('brebo_portal_publication')->fields([
+    $updated = $this->database->update('brebo_portal_publication')->fields([
       'status' => 'published',
       'published_by_uid' => (int) $this->currentUser->id(),
       'published_at' => $now,
       'revoked_by_uid' => NULL,
       'revoked_at' => NULL,
       'changed' => $now,
-    ])->condition('id', $publicationId)->execute();
+    ])->condition('id', $publicationId)
+      ->condition('status', 'draft')
+      ->execute();
 
-    $this->database->update('brebo_portal_project')->fields([
-      'last_published_at' => $now,
-      'changed' => $now,
-    ])->condition('id', (int) $record['portal_project_id'])->execute();
+    if ($updated === 0) {
+      throw new \InvalidArgumentException('Only an existing draft publication can be published.');
+    }
+
+    $projectUpdate = $this->database->update('brebo_portal_project');
+    $projectUpdate->expression(
+      'last_published_at',
+      'CASE WHEN COALESCE(last_published_at, 0) < :published_at THEN :published_at ELSE last_published_at END',
+      [':published_at' => $now],
+    );
+    $projectUpdate->expression(
+      'changed',
+      'CASE WHEN COALESCE(changed, 0) < :changed_at THEN :changed_at ELSE changed END',
+      [':changed_at' => $now],
+    );
+    $projectUpdate->condition('id', (int) $record['portal_project_id'])->execute();
   }
 
   /**
