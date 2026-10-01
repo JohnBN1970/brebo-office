@@ -13,6 +13,10 @@ services:
     class: Drupal\brebo_calculation\Service\CalcResultSnapshotService
     arguments: ['@database']
 
+  brebo_calculation.calc_source_resolver:
+    class: Drupal\brebo_calculation\Service\CalcSourceResolver
+    arguments: ['@database']
+
   brebo_calculation.calc_request_authenticator:
     class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
     arguments: ['@cache.default']

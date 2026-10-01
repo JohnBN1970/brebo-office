@@ -448,6 +448,17 @@ brebo_calculation.workspace_v2_object_exception_line_add:
     no_cache: TRUE
 
 
+brebo_calculation.workspace_v2_calc_source_resolve:
+  path: '/api/workbench/v2/calc-sources/resolve'
+  defaults:
+    _controller: '\Drupal\brebo_calculation\Controller\CalcSourceResolverController::resolve'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
+  options:
+    no_cache: TRUE
+
+
 brebo_calculation.workspace_v2_calc_result_publish:
   path: '/api/workbench/v2/calculations/{calculation}/calc-results'
   defaults:
