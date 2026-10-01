@@ -26,7 +26,7 @@ final class CashFlowManagementController extends ControllerBase {
     return new static(
       new CashFlowManagementReportBuilder($container->get('database')),
       new BusinessHealthBuilder(new BusinessHealthIntegrationClient($container->get('http_client')), $container->get('config.factory'), $container->get('cache.default')),
-      new PortfolioLiquidityProjection($container->get('database'), $container->get('entity_type.manager'), $container->get('config.factory'), new VatCalculator()),
+      new PortfolioLiquidityProjection($container->get('database'), $container->get('brebo_finance.project_reference_gateway'), $container->get('config.factory'), new VatCalculator()),
     );
   }
 
@@ -35,7 +35,7 @@ final class CashFlowManagementController extends ControllerBase {
     $sales = $report['sales'];
     $forecast = $report['forecast'];
     $health = $this->businessHealth->build();
-    $liquidity = $this->liquidity->build($this->currentUser(), $health);
+    $liquidity = $this->liquidity->build((int) $this->currentUser()->id(), $health);
 
     $weekRows = [];
     foreach ($forecast['weeks'] as $week) {

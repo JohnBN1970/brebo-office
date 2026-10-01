@@ -39,7 +39,7 @@ final class FinancialCommandCenterController extends ControllerBase {
       ),
       new PortfolioLiquidityProjection(
         $container->get('database'),
-        $container->get('entity_type.manager'),
+        $container->get('brebo_finance.project_reference_gateway'),
         $container->get('config.factory'),
         new VatCalculator(),
       ),
@@ -132,7 +132,7 @@ final class FinancialCommandCenterController extends ControllerBase {
     $data = $this->commandCenter->dashboard($this->currentUser());
     $health = $this->businessHealth->build();
     $data['business_health'] = $health;
-    $data['liquidity_horizons'] = $this->portfolioLiquidity->build($this->currentUser(), $health);
+    $data['liquidity_horizons'] = $this->portfolioLiquidity->build((int) $this->currentUser()->id(), $health);
     $response = new JsonResponse($data);
     $response->headers->set('Cache-Control', 'private, no-store, max-age=0');
     return $response;
