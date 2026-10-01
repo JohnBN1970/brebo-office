@@ -7,14 +7,14 @@ namespace Drupal\brebo_finance\Service;
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
 use Drupal\brebo_data_intake\ValueObject\IntakeDestinationResult;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
 /** Routes classified purchase invoices into the canonical Finance workflow. */
 final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterface {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectReferenceGatewayInterface $projects,
   ) {}
 
   public function supports(string $classification): bool {
@@ -222,8 +222,7 @@ final class PurchaseInvoiceIntakeDestination implements IntakeDestinationInterfa
     if ($projectNid <= 0) {
       return 0;
     }
-    $project = $this->entityTypeManager->getStorage('node')->load($projectNid);
-    return $project !== NULL && $project->bundle() === 'brebo_project' ? $projectNid : 0;
+    return $this->projects->exists($projectNid) ? $projectNid : 0;
   }
 
   private function number(mixed $value): ?float {
