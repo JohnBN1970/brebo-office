@@ -7,13 +7,12 @@ namespace Drupal\brebo_finance\Form;
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 use Drupal\Core\Mail\MailManagerInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 
 /** Sends a standalone sales invoice concept to the customer for review. */
@@ -22,7 +21,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
   public function __construct(
     private readonly Connection $database,
     private readonly KeyValueFactoryInterface $keyValueFactory,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OrganizationReferenceGatewayInterface $organizations,
     private readonly MailManagerInterface $mailManager,
     private readonly SalesInvoiceOutputBuilder $outputBuilder,
     private readonly OutboundAttachmentService $attachmentService,
@@ -32,7 +31,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     return new static(
       $container->get('database'),
       $container->get('keyvalue'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_finance.organization_reference_gateway'),
       $container->get('plugin.manager.mail'),
       new SalesInvoiceOutputBuilder(
         $container->get('database'),
@@ -53,13 +52,11 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     $invoice = $this->loadDraft($draftId);
     $context = $this->context($draftId);
     $organization = $this->loadOrganization((int) ($context['customer_organization_nid'] ?? 0));
-    $recipient = $organization->hasField('field_brebo_org_email')
-      ? trim((string) $organization->get('field_brebo_org_email')->value)
-      : '';
+    $recipient = trim((string) $organization['email']);
     $lines = is_array($context['lines'] ?? NULL) ? $context['lines'] : [];
 
     $form_state->set('draft_id', $draftId);
-    $form_state->set('organization_id', (int) $organization->id());
+    $form_state->set('organization_id', (int) $organization['id']);
 
     $form['warning'] = [
       '#markup' => '<p><strong>CONCEPT / TER BEOORDELING.</strong> Deze verzending maakt geen definitieve factuur, kent geen factuurnummer toe en maakt geen openstaande post aan.</p>',
@@ -69,7 +66,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       '#header' => [$this->t('Onderdeel'), $this->t('Waarde')],
       '#rows' => [
         [$this->t('Concept'), (string) $invoice['draft_number']],
-        [$this->t('Debiteur'), $organization->label()],
+        [$this->t('Debiteur'), $organization['name']],
         [$this->t('Klantreferentie'), (string) ($context['customer_ref'] ?? '—')],
         [$this->t('Omschrijving'), (string) $invoice['description']],
         [$this->t('Bedrag incl. btw'), '€ ' . number_format((float) $invoice['amount_inc_vat'], 2, ',', '.')],
@@ -188,7 +185,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       'draft_number' => (string) $invoice['draft_number'],
       'content_hash' => hash('sha256', json_encode([
         'invoice' => $invoice,
-        'organization_id' => (int) $organization->id(),
+        'organization_id' => (int) $organization['id'],
         'customer_ref' => (string) ($context['customer_ref'] ?? ''),
         'lines' => $lines,
       ], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)),
@@ -239,9 +236,9 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
     return $context;
   }
 
-  private function loadOrganization(int $organizationId): NodeInterface {
-    $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL;
-    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') {
+  private function loadOrganization(int $organizationId): array {
+    $organization = $organizationId > 0 ? $this->organizations->get($organizationId) : NULL;
+    if ($organization === NULL) {
       throw new \RuntimeException('Canonical debtor organisation is unavailable.');
     }
     return $organization;
