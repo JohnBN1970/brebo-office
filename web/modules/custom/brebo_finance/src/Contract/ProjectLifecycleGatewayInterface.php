@@ -9,6 +9,8 @@ namespace Drupal\brebo_finance\Contract;
  */
 interface ProjectLifecycleGatewayInterface {
 
+  public function status(int $projectId): string;
+
   /**
    * @return array{before:string, changed:bool}
    */

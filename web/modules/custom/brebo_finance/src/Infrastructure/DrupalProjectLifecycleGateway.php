@@ -17,6 +17,11 @@ final class DrupalProjectLifecycleGateway implements ProjectLifecycleGatewayInte
 
   public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {}
 
+  public function status(int $projectId): string {
+    $project = $this->loadProject($projectId);
+    return (string) ($project->get('field_brebo_project_status')->value ?? '');
+  }
+
   public function transition(int $projectId, string $targetStatus): array {
     $project = $this->entityTypeManager->getStorage('node')->load($projectId);
     if ($project === NULL || $project->bundle() !== 'brebo_project') {
