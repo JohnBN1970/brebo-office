@@ -269,7 +269,8 @@ jobs:
           fi
           grep -n 'ProjectReferenceGatewayInterface' "$page_controller" || { echo "::error::FinancialProjectPageController does not use ProjectReferenceGatewayInterface."; exit 1; }
           ! grep -n 'EntityTypeManagerInterface' "$page_controller" || { echo "::error::FinancialProjectPageController still depends on EntityTypeManagerInterface."; exit 1; }
-          grep -n 'projectEntityTypeManager' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not contain projectEntityTypeManager."; exit 1; }
+          grep -n 'ProjectReferenceGatewayInterface' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController does not use ProjectReferenceGatewayInterface."; exit 1; }
+          ! grep -n 'EntityTypeManagerInterface' "$ledger_controller" || { echo "::error::FinancialProjectLedgerController still depends on EntityTypeManagerInterface."; exit 1; }
           grep -n 'ProjectReferenceGatewayInterface' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController does not use ProjectReferenceGatewayInterface."; exit 1; }
           ! grep -n 'EntityTypeManagerInterface' "$euro_trace_controller" || { echo "::error::FinancialEuroTraceController still depends on EntityTypeManagerInterface."; exit 1; }
           echo "CONTROLLERS_DEPLOY_PROOF_OK=1"
