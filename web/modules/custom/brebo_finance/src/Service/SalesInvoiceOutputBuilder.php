@@ -6,14 +6,13 @@ namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_office_core\Service\SimplePdfRenderer;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\node\NodeInterface;
 
 /** Builds sales-invoice output from the canonical invoice draft. */
 final class SalesInvoiceOutputBuilder {
 
-  public function __construct(private readonly Connection $database, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly EntityTypeManagerInterface $entityTypeManager, private readonly SimplePdfRenderer $pdfRenderer) {}
+  public function __construct(private readonly Connection $database, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly OrganizationReferenceGatewayInterface $organizations, private readonly SimplePdfRenderer $pdfRenderer) {}
 
   /** @return array{content:string,filename:string,hash:string} */
   public function conceptPdf(int $draftId): array {
@@ -33,18 +32,18 @@ final class SalesInvoiceOutputBuilder {
     return ['content' => $content, 'filename' => preg_replace('/[^A-Za-z0-9._-]+/', '-', $invoiceNumber) . '.pdf', 'hash' => hash('sha256', $content)];
   }
 
-  /** @return array{0:array<string,mixed>,1:NodeInterface} */
+  /** @return array{0:array<string,mixed>,1:array{id:int,name:string,email:string}} */
   private function contextAndOrganization(int $draftId): array {
     $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
     if (!is_array($context) || empty($context['customer_organization_nid'])) throw new \RuntimeException('Factuurconcept heeft geen canonieke debiteur.');
-    $organization = $this->entityTypeManager->getStorage('node')->load((int) $context['customer_organization_nid']);
-    if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') throw new \RuntimeException('Canonieke debiteur is niet beschikbaar.');
+    $organization = $this->organizations->get((int) $context['customer_organization_nid']);
+    if ($organization === NULL) throw new \RuntimeException('Canonieke debiteur is niet beschikbaar.');
     return [$context, $organization];
   }
 
   /** @return string[] */
-  private function invoiceLines(array $draft, array $context, NodeInterface $organization, string $numberLabel, string $number): array {
-    $lines = [$numberLabel . ': ' . $number, 'Debiteur: ' . (string) $organization->label(), 'Factuurdatum: ' . (string) $draft['invoice_date'], 'Vervaldatum: ' . (string) $draft['due_date'], 'Klantreferentie: ' . (trim((string) ($context['customer_ref'] ?? '')) ?: '-'), 'Omschrijving: ' . (string) $draft['description'], '', 'Factuurregels'];
+  private function invoiceLines(array $draft, array $context, array $organization, string $numberLabel, string $number): array {
+    $lines = [$numberLabel . ': ' . $number, 'Debiteur: ' . (string) $organization['name'], 'Factuurdatum: ' . (string) $draft['invoice_date'], 'Vervaldatum: ' . (string) $draft['due_date'], 'Klantreferentie: ' . (trim((string) ($context['customer_ref'] ?? '')) ?: '-'), 'Omschrijving: ' . (string) $draft['description'], '', 'Factuurregels'];
     $vatGroups = [];
     foreach ((array) ($context['lines'] ?? []) as $line) {
       $quantity = rtrim(rtrim(number_format((float) ($line['quantity'] ?? 1), 4, '.', ''), '0'), '.');

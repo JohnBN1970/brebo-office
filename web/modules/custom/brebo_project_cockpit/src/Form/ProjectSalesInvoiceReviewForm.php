@@ -34,7 +34,7 @@ final class ProjectSalesInvoiceReviewForm extends FormBase {
       $container->get('keyvalue'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.mail'),
-      new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('brebo_office_core.simple_pdf_renderer')),
+      new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('brebo_finance.organization_reference_gateway'), $container->get('brebo_office_core.simple_pdf_renderer')),
       $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }

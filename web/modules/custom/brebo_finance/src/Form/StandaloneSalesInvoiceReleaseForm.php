@@ -38,7 +38,7 @@ final class StandaloneSalesInvoiceReleaseForm extends ConfirmFormBase {
     return new static(
       $container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'),
       new SalesInvoiceNumberManager($container->get('config.factory'), $container->get('keyvalue'), $container->get('lock')),
-      new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('brebo_office_core.simple_pdf_renderer')),
+      new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('brebo_finance.organization_reference_gateway'), $container->get('brebo_office_core.simple_pdf_renderer')),
       $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }
