@@ -51,7 +51,7 @@ jobs:
           echo "=== Read-only CRM identity dry run ==="
           "${drush[@]}" php:eval '
             $invoices = \Drupal::service("brebo_finance.purchase_invoice_integration_client")->fetchAll();
-            $diagnosis = new \Drupal\brebo_finance\Service\MoneybirdSupplierIdentityDiagnosis(\Drupal::service("entity_type.manager"));
+            $diagnosis = new \Drupal\brebo_finance\Service\MoneybirdSupplierIdentityDiagnosis(\Drupal::service("brebo_finance.organization_reference_gateway"));
             $result = $diagnosis->diagnose($invoices);
             foreach (["supplier_count", "by_moneybird_id_count", "strong_match_count", "possible_match_count", "new_count", "conflict_count"] as $key) {
               print strtoupper($key) . "=" . (int) ($result[$key] ?? 0) . "\n";
