@@ -3,7 +3,7 @@ services:
     class: Drupal\brebo_finance\Service\VatCalculator
   brebo_finance.purchase_invoice_intake_destination:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntakeDestination
-    arguments: ['@database', '@entity_type.manager']
+    arguments: ['@database', '@brebo_finance.project_reference_gateway']
     tags:
       - { name: brebo_data_intake.destination }
   brebo_finance.project_lifecycle_gateway:
