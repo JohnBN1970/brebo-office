@@ -4,16 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 
 /** Read-only identity matching for classified Moneybird suppliers. */
 final class MoneybirdSupplierIdentityDiagnosis {
 
-  private const BUNDLE = 'brebo_organization';
-  private const MONEYBIRD_FIELD = 'field_brebo_moneybird_contact_id';
-
-  public function __construct(private readonly EntityTypeManagerInterface $entityTypeManager) {}
+  public function __construct(private readonly OrganizationReferenceGatewayInterface $organizations) {}
 
   /**
    * @param array<int, array<string, mixed>> $invoices
@@ -45,9 +41,7 @@ final class MoneybirdSupplierIdentityDiagnosis {
       }
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $organizations = $storage->loadByProperties(['type' => self::BUNDLE]);
-    $indexes = $this->buildIndexes($organizations);
+    $indexes = $this->buildIndexes($this->organizations->identityIndex());
 
     $result = [
       'supplier_count' => count($contacts),
@@ -71,7 +65,7 @@ final class MoneybirdSupplierIdentityDiagnosis {
     return $result;
   }
 
-  /** @param array<int|string, mixed> $organizations */
+  /** @param list<array{id:int,name:string,email:string,moneybird_contact_id:string,kvk:string,vat:string}> $organizations */
   private function buildIndexes(array $organizations): array {
     $indexes = [
       'moneybird' => [],
@@ -81,14 +75,11 @@ final class MoneybirdSupplierIdentityDiagnosis {
     ];
 
     foreach ($organizations as $organization) {
-      if (!$organization instanceof NodeInterface) {
-        continue;
-      }
-      $nid = (int) $organization->id();
-      $moneybird = $this->field($organization, self::MONEYBIRD_FIELD);
-      $kvk = $this->identity($this->field($organization, 'field_brebo_org_kvk'));
-      $vat = $this->identity($this->field($organization, 'field_brebo_org_vat'));
-      $name = $this->text((string) $organization->label());
+      $nid = (int) $organization['id'];
+      $moneybird = trim((string) $organization['moneybird_contact_id']);
+      $kvk = $this->identity((string) $organization['kvk']);
+      $vat = $this->identity((string) $organization['vat']);
+      $name = $this->text((string) $organization['name']);
 
       if ($moneybird !== '') {
         $indexes['moneybird'][$moneybird][] = $nid;
@@ -149,13 +140,6 @@ final class MoneybirdSupplierIdentityDiagnosis {
     }
 
     return ['group' => 'new', 'item' => $base + ['reason' => 'no_existing_identity_match']];
-  }
-
-  private function field(NodeInterface $organization, string $field): string {
-    if (!$organization->hasField($field) || $organization->get($field)->isEmpty()) {
-      return '';
-    }
-    return trim((string) ($organization->get($field)->value ?? ''));
   }
 
   private function identity(string $value): string {
