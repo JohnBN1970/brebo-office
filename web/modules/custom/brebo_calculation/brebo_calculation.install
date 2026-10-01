@@ -108,7 +108,34 @@ function brebo_calculation_recipe_schema(): array {
       'fields' => ['id' => ['type' => 'serial', 'not null' => TRUE], 'recipe_instance_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE], 'source_recipe_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE], 'line_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE], 'line_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE], 'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE], 'unit' => ['type' => 'varchar', 'length' => 32, 'not null' => FALSE], 'quantity_formula' => ['type' => 'text', 'not null' => FALSE], 'calculated_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'manual_quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE], 'waste_pct' => ['type' => 'numeric', 'precision' => 10, 'scale' => 4, 'not null' => TRUE, 'default' => 0], 'material_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'price_source_ref' => ['type' => 'varchar', 'length' => 255, 'not null' => FALSE], 'unit_cost' => $money, 'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0], 'is_custom' => ['type' => 'int', 'size' => 'tiny', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0]],
       'primary key' => ['id'], 'unique keys' => ['instance_line' => ['recipe_instance_id', 'line_key']], 'indexes' => ['instance_sort' => ['recipe_instance_id', 'sort_order'], 'material_ref' => ['material_ref']],
     ],
+    'brebo_calculation_recipe_instance_cost_component' => [
+      'description' => 'Generic optional additional cost components attached to a recipe instance line.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'recipe_instance_line_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'component_key' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+        'description' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE],
+        'basis' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+        'value' => $money,
+        'quantity' => ['type' => 'numeric', 'precision' => 18, 'scale' => 4, 'not null' => FALSE],
+        'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => FALSE],
+        'sort_order' => ['type' => 'int', 'not null' => TRUE, 'default' => 0],
+      ],
+      'primary key' => ['id'],
+      'unique keys' => ['line_component' => ['recipe_instance_line_id', 'component_key']],
+      'indexes' => ['recipe_line' => ['recipe_instance_line_id', 'sort_order']],
+    ],
   ];
+}
+
+
+/** Adds generic optional cost components to recipe instance lines. */
+function brebo_calculation_update_11006(): void {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_calculation_recipe_instance_cost_component')) {
+    $definitions = brebo_calculation_recipe_schema();
+    $schema->createTable('brebo_calculation_recipe_instance_cost_component', $definitions['brebo_calculation_recipe_instance_cost_component']);
+  }
 }
 
 /** Price source master record: document, email or other traceable source. */

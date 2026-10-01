@@ -110,6 +110,17 @@ final class DatabaseCalculationWorkspaceReadRepository implements CalculationWor
         }
       }
       unset($line);
+
+      foreach ($instance['lines'] as &$line) {
+        $line['cost_components'] = $this->database->select('brebo_calculation_recipe_instance_cost_component', 'c')
+          ->fields('c')
+          ->condition('recipe_instance_line_id', (int) $line['id'])
+          ->orderBy('sort_order')
+          ->orderBy('id')
+          ->execute()
+          ->fetchAll(\PDO::FETCH_ASSOC);
+      }
+      unset($line);
     }
     unset($instance);
 
