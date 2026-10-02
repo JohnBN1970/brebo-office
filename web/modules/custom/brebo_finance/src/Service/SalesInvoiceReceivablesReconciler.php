@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SalesInvoiceReceivablesRepositoryInterface;
 
 /** Reconciles Moneybird receivable state into existing BREBO sales invoices. */
 final class SalesInvoiceReceivablesReconciler {
@@ -12,7 +12,7 @@ final class SalesInvoiceReceivablesReconciler {
   private readonly VatCalculator $decimal;
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly SalesInvoiceReceivablesRepositoryInterface $repository,
     private readonly SalesInvoiceReceivablesIntegrationClient $client,
     private readonly BillingControlManager $billingControlManager,
     private readonly ReceivablesReconciliationMonitor $monitor,
@@ -32,8 +32,8 @@ final class SalesInvoiceReceivablesReconciler {
       foreach ($received as $source) {
         $moneybirdId = trim((string) ($source['id'] ?? ''));
         if ($moneybirdId === '') continue;
-        $existing = $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i')->condition('moneybird_id', $moneybirdId)->execute()->fetchAssoc();
-        if ($existing === FALSE) {
+        $existing = $this->repository->byMoneybirdId($moneybirdId);
+        if ($existing === NULL) {
           $result['unmatched']++;
           continue;
         }
@@ -66,34 +66,26 @@ final class SalesInvoiceReceivablesReconciler {
         }
 
         $existingDisputeReason = trim((string) ($existing['dispute_reason'] ?? ''));
-        $transaction = $this->database->startTransaction();
-        try {
-          $salesInvoiceId = $this->billingControlManager->synchronizeMoneybirdInvoice([
-            'project_nid' => (int) $existing['project_nid'],
-            'instalment_id' => $existing['instalment_id'] !== NULL ? (int) $existing['instalment_id'] : NULL,
-            'change_order_id' => $existing['change_order_id'] !== NULL ? (int) $existing['change_order_id'] : NULL,
-            'moneybird_id' => $moneybirdId,
-            'invoice_number' => trim((string) ($source['invoice_id'] ?? '')) ?: (string) $existing['invoice_number'],
-            'invoice_date' => $this->date($source['invoice_date'] ?? NULL) ?? (string) $existing['invoice_date'],
-            'due_date' => $this->date($source['due_date'] ?? NULL) ?? (string) $existing['due_date'],
-            'status' => $status,
-            'amount_ex_vat' => $totalEx,
-            'vat_amount' => $vat,
-            'amount_inc_vat' => $totalInc,
-            'paid_amount_inc_vat' => $paid,
-            'regular_account_amount' => (string) $existing['regular_account_amount'],
-            'g_account_amount' => (string) $existing['g_account_amount'],
-            'dispute_reason' => $existingDisputeReason !== '' ? $existingDisputeReason : ($status === 'disputed' ? 'Geschilstatus uit Moneybird.' : NULL),
-            'source_hash' => $sourceHash,
-            'recorded_at' => $recordedAt,
-          ], 0);
-          $this->monitor->invoiceUpdated((int) $existing['project_nid'], (int) $salesInvoiceId, $beforeHash, $sourceHash, $moneybirdId);
-        }
-        catch (\Throwable $error) {
-          $transaction->rollBack();
-          throw $error;
-        }
-        unset($transaction);
+        $salesInvoiceId = $this->billingControlManager->synchronizeMoneybirdInvoice([
+          'project_nid' => (int) $existing['project_nid'],
+          'instalment_id' => $existing['instalment_id'] !== NULL ? (int) $existing['instalment_id'] : NULL,
+          'change_order_id' => $existing['change_order_id'] !== NULL ? (int) $existing['change_order_id'] : NULL,
+          'moneybird_id' => $moneybirdId,
+          'invoice_number' => trim((string) ($source['invoice_id'] ?? '')) ?: (string) $existing['invoice_number'],
+          'invoice_date' => $this->date($source['invoice_date'] ?? NULL) ?? (string) $existing['invoice_date'],
+          'due_date' => $this->date($source['due_date'] ?? NULL) ?? (string) $existing['due_date'],
+          'status' => $status,
+          'amount_ex_vat' => $totalEx,
+          'vat_amount' => $vat,
+          'amount_inc_vat' => $totalInc,
+          'paid_amount_inc_vat' => $paid,
+          'regular_account_amount' => (string) $existing['regular_account_amount'],
+          'g_account_amount' => (string) $existing['g_account_amount'],
+          'dispute_reason' => $existingDisputeReason !== '' ? $existingDisputeReason : ($status === 'disputed' ? 'Geschilstatus uit Moneybird.' : NULL),
+          'source_hash' => $sourceHash,
+          'recorded_at' => $recordedAt,
+        ], 0);
+        $this->monitor->invoiceUpdated((int) $existing['project_nid'], (int) $salesInvoiceId, $beforeHash, $sourceHash, $moneybirdId);
         $result['updated']++;
       }
 
