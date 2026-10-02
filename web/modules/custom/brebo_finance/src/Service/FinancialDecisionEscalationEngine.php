@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinancialDecisionEscalationRepositoryInterface;
 
 /** Tracks reminder and escalation state for pending financial decisions. */
 final class FinancialDecisionEscalationEngine {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FinancialDecisionEscalationRepositoryInterface $repository,
     private readonly FinancialDecisionInbox $inbox,
     private readonly FinancialNotificationOutbox $notificationOutbox,
   ) {}
 
   /** @return list<array<string, mixed>> */
   public function evaluate(?int $projectNid = NULL): array {
-    $this->ensureStorage();
     $now = time();
     $actions = [];
 
@@ -25,7 +24,7 @@ final class FinancialDecisionEscalationEngine {
       $age = max(0, $now - (int) $item['created']);
       $deadline = $this->deadlineFor((string) $item['authorization']['level']);
       $dueAt = (int) $item['created'] + $deadline;
-      $state = $this->loadState((int) $item['exception_id']);
+      $state = $this->repository->state((int) $item['exception_id']);
 
       $attention = 'pending';
       $escalationLevel = 0;
@@ -48,7 +47,7 @@ final class FinancialDecisionEscalationEngine {
 
       $outboxId = NULL;
       if ($changed) {
-        $this->storeState((int) $item['exception_id'], (int) $item['project_nid'], $attention, $escalationLevel, $dueAt, $now);
+        $this->repository->store((int) $item['exception_id'], (int) $item['project_nid'], $attention, $escalationLevel, $dueAt, $now);
         $this->audit($item, $attention, $escalationLevel, $dueAt, $now);
         if (in_array($attention, ['reminder_due', 'overdue', 'assignment_escalation'], TRUE)) {
           $outboxId = $this->notificationOutbox->enqueue($item, $attention, $escalationLevel, $dueAt);
@@ -81,51 +80,8 @@ final class FinancialDecisionEscalationEngine {
     };
   }
 
-  private function ensureStorage(): void {
-    $schema = $this->database->schema();
-    if ($schema->tableExists('brebo_finance_decision_escalation')) return;
-    $schema->createTable('brebo_finance_decision_escalation', [
-      'description' => 'Reminder and escalation state for financial phase-gate decisions.',
-      'fields' => [
-        'exception_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'project_nid' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'attention' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
-        'escalation_level' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
-        'due_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-        'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
-      ],
-      'primary key' => ['exception_id'],
-      'indexes' => [
-        'project_attention' => ['project_nid', 'attention'],
-        'due_at' => ['due_at'],
-      ],
-    ]);
-  }
-
-  private function loadState(int $exceptionId): ?array {
-    $row = $this->database->select('brebo_finance_decision_escalation', 'e')
-      ->fields('e')
-      ->condition('exception_id', $exceptionId)
-      ->execute()
-      ->fetchAssoc();
-    return $row === FALSE ? NULL : $row;
-  }
-
-  private function storeState(int $exceptionId, int $projectNid, string $attention, int $level, int $dueAt, int $now): void {
-    $this->database->merge('brebo_finance_decision_escalation')
-      ->key(['exception_id' => $exceptionId])
-      ->fields([
-        'project_nid' => $projectNid,
-        'attention' => $attention,
-        'escalation_level' => $level,
-        'due_at' => $dueAt,
-        'changed' => $now,
-      ])
-      ->execute();
-  }
-
   private function audit(array $item, string $attention, int $level, int $dueAt, int $now): void {
-    $this->database->insert('brebo_finance_audit')->fields([
+    $this->repository->audit([
       'project_nid' => (int) $item['project_nid'],
       'entity_type' => 'financial_decision_escalation',
       'entity_id' => (int) $item['exception_id'],
@@ -140,7 +96,7 @@ final class FinancialDecisionEscalationEngine {
       'reason' => 'Automated financial decision reminder/escalation evaluation; no decision is made automatically.',
       'created' => $now,
       'created_by' => 0,
-    ])->execute();
+    ]);
   }
 
 }
