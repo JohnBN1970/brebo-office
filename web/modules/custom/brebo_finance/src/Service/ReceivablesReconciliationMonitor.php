@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinanceAuditRepositoryInterface;
 use Drupal\Core\State\StateInterface;
 
 /** Persists operational sync health and per-project reconciliation provenance. */
@@ -14,7 +14,7 @@ final class ReceivablesReconciliationMonitor {
 
   public function __construct(
     private readonly StateInterface $state,
-    private readonly Connection $database,
+    private readonly FinanceAuditRepositoryInterface $audit,
   ) {}
 
   /** @param array<string, int> $summary */
@@ -59,10 +59,10 @@ final class ReceivablesReconciliationMonitor {
 
   /** Records one project-scoped immutable provenance event in the existing audit trail. */
   public function invoiceUpdated(int $projectNid, int $salesInvoiceId, string $beforeHash, string $afterHash, string $moneybirdId): void {
-    if (!$this->database->schema()->tableExists('brebo_finance_audit')) {
+    if (!$this->audit->available()) {
       return;
     }
-    $this->database->insert('brebo_finance_audit')->fields([
+    $this->audit->append([
       'project_nid' => $projectNid,
       'entity_type' => 'sales_invoice',
       'entity_id' => $salesInvoiceId,
@@ -73,7 +73,7 @@ final class ReceivablesReconciliationMonitor {
       'reason' => 'Recurring Moneybird receivables reconciliation.',
       'created' => time(),
       'created_by' => NULL,
-    ])->execute();
+    ]);
   }
 
 }
