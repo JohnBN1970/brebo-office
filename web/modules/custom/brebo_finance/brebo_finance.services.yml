@@ -1,6 +1,14 @@
 services:
   brebo_finance.vat_calculator:
     class: Drupal\brebo_finance\Service\VatCalculator
+  brebo_finance.collection_receivables_repository:
+    class: Drupal\brebo_finance\Infrastructure\DrupalCollectionReceivablesRepository
+    arguments: ['@database', '@keyvalue']
+
+  brebo_finance.cash_flow_management_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseCashFlowManagementRepository
+    arguments: ['@database']
+
   brebo_finance.invoice_blocker_action_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoiceBlockerActionRepository
     arguments: ['@database']
