@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\CollectionInvoiceRepositoryInterface;
 
 /** Builds the immutable BREBO snapshot transferred to a collection provider. */
 final class CollectionDossierBuilder {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CollectionInvoiceRepositoryInterface $invoiceRepository,
     private readonly ReceivablesDunningManager $dunningManager,
   ) {}
 
@@ -28,12 +28,8 @@ final class CollectionDossierBuilder {
       throw new \InvalidArgumentException('Sales invoice id is required.');
     }
 
-    $invoice = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i', ['id', 'invoice_number', 'project_nid', 'invoice_date', 'due_date', 'status', 'amount_inc_vat', 'paid_amount_inc_vat'])
-      ->condition('id', $invoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if ($invoice === FALSE) {
+    $invoice = $this->invoiceRepository->get($invoiceId);
+    if ($invoice === NULL) {
       throw new \InvalidArgumentException('Verkoopfactuur niet gevonden.');
     }
 
