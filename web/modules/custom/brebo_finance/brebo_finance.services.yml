@@ -99,9 +99,12 @@ services:
   brebo_finance.financial_decision_inbox:
     class: Drupal\brebo_finance\Service\FinancialDecisionInbox
     arguments: ['@brebo_finance.financial_decision_inbox_repository', '@brebo_finance.financial_gate_exposure_resolver', '@brebo_finance.financial_approval_matrix', '@brebo_finance.financial_decision_assignment_resolver']
+  brebo_finance.financial_decision_escalation_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialDecisionEscalationRepository
+    arguments: ['@database']
   brebo_finance.financial_decision_escalation_engine:
     class: Drupal\brebo_finance\Service\FinancialDecisionEscalationEngine
-    arguments: ['@database', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_notification_outbox']
+    arguments: ['@brebo_finance.financial_decision_escalation_repository', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_notification_outbox']
   brebo_finance.financial_notification_outbox_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialNotificationOutboxRepository
     arguments: ['@database']
@@ -211,9 +214,12 @@ services:
   brebo_finance.bank_transaction_reconciliation_manager:
     class: Drupal\brebo_finance\Service\BankTransactionReconciliationManager
     arguments: ['@brebo_finance.bank_reconciliation_repository', '@brebo_finance.vat_calculator', '@brebo_finance.purchase_invoice_readback_gateway']
+  brebo_finance.project_financial_position_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseProjectFinancialPositionRepository
+    arguments: ['@database']
   brebo_finance.project_financial_position:
     class: Drupal\brebo_finance\Service\ProjectFinancialPosition
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.project_financial_position_repository', '@brebo_finance.vat_calculator']
   brebo_finance.project_financial_closure_manager:
     class: Drupal\brebo_finance\Service\ProjectFinancialClosureManager
     arguments: ['@database']
