@@ -20,11 +20,7 @@ final class ReceivablesActionForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      new ReceivablesDunningManager(
-        $container->get('database'),
-        $container->get('keyvalue'),
-        $container->get('config.factory'),
-      ),
+      new ReceivablesDunningManager($container->get('brebo_finance.receivables_dunning_repository'), $container->get('config.factory')),
       $container->get('plugin.manager.mail'),
     );
   }
