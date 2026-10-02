@@ -233,9 +233,13 @@ services:
   brebo_finance.purchase_invoice_action_manager:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceActionManager
     arguments: ['@database', '@brebo_finance.purchase_invoice_coding_manager', '@brebo_finance.performance_receipt_manager', '@brebo_finance.three_way_match_manager', '@brebo_finance.payment_release_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.finance_audit_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinanceAuditRepository
+    arguments: ['@database']
+
   brebo_finance.receivables_reconciliation_monitor:
     class: Drupal\brebo_finance\Service\ReceivablesReconciliationMonitor
-    arguments: ['@state', '@database']
+    arguments: ['@state', '@brebo_finance.finance_audit_repository']
   brebo_finance.sales_invoice_receivables_integration_client:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
     arguments: ['@http_client', '@config.factory']
