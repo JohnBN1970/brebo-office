@@ -118,9 +118,13 @@ services:
   brebo_finance.performance_evidence_review_manager:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceReviewManager
     arguments: ['@database', '@brebo_finance.performance_location_manager']
+  brebo_finance.performance_location_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePerformanceLocationRepository
+    arguments: ['@database']
+
   brebo_finance.performance_location_manager:
     class: Drupal\brebo_finance\Service\PerformanceLocationManager
-    arguments: ['@database', '@brebo_building_data.project_building_repository', '@brebo_building_data.object_repository']
+    arguments: ['@brebo_finance.performance_location_repository', '@brebo_building_data.project_building_repository', '@brebo_building_data.object_repository']
   brebo_finance.performance_receipt_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePerformanceReceiptRepository
     arguments: ['@database']
