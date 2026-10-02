@@ -6,8 +6,7 @@ namespace Drupal\brebo_building_data\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_building_data\Contract\AggregateTypeValidatorInterface;
 
 /**
  * Duplicate-safe storage and lookup for high-volume building relations.
@@ -16,7 +15,7 @@ final class BuildingRelationRepository {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly AggregateTypeValidatorInterface $aggregateTypeValidator,
     private readonly TimeInterface $time,
   ) {}
 
@@ -266,10 +265,7 @@ final class BuildingRelationRepository {
   }
 
   private function assertBuilding(int $buildingNid): void {
-    $node = $this->entityTypeManager->getStorage('node')->load($buildingNid);
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_building') {
-      throw new \InvalidArgumentException(sprintf('Node %d is geen BREBO-gebouw.', $buildingNid));
-    }
+    $this->aggregateTypeValidator->assertType($buildingNid, 'brebo_building');
   }
 
   /** @param array<string, mixed> $address */

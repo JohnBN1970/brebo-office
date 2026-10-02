@@ -1,21 +1,25 @@
 services:
+  brebo_building_data.aggregate_type_validator:
+    class: Drupal\brebo_building_data\Infrastructure\DrupalNodeAggregateTypeValidator
+    arguments: ['@entity_type.manager']
+
   brebo_building_data.repository:
     class: Drupal\brebo_building_data\Service\BuildingRelationRepository
-    arguments: ['@database', '@entity_type.manager', '@datetime.time']
+    arguments: ['@database', '@brebo_building_data.aggregate_type_validator', '@datetime.time']
 
   brebo_building_data.object_repository:
     class: Drupal\brebo_building_data\Service\BuildingObjectRepository
-    arguments: ['@database', '@entity_type.manager', '@datetime.time']
+    arguments: ['@database', '@brebo_building_data.aggregate_type_validator', '@datetime.time']
 
   brebo_building_data.project_building_repository:
     class: Drupal\brebo_building_data\Service\ProjectBuildingRepository
-    arguments: ['@database', '@entity_type.manager', '@datetime.time']
+    arguments: ['@database', '@brebo_building_data.aggregate_type_validator', '@datetime.time']
 
   brebo_building_data.truth_repository:
     class: Drupal\brebo_building_data\Service\BuildingTruthRepository
     arguments:
       - '@database'
-      - '@entity_type.manager'
+      - '@brebo_building_data.aggregate_type_validator'
       - '@datetime.time'
       - '@lock'
       - '@brebo_building_data.object_repository'
