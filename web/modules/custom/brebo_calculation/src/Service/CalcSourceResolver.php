@@ -34,13 +34,28 @@ final class CalcSourceResolver {
         throw new \InvalidArgumentException('Calc source type and ref are required.');
       }
 
-      $resolved = match ($type) {
-        'article' => $this->resolveArticle($ref, $context),
-        'norm' => $this->resolveNorm($ref, $context),
-        'project_labour' => $this->resolveProjectLabour($ref, $projectId),
-        default => throw new \InvalidArgumentException('Unsupported Calc source type: ' . $type),
-      };
-      $results[] = ['request_index' => $index, 'type' => $type, 'ref' => $ref] + $resolved;
+      try {
+        $resolved = match ($type) {
+          'article' => $this->resolveArticle($ref, $context),
+          'norm' => $this->resolveNorm($ref, $context),
+          'project_labour' => $this->resolveProjectLabour($ref, $projectId),
+          default => throw new \InvalidArgumentException('Unsupported Calc source type: ' . $type),
+        };
+        $results[] = ['request_index' => $index, 'type' => $type, 'ref' => $ref] + $resolved;
+      }
+      catch (\RuntimeException $e) {
+        $results[] = [
+          'request_index' => $index,
+          'type' => $type,
+          'ref' => $ref,
+          'status' => 'unresolved',
+          'value' => NULL,
+          'unit' => NULL,
+          'description' => '',
+          'source' => [],
+          'reason' => $e->getMessage(),
+        ];
+      }
     }
     return $results;
   }
