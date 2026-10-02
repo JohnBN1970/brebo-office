@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SupplierPerformanceRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -16,7 +16,7 @@ final class SupplierPerformanceScorecard {
   private const array METRICS = ['delivery', 'quality', 'invoice', 'price', 'failure_cost'];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly SupplierPerformanceRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -47,24 +47,17 @@ final class SupplierPerformanceScorecard {
       throw new InvalidArgumentException('Supplier score date must use YYYY-MM-DD.');
     }
 
-    $exists = (int) $this->database->select('brebo_finance_supplier_score_snapshot', 's')
-      ->condition('project_nid', $projectNid)
-      ->condition('supplier_ref', trim($supplierRef))
-      ->condition('snapshot_date', $date)
-      ->condition('policy_version', trim($policyVersion))
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ($exists > 0) {
+    $exists = $this->repository->snapshotExists($projectNid, $supplierRef, $date, $policyVersion);
+    if ($exists) {
       throw new RuntimeException('This immutable daily supplier score already exists.');
     }
 
-    $orders = $this->orders($projectNid, $supplierRef);
-    $receipts = $this->receipts($projectNid, array_column($orders, 'id'));
-    $invoices = $this->invoices($projectNid, $supplierRef);
+    $orders = $this->repository->orders($projectNid, $supplierRef);
+    $receipts = $this->repository->receipts($projectNid, array_column($orders, 'id'));
+    $invoices = $this->repository->invoices($projectNid, $supplierRef);
     $invoiceIds = array_map('intval', array_column($invoices, 'id'));
-    $variance = $this->invoiceVariance($invoiceIds);
-    $failureCost = $this->failureCost($projectNid, $supplierRef);
+    $variance = $this->repository->invoiceVariance($invoiceIds);
+    $failureCost = $this->repository->failureCost($projectNid, $supplierRef);
     $purchaseAmount = $this->sumRows($orders, 'amount_ex_vat');
     $invoiceAmount = $this->sumRows($invoices, 'amount_ex_vat');
 
@@ -134,8 +127,7 @@ final class SupplierPerformanceScorecard {
     );
 
     $now = time();
-    $snapshotId = (int) $this->database->insert('brebo_finance_supplier_score_snapshot')
-      ->fields([
+    $snapshotId = $this->repository->createSnapshot([
         'project_nid' => $projectNid,
         'supplier_ref' => trim($supplierRef),
         'supplier_name' => trim($supplierName),
@@ -159,14 +151,9 @@ final class SupplierPerformanceScorecard {
         'content_hash' => $contentHash,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
-
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+      ], [
         'project_nid' => $projectNid,
         'entity_type' => 'supplier_score_snapshot',
-        'entity_id' => $snapshotId,
         'action' => 'snapshot_created',
         'after_hash' => $contentHash,
         'payload' => json_encode([
@@ -178,9 +165,7 @@ final class SupplierPerformanceScorecard {
         'reason' => 'Immutable supplier score from sealed financial performance evidence.',
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
-
+      ]);
     return $snapshotId;
   }
 
@@ -290,74 +275,6 @@ final class SupplierPerformanceScorecard {
       }
     }
     return 'E';
-  }
-
-  /**
-   * @return list<array<string, mixed>>
-   */
-  private function orders(int $projectNid, string $supplierRef): array {
-    return $this->database->select('brebo_finance_commitment', 'c')
-      ->fields('c', ['id', 'amount_ex_vat', 'delivery_date'])
-      ->condition('project_nid', $projectNid)
-      ->condition('supplier_ref', trim($supplierRef))
-      ->condition('status', 'cancelled', '<>')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /**
-   * @param list<int|string> $commitmentIds
-   *
-   * @return list<array<string, mixed>>
-   */
-  private function receipts(int $projectNid, array $commitmentIds): array {
-    if ($commitmentIds === []) {
-      return [];
-    }
-    $query = $this->database->select('brebo_finance_performance_receipt', 'r');
-    $query->join('brebo_finance_commitment_line', 'l', 'l.id = r.commitment_line_id');
-    $query->join('brebo_finance_commitment', 'c', 'c.id = l.commitment_id');
-    $query->fields('r', ['id', 'performance_date', 'quality_accepted']);
-    $query->addField('c', 'delivery_date');
-    $query->condition('r.project_nid', $projectNid);
-    $query->condition('r.status', 'verified');
-    $query->condition('c.id', $commitmentIds, 'IN');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /**
-   * @return list<array<string, mixed>>
-   */
-  private function invoices(int $projectNid, string $supplierRef): array {
-    return $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i', ['id', 'amount_ex_vat', 'match_status'])
-      ->condition('project_nid', $projectNid)
-      ->condition('supplier_ref', trim($supplierRef))
-      ->condition('status', 'cancelled', '<>')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /**
-   * @param list<int> $invoiceIds
-   */
-  private function invoiceVariance(array $invoiceIds): string {
-    if ($invoiceIds === []) {
-      return '0.0000';
-    }
-    $query = $this->database->select('brebo_finance_purchase_invoice_line', 'l');
-    $query->condition('invoice_id', $invoiceIds, 'IN');
-    $query->addExpression('COALESCE(SUM(ABS(variance_amount_ex_vat)), 0)', 'total');
-    return (string) $query->execute()->fetchField();
-  }
-
-  private function failureCost(int $projectNid, string $supplierRef): string {
-    $query = $this->database->select('brebo_finance_failure_cost', 'f');
-    $query->condition('project_nid', $projectNid);
-    $query->condition('responsible_party_ref', trim($supplierRef));
-    $query->condition('status', ['validated', 'recovery_pending', 'closed'], 'IN');
-    $query->addExpression('COALESCE(SUM(net_failure_cost_ex_vat), 0)', 'total');
-    return (string) $query->execute()->fetchField();
   }
 
   /**
