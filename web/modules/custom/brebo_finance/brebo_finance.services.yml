@@ -56,9 +56,13 @@ services:
   brebo_finance.working_budget_approval_manager:
     class: Drupal\brebo_finance\Service\WorkingBudgetApprovalManager
     arguments: ['@brebo_finance.working_budget_approval_repository']
+  brebo_finance.financial_phase_gate_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialPhaseGateRepository
+    arguments: ['@database']
+
   brebo_finance.financial_phase_gate_manager:
     class: Drupal\brebo_finance\Service\FinancialPhaseGateManager
-    arguments: ['@database']
+    arguments: ['@brebo_finance.financial_phase_gate_repository']
   brebo_finance.financial_phase_gate_presenter:
     class: Drupal\brebo_finance\Service\FinancialPhaseGatePresenter
     arguments: ['@brebo_finance.financial_phase_gate_manager']
