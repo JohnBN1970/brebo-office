@@ -1,0 +1,90 @@
+name: Diagnose Inzet Confirm Runtime
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - '.github/workflows/inzet-confirm-runtime.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+
+    steps:
+      - name: Configure SSH
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
+
+      - name: Inspect project 4538 confirm prerequisites
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o ConnectTimeout=15 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE' | tee inzet-confirm-runtime.log
+          set -euo pipefail
+          app="$HOME/domains/brebobv.nl/public_html/sboffice"
+          php="/opt/alt/php83/usr/bin/php"
+          cd "$app"
+          "$php" -r '
+            chdir("web");
+            $autoloader = require_once "../vendor/autoload.php";
+            $request = Symfony\Component\HttpFoundation\Request::create("https://sboffice.brebobv.nl/");
+            $kernel = Drupal\Core\DrupalKernel::createFromRequest($request, $autoloader, "prod");
+            $kernel->boot();
+            $c = $kernel->getContainer();
+            $storage = $c->get("entity_type.manager")->getStorage("node");
+            $project = $storage->load(4538);
+            $team = [];
+            if ($project && $project->hasField("field_brebo_project_team")) {
+              foreach ($project->get("field_brebo_project_team")->referencedEntities() as $u) {
+                $team[] = ["uid" => (int) $u->id(), "name" => $u->getDisplayName(), "active" => $u->isActive()];
+              }
+            }
+            $ids = $storage->getQuery()->accessCheck(FALSE)
+              ->condition("type", "brebo_personnel_assignment")
+              ->condition("field_brebo_project_ref", 4538)
+              ->execute();
+            $assignments = [];
+            foreach ($storage->loadMultiple($ids) as $a) {
+              $assignments[] = [
+                "nid" => (int) $a->id(),
+                "uid" => (int) ($a->get("field_brebo_plan_user")->target_id ?? 0),
+                "date" => (string) ($a->get("field_brebo_plan_date")->value ?? ""),
+                "start" => (string) ($a->get("field_brebo_assignment_start")->value ?? ""),
+                "end" => (string) ($a->get("field_brebo_assignment_end")->value ?? ""),
+                "hours" => (string) ($a->get("field_brebo_planned_hours")->value ?? ""),
+                "budget_line" => (string) ($a->get("field_brebo_budget_line_id")->value ?? ""),
+                "status" => (string) ($a->get("field_brebo_assignment_status")->value ?? ""),
+              ];
+            }
+            $budget = $c->get("brebo_finance.labour_productivity_manager")->labourBudgetLines(4538);
+            $db = $c->get("database");
+            $watchdog = $db->schema()->tableExists("watchdog")
+              ? $db->select("watchdog", "w")->fields("w", ["wid","type","message","variables","severity","timestamp"])->condition("timestamp", time()-7200, ">=")->orderBy("wid","DESC")->range(0,30)->execute()->fetchAllAssoc("wid", PDO::FETCH_ASSOC)
+              : [];
+            echo json_encode(["project" => $project ? $project->label() : null, "team" => $team, "labour_budget" => $budget, "assignments" => $assignments, "recent_log" => array_values($watchdog)], JSON_UNESCAPED_SLASHES|JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT) . "\n";
+          '
+          REMOTE
+
+      - name: Upload diagnostic
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: inzet-confirm-runtime
+          path: inzet-confirm-runtime.log
+          retention-days: 3
