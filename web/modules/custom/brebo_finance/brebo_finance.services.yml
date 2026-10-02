@@ -66,9 +66,13 @@ services:
   brebo_finance.financial_phase_gate_presenter:
     class: Drupal\brebo_finance\Service\FinancialPhaseGatePresenter
     arguments: ['@brebo_finance.financial_phase_gate_manager']
+  brebo_finance.financial_gate_exposure_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialGateExposureRepository
+    arguments: ['@database']
+
   brebo_finance.financial_gate_exposure_resolver:
     class: Drupal\brebo_finance\Service\FinancialGateExposureResolver
-    arguments: ['@database']
+    arguments: ['@brebo_finance.financial_gate_exposure_repository']
   brebo_finance.financial_approval_matrix:
     class: Drupal\brebo_finance\Service\FinancialApprovalMatrix
   brebo_finance.financial_actor_gateway:
