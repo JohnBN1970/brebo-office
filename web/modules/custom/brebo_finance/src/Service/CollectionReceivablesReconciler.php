@@ -4,21 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_finance\Contract\CollectionReceivablesRepositoryInterface;
 
 /** Reconciles collection-provider status and payments into the canonical invoice mirror. */
 final class CollectionReceivablesReconciler {
 
-  private const TRANSFER_STORE = 'brebo_finance.collection_transfer';
-  private const AUDIT_STORE = 'brebo_finance.collection_reconciliation';
-
   private readonly VatCalculator $decimal;
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CollectionReceivablesRepositoryInterface $repository,
     private readonly CollectionTransferManager $transferManager,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
     ?VatCalculator $decimal = NULL,
   ) {
     $this->decimal = $decimal ?? new VatCalculator();
@@ -27,7 +22,7 @@ final class CollectionReceivablesReconciler {
   /** @return array{checked:int,updated:int,unchanged:int,failed:int} */
   public function sync(): array {
     $result = ['checked' => 0, 'updated' => 0, 'unchanged' => 0, 'failed' => 0];
-    $states = $this->keyValueFactory->get(self::TRANSFER_STORE)->getAll();
+    $states = $this->repository->transferStates();
 
     foreach ($states as $key => $stored) {
       if (!is_array($stored)) continue;
@@ -37,12 +32,8 @@ final class CollectionReceivablesReconciler {
 
       try {
         $remote = $this->transferManager->refresh($invoiceId);
-        $invoice = $this->database->select('brebo_finance_sales_invoice', 'i')
-          ->fields('i', ['id', 'status', 'amount_inc_vat', 'paid_amount_inc_vat'])
-          ->condition('id', $invoiceId)
-          ->execute()
-          ->fetchAssoc();
-        if ($invoice === FALSE) {
+        $invoice = $this->repository->invoice($invoiceId);
+        if ($invoice === NULL) {
           $result['failed']++;
           continue;
         }
@@ -65,14 +56,11 @@ final class CollectionReceivablesReconciler {
           $result['unchanged']++;
         }
         else {
-          $this->database->update('brebo_finance_sales_invoice')
-            ->fields(['paid_amount_inc_vat' => $effectivePaid, 'status' => $status, 'changed' => time(), 'changed_by' => 0])
-            ->condition('id', $invoiceId)
-            ->execute();
+          $this->repository->updateInvoice($invoiceId, $effectivePaid, $status, time());
           $result['updated']++;
         }
 
-        $this->keyValueFactory->get(self::AUDIT_STORE)->set((string) $invoiceId, [
+        $this->repository->recordAudit($invoiceId, [
           'sales_invoice_id' => $invoiceId,
           'provider' => (string) ($remote['provider'] ?? $stored['provider'] ?? ''),
           'external_id' => (string) ($remote['external_id'] ?? $stored['external_id'] ?? ''),
@@ -85,7 +73,7 @@ final class CollectionReceivablesReconciler {
       }
       catch (\Throwable $error) {
         $result['failed']++;
-        $this->keyValueFactory->get(self::AUDIT_STORE)->set((string) $invoiceId, [
+        $this->repository->recordAudit($invoiceId, [
           'sales_invoice_id' => $invoiceId,
           'error' => $error->getMessage(),
           'checked_at' => time(),

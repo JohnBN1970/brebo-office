@@ -6,12 +6,12 @@ namespace Drupal\brebo_finance\Service;
 
 use DateInterval;
 use DateTimeImmutable;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\CashFlowManagementRepositoryInterface;
 
 /** Builds an organisation-wide cashflow and receivables management view. */
 final class CashFlowManagementReportBuilder {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly CashFlowManagementRepositoryInterface $repository) {}
 
   /** @return array<string,mixed> */
   public function build(?string $asOf = NULL): array {
@@ -54,8 +54,7 @@ final class CashFlowManagementReportBuilder {
   /** @return array<string,float|int> */
   private function salesSummary(DateTimeImmutable $today): array {
     $result = ['invoiced' => 0.0, 'received' => 0.0, 'outstanding' => 0.0, 'overdue' => 0.0, 'disputed' => 0.0, 'open_count' => 0];
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice')) return $result;
-    $rows = $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i', ['status','amount_inc_vat','paid_amount_inc_vat','due_date'])->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->salesInvoices();
     foreach ($rows as $row) {
       $total = (float) $row['amount_inc_vat'];
       $paid = min($total, max(0.0, (float) $row['paid_amount_inc_vat']));
@@ -74,11 +73,7 @@ final class CashFlowManagementReportBuilder {
 
   /** @return list<array<string,mixed>> */
   private function overdueInvoices(DateTimeImmutable $today): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice')) return [];
-    $rows = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i', ['id','invoice_number','project_nid','due_date','status','amount_inc_vat','paid_amount_inc_vat'])
-      ->condition('due_date', $today->format('Y-m-d'), '<')
-      ->orderBy('due_date', 'ASC')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->overdueSalesInvoices($today->format('Y-m-d'));
     $result = [];
     foreach ($rows as $row) {
       $total = (float) $row['amount_inc_vat'];
@@ -101,10 +96,7 @@ final class CashFlowManagementReportBuilder {
 
   /** @return list<array<string,mixed>> */
   private function projectReceivables(DateTimeImmutable $today): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice')) return [];
-    $rows = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i', ['project_nid','due_date','amount_inc_vat','paid_amount_inc_vat'])
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->salesInvoices();
     $projects = [];
     foreach ($rows as $row) {
       $project = (int) $row['project_nid'];
@@ -126,14 +118,7 @@ final class CashFlowManagementReportBuilder {
 
   /** @return list<array<string,mixed>> */
   private function weeks(DateTimeImmutable $start, DateTimeImmutable $end): array {
-    $events = [];
-    if ($this->database->schema()->tableExists('brebo_finance_cash_event')) {
-      $events = $this->database->select('brebo_finance_cash_event', 'e')
-        ->fields('e', ['direction','amount_inc_vat','due_date','status','account_bucket','description','project_nid'])
-        ->condition('status', ['confirmed','expected'], 'IN')
-        ->condition('due_date', $end->format('Y-m-d'), '<=')
-        ->orderBy('due_date')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    }
+    $events = $this->repository->cashEventsUntil($end->format('Y-m-d'));
 
     $weeks = [];
     for ($week = 0; $week < 13; $week++) {

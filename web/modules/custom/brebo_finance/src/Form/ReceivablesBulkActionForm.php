@@ -43,7 +43,7 @@ final class ReceivablesBulkActionForm extends FormBase {
     $builder = new CollectionDossierBuilder($container->get('database'), $dunning);
     $provider = new NlLegalCollectionProvider($container->get('http_client'), $container->get('config.factory'));
     $transfer = new CollectionTransferManager($resolver, $profiles, $builder, $provider, $container->get('keyvalue'));
-    $reconciler = new CollectionReceivablesReconciler($container->get('database'), $transfer, $container->get('keyvalue'));
+    $reconciler = new CollectionReceivablesReconciler($container->get('brebo_finance.collection_receivables_repository'), $transfer);
     return new static($container->get('database'), $dunning, $container->get('plugin.manager.mail'), $resolver, $profiles, $transfer, $reconciler, $container->get('keyvalue'));
   }
 
