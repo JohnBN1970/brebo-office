@@ -127,9 +127,12 @@ services:
     arguments: ['@brebo_finance.commitment_repository', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer', '@brebo_finance.commitment_number_issuer']
   brebo_finance.performance_evidence_requirement_resolver:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceRequirementResolver
+  brebo_finance.performance_evidence_review_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePerformanceEvidenceReviewRepository
+    arguments: ['@database']
   brebo_finance.performance_evidence_review_manager:
     class: Drupal\brebo_finance\Service\PerformanceEvidenceReviewManager
-    arguments: ['@database', '@brebo_finance.performance_location_manager']
+    arguments: ['@brebo_finance.performance_evidence_review_repository', '@brebo_finance.performance_location_manager']
   brebo_finance.performance_location_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePerformanceLocationRepository
     arguments: ['@database']
