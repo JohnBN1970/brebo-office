@@ -109,6 +109,17 @@ services:
     tags:
       - { name: event_subscriber }
 
+
+  brebo_office_core.project_scope_decision_repository:
+    class: Drupal\brebo_office_core\Infrastructure\DatabaseProjectScopeDecisionRepository
+    arguments:
+      - '@database'
+
+  brebo_office_core.project_scope_truth:
+    class: Drupal\brebo_office_core\Service\ProjectScopeTruthService
+    arguments:
+      - '@brebo_office_core.project_scope_decision_repository'
+
   logger.channel.brebo_office_core:
     parent: logger.channel_base
     arguments:
