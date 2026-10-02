@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
+use Drupal\brebo_finance\Infrastructure\DatabaseFinancialEuroTraceRepository;
 use Drupal\Core\Database\Connection;
 
 /** Persists Euro Trace anomalies as deterministic financial control findings. */
@@ -24,7 +25,7 @@ final class FinancialEuroTraceFindingSynchronizer {
     private readonly Connection $database,
     ?FinancialEuroTraceControl $control = NULL,
   ) {
-    $this->control = $control ?? new FinancialEuroTraceControl(new FinancialEuroTrace($database));
+    $this->control = $control ?? new FinancialEuroTraceControl(new FinancialEuroTrace(new DatabaseFinancialEuroTraceRepository($database)));
   }
 
   /** @return array<string, mixed> */
