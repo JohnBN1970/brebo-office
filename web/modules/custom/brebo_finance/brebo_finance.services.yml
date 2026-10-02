@@ -216,9 +216,12 @@ services:
   brebo_finance.controller_briefing_builder:
     class: Drupal\brebo_finance\Service\ControllerBriefingBuilder
     arguments: ['@brebo_finance.control_finding_read_repository']
+  brebo_finance.financial_scenario_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialScenarioRepository
+    arguments: ['@database']
   brebo_finance.financial_scenario_engine:
     class: Drupal\brebo_finance\Service\FinancialScenarioEngine
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.financial_scenario_repository', '@brebo_finance.vat_calculator']
   brebo_finance.building_cost_intelligence_manager:
     class: Drupal\brebo_finance\Service\BuildingCostIntelligenceManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
@@ -231,9 +234,12 @@ services:
   brebo_finance.supplier_performance_scorecard:
     class: Drupal\brebo_finance\Service\SupplierPerformanceScorecard
     arguments: ['@database', '@brebo_finance.vat_calculator']
+  brebo_finance.failure_cost_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFailureCostRepository
+    arguments: ['@database']
   brebo_finance.failure_cost_manager:
     class: Drupal\brebo_finance\Service\FailureCostManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.failure_cost_repository', '@brebo_finance.vat_calculator']
   brebo_finance.change_order_manager:
     class: Drupal\brebo_finance\Service\ChangeOrderManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
