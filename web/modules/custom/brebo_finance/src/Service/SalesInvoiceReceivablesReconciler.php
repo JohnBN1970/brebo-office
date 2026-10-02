@@ -86,7 +86,6 @@ final class SalesInvoiceReceivablesReconciler {
           'recorded_at' => $recordedAt,
         ], 0);
         $this->monitor->invoiceUpdated((int) $existing['project_nid'], (int) $salesInvoiceId, $beforeHash, $sourceHash, $moneybirdId);
-      }
         $result['updated']++;
       }
 
