@@ -139,9 +139,13 @@ services:
   brebo_finance.purchase_invoice_coding_manager:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceCodingManager
     arguments: ['@database']
+  brebo_finance.invoice_performance_source_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseInvoicePerformanceSourceRepository
+    arguments: ['@database']
+
   brebo_finance.invoice_performance_blocker_resolver:
     class: Drupal\brebo_finance\Service\InvoicePerformanceBlockerResolver
-    arguments: ['@database']
+    arguments: ['@brebo_finance.invoice_performance_source_repository']
   brebo_finance.purchase_invoice_control_view_builder:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder
     arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
