@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ControlFindingReadRepositoryInterface;
 
 /**
  * Turns controller findings into a concise, decision-oriented daily briefing.
@@ -18,7 +18,7 @@ final class ControllerBriefingBuilder {
     'low' => 1,
   ];
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ControlFindingReadRepositoryInterface $repository) {}
 
   /**
    * Builds a briefing without inventing owners, deadlines or financial impact.
@@ -80,29 +80,7 @@ final class ControllerBriefingBuilder {
    * @return list<array<string, mixed>>
    */
   private function openFindings(int $projectNid): array {
-    return $this->database->select('brebo_finance_control_finding', 'f')
-      ->fields('f', [
-        'id',
-        'control_code',
-        'origin',
-        'severity',
-        'status',
-        'source_type',
-        'source_id',
-        'title',
-        'cause',
-        'consequence',
-        'control_measure',
-        'owner_uid',
-        'due_date',
-        'payload',
-        'detected',
-        'last_seen',
-      ])
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['open', 'pending_verification'], 'IN')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->openForProject($projectNid);
   }
 
   /**
