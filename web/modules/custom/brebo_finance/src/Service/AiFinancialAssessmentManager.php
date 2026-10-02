@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\AiFinancialAssessmentRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -13,7 +13,7 @@ use UnexpectedValueException;
  */
 final class AiFinancialAssessmentManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly AiFinancialAssessmentRepositoryInterface $repository) {}
 
   /**
    * Stores one model output with its exact evidence and provenance.
@@ -64,8 +64,7 @@ final class AiFinancialAssessmentManager {
     $outputJson = json_encode($output, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $now = time();
 
-    return (int) $this->database->insert('brebo_finance_ai_assessment')
-      ->fields([
+    return $this->repository->createAssessment([
         'project_nid' => $projectNid,
         'assessment_type' => trim($assessmentType),
         'source_type' => trim($sourceType),
@@ -88,8 +87,7 @@ final class AiFinancialAssessmentManager {
         'created_by' => $systemUserId,
         'changed' => $now,
         'changed_by' => $systemUserId,
-      ])
-      ->execute();
+      ]);
   }
 
   /**
@@ -113,71 +111,37 @@ final class AiFinancialAssessmentManager {
       throw new InvalidArgumentException('Accepted AI advice requires a human owner.');
     }
 
-    $assessment = $this->database->select('brebo_finance_ai_assessment', 'a')
-      ->fields('a')
-      ->condition('id', $assessmentId)
-      ->execute()
-      ->fetchAssoc();
-    if ($assessment === FALSE || $assessment['status'] !== 'pending_review') {
+    $assessment = $this->repository->assessment($assessmentId);
+    if ($assessment === NULL || $assessment['status'] !== 'pending_review') {
       throw new UnexpectedValueException('A pending AI assessment is required.');
     }
 
-    $transaction = $this->database->startTransaction();
-    try {
-      $now = time();
-      $findingId = NULL;
-      if ($decision === 'accepted') {
-        $findingId = (int) $this->database->insert('brebo_finance_control_finding')
-          ->fields([
-            'project_nid' => $assessment['project_nid'],
-            'control_code' => 'AI-' . strtoupper(substr(hash('sha256', (string) $assessmentId), 0, 12)),
-            'origin' => 'ai_reviewed',
-            'severity' => $assessment['severity'],
-            'source_type' => $assessment['source_type'],
-            'source_id' => $assessment['source_id'],
-            'title' => $assessment['title'],
-            'cause' => $assessment['analysis'],
-            'consequence' => 'AI-signaal is door een bevoegde medewerker relevant verklaard; menselijke verificatie en opvolging zijn vereist.',
-            'control_measure' => $assessment['recommendation'],
-            'owner_uid' => $ownerUid,
-            'due_date' => $dueDate,
-            'status' => 'open',
-            'detected' => $now,
-            'last_seen' => $now,
-            'payload' => json_encode([
-              'assessment_id' => $assessmentId,
-              'confidence' => $assessment['confidence'],
-              'input_hash' => $assessment['input_hash'],
-              'output_hash' => $assessment['output_hash'],
-              'human_review_note' => trim($note),
-            ], JSON_THROW_ON_ERROR),
-            'created' => $now,
-            'created_by' => $reviewerUid,
-            'changed' => $now,
-            'changed_by' => $reviewerUid,
-          ])
-          ->execute();
-      }
-
-      $this->database->update('brebo_finance_ai_assessment')
-        ->fields([
-          'status' => $decision,
-          'control_finding_id' => $findingId,
-          'reviewed' => $now,
-          'reviewed_by' => $reviewerUid,
-          'review_note' => trim($note),
-          'changed' => $now,
-          'changed_by' => $reviewerUid,
-        ])
-        ->condition('id', $assessmentId)
-        ->execute();
-
-      return $findingId;
+    $now = time();
+    $findingFields = [];
+    if ($decision === 'accepted') {
+      $findingFields = [
+        'project_nid' => $assessment['project_nid'],
+        'control_code' => 'AI-' . strtoupper(substr(hash('sha256', (string) $assessmentId), 0, 12)),
+        'origin' => 'ai_reviewed',
+        'severity' => $assessment['severity'],
+        'source_type' => $assessment['source_type'],
+        'source_id' => $assessment['source_id'],
+        'title' => $assessment['title'],
+        'cause' => $assessment['analysis'],
+        'consequence' => 'AI-signaal is door een bevoegde medewerker relevant verklaard; menselijke verificatie en opvolging zijn vereist.',
+        'control_measure' => $assessment['recommendation'],
+        'owner_uid' => $ownerUid,
+        'due_date' => $dueDate,
+        'status' => 'open',
+        'detected' => $now,
+        'last_seen' => $now,
+        'payload' => json_encode(['assessment_id'=>$assessmentId,'confidence'=>$assessment['confidence'],'input_hash'=>$assessment['input_hash'],'output_hash'=>$assessment['output_hash'],'human_review_note'=>trim($note)], JSON_THROW_ON_ERROR),
+        'created' => $now, 'created_by' => $reviewerUid, 'changed' => $now, 'changed_by' => $reviewerUid,
+      ];
     }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
+    return $this->repository->review($assessmentId, $findingFields, [
+      'status'=>$decision,'reviewed'=>$now,'reviewed_by'=>$reviewerUid,'review_note'=>trim($note),'changed'=>$now,'changed_by'=>$reviewerUid,
+    ], $decision === 'accepted');
   }
 
 }
