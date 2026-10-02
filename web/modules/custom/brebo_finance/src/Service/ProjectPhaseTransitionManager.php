@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_finance\Contract\ProjectLifecycleGatewayInterface;
 use Drupal\brebo_office_core\Project\ProjectLifecycle;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ProjectTransitionFinanceRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -27,7 +27,7 @@ final class ProjectPhaseTransitionManager {
   ];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectTransitionFinanceRepositoryInterface $finance,
     private readonly ProjectLifecycleGatewayInterface $projects,
     private readonly FinancialPhaseGateManager $phaseGateManager,
   ) {}
@@ -61,7 +61,7 @@ final class ProjectPhaseTransitionManager {
     }
     $before = $result['before'];
 
-    $this->database->insert('brebo_finance_audit')->fields([
+    $this->finance->appendAudit([
       'project_nid' => $projectNid,
       'entity_type' => 'project_phase',
       'entity_id' => $projectNid,
@@ -77,34 +77,21 @@ final class ProjectPhaseTransitionManager {
       'reason' => trim($reason),
       'created' => time(),
       'created_by' => $actorUid,
-    ])->execute();
+    ]);
   }
 
   /**
    * Prevents closeout while material financial administration remains open.
    */
   private function assertCloseoutReady(int $projectNid): void {
-    $openCommitments = (int) $this->database->select('brebo_finance_commitment', 'c')
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['cancelled', 'closed'], 'NOT IN')
-      ->countQuery()->execute()->fetchField();
-    if ($openCommitments > 0) {
+    $open = $this->finance->openAdministration($projectNid);
+    if ($open['commitments'] > 0) {
       throw new RuntimeException('Project closeout is blocked while purchase commitments remain open.');
     }
-
-    $openInvoices = (int) $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['paid', 'cancelled'], 'NOT IN')
-      ->countQuery()->execute()->fetchField();
-    if ($openInvoices > 0) {
+    if ($open['purchase_invoices'] > 0) {
       throw new RuntimeException('Project closeout is blocked while purchase invoices remain unpaid or unresolved.');
     }
-
-    $openBilling = (int) $this->database->select('brebo_finance_billing_instalment', 'b')
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['paid', 'cancelled'], 'NOT IN')
-      ->countQuery()->execute()->fetchField();
-    if ($openBilling > 0) {
+    if ($open['billing_instalments'] > 0) {
       throw new RuntimeException('Project closeout is blocked while billing instalments remain open.');
     }
   }

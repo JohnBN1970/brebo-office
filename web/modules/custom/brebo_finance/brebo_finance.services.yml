@@ -86,9 +86,13 @@ services:
   brebo_finance.financial_notification_outbox:
     class: Drupal\brebo_finance\Service\FinancialNotificationOutbox
     arguments: ['@database', '@queue']
+  brebo_finance.project_transition_finance_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseProjectTransitionFinanceRepository
+    arguments: ['@database']
+
   brebo_finance.project_phase_transition_manager:
     class: Drupal\brebo_finance\Service\ProjectPhaseTransitionManager
-    arguments: ['@database', '@brebo_finance.project_lifecycle_gateway', '@brebo_finance.financial_phase_gate_manager']
+    arguments: ['@brebo_finance.project_transition_finance_repository', '@brebo_finance.project_lifecycle_gateway', '@brebo_finance.financial_phase_gate_manager']
   brebo_finance.commitment_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseCommitmentRepository
     arguments: ['@database']
