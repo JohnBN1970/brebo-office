@@ -84,9 +84,13 @@ services:
   brebo_finance.financial_decision_assignment_resolver:
     class: Drupal\brebo_finance\Service\FinancialDecisionAssignmentResolver
     arguments: ['@brebo_finance.financial_actor_gateway']
+  brebo_finance.financial_decision_inbox_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialDecisionInboxRepository
+    arguments: ['@database']
+
   brebo_finance.financial_decision_inbox:
     class: Drupal\brebo_finance\Service\FinancialDecisionInbox
-    arguments: ['@database', '@brebo_finance.financial_gate_exposure_resolver', '@brebo_finance.financial_approval_matrix', '@brebo_finance.financial_decision_assignment_resolver']
+    arguments: ['@brebo_finance.financial_decision_inbox_repository', '@brebo_finance.financial_gate_exposure_resolver', '@brebo_finance.financial_approval_matrix', '@brebo_finance.financial_decision_assignment_resolver']
   brebo_finance.financial_decision_escalation_engine:
     class: Drupal\brebo_finance\Service\FinancialDecisionEscalationEngine
     arguments: ['@database', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_notification_outbox']
