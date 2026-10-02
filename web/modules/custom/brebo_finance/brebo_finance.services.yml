@@ -256,9 +256,12 @@ services:
   brebo_finance.financial_project_ledger:
     class: Drupal\brebo_finance\Service\FinancialProjectLedger
     arguments: ['@brebo_finance.financial_project_ledger_repository', '@brebo_finance.invoice_performance_blocker_resolver']
+  brebo_finance.financial_euro_trace_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialEuroTraceRepository
+    arguments: ['@database']
   brebo_finance.financial_euro_trace:
     class: Drupal\brebo_finance\Service\FinancialEuroTrace
-    arguments: ['@database']
+    arguments: ['@brebo_finance.financial_euro_trace_repository']
   brebo_finance.financial_euro_trace_finding_synchronizer:
     class: Drupal\brebo_finance\Service\FinancialEuroTraceFindingSynchronizer
     arguments: ['@database']
@@ -275,9 +278,12 @@ services:
   brebo_finance.sales_invoice_receivables_integration_client:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
     arguments: ['@http_client', '@config.factory']
+  brebo_finance.sales_invoice_receivables_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseSalesInvoiceReceivablesRepository
+    arguments: ['@database']
   brebo_finance.sales_invoice_receivables_reconciler:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesReconciler
-    arguments: ['@database', '@brebo_finance.sales_invoice_receivables_integration_client', '@brebo_finance.billing_control_manager', '@brebo_finance.receivables_reconciliation_monitor']
+    arguments: ['@brebo_finance.sales_invoice_receivables_repository', '@brebo_finance.sales_invoice_receivables_integration_client', '@brebo_finance.billing_control_manager', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.purchase_invoice_integration_client:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient
     arguments: ['@http_client']
