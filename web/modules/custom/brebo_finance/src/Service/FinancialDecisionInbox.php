@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinancialDecisionInboxRepositoryInterface;
 
 /** Builds the central financial decision inbox from pending gate exceptions. */
 final class FinancialDecisionInbox {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FinancialDecisionInboxRepositoryInterface $repository,
     private readonly FinancialGateExposureResolver $exposureResolver,
     private readonly FinancialApprovalMatrix $approvalMatrix,
     private readonly FinancialDecisionAssignmentResolver $assignmentResolver,
@@ -18,15 +18,10 @@ final class FinancialDecisionInbox {
 
   /** @return list<array<string, mixed>> */
   public function pending(?int $projectNid = NULL): array {
-    $query = $this->database->select('brebo_finance_phase_gate_exception', 'e')
-      ->fields('e')
-      ->condition('status', 'requested')
-      ->condition('expires_at', time(), '>')
-      ->orderBy('created', 'ASC');
-    if ($projectNid !== NULL) $query->condition('project_nid', $projectNid);
+    $rows = $this->repository->pending($projectNid, time());
 
     $items = [];
-    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+    foreach ($rows as $row) {
       $findingIds = json_decode((string) $row['finding_ids'], TRUE, 512, JSON_THROW_ON_ERROR);
       $findingIds = array_values(array_map('intval', is_array($findingIds) ? $findingIds : []));
       $exposure = $this->exposureResolver->resolve((int) $row['project_nid'], $findingIds);
