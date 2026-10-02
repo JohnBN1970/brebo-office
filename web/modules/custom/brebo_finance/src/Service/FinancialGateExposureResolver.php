@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinancialGateExposureRepositoryInterface;
 use UnexpectedValueException;
 
 /** Resolves monetary exposure for gate exceptions from blocking findings. */
 final class FinancialGateExposureResolver {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly FinancialGateExposureRepositoryInterface $repository) {}
 
   /**
    * @param list<int> $findingIds
@@ -22,12 +22,7 @@ final class FinancialGateExposureResolver {
       return ['exposure_amount' => '0.00', 'finding_exposures' => [], 'unresolved' => []];
     }
 
-    $rows = $this->database->select('brebo_finance_control_finding', 'f')
-      ->fields('f', ['id', 'project_nid', 'control_code', 'source_type', 'source_id', 'payload'])
-      ->condition('project_nid', $projectNid)
-      ->condition('id', $findingIds, 'IN')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->findings($projectNid, $findingIds);
 
     if (count($rows) !== count($findingIds)) {
       throw new UnexpectedValueException('One or more financial findings do not belong to this project.');
