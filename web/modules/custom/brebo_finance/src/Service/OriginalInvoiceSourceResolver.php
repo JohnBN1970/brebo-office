@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\OriginalInvoiceSourceRepositoryInterface;
 use Drupal\file\FileInterface;
 
 /** Resolves the canonical source document behind a Finance purchase invoice. */
 final class OriginalInvoiceSourceResolver {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly OriginalInvoiceSourceRepositoryInterface $repository) {}
 
   /**
    * @param callable(int): ?FileInterface $fileLoader
@@ -18,18 +18,11 @@ final class OriginalInvoiceSourceResolver {
    * @return array{file: FileInterface, filename: string, mime_type: string}|null
    */
   public function resolve(int $invoiceId, callable $fileLoader): ?array {
-    if ($invoiceId <= 0 || !$this->database->schema()->tableExists('brebo_finance_audit')) {
+    if ($invoiceId <= 0 || !$this->repository->available()) {
       return NULL;
     }
 
-    $rows = $this->database->select('brebo_finance_audit', 'a')
-      ->fields('a', ['payload'])
-      ->condition('entity_type', 'purchase_invoice')
-      ->condition('entity_id', $invoiceId)
-      ->condition('action', 'source_neutral_invoice_received')
-      ->orderBy('created', 'DESC')
-      ->execute()
-      ->fetchCol();
+    $rows = $this->repository->payloads($invoiceId);
 
     foreach ($rows as $encoded) {
       $payload = json_decode((string) $encoded, TRUE);
