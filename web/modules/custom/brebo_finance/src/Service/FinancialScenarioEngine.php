@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinancialScenarioRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -14,7 +14,7 @@ use RuntimeException;
 final class FinancialScenarioEngine {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FinancialScenarioRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -64,8 +64,7 @@ final class FinancialScenarioEngine {
       'evidence' => $data['assumption_evidence'],
     ];
     $now = time();
-    return (int) $this->database->insert('brebo_finance_scenario')
-      ->fields([
+    return $this->repository->create([
         'project_nid' => (int) $data['project_nid'],
         'scenario_name' => (string) $data['scenario_name'],
         'scenario_type' => (string) $data['scenario_type'],
@@ -85,7 +84,7 @@ final class FinancialScenarioEngine {
         'created_by' => $actorUid,
         'changed' => $now,
         'changed_by' => $actorUid,
-      ])->execute();
+      ]);
   }
 
   /**
@@ -96,21 +95,15 @@ final class FinancialScenarioEngine {
    * @return array<string, mixed>
    */
   public function activateAndCalculate(int $scenarioId, int $forecastSnapshotId, int $approverUid): array {
-    $scenario = $this->database->select('brebo_finance_scenario', 's')
-      ->fields('s')
-      ->condition('id', $scenarioId)
-      ->execute()->fetchAssoc();
-    if ($scenario === FALSE || $scenario['status'] !== 'draft') {
+    $scenario = $this->repository->scenario($scenarioId);
+    if ($scenario === NULL || $scenario['status'] !== 'draft') {
       throw new RuntimeException('Only a draft scenario can be activated.');
     }
     if ((int) $scenario['created_by'] === $approverUid) {
       throw new RuntimeException('A second person must approve the scenario assumptions.');
     }
-    $forecast = $this->database->select('brebo_finance_forecast_snapshot', 'f')
-      ->fields('f')
-      ->condition('id', $forecastSnapshotId)
-      ->execute()->fetchAssoc();
-    if ($forecast === FALSE || (int) $forecast['project_nid'] !== (int) $scenario['project_nid']) {
+    $forecast = $this->repository->forecast($forecastSnapshotId);
+    if ($forecast === NULL || (int) $forecast['project_nid'] !== (int) $scenario['project_nid']) {
       throw new RuntimeException('Scenario and forecast must belong to the same project.');
     }
 
@@ -151,8 +144,7 @@ final class FinancialScenarioEngine {
     ];
     $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     $now = time();
-    $snapshotId = (int) $this->database->insert('brebo_finance_scenario_snapshot')
-      ->fields([
+    $snapshotId = $this->repository->createSnapshot([
         'project_nid' => (int) $scenario['project_nid'],
         'scenario_id' => $scenarioId,
         'forecast_snapshot_id' => $forecastSnapshotId,
@@ -168,17 +160,14 @@ final class FinancialScenarioEngine {
         'content_hash' => $hash,
         'created' => $now,
         'created_by' => $approverUid,
-      ])->execute();
-    $this->database->update('brebo_finance_scenario')
-      ->fields([
+      ]);
+    $this->repository->updateScenario($scenarioId, [
         'status' => 'active',
         'approved' => $now,
         'approved_by' => $approverUid,
         'changed' => $now,
         'changed_by' => $approverUid,
-      ])
-      ->condition('id', $scenarioId)
-      ->execute();
+      ]);
 
     return ['id' => $snapshotId, 'content_hash' => $hash] + $payload;
   }

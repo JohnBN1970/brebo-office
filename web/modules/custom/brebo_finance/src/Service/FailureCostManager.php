@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FailureCostRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -28,7 +28,7 @@ final class FailureCostManager {
   ];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FailureCostRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -98,8 +98,7 @@ final class FailureCostManager {
 
     $evidenceJson = json_encode($evidence, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $now = time();
-    $id = (int) $this->database->insert('brebo_finance_failure_cost')
-      ->fields([
+    $id = $this->repository->create([
         'project_nid' => $projectNid,
         'failure_number' => trim($failureNumber),
         'status' => 'observed',
@@ -131,8 +130,7 @@ final class FailureCostManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->execute();
+      ]);
 
     $this->audit($projectNid, $id, 'failure_recorded', NULL, $this->hash($this->load($id)), [
       'total_cost_ex_vat' => $total,
@@ -250,12 +248,8 @@ final class FailureCostManager {
    * @return array<string, mixed>
    */
   private function load(int $failureId): array {
-    $failure = $this->database->select('brebo_finance_failure_cost', 'f')
-      ->fields('f')
-      ->condition('id', $failureId)
-      ->execute()
-      ->fetchAssoc();
-    if ($failure === FALSE) {
+    $failure = $this->repository->load($failureId);
+    if ($failure === NULL) {
       throw new UnexpectedValueException('Failure-cost record does not exist.');
     }
     return $failure;
@@ -276,10 +270,7 @@ final class FailureCostManager {
   ): void {
     $before = $this->hash($failure);
     $now = time();
-    $this->database->update('brebo_finance_failure_cost')
-      ->fields($fields + ['changed' => $now, 'changed_by' => $userId])
-      ->condition('id', $failure['id'])
-      ->execute();
+    $this->repository->update((int) $failure['id'], $fields + ['changed' => $now, 'changed_by' => $userId]);
     $after = $this->load((int) $failure['id']);
     $this->audit(
       (int) $failure['project_nid'],
@@ -327,8 +318,7 @@ final class FailureCostManager {
     int $userId,
     int $now,
   ): void {
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->audit([
         'project_nid' => $projectNid,
         'entity_type' => 'failure_cost',
         'entity_id' => $failureId,
@@ -339,8 +329,7 @@ final class FailureCostManager {
         'reason' => $reason,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
 }
