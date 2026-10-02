@@ -17,33 +17,33 @@ final class CalcResultSnapshotService {
   public function publish(int $calculationId, array $payload, int $actorId): array {
     $officeVersion = trim((string) ($payload['office_version'] ?? ''));
     $calcVersion = trim((string) ($payload['calc_version'] ?? ''));
-    $lines = $payload['lines'] ?? NULL;
-    $totals = $payload['totals'] ?? NULL;
-    if ($calculationId <= 0 || $actorId <= 0 || $officeVersion === '' || $calcVersion === '' || !is_array($lines) || !is_array($totals)) {
-      throw new \InvalidArgumentException('calculation, office_version, calc_version, lines and totals are required.');
-    }
-    if (count($lines) > 5000) {
-      throw new \InvalidArgumentException('Calc result contains too many lines.');
+    $summary = $payload['commercial_summary'] ?? NULL;
+    if ($calculationId <= 0 || $actorId <= 0 || $officeVersion === '' || $calcVersion === '' || !is_array($summary)) {
+      throw new \InvalidArgumentException('calculation, office_version, calc_version and commercial_summary are required.');
     }
 
-    foreach (['direct_cost', 'markup_amount', 'sales_price'] as $key) {
-      if (!isset($totals[$key]) || !is_numeric($totals[$key])) {
-        throw new \InvalidArgumentException('totals.' . $key . ' must be numeric.');
+    foreach (['purchase', 'sales', 'margin', 'margin_pct', 'vat'] as $key) {
+      if (!array_key_exists($key, $summary) || !is_numeric($summary[$key])) {
+        throw new \InvalidArgumentException('commercial_summary.' . $key . ' must be numeric.');
       }
     }
+    $vatRate = array_key_exists('vat_rate', $summary) && $summary['vat_rate'] !== NULL
+      ? (float) $summary['vat_rate']
+      : NULL;
 
     $canonical = [
-      'contract' => 'brebo-calc-result-snapshot-v1',
+      'contract' => 'brebo-calc-commercial-summary-v1',
       'calculation_id' => $calculationId,
       'office_version' => $officeVersion,
       'calc_version' => $calcVersion,
-      'lines' => array_values($lines),
-      'totals' => [
-        'direct_cost' => (float) $totals['direct_cost'],
-        'markup_amount' => (float) $totals['markup_amount'],
-        'sales_price' => (float) $totals['sales_price'],
+      'commercial_summary' => [
+        'purchase' => (float) $summary['purchase'],
+        'sales' => (float) $summary['sales'],
+        'margin' => (float) $summary['margin'],
+        'margin_pct' => (float) $summary['margin_pct'],
+        'vat' => (float) $summary['vat'],
+        'vat_rate' => $vatRate,
       ],
-      'source' => is_array($payload['source'] ?? NULL) ? $payload['source'] : [],
     ];
     $json = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $hash = hash('sha256', $json);
@@ -65,9 +65,9 @@ final class CalcResultSnapshotService {
         'office_version' => $officeVersion,
         'calc_version' => $calcVersion,
         'content_hash' => $hash,
-        'direct_cost' => $canonical['totals']['direct_cost'],
-        'markup_amount' => $canonical['totals']['markup_amount'],
-        'sales_price' => $canonical['totals']['sales_price'],
+        'direct_cost' => $canonical['commercial_summary']['purchase'],
+        'markup_amount' => $canonical['commercial_summary']['margin'],
+        'sales_price' => $canonical['commercial_summary']['sales'],
         'payload_json' => $json,
         'published_by' => $actorId,
         'published_at' => $publishedAt,
@@ -83,8 +83,24 @@ final class CalcResultSnapshotService {
       return NULL;
     }
     $payload = is_array($snapshot['payload'] ?? NULL) ? $snapshot['payload'] : [];
-    $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
-    $lines = is_array($payload['lines'] ?? NULL) ? array_values($payload['lines']) : [];
+    $summary = is_array($payload['commercial_summary'] ?? NULL) ? $payload['commercial_summary'] : [];
+
+    // Backward-compatible read of older Calc snapshots while new publications
+    // expose only the commercial summary to Office.
+    if ($summary === []) {
+      $totals = is_array($payload['totals'] ?? NULL) ? $payload['totals'] : [];
+      $purchase = (float) ($totals['direct_cost'] ?? 0);
+      $sales = (float) ($totals['sales_price'] ?? 0);
+      $margin = $sales - $purchase;
+      $summary = [
+        'purchase' => $purchase,
+        'sales' => $sales,
+        'margin' => $margin,
+        'margin_pct' => $sales != 0.0 ? ($margin / $sales) * 100.0 : 0.0,
+        'vat' => 0.0,
+        'vat_rate' => NULL,
+      ];
+    }
 
     return [
       'snapshot_id' => (int) $snapshot['snapshot_id'],
@@ -94,46 +110,14 @@ final class CalcResultSnapshotService {
       'calculation_id' => (int) ($payload['calculation_id'] ?? $calculationId),
       'office_version' => (string) ($payload['office_version'] ?? ''),
       'calc_version' => (string) ($payload['calc_version'] ?? ''),
-      'totals' => [
-        'direct_cost' => (float) ($totals['direct_cost'] ?? 0),
-        'markup_amount' => (float) ($totals['markup_amount'] ?? 0),
-        'sales_price' => (float) ($totals['sales_price'] ?? 0),
+      'commercial_summary' => [
+        'purchase' => (float) ($summary['purchase'] ?? 0),
+        'sales' => (float) ($summary['sales'] ?? 0),
+        'margin' => (float) ($summary['margin'] ?? 0),
+        'margin_pct' => (float) ($summary['margin_pct'] ?? 0),
+        'vat' => (float) ($summary['vat'] ?? 0),
+        'vat_rate' => isset($summary['vat_rate']) ? (float) $summary['vat_rate'] : NULL,
       ],
-      'lines' => array_map(static function (mixed $line): array {
-        $line = is_array($line) ? $line : [];
-        $unitCosts = is_array($line['unit_costs'] ?? NULL) ? $line['unit_costs'] : [];
-        $source = is_array($line['source'] ?? NULL) ? $line['source'] : [];
-        return [
-          'sort_order' => (int) ($line['sort_order'] ?? 0),
-          'line_type' => (string) ($line['line_type'] ?? ''),
-          'parent_ref' => $line['parent_ref'] ?? NULL,
-          'code' => $line['code'] ?? NULL,
-          'description' => (string) ($line['description'] ?? ''),
-          'unit' => $line['unit'] ?? NULL,
-          'quantity' => $line['quantity'] ?? NULL,
-          'labour_norm' => $line['labour_norm'] ?? NULL,
-          'labour_total_hours' => $line['labour_total_hours'] ?? NULL,
-          'labour_hours_input_mode' => $line['labour_hours_input_mode'] ?? NULL,
-          'unit_costs' => [
-            'labour' => (float) ($unitCosts['labour'] ?? 0),
-            'material' => (float) ($unitCosts['material'] ?? 0),
-            'equipment' => (float) ($unitCosts['equipment'] ?? 0),
-            'subcontracting' => (float) ($unitCosts['subcontracting'] ?? 0),
-            'other' => (float) ($unitCosts['other'] ?? 0),
-          ],
-          'source' => [
-            'type' => (string) ($source['type'] ?? 'manual'),
-            'office_source_id' => $source['office_source_id'] ?? NULL,
-            'reference' => $source['reference'] ?? NULL,
-            'supplier' => $source['supplier'] ?? NULL,
-            'unit_price' => $source['unit_price'] ?? NULL,
-            'price_date' => $source['price_date'] ?? NULL,
-            'document_id' => $source['document_id'] ?? NULL,
-            'details' => $source['details'] ?? NULL,
-          ],
-        ];
-      }, $lines),
-      'source' => is_array($payload['source'] ?? NULL) ? $payload['source'] : [],
     ];
   }
 
