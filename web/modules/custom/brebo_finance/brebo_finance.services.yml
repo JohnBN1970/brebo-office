@@ -154,9 +154,13 @@ services:
   brebo_finance.invoice_performance_blocker_resolver:
     class: Drupal\brebo_finance\Service\InvoicePerformanceBlockerResolver
     arguments: ['@brebo_finance.invoice_performance_source_repository']
+  brebo_finance.purchase_invoice_control_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePurchaseInvoiceControlRepository
+    arguments: ['@database']
+
   brebo_finance.purchase_invoice_control_view_builder:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceControlViewBuilder
-    arguments: ['@database', '@brebo_finance.invoice_performance_blocker_resolver']
+    arguments: ['@brebo_finance.purchase_invoice_control_repository', '@brebo_finance.invoice_performance_blocker_resolver']
   brebo_finance.payables_work_queue_builder:
     class: Drupal\brebo_finance\Service\PayablesWorkQueueBuilder
     arguments: ['@database', '@brebo_finance.project_reference_gateway', '@brebo_finance.purchase_invoice_control_view_builder']
