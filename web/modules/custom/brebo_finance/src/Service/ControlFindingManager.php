@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ControlFindingRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -13,7 +13,7 @@ use UnexpectedValueException;
  */
 final class ControlFindingManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ControlFindingRepositoryInterface $repository) {}
 
   /**
    * Assigns an open finding to a human owner with a real deadline.
@@ -42,15 +42,12 @@ final class ControlFindingManager {
 
     $beforeHash = $this->hash($finding);
     $now = time();
-    $this->database->update('brebo_finance_control_finding')
-      ->fields([
+    $this->repository->update($findingId, [
         'owner_uid' => $ownerUid,
         'due_date' => $dueDate,
         'changed' => $now,
         'changed_by' => $actorUid,
-      ])
-      ->condition('id', $findingId)
-      ->execute();
+      ]);
 
     $this->audit($finding, 'assigned', $beforeHash, [
       'owner_uid' => $ownerUid,
@@ -85,8 +82,7 @@ final class ControlFindingManager {
     $beforeHash = $this->hash($finding);
     $now = time();
     $evidenceJson = json_encode($evidence, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
-    $this->database->update('brebo_finance_control_finding')
-      ->fields([
+    $this->repository->update($findingId, [
         'status' => 'pending_verification',
         'resolution_note' => trim($resolutionNote),
         'resolution_evidence' => $evidenceJson,
@@ -96,9 +92,7 @@ final class ControlFindingManager {
         'resolution_verified_by' => NULL,
         'changed' => $now,
         'changed_by' => $actorUid,
-      ])
-      ->condition('id', $findingId)
-      ->execute();
+      ]);
 
     $this->audit($finding, 'resolution_submitted', $beforeHash, [
       'evidence_hash' => hash('sha256', $evidenceJson),
@@ -151,10 +145,7 @@ final class ControlFindingManager {
         . "\n\nVerificatie afgewezen: " . trim($verificationNote);
     }
 
-    $this->database->update('brebo_finance_control_finding')
-      ->fields($fields)
-      ->condition('id', $findingId)
-      ->execute();
+    $this->repository->update($findingId, $fields);
 
     $this->audit($finding, 'resolution_' . $decision, $beforeHash, [
       'verification_note' => trim($verificationNote),
@@ -166,12 +157,8 @@ final class ControlFindingManager {
    * @return array<string, mixed>
    */
   private function load(int $findingId): array {
-    $finding = $this->database->select('brebo_finance_control_finding', 'f')
-      ->fields('f')
-      ->condition('id', $findingId)
-      ->execute()
-      ->fetchAssoc();
-    if ($finding === FALSE) {
+    $finding = $this->repository->get($findingId);
+    if ($finding === NULL) {
       throw new UnexpectedValueException('Financial control finding does not exist.');
     }
     return $finding;
@@ -204,8 +191,7 @@ final class ControlFindingManager {
     int $now,
   ): void {
     $after = $this->load((int) $finding['id']);
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->appendAudit([
         'project_nid' => $finding['project_nid'],
         'entity_type' => 'control_finding',
         'entity_id' => $finding['id'],
@@ -216,8 +202,7 @@ final class ControlFindingManager {
         'reason' => $reason,
         'created' => $now,
         'created_by' => $actorUid,
-      ])
-      ->execute();
+      ]);
   }
 
 }

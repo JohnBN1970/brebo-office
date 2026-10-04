@@ -234,6 +234,12 @@ services:
   brebo_finance.control_scanner:
     class: Drupal\brebo_finance\Service\FinancialControlScanner
     arguments: ['@database', '@brebo_finance.labour_productivity_manager', '@brebo_finance.vat_calculator']
+  brebo_finance.control_finding_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseControlFindingRepository
+    arguments: ['@database']
+  brebo_finance.control_finding_manager:
+    class: Drupal\brebo_finance\Service\ControlFindingManager
+    arguments: ['@brebo_finance.control_finding_repository']
   brebo_finance.control_finding_read_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseControlFindingReadRepository
     arguments: ['@database']
