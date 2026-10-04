@@ -103,17 +103,15 @@ final class CashFlowForecastManager {
       'changed_by' => $systemUserId,
     ];
 
-    if ($existing === FALSE) {
-      return (int) $this->database->insert('brebo_finance_cash_event')
-        ->fields($fields + [
-          'source_system' => trim($sourceSystem),
-          'source_type' => trim($sourceType),
-          'source_id' => trim($sourceId),
-          'account_bucket' => $accountBucket,
-          'created' => $now,
-          'created_by' => $systemUserId,
-        ])
-        ->execute();
+    if ($existing === NULL) {
+      return $this->repository->createCashEvent($fields + [
+        'source_system' => trim($sourceSystem),
+        'source_type' => trim($sourceType),
+        'source_id' => trim($sourceId),
+        'account_bucket' => $accountBucket,
+        'created' => $now,
+        'created_by' => $systemUserId,
+      ]);
     }
 
     $eventId = (int) $existing['id'];
