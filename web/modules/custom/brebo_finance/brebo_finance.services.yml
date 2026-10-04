@@ -224,9 +224,13 @@ services:
   brebo_finance.project_financial_position:
     class: Drupal\brebo_finance\Service\ProjectFinancialPosition
     arguments: ['@brebo_finance.project_financial_position_repository', '@brebo_finance.vat_calculator']
+  brebo_finance.project_financial_closure_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseProjectFinancialClosureRepository
+    arguments: ['@database']
+
   brebo_finance.project_financial_closure_manager:
     class: Drupal\brebo_finance\Service\ProjectFinancialClosureManager
-    arguments: ['@database']
+    arguments: ['@brebo_finance.project_financial_closure_repository']
   brebo_finance.control_scanner:
     class: Drupal\brebo_finance\Service\FinancialControlScanner
     arguments: ['@database', '@brebo_finance.labour_productivity_manager', '@brebo_finance.vat_calculator']
