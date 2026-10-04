@@ -293,9 +293,15 @@ services:
   brebo_finance.financial_euro_trace:
     class: Drupal\brebo_finance\Service\FinancialEuroTrace
     arguments: ['@brebo_finance.financial_euro_trace_repository']
+  brebo_finance.financial_euro_trace_control:
+    class: Drupal\brebo_finance\Service\FinancialEuroTraceControl
+    arguments: ['@brebo_finance.financial_euro_trace']
+  brebo_finance.financial_euro_trace_finding_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialEuroTraceFindingRepository
+    arguments: ['@database']
   brebo_finance.financial_euro_trace_finding_synchronizer:
     class: Drupal\brebo_finance\Service\FinancialEuroTraceFindingSynchronizer
-    arguments: ['@database']
+    arguments: ['@brebo_finance.financial_euro_trace_finding_repository', '@brebo_finance.financial_euro_trace_control']
   brebo_finance.purchase_invoice_action_manager:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceActionManager
     arguments: ['@database', '@brebo_finance.purchase_invoice_coding_manager', '@brebo_finance.performance_receipt_manager', '@brebo_finance.three_way_match_manager', '@brebo_finance.payment_release_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
