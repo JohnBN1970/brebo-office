@@ -26,7 +26,7 @@ final class CashFlowManagementController extends ControllerBase {
     return new static(
       new CashFlowManagementReportBuilder($container->get('brebo_finance.cash_flow_management_repository')),
       new BusinessHealthBuilder(new BusinessHealthIntegrationClient($container->get('http_client')), $container->get('config.factory'), $container->get('cache.default')),
-      new PortfolioLiquidityProjection($container->get('database'), $container->get('brebo_finance.project_reference_gateway'), $container->get('config.factory'), new VatCalculator()),
+      new PortfolioLiquidityProjection($container->get('brebo_finance.portfolio_liquidity_repository'), $container->get('brebo_finance.project_reference_gateway'), $container->get('config.factory'), new VatCalculator()),
     );
   }
 
