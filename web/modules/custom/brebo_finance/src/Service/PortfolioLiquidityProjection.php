@@ -98,7 +98,7 @@ final class PortfolioLiquidityProjection {
     if (!$eventsAvailable) {
       $reasons[] = 'De brongebonden cash-eventtabel is niet beschikbaar.';
     }
-    $events = $eventsAvailable ? $this->repository->events($projectIds, (new DateTimeImmutable('today'))->add(new DateInterval('P90D'))->format('Y-m-d'), self::ACTIVE_STATUSES) : []
+    $events = $eventsAvailable ? $this->repository->events($projectIds, (new DateTimeImmutable('today'))->add(new DateInterval('P90D'))->format('Y-m-d'), self::ACTIVE_STATUSES) : [];
 
     $horizons = [];
     $today = new DateTimeImmutable('today');
