@@ -4,21 +4,20 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ProjectFinancialClosureRepositoryInterface;
 use RuntimeException;
 
 /** Builds and records an evidence-backed financial project closure. */
 final class ProjectFinancialClosureManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProjectFinancialClosureRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function assess(int $projectNid): array {
-    $forecast = $this->database->select('brebo_finance_forecast_snapshot', 'f')->fields('f')->condition('project_nid', $projectNid)
-      ->orderBy('snapshot_date', 'DESC')->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc();
+    $forecast = $this->repository->latestForecast($projectNid);
 
     $blockers = [];
-    if ($forecast === FALSE) {
+    if ($forecast === NULL) {
       $blockers[] = ['code' => 'forecast_missing', 'label' => 'Definitieve financiële forecast ontbreekt.'];
     }
     else {
@@ -44,8 +43,7 @@ final class ProjectFinancialClosureManager {
       ['failure_costs_open', 'brebo_finance_failure_cost', ['closed', 'rejected'], 'Open faalkosten'],
     ];
     foreach ($checks as [$code, $table, $closedStatuses, $label]) {
-      if (!$this->database->schema()->tableExists($table)) continue;
-      $count = (int) $this->database->select($table, 't')->condition('project_nid', $projectNid)->condition('status', $closedStatuses, 'NOT IN')->countQuery()->execute()->fetchField();
+      $count = $this->repository->countOpenByStatus($projectNid, $table, $closedStatuses);
       if ($count > 0) $blockers[] = ['code' => $code, 'label' => $label, 'count' => $count];
     }
 
@@ -53,7 +51,7 @@ final class ProjectFinancialClosureManager {
       'project_nid' => $projectNid,
       'closable' => $blockers === [],
       'blockers' => $blockers,
-      'final_forecast' => $forecast === FALSE ? NULL : [
+      'final_forecast' => $forecast === NULL ? NULL : [
         'id' => (int) $forecast['id'], 'snapshot_date' => (string) $forecast['snapshot_date'],
         'revenue_ex_vat' => (string) $forecast['current_revenue_ex_vat'], 'end_cost_ex_vat' => (string) $forecast['forecast_end_cost_ex_vat'],
         'result_ex_vat' => (string) $forecast['forecast_result_ex_vat'], 'margin_pct' => (string) $forecast['forecast_margin_pct'],
@@ -68,8 +66,8 @@ final class ProjectFinancialClosureManager {
     if ($note === '') throw new RuntimeException('Een afsluitnotitie is verplicht.');
     $assessment = $this->assess($projectNid);
     if (!$assessment['closable']) throw new RuntimeException('Project kan financieel nog niet worden afgesloten.');
-    $existing = $this->database->select('brebo_finance_project_closure', 'c')->fields('c')->condition('project_nid', $projectNid)->execute()->fetchAssoc();
-    if ($existing !== FALSE) return $existing;
+    $existing = $this->repository->closure($projectNid);
+    if ($existing !== NULL) return $existing;
     $forecast = $assessment['final_forecast'];
     $payload = [
       'project_nid' => $projectNid, 'forecast_snapshot_id' => $forecast['id'], 'final_revenue_ex_vat' => $forecast['revenue_ex_vat'],
@@ -78,14 +76,12 @@ final class ProjectFinancialClosureManager {
     ];
     $payload['content_hash'] = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
     $payload += ['closed' => time(), 'closed_by' => $userId];
-    $id = (int) $this->database->insert('brebo_finance_project_closure')->fields($payload)->execute();
-    return $this->database->select('brebo_finance_project_closure', 'c')->fields('c')->condition('id', $id)->execute()->fetchAssoc() ?: $payload;
+    return $this->repository->createClosure($payload);
   }
 
   /** @return array<string, mixed>|null */
   public function closure(int $projectNid): ?array {
-    $row = $this->database->select('brebo_finance_project_closure', 'c')->fields('c')->condition('project_nid', $projectNid)->execute()->fetchAssoc();
-    return $row === FALSE ? NULL : $row;
+    return $this->repository->closure($projectNid);
   }
 
   /** @param array<string, mixed> $forecast */
@@ -103,25 +99,7 @@ final class ProjectFinancialClosureManager {
   }
 
   private function financialSourceStateHash(int $projectNid): string {
-    $schema = $this->database->schema();
-    $state = [];
-    foreach ($this->sourceTables() as $table) {
-      if (!$schema->tableExists($table) || !$schema->fieldExists($table, 'project_nid')) continue;
-      $query = $this->database->select($table, 't')->fields('t')->condition('project_nid', $projectNid);
-      if ($schema->fieldExists($table, 'id')) $query->orderBy('id', 'ASC');
-      $state[$table] = $query->execute()->fetchAll();
-    }
-
-    // Keep this state definition identical to ProjectFinancialPosition: the
-    // locked baseline is sourced from budget lines through the owning budget.
-    if ($schema->tableExists('brebo_finance_budget_line') && $schema->tableExists('brebo_finance_budget')) {
-      $query = $this->database->select('brebo_finance_budget_line', 'l');
-      $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
-      $query->fields('l')->condition('b.project_nid', $projectNid)->orderBy('l.id', 'ASC');
-      $state['brebo_finance_budget_line'] = $query->execute()->fetchAll();
-    }
-
-    return hash('sha256', json_encode($state, JSON_THROW_ON_ERROR));
+    return $this->repository->financialSourceStateHash($projectNid, $this->sourceTables());
   }
 
   /** @return list<string> */
