@@ -7,7 +7,7 @@ namespace Drupal\brebo_finance\Service;
 use DateInterval;
 use DateTimeImmutable;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PortfolioLiquidityRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
 /**
@@ -23,7 +23,7 @@ final class PortfolioLiquidityProjection {
   private const array ACCOUNT_BUCKETS = ['regular', 'g_account'];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PortfolioLiquidityRepositoryInterface $repository,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly ConfigFactoryInterface $configFactory,
     private readonly VatCalculator $decimal,
@@ -94,11 +94,11 @@ final class PortfolioLiquidityProjection {
     }
 
     $projectIds = $this->projects->viewableIds($actorUid);
-    $eventsAvailable = $this->cashEventSchemaAvailable();
+    $eventsAvailable = $this->repository->cashEventSchemaAvailable();
     if (!$eventsAvailable) {
       $reasons[] = 'De brongebonden cash-eventtabel is niet beschikbaar.';
     }
-    $events = $eventsAvailable ? $this->events($projectIds) : [];
+    $events = $eventsAvailable ? $this->repository->events($projectIds, (new DateTimeImmutable('today'))->add(new DateInterval('P90D'))->format('Y-m-d'), self::ACTIVE_STATUSES) : []
 
     $horizons = [];
     $today = new DateTimeImmutable('today');
@@ -179,35 +179,6 @@ final class PortfolioLiquidityProjection {
       ];
     }
     return $result;
-  }
-
-  /** @return list<array<string, mixed>> */
-  private function events(array $projectIds): array {
-    if ($projectIds === []) {
-      return [];
-    }
-    $end = (new DateTimeImmutable('today'))->add(new DateInterval('P90D'))->format('Y-m-d');
-    $query = $this->database->select('brebo_finance_cash_event', 'e');
-    $query->fields('e', ['project_nid', 'direction', 'account_bucket', 'amount_inc_vat', 'due_date', 'status', 'confidence', 'source_system', 'source_type', 'source_id']);
-    $query->condition('project_nid', $projectIds, 'IN');
-    $query->condition('status', self::ACTIVE_STATUSES, 'IN');
-    $query->condition('due_date', $end, '<=');
-    $query->orderBy('due_date', 'ASC');
-    $query->orderBy('id', 'ASC');
-    return array_values($query->execute()->fetchAll(\PDO::FETCH_ASSOC));
-  }
-
-  private function cashEventSchemaAvailable(): bool {
-    $schema = $this->database->schema();
-    if (!$schema->tableExists('brebo_finance_cash_event')) {
-      return FALSE;
-    }
-    foreach (['project_nid', 'direction', 'account_bucket', 'amount_inc_vat', 'due_date', 'status'] as $field) {
-      if (!$schema->fieldExists('brebo_finance_cash_event', $field)) {
-        return FALSE;
-      }
-    }
-    return TRUE;
   }
 
   private function money(string $value): string {
