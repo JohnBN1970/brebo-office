@@ -5,14 +5,11 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Database\Connection;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_finance\Contract\ReceivablesDunningRepositoryInterface;
 use RuntimeException;
 
 /** Controls receivables escalation without creating a second invoice truth. */
 final class ReceivablesDunningManager {
-
-  private const STORE = 'brebo_finance.receivables_dunning';
 
   private const TERMINAL_INVOICE_STATUSES = ['paid', 'credited', 'cancelled'];
 
@@ -24,8 +21,7 @@ final class ReceivablesDunningManager {
   ];
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly ReceivablesDunningRepositoryInterface $repository,
     private readonly ConfigFactoryInterface $configFactory,
   ) {}
 
@@ -182,15 +178,8 @@ final class ReceivablesDunningManager {
 
   /** @return array<string,mixed> */
   private function invoice(int $salesInvoiceId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice')) {
-      throw new RuntimeException('Verkoopfactuurspiegel ontbreekt. Voer database-updates uit.');
-    }
-    $row = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i')
-      ->condition('id', $salesInvoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if ($row === FALSE) {
+    $row = $this->repository->salesInvoice($salesInvoiceId);
+    if ($row === NULL) {
       throw new \InvalidArgumentException('Verkoopfactuur niet gevonden.');
     }
     return $row;
@@ -198,14 +187,13 @@ final class ReceivablesDunningManager {
 
   /** @return array<string,mixed> */
   private function stored(int $salesInvoiceId): array {
-    $value = $this->keyValueFactory->get(self::STORE)->get((string) $salesInvoiceId, []);
-    return is_array($value) ? $value : [];
+    return $this->repository->state($salesInvoiceId);
   }
 
   /** @param array<string,mixed> $stored */
   private function save(int $salesInvoiceId, array $stored): void {
     $stored['changed'] = time();
-    $this->keyValueFactory->get(self::STORE)->set((string) $salesInvoiceId, $stored);
+    $this->repository->saveState($salesInvoiceId, $stored);
   }
 
   /** @param array<string,mixed> $stored */
