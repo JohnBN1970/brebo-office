@@ -51,7 +51,7 @@ final class ProjectFinancialClosureManager {
       'project_nid' => $projectNid,
       'closable' => $blockers === [],
       'blockers' => $blockers,
-      'final_forecast' => $forecast === FALSE ? NULL : [
+      'final_forecast' => $forecast === NULL ? NULL : [
         'id' => (int) $forecast['id'], 'snapshot_date' => (string) $forecast['snapshot_date'],
         'revenue_ex_vat' => (string) $forecast['current_revenue_ex_vat'], 'end_cost_ex_vat' => (string) $forecast['forecast_end_cost_ex_vat'],
         'result_ex_vat' => (string) $forecast['forecast_result_ex_vat'], 'margin_pct' => (string) $forecast['forecast_margin_pct'],
