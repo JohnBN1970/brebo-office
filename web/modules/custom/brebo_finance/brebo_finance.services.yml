@@ -271,9 +271,12 @@ services:
   brebo_finance.contract_obligation_manager:
     class: Drupal\brebo_finance\Service\ContractObligationManager
     arguments: ['@brebo_finance.contract_obligation_repository', '@brebo_finance.vat_calculator']
+  brebo_finance.supplier_performance_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseSupplierPerformanceRepository
+    arguments: ['@database']
   brebo_finance.supplier_performance_scorecard:
     class: Drupal\brebo_finance\Service\SupplierPerformanceScorecard
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.supplier_performance_repository', '@brebo_finance.vat_calculator']
   brebo_finance.failure_cost_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFailureCostRepository
     arguments: ['@database']
