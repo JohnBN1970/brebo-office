@@ -9,6 +9,10 @@ services:
     class: Drupal\brebo_finance\Infrastructure\DatabaseCashFlowManagementRepository
     arguments: ['@database']
 
+  brebo_finance.portfolio_liquidity_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePortfolioLiquidityRepository
+    arguments: ['@database']
+
   brebo_finance.invoice_blocker_action_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoiceBlockerActionRepository
     arguments: ['@database']
