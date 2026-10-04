@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ChangeOrderRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -14,7 +14,7 @@ use UnexpectedValueException;
 final class ChangeOrderManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ChangeOrderRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -36,14 +36,7 @@ final class ChangeOrderManager {
     array $evidence,
     int $userId,
   ): int {
-    $contractValid = (int) $this->database->select('brebo_finance_project_contract', 'c')
-      ->condition('id', $contractId)
-      ->condition('project_nid', $projectNid)
-      ->condition('status', 'approved')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ($contractValid !== 1) {
+    if (!$this->repository->approvedContractExists($projectNid, $contractId)) {
       throw new UnexpectedValueException('Change order requires the approved contract of the same project.');
     }
     if (!in_array($changeType, ['additional', 'omission'], TRUE)) {
@@ -63,8 +56,7 @@ final class ChangeOrderManager {
 
     $evidenceJson = json_encode($evidence, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $now = time();
-    $id = (int) $this->database->insert('brebo_finance_change_order')
-      ->fields([
+    $id = $this->repository->createChange([
         'project_nid' => $projectNid,
         'contract_id' => $contractId,
         'change_number' => trim($changeNumber),
@@ -91,8 +83,7 @@ final class ChangeOrderManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->execute();
+      ]);
     $this->audit($projectNid, $id, 'observed', NULL, $this->hash($this->load($id)), [
       'evidence_hash' => hash('sha256', $evidenceJson),
     ], 'First controlled registration of project scope deviation.', $userId, $now);
@@ -158,8 +149,7 @@ final class ChangeOrderManager {
       throw new InvalidArgumentException('Client identity and traceable decision reference are required.');
     }
     $change = $this->requireStatus($changeId, ['offered']);
-    $transaction = $this->database->startTransaction();
-    try {
+    $this->repository->atomic(function () use ($change, $decision, $clientDecisionBy, $approvalReference, $userId): void {
       $this->updateAndAudit($change, 'client_' . $decision, [
         'status' => 'client_' . $decision,
         'client_decision_at' => time(),
@@ -169,11 +159,7 @@ final class ChangeOrderManager {
       if ($decision === 'approved') {
         $this->createApprovedRevenueMutation($change, trim($approvalReference), $userId);
       }
-    }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
+    });
   }
 
   public function requestExecutionAtRisk(int $changeId, string $reason, int $requesterUid): void {
@@ -253,8 +239,7 @@ final class ChangeOrderManager {
       $amountIncVat = $this->decimal->subtract('0', $amountIncVat);
     }
     $now = time();
-    $this->database->insert('brebo_finance_revenue_mutation')
-      ->fields([
+    $this->repository->createRevenueMutation([
         'project_nid' => $change['project_nid'],
         'contract_id' => $change['contract_id'],
         'mutation_number' => $change['change_number'],
@@ -272,8 +257,7 @@ final class ChangeOrderManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
   /**
@@ -296,12 +280,8 @@ final class ChangeOrderManager {
    * @return array<string, mixed>
    */
   private function load(int $changeId): array {
-    $change = $this->database->select('brebo_finance_change_order', 'c')
-      ->fields('c')
-      ->condition('id', $changeId)
-      ->execute()
-      ->fetchAssoc();
-    if ($change === FALSE) {
+    $change = $this->repository->getChange($changeId);
+    if ($change === NULL) {
       throw new UnexpectedValueException('Change order does not exist.');
     }
     return $change;
@@ -325,10 +305,7 @@ final class ChangeOrderManager {
     }
     $before = $this->hash($change);
     $now = time();
-    $this->database->update('brebo_finance_change_order')
-      ->fields($fields + ['changed' => $now, 'changed_by' => $userId])
-      ->condition('id', $change['id'])
-      ->execute();
+    $this->repository->updateChange((int) $change['id'], $fields + ['changed' => $now, 'changed_by' => $userId]);
     $after = $this->load((int) $change['id']);
     $this->audit(
       (int) $change['project_nid'],
@@ -371,8 +348,7 @@ final class ChangeOrderManager {
     int $userId,
     int $now,
   ): void {
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->appendAudit([
         'project_nid' => $projectNid,
         'entity_type' => 'change_order',
         'entity_id' => $changeId,
@@ -383,8 +359,7 @@ final class ChangeOrderManager {
         'reason' => $reason,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
 }
