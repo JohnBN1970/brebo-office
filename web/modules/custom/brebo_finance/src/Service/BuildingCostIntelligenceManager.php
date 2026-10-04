@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\BuildingCostIntelligenceRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -14,7 +14,7 @@ use RuntimeException;
 final class BuildingCostIntelligenceManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly BuildingCostIntelligenceRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -51,8 +51,7 @@ final class BuildingCostIntelligenceManager {
       'failure_cost_adjustment_ex_vat' => (string) ($data['failure_cost_adjustment_ex_vat'] ?? '0'),
     ];
     $now = time();
-    return (int) $this->database->insert('brebo_finance_cost_observation')
-      ->fields([
+    return $this->repository->createObservation([
         'project_nid' => (int) $data['project_nid'],
         'building_object_type' => $data['building_object_type'] ?? NULL,
         'building_object_id' => $data['building_object_id'] ?? NULL,
@@ -75,7 +74,7 @@ final class BuildingCostIntelligenceManager {
         'evidence_hash' => hash('sha256', json_encode($evidence, JSON_THROW_ON_ERROR)),
         'created' => $now,
         'created_by' => $actorUid,
-      ])->execute();
+      ]);
   }
 
   /**
@@ -95,16 +94,7 @@ final class BuildingCostIntelligenceManager {
     string $snapshotDate,
     int $actorUid,
   ): array {
-    $rows = $this->database->select('brebo_finance_cost_observation', 'o')
-      ->fields('o', ['id', 'project_nid', 'unit_cost_ex_vat', 'quantity', 'observation_date', 'source_hash'])
-      ->condition('cost_code', $costCode)
-      ->condition('work_type', $workType)
-      ->condition('specification_hash', $specificationHash)
-      ->condition('unit', $unit)
-      ->condition('region', $region)
-      ->condition('quality_accepted', 1)
-      ->condition('observation_date', $snapshotDate, '<=')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->matchingObservations($costCode, $workType, $specificationHash, $unit, $region, $snapshotDate);
     if ($rows === []) {
       throw new RuntimeException('No exactly matching verified cost observations are available.');
     }
@@ -138,8 +128,7 @@ final class BuildingCostIntelligenceManager {
       'method' => 'upper_observed_median_exact_specification',
     ];
     $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
-    $id = (int) $this->database->insert('brebo_finance_cost_benchmark_snapshot')
-      ->fields([
+    $id = $this->repository->createBenchmark([
         'cost_code' => $costCode,
         'work_type' => $workType,
         'specification_hash' => $specificationHash,
@@ -156,7 +145,7 @@ final class BuildingCostIntelligenceManager {
         'content_hash' => $hash,
         'created' => time(),
         'created_by' => $actorUid,
-      ])->execute();
+      ]);
     return ['id' => $id, 'content_hash' => $hash] + $payload;
   }
 
@@ -166,11 +155,8 @@ final class BuildingCostIntelligenceManager {
    * @return array<string, mixed>
    */
   public function compareCandidate(int $benchmarkId, string $candidateUnitCostExVat): array {
-    $row = $this->database->select('brebo_finance_cost_benchmark_snapshot', 'b')
-      ->fields('b')
-      ->condition('id', $benchmarkId)
-      ->execute()->fetchAssoc();
-    if ($row === FALSE) {
+    $row = $this->repository->benchmark($benchmarkId);
+    if ($row === NULL) {
       throw new RuntimeException('Cost benchmark does not exist.');
     }
     $variance = $this->decimal->subtract($candidateUnitCostExVat, (string) $row['benchmark_unit_cost_ex_vat']);
