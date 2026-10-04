@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Service;
 
 use DateInterval;
 use DateTimeImmutable;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\CashFlowForecastRepositoryInterface;
 use InvalidArgumentException;
 use RuntimeException;
 use UnexpectedValueException;
@@ -21,7 +21,7 @@ final class CashFlowForecastManager {
   private const array STATUSES = ['expected', 'confirmed', 'settled', 'cancelled'];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly CashFlowForecastRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -79,18 +79,11 @@ final class CashFlowForecastManager {
 
     $sourceJson = json_encode($sourcePayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $sourceHash = hash('sha256', $sourceJson);
-    $existing = $this->database->select('brebo_finance_cash_event', 'e')
-      ->fields('e')
-      ->condition('source_system', trim($sourceSystem))
-      ->condition('source_type', trim($sourceType))
-      ->condition('source_id', trim($sourceId))
-      ->condition('account_bucket', $accountBucket)
-      ->execute()
-      ->fetchAssoc();
-    if ($existing !== FALSE && (int) $existing['recorded_at'] > $recordedAt) {
+    $existing = $this->repository->cashEvent(trim($sourceSystem), trim($sourceType), trim($sourceId), $accountBucket);
+    if ($existing !== NULL && (int) $existing['recorded_at'] > $recordedAt) {
       throw new UnexpectedValueException('Older cash evidence cannot overwrite a newer source event.');
     }
-    if ($existing !== FALSE && hash_equals((string) $existing['source_hash'], $sourceHash)) {
+    if ($existing !== NULL && hash_equals((string) $existing['source_hash'], $sourceHash)) {
       return (int) $existing['id'];
     }
 
@@ -110,24 +103,19 @@ final class CashFlowForecastManager {
       'changed_by' => $systemUserId,
     ];
 
-    if ($existing === FALSE) {
-      return (int) $this->database->insert('brebo_finance_cash_event')
-        ->fields($fields + [
-          'source_system' => trim($sourceSystem),
-          'source_type' => trim($sourceType),
-          'source_id' => trim($sourceId),
-          'account_bucket' => $accountBucket,
-          'created' => $now,
-          'created_by' => $systemUserId,
-        ])
-        ->execute();
+    if ($existing === NULL) {
+      return $this->repository->createCashEvent($fields + [
+        'source_system' => trim($sourceSystem),
+        'source_type' => trim($sourceType),
+        'source_id' => trim($sourceId),
+        'account_bucket' => $accountBucket,
+        'created' => $now,
+        'created_by' => $systemUserId,
+      ]);
     }
 
     $eventId = (int) $existing['id'];
-    $this->database->update('brebo_finance_cash_event')
-      ->fields($fields)
-      ->condition('id', $eventId)
-      ->execute();
+    $this->repository->updateCashEvent($eventId, $fields);
     return $eventId;
   }
 
@@ -153,14 +141,7 @@ final class CashFlowForecastManager {
       throw new InvalidArgumentException('Cash forecast requires a responsible human user.');
     }
 
-    $exists = (int) $this->database->select('brebo_finance_cash_forecast_snapshot', 's')
-      ->condition('project_nid', $projectNid)
-      ->condition('snapshot_date', $date)
-      ->condition('scenario', $scenario)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ($exists > 0) {
+    if ($this->repository->snapshotExists($projectNid, $date, $scenario)) {
       throw new RuntimeException('This immutable daily cash-forecast scenario already exists.');
     }
 
@@ -259,8 +240,7 @@ final class CashFlowForecastManager {
     $hash = hash('sha256', $payloadJson);
     $now = time();
 
-    $snapshotId = (int) $this->database->insert('brebo_finance_cash_forecast_snapshot')
-      ->fields([
+    $snapshotId = $this->repository->createSnapshot([
         'project_nid' => $projectNid,
         'snapshot_date' => $date,
         'scenario' => $scenario,
@@ -274,11 +254,9 @@ final class CashFlowForecastManager {
         'content_hash' => $hash,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
 
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->appendAudit([
         'project_nid' => $projectNid,
         'entity_type' => 'cash_forecast_snapshot',
         'entity_id' => $snapshotId,
@@ -293,8 +271,7 @@ final class CashFlowForecastManager {
         'reason' => 'Immutable thirteen-week cash forecast from traceable cash events.',
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
 
     return $snapshotId;
   }
@@ -305,15 +282,7 @@ final class CashFlowForecastManager {
    * @return list<array<string, mixed>>
    */
   private function events(int $projectNid, string $endDate, array $statuses): array {
-    return $this->database->select('brebo_finance_cash_event', 'e')
-      ->fields('e')
-      ->condition('project_nid', $projectNid)
-      ->condition('status', $statuses, 'IN')
-      ->condition('due_date', $endDate, '<=')
-      ->orderBy('due_date')
-      ->orderBy('id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->events($projectNid, $endDate, $statuses);
   }
 
   private function validDate(string $date): bool {
