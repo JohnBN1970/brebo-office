@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceCodingRepositoryInterface;
 use UnexpectedValueException;
 
 /** Controlled coding of purchase invoices before three-way matching. */
 final class PurchaseInvoiceCodingManager {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly PurchaseInvoiceCodingRepositoryInterface $repository) {}
 
   public function assignProject(int $invoiceId, int $projectNid, int $userId): void {
     if ($projectNid <= 0) {
@@ -18,21 +18,21 @@ final class PurchaseInvoiceCodingManager {
     }
     $invoice = $this->invoice($invoiceId);
     $now = time();
-    $this->database->update('brebo_finance_purchase_invoice')->fields([
+    $this->repository->updateInvoice($invoiceId, [
       'project_nid' => $projectNid,
       'commitment_id' => NULL,
       'match_status' => 'unmatched',
       'changed' => $now,
       'changed_by' => $userId,
-    ])->condition('id', $invoiceId)->execute();
-    $this->database->update('brebo_finance_purchase_invoice_line')->fields([
+    ]);
+    $this->repository->updateInvoiceLines($invoiceId, [
       'commitment_line_id' => NULL,
       'match_status' => 'unmatched',
       'variance_code' => NULL,
       'variance_amount_ex_vat' => 0,
       'changed' => $now,
       'changed_by' => $userId,
-    ])->condition('invoice_id', $invoiceId)->execute();
+    ]);
     $this->audit($projectNid, 'purchase_invoice', $invoiceId, 'project_coded', ['previous_project_nid' => (int) $invoice['project_nid']], $userId);
   }
 
@@ -68,14 +68,14 @@ final class PurchaseInvoiceCodingManager {
       'changed' => $now,
       'changed_by' => $userId,
     ];
-    $existing = $this->database->select('brebo_finance_purchase_invoice_line', 'l')->fields('l', ['id'])->condition('invoice_id', $invoiceId)->condition('line_number', $lineNumber)->execute()->fetchField();
+    $existing = $this->repository->invoiceLineId($invoiceId, $lineNumber);
     if ($existing) {
-      $this->database->update('brebo_finance_purchase_invoice_line')->fields($fields)->condition('id', (int) $existing)->execute();
+      $this->repository->updateLine((int) $existing, $fields);
       $lineId = (int) $existing;
     }
     else {
       $fields += ['invoice_id' => $invoiceId, 'line_number' => $lineNumber, 'commitment_line_id' => NULL, 'created' => $now, 'created_by' => $userId];
-      $lineId = (int) $this->database->insert('brebo_finance_purchase_invoice_line')->fields($fields)->execute();
+      $lineId = $this->repository->createLine($fields);
     }
     $this->markInvoiceUnmatched($invoiceId, $now, $userId);
     $this->audit((int) $invoice['project_nid'], 'purchase_invoice_line', $lineId, 'invoice_line_coded', ['invoice_id' => $invoiceId, 'line_number' => $lineNumber], $userId);
@@ -88,37 +88,32 @@ final class PurchaseInvoiceCodingManager {
     if ($projectNid <= 0) {
       throw new UnexpectedValueException('Code the invoice to a project before linking an order line.');
     }
-    $invoiceLine = $this->database->select('brebo_finance_purchase_invoice_line', 'l')->fields('l', ['id'])->condition('id', $invoiceLineId)->condition('invoice_id', $invoiceId)->execute()->fetchAssoc();
-    if ($invoiceLine === FALSE) {
+    if (!$this->repository->invoiceOwnsLine($invoiceId, $invoiceLineId)) {
       throw new UnexpectedValueException('Invoice line does not belong to this invoice.');
     }
-    $query = $this->database->select('brebo_finance_commitment_line', 'cl');
-    $query->join('brebo_finance_commitment', 'c', 'c.id = cl.commitment_id');
-    $query->addField('cl', 'id');
-    $query->addField('c', 'id', 'commitment_id');
-    $order = $query->condition('cl.id', $commitmentLineId)->condition('c.project_nid', $projectNid)->execute()->fetchAssoc();
-    if ($order === FALSE) {
+    $order = $this->repository->commitmentLineForProject($commitmentLineId, $projectNid);
+    if ($order === NULL) {
       throw new UnexpectedValueException('Commitment line does not belong to the coded project.');
     }
     $now = time();
-    $this->database->update('brebo_finance_purchase_invoice_line')->fields(['commitment_line_id' => $commitmentLineId, 'match_status' => 'unmatched', 'variance_code' => NULL, 'variance_amount_ex_vat' => 0, 'changed' => $now, 'changed_by' => $userId])->condition('id', $invoiceLineId)->execute();
-    $this->database->update('brebo_finance_purchase_invoice')->fields(['commitment_id' => (int) $order['commitment_id'], 'match_status' => 'unmatched', 'changed' => $now, 'changed_by' => $userId])->condition('id', $invoiceId)->execute();
+    $this->repository->updateLine($invoiceLineId, ['commitment_line_id' => $commitmentLineId, 'match_status' => 'unmatched', 'variance_code' => NULL, 'variance_amount_ex_vat' => 0, 'changed' => $now, 'changed_by' => $userId]);
+    $this->repository->updateInvoice($invoiceId, ['commitment_id' => (int) $order['commitment_id'], 'match_status' => 'unmatched', 'changed' => $now, 'changed_by' => $userId]);
     $this->audit($projectNid, 'purchase_invoice_line', $invoiceLineId, 'commitment_line_coded', ['commitment_line_id' => $commitmentLineId], $userId);
   }
 
   private function invoice(int $invoiceId): array {
-    $invoice = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i')->condition('id', $invoiceId)->execute()->fetchAssoc();
-    if ($invoice === FALSE) {
+    $invoice = $this->repository->invoice($invoiceId);
+    if ($invoice === NULL) {
       throw new UnexpectedValueException('Purchase invoice does not exist.');
     }
     return $invoice;
   }
 
   private function markInvoiceUnmatched(int $invoiceId, int $now, int $userId): void {
-    $this->database->update('brebo_finance_purchase_invoice')->fields(['match_status' => 'unmatched', 'changed' => $now, 'changed_by' => $userId])->condition('id', $invoiceId)->execute();
+    $this->repository->updateInvoice($invoiceId, ['match_status' => 'unmatched', 'changed' => $now, 'changed_by' => $userId]);
   }
 
   private function audit(int $projectNid, string $entityType, int $entityId, string $action, array $payload, int $userId): void {
-    $this->database->insert('brebo_finance_audit')->fields(['project_nid' => $projectNid, 'entity_type' => $entityType, 'entity_id' => $entityId, 'action' => $action, 'payload' => json_encode($payload, JSON_THROW_ON_ERROR), 'reason' => 'Purchase invoice coding workbench.', 'created' => time(), 'created_by' => $userId])->execute();
+    $this->repository->appendAudit(['project_nid' => $projectNid, 'entity_type' => $entityType, 'entity_id' => $entityId, 'action' => $action, 'payload' => json_encode($payload, JSON_THROW_ON_ERROR), 'reason' => 'Purchase invoice coding workbench.', 'created' => time(), 'created_by' => $userId]);
   }
 }
