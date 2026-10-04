@@ -5,14 +5,9 @@ declare(strict_types=1);
 namespace Drupal\Tests\brebo_finance\Unit;
 
 use Drupal\brebo_finance\Service\ReceivablesDunningManager;
+use Drupal\brebo_finance\Contract\ReceivablesDunningRepositoryInterface;
 use Drupal\Core\Config\Config;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Database\Schema;
-use Drupal\Core\Database\StatementInterface;
-use Drupal\Core\Database\Query\SelectInterface;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\Core\KeyValueStore\KeyValueStoreInterface;
 use PHPUnit\Framework\TestCase;
 
 /** @coversDefaultClass \Drupal\brebo_finance\Service\ReceivablesDunningManager */
@@ -65,31 +60,15 @@ final class ReceivablesDunningManagerTest extends TestCase {
 
   /** @param array<string,mixed> $invoice */
   private function manager(array $invoice): ReceivablesDunningManager {
-    $schema = $this->createMock(Schema::class);
-    $schema->method('tableExists')->with('brebo_finance_sales_invoice')->willReturn(TRUE);
-
-    $statement = $this->createMock(StatementInterface::class);
-    $statement->method('fetchAssoc')->willReturn($invoice);
-
-    $select = $this->createMock(SelectInterface::class);
-    $select->method('fields')->willReturnSelf();
-    $select->method('condition')->willReturnSelf();
-    $select->method('execute')->willReturn($statement);
-
-    $database = $this->createMock(Connection::class);
-    $database->method('schema')->willReturn($schema);
-    $database->method('select')->willReturn($select);
-
-    $store = $this->createMock(KeyValueStoreInterface::class);
-    $store->method('get')->willReturn([]);
-    $factory = $this->createMock(KeyValueFactoryInterface::class);
-    $factory->method('get')->willReturn($store);
+    $repository = $this->createMock(ReceivablesDunningRepositoryInterface::class);
+    $repository->method('salesInvoice')->with(1)->willReturn($invoice);
+    $repository->method('state')->with(1)->willReturn([]);
 
     $config = $this->createMock(Config::class);
     $config->method('get')->willReturn(NULL);
     $configFactory = $this->createMock(ConfigFactoryInterface::class);
     $configFactory->method('get')->willReturn($config);
 
-    return new ReceivablesDunningManager($database, $factory, $configFactory);
+    return new ReceivablesDunningManager($repository, $configFactory);
   }
 }
