@@ -280,9 +280,12 @@ services:
   brebo_finance.change_order_manager:
     class: Drupal\brebo_finance\Service\ChangeOrderManager
     arguments: ['@brebo_finance.change_order_repository', '@brebo_finance.vat_calculator']
+  brebo_finance.cash_flow_forecast_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseCashFlowForecastRepository
+    arguments: ['@database']
   brebo_finance.cash_flow_forecast_manager:
     class: Drupal\brebo_finance\Service\CashFlowForecastManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.cash_flow_forecast_repository', '@brebo_finance.vat_calculator']
   brebo_finance.labour_productivity_manager:
     class: Drupal\brebo_finance\Service\LabourProductivityManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
