@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PayablesWorkQueueRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
 /** Builds the daily operational payables queues from authoritative finance state. */
 final class PayablesWorkQueueBuilder {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PayablesWorkQueueRepositoryInterface $repository,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
@@ -27,17 +27,11 @@ final class PayablesWorkQueueBuilder {
       'ready_to_pay' => [],
     ];
 
-    if (!$this->database->schema()->tableExists('brebo_finance_purchase_invoice')) {
+    if (!$this->repository->purchaseInvoiceTableExists()) {
       return $this->result($queues);
     }
 
-    $invoices = $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i')
-      ->condition('status', ['paid', 'cancelled'], 'NOT IN')
-      ->orderBy('due_date')
-      ->orderBy('id')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $invoices = $this->repository->openInvoices();
 
     foreach ($invoices as $invoice) {
       $projectNid = (int) ($invoice['project_nid'] ?? 0);
