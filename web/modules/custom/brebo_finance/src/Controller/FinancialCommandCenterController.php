@@ -38,7 +38,7 @@ final class FinancialCommandCenterController extends ControllerBase {
         $container->get('cache.default'),
       ),
       new PortfolioLiquidityProjection(
-        $container->get('database'),
+        $container->get('brebo_finance.portfolio_liquidity_repository'),
         $container->get('brebo_finance.project_reference_gateway'),
         $container->get('config.factory'),
         new VatCalculator(),
