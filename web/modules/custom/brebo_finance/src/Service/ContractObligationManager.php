@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ContractObligationRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -28,7 +28,7 @@ final class ContractObligationManager {
   ];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ContractObligationRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -77,21 +77,13 @@ final class ContractObligationManager {
     if ($this->decimal->compare($financialExposureExVat, '0') < 0) {
       throw new InvalidArgumentException('Financial exposure cannot be negative.');
     }
-    $contractValid = (int) $this->database->select('brebo_finance_project_contract', 'c')
-      ->condition('id', $contractId)
-      ->condition('project_nid', $projectNid)
-      ->condition('status', 'approved')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ($contractValid !== 1) {
+    if (!$this->repository->approvedContractExists($projectNid, $contractId)) {
       throw new UnexpectedValueException('Obligation requires the approved contract of the same project.');
     }
 
     $sourceJson = json_encode($sourceEvidence, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $now = time();
-    $id = (int) $this->database->insert('brebo_finance_contract_obligation')
-      ->fields([
+    $id = $this->repository->create([
         'project_nid' => $projectNid,
         'contract_id' => $contractId,
         'obligation_number' => trim($obligationNumber),
@@ -113,8 +105,7 @@ final class ContractObligationManager {
         'created_by' => $userId,
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->execute();
+      ]);
     $this->audit($projectNid, $id, 'obligation_created', NULL, $this->hash($this->load($id)), [
       'source_hash' => hash('sha256', $sourceJson),
       'due_date' => $dueDate,
@@ -237,12 +228,8 @@ final class ContractObligationManager {
    * @return array<string, mixed>
    */
   private function load(int $obligationId): array {
-    $obligation = $this->database->select('brebo_finance_contract_obligation', 'o')
-      ->fields('o')
-      ->condition('id', $obligationId)
-      ->execute()
-      ->fetchAssoc();
-    if ($obligation === FALSE) {
+    $obligation = $this->repository->get($obligationId);
+    if ($obligation === NULL) {
       throw new UnexpectedValueException('Contract obligation does not exist.');
     }
     return $obligation;
@@ -263,10 +250,7 @@ final class ContractObligationManager {
   ): void {
     $before = $this->hash($obligation);
     $now = time();
-    $this->database->update('brebo_finance_contract_obligation')
-      ->fields($fields + ['changed' => $now, 'changed_by' => $userId])
-      ->condition('id', $obligation['id'])
-      ->execute();
+    $this->repository->update((int) $obligation['id'], $fields + ['changed' => $now, 'changed_by' => $userId]);
     $after = $this->load((int) $obligation['id']);
     $this->audit(
       (int) $obligation['project_nid'],
@@ -308,8 +292,7 @@ final class ContractObligationManager {
     int $userId,
     int $now,
   ): void {
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->appendAudit([
         'project_nid' => $projectNid,
         'entity_type' => 'contract_obligation',
         'entity_id' => $obligationId,
@@ -320,8 +303,7 @@ final class ContractObligationManager {
         'reason' => $reason,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
 }
