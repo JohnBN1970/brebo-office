@@ -170,9 +170,12 @@ services:
   brebo_finance.three_way_match_manager:
     class: Drupal\brebo_finance\Service\ThreeWayMatchManager
     arguments: ['@brebo_finance.three_way_match_repository', '@brebo_finance.vat_calculator', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.purchase_invoice_coding_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePurchaseInvoiceCodingRepository
+    arguments: ['@database']
   brebo_finance.purchase_invoice_coding_manager:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceCodingManager
-    arguments: ['@database']
+    arguments: ['@brebo_finance.purchase_invoice_coding_repository']
   brebo_finance.invoice_performance_source_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoicePerformanceSourceRepository
     arguments: ['@database']
