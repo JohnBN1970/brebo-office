@@ -274,9 +274,12 @@ services:
   brebo_finance.failure_cost_manager:
     class: Drupal\brebo_finance\Service\FailureCostManager
     arguments: ['@brebo_finance.failure_cost_repository', '@brebo_finance.vat_calculator']
+  brebo_finance.change_order_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseChangeOrderRepository
+    arguments: ['@database']
   brebo_finance.change_order_manager:
     class: Drupal\brebo_finance\Service\ChangeOrderManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.change_order_repository', '@brebo_finance.vat_calculator']
   brebo_finance.cash_flow_forecast_manager:
     class: Drupal\brebo_finance\Service\CashFlowForecastManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
