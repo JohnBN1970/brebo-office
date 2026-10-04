@@ -145,10 +145,7 @@ final class ControlFindingManager {
         . "\n\nVerificatie afgewezen: " . trim($verificationNote);
     }
 
-    $this->database->update('brebo_finance_control_finding')
-      ->fields($fields)
-      ->condition('id', $findingId)
-      ->execute();
+    $this->repository->update($findingId, $fields);
 
     $this->audit($finding, 'resolution_' . $decision, $beforeHash, [
       'verification_note' => trim($verificationNote),
