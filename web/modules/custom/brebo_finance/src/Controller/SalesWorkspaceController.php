@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\brebo_finance\Service\ReceivablesDunningManager;
+use Drupal\brebo_finance\Infrastructure\DrupalReceivablesDunningRepository;
 use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Database\Connection;
@@ -15,7 +16,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Organisation-wide sales and receivables workspace. */
 final class SalesWorkspaceController extends ControllerBase {
   private readonly ReceivablesDunningManager $dunningManager;
-  public function __construct(private readonly Connection $database, KeyValueFactoryInterface $keyValueFactory, ConfigFactoryInterface $configFactory) { $this->dunningManager = new ReceivablesDunningManager($database, $keyValueFactory, $configFactory); }
+  public function __construct(private readonly Connection $database, KeyValueFactoryInterface $keyValueFactory, ConfigFactoryInterface $configFactory) { $this->dunningManager = new ReceivablesDunningManager(new DrupalReceivablesDunningRepository($database, $keyValueFactory), $configFactory); }
   public static function create(ContainerInterface $container): static { return new static($container->get('database'), $container->get('keyvalue'), $container->get('config.factory')); }
 
   public function page(): array {
