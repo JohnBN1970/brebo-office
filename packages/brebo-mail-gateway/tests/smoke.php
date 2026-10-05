@@ -8,6 +8,7 @@ use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\MailGateway\Contract\DkimKeyGeneratorInterface;
 use Brebo\MailGateway\Contract\GatewayProvisioningRepositoryInterface;
 use Brebo\MailGateway\Contract\MailStackAdapterInterface;
+use Brebo\MailGateway\Contract\MailStackCommandRunnerInterface;
 use Brebo\MailGateway\Domain\GatewayRequest;
 use Brebo\MailGateway\Domain\MailStackProjection;
 use Brebo\MailGateway\Security\GatewayRequestVerifier;
@@ -15,6 +16,7 @@ use Brebo\MailGateway\Service\DovecotProjectionRenderer;
 use Brebo\MailGateway\Service\MailStackConfigBundleRenderer;
 use Brebo\MailGateway\Service\PostfixProjectionRenderer;
 use Brebo\MailGateway\Service\RspamdProjectionRenderer;
+use Brebo\MailGateway\Service\MailStackReloadGate;
 use Brebo\MailGateway\Service\GatewayApiService;
 use Brebo\MailGateway\Service\GatewayRequestRouter;
 
@@ -31,6 +33,13 @@ final class SmokeMailStack implements MailStackAdapterInterface {
   public function applyMailbox(array $mailbox): void { $this->mailboxes[] = $mailbox; }
   public function applyAlias(string $aliasAddress, string $targetAddress): void { $this->aliases[$aliasAddress] = $targetAddress; }
   public function health(): array { return ['available' => TRUE, 'message' => 'ok']; }
+}
+final class SmokeRunner implements MailStackCommandRunnerInterface {
+  public array $calls = [];
+  public function run(string $command, array $arguments = []): array {
+    $this->calls[] = [$command, $arguments];
+    return ['exit_code' => 0, 'stdout' => 'ok', 'stderr' => ''];
+  }
 }
 final class SmokeDkim implements DkimKeyGeneratorInterface {
   public function generate(string $domain): array {
@@ -101,6 +110,22 @@ if ($bundle['users'] !== "info@example.nl:*::::::\n") {
 }
 if ($bundle['dkim_map'] !== "example.nl brebo1 file:///keys/example.pem\n") {
   throw new RuntimeException('Rspamd DKIM projection failed.');
+}
+
+$runner = new SmokeRunner();
+$gate = new MailStackReloadGate($runner, FALSE);
+$checks = $gate->validate();
+if (count($checks) !== 3) {
+  throw new RuntimeException('Mailstack validation gate failed.');
+}
+try {
+  $gate->reload();
+  throw new RuntimeException('Reload must stay disabled by default.');
+}
+catch (RuntimeException $e) {
+  if ($e->getMessage() !== 'Mailstack reload is niet geactiveerd.') {
+    throw $e;
+  }
 }
 
 echo "BREBO_MAIL_GATEWAY_SMOKE=PASS\n";
