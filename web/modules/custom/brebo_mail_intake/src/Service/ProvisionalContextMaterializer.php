@@ -29,7 +29,7 @@ final class ProvisionalContextMaterializer {
 
     // Absence of a project match is not evidence for a new project. Only the
     // resolver's explicit candidate state may create a provisional artifact.
-    if ($projectId <= 0 && ($resolution['project_state'] ?? NULL) === 'candidate') {
+    if ($projectId <= 0 && ($resolution['project_state'] ?? NULL) === 'provisional_required') {
       $projectId = $this->createProject($communication, $resolution);
     }
 
@@ -53,7 +53,7 @@ final class ProvisionalContextMaterializer {
       'field_brebo_project_code' => 'MAIL-' . $seed,
       'field_brebo_client' => 'Te beoordelen',
       'field_brebo_location' => $location,
-      'field_brebo_status' => 'concept',
+      'field_brebo_status' => 'Mogelijk nieuw - te beoordelen',
       'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'project'),
     ]);
     if (!$node instanceof NodeInterface) {
