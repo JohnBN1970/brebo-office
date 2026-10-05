@@ -39,7 +39,7 @@ final class MailboxMessageActionForm extends FormBase {
       return [];
     }
 
-    $row = $this->storage->messageState($mailbox_id, $communication_id);
+    $row = $this->storage->messageState($mailboxId, $communicationId);
 
     if ($row === NULL) {
       return [];
