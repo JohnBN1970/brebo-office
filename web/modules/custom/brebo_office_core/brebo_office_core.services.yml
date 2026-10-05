@@ -12,10 +12,18 @@ services:
   brebo_office_core.integration_api_request_signer:
     class: Drupal\brebo_office_core\Service\IntegrationApiRequestSigner
 
+  brebo_office_core.project_planning_repository:
+    class: Drupal\brebo_office_core\Infrastructure\DatabaseProjectPlanningRepository
+    arguments:
+      - '@database'
+
+  Drupal\brebo_office_core\Contract\ProjectPlanningRepositoryInterface:
+    alias: brebo_office_core.project_planning_repository
+
   brebo_office_core.project_planning:
     class: Drupal\brebo_office_core\Service\ProjectPlanningService
     arguments:
-      - '@database'
+      - '@brebo_office_core.project_planning_repository'
 
   brebo_office_core.simple_pdf_renderer:
     class: Drupal\brebo_office_core\Service\SimplePdfRenderer
