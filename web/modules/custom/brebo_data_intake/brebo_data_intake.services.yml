@@ -1,7 +1,11 @@
 services:
+  brebo_data_intake.ingest_repository:
+    class: Drupal\brebo_data_intake\Infrastructure\DatabaseDataIngestRepository
+    arguments: ['@database', '@datetime.time']
+
   brebo_data_intake.ingest_manager:
     class: Drupal\brebo_data_intake\Service\DataIngestManager
-    arguments: ['@database', '@datetime.time']
+    arguments: ['@brebo_data_intake.ingest_repository']
 
   brebo_data_intake.classification_repository:
     class: Drupal\brebo_data_intake\Infrastructure\DatabaseClassificationRepository
