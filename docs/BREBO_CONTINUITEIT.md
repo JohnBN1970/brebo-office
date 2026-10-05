@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele peildatum: 29 september 2026.**
+**Actuele peildatum: 5 oktober 2026.**
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -201,6 +201,8 @@ De factuurwerkbank toont het originele brondocument naast verwerking en gebruikt
 ## Mail en communicatie
 
 De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-, reader-, compose-, tabs- en linkingbaseline moet behouden blijven. Mail is nu tevens een echte adapter op de bron-neutrale intake; nieuwe mailverwerking mag deze centrale route niet omzeilen.
+
+Architectuurslag op 5 oktober 2026: na merge van PR #1148 (`1da6660…`) schrijft `MailIntakeIngestor` via een communicatie-repository in plaats van rechtstreeks via Drupal-entiteiten. De volgende slice is de uitgaande bijlagenketen: `OutboundAttachmentService` wordt achter `OutboundAttachmentPersistenceInterface` geplaatst; Drupal file/node/file-usage-afhankelijkheden horen uitsluitend in `DrupalOutboundAttachmentPersistence`. In de service blijven hashcontrole, 25 MB-totalisering en documentrelaties leidend.
 
 De historische Zoho-backfill blijft een afzonderlijke migratieopgave en mag niet worden geforceerd om runtime- of readinessproblemen heen.
 

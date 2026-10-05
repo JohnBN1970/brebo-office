@@ -208,13 +208,21 @@ services:
     arguments:
       - '@database'
 
+  brebo_mail_intake.outbound_attachment_persistence:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalOutboundAttachmentPersistence
+    arguments:
+      - '@entity_type.manager'
+      - '@file_system'
+      - '@file.usage'
+
+  Drupal\brebo_mail_intake\Contract\OutboundAttachmentPersistenceInterface:
+    alias: brebo_mail_intake.outbound_attachment_persistence
+
   brebo_mail_intake.outbound_attachments:
     class: Drupal\brebo_mail_intake\Service\OutboundAttachmentService
     arguments:
       - '@brebo_mail_intake.outbound_attachment_read_repository'
-      - '@entity_type.manager'
-      - '@file_system'
-      - '@file.usage'
+      - '@brebo_mail_intake.outbound_attachment_persistence'
       - '@brebo_document_data.repository'
       - '@brebo_document_data.storage_locator'
       - '@brebo_mail_intake.source_mailbox_attachment_reader'

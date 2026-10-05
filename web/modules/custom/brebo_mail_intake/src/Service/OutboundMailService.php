@@ -154,7 +154,7 @@ final class OutboundMailService {
         'cc' => $cc,
         'bcc' => $bcc,
         'signature' => $this->signatureBuilder->build((int) $communication->id()),
-        'attachments' => $this->attachmentService->resolve($communication),
+        'attachments' => $this->attachmentService->resolve((int) $communication->id()),
         'communication_id' => (int) $communication->id(),
       ],
       $from,
