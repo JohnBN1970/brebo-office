@@ -13,6 +13,17 @@ final class DatabaseBillingControlRepository implements BillingControlRepository
 
   public function __construct(private readonly Connection $database) {}
 
+  public function transactional(callable $callback): mixed {
+    $transaction = $this->database->startTransaction();
+    try {
+      return $callback();
+    }
+    catch (\Throwable $exception) {
+      $transaction->rollBack();
+      throw $exception;
+    }
+  }
+
   public function approvedContractExists(int $contractId, int $projectNid): bool {
     return (int) $this->database->select('brebo_finance_project_contract', 'c')
       ->condition('id', $contractId)
