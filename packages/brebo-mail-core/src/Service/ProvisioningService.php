@@ -53,6 +53,11 @@ final class ProvisioningService {
     }
   }
 
+  /** @return array<int,array<string,mixed>> */
+  public function recentJobs(int $limit = 50): array {
+    return $this->jobs->recent($limit);
+  }
+
   /** @return array{provider:string,available:bool,message:string} */
   public function gatewayHealth(): array {
     return $this->gateway->health();

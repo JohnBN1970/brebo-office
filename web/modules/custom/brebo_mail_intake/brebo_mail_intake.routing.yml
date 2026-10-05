@@ -135,3 +135,12 @@ brebo_mail_intake.core_mailboxes:
     _title: 'Mailboxen & aliassen'
   requirements:
     _permission: 'administer brebo mail platform'
+
+
+brebo_mail_intake.core_mail_platform_status:
+  path: '/mail/beheer/status'
+  defaults:
+    _controller: '\Drupal\brebo_mail_intake\Controller\CoreMailPlatformStatusController::page'
+    _title: 'Mail platformstatus'
+  requirements:
+    _permission: 'administer brebo mail platform'

@@ -33,3 +33,11 @@ brebo_mail_intake.core_mailboxes:
   route_name: brebo_mail_intake.core_mailboxes
   parent: brebo_mail_intake.admin
   weight: 30
+
+
+brebo_mail_intake.core_mail_platform_status:
+  title: 'Platformstatus'
+  description: 'Gateway-health en provisioning-status'
+  route_name: brebo_mail_intake.core_mail_platform_status
+  parent: brebo_mail_intake.admin
+  weight: 40
