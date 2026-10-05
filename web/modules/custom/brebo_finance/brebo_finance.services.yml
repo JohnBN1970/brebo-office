@@ -317,9 +317,12 @@ services:
   brebo_finance.cash_flow_forecast_manager:
     class: Drupal\brebo_finance\Service\CashFlowForecastManager
     arguments: ['@brebo_finance.cash_flow_forecast_repository', '@brebo_finance.vat_calculator']
+  brebo_finance.labour_productivity_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseLabourProductivityRepository
+    arguments: ['@database']
   brebo_finance.labour_productivity_manager:
     class: Drupal\brebo_finance\Service\LabourProductivityManager
-    arguments: ['@database', '@brebo_finance.vat_calculator']
+    arguments: ['@brebo_finance.labour_productivity_repository', '@brebo_finance.vat_calculator']
   brebo_finance.financial_cockpit_read_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialCockpitReadRepository
     arguments: ['@database']
