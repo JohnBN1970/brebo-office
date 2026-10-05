@@ -4,11 +4,11 @@ services:
     arguments: ['@database', '@datetime.time']
 
   brebo_data_intake.classification_repository:
-    class: Drupal\brebo_data_intake\Service\ClassificationRepository
+    class: Drupal\brebo_data_intake\Infrastructure\DatabaseClassificationRepository
     arguments: ['@database', '@datetime.time']
 
   brebo_data_intake.candidate_repository:
-    class: Drupal\brebo_data_intake\Service\MasterdataCandidateRepository
+    class: Drupal\brebo_data_intake\Infrastructure\DatabaseMasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
 
   brebo_data_intake.website_project_request_destination:
@@ -90,7 +90,7 @@ services:
       - '@brebo_data_intake.enrichment_dispatcher'
 
   brebo_data_intake.review_repository:
-    class: Drupal\brebo_data_intake\Service\IntakeReviewRepository
+    class: Drupal\brebo_data_intake\Infrastructure\DatabaseIntakeReviewRepository
     arguments: ['@database']
 
   brebo_data_intake.decision_manager:

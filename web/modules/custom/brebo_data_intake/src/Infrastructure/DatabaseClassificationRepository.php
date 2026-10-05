@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_data_intake\Service;
+namespace Drupal\brebo_data_intake\Infrastructure;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\brebo_data_intake\Contract\ClassificationRepositoryInterface;
 use Drupal\Core\Database\Connection;
 
-final class ClassificationRepository {
+final class DatabaseClassificationRepository implements ClassificationRepositoryInterface {
   public function __construct(
     private readonly Connection $database,
     private readonly TimeInterface $time,

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Service;
 
+use Drupal\brebo_data_intake\Contract\ClassificationRepositoryInterface;
+
 /**
  * Imports normalized NLBE-SfB terms through the BREBO-wide intake layer.
  */
@@ -14,7 +16,7 @@ final class NlbeSfbProvider {
 
   public function __construct(
     private readonly DataIngestManager $ingestManager,
-    private readonly ClassificationRepository $classificationRepository,
+    private readonly ClassificationRepositoryInterface $classificationRepository,
   ) {}
 
   /**

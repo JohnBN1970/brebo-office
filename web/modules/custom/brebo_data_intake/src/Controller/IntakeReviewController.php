@@ -8,7 +8,7 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Url;
-use Drupal\brebo_data_intake\Service\IntakeReviewRepository;
+use Drupal\brebo_data_intake\Contract\IntakeReviewRepositoryInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\RequestStack;
 
@@ -18,7 +18,7 @@ final class IntakeReviewController extends ControllerBase {
   private const PAGE_SIZE = 50;
 
   public function __construct(
-    private readonly IntakeReviewRepository $reviews,
+    private readonly IntakeReviewRepositoryInterface $reviews,
     private readonly DateFormatterInterface $dateFormatter,
     private readonly RequestStack $requestStack,
     private readonly EntityTypeManagerInterface $intakeEntityTypeManager,

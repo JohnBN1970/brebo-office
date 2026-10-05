@@ -2,13 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_data_intake\Service;
+namespace Drupal\brebo_data_intake\Infrastructure;
 
 use Drupal\Component\Datetime\TimeInterface;
+use Drupal\brebo_data_intake\Contract\MasterdataCandidateRepositoryInterface;
 use Drupal\Core\Database\Connection;
 
 /** Creates reviewable proposals before source data mutates BREBO masterdata. */
-final class MasterdataCandidateRepository {
+final class DatabaseMasterdataCandidateRepository implements MasterdataCandidateRepositoryInterface {
   public function __construct(
     private readonly Connection $database,
     private readonly TimeInterface $time,

@@ -2,12 +2,13 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_data_intake\Service;
+namespace Drupal\brebo_data_intake\Infrastructure;
 
+use Drupal\brebo_data_intake\Contract\IntakeReviewRepositoryInterface;
 use Drupal\Core\Database\Connection;
 
 /** Read model for the source-neutral intake review workbench. */
-final class IntakeReviewRepository {
+final class DatabaseIntakeReviewRepository implements IntakeReviewRepositoryInterface {
 
   public function __construct(private readonly Connection $database) {}
 
