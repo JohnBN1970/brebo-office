@@ -6,7 +6,7 @@ namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\CommitmentManager;
 use Drupal\brebo_office_core\Service\IntegrationApiClientInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectOrderReadRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
@@ -17,14 +17,14 @@ final class ProjectOrderAddForm extends FormBase {
 
   public function __construct(
     private readonly CommitmentManager $commitmentManager,
-    private readonly Connection $database,
+    private readonly ProjectOrderReadRepositoryInterface $orderReads,
     private readonly IntegrationApiClientInterface $integrationApiClient,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_finance.commitment_manager'),
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_order_read_repository'),
       $container->get('brebo_office_core.integration_api_client'),
     );
   }
@@ -174,17 +174,13 @@ final class ProjectOrderAddForm extends FormBase {
     $userId = (int) $this->currentUser()->id();
     if ($trigger === 'ai_create') {
       $proposal = (array) $form_state->getValue('proposal');
-      $transaction = $this->database->startTransaction();
-      try {
+      $commitmentId = $this->commitmentManager->transactional(function () use ($projectId, $proposal, $userId): int {
         $commitmentId = $this->commitmentManager->createDraft($projectId, (string) ($proposal['supplier_name'] ?? ''), trim((string) ($proposal['supplier_ref'] ?? '')) ?: NULL, $userId);
         foreach ((array) ($proposal['lines'] ?? []) as $line) {
           $this->commitmentManager->addLine($commitmentId, (int) ($line['budget_line_id'] ?? 0), (string) ($line['description'] ?? ''), (string) ($line['quantity'] ?? ''), (string) ($line['unit'] ?? ''), (string) ($line['unit_price_ex_vat'] ?? ''), (string) ($line['vat_rate'] ?? '21'), !empty($line['vat_reverse_charge']), '0', $userId);
         }
-      }
-      catch (\Throwable $exception) {
-        $transaction->rollBack();
-        throw $exception;
-      }
+        return $commitmentId;
+      });
       $this->messenger()->addStatus($this->t('Gecontroleerd AI-conceptorder @id is aangemaakt. De order is nog niet verzonden.', ['@id' => $commitmentId]));
       $form_state->setRedirect('brebo_project_cockpit.orders', ['node' => $projectId]);
       return;
@@ -198,17 +194,7 @@ final class ProjectOrderAddForm extends FormBase {
 
   /** @return array<int, array<string, mixed>> */
   private function workingBudgetLines(int $projectId): array {
-    $budget = $this->database->select('brebo_finance_budget', 'b')->fields('b', ['id'])->condition('project_nid', $projectId)->condition('budget_type', 'working')->condition('status', 'locked')->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchField();
-    if ($budget === FALSE) {
-      return [];
-    }
-    $rows = $this->database->select('brebo_finance_budget_line', 'l')->fields('l')->condition('budget_id', (int) $budget)->orderBy('sort_order', 'ASC')->orderBy('id', 'ASC')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    foreach ($rows as &$row) {
-      $row['code'] = (string) ($row['cost_code'] ?? $row['line_number'] ?? $row['id']);
-      $row['remaining_ex_vat'] = max(0.0, (float) ($row['amount_ex_vat'] ?? 0) + $this->approvedMutationForBudgetLine((int) $row['id']) - $this->committedForBudgetLine((int) $row['id']));
-    }
-    unset($row);
-    return $rows;
+    return $this->orderReads->workingBudgetLines($projectId);
   }
 
   /** @param array<int, array<string, mixed>> $budgetLines */
@@ -228,26 +214,6 @@ final class ProjectOrderAddForm extends FormBase {
       $options[(int) $line['id']] = sprintf('%s · %s · resterend € %s', (string) ($line['code'] ?? $line['id']), (string) ($line['description'] ?? 'Begrotingsregel'), number_format((float) ($line['remaining_ex_vat'] ?? 0), 2, ',', '.'));
     }
     return $options;
-  }
-
-  private function committedForBudgetLine(int $budgetLineId): float {
-    if (!$this->database->schema()->tableExists('brebo_finance_commitment_line') || !$this->database->schema()->tableExists('brebo_finance_commitment')) {
-      return 0.0;
-    }
-    $query = $this->database->select('brebo_finance_commitment_line', 'l');
-    $query->join('brebo_finance_commitment', 'c', 'c.id = l.commitment_id');
-    $query->condition('l.budget_line_id', $budgetLineId)->condition('c.status', ['cancelled'], 'NOT IN')->addExpression('COALESCE(SUM(l.amount_ex_vat), 0)', 'committed_total');
-    return (float) $query->execute()->fetchField();
-  }
-
-  private function approvedMutationForBudgetLine(int $budgetLineId): float {
-    if (!$this->database->schema()->tableExists('brebo_finance_budget_mutation_line') || !$this->database->schema()->tableExists('brebo_finance_budget_mutation')) {
-      return 0.0;
-    }
-    $query = $this->database->select('brebo_finance_budget_mutation_line', 'ml');
-    $query->join('brebo_finance_budget_mutation', 'm', 'm.id = ml.mutation_id');
-    $query->condition('ml.budget_line_id', $budgetLineId)->condition('m.status', 'approved')->addExpression('COALESCE(SUM(ml.adjustment_ex_vat), 0)', 'approved_adjustment');
-    return (float) $query->execute()->fetchField();
   }
 
 }
