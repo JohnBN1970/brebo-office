@@ -31,7 +31,7 @@ final class ProjectClockZoneController extends ControllerBase {
 
   public function overview(NodeInterface $node): array {
     $this->assertProject($node);
-    $zones = $this->clockZoneManager->loadForProject($node);
+    $zones = $this->clockZoneManager->loadForProject((int) $node->id());
 
     $rows = [];
     foreach ($zones as $zone) {
