@@ -10,7 +10,7 @@ use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
@@ -36,7 +36,7 @@ final class MailboxController extends ControllerBase {
   public function __construct(
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $storage,
     private readonly EntityTypeManagerInterface $mailboxEntityTypeManager,
     private readonly AccountProxyInterface $mailboxCurrentUser,
     private readonly MailEditorProvisioner $editorProvisioner,
@@ -47,7 +47,7 @@ final class MailboxController extends ControllerBase {
     return new static(
       $container->get('brebo_mail_intake.mailbox_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
-      $container->get('database'),
+      $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->get('entity_type.manager'),
       $container->get('current_user'),
       $container->get('brebo_mail_intake.editor_provisioner'),
@@ -328,19 +328,7 @@ final class MailboxController extends ControllerBase {
 
   /** @return array{rows: array<int, array<string, mixed>>, has_next: bool} */
   private function messageRows(int $mailboxId, string $state, int $page): array {
-    $query = $this->database->select('brebo_mailbox_message', 'bm');
-    $query->join('node_field_data', 'n', 'n.nid = bm.communication_id AND n.default_langcode = 1');
-    $query->leftJoin('node__field_brebo_mail_from', 'mf', 'mf.entity_id = n.nid AND mf.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_subject', 'ms', 'ms.entity_id = n.nid AND ms.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_datetime', 'md', 'md.entity_id = n.nid AND md.deleted = 0');
-    $query->fields('bm', ['communication_id', 'is_read', 'is_starred', 'needs_action', 'changed']);
-    $query->addField('mf', 'field_brebo_mail_from_value', 'mail_from');
-    $query->addField('ms', 'field_brebo_comm_subject_value', 'subject');
-    $query->addField('md', 'field_brebo_comm_datetime_value', 'mail_datetime');
-    $query->condition('bm.mailbox_id', $mailboxId)->condition('bm.mail_state', $state)->condition('n.type', 'brebo_communication');
-    $query->orderBy('md.field_brebo_comm_datetime_value', 'DESC')->orderBy('bm.changed', 'DESC');
-    $query->range($page * self::PAGE_SIZE, self::PAGE_SIZE + 1);
-    $rows = array_values(array_map('get_object_vars', $query->execute()->fetchAll()));
+    $rows = $this->storage->messageRows($mailboxId, $state, $page * self::PAGE_SIZE, self::PAGE_SIZE + 1);
     $hasNext = count($rows) > self::PAGE_SIZE;
     if ($hasNext) {
       array_pop($rows);
@@ -351,14 +339,7 @@ final class MailboxController extends ControllerBase {
 
     $ids = array_map(static fn(array $row): int => (int) $row['communication_id'], $rows);
     $nodes = $this->mailboxEntityTypeManager->getStorage('node')->loadMultiple($ids);
-    $tagsByCommunication = [];
-    if ($this->database->schema()->tableExists('brebo_mail_tag')) {
-      $tagQuery = $this->database->select('brebo_mail_tag', 't')->fields('t', ['communication_id', 'tag']);
-      $tagQuery->condition('communication_id', $ids, 'IN')->orderBy('tag');
-      foreach ($tagQuery->execute() as $tagRow) {
-        $tagsByCommunication[(int) $tagRow->communication_id][] = (string) $tagRow->tag;
-      }
-    }
+    $tagsByCommunication = $this->storage->tagsForCommunications($ids);
 
     foreach ($rows as &$row) {
       $id = (int) $row['communication_id'];
@@ -376,12 +357,7 @@ final class MailboxController extends ControllerBase {
 
   /** @return array<string, mixed>|null */
   private function loadCommunication(int $mailboxId, int $communicationId): ?array {
-    $membership = $this->database->select('brebo_mailbox_message', 'bm')
-      ->fields('bm', ['communication_id'])
-      ->condition('mailbox_id', $mailboxId)
-      ->condition('communication_id', $communicationId)
-      ->range(0, 1)->execute()->fetchField();
-    if (!$membership) {
+    if (!$this->storage->messageBelongsToMailbox($mailboxId, $communicationId)) {
       return NULL;
     }
 
@@ -392,15 +368,7 @@ final class MailboxController extends ControllerBase {
 
     $project = $node->hasField('field_brebo_project_ref') ? $node->get('field_brebo_project_ref')->entity : NULL;
     $building = $node->hasField('field_brebo_building_ref') ? $node->get('field_brebo_building_ref')->entity : NULL;
-    $tags = [];
-    if ($this->database->schema()->tableExists('brebo_mail_tag')) {
-      $tags = $this->database->select('brebo_mail_tag', 't')
-        ->fields('t', ['tag'])
-        ->condition('communication_id', $communicationId)
-        ->orderBy('tag')
-        ->execute()
-        ->fetchCol();
-    }
+    $tags = $this->storage->tags($communicationId);
 
     $fileAttachments = [];
     if ($node->hasField('field_brebo_comm_attachments')) {
@@ -415,35 +383,25 @@ final class MailboxController extends ControllerBase {
 
     $documentAttachments = [];
     $canonicalTitles = [];
-    if ($this->database->schema()->tableExists('brebo_document_communication')) {
-      $documentQuery = $this->database->select('brebo_document_communication', 'dc');
-      $documentQuery->join('brebo_document', 'd', 'd.id = dc.document_id');
-      $documentQuery->fields('dc', ['document_id', 'relation_role']);
-      $documentQuery->fields('d', ['title', 'original_filename']);
-      $documentQuery->condition('dc.communication_nid', $communicationId)
-        ->condition('d.lifecycle_status', 'deleted', '<>')
-        ->orderBy('dc.created')
-        ->orderBy('dc.id');
-      $roleLabels = [
-        'received_with' => 'ontvangen via deze mail',
-        'sent_with' => 'meegestuurd met deze mail',
-        'created_with' => 'aangemaakt bij deze mail',
-      ];
-      $seenDocuments = [];
-      foreach ($documentQuery->execute() as $documentRow) {
-        $documentId = (int) $documentRow->document_id;
-        if (isset($seenDocuments[$documentId])) {
-          continue;
-        }
-        $seenDocuments[$documentId] = TRUE;
-        $documentTitle = trim((string) ($documentRow->original_filename ?: $documentRow->title));
-        $canonicalTitles[mb_strtolower($documentTitle)] = TRUE;
-        $documentAttachments[] = [
-          'title' => $documentTitle,
-          'document_id' => $documentId,
-          'role_label' => $roleLabels[(string) $documentRow->relation_role] ?? '',
-        ];
+    $roleLabels = [
+      'received_with' => 'ontvangen via deze mail',
+      'sent_with' => 'meegestuurd met deze mail',
+      'created_with' => 'aangemaakt bij deze mail',
+    ];
+    $seenDocuments = [];
+    foreach ($this->storage->documentAttachments($communicationId) as $documentRow) {
+      $documentId = (int) $documentRow['document_id'];
+      if (isset($seenDocuments[$documentId])) {
+        continue;
       }
+      $seenDocuments[$documentId] = TRUE;
+      $documentTitle = trim((string) (($documentRow['original_filename'] ?? '') ?: ($documentRow['title'] ?? '')));
+      $canonicalTitles[mb_strtolower($documentTitle)] = TRUE;
+      $documentAttachments[] = [
+        'title' => $documentTitle,
+        'document_id' => $documentId,
+        'role_label' => $roleLabels[(string) ($documentRow['relation_role'] ?? '')] ?? '',
+      ];
     }
 
     $attachments = $documentAttachments;
