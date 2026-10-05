@@ -232,3 +232,20 @@ body:has(.brebo-mail-workspace) .page-title {
     padding-left: 16px;
   }
 }
+
+
+.brebo-mail-provisioning-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.brebo-mail-provisioning-workspace > details,
+.brebo-mail-provisioning-workspace > table {
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brebo-mail-provisioning-workspace > details {
+  padding: 4px 16px 14px;
+}
