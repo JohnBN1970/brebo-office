@@ -84,25 +84,8 @@ final class FinancialControlScanner {
       }
     }
 
-    $obligationQuery = $this->database->select('brebo_finance_contract_obligation', 'o');
-    $obligationQuery->fields('o', [
-      'id',
-      'obligation_number',
-      'obligation_type',
-      'responsible_side',
-      'status',
-      'title',
-      'clause_ref',
-      'consequence',
-      'control_measure',
-      'due_date',
-      'financial_exposure_ex_vat',
-      'owner_uid',
-    ]);
-    $obligationQuery->condition('project_nid', $projectNid);
-    $obligationQuery->condition('status', ['open', 'pending_verification', 'waiver_review'], 'IN');
     $upcomingLimit = date('Y-m-d', $now + (14 * 86400));
-    foreach ($obligationQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $obligation) {
+    foreach ($this->repository->openContractObligations($projectNid) as $obligation) {
       if ($obligation['due_date'] < $today) {
         $criticalTypes = ['claim_deadline', 'notice_period', 'bank_guarantee', 'insurance', 'penalty'];
         $severity = in_array($obligation['obligation_type'], $criticalTypes, TRUE) ? 'critical' : 'high';
@@ -149,12 +132,7 @@ final class FinancialControlScanner {
       }
     }
 
-    $scenarioRows = $this->database->select('brebo_finance_scenario_snapshot', 'ss')
-      ->fields('ss', ['id', 'scenario_id', 'snapshot_date', 'adjusted_result_ex_vat', 'adjusted_margin_pct', 'receipt_delay_days', 'delayed_receipts_inc_vat'])
-      ->condition('project_nid', $projectNid)
-      ->orderBy('snapshot_date', 'DESC')
-      ->orderBy('id', 'DESC')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $scenarioRows = $this->repository->scenarioSnapshots($projectNid);
     $seenScenarios = [];
     foreach ($scenarioRows as $scenario) {
       $scenarioId = (int) $scenario['scenario_id'];
@@ -188,11 +166,7 @@ final class FinancialControlScanner {
       }
     }
 
-    $instalments = $this->database->select('brebo_finance_billing_instalment', 'i')
-      ->fields('i', ['id', 'instalment_number', 'description', 'status', 'planned_invoice_date', 'amount_ex_vat', 'amount_inc_vat', 'billable_at'])
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['planned', 'billable'], 'IN')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $instalments = $this->repository->openBillingInstalments($projectNid);
     foreach ($instalments as $instalment) {
       if ($instalment['status'] === 'planned' && $instalment['planned_invoice_date'] < $today) {
         $this->record($projectNid, 'FIN-BILLING-TRIGGER-REVIEW', 'medium', 'billing_instalment', (int) $instalment['id'],
@@ -220,11 +194,7 @@ final class FinancialControlScanner {
       }
     }
 
-    $salesInvoices = $this->database->select('brebo_finance_sales_invoice', 'i')
-      ->fields('i', ['id', 'invoice_number', 'status', 'due_date', 'amount_inc_vat', 'paid_amount_inc_vat', 'dispute_reason'])
-      ->condition('project_nid', $projectNid)
-      ->condition('status', ['sent', 'overdue', 'disputed'], 'IN')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $salesInvoices = $this->repository->openSalesInvoices($projectNid);
     foreach ($salesInvoices as $invoice) {
       if ($invoice['status'] === 'disputed') {
         $this->record($projectNid, 'FIN-SALES-INVOICE-DISPUTED', 'high', 'sales_invoice', (int) $invoice['id'],
@@ -254,26 +224,7 @@ final class FinancialControlScanner {
       }
     }
 
-    $scoreRows = $this->database->select('brebo_finance_supplier_score_snapshot', 's')
-      ->fields('s', [
-        'id',
-        'supplier_ref',
-        'supplier_name',
-        'snapshot_date',
-        'weighted_score',
-        'confidence_class',
-        'delivery_score',
-        'quality_score',
-        'invoice_score',
-        'price_score',
-        'failure_cost_score',
-        'policy_payload',
-      ])
-      ->condition('project_nid', $projectNid)
-      ->orderBy('snapshot_date', 'DESC')
-      ->orderBy('id', 'DESC')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $scoreRows = $this->repository->supplierScoreSnapshots($projectNid);
     $scoredSuppliers = [];
     foreach ($scoreRows as $score) {
       $supplierRef = (string) $score['supplier_ref'];
@@ -336,24 +287,7 @@ final class FinancialControlScanner {
       $counts[$severity]++;
     }
 
-    $failureQuery = $this->database->select('brebo_finance_failure_cost', 'f');
-    $failureQuery->fields('f', [
-      'id',
-      'failure_number',
-      'status',
-      'category',
-      'title',
-      'total_cost_ex_vat',
-      'recoverable_amount_ex_vat',
-      'recovered_amount_ex_vat',
-      'net_failure_cost_ex_vat',
-      'owner_uid',
-      'due_date',
-      'created',
-    ]);
-    $failureQuery->condition('project_nid', $projectNid);
-    $failureQuery->condition('status', 'closed', '<>');
-    foreach ($failureQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $failure) {
+    foreach ($this->repository->openFailureCosts($projectNid) as $failure) {
       if ($failure['status'] === 'observed' && (int) $failure['created'] < $now - (2 * 86400)) {
         $this->record($projectNid, 'FIN-FAILURE-NOT-VALIDATED', 'medium', 'failure_cost', (int) $failure['id'],
           'Faalkosten zijn nog niet onafhankelijk gevalideerd',
@@ -390,21 +324,7 @@ final class FinancialControlScanner {
       }
     }
 
-    $changeQuery = $this->database->select('brebo_finance_change_order', 'c');
-    $changeQuery->fields('c', [
-      'id',
-      'change_number',
-      'status',
-      'title',
-      'sales_amount_ex_vat',
-      'margin_amount_ex_vat',
-      'offered_at',
-      'executed_at',
-      'created',
-    ]);
-    $changeQuery->condition('project_nid', $projectNid);
-    $changeQuery->condition('status', ['client_rejected', 'paid'], 'NOT IN');
-    foreach ($changeQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $change) {
+    foreach ($this->repository->activeChangeOrders($projectNid) as $change) {
       if (in_array($change['status'], ['observed', 'priced'], TRUE) && (int) $change['created'] < $now - (2 * 86400)) {
         $this->record($projectNid, 'FIN-CHANGE-NOT-OFFERED', 'medium', 'change_order', (int) $change['id'],
           'Projectafwijking is nog niet aangeboden',
@@ -436,13 +356,7 @@ final class FinancialControlScanner {
         $counts['high']++;
       }
       if (in_array($change['status'], ['client_approved', 'risk_accepted', 'executed', 'invoiced'], TRUE)) {
-        $costMutationExists = (int) $this->database->select('brebo_finance_budget_mutation', 'm')
-          ->condition('project_nid', $projectNid)
-          ->condition('mutation_number', $change['change_number'])
-          ->countQuery()
-          ->execute()
-          ->fetchField();
-        if ($costMutationExists === 0) {
+        if (!$this->repository->budgetMutationExists($projectNid, (string) $change['change_number'])) {
           $this->record($projectNid, 'FIN-CHANGE-COST-NOT-CONTROLLED', 'high', 'change_order', (int) $change['id'],
             'Kosten van projectafwijking zijn niet in de budgetbewaking verwerkt',
             'De afwijking is vrijgegeven of uitgevoerd zonder gekoppelde budgetmutatie voor de kostenkant.',
@@ -492,37 +406,22 @@ final class FinancialControlScanner {
       }
     }
 
-    $cashForecast = $this->database->select('brebo_finance_cash_forecast_snapshot', 'c')
-      ->fields('c', [
-        'id',
-        'snapshot_date',
-        'lowest_regular_balance',
-        'lowest_g_account_balance',
-        'first_regular_shortfall_date',
-        'first_g_account_shortfall_date',
-      ])
-      ->condition('project_nid', $projectNid)
-      ->condition('scenario', 'committed')
-      ->orderBy('snapshot_date', 'DESC')
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
+    $cashForecast = $this->repository->latestCommittedCashForecast($projectNid);
     $cashForecastLimit = date('Y-m-d', $now - (7 * 86400));
-    if ($cashForecast === FALSE || $cashForecast['snapshot_date'] < $cashForecastLimit) {
+    if ($cashForecast === NULL || $cashForecast['snapshot_date'] < $cashForecastLimit) {
       $this->record($projectNid, 'FIN-CASH-FORECAST-STALE', 'medium', 'project', $projectNid,
         'Dertienweeks kasprognose ontbreekt of is verouderd',
         'Er is geen committed kasprognose van de laatste zeven dagen.',
         'Komende tekorten op de reguliere rekening of G-rekening kunnen te laat zichtbaar worden.',
         'Werk bevestigde ontvangsten en betalingen bij en maak een nieuwe verzegelde dertienweeks kasprognose.',
         $now,
-        ['latest_snapshot_date' => $cashForecast !== FALSE ? $cashForecast['snapshot_date'] : NULL],
+        ['latest_snapshot_date' => $cashForecast !== NULL ? $cashForecast['snapshot_date'] : NULL],
       );
       $seen[] = $this->key('FIN-CASH-FORECAST-STALE', 'project', $projectNid);
       $counts['medium']++;
     }
 
-    if ($cashForecast !== FALSE && $cashForecast['first_regular_shortfall_date'] !== NULL) {
+    if ($cashForecast !== NULL && $cashForecast['first_regular_shortfall_date'] !== NULL) {
       $this->record($projectNid, 'FIN-CASH-REGULAR-SHORTFALL', 'critical', 'cash_forecast_snapshot', (int) $cashForecast['id'],
         'Reguliere rekening dreigt binnen dertien weken negatief te worden',
         'Bevestigde ontvangsten en uitgaven veroorzaken volgens de kasprognose een tekort.',
@@ -538,7 +437,7 @@ final class FinancialControlScanner {
       $seen[] = $this->key('FIN-CASH-REGULAR-SHORTFALL', 'cash_forecast_snapshot', (int) $cashForecast['id']);
       $counts['critical']++;
     }
-    if ($cashForecast !== FALSE && $cashForecast['first_g_account_shortfall_date'] !== NULL) {
+    if ($cashForecast !== NULL && $cashForecast['first_g_account_shortfall_date'] !== NULL) {
       $this->record($projectNid, 'FIN-CASH-GACCOUNT-SHORTFALL', 'high', 'cash_forecast_snapshot', (int) $cashForecast['id'],
         'G-rekening dreigt binnen dertien weken onvoldoende saldo te hebben',
         'Bevestigde G-rekeningontvangsten en -betalingen veroorzaken volgens de prognose een tekort.',
@@ -555,13 +454,7 @@ final class FinancialControlScanner {
       $counts['high']++;
     }
 
-    $receivableQuery = $this->database->select('brebo_finance_cash_event', 'e');
-    $receivableQuery->fields('e', ['id', 'description', 'amount_inc_vat', 'due_date', 'source_type', 'source_id']);
-    $receivableQuery->condition('project_nid', $projectNid);
-    $receivableQuery->condition('direction', 'incoming');
-    $receivableQuery->condition('status', 'confirmed');
-    $receivableQuery->condition('due_date', $today, '<');
-    foreach ($receivableQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $receivable) {
+    foreach ($this->repository->overdueReceivables($projectNid, $today) as $receivable) {
       $this->record($projectNid, 'FIN-RECEIVABLE-OVERDUE', 'high', 'cash_event', (int) $receivable['id'],
         'Bevestigde ontvangst is vervallen maar niet ontvangen',
         'De overeengekomen ontvangstdatum is verstreken en de bronpost staat nog open.',
@@ -580,11 +473,7 @@ final class FinancialControlScanner {
       $counts['high']++;
     }
 
-    $invoiceQuery = $this->database->select('brebo_finance_purchase_invoice', 'i');
-    $invoiceQuery->fields('i', ['id', 'invoice_number', 'match_status', 'status', 'due_date', 'amount_inc_vat']);
-    $invoiceQuery->condition('project_nid', $projectNid);
-    $invoiceQuery->condition('status', ['cancelled', 'paid'], 'NOT IN');
-    foreach ($invoiceQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $invoice) {
+    foreach ($this->repository->openPurchaseInvoices($projectNid) as $invoice) {
       if ($invoice['match_status'] === 'exception') {
         $this->record($projectNid, 'FIN-INVOICE-EXCEPTION', 'high', 'purchase_invoice', (int) $invoice['id'],
           'Inkoopfactuur bevat een afwijking',
@@ -625,12 +514,7 @@ final class FinancialControlScanner {
     }
 
     $mutationLimit = $now - (7 * 86400);
-    $mutationQuery = $this->database->select('brebo_finance_budget_mutation', 'm');
-    $mutationQuery->fields('m', ['id', 'mutation_number', 'amount_ex_vat', 'created']);
-    $mutationQuery->condition('project_nid', $projectNid);
-    $mutationQuery->condition('status', ['draft', 'in_review'], 'IN');
-    $mutationQuery->condition('created', $mutationLimit, '<');
-    foreach ($mutationQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $mutation) {
+    foreach ($this->repository->staleBudgetMutations($projectNid, $mutationLimit) as $mutation) {
       $this->record($projectNid, 'FIN-MUTATION-PENDING', 'medium', 'budget_mutation', (int) $mutation['id'],
         'Budgetmutatie wacht langer dan zeven dagen',
         'De financiële afwijking is nog niet goedgekeurd of afgewezen.',
@@ -643,13 +527,7 @@ final class FinancialControlScanner {
       $counts['medium']++;
     }
 
-    $gQuery = $this->database->select('brebo_finance_g_account_instruction', 'g');
-    $gQuery->fields('g', ['id', 'effective_until', 'counterparty_name']);
-    $gQuery->condition('project_nid', $projectNid);
-    $gQuery->condition('status', 'approved');
-    $gQuery->isNotNull('effective_until');
-    $gQuery->condition('effective_until', $today, '<');
-    foreach ($gQuery->execute()->fetchAll(\PDO::FETCH_ASSOC) as $instruction) {
+    foreach ($this->repository->expiredGAccountInstructions($projectNid, $today) as $instruction) {
       $this->record($projectNid, 'FIN-GACCOUNT-EXPIRED', 'high', 'g_account_instruction', (int) $instruction['id'],
         'G-rekeningsinstructie is verlopen',
         'De goedgekeurde geldigheidsperiode is verstreken.',
@@ -662,22 +540,16 @@ final class FinancialControlScanner {
       $counts['high']++;
     }
 
-    $latestForecast = $this->database->select('brebo_finance_forecast_snapshot', 'f')
-      ->fields('f', ['snapshot_date'])
-      ->condition('project_nid', $projectNid)
-      ->orderBy('snapshot_date', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchField();
+    $latestForecast = $this->repository->latestForecastDate($projectNid);
     $forecastLimit = date('Y-m-d', $now - (30 * 86400));
-    if ($latestForecast === FALSE || $latestForecast < $forecastLimit) {
+    if ($latestForecast === NULL || $latestForecast < $forecastLimit) {
       $this->record($projectNid, 'FIN-FORECAST-STALE', 'medium', 'project', $projectNid,
         'Financiële eindprognose ontbreekt of is verouderd',
         'Er is geen prognose van de laatste dertig dagen.',
         'Margeverlies en nieuwe risico’s kunnen te laat zichtbaar worden.',
         'Actualiseer resterende kosten, risicoreserve en verwachte eindkosten.',
         $now,
-        ['latest_snapshot_date' => $latestForecast !== FALSE ? $latestForecast : NULL],
+        ['latest_snapshot_date' => $latestForecast],
       );
       $seen[] = $this->key('FIN-FORECAST-STALE', 'project', $projectNid);
       $counts['medium']++;
