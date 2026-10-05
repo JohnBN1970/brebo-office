@@ -95,11 +95,18 @@ services:
     arguments:
       - '@brebo_mail_intake.crm_read_repository'
 
+  brebo_mail_intake.provisional_context_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalProvisionalContextRepository
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_mail_intake\Contract\ProvisionalContextRepositoryInterface:
+    alias: brebo_mail_intake.provisional_context_repository
+
   brebo_mail_intake.provisional_context_materializer:
     class: Drupal\brebo_mail_intake\Service\ProvisionalContextMaterializer
     arguments:
-      - '@entity_type.manager'
-      - '@current_user'
+      - '@brebo_mail_intake.provisional_context_repository'
       - '@?brebo_building_data.repository'
 
   brebo_mail_intake.pipeline:
