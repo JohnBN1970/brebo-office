@@ -15,6 +15,8 @@ interface MailDomainRepositoryInterface {
 
   public function setStatus(int $domainId, string $status): void;
 
+  public function setDkim(int $domainId, string $selector, string $publicKey): void;
+
   /** @param array<string,string> $checks */
   public function setDnsChecks(int $domainId, array $checks): void;
 }
