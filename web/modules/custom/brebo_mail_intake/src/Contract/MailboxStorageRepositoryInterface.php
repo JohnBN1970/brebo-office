@@ -11,6 +11,10 @@ interface MailboxStorageRepositoryInterface {
   public function mailbox(int $mailboxId): ?array;
   /** @return list<string> */
   public function allowedRoles(int $mailboxId, string $capability = 'view'): array;
+  /** @return list<array{id:int,address:string}> */
+  public function activeMailboxes(): array;
+  /** @param array<string,mixed> $fields */
+  public function upsertMessageProjection(int $mailboxId, int $communicationId, array $fields): void;
   /** @return list<array<string,mixed>> */
   public function messageRows(int $mailboxId, string $state, int $offset, int $limit): array;
   /** @return array<int,list<string>> */
