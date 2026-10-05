@@ -33,13 +33,9 @@ final class CanonicalContextResolver {
       $basis[] = sprintf('Bestaand project herkend: "%s".', $project['label']);
     }
 
-    if (!($building !== NULL) && $project !== NULL && $project->hasField('field_brebo_building_refs')) {
-      $projectBuildings = array_values(array_filter(
-        $project->get('field_brebo_building_refs')->referencedEntities(),
-        static fn ($entity): bool => $entity instanceof NodeInterface,
-      ));
-      if (count($projectBuildings) === 1) {
-        $building = $projectBuildings[0];
+    if ($building === NULL && $project !== NULL && count($project['building_ids'] ?? []) === 1) {
+      $building = $this->contextRepository->building((int) $project['building_ids'][0]);
+      if ($building !== NULL) {
         $basis[] = 'Gebouw eenduidig afgeleid uit de permanente gebouwrelatie van het project.';
       }
     }
@@ -50,7 +46,7 @@ final class CanonicalContextResolver {
 
     $pdokCandidates = [];
     $addressQuery = '';
-    if (!($building !== NULL)) {
+    if ($building === NULL) {
       $addressQuery = $this->extractAddressQuery($subject, $body);
       if ($addressQuery !== '') {
         try {
@@ -82,7 +78,7 @@ final class CanonicalContextResolver {
 
     $projectEvidence = $this->projectEvidence($subject, $body, $addressQuery !== '' || $pdokCandidates !== []);
     $projectState = 'existing';
-    if (!($project !== NULL)) {
+    if ($project === NULL) {
       if ($projectEvidence['strong']) {
         $projectState = 'provisional_required';
         $basis[] = 'Nieuwe projectkandidaat: ' . implode(', ', $projectEvidence['signals']) . '.';
