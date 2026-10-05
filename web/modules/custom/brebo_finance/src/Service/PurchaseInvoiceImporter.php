@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceImportRepositoryInterface;
 use RuntimeException;
 use UnexpectedValueException;
 
@@ -12,7 +12,7 @@ use UnexpectedValueException;
 final class PurchaseInvoiceImporter {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PurchaseInvoiceImportRepositoryInterface $repository,
     private readonly PurchaseInvoiceIntegrationClient $client,
     private readonly ?VatCalculator $decimal = NULL,
   ) {}
@@ -52,27 +52,18 @@ final class PurchaseInvoiceImporter {
         'changed' => $now,
       ];
 
-      $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
-        ->fields('i', ['id', 'source_hash', 'moneybird_id'])
-        ->condition('moneybird_id', $moneybirdId)
-        ->execute()
-        ->fetchAssoc();
+      $existing = $this->repository->findByMoneybirdId($moneybirdId);
 
-      if (!$existing) {
+      if ($existing === NULL) {
         // The table itself defines supplier_ref + invoice_number as unique.
         // Treat that natural key as authoritative too, regardless of whether a
         // previous import already populated another/legacy Moneybird id.
-        $existing = $this->database->select('brebo_finance_purchase_invoice', 'i')
-          ->fields('i', ['id', 'source_hash', 'moneybird_id'])
-          ->condition('supplier_ref', $fields['supplier_ref'])
-          ->condition('invoice_number', $fields['invoice_number'])
-          ->execute()
-          ->fetchAssoc();
+        $existing = $this->repository->findBySupplierInvoice($fields['supplier_ref'], $fields['invoice_number']);
       }
 
-      if (!$existing) {
+      if ($existing === NULL) {
         $fields['created'] = $now;
-        $this->database->insert('brebo_finance_purchase_invoice')->fields($fields)->execute();
+        $this->repository->create($fields);
         $result['inserted']++;
         continue;
       }
@@ -85,10 +76,7 @@ final class PurchaseInvoiceImporter {
 
       // Preserve BREBO-owned project/order matching when refreshing Moneybird data.
       unset($fields['project_nid'], $fields['commitment_id'], $fields['match_status']);
-      $this->database->update('brebo_finance_purchase_invoice')
-        ->fields($fields)
-        ->condition('id', (int) $existing['id'])
-        ->execute();
+      $this->repository->update((int) $existing['id'], $fields);
       $result['updated']++;
     }
 
@@ -106,12 +94,8 @@ final class PurchaseInvoiceImporter {
    * @return array<string, mixed>
    */
   public function paymentRecipientSnapshot(int $invoiceId, int $actorUid = 0): array {
-    $invoice = $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i', ['id', 'project_nid', 'moneybird_id', 'supplier_ref', 'supplier_name', 'invoice_number'])
-      ->condition('id', $invoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if ($invoice === FALSE) {
+    $invoice = $this->repository->paymentRecipientInvoice($invoiceId);
+    if ($invoice === NULL) {
       throw new UnexpectedValueException('Purchase invoice does not exist.');
     }
 
@@ -173,20 +157,18 @@ final class PurchaseInvoiceImporter {
       'verified_at' => time(),
     ];
 
-    if ($this->database->schema()->tableExists('brebo_finance_audit')) {
-      $this->database->insert('brebo_finance_audit')->fields([
-        'project_nid' => (int) ($invoice['project_nid'] ?? 0),
-        'entity_type' => 'purchase_invoice',
-        'entity_id' => (int) $invoice['id'],
-        'action' => 'payment_recipient_verified',
-        'before_hash' => NULL,
-        'after_hash' => $hash,
-        'payload' => json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-        'reason' => 'Current Moneybird supplier recipient snapshot captured before controlled payment preparation.',
-        'created' => time(),
-        'created_by' => $actorUid ?: NULL,
-      ])->execute();
-    }
+    $this->repository->appendAuditIfAvailable([
+      'project_nid' => (int) ($invoice['project_nid'] ?? 0),
+      'entity_type' => 'purchase_invoice',
+      'entity_id' => (int) $invoice['id'],
+      'action' => 'payment_recipient_verified',
+      'before_hash' => NULL,
+      'after_hash' => $hash,
+      'payload' => json_encode($snapshot, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+      'reason' => 'Current Moneybird supplier recipient snapshot captured before controlled payment preparation.',
+      'created' => time(),
+      'created_by' => $actorUid ?: NULL,
+    ]);
 
     return $snapshot;
   }
