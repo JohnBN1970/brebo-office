@@ -315,6 +315,10 @@ Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis
 
 Na de statusaggregatie is ook `ProjectProgressBuilder` losgetrokken van Drupal entity- en field-API's. De builder bevat uitsluitend voortgangs-, tijdsverloop- en afwijkingslogica; bronactiviteiten worden genormaliseerd aangeleverd via `ProjectProgressReadRepositoryInterface` met een Drupal-adapter aan de buitenrand.
 
+### Project Cockpit — milestone read boundary
+
+Ook `ProjectMilestoneBuilder` is losgetrokken van Drupal entity-API's. De builder bevat uitsluitend fase-, deadline-, blokkade- en eerstvolgende-mijlpaallogica; geordende route-items worden genormaliseerd aangeleverd via `ProjectMilestoneReadRepositoryInterface` met een Drupal-adapter aan de buitenrand.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
