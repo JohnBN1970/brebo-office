@@ -23,14 +23,22 @@ final class MailboxProvisioningService {
       throw new \InvalidArgumentException('Ongeldig mailboxadres.');
     }
     $address = $localPart . '@' . mb_strtolower((string) $domain['domain']);
-    if ($this->repository->mailboxIdByAddress($address) !== NULL) {
-      throw new \InvalidArgumentException('Dit mailboxadres bestaat al.');
+    if ($this->repository->addressInUse($address)) {
+      throw new \InvalidArgumentException('Dit e-mailadres is al in gebruik als mailbox of alias.');
     }
-    $machine = preg_replace('/[^a-z0-9_]+/', '_', str_replace(['.', '-'], '_', $localPart . '_' . $domain['domain'])) ?: 'mailbox_' . bin2hex(random_bytes(4));
+
+    $base = preg_replace('/[^a-z0-9_]+/', '_', str_replace(['.', '-'], '_', $localPart . '_' . $domain['domain'])) ?: 'mailbox';
+    $suffix = substr(hash('sha256', $address), 0, 10);
+    $machine = substr(trim($base, '_'), 0, 53) . '_' . $suffix;
+
     return $this->repository->createMailbox($machine, trim($label) ?: $address, $address, $privacyType, $ownerUid);
   }
 
   public function addAlias(int $mailboxId, string $localPart, int $domainId): int {
+    if (!$this->repository->mailboxExists($mailboxId)) {
+      throw new \InvalidArgumentException('Doelmailbox bestaat niet.');
+    }
+
     $domain = $this->domains->load($domainId);
     if (!$domain || (string) ($domain['status'] ?? '') !== 'verified') {
       throw new \RuntimeException('Aliases kunnen alleen onder een geverifieerd maildomein worden aangemaakt.');
@@ -40,14 +48,14 @@ final class MailboxProvisioningService {
       throw new \InvalidArgumentException('Ongeldig aliasadres.');
     }
     $address = $localPart . '@' . mb_strtolower((string) $domain['domain']);
-    if ($this->repository->mailboxIdByAddress($address) !== NULL) {
-      throw new \InvalidArgumentException('Dit adres is al een primaire mailbox.');
+    if ($this->repository->addressInUse($address)) {
+      throw new \InvalidArgumentException('Dit e-mailadres is al in gebruik als mailbox of alias.');
     }
     return $this->repository->createAlias($mailboxId, $address);
   }
+
   /** @return array<int,array<string,mixed>> */
   public function aliases(int $mailboxId): array {
     return $this->repository->aliases($mailboxId);
   }
-
 }
