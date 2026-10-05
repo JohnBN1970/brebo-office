@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\brebo_building_data\Service\BuildingRelationRepository;
+use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\NodeInterface;
