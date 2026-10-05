@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -17,14 +17,14 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class MailboxMessageActionForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $storage,
     private readonly MailboxAccessPolicy $accessPolicy,
     private readonly AccountProxyInterface $currentAccount,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
       $container->get('current_user'),
     );
@@ -39,15 +39,9 @@ final class MailboxMessageActionForm extends FormBase {
       return [];
     }
 
-    $row = $this->database->select('brebo_mailbox_message', 'bm')
-      ->fields('bm', ['mail_state', 'is_read', 'is_starred', 'needs_action'])
-      ->condition('mailbox_id', $mailbox_id)
-      ->condition('communication_id', $communication_id)
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
+    $row = $this->storage->messageState($mailbox_id, $communication_id);
 
-    if (!$row) {
+    if ($row === NULL) {
       return [];
     }
 
@@ -113,15 +107,9 @@ final class MailboxMessageActionForm extends FormBase {
       return;
     }
 
-    $row = $this->database->select('brebo_mailbox_message', 'bm')
-      ->fields('bm', ['mail_state', 'is_read', 'is_starred', 'needs_action'])
-      ->condition('mailbox_id', $mailboxId)
-      ->condition('communication_id', $communicationId)
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
+    $row = $this->storage->messageState($mailboxId, $communicationId);
 
-    if (!$row) {
+    if ($row === NULL) {
       $this->messenger()->addError($this->t('Het bericht is niet meer aan deze mailbox gekoppeld.'));
       return;
     }
@@ -162,11 +150,7 @@ final class MailboxMessageActionForm extends FormBase {
         return;
     }
 
-    $this->database->update('brebo_mailbox_message')
-      ->fields($fields)
-      ->condition('mailbox_id', $mailboxId)
-      ->condition('communication_id', $communicationId)
-      ->execute();
+    $this->storage->updateMessage($mailboxId, $communicationId, $fields);
 
     $form_state->setRedirect('brebo_mail_intake.mailbox_message', [
       'mailbox_id' => $mailboxId,
