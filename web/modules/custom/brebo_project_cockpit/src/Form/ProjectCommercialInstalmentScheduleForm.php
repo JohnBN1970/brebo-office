@@ -5,7 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
+use Drupal\brebo_project_cockpit\Contract\ProjectInstalmentRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -23,12 +24,17 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
   private const TEMPLATE_CONFIG = 'brebo_project_cockpit.instalment_templates';
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectContractRepositoryInterface $contracts,
+    private readonly ProjectInstalmentRepositoryInterface $instalments,
     private readonly ConfigFactoryInterface $projectConfigFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'), $container->get('config.factory'));
+    return new static(
+      $container->get('brebo_project_cockpit.project_contract_repository'),
+      $container->get('brebo_project_cockpit.project_instalment_repository'),
+      $container->get('config.factory'),
+    );
   }
 
   public function getFormId(): string {
@@ -51,11 +57,7 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
       return $form;
     }
 
-    $existing = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
-      ->fields('s')
-      ->condition('project_nid', $projectId)
-      ->execute()
-      ->fetchAssoc();
+    $existing = $this->contracts->commercialScheduleRecord($projectId);
 
     $templates = $this->templates();
     $options = ['manual' => $this->t('Projectspecifiek schema')];
@@ -205,18 +207,7 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
       'changed_by' => $uid,
     ];
 
-    $exists = (bool) $this->database->select('brebo_project_commercial_instalment_schedule', 's')
-      ->condition('project_nid', $projectId)->countQuery()->execute()->fetchField();
-    if ($exists) {
-      $this->database->update('brebo_project_commercial_instalment_schedule')->fields($values)->condition('project_nid', $projectId)->execute();
-    }
-    else {
-      $this->database->insert('brebo_project_commercial_instalment_schedule')->fields($values + [
-        'project_nid' => $projectId,
-        'created' => $now,
-        'created_by' => $uid,
-      ])->execute();
-    }
+    $this->instalments->saveCommercialSchedule($projectId, $values, $now, $uid);
 
     if ((bool) $form_state->getValue('save_as_template')
       && $this->currentUser()->hasPermission('manage brebo instalment templates')) {
@@ -262,15 +253,7 @@ final class ProjectCommercialInstalmentScheduleForm extends FormBase {
   }
 
   private function hasApprovedContract(int $projectId): bool {
-    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) {
-      return FALSE;
-    }
-    return (bool) $this->database->select('brebo_finance_project_contract', 'c')
-      ->condition('project_nid', $projectId)
-      ->condition('status', 'approved')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
+    return ($this->contracts->contract($projectId)['status'] ?? '') === 'approved';
   }
 
   private function globalPaymentTermDays(): int {
