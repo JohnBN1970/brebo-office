@@ -10,6 +10,20 @@ use Drupal\Core\Database\Connection;
 final class DatabaseMailboxStorageRepository implements MailboxStorageRepositoryInterface {
   public function __construct(private readonly Connection $database) {}
 
+  public function mailboxes(): array {
+    return array_values(array_map('get_object_vars', $this->database->select('brebo_mailbox','m')->fields('m')->orderBy('label')->execute()->fetchAll()));
+  }
+
+  public function mailbox(int $mailboxId): ?array {
+    $row=$this->database->select('brebo_mailbox','m')->fields('m')->condition('id',$mailboxId)->range(0,1)->execute()->fetchAssoc();
+    return $row===FALSE?NULL:$row;
+  }
+
+  public function allowedRoles(int $mailboxId,string $capability='view'): array {
+    $roles=$this->database->select('brebo_mailbox_role','r')->fields('r',['role_id'])->condition('mailbox_id',$mailboxId)->condition('capability',$capability)->execute()->fetchCol();
+    return array_values(array_unique(array_map('strval',$roles ?: [])));
+  }
+
   public function messageRows(int $mailboxId, string $state, int $offset, int $limit): array {
     $query=$this->database->select('brebo_mailbox_message','bm');
     $query->join('node_field_data','n','n.nid = bm.communication_id AND n.default_langcode = 1');
