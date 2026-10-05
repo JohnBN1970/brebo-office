@@ -16,9 +16,12 @@ services:
   brebo_finance.invoice_blocker_action_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoiceBlockerActionRepository
     arguments: ['@database']
+  brebo_finance.purchase_invoice_intake_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePurchaseInvoiceIntakeRepository
+    arguments: ['@database']
   brebo_finance.purchase_invoice_intake_destination:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntakeDestination
-    arguments: ['@database', '@brebo_finance.project_reference_gateway']
+    arguments: ['@brebo_finance.purchase_invoice_intake_repository', '@brebo_finance.project_reference_gateway']
     tags:
       - { name: brebo_data_intake.destination }
   brebo_finance.project_lifecycle_gateway:
