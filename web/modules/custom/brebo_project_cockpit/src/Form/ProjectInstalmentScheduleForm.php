@@ -6,7 +6,8 @@ namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\BillingControlManager;
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
+use Drupal\brebo_project_cockpit\Contract\ProjectInstalmentRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -19,14 +20,16 @@ final class ProjectInstalmentScheduleForm extends FormBase {
   private const TEMPLATE_CONFIG = 'brebo_project_cockpit.instalment_templates';
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectContractRepositoryInterface $contracts,
+    private readonly ProjectInstalmentRepositoryInterface $instalments,
     private readonly ConfigFactoryInterface $templateConfigFactory,
     private readonly BillingControlManager $billingManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_contract_repository'),
+      $container->get('brebo_project_cockpit.project_instalment_repository'),
       $container->get('config.factory'),
       $container->get('brebo_finance.billing_control_manager'),
     );
@@ -42,23 +45,15 @@ final class ProjectInstalmentScheduleForm extends FormBase {
     }
 
     $projectId = (int) $node->id();
-    $contract = $this->database->select('brebo_finance_project_contract', 'c')
-      ->fields('c')
-      ->condition('project_nid', $projectId)
-      ->execute()
-      ->fetchAssoc();
+    $contract = $this->contracts->contract($projectId);
 
-    if ($contract === FALSE || ($contract['status'] ?? '') !== 'approved') {
+    if ($contract === [] || ($contract['status'] ?? '') !== 'approved') {
       $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Een goedgekeurd projectcontract is vereist voordat een termijnschema kan worden aangemaakt.') . '</strong></p>'];
       $form['back'] = ['#type' => 'link', '#title' => $this->t('Terug naar Facturen'), '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
       return $form;
     }
 
-    $existing = (int) $this->database->select('brebo_finance_billing_instalment', 'i')
-      ->condition('project_nid', $projectId)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
+    $existing = $this->instalments->instalmentCount($projectId);
 
     if ($existing > 0) {
       $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Voor dit project bestaat al een termijnschema. Om dubbele verplichtingen te voorkomen kan een sjabloon alleen op een leeg termijnschema worden toegepast.') . '</strong></p>'];
@@ -137,13 +132,9 @@ final class ProjectInstalmentScheduleForm extends FormBase {
 
     // Re-read the approved contract immediately before writing. Finance must
     // materialise only from the immutable schedule bound to that contract.
-    $currentContract = $this->database->select('brebo_finance_project_contract', 'c')
-      ->fields('c')
-      ->condition('id', (int) $contract['id'])
-      ->condition('project_nid', $projectId)
-      ->execute()->fetchAssoc();
-    $currentCommercial = is_array($currentContract) ? $this->contractSchedule($currentContract) : NULL;
-    if (!is_array($currentContract) || ($currentContract['status'] ?? '') !== 'approved'
+    $currentContract = $this->contracts->contract($projectId);
+    $currentCommercial = $currentContract !== [] ? $this->contractSchedule($currentContract) : NULL;
+    if ($currentContract === [] || (int) ($currentContract['id'] ?? 0) !== (int) $contract['id'] || ($currentContract['status'] ?? '') !== 'approved'
       || $currentCommercial === NULL
       || !hash_equals((string) $commercial['content_hash'], (string) $currentCommercial['content_hash'])) {
       $this->messenger()->addError($this->t('De goedgekeurde contractwaarheid is niet meer gelijk aan dit scherm. Er zijn geen Finance-termijnen aangemaakt; open het termijnschema opnieuw.'));
@@ -168,9 +159,8 @@ final class ProjectInstalmentScheduleForm extends FormBase {
     $vatRate = (string) $form_state->getValue('vat_rate');
     $actor = (int) $this->currentUser()->id();
 
-    $createdTotal = 0.0;
-    $transaction = $this->database->startTransaction();
-    try {
+    $this->billingManager->transactional(function () use ($percentages, $contractAmount, $firstDate, $interval, $labels, $projectId, $contract, $vatRate, $commercial, $paymentDays, $choice, $actor): void {
+      $createdTotal = 0.0;
       foreach ($percentages as $index => $percentage) {
         $isLast = $index === array_key_last($percentages);
         $amount = $isLast ? round($contractAmount - $createdTotal, 4) : round($contractAmount * ($percentage / 100), 4);
@@ -200,11 +190,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
           ],
         ], $actor);
       }
-    }
-    catch (\Throwable $exception) {
-      $transaction->rollBack();
-      throw $exception;
-    }
+    });
 
     $this->messenger()->addStatus($this->t('@count termijnen zijn aangemaakt vanuit sjabloon “@name” met @term als betaaltermijn. Afwijkingen kunnen per termijn in de termijnstaat worden aangepast.', [
       '@count' => count($percentages),
@@ -268,13 +254,7 @@ final class ProjectInstalmentScheduleForm extends FormBase {
       }
     }
 
-    if (!$this->database->schema()->tableExists('brebo_project_commercial_instalment_schedule')) {
-      return NULL;
-    }
-    $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
-      ->fields('s', ['schedule_payload', 'content_hash'])
-      ->condition('project_nid', (int) $project->id())
-      ->execute()->fetchAssoc();
+    $row = $this->contracts->commercialScheduleRecord((int) $project->id());
     if (!is_array($row)) {
       return NULL;
     }
