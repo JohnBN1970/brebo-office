@@ -5,14 +5,13 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_office_core\Service\SimplePdfRenderer;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SalesInvoiceOutputRepositoryInterface;
 use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
 
 /** Builds sales-invoice output from the canonical invoice draft. */
 final class SalesInvoiceOutputBuilder {
 
-  public function __construct(private readonly Connection $database, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly OrganizationReferenceGatewayInterface $organizations, private readonly SimplePdfRenderer $pdfRenderer) {}
+  public function __construct(private readonly SalesInvoiceOutputRepositoryInterface $repository, private readonly OrganizationReferenceGatewayInterface $organizations, private readonly SimplePdfRenderer $pdfRenderer) {}
 
   /** @return array{content:string,filename:string,hash:string} */
   public function conceptPdf(int $draftId): array {
@@ -34,7 +33,7 @@ final class SalesInvoiceOutputBuilder {
 
   /** @return array{0:array<string,mixed>,1:array{id:int,name:string,email:string}} */
   private function contextAndOrganization(int $draftId): array {
-    $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
+    $context = $this->repository->draftContext($draftId);
     if (!is_array($context) || empty($context['customer_organization_nid'])) throw new \RuntimeException('Factuurconcept heeft geen canonieke debiteur.');
     $organization = $this->organizations->get((int) $context['customer_organization_nid']);
     if ($organization === NULL) throw new \RuntimeException('Canonieke debiteur is niet beschikbaar.');
@@ -78,7 +77,6 @@ final class SalesInvoiceOutputBuilder {
 
   /** @return array<string,mixed> */
   private function loadDraft(int $draftId, bool $mustBeDraft): array {
-    $query = $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d')->condition('id', $draftId); if ($mustBeDraft) $query->condition('status', 'draft');
-    $draft = $query->execute()->fetchAssoc(); if ($draft === FALSE) throw new \InvalidArgumentException('Factuurconcept niet gevonden.'); return $draft;
+    $draft = $this->repository->draft($draftId, $mustBeDraft); if ($draft === NULL) throw new \InvalidArgumentException('Factuurconcept niet gevonden.'); return $draft;
   }
 }
