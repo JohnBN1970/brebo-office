@@ -1,0 +1,18 @@
+[Unit]
+Description=Render BREBO Mail stack configuration
+After=brebo-mail-gateway.service
+Requires=brebo-mail-gateway.service
+
+[Service]
+Type=oneshot
+User=brebomail
+Group=brebomail
+EnvironmentFile=/etc/brebo-mail-gateway.env
+WorkingDirectory=/opt/brebo-office
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/render-mailstack-config.php
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/brebo-mail-gateway /etc/brebo-mail-stack/generated
+UMask=0077
