@@ -312,9 +312,12 @@ services:
   brebo_finance.financial_cockpit_builder:
     class: Drupal\brebo_finance\Service\FinancialCockpitBuilder
     arguments: ['@database', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
+  brebo_finance.financial_command_center_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialCommandCenterRepository
+    arguments: ['@database']
   brebo_finance.financial_command_center:
     class: Drupal\brebo_finance\Service\FinancialCommandCenter
-    arguments: ['@database', '@brebo_finance.project_reference_gateway', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver', '@brebo_finance.receivables_reconciliation_monitor']
+    arguments: ['@brebo_finance.financial_command_center_repository', '@brebo_finance.project_reference_gateway', '@brebo_finance.financial_cockpit_builder', '@brebo_finance.financial_decision_inbox', '@brebo_finance.financial_decision_assignment_resolver', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.financial_project_ledger_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialProjectLedgerRepository
     arguments: ['@database']
