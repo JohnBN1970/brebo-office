@@ -31,6 +31,35 @@ final class CalcResultSnapshotService {
       ? (float) $summary['vat_rate']
       : NULL;
 
+    $vatBreakdown = [];
+    $rawBreakdown = $summary['vat_breakdown'] ?? [];
+    if (!is_array($rawBreakdown)) {
+      throw new \InvalidArgumentException('commercial_summary.vat_breakdown must be an array.');
+    }
+    foreach ($rawBreakdown as $index => $item) {
+      if (!is_array($item)) {
+        throw new \InvalidArgumentException('commercial_summary.vat_breakdown[' . $index . '] must be an object.');
+      }
+      foreach (['code', 'label', 'taxable_base', 'vat_amount', 'reverse_charged'] as $key) {
+        if (!array_key_exists($key, $item)) {
+          throw new \InvalidArgumentException('commercial_summary.vat_breakdown[' . $index . '].' . $key . ' is required.');
+        }
+      }
+      if (!is_numeric($item['taxable_base']) || !is_numeric($item['vat_amount'])) {
+        throw new \InvalidArgumentException('commercial_summary.vat_breakdown amounts must be numeric.');
+      }
+      $rate = array_key_exists('rate', $item) && $item['rate'] !== NULL ? (float) $item['rate'] : NULL;
+      $vatBreakdown[] = [
+        'code' => trim((string) $item['code']),
+        'label' => trim((string) $item['label']),
+        'rate' => $rate,
+        'taxable_base' => (float) $item['taxable_base'],
+        'vat_amount' => (float) $item['vat_amount'],
+        'reverse_charged' => (bool) $item['reverse_charged'],
+      ];
+    }
+    usort($vatBreakdown, static fn(array $a, array $b): int => [$a['code'], $a['label']] <=> [$b['code'], $b['label']]);
+
     $canonical = [
       'contract' => 'brebo-calc-commercial-summary-v1',
       'calculation_id' => $calculationId,
@@ -43,6 +72,7 @@ final class CalcResultSnapshotService {
         'margin_pct' => (float) $summary['margin_pct'],
         'vat' => (float) $summary['vat'],
         'vat_rate' => $vatRate,
+        'vat_breakdown' => $vatBreakdown,
       ],
     ];
     $json = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
@@ -99,6 +129,7 @@ final class CalcResultSnapshotService {
         'margin_pct' => $sales != 0.0 ? ($margin / $sales) * 100.0 : 0.0,
         'vat' => 0.0,
         'vat_rate' => NULL,
+        'vat_breakdown' => [],
       ];
     }
 
@@ -117,6 +148,7 @@ final class CalcResultSnapshotService {
         'margin_pct' => (float) ($summary['margin_pct'] ?? 0),
         'vat' => (float) ($summary['vat'] ?? 0),
         'vat_rate' => isset($summary['vat_rate']) ? (float) $summary['vat_rate'] : NULL,
+        'vat_breakdown' => is_array($summary['vat_breakdown'] ?? NULL) ? $summary['vat_breakdown'] : [],
       ],
     ];
   }
