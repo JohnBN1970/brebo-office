@@ -422,3 +422,34 @@ function brebo_mail_intake_update_11004(): string {
 
   return 'BREBO Mail provisioning jobregister aangemaakt.';
 }
+
+
+/**
+ * Adds DKIM selector/public-key state for BREBO Mail domains.
+ */
+function brebo_mail_intake_update_11005(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if (!$schema->tableExists('brebo_mail_domain')) {
+    return 'BREBO mail-domain registry ontbreekt; DKIM velden niet toegevoegd.';
+  }
+
+  if (!$schema->fieldExists('brebo_mail_domain', 'dkim_selector')) {
+    $schema->addField('brebo_mail_domain', 'dkim_selector', [
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => TRUE,
+      'default' => '',
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_mail_domain', 'dkim_public_key')) {
+    $schema->addField('brebo_mail_domain', 'dkim_public_key', [
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => TRUE,
+    ]);
+  }
+
+  return 'DKIM selector/public-key state toegevoegd aan BREBO Mail domeinen.';
+}
