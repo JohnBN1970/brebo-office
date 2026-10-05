@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Brebo\MailGateway\Infrastructure;
 
 use Brebo\MailGateway\Contract\SmtpTransportInterface;
-use Brebo\MailGateway\Contract\MailStackCommandRunnerInterface;
+use Brebo\MailGateway\Contract\StdinCommandRunnerInterface;
 use RuntimeException;
 
 final class PostfixSendmailTransport implements SmtpTransportInterface {
 
   public function __construct(
-    private readonly MailStackCommandRunnerInterface $runner,
+    private readonly StdinCommandRunnerInterface $runner,
     private readonly bool $enabled,
   ) {}
 
@@ -36,7 +36,7 @@ Subject: {$subject}
 
 {$text}
 ";
-    $result = $this->runner->run('sendmail', ['-f', $from, $to, '--', $raw]);
+    $result = $this->runner->runWithInput('sendmail', ['-f', $from, '--', $to], $raw);
     if ($result['exit_code'] !== 0) {
       throw new RuntimeException('Postfix sendmail transport failed: ' . trim($result['stderr']));
     }
