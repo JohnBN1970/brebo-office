@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_inzet\Contract\ProjectInzetProposalReadRepositoryInterface;
 
 /**
  * Builds a read-only whole-project workforce proposal from Office truths.
@@ -13,74 +12,28 @@ use Drupal\node\NodeInterface;
 final class ProjectInzetProposalBuilder {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ProjectInzetProposalReadRepositoryInterface $proposalRepository,
   ) {}
 
   /**
    * @return array{start:?string,end:?string,budget_hours:float,workdays:int,people:int,hours_per_person_day:float,proposed_hours:float,delta_hours:float}
    */
-  public function build(NodeInterface $project, array $userIds, ?string $start = NULL, ?string $end = NULL, string $startTime = '07:00', string $endTime = '16:00'): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $packageIds = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_work_package')
-      ->condition('field_brebo_project_ref', (int) $project->id())
-      ->execute();
-
-    $detectedStart = NULL;
-    $detectedEnd = NULL;
-    if ($packageIds !== []) {
-      foreach ($storage->loadMultiple($packageIds) as $package) {
-        if (!$package instanceof NodeInterface) {
-          continue;
-        }
-        $packageStart = trim((string) ($package->get('field_brebo_planned_start')->value ?? ''));
-        $packageEnd = trim((string) ($package->get('field_brebo_planned_end')->value ?? ''));
-        if ($packageStart !== '' && ($detectedStart === NULL || $packageStart < $detectedStart)) {
-          $detectedStart = $packageStart;
-        }
-        if ($packageEnd !== '' && ($detectedEnd === NULL || $packageEnd > $detectedEnd)) {
-          $detectedEnd = $packageEnd;
-        }
-      }
+  public function build(
+    int $projectId,
+    array $userIds,
+    ?string $start = NULL,
+    ?string $end = NULL,
+    string $startTime = '07:00',
+    string $endTime = '16:00',
+  ): array {
+    if ($projectId <= 0) {
+      throw new \InvalidArgumentException('Project is verplicht voor een inzetvoorstel.');
     }
 
-    $start = $start ?: $detectedStart;
-    $end = $end ?: $detectedEnd;
-
-    $budgetHours = 0.0;
-    if ($packageIds !== []) {
-      $candidateBudgetIds = $storage->getQuery()
-        ->accessCheck(FALSE)
-        ->condition('type', 'brebo_work_budget')
-        ->condition('field_brebo_package_ref', array_values($packageIds), 'IN')
-        ->sort('changed', 'DESC')
-        ->execute();
-      $budgetIds = [];
-      foreach ($storage->loadMultiple($candidateBudgetIds) as $budget) {
-        if (!$budget instanceof NodeInterface) {
-          continue;
-        }
-        $packageId = (int) ($budget->get('field_brebo_package_ref')->target_id ?? 0);
-        if ($packageId > 0 && !isset($budgetIds[$packageId])) {
-          // One current execution budget per work package; older versions are
-          // historical truth and must never be double-counted in Inzet.
-          $budgetIds[$packageId] = (int) $budget->id();
-        }
-      }
-      if ($budgetIds !== []) {
-        $lineIds = $storage->getQuery()
-          ->accessCheck(FALSE)
-          ->condition('type', 'brebo_work_budget_line')
-          ->condition('field_brebo_work_budget_ref', array_values($budgetIds), 'IN')
-          ->execute();
-        foreach ($storage->loadMultiple($lineIds) as $line) {
-          if ($line instanceof NodeInterface) {
-            $budgetHours += max(0.0, (float) ($line->get('field_brebo_budget_hours')->value ?? 0));
-          }
-        }
-      }
-    }
+    $source = $this->proposalRepository->source($projectId);
+    $start = $start ?: $source['start'];
+    $end = $end ?: $source['end'];
+    $budgetHours = max(0.0, (float) $source['budget_hours']);
 
     $workdays = $this->workdays($start, $end);
     $hoursPerDay = $this->durationHours($startTime, $endTime);
