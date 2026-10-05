@@ -17,7 +17,7 @@ final class PdokBuildingEnricher {
 
   public function __construct(
     private readonly ClientInterface $httpClient,
-    private readonly BuildingRelationRepository $relations,
+    private readonly BuildingRelationRepositoryInterface $relations,
   ) {}
 
   /**
