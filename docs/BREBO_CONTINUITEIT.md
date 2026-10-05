@@ -339,6 +339,10 @@ Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Dr
 
 `OnSiteAssignmentProvider` en `OnSitePresenceEvidenceWriter` kennen geen Drupal entity storage of `NodeInterface` meer. Project-/assignmentselectie, gebouw- en zoneprojecties, referentievalidatie en presence-event opslag lopen via `OnSiteRepositoryInterface`; Drupal node-opslag zit in `DrupalOnSiteRepository`. De expliciete user-actionregel blijft ongewijzigd: geen achtergrondtracking en geen automatische aanwezigheidsregistratie.
 
+### Inzet — project inzet proposal read boundary
+
+`ProjectInzetProposalBuilder` is losgetrokken van Drupal entities. Work-packageperioden en historische werkbegrotingsuren worden via `ProjectInzetProposalReadRepositoryInterface` aangeleverd; Drupal node-query's en bronselectie zitten in `DrupalProjectInzetProposalReadRepository`. De builder houdt uitsluitend periode-, werkdagen-, ploeg- en urenberekening over.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
