@@ -6,32 +6,20 @@ namespace Drupal\brebo_mail_intake\Infrastructure;
 
 use Drupal\brebo_mail_intake\Contract\MailComposeSourceRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Session\AccountSwitcherInterface;
-use Drupal\Core\Session\UserSession;
+use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\node\NodeInterface;
 
 final class DrupalMailComposeSourceRepository implements MailComposeSourceRepositoryInterface {
 
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly AccountSwitcherInterface $accountSwitcher,
+    private readonly AccountProxyInterface $currentUser,
   ) {}
 
-  public function load(int $communicationId, int $viewerId): ?array {
+  public function load(int $communicationId): ?array {
     $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
-    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication' || !$node->access('view', $this->currentUser)) {
       return NULL;
-    }
-
-    $account = new UserSession(['uid' => $viewerId]);
-    $this->accountSwitcher->switchTo($account);
-    try {
-      if (!$node->access('view', $account)) {
-        return NULL;
-      }
-    }
-    finally {
-      $this->accountSwitcher->switchBack();
     }
 
     return [
