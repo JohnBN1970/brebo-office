@@ -39,8 +39,8 @@ final class InzetHomeController extends ControllerBase {
     $open = $this->clockSessionManager->findOpenForUser($userId);
     $active = NULL;
 
-    if ($open instanceof NodeInterface) {
-      $projectId = (int) ($open->get('field_brebo_project_ref')->target_id ?? 0);
+    if ($open !== NULL) {
+      $projectId = (int) ($open['project_id'] ?? 0);
       $project = $projectId > 0 ? $this->entityTypeManager->getStorage('node')->load($projectId) : NULL;
       if ($project instanceof NodeInterface && $project->bundle() === 'brebo_project' && $project->access('view')) {
         $active = [
