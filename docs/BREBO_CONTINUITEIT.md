@@ -371,6 +371,10 @@ De eerste Control-ontkoppeling centraliseert `brebo_control_action` achter `Cont
 
 `ControlHistoryService` bevat geen directe database- of service-locatorlogica meer. Snapshot-opslag en history reads lopen via `ControlHistoryRepositoryInterface` met `DatabaseControlHistoryRepository`; project financial control wordt als dependency geïnjecteerd. De service houdt uitsluitend capturevoorwaarden en trendanalyse over.
 
+### Control / Finance — supplier boundaries
+
+Leveranciersfactuur-analytics blijven eigendom van Finance en worden ontsloten via `SupplierInvoiceAnalyticsRepositoryInterface` met `DatabaseSupplierInvoiceAnalyticsRepository`. Control leest daardoor niet meer rechtstreeks uit `brebo_supplier_invoice`. Supplier-performance-events zijn achter `SupplierPerformanceRepositoryInterface` geplaatst. `SupplierPerformanceService`, `SupplierScorecardService` en `PortfolioEarlyWarningService` bevatten daarmee geen directe databasecode meer.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
