@@ -309,6 +309,10 @@ Actuele bewezen volgorde op `develop`:
 
 Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoonmaken en CI/acceptance bewijzen, daarna pas UI/functionele verbouwing.
 
+### Office Core — administration registry source boundary
+
+`AdministrationRegistry` leest geen Drupal Config meer rechtstreeks. Geconfigureerde administraties, primaire administratie en legacy-organisatie-instellingen komen via `AdministrationRegistrySourceInterface`; `DrupalAdministrationRegistrySource` bezit de ConfigFactory-afhankelijkheid. Fallback- en nummeringslogica blijven in de registry-service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
