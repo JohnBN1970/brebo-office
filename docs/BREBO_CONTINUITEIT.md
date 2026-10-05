@@ -375,6 +375,10 @@ De eerste Control-ontkoppeling centraliseert `brebo_control_action` achter `Cont
 
 Leveranciersfactuur-analytics blijven eigendom van Finance en worden ontsloten via `SupplierInvoiceAnalyticsRepositoryInterface` met `DatabaseSupplierInvoiceAnalyticsRepository`. Control leest daardoor niet meer rechtstreeks uit `brebo_supplier_invoice`. Supplier-performance-events zijn achter `SupplierPerformanceRepositoryInterface` geplaatst. `SupplierPerformanceService`, `SupplierScorecardService` en `PortfolioEarlyWarningService` bevatten daarmee geen directe databasecode meer.
 
+### Resident Service — access readiness read boundary
+
+`AccessContactResolver`, `ZoneAccessReadiness`, `WorkPackageAccessReadiness` en `LookAheadAccessReadiness` zijn losgetrokken van directe database-, node-, config- en entity-API's. Accessregels, zone-residenties, work-packageprojecties, zone-gebouwkoppeling en timezoneconfig worden via `ResidentAccessReadRepositoryInterface` aangeleverd door `DrupalResidentAccessReadRepository`. De readiness-, inherited-scope- en look-aheadlogica blijft in de services.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
