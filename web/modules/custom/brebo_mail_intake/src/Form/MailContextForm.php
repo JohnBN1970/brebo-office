@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_document_data\Service\DocumentRepository;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class MailContextForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $storage,
     private readonly ?DocumentRepository $documents,
     private readonly TimeInterface $time,
     private readonly EntityTypeManagerInterface $entityTypeManager,
@@ -30,7 +30,7 @@ final class MailContextForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->has('brebo_document_data.repository') ? $container->get('brebo_document_data.repository') : NULL,
       $container->get('datetime.time'),
       $container->get('entity_type.manager'),
@@ -127,21 +127,7 @@ final class MailContextForm extends FormBase {
       ],
     ];
 
-    $documentIds = [];
-    foreach (['brebo_document_communication', 'brebo_document_source'] as $table) {
-      if (!$this->database->schema()->tableExists($table)) {
-        continue;
-      }
-      $ids = $this->database->select($table, 'd')
-        ->fields('d', ['document_id'])
-        ->condition('communication_nid', (int) $node->id())
-        ->distinct()
-        ->execute()
-        ->fetchCol();
-      foreach ($ids as $documentId) {
-        $documentIds[(int) $documentId] = TRUE;
-      }
-    }
+    $documentIds = $this->storage->linkedDocumentIds((int) $node->id());
     $documentCount = count($documentIds);
     $form['documents'] = [
       '#type' => 'item',
@@ -210,26 +196,10 @@ final class MailContextForm extends FormBase {
       throw new \InvalidArgumentException('Onbekend mail contexttype.');
     }
 
-    $documentIds = [];
-    if ($this->documents !== NULL) {
-      foreach (['brebo_document_communication', 'brebo_document_source'] as $table) {
-        if (!$this->database->schema()->tableExists($table)) {
-          continue;
-        }
-        $ids = $this->database->select($table, 'd')
-          ->fields('d', ['document_id'])
-          ->condition('communication_nid', $nid)
-          ->distinct()
-          ->execute()
-          ->fetchCol();
-        foreach ($ids as $documentId) {
-          $documentIds[(int) $documentId] = (int) $documentId;
-        }
-      }
-    }
+    $documentIds = $this->documents !== NULL ? $this->storage->linkedDocumentIds($nid) : [];
 
-    $transaction = $this->database->startTransaction();
     try {
+      $this->storage->transactional(function () use ($node, $projectId, $buildingId, $target, $documentIds): void {
       if ($node->hasField('field_brebo_project_ref')) {
         $node->set('field_brebo_project_ref', $projectId > 0 ? $projectId : NULL);
       }
@@ -251,12 +221,7 @@ final class MailContextForm extends FormBase {
       $node->setRevisionLogMessage('Primaire mailbestemming handmatig bevestigd vanuit BREBO Mail.');
       $node->save();
 
-      if ($documentIds !== [] && $this->database->schema()->tableExists('brebo_document_context')) {
-        $this->database->delete('brebo_document_context')
-          ->condition('document_id', array_values($documentIds), 'IN')
-          ->condition('relation_source', 'mail_manual_confirmation')
-          ->execute();
-      }
+      $this->storage->clearManualDocumentContexts($documentIds);
 
       if ($this->documents !== NULL && $projectId > 0) {
         $now = $this->time->getRequestTime();
@@ -274,9 +239,9 @@ final class MailContextForm extends FormBase {
           ]);
         }
       }
+      });
     }
     catch (\Throwable $exception) {
-      $transaction->rollBack();
       $this->getLogger('brebo_mail_intake')->error('Mailkoppeling voor communicatie @nid mislukt: @message', [
         '@nid' => $nid,
         '@message' => $exception->getMessage(),
