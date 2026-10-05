@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Service;
 
-use Drupal\Core\Entity\EntityFieldManagerInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_project_cockpit\Contract\ProjectStatusReadRepositoryInterface;
 
 /**
  * Builds one deterministic project status from operational source domains.
@@ -13,8 +12,7 @@ use Drupal\Core\Entity\EntityTypeManagerInterface;
 final class ProjectStatusAggregator {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly EntityFieldManagerInterface $entityFieldManager,
+    private readonly ProjectStatusReadRepositoryInterface $statusRepository,
   ) {}
 
   /** @return array<string, mixed> */
@@ -51,40 +49,21 @@ final class ProjectStatusAggregator {
 
   /** @return array<string, mixed> */
   private function domain(string $label, string $bundle, int $projectId, array $statusFields): array {
-    $type = $this->entityTypeManager->getStorage('node_type')->load($bundle);
-    if ($type === NULL) {
+    $source = $this->statusRepository->domainStatusValues($bundle, $projectId, $statusFields);
+    if (!$source['available']) {
       return $this->unavailable($label);
     }
-    $fields = $this->entityFieldManager->getFieldDefinitions('node', $bundle);
-    if (!isset($fields['field_brebo_project_ref'])) {
-      return $this->unavailable($label);
-    }
-
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', $bundle)
-      ->condition('field_brebo_project_ref', $projectId)
-      ->execute();
-    if ($ids === []) {
+    if ($source['total'] === 0) {
       return ['label' => $label, 'status' => 'grijs', 'total' => 0, 'attention_count' => 0, 'message' => 'Nog geen projectdata.'];
     }
-
-    $statusField = NULL;
-    foreach ($statusFields as $candidate) {
-      if (isset($fields[$candidate])) {
-        $statusField = $candidate;
-        break;
-      }
-    }
-    if ($statusField === NULL) {
-      return ['label' => $label, 'status' => 'groen', 'total' => count($ids), 'attention_count' => 0, 'message' => 'Data aanwezig; geen statusveld aangesloten.'];
+    if ($source['status_values'] === []) {
+      return ['label' => $label, 'status' => 'groen', 'total' => $source['total'], 'attention_count' => 0, 'message' => 'Data aanwezig; geen statusveld aangesloten.'];
     }
 
     $red = 0;
     $orange = 0;
-    foreach ($storage->loadMultiple($ids) as $node) {
-      $value = mb_strtolower(trim((string) $node->get($statusField)->value));
+    foreach ($source['status_values'] as $rawValue) {
+      $value = mb_strtolower(trim($rawValue));
       if ($this->matches($value, ['kritiek', 'critical', 'rood', 'blocked', 'geblokkeerd', 'overdue', 'verlopen', 'afgekeurd', 'rejected'])) {
         $red++;
       }
@@ -99,27 +78,19 @@ final class ProjectStatusAggregator {
       ? sprintf('%d kritisch/openstaand punt(en).', $red)
       : ($orange > 0 ? sprintf('%d punt(en) vragen aandacht.', $orange) : 'Geen actuele statusafwijkingen.');
 
-    return ['label' => $label, 'status' => $status, 'total' => count($ids), 'attention_count' => $attention, 'message' => $message];
+    return ['label' => $label, 'status' => $status, 'total' => $source['total'], 'attention_count' => $attention, 'message' => $message];
   }
 
   /** @return array<string, mixed> */
   private function clockDomain(int $projectId): array {
-    $bundle = 'brebo_clock_registration';
-    $type = $this->entityTypeManager->getStorage('node_type')->load($bundle);
-    if ($type === NULL) {
+    $source = $this->statusRepository->clockStatusCounts($projectId);
+    if (!$source['available']) {
       return $this->unavailable('Inzet');
     }
-    $fields = $this->entityFieldManager->getFieldDefinitions('node', $bundle);
-    if (!isset($fields['field_brebo_project_ref'], $fields['field_brebo_clock_severity'])) {
-      return $this->unavailable('Inzet');
-    }
-    $base = $this->entityTypeManager->getStorage('node')->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', $bundle)
-      ->condition('field_brebo_project_ref', $projectId);
-    $total = (int) (clone $base)->count()->execute();
-    $red = (int) (clone $base)->condition('field_brebo_clock_severity', 'rood')->count()->execute();
-    $orange = (int) (clone $base)->condition('field_brebo_clock_severity', 'oranje')->count()->execute();
+
+    $total = $source['total'];
+    $red = $source['red'];
+    $orange = $source['orange'];
     $status = $red > 0 ? 'rood' : ($orange > 0 ? 'oranje' : ($total > 0 ? 'groen' : 'grijs'));
     return [
       'label' => 'Inzet',
