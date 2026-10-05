@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Form;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
+use Drupal\brebo_project_cockpit\Contract\ProjectInstalmentRepositoryInterface;
+use Drupal\Core\Config\ConfigFactoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -14,10 +16,18 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Edits the payment term carried by one project instalment. */
 final class ProjectInstalmentPaymentTermForm extends FormBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly ProjectInstalmentRepositoryInterface $instalments,
+    private readonly ProjectContractRepositoryInterface $contracts,
+    private readonly ConfigFactoryInterface $configFactory,
+  ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static(
+      $container->get('brebo_project_cockpit.project_instalment_repository'),
+      $container->get('brebo_project_cockpit.project_contract_repository'),
+      $container->get('config.factory'),
+    );
   }
 
   public function getFormId(): string {
@@ -28,13 +38,8 @@ final class ProjectInstalmentPaymentTermForm extends FormBase {
     if ($node === NULL || $node->bundle() !== 'brebo_project' || $instalment === NULL) {
       throw new \InvalidArgumentException('BREBO project en termijn zijn verplicht.');
     }
-    $row = $this->database->select('brebo_finance_billing_instalment', 'i')
-      ->fields('i')
-      ->condition('id', $instalment)
-      ->condition('project_nid', (int) $node->id())
-      ->execute()
-      ->fetchAssoc();
-    if ($row === FALSE) throw new \InvalidArgumentException('Termijn niet gevonden voor dit project.');
+    $row = $this->instalments->instalmentForProject((int) $instalment, (int) $node->id());
+    if ($row === NULL) throw new \InvalidArgumentException('Termijn niet gevonden voor dit project.');
     if (in_array((string) ($row['status'] ?? ''), ['invoiced', 'paid'], TRUE)) {
       throw new \RuntimeException('De betaaltermijn van een reeds gefactureerde termijn kan niet meer worden gewijzigd.');
     }
@@ -93,11 +98,15 @@ final class ProjectInstalmentPaymentTermForm extends FormBase {
     $evidence['payment_term_source'] = 'instalment_override';
     $evidence['payment_term_changed_at'] = time();
 
-    $this->database->update('brebo_finance_billing_instalment')->fields([
-      'evidence_payload' => json_encode($evidence, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-      'changed' => time(),
-      'changed_by' => (int) $this->currentUser()->id(),
-    ])->condition('id', (int) $form_state->get('instalment_id'))->condition('project_nid', (int) $form_state->get('project_id'))->execute();
+    $this->instalments->updateInstalmentForProject(
+      (int) $form_state->get('instalment_id'),
+      (int) $form_state->get('project_id'),
+      [
+        'evidence_payload' => json_encode($evidence, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+        'changed' => time(),
+        'changed_by' => (int) $this->currentUser()->id(),
+      ],
+    );
 
     $this->messenger()->addStatus($days === 0
       ? $this->t('Betaaltermijn van deze termijn is ingesteld op per omgaande.')
@@ -106,9 +115,9 @@ final class ProjectInstalmentPaymentTermForm extends FormBase {
   }
 
   private function projectDefault(int $projectId): int {
-    $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField();
+    $value = $this->contracts->contract($projectId)['payment_term_days'] ?? NULL;
     if (is_numeric($value)) return max(0, (int) $value);
-    $global = \Drupal::config('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    $global = $this->configFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
     return is_numeric($global) ? max(0, (int) $global) : 14;
   }
 }
