@@ -80,8 +80,11 @@ final class DatabaseMailboxStorageRepository implements MailboxStorageRepository
     $query->leftJoin('node__field_brebo_comm_subject','ms','ms.entity_id = n.nid AND ms.deleted = 0');
     $query->leftJoin('node__field_brebo_transcript','tr','tr.entity_id = n.nid AND tr.deleted = 0');
     $query->leftJoin('node__field_brebo_comm_datetime','md','md.entity_id = n.nid AND md.deleted = 0');
-    $query->fields('bm',['mailbox_id','communication_id','mail_state'])->addField('mb','label','mailbox_label');
-    $query->addField('mf','field_brebo_mail_from_value','mail_from')->addField('ms','field_brebo_comm_subject_value','subject')->addField('md','field_brebo_comm_datetime_value','mail_datetime');
+    $query->fields('bm',['mailbox_id','communication_id','mail_state']);
+    $query->addField('mb','label','mailbox_label');
+    $query->addField('mf','field_brebo_mail_from_value','mail_from');
+    $query->addField('ms','field_brebo_comm_subject_value','subject');
+    $query->addField('md','field_brebo_comm_datetime_value','mail_datetime');
     $query->condition('n.type','brebo_communication')->condition('bm.mailbox_id',$mailboxId>0?[$mailboxId]:$visibleMailboxIds,'IN');
     if($state!=='') $query->condition('bm.mail_state',$state);
     $needle='%'.$this->database->escapeLike($term).'%';
