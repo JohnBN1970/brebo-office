@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_building_data\Controller;
 
 use Drupal\brebo_building_data\Contract\BuildingObjectRepositoryInterface;
-use Drupal\brebo_building_data\Service\BuildingRelationRepository;
+use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
 use Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
@@ -22,7 +22,7 @@ final class BuildingTruthWorkbenchController extends ControllerBase {
   public function __construct(
     private readonly BuildingTruthRepositoryInterface $truth,
     private readonly BuildingObjectRepositoryInterface $objects,
-    private readonly BuildingRelationRepository $relations,
+    private readonly BuildingRelationRepositoryInterface $relations,
     private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
