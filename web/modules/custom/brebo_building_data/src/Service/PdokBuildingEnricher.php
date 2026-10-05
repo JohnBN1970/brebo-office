@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_building_data\Service;
 
+use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
 use Drupal\node\NodeInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
