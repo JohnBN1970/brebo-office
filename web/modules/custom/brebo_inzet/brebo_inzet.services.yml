@@ -66,9 +66,16 @@ services:
     class: Drupal\brebo_inzet\Service\ClockSessionManager
     arguments: ['@brebo_inzet.clock_registration_repository', '@brebo_inzet.project_clock_zone_manager', '@brebo_inzet.project_clock_zone_control', '@brebo_inzet.clock_action_control', '@brebo_inzet.clock_transition_reconciler']
 
+  brebo_inzet.personnel_assignment_comparison_repository:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalPersonnelAssignmentComparisonRepository
+    arguments: ['@entity_type.manager', '@config.factory']
+
+  Drupal\brebo_inzet\Contract\PersonnelAssignmentComparisonRepositoryInterface:
+    alias: brebo_inzet.personnel_assignment_comparison_repository
+
   brebo_inzet.personnel_assignment_comparison:
     class: Drupal\brebo_inzet\Service\PersonnelAssignmentComparison
-    arguments: ['@entity_type.manager', '@config.factory', '@datetime.time']
+    arguments: ['@brebo_inzet.personnel_assignment_comparison_repository']
 
 
   brebo_inzet.onsite_identity_repository:

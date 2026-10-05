@@ -32,7 +32,7 @@ final class PersonnelWorkspaceController extends ControllerBase {
     $rows = [];
     foreach ($storage->loadMultiple($ids) as $assignment) {
       if (!$assignment instanceof NodeInterface || !$assignment->access('view')) continue;
-      $actual = $this->comparison->compare($assignment);
+      $actual = $this->comparison->compare((int) $assignment->id());
       $planned = (float) $actual['planned_hours'];
       $clocked = (float) $actual['clocked_hours'];
       if ($planned <= 0 && $clocked <= 0) continue;

@@ -4,68 +4,54 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Component\Datetime\TimeInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_inzet\Contract\PersonnelAssignmentComparisonRepositoryInterface;
 
-/**
- * Compares planned personnel assignments with actual clock registrations.
- */
+/** Compares planned personnel assignments with actual clock registrations. */
 final class PersonnelAssignmentComparison {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly ConfigFactoryInterface $configFactory,
-    private readonly TimeInterface $time,
+    private readonly PersonnelAssignmentComparisonRepositoryInterface $comparisonRepository,
   ) {}
 
   /**
-   * @return array{planned_hours: float, clocked_hours: float, delta_hours: float, state: string, open_session: bool}
+   * @return array{planned_hours:float,clocked_hours:float,delta_hours:float,state:string,open_session:bool}
    */
-  public function compare(NodeInterface $assignment): array {
-    $date = (string) ($assignment->get('field_brebo_plan_date')->value ?? '');
-    $projectId = (int) ($assignment->get('field_brebo_project_ref')->target_id ?? 0);
-    $userId = (int) ($assignment->get('field_brebo_plan_user')->target_id ?? 0);
-    $plannedHours = $this->plannedHours($assignment);
+  public function compare(int $assignmentId, ?\DateTimeImmutable $now = NULL): array {
+    $assignment = $this->comparisonRepository->assignment($assignmentId);
+    if ($assignment === NULL) {
+      return $this->result(0.0, 0.0, 'incomplete', FALSE);
+    }
+
+    $date = $assignment['date'];
+    $projectId = $assignment['project_id'];
+    $userId = $assignment['user_id'];
+    $plannedHours = $assignment['planned_hours'];
 
     if ($date === '' || $projectId <= 0 || $userId <= 0) {
       return $this->result($plannedHours, 0.0, 'incomplete', FALSE);
     }
 
-    $timezoneName = (string) ($this->configFactory->get('system.date')->get('timezone.default') ?: date_default_timezone_get());
-    $timezone = new \DateTimeZone($timezoneName ?: 'Europe/Brussels');
+    $timezoneName = $this->comparisonRepository->timezoneName();
+    $timezone = new \DateTimeZone($timezoneName !== '' ? $timezoneName : 'Europe/Brussels');
     $utc = new \DateTimeZone('UTC');
     $dayStartLocal = new \DateTimeImmutable($date . ' 00:00:00', $timezone);
     $dayEndLocal = $dayStartLocal->modify('+1 day');
     $dayStartUtc = $dayStartLocal->setTimezone($utc);
     $dayEndUtc = $dayEndLocal->setTimezone($utc);
-
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', 'brebo_clock_registration')
-      ->condition('field_brebo_project_ref', $projectId)
-      ->condition('field_brebo_clock_user', $userId)
-      ->condition('field_brebo_clock_in', $dayEndUtc->format(DateTimeItemInterface::DATETIME_STORAGE_FORMAT), '<')
-      ->execute();
+    $now ??= new \DateTimeImmutable('now', $utc);
+    $now = $now->setTimezone($utc);
 
     $seconds = 0;
     $openSession = FALSE;
-    $now = (new \DateTimeImmutable('@' . $this->time->getCurrentTime()))->setTimezone($utc);
+    foreach ($this->comparisonRepository->clockSessions(
+      $projectId,
+      $userId,
+      $dayEndUtc->format('Y-m-d\\TH:i:s'),
+    ) as $clock) {
+      $in = new \DateTimeImmutable($clock['clock_in'], $utc);
+      $outValue = $clock['clock_out'];
 
-    foreach ($storage->loadMultiple($ids) as $clock) {
-      if (!$clock instanceof NodeInterface || !$clock->access('view')) {
-        continue;
-      }
-      $inValue = (string) ($clock->get('field_brebo_clock_in')->value ?? '');
-      if ($inValue === '') {
-        continue;
-      }
-      $in = new \DateTimeImmutable($inValue, $utc);
-      $outValue = (string) ($clock->get('field_brebo_clock_out')->value ?? '');
-      if ($outValue === '') {
+      if ($outValue === NULL) {
         $out = $now < $dayEndUtc ? $now : $dayEndUtc;
         $openSession = $out > $dayStartUtc && $in < $dayEndUtc;
       }
@@ -73,13 +59,10 @@ final class PersonnelAssignmentComparison {
         $out = new \DateTimeImmutable($outValue, $utc);
       }
 
-      // Actual worked time is the full project session inside this calendar
-      // day. Do not clip actuals to the planned window: early starts,
-      // overtime and late finishes are precisely the differences that Hours
-      // control must surface.
       if ($out <= $dayStartUtc || $in >= $dayEndUtc) {
         continue;
       }
+
       $from = $in > $dayStartUtc ? $in : $dayStartUtc;
       $to = $out < $dayEndUtc ? $out : $dayEndUtc;
       if ($to > $from) {
@@ -88,7 +71,7 @@ final class PersonnelAssignmentComparison {
     }
 
     $clockedHours = round($seconds / 3600, 2);
-    $today = (new \DateTimeImmutable('@' . $this->time->getCurrentTime()))->setTimezone($timezone)->format('Y-m-d');
+    $today = $now->setTimezone($timezone)->format('Y-m-d');
 
     if ($date > $today) {
       $state = 'future';
@@ -113,27 +96,8 @@ final class PersonnelAssignmentComparison {
     return $this->result($plannedHours, $clockedHours, $state, $openSession);
   }
 
-  private function plannedHours(NodeInterface $assignment): float {
-    $explicit = (float) ($assignment->get('field_brebo_planned_hours')->value ?? 0);
-    if ($explicit > 0) {
-      return round($explicit, 2);
-    }
-
-    $start = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
-    $end = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
-    if (preg_match('/^(\d{2}):(\d{2})$/', $start, $startParts) !== 1 || preg_match('/^(\d{2}):(\d{2})$/', $end, $endParts) !== 1) {
-      return 0.0;
-    }
-    $startMinutes = ((int) $startParts[1] * 60) + (int) $startParts[2];
-    $endMinutes = ((int) $endParts[1] * 60) + (int) $endParts[2];
-    if ($endMinutes <= $startMinutes) {
-      return 0.0;
-    }
-    return round(($endMinutes - $startMinutes) / 60, 2);
-  }
-
   /**
-   * @return array{planned_hours: float, clocked_hours: float, delta_hours: float, state: string, open_session: bool}
+   * @return array{planned_hours:float,clocked_hours:float,delta_hours:float,state:string,open_session:bool}
    */
   private function result(float $plannedHours, float $clockedHours, string $state, bool $openSession): array {
     return [

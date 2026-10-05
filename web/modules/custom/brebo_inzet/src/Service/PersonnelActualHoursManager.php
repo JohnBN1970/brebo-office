@@ -40,7 +40,7 @@ final class PersonnelActualHoursManager {
       throw new \UnexpectedValueException('Ingediende uren bevatten geen werkelijke uren.');
     }
 
-    $actual = $this->comparison->compare($assignment);
+    $actual = $this->comparison->compare((int) $assignment->id());
     $actual['clocked_hours'] = $hours;
     $this->storeOperationalReview($assignment, $hours, 'approved', $userId);
     return $this->synchronizeFinanceIfPossible($assignment, 'approved', $actual, $userId);
@@ -81,7 +81,7 @@ final class PersonnelActualHoursManager {
       return 0;
     }
 
-    $actual ??= $this->comparison->compare($assignment);
+    $actual ??= $this->comparison->compare((int) $assignment->id());
     $hours = max(0.0, (float) ($assignment->get('field_brebo_actual_hours')->value ?? $actual['clocked_hours'] ?? 0));
     if ($hours <= 0) {
       return 0;
@@ -114,7 +114,7 @@ final class PersonnelActualHoursManager {
   /** @return array<string,mixed> */
   private function closedActual(NodeInterface $assignment): array {
     $this->assertAssignment($assignment);
-    $actual = $this->comparison->compare($assignment);
+    $actual = $this->comparison->compare((int) $assignment->id());
     if ((bool) $actual['open_session']) {
       throw new \UnexpectedValueException('Open klokregistraties kunnen nog niet worden ingediend.');
     }

@@ -46,7 +46,7 @@ final class ProjectHoursApprovalForm extends FormBase {
     $rows = [];
     foreach ($storage->loadMultiple($ids) as $assignment) {
       if (!$assignment instanceof NodeInterface || !$assignment->access('view')) continue;
-      $actual = $this->comparison->compare($assignment);
+      $actual = $this->comparison->compare((int) $assignment->id());
       if ((float) $actual['clocked_hours'] <= 0 || (bool) $actual['open_session']) continue;
       $person = $assignment->get('field_brebo_plan_user')->entity;
       $id = (int) $assignment->id();
