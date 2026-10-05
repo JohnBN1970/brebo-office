@@ -45,4 +45,9 @@ final class MailboxProvisioningService {
     }
     return $this->repository->createAlias($mailboxId, $address);
   }
+  /** @return array<int,array<string,mixed>> */
+  public function aliases(int $mailboxId): array {
+    return $this->repository->aliases($mailboxId);
+  }
+
 }
