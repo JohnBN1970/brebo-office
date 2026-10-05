@@ -6,7 +6,7 @@ namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\brebo_project_cockpit\Form\ProjectInvoiceFilterForm;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInvoiceRepositoryInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -15,10 +15,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /** Unified project invoice register with filters and sorting. */
 final class ProjectInvoiceRegisterController extends ControllerBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProjectInvoiceRepositoryInterface $invoices) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_invoice_repository'));
   }
 
   public function title(NodeInterface $node): string {
@@ -110,14 +110,12 @@ final class ProjectInvoiceRegisterController extends ControllerBase {
 
   /** @return array<int, array<string, mixed>> */
   private function purchaseInvoices(int $projectId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_purchase_invoice')) return [];
-    return $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i')->condition('project_nid', $projectId)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->invoices->purchaseInvoices($projectId);
   }
 
   /** @return array<int, array<string, mixed>> */
   private function salesInvoices(int $projectId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice')) return [];
-    return $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i')->condition('project_nid', $projectId)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->invoices->salesInvoices($projectId);
   }
 
   private function purchaseState(array $row, string $today): string {
