@@ -307,6 +307,10 @@ Actuele bewezen volgorde op `develop`:
 
 Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoonmaken en CI/acceptance bewijzen, daarna pas UI/functionele verbouwing.
 
+### Projecten/Office Core — offerteformulier
+
+Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
