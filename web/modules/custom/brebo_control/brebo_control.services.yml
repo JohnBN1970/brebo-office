@@ -35,12 +35,20 @@ services:
       - '@brebo_control.notification_repository'
       - '@brebo_control.escalation_matrix'
 
+  brebo_control.history_repository:
+    class: Drupal\brebo_control\Infrastructure\DatabaseControlHistoryRepository
+    arguments: ['@database']
+
+  Drupal\brebo_control\Contract\ControlHistoryRepositoryInterface:
+    alias: brebo_control.history_repository
+
   brebo_control.history:
     class: Drupal\brebo_control\Service\ControlHistoryService
     arguments:
-      - '@database'
+      - '@brebo_control.history_repository'
       - '@?brebo_office_core.project_early_warning'
       - '@brebo_control.action_repository'
+      - '@?brebo_office_core.project_financial_control'
 
   brebo_control.trend_actions:
     class: Drupal\brebo_control\Service\ControlTrendActionService

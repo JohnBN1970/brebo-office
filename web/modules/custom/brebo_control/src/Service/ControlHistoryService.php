@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace Drupal\brebo_control\Service;
 
 use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
+use Drupal\brebo_control\Contract\ControlHistoryRepositoryInterface;
 use Drupal\brebo_office_core\Service\ProjectEarlyWarningService;
-use Drupal\Core\Database\Connection;
 use Drupal\node\NodeInterface;
 
 /**
@@ -15,22 +15,18 @@ use Drupal\node\NodeInterface;
 final class ControlHistoryService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ControlHistoryRepositoryInterface $historyRepository,
     private readonly ?ProjectEarlyWarningService $earlyWarning,
     private readonly ControlActionRepositoryInterface $actions,
+    private readonly ?object $projectFinancialControl,
   ) {}
 
   public function capture(NodeInterface $project, int $now): bool {
-    if (!$this->database->schema()->tableExists('brebo_control_snapshot')) {
+    if ($this->earlyWarning === NULL || $this->projectFinancialControl === NULL) {
       return FALSE;
     }
-    if ($this->earlyWarning === NULL) {
-      return FALSE;
-    }
-    $last = $this->database->select('brebo_control_snapshot', 's')
-      ->fields('s', ['captured_at'])->condition('project_nid', (int) $project->id())
-      ->orderBy('captured_at', 'DESC')->range(0, 1)->execute()->fetchField();
-    if ($last && $now - (int) $last < 6 * 3600) {
+    $last = $this->historyRepository->latestCapturedAt((int) $project->id());
+    if ($last !== NULL && $now - $last < 6 * 3600) {
       return FALSE;
     }
 
@@ -38,10 +34,8 @@ final class ControlHistoryService {
     $financial = $warning['financial_snapshot'];
     $openActions = $this->actions->countOpenForProject((int) $project->id());
 
-    $finance = \Drupal::service('brebo_office_core.project_financial_control')->analyze($project);
-    $this->database->insert('brebo_control_snapshot')->fields([
-      'project_nid' => (int) $project->id(),
-      'captured_at' => $now,
+    $finance = $this->projectFinancialControl->analyze($project);
+    $this->historyRepository->append((int) $project->id(), $now, [
       'risk_score' => (int) $warning['score'],
       'forecast_cost' => (float) $financial['forecast_cost'],
       'forecast_revenue' => (float) $financial['forecast_revenue'],
@@ -52,19 +46,13 @@ final class ControlHistoryService {
       'forecast_hours' => (float) $finance['forecast_hours'],
       'blocked_invoices' => (int) $finance['blocked_invoices'],
       'open_actions' => $openActions,
-    ])->execute();
+    ]);
     return TRUE;
   }
 
   /** @return array<string, mixed> */
   public function trend(int $projectId, int $limit = 12): array {
-    if (!$this->database->schema()->tableExists('brebo_control_snapshot')) {
-      return ['status' => 'insufficient_data', 'signals' => [], 'snapshots' => []];
-    }
-    $rows = $this->database->select('brebo_control_snapshot', 's')->fields('s')
-      ->condition('project_nid', $projectId)->orderBy('captured_at', 'DESC')
-      ->range(0, max(2, $limit))->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $rows = array_reverse($rows);
+    $rows = $this->historyRepository->snapshots($projectId, $limit);
     if (count($rows) < 3) {
       return ['status' => 'insufficient_data', 'signals' => [], 'snapshots' => $rows];
     }
