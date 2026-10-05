@@ -7,7 +7,7 @@ namespace Drupal\brebo_project_cockpit\Controller;
 use Drupal\brebo_finance\Service\FinancialCockpitBuilder;
 use Drupal\brebo_finance\Service\FinancialProjectLedger;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -19,14 +19,14 @@ final class ProjectOrdersController extends ControllerBase {
   public function __construct(
     private readonly FinancialProjectLedger $ledger,
     private readonly FinancialCockpitBuilder $cockpitBuilder,
-    private readonly Connection $database,
+    private readonly ProjectContractRepositoryInterface $contracts,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_finance.financial_project_ledger'),
       $container->get('brebo_finance.financial_cockpit_builder'),
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_contract_repository'),
     );
   }
 
@@ -134,17 +134,7 @@ final class ProjectOrdersController extends ControllerBase {
 
   /** @return array<string, mixed> */
   private function loadLatestContract(int $projectId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) {
-      return [];
-    }
-    $row = $this->database->select('brebo_finance_project_contract', 'c')
-      ->fields('c')
-      ->condition('project_nid', $projectId)
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
-    return $row === FALSE ? [] : $row;
+    return $this->contracts->contract($projectId);
   }
 
   private function kpi(string $label, mixed $value, string $basis): string {
