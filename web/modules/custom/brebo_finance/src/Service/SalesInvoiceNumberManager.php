@@ -29,7 +29,7 @@ final class SalesInvoiceNumberManager {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-            $cursorKey = $this->cursorKey($year);
+      $cursorKey = $this->cursorKey($year);
       $cursor = max($this->startNumber(), (int) $this->store->get($cursorKey, $this->startNumber()));
       do {
         $candidate = $this->format($cursor, $year);
@@ -50,11 +50,11 @@ final class SalesInvoiceNumberManager {
     if ($invoiceNumber === '') {
       throw new \InvalidArgumentException('Factuurnummer is verplicht.');
     }
-    if (!$this->lock->acquire(self::LOCK, 10.0)) {
+    if (!$this->lock->acquire(10.0)) {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-            $key = $this->numberKey($invoiceNumber);
+      $key = $this->numberKey($invoiceNumber);
       if ($this->store->has($key)) {
         throw new \RuntimeException('Dit factuurnummer is al gereserveerd of gebruikt.');
       }
@@ -70,11 +70,11 @@ final class SalesInvoiceNumberManager {
     if ($invoiceNumber === '') {
       throw new \InvalidArgumentException('Factuurnummer is verplicht.');
     }
-    if (!$this->lock->acquire(self::LOCK, 10.0)) {
+    if (!$this->lock->acquire(10.0)) {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-            $existing = $this->store->get($this->numberKey($invoiceNumber));
+      $existing = $this->store->get($this->numberKey($invoiceNumber));
       if (is_array($existing) && ($existing['status'] ?? '') === 'used') {
         return;
       }
