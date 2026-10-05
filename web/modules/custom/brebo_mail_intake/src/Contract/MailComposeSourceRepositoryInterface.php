@@ -9,6 +9,6 @@ interface MailComposeSourceRepositoryInterface {
   /**
    * @return array{subject:string,transcript:string,html:string,from:string,to:string,cc:string,datetime:string}|null
    */
-  public function load(int $communicationId, int $viewerId): ?array;
+  public function load(int $communicationId): ?array;
 
 }
