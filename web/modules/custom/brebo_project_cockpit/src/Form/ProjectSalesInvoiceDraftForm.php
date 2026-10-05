@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\SalesTaxSettings;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInvoiceRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -18,7 +18,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ProjectSalesInvoiceDraftForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectInvoiceRepositoryInterface $invoices,
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly SalesTaxSettings $taxSettings,
@@ -26,10 +26,10 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_invoice_repository'),
       $container->get('keyvalue'),
       $container->get('entity_type.manager'),
-      new SalesTaxSettings($container->get('config.factory')),
+      $container->get('brebo_finance.sales_tax_settings'),
     );
   }
 
@@ -37,7 +37,7 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL): array {
     if ($node === NULL || $node->bundle() !== 'brebo_project') throw new \InvalidArgumentException('BREBO project required.');
-    if (!$this->database->schema()->tableExists('brebo_finance_sales_invoice_draft')) {
+    if (!$this->invoices->draftStorageAvailable()) {
       $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Factuurconcept-opslag ontbreekt. Voer eerst database-updates uit.') . '</strong></p>'];
       return $form;
     }
@@ -118,25 +118,28 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
     $split = $this->taxSettings->split(round($totals['inc'], 2), $gPercentage);
 
     $actor = (int) $this->currentUser()->id(); $now = time(); $draftNumber = 'CON-' . date('Ymd-His') . '-' . $projectId;
-    $transaction = $this->database->startTransaction();
-    try {
-      $draftId = (int) $this->database->insert('brebo_finance_sales_invoice_draft')->fields(['project_nid' => $projectId, 'draft_number' => $draftNumber, 'status' => 'draft', 'invoice_date' => $invoiceDate, 'due_date' => $dueDate, 'description' => trim((string) $form_state->getValue('description')), 'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''), 'vat_amount' => number_format($totals['vat'], 4, '.', ''), 'amount_inc_vat' => number_format($totals['inc'], 4, '.', ''), 'created' => $now, 'created_by' => $actor, 'changed' => $now, 'changed_by' => $actor])->execute();
-      foreach ($lines as $delta => $line) {
-        $this->database->insert('brebo_finance_sales_invoice_draft_line')->fields(['draft_id' => $draftId, 'project_nid' => $projectId, 'line_number' => $delta + 1, 'source_type' => $line['source_type'], 'source_id' => $line['source_id'], 'description' => $line['description'], 'amount_ex_vat' => number_format($line['amount_ex_vat'], 4, '.', ''), 'vat_code' => $line['vat_code'], 'vat_rate' => number_format($line['vat_rate'], 4, '.', ''), 'vat_amount' => number_format($line['vat_amount'], 4, '.', ''), 'amount_inc_vat' => number_format($line['amount_inc_vat'], 4, '.', ''), 'created' => $now, 'created_by' => $actor])->execute();
-      }
-      $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, ['origin' => 'project', 'project_nid' => $projectId, 'customer_organization_nid' => $organizationId, 'customer_name' => (string) $organization->label(), 'customer_ref' => trim((string) $form_state->getValue('customer_ref')), 'payment_term_days' => $paymentDays, 'payment_term_source' => $paymentSource, 'due_date_calculated' => TRUE, 'vat_snapshot' => array_values(array_map(static fn(array $line): array => ['code' => $line['vat_code'], 'label' => $line['vat_label'], 'rate' => $line['vat_rate'], 'treatment' => $line['vat_treatment']], $lines)), 'g_account_on' => $gOn, 'g_account_percentage' => $split['percentage'], 'g_account_amount' => $split['g_amount'], 'regular_account_amount' => $split['regular_amount'], 'regular_iban' => $gConfig['regular_iban'], 'g_account_iban' => $gOn ? $gConfig['g_iban'] : '', 'lines' => $lines]);
+    $draftFields = ['project_nid' => $projectId, 'draft_number' => $draftNumber, 'status' => 'draft', 'invoice_date' => $invoiceDate, 'due_date' => $dueDate, 'description' => trim((string) $form_state->getValue('description')), 'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''), 'vat_amount' => number_format($totals['vat'], 4, '.', ''), 'amount_inc_vat' => number_format($totals['inc'], 4, '.', ''), 'created' => $now, 'created_by' => $actor, 'changed' => $now, 'changed_by' => $actor];
+    $lineFields = [];
+    foreach ($lines as $delta => $line) {
+      $lineFields[] = ['project_nid' => $projectId, 'line_number' => $delta + 1, 'source_type' => $line['source_type'], 'source_id' => $line['source_id'], 'description' => $line['description'], 'amount_ex_vat' => number_format($line['amount_ex_vat'], 4, '.', ''), 'vat_code' => $line['vat_code'], 'vat_rate' => number_format($line['vat_rate'], 4, '.', ''), 'vat_amount' => number_format($line['vat_amount'], 4, '.', ''), 'amount_inc_vat' => number_format($line['amount_inc_vat'], 4, '.', ''), 'created' => $now, 'created_by' => $actor];
     }
-    catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
+    $draftId = $this->invoices->createDraft($draftFields, $lineFields);
+    $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, ['origin' => 'project', 'project_nid' => $projectId, 'customer_organization_nid' => $organizationId, 'customer_name' => (string) $organization->label(), 'customer_ref' => trim((string) $form_state->getValue('customer_ref')), 'payment_term_days' => $paymentDays, 'payment_term_source' => $paymentSource, 'due_date_calculated' => TRUE, 'vat_snapshot' => array_values(array_map(static fn(array $line): array => ['code' => $line['vat_code'], 'label' => $line['vat_label'], 'rate' => $line['vat_rate'], 'treatment' => $line['vat_treatment']], $lines)), 'g_account_on' => $gOn, 'g_account_percentage' => $split['percentage'], 'g_account_amount' => $split['g_amount'], 'regular_account_amount' => $split['regular_amount'], 'regular_iban' => $gConfig['regular_iban'], 'g_account_iban' => $gOn ? $gConfig['g_iban'] : '', 'lines' => $lines]);
 
     $this->messenger()->addStatus($this->t('Factuurconcept @number is aangemaakt voor @customer. Btw en eventuele G-rekeningverdeling zijn centraal berekend en vastgelegd; definitief nummer volgt pas bij vrijgave.', ['@number' => $draftNumber, '@customer' => $organization->label()]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
   }
 
   private function projectPaymentTermDays(int $projectId): int {
-    if ($this->database->schema()->tableExists('brebo_finance_project_contract')) { $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField(); if (is_numeric($value)) return max(0, (int) $value); }
-    return $this->globalPaymentTermDays();
+    $contract = $this->invoices->projectContract($projectId);
+    $value = $contract['payment_term_days'] ?? NULL;
+    return is_numeric($value) ? max(0, (int) $value) : $this->globalPaymentTermDays();
   }
-  private function globalPaymentTermDays(): int { $value = \Drupal::config('brebo_finance.sales')->get('numbering.default_payment_term_days'); return is_numeric($value) ? max(0, (int) $value) : 14; }
+
+  private function globalPaymentTermDays(): int {
+    $value = \Drupal::config('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    return is_numeric($value) ? max(0, (int) $value) : 14;
+  }
 
   /** @return array{0:int,1:string} */
   private function resolvePaymentTerm(int $projectId, NodeInterface $organization, array $selected, string $choice, mixed $custom): array {
@@ -146,41 +149,52 @@ final class ProjectSalesInvoiceDraftForm extends FormBase {
     foreach ($selected as $sourceKey) {
       [$type, $id] = array_pad(explode(':', (string) $sourceKey, 2), 2, NULL);
       if ($type !== 'instalment' || !is_numeric($id)) continue;
-      $payload = $this->database->select('brebo_finance_billing_instalment', 'i')->fields('i', ['evidence_payload'])->condition('id', (int) $id)->condition('project_nid', $projectId)->execute()->fetchField();
+      $payload = $this->invoices->instalmentEvidencePayload($projectId, (int) $id);
       $decoded = is_string($payload) && $payload !== '' ? json_decode($payload, TRUE) : NULL;
       if (is_array($decoded) && isset($decoded['payment_term_days']) && is_numeric($decoded['payment_term_days'])) $instalmentTerms[(int) $decoded['payment_term_days']] = TRUE;
     }
     if (count($instalmentTerms) === 1) return [(int) array_key_first($instalmentTerms), 'instalment'];
-    if ($this->database->schema()->tableExists('brebo_finance_project_contract')) { $value = $this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['payment_term_days'])->condition('project_nid', $projectId)->execute()->fetchField(); if (is_numeric($value)) return [max(0, (int) $value), 'project_contract']; }
-    if ($organization->hasField('field_brebo_payment_term_days')) { $value = $organization->get('field_brebo_payment_term_days')->value; if (is_numeric($value)) return [max(0, (int) $value), 'customer']; }
+    $contract = $this->invoices->projectContract($projectId);
+    if (isset($contract['payment_term_days']) && is_numeric($contract['payment_term_days'])) return [max(0, (int) $contract['payment_term_days']), 'project_contract'];
+    if ($organization->hasField('field_brebo_payment_term_days')) {
+      $value = $organization->get('field_brebo_payment_term_days')->value;
+      if (is_numeric($value)) return [max(0, (int) $value), 'customer'];
+    }
     return [$this->globalPaymentTermDays(), 'brebo_default'];
   }
 
   private function projectClientReference(int $projectId): string {
-    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) return '';
-    return trim((string) ($this->database->select('brebo_finance_project_contract', 'c')->fields('c', ['client_ref'])->condition('project_nid', $projectId)->execute()->fetchField() ?: ''));
+    $contract = $this->invoices->projectContract($projectId);
+    return trim((string) ($contract['client_ref'] ?? ''));
   }
 
   /** @return array<string,string> */
   private function sourceOptions(int $projectId): array {
     $options = [];
-    if ($this->database->schema()->tableExists('brebo_finance_billing_instalment')) foreach ($this->database->select('brebo_finance_billing_instalment', 'i')->fields('i')->condition('project_nid', $projectId)->condition('status', 'billable')->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) { $term = $this->instalmentPaymentTerm($row); $options['instalment:' . $row['id']] = $this->t('Termijn @nr · @desc · € @amount excl. · @days', ['@nr' => $row['instalment_number'], '@desc' => $row['description'], '@amount' => number_format((float) $row['amount_ex_vat'], 2, ',', '.'), '@days' => $term === 0 ? 'per omgaande' : $term . ' dagen']); }
-    if ($this->database->schema()->tableExists('brebo_finance_change_order')) foreach ($this->database->select('brebo_finance_change_order', 'c')->fields('c')->condition('project_nid', $projectId)->condition('status', ['client_approved', 'executed'], 'IN')->isNull('invoice_ref')->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) { $sign = ($row['change_type'] ?? '') === 'omission' ? '-' : '+'; $options['change:' . $row['id']] = $this->t('@type @nr · @title · @sign€ @amount excl.', ['@type' => ($row['change_type'] ?? '') === 'omission' ? 'Minderwerk' : 'Meerwerk', '@nr' => $row['change_number'], '@title' => $row['title'], '@sign' => $sign, '@amount' => number_format((float) $row['sales_amount_ex_vat'], 2, ',', '.')]); }
-    if ($this->database->schema()->tableExists('brebo_finance_provisional_sum')) foreach ($this->database->select('brebo_finance_provisional_sum', 'p')->fields('p')->condition('project_nid', $projectId)->where('approved_settlement_ex_vat <> invoiced_settlement_ex_vat')->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) { $outstanding = (float) $row['approved_settlement_ex_vat'] - (float) $row['invoiced_settlement_ex_vat']; $options['provisional:' . $row['id']] = $this->t('Stelpost @nr · @title · verrekening € @amount excl.', ['@nr' => $row['provisional_sum_number'], '@title' => $row['title'], '@amount' => number_format($outstanding, 2, ',', '.')]); }
+    foreach ($this->invoices->billableInstalments($projectId) as $row) {
+      $term = $this->instalmentPaymentTerm($row);
+      $options['instalment:' . $row['id']] = $this->t('Termijn @nr · @desc · € @amount excl. · @days', ['@nr' => $row['instalment_number'], '@desc' => $row['description'], '@amount' => number_format((float) $row['amount_ex_vat'], 2, ',', '.'), '@days' => $term === 0 ? 'per omgaande' : $term . ' dagen']);
+    }
+    foreach ($this->invoices->invoiceableChanges($projectId) as $row) {
+      $sign = ($row['change_type'] ?? '') === 'omission' ? '-' : '+';
+      $options['change:' . $row['id']] = $this->t('@type @nr · @title · @sign€ @amount excl.', ['@type' => ($row['change_type'] ?? '') === 'omission' ? 'Minderwerk' : 'Meerwerk', '@nr' => $row['change_number'], '@title' => $row['title'], '@sign' => $sign, '@amount' => number_format((float) $row['sales_amount_ex_vat'], 2, ',', '.')]);
+    }
+    foreach ($this->invoices->invoiceableProvisionalSums($projectId) as $row) {
+      $outstanding = (float) $row['approved_settlement_ex_vat'] - (float) $row['invoiced_settlement_ex_vat'];
+      $options['provisional:' . $row['id']] = $this->t('Stelpost @nr · @title · verrekening € @amount excl.', ['@nr' => $row['provisional_sum_number'], '@title' => $row['title'], '@amount' => number_format($outstanding, 2, ',', '.')]);
+    }
     return $options;
   }
 
-  private function instalmentPaymentTerm(array $row): int { $payload = json_decode((string) ($row['evidence_payload'] ?? ''), TRUE); if (is_array($payload) && isset($payload['payment_term_days']) && is_numeric($payload['payment_term_days'])) return max(0, (int) $payload['payment_term_days']); return $this->projectPaymentTermDays((int) ($row['project_nid'] ?? 0)); }
+  private function instalmentPaymentTerm(array $row): int {
+    $payload = json_decode((string) ($row['evidence_payload'] ?? ''), TRUE);
+    if (is_array($payload) && isset($payload['payment_term_days']) && is_numeric($payload['payment_term_days'])) return max(0, (int) $payload['payment_term_days']);
+    return $this->projectPaymentTermDays((int) ($row['project_nid'] ?? 0));
+  }
 
   /** @return list<array<string,mixed>> */
   private function sourceLines(int $projectId, string $type, int $id): array {
-    if ($type === 'instalment') {
-      $row = $this->database->select('brebo_finance_billing_instalment', 'i')->fields('i')->condition('id', $id)->condition('project_nid', $projectId)->condition('status', 'billable')->execute()->fetchAssoc(); if ($row === FALSE) return [];
-      if ($this->database->schema()->tableExists('brebo_finance_billing_instalment_line')) { $stored = $this->database->select('brebo_finance_billing_instalment_line', 'l')->fields('l')->condition('instalment_id', $id)->orderBy('line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC); if ($stored !== []) return array_map(static fn(array $line): array => ['source_type' => 'instalment', 'source_id' => $id, 'description' => $line['description'], 'amount_ex_vat' => $line['amount_ex_vat'], 'vat_code' => $line['vat_code']], $stored); }
-      return [['source_type' => 'instalment', 'source_id' => $id, 'description' => $row['description'], 'amount_ex_vat' => $row['amount_ex_vat'], 'vat_code' => $row['vat_code']]];
-    }
-    if ($type === 'change') { $row = $this->database->select('brebo_finance_change_order', 'c')->fields('c')->condition('id', $id)->condition('project_nid', $projectId)->condition('status', ['client_approved', 'executed'], 'IN')->execute()->fetchAssoc(); if ($row === FALSE) return []; $amount = (float) $row['sales_amount_ex_vat']; if (($row['change_type'] ?? '') === 'omission') $amount *= -1; return [['source_type' => 'change', 'source_id' => $id, 'description' => $row['title'], 'amount_ex_vat' => number_format($amount, 4, '.', ''), 'vat_code' => $row['vat_code']]]; }
-    if ($type === 'provisional') { $row = $this->database->select('brebo_finance_provisional_sum', 'p')->fields('p')->condition('id', $id)->condition('project_nid', $projectId)->execute()->fetchAssoc(); if ($row === FALSE) return []; $amount = (float) $row['approved_settlement_ex_vat'] - (float) $row['invoiced_settlement_ex_vat']; if (abs($amount) < 0.0001) return []; return [['source_type' => 'provisional', 'source_id' => $id, 'description' => 'Stelpostverrekening ' . $row['title'], 'amount_ex_vat' => number_format($amount, 4, '.', ''), 'vat_code' => $row['vat_code']]]; }
-    return [];
+    return $this->invoices->sourceLines($projectId, $type, $id);
   }
+
 }

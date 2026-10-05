@@ -6,7 +6,7 @@ namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInvoiceRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -20,7 +20,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ProjectSalesInvoiceReviewForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectInvoiceRepositoryInterface $invoices,
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly MailManagerInterface $mailManager,
@@ -30,7 +30,7 @@ final class ProjectSalesInvoiceReviewForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_invoice_repository'),
       $container->get('keyvalue'),
       $container->get('entity_type.manager'),
       $container->get('plugin.manager.mail'),
@@ -100,8 +100,8 @@ final class ProjectSalesInvoiceReviewForm extends FormBase {
 
   /** @return array<string,mixed> */
   private function loadDraft(int $draftId, int $projectId): array {
-    $row = $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d')->condition('id', $draftId)->condition('project_nid', $projectId)->condition('status', 'draft')->execute()->fetchAssoc();
-    if ($row === FALSE) throw new \InvalidArgumentException('Project invoice draft not found.');
+    $row = $this->invoices->draftForProject($draftId, $projectId, TRUE);
+    if ($row === NULL) throw new \InvalidArgumentException('Project invoice draft not found.');
     return $row;
   }
 

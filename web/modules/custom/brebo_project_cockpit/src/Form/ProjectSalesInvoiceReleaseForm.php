@@ -7,7 +7,7 @@ namespace Drupal\brebo_project_cockpit\Form;
 use Drupal\brebo_finance\Service\SalesInvoiceNumberManager;
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInvoiceRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -22,10 +22,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
   private ?array $draft = NULL;
 
-  public function __construct(private readonly Connection $database, private readonly QueueFactory $queueFactory, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly EntityTypeManagerInterface $entityTypeManager, private readonly MailManagerInterface $mailManager, private readonly SalesInvoiceNumberManager $numberManager, private readonly SalesInvoiceOutputBuilder $outputBuilder, private readonly OutboundAttachmentService $attachmentService) {}
+  public function __construct(private readonly ProjectInvoiceRepositoryInterface $invoices, private readonly QueueFactory $queueFactory, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly EntityTypeManagerInterface $entityTypeManager, private readonly MailManagerInterface $mailManager, private readonly SalesInvoiceNumberManager $numberManager, private readonly SalesInvoiceOutputBuilder $outputBuilder, private readonly OutboundAttachmentService $attachmentService) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'), new SalesInvoiceNumberManager($container->get('config.factory'), $container->get('keyvalue'), $container->get('lock')), $container->get('brebo_finance.sales_invoice_output_builder'), $container->get('brebo_mail_intake.outbound_attachments'));
+    return new static($container->get('brebo_project_cockpit.project_invoice_repository'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'), $container->get('brebo_finance.sales_invoice_number_manager'), $container->get('brebo_finance.sales_invoice_output_builder'), $container->get('brebo_mail_intake.outbound_attachments'));
   }
 
   public function getFormId(): string { return 'brebo_project_cockpit_sales_invoice_release_form'; }
@@ -35,10 +35,10 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state, ?NodeInterface $node = NULL, ?int $draft = NULL): array {
     if ($node === NULL || $node->bundle() !== 'brebo_project' || $draft === NULL) throw new \InvalidArgumentException('BREBO project and invoice draft required.');
-    foreach (['brebo_finance_sales_invoice_draft', 'brebo_finance_sales_invoice_draft_line', 'brebo_finance_sales_invoice_outbox'] as $table) if (!$this->database->schema()->tableExists($table)) throw new \RuntimeException('Required sales-invoice release storage is unavailable. Run database updates first.');
+    if (!$this->invoices->releaseStorageAvailable()) throw new \RuntimeException('Required sales-invoice release storage is unavailable. Run database updates first.');
     $projectId = (int) $node->id();
-    $row = $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d')->condition('id', $draft)->condition('project_nid', $projectId)->execute()->fetchAssoc();
-    if ($row === FALSE) throw new \InvalidArgumentException('Invoice draft not found for this project.');
+    $row = $this->invoices->draftForProject((int) $draft, $projectId);
+    if ($row === NULL) throw new \InvalidArgumentException('Invoice draft not found for this project.');
     $this->draft = $row;
     if (($row['status'] ?? '') !== 'draft') { $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Dit factuurconcept is al definitief vrijgegeven of verwerkt en kan niet opnieuw worden vrijgegeven.') . '</strong></p>']; return $form; }
 
@@ -63,8 +63,8 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
     $draftId = (int) $form_state->get('draft_id'); $projectId = (int) $form_state->get('project_id');
-    $draft = $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d')->condition('id', $draftId)->condition('project_nid', $projectId)->execute()->fetchAssoc();
-    if ($draft === FALSE || ($draft['status'] ?? '') !== 'draft') throw new \RuntimeException('Invoice draft is no longer releasable.');
+    $draft = $this->invoices->draftForProject($draftId, $projectId, TRUE);
+    if ($draft === NULL || ($draft['status'] ?? '') !== 'draft') throw new \RuntimeException('Invoice draft is no longer releasable.');
     $context = $this->context($draftId, $projectId); $lines = $this->loadLines($draftId); if ($lines === []) throw new \RuntimeException('Invoice draft contains no lines.');
     $this->assertGAccount($draft, $context);
 
@@ -81,13 +81,9 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
     $context['final_invoice_number'] = $invoiceNumber; $context['final_pdf_hash'] = $pdf['hash']; $context['final_pdf_filename'] = $pdf['filename']; $context['final_sent_at'] = $now; $context['final_recipient'] = $recipient; $context['final_attachment_document_ids'] = $selected; $context['final_attachments'] = array_map(static fn(array $attachment): array => ['filename' => (string) $attachment['filename'], 'hash' => hash('sha256', (string) $attachment['filecontent'])], $attachments); $this->saveContext($draftId, $context);
     $payload = $this->buildPayload($draft, $lines, (string) $form_state->get('moneybird_contact_id'), $context, $invoiceNumber);
     $json = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION | JSON_THROW_ON_ERROR); $hash = hash('sha256', $json); $idempotencyKey = 'sales-invoice:' . $invoiceNumber . ':' . $hash; $actor = (int) $this->currentUser()->id();
-    $transaction = $this->database->startTransaction();
-    try {
-      $existing = $this->database->select('brebo_finance_sales_invoice_outbox', 'o')->fields('o', ['id'])->condition('draft_id', $draftId)->execute()->fetchField(); if ($existing !== FALSE) throw new \RuntimeException('This invoice draft already has a registration command.');
-      $outboxId = (int) $this->database->insert('brebo_finance_sales_invoice_outbox')->fields(['draft_id' => $draftId, 'project_nid' => $projectId, 'command_type' => 'sales_invoice.register', 'status' => 'queued', 'idempotency_key' => $idempotencyKey, 'payload_hash' => $hash, 'payload' => $json, 'attempt_count' => 0, 'released' => $now, 'released_by' => $actor, 'created' => $now, 'created_by' => $actor, 'changed' => $now, 'changed_by' => $actor])->execute();
-      $this->database->update('brebo_finance_sales_invoice_draft')->fields(['status' => 'sent', 'changed' => $now, 'changed_by' => $actor])->condition('id', $draftId)->condition('status', 'draft')->execute();
-    }
-    catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
+    $outboxFields = ['draft_id' => $draftId, 'project_nid' => $projectId, 'command_type' => 'sales_invoice.register', 'status' => 'queued', 'idempotency_key' => $idempotencyKey, 'payload_hash' => $hash, 'payload' => $json, 'attempt_count' => 0, 'released' => $now, 'released_by' => $actor, 'created' => $now, 'created_by' => $actor, 'changed' => $now, 'changed_by' => $actor];
+    $draftFields = ['status' => 'sent', 'changed' => $now, 'changed_by' => $actor];
+    $outboxId = $this->invoices->queueRelease($draftId, $projectId, $outboxFields, $draftFields);
     $this->queueFactory->get('brebo_finance_sales_invoice_outbox')->createItem(['outbox_id' => $outboxId]);
     $this->messenger()->addStatus($this->t('Projectfactuur @number is definitief door BREBO uitgegeven en naar @recipient verzonden. Moneybird-registratie staat in de wachtrij.', ['@number' => $invoiceNumber, '@recipient' => $recipient]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);
@@ -105,7 +101,7 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
   private function saveContext(int $draftId, array $context): void { $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, $context); }
   private function loadOrganization(int $organizationId): NodeInterface { $organization = $organizationId > 0 ? $this->entityTypeManager->getStorage('node')->load($organizationId) : NULL; if (!$organization instanceof NodeInterface || $organization->bundle() !== 'brebo_organization') throw new \RuntimeException('Canonical debtor organisation is unavailable.'); return $organization; }
   /** @return array<int,array<string,mixed>> */
-  private function loadLines(int $draftId): array { return array_values($this->database->select('brebo_finance_sales_invoice_draft_line', 'l')->fields('l')->condition('draft_id', $draftId)->orderBy('line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC)); }
+  private function loadLines(int $draftId): array { return $this->invoices->draftLines($draftId); }
 
   /** @param array<int,array<string,mixed>> $lines */
   private function buildPayload(array $draft, array $lines, string $moneybirdContactId, array $context, string $invoiceNumber): array {
