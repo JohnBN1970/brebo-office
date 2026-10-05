@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Form;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectProvisionalSumRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -15,11 +15,11 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class ProjectProvisionalSumForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectProvisionalSumRepositoryInterface $provisionalSums,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_provisional_sum_repository'));
   }
 
   public function getFormId(): string {
@@ -32,16 +32,12 @@ final class ProjectProvisionalSumForm extends FormBase {
     }
 
     $projectId = (int) $node->id();
-    if (!$this->database->schema()->tableExists('brebo_finance_provisional_sum')) {
+    if (!$this->provisionalSums->available()) {
       $form['warning'] = ['#markup' => '<p><strong>' . $this->t('De stelpost-opslag is nog niet geinstalleerd. Voer eerst de database-updates uit.') . '</strong></p>'];
       return $form;
     }
 
-    $contract = $this->database->select('brebo_finance_project_contract', 'c')
-      ->fields('c', ['id'])
-      ->condition('project_nid', $projectId)
-      ->execute()
-      ->fetchAssoc();
+    $contractId = $this->provisionalSums->projectContractId($projectId);
 
     $form['project'] = ['#markup' => '<p><strong>' . $this->t('Project:') . '</strong> ' . $node->label() . '</p>'];
     $form['number'] = ['#type' => 'textfield', '#title' => $this->t('Stelpostnummer'), '#required' => TRUE, '#maxlength' => 64, '#placeholder' => 'SP-001'];
@@ -57,7 +53,7 @@ final class ProjectProvisionalSumForm extends FormBase {
     $form['actions']['cancel'] = ['#type' => 'link', '#title' => $this->t('Annuleren'), '#url' => Url::fromRoute('brebo_project_cockpit.invoices', ['node' => $projectId]), '#attributes' => ['class' => ['button']]];
 
     $form_state->set('project_id', $projectId);
-    $form_state->set('contract_id', $contract === FALSE ? NULL : (int) $contract['id']);
+    $form_state->set('contract_id', $contractId);
     return $form;
   }
 
@@ -67,13 +63,7 @@ final class ProjectProvisionalSumForm extends FormBase {
     if ($number === '') {
       return;
     }
-    $exists = (int) $this->database->select('brebo_finance_provisional_sum', 's')
-      ->condition('project_nid', $projectId)
-      ->condition('provisional_sum_number', $number)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-    if ($exists > 0) {
+    if ($this->provisionalSums->numberExists($projectId, $number)) {
       $form_state->setErrorByName('number', $this->t('Dit stelpostnummer bestaat al binnen het project.'));
     }
   }
@@ -88,7 +78,7 @@ final class ProjectProvisionalSumForm extends FormBase {
     $actor = (int) $this->currentUser()->id();
     $now = time();
 
-    $this->database->insert('brebo_finance_provisional_sum')->fields([
+    $this->provisionalSums->create([
       'project_nid' => $projectId,
       'contract_id' => $contractId,
       'provisional_sum_number' => trim((string) $form_state->getValue('number')),
@@ -110,7 +100,7 @@ final class ProjectProvisionalSumForm extends FormBase {
       'created_by' => $actor,
       'changed' => $now,
       'changed_by' => $actor,
-    ])->execute();
+    ]);
 
     $this->messenger()->addStatus($this->t('Stelpost @number is toegevoegd en wordt vanaf nu financieel bewaakt.', ['@number' => $form_state->getValue('number')]));
     $form_state->setRedirect('brebo_project_cockpit.invoices', ['node' => $projectId]);

@@ -1,4 +1,8 @@
 services:
+  brebo_project_cockpit.project_provisional_sum_repository:
+    class: Drupal\brebo_project_cockpit\Infrastructure\DatabaseProjectProvisionalSumRepository
+    arguments: ['@database']
+
   brebo_project_cockpit.project_invoice_repository:
     class: Drupal\brebo_project_cockpit\Infrastructure\DatabaseProjectInvoiceRepository
     arguments: ['@database']
