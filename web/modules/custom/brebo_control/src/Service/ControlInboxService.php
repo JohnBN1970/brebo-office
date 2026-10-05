@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 
 /**
  * Builds role-aware personal and management control inboxes.
  */
 final class ControlInboxService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ControlActionRepositoryInterface $actions) {}
 
   /**
    * @param string[] $roleLabels
@@ -19,7 +19,7 @@ final class ControlInboxService {
    */
   public function personal(array $roleLabels, int $now): array {
     $roles = array_values(array_unique(array_filter(array_map('trim', $roleLabels))));
-    $rows = $this->activeRows();
+    $rows = $this->actions->activeRows();
     $items = [];
 
     foreach ($rows as $row) {
@@ -42,7 +42,7 @@ final class ControlInboxService {
    */
   public function management(int $now): array {
     $items = [];
-    foreach ($this->activeRows() as $row) {
+    foreach ($this->actions->activeRows() as $row) {
       if ((int) $row['escalation_level'] < 2 && (int) $row['risk_points'] < 20 && (string) $row['urgency'] !== 'kritiek') {
         continue;
       }
@@ -50,16 +50,6 @@ final class ControlInboxService {
     }
     usort($items, [$this, 'sortItems']);
     return $this->summary($items);
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function activeRows(): array {
-    if (!$this->database->schema()->tableExists('brebo_control_action')) {
-      return [];
-    }
-    return $this->database->select('brebo_control_action', 'a')->fields('a')
-      ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
   /** @param string[] $roles */
