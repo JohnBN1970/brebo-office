@@ -33,12 +33,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
       $container->get('keyvalue'),
       $container->get('brebo_finance.organization_reference_gateway'),
       $container->get('plugin.manager.mail'),
-      new SalesInvoiceOutputBuilder(
-        $container->get('database'),
-        $container->get('keyvalue'),
-        $container->get('brebo_finance.organization_reference_gateway'),
-        $container->get('brebo_office_core.simple_pdf_renderer'),
-      ),
+      $container->get('brebo_finance.sales_invoice_output_builder'),
       $container->get('brebo_mail_intake.outbound_attachments'),
     );
   }
