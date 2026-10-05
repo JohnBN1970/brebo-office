@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_building_data\Service\BuildingObjectRepository;
-use Drupal\brebo_building_data\Service\ProjectBuildingRepository;
+use Drupal\brebo_building_data\Contract\ProjectBuildingRepositoryInterface;
 use Drupal\brebo_finance\Contract\PerformanceLocationRepositoryInterface;
 use RuntimeException;
 
@@ -13,7 +13,7 @@ use RuntimeException;
 final class PerformanceLocationManager {
   public function __construct(
     private readonly PerformanceLocationRepositoryInterface $repository,
-    private readonly ProjectBuildingRepository $projectBuildings,
+    private readonly ProjectBuildingRepositoryInterface $projectBuildings,
     private readonly BuildingObjectRepository $objects,
   ) {}
 

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Form;
 
-use Drupal\brebo_building_data\Service\ProjectBuildingRepository;
+use Drupal\brebo_building_data\Contract\ProjectBuildingRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -22,7 +22,7 @@ final class ProjectClockZoneForm extends FormBase {
 
   public function __construct(
     protected EntityTypeManagerInterface $clockZoneEntityTypeManager,
-    protected ProjectBuildingRepository $projectBuildingRepository,
+    protected ProjectBuildingRepositoryInterface $projectBuildingRepository,
   ) {}
 
   public static function create(ContainerInterface $container): static {
