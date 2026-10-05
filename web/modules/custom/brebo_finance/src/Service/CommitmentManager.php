@@ -20,6 +20,11 @@ final class CommitmentManager {
     private readonly CommitmentNumberIssuerInterface $numberIssuer,
   ) {}
 
+  /** @param callable():mixed $callback */
+  public function transactional(callable $callback): mixed {
+    return $this->repository->transactional($callback);
+  }
+
   public function createDraft(int $projectNid, string $supplierName, ?string $supplierRef, int $userId): int {
     if (trim($supplierName) === '') {
       throw new InvalidArgumentException('Supplier is required.');
