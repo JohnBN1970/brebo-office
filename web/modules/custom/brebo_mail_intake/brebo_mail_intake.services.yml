@@ -239,7 +239,7 @@ services:
     class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailComposeSourceRepository
     arguments:
       - '@entity_type.manager'
-      - '@account_switcher'
+      - '@current_user'
 
   Drupal\brebo_mail_intake\Contract\MailComposeSourceRepositoryInterface:
     alias: brebo_mail_intake.compose_source_repository
