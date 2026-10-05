@@ -145,10 +145,18 @@ services:
       - '@brebo_mail_intake.attachment_document_persister'
       - '@?brebo_finance.mail_purchase_invoice_router'
 
+  brebo_mail_intake.queue:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailIntakeQueue
+    arguments:
+      - '@queue'
+
+  Drupal\brebo_mail_intake\Contract\MailIntakeQueueInterface:
+    alias: brebo_mail_intake.queue
+
   brebo_mail_intake.queue_manager:
     class: Drupal\brebo_mail_intake\Service\MailIntakeQueueManager
     arguments:
-      - '@queue'
+      - '@brebo_mail_intake.queue'
 
   logger.channel.brebo_mail_intake:
     parent: logger.channel_base
