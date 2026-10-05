@@ -22,7 +22,7 @@ final class CalcResultSnapshotService {
       throw new \InvalidArgumentException('calculation, office_version, calc_version and commercial_summary are required.');
     }
 
-    foreach (['purchase', 'sales', 'margin', 'margin_pct', 'vat'] as $key) {
+    foreach (['purchase', 'sales', 'margin', 'margin_pct', 'vat', 'total_incl_vat'] as $key) {
       if (!array_key_exists($key, $summary) || !is_numeric($summary[$key])) {
         throw new \InvalidArgumentException('commercial_summary.' . $key . ' must be numeric.');
       }
@@ -30,6 +30,10 @@ final class CalcResultSnapshotService {
     $vatRate = array_key_exists('vat_rate', $summary) && $summary['vat_rate'] !== NULL
       ? (float) $summary['vat_rate']
       : NULL;
+    $expectedTotalInclVat = (float) $summary['sales'] + (float) $summary['vat'];
+    if (abs((float) $summary['total_incl_vat'] - $expectedTotalInclVat) > 0.01) {
+      throw new \InvalidArgumentException('commercial_summary.total_incl_vat must equal sales + vat.');
+    }
 
     $vatBreakdown = [];
     $rawBreakdown = $summary['vat_breakdown'] ?? [];
@@ -71,6 +75,7 @@ final class CalcResultSnapshotService {
         'margin' => (float) $summary['margin'],
         'margin_pct' => (float) $summary['margin_pct'],
         'vat' => (float) $summary['vat'],
+        'total_incl_vat' => (float) $summary['total_incl_vat'],
         'vat_rate' => $vatRate,
         'vat_breakdown' => $vatBreakdown,
       ],
@@ -128,6 +133,7 @@ final class CalcResultSnapshotService {
         'margin' => $margin,
         'margin_pct' => $sales != 0.0 ? ($margin / $sales) * 100.0 : 0.0,
         'vat' => 0.0,
+        'total_incl_vat' => (float) ($row['sales_price'] ?? 0),
         'vat_rate' => NULL,
         'vat_breakdown' => [],
       ];
@@ -147,6 +153,7 @@ final class CalcResultSnapshotService {
         'margin' => (float) ($summary['margin'] ?? 0),
         'margin_pct' => (float) ($summary['margin_pct'] ?? 0),
         'vat' => (float) ($summary['vat'] ?? 0),
+        'total_incl_vat' => (float) ($summary['total_incl_vat'] ?? ((float) ($summary['sales'] ?? 0) + (float) ($summary['vat'] ?? 0))),
         'vat_rate' => isset($summary['vat_rate']) ? (float) $summary['vat_rate'] : NULL,
         'vat_breakdown' => is_array($summary['vat_breakdown'] ?? NULL) ? $summary['vat_breakdown'] : [],
       ],
