@@ -1,7 +1,14 @@
 services:
+  brebo_inzet.project_inzet_proposal_read_repository:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalProjectInzetProposalReadRepository
+    arguments: ['@entity_type.manager']
+
+  Drupal\brebo_inzet\Contract\ProjectInzetProposalReadRepositoryInterface:
+    alias: brebo_inzet.project_inzet_proposal_read_repository
+
   brebo_inzet.project_inzet_proposal_builder:
     class: Drupal\brebo_inzet\Service\ProjectInzetProposalBuilder
-    arguments: ['@entity_type.manager']
+    arguments: ['@brebo_inzet.project_inzet_proposal_read_repository']
 
   brebo_inzet.personnel_budget_control:
     class: Drupal\brebo_inzet\Service\PersonnelBudgetControl
