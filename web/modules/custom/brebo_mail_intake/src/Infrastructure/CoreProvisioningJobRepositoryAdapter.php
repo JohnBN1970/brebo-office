@@ -54,6 +54,16 @@ final class CoreProvisioningJobRepositoryAdapter implements ProvisioningJobRepos
     ]);
   }
 
+  public function recent(int $limit = 50): array {
+    $limit = max(1, min($limit, 200));
+    return array_values(array_map('get_object_vars', $this->database->select('brebo_mail_provisioning_job', 'j')
+      ->fields('j')
+      ->orderBy('id', 'DESC')
+      ->range(0, $limit)
+      ->execute()
+      ->fetchAll()));
+  }
+
   private function update(int $jobId, array $fields): void {
     $fields['changed'] = time();
     $this->database->update('brebo_mail_provisioning_job')
