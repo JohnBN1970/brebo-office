@@ -24,15 +24,33 @@ final class MailDomainDnsPolicy {
       $rootTxt,
       static fn(string $value): bool => preg_match('/^v=spf1(?:\s|$)/i', trim($value)) === 1,
     ));
+
     $dmarcRecords = array_values(array_filter(
       $dmarcTxt,
-      static fn(string $value): bool => preg_match('/^v=dmarc1(?:;|\s|$)/i', trim($value)) === 1,
+      static function (string $value): bool {
+        $value = trim($value);
+        if (preg_match('/^v=dmarc1\s*;/i', $value) !== 1) {
+          return FALSE;
+        }
+        if (preg_match('/(?:^|;)\s*p\s*=\s*(none|quarantine|reject)\s*(?:;|$)/i', $value) !== 1) {
+          return FALSE;
+        }
+        return preg_match('/^[A-Za-z0-9_=:@,\.\/%+\-;\s]+$/', $value) === 1;
+      },
+    ));
+
+    $deliverableMx = array_values(array_filter(
+      $mx,
+      static function (array $record): bool {
+        $host = rtrim(mb_strtolower(trim((string) ($record['host'] ?? ''))), '.');
+        return $host !== '';
+      },
     ));
 
     return new DnsPolicyResult(
       $verified,
       [
-        'mx_status' => $mx !== [] ? 'ok' : 'missing',
+        'mx_status' => $deliverableMx !== [] ? 'ok' : 'missing',
         'spf_status' => count($spfRecords) === 1 ? 'ok' : 'invalid',
         'dkim_status' => $dkimStatus,
         'dmarc_status' => count($dmarcRecords) === 1 ? 'ok' : 'invalid',
