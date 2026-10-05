@@ -228,6 +228,9 @@ services:
   brebo_finance.payment_release_manager:
     class: Drupal\brebo_finance\Service\PaymentReleaseManager
     arguments: ['@brebo_finance.payment_release_repository', '@brebo_finance.vat_calculator', '@brebo_finance.financial_phase_gate_manager', '@brebo_finance.financial_euro_trace_finding_synchronizer']
+  brebo_finance.payment_center_read_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabasePaymentCenterReadRepository
+    arguments: ['@database']
   brebo_finance.payment_batch_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePaymentBatchRepository
     arguments: ['@database']
