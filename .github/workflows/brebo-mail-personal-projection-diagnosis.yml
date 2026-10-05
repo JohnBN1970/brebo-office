@@ -73,7 +73,7 @@ jobs:
               ->condition("communication_id", $nid)
               ->execute()->fetchAssoc();
             echo "PROJECTION_BEFORE=" . ($before ? json_encode($before) : "NONE") . PHP_EOL;
-            $result = \Drupal::service("brebo_mail_intake.ingestor")->projectExisting($node);
+            $result = \Drupal::service("brebo_mail_intake.ingestor")->projectExisting((int) $node->id());
             echo "PROJECT_EXISTING_RESULT=" . ($result ? "TRUE" : "FALSE") . PHP_EOL;
             $after = $db->select("brebo_mailbox_message", "mm")
               ->fields("mm", ["mailbox_id", "communication_id", "mail_state"])
