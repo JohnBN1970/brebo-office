@@ -6,7 +6,7 @@ namespace Drupal\brebo_project_cockpit\Form;
 
 use Drupal\brebo_finance\Service\BillingControlManager;
 use Drupal\Component\Utility\Html;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInstalmentRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -18,13 +18,13 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class ProjectInstalmentBillableApprovalForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectInstalmentRepositoryInterface $instalments,
     private readonly BillingControlManager $billingManager,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_project_cockpit.project_instalment_repository'),
       $container->get('brebo_finance.billing_control_manager'),
     );
   }
@@ -38,14 +38,9 @@ final class ProjectInstalmentBillableApprovalForm extends FormBase {
       throw new NotFoundHttpException('Project and billing instalment required.');
     }
 
-    $row = $this->database->select('brebo_finance_billing_instalment', 'i')
-      ->fields('i')
-      ->condition('id', $instalment)
-      ->condition('project_nid', (int) $node->id())
-      ->execute()
-      ->fetchAssoc();
+    $row = $this->instalments->instalmentForProject((int) $instalment, (int) $node->id());
 
-    if ($row === FALSE) {
+    if ($row === NULL) {
       throw new NotFoundHttpException('Billing instalment not found for this project.');
     }
 
