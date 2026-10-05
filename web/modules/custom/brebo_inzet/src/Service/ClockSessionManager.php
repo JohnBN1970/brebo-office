@@ -54,7 +54,7 @@ final class ClockSessionManager {
       throw new \InvalidArgumentException(sprintf('Je bent al ingeklokt op %s. Klok daar eerst uit voordat je op een ander project inklokt.', $label));
     }
 
-    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject($project), $latitude, $longitude, $accuracy);
+    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject((int) $project->id()), $latitude, $longitude, $accuracy);
     $now = new \DateTimeImmutable('now');
     $registration = $this->entityTypeManager->getStorage('node')->create([
       'type' => 'brebo_clock_registration',
@@ -130,7 +130,7 @@ final class ClockSessionManager {
     $clockInValue = (string) $registration->get('field_brebo_clock_in')->value;
     $clockIn = new \DateTimeImmutable($clockInValue);
     $clockOut = new \DateTimeImmutable('now');
-    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject($project), $latitude, $longitude, $accuracy);
+    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject((int) $project->id()), $latitude, $longitude, $accuracy);
 
     $date = $clockIn->format('Y-m-d');
     [$startTime, $endTime] = $this->plannedTimesForUser($project, $userId, $date);

@@ -323,6 +323,10 @@ Ook `ProjectMilestoneBuilder` is losgetrokken van Drupal entity-API's. De builde
 
 Na Project Cockpit is de ontkoppeling voortgezet in `brebo_inzet`. `OnSiteIdentityResolver` kent geen Drupal entity manager of `UserInterface` meer en levert een neutrale identiteit (`uid`, mobiel, taal) via `OnSiteIdentityRepositoryInterface`. Drupal-userqueries en taalvelden zitten in `DrupalOnSiteIdentityRepository`. OTP, uitnodiging en bootstrap consumeren de neutrale identity-projectie waar relevant.
 
+### Inzet — project clock-zone boundary
+
+Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Drupal entities. De manager werkt uitsluitend met een project-id en genormaliseerde clock-zonegegevens via `ProjectClockZoneRepositoryInterface`; Drupal node-query's, building-references en field-extractie zitten in `DrupalProjectClockZoneRepository`. Bestaande geofence- en clocksessiegedrag blijft ongewijzigd.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
