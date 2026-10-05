@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_building_data\Infrastructure;
 
 use Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface;
-use Drupal\brebo_building_data\Service\BuildingObjectRepository;
+use Drupal\brebo_building_data\Contract\BuildingObjectRepositoryInterface;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
@@ -24,7 +24,7 @@ final class DatabaseBuildingTruthRepository implements BuildingTruthRepositoryIn
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly TimeInterface $time,
     private readonly LockBackendInterface $lock,
-    private readonly BuildingObjectRepository $objects,
+    private readonly BuildingObjectRepositoryInterface $objects,
   ) {}
 
   /** Returns the current verified fact, or NULL when no truth is established. */
