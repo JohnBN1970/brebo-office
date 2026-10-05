@@ -58,7 +58,7 @@ final class ProjectInzetProposalForm extends FormBase {
     }
 
     $defaultUsers = array_keys($teamOptions);
-    $detected = $this->proposalBuilder->build($node, $defaultUsers);
+    $detected = $this->proposalBuilder->build((int) $node->id(), $defaultUsers);
 
     $selected = $form_state->getValue('users');
     $selected = is_array($selected)
@@ -70,7 +70,7 @@ final class ProjectInzetProposalForm extends FormBase {
     $startTime = (string) ($form_state->getValue(['times', 'start_time']) ?: '07:00');
     $endTime = (string) ($form_state->getValue(['times', 'end_time']) ?: '16:00');
 
-    $proposal = $this->proposalBuilder->build($node, $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
+    $proposal = $this->proposalBuilder->build((int) $node->id(), $selected, $start ?: NULL, $end ?: NULL, $startTime, $endTime);
     $labourLines = $this->labourProductivity->labourBudgetLines((int) $node->id());
     $financeBudgetHours = array_sum(array_map(
       static fn (array $line): float => max(0.0, (float) ($line['budget_hours'] ?? 0)),
