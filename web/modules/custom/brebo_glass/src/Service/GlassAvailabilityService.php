@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_glass\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_glass\Contract\GlassAvailabilityRepositoryInterface;
 
 /** Project-wide availability based only on actual glass stock events. */
 final class GlassAvailabilityService {
   private const EVENTS = ['delivered','installed','damaged'];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly GlassAvailabilityRepositoryInterface $repository,
     private readonly GlassPositionRepository $positions,
   ) {}
 
@@ -36,9 +36,9 @@ final class GlassAvailabilityService {
     if (!$position) throw new \InvalidArgumentException('Glaspositie bestaat niet.');
     $projectId = (int) ($position['project_nid'] ?? 0);
     if ($projectId <= 0) throw new \RuntimeException('Projectkoppeling is verplicht voor projectbrede glasbeschikbaarheid.');
-    if (!$this->database->schema()->tableExists('brebo_glass_stock_event')) throw new \RuntimeException('Glasvoorraadregistratie is nog niet geïnstalleerd.');
+    if (!$this->repository->isAvailable()) throw new \RuntimeException('Glasvoorraadregistratie is nog niet geïnstalleerd.');
 
-    return (int) $this->database->insert('brebo_glass_stock_event')->fields([
+    return $this->repository->record([
       'project_nid' => $projectId,
       'glass_group_key' => $this->groupKey($position),
       'event_type' => $eventType,
@@ -48,7 +48,7 @@ final class GlassAvailabilityService {
       'happened_at' => time(),
       'created_by' => $userId,
       'created' => time(),
-    ])->execute();
+    ]);
   }
 
   /** @return array<string,mixed> */
@@ -59,12 +59,10 @@ final class GlassAvailabilityService {
     if ($projectId <= 0) throw new \RuntimeException('Projectkoppeling ontbreekt.');
     $key = $this->groupKey($position);
     $totals = ['delivered'=>0.0,'installed'=>0.0,'damaged'=>0.0];
-    if ($this->database->schema()->tableExists('brebo_glass_stock_event')) {
-      $q = $this->database->select('brebo_glass_stock_event','e');
-      $q->addField('e','event_type');
-      $q->addExpression('SUM(e.quantity)','total');
-      $q->condition('project_nid',$projectId)->condition('glass_group_key',$key)->groupBy('event_type');
-      foreach ($q->execute() as $row) if (isset($totals[$row->event_type])) $totals[$row->event_type] = (float) $row->total;
+    foreach ($this->repository->totals($projectId, $key) as $eventType => $total) {
+      if (isset($totals[$eventType])) {
+        $totals[$eventType] = (float) $total;
+      }
     }
     $reserved = max(0.0, $reservedQuantity);
     $free = max(0.0, $totals['delivered'] - $totals['installed'] - $totals['damaged'] - $reserved);
