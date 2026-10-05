@@ -53,6 +53,18 @@ services:
     arguments:
       - '@brebo_mail_intake.mail_domain_repository'
 
+  brebo_mail_intake.dns_resolver:
+    class: Drupal\brebo_mail_intake\Infrastructure\NativeDnsResolver
+
+  Drupal\brebo_mail_intake\Contract\DnsResolverInterface:
+    alias: brebo_mail_intake.dns_resolver
+
+  brebo_mail_intake.mail_domain_dns_check:
+    class: Drupal\brebo_mail_intake\Service\MailDomainDnsCheckService
+    arguments:
+      - '@brebo_mail_intake.mail_domain_repository'
+      - '@brebo_mail_intake.dns_resolver'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
