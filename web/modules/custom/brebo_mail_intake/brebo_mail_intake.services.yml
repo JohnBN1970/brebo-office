@@ -53,6 +53,49 @@ services:
     arguments:
       - '@brebo_mail_intake.mail_domain_repository'
 
+  brebo_mail_intake.core_mail_domain_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreMailDomainRepositoryAdapter
+    arguments:
+      - '@database'
+
+  Brebo\Mail\Contract\MailDomainRepositoryInterface:
+    alias: brebo_mail_intake.core_mail_domain_repository
+
+  brebo_mail_intake.core_mailbox_provisioning_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreMailboxProvisioningRepositoryAdapter
+    arguments:
+      - '@database'
+
+  Brebo\Mail\Contract\MailboxProvisioningRepositoryInterface:
+    alias: brebo_mail_intake.core_mailbox_provisioning_repository
+
+  brebo_mail_intake.core_dns_resolver:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreNativeDnsResolverAdapter
+
+  Brebo\Mail\Contract\DnsResolverInterface:
+    alias: brebo_mail_intake.core_dns_resolver
+
+  brebo_mail_intake.core_mail_domain_policy:
+    class: Brebo\Mail\Domain\MailDomainDnsPolicy
+
+  brebo_mail_intake.core_mail_domain_service:
+    class: Brebo\Mail\Service\MailDomainService
+    arguments:
+      - '@brebo_mail_intake.core_mail_domain_repository'
+
+  brebo_mail_intake.core_mail_domain_dns_check:
+    class: Brebo\Mail\Service\MailDomainDnsCheckService
+    arguments:
+      - '@brebo_mail_intake.core_mail_domain_repository'
+      - '@brebo_mail_intake.core_dns_resolver'
+      - '@brebo_mail_intake.core_mail_domain_policy'
+
+  brebo_mail_intake.core_mailbox_provisioning:
+    class: Brebo\Mail\Service\MailboxProvisioningService
+    arguments:
+      - '@brebo_mail_intake.core_mailbox_provisioning_repository'
+      - '@brebo_mail_intake.core_mail_domain_repository'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
