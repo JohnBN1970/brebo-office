@@ -359,6 +359,10 @@ De laatste directe Drupal-entiteiten in de Inzet-servicelaag zijn verwijderd uit
 
 `BuildingObjectRepository` is uit de servicelaag gehaald en als `DatabaseBuildingObjectRepository` onder `Infrastructure` geplaatst achter `BuildingObjectRepositoryInterface`. Controllers en afhankelijke modules (Finance, Measure en Building Truth) gebruiken nu het contract. Database-, entity-, time- en schemakennis zitten daarmee aan de buitenrand.
 
+### Buildings — building relation boundary
+
+`BuildingRelationRepository` is uit de servicelaag gehaald en als `DatabaseBuildingRelationRepository` onder `Infrastructure` geplaatst achter `BuildingRelationRepositoryInterface`. PDOK/BAG, Mail Intake en de Building Truth-workbench gebruiken voortaan het contract. Database-, entity- en time-afhankelijkheden zitten daarmee aan de buitenrand; de PDOK acceptance-test is op dezelfde contractgrens aangepast.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
