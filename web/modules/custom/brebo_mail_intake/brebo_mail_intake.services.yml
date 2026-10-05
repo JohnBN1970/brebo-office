@@ -96,6 +96,16 @@ services:
       - '@brebo_mail_intake.core_mailbox_provisioning_repository'
       - '@brebo_mail_intake.core_mail_domain_repository'
 
+  brebo_mail_intake.core_gateway_http_client:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreGatewayHttpClientAdapter
+    arguments:
+      - '@http_client_factory'
+
+  brebo_mail_intake.core_http_mail_gateway:
+    class: Brebo\Mail\Infrastructure\HttpMailGateway
+    arguments:
+      - '@brebo_mail_intake.core_gateway_http_client'
+
   brebo_mail_intake.core_mail_gateway:
     class: Drupal\brebo_mail_intake\Infrastructure\DeferredCoreMailGatewayAdapter
 
