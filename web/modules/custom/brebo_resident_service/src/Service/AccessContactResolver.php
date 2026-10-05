@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_resident_service\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_resident_service\Contract\ResidentAccessReadRepositoryInterface;
 
 /** Resolves the most specific applicable access/contact instruction. */
 final class AccessContactResolver {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly ResidentAccessReadRepositoryInterface $repository,
+  ) {}
 
-  /**
-   * Returns effective access/contact data using residence > zone > building > project.
-   */
+  /** Returns effective access/contact data using residence > zone > building > project. */
   public function resolve(?int $buildingNid = NULL, ?int $technicalZoneId = NULL, ?int $residenceId = NULL, ?int $projectId = NULL): ?array {
     $scopes = [];
     if ($residenceId) {
@@ -30,17 +30,8 @@ final class AccessContactResolver {
     }
 
     foreach ($scopes as [$type, $id]) {
-      $query = $this->database->select('brebo_access_contact', 'a')
-        ->fields('a')
-        ->condition('scope_type', $type)
-        ->condition('scope_id', $id);
-      if ($type !== 'project' && $projectId !== NULL) {
-        $or = $query->orConditionGroup()->condition('project_id', $projectId)->isNull('project_id');
-        $query->condition($or);
-      }
-      $query->orderBy('project_id', 'DESC')->orderBy('changed', 'DESC')->range(0, 1);
-      $row = $query->execute()->fetchAssoc();
-      if ($row) {
+      $row = $this->repository->accessForScope($type, $id, $projectId);
+      if ($row !== NULL) {
         $row['inherited_from'] = $type;
         return $row;
       }
@@ -55,4 +46,5 @@ final class AccessContactResolver {
     }
     return in_array($access['access_status'] ?? 'unknown', ['confirmed', 'granted', 'key_available'], TRUE);
   }
+
 }
