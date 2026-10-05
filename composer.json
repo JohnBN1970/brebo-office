@@ -102,5 +102,10 @@
                 "      composer remove drupal/core-project-message"
             ]
         }
+    },
+    "autoload": {
+        "psr-4": {
+            "Brebo\\Mail\\": "packages/brebo-mail-core/src/"
+        }
     }
 }
