@@ -309,6 +309,10 @@ Actuele bewezen volgorde op `develop`:
 
 Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoonmaken en CI/acceptance bewijzen, daarna pas UI/functionele verbouwing.
 
+### Office Core — administration context persistence boundary
+
+`AdministrationContextResolver` schrijft/leest projectadministratie niet meer rechtstreeks via Drupal KeyValue. De persistence loopt via `AdministrationContextStoreInterface` met `DrupalAdministrationContextStore` aan de buitenrand. Deze slice wijzigt bewust nog niet de Node-contextsignatures; die entitygrens volgt apart zodat Finance-/offerteconsumenten niet tegelijk functioneel hoeven te veranderen.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
