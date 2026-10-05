@@ -167,11 +167,19 @@ services:
     arguments:
       - '@module_handler'
 
-  brebo_mail_intake.signature_builder:
-    class: Drupal\brebo_mail_intake\Service\MailSignatureBuilder
+  brebo_mail_intake.signature_read_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailSignatureReadRepository
     arguments:
       - '@entity_type.manager'
       - '@config.factory'
+
+  Drupal\brebo_mail_intake\Contract\MailSignatureReadRepositoryInterface:
+    alias: brebo_mail_intake.signature_read_repository
+
+  brebo_mail_intake.signature_builder:
+    class: Drupal\brebo_mail_intake\Service\MailSignatureBuilder
+    arguments:
+      - '@brebo_mail_intake.signature_read_repository'
 
   brebo_mail_intake.outbound_attachment_read_repository:
     class: Drupal\brebo_mail_intake\Infrastructure\DatabaseOutboundAttachmentReadRepository
