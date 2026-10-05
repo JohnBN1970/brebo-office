@@ -189,6 +189,12 @@ final class MailboxController extends ControllerBase {
         '#attributes' => [
           'class' => array_values(array_filter(['brebo-mail-message-link', $linked ? 'is-office-linked' : NULL])),
           'title' => $linked ? 'Al gekoppeld aan BREBO Office' : '',
+          'data-mail-from' => $from,
+          'data-mail-subject' => $subject,
+          'data-mail-date' => $date,
+          'data-mail-unread' => empty($row['is_read']) ? '1' : '0',
+          'data-mail-starred' => !empty($row['is_starred']) ? '1' : '0',
+          'data-mail-action' => !empty($row['needs_action']) ? '1' : '0',
         ],
         '#prefix' => '<div class="brebo-mail-message-row' . ($id === $selectedId ? ' is-selected' : '') . '">',
         '#suffix' => ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list">' . $tagMarkup . '</div>' : '') . '</div>',
