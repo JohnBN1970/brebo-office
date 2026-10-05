@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_building_data\Service;
 
+use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
 use Drupal\node\NodeInterface;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
@@ -17,7 +18,7 @@ final class PdokBuildingEnricher {
 
   public function __construct(
     private readonly ClientInterface $httpClient,
-    private readonly BuildingRelationRepository $relations,
+    private readonly BuildingRelationRepositoryInterface $relations,
   ) {}
 
   /**

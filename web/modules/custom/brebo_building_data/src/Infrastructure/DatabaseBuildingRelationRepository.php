@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_building_data\Service;
+namespace Drupal\brebo_building_data\Infrastructure;
+
+use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
@@ -12,7 +14,7 @@ use Drupal\node\NodeInterface;
 /**
  * Duplicate-safe storage and lookup for high-volume building relations.
  */
-final class BuildingRelationRepository {
+final class DatabaseBuildingRelationRepository implements BuildingRelationRepositoryInterface {
 
   public function __construct(
     private readonly Connection $database,
