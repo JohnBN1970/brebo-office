@@ -4,21 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_inzet\Contract\OnSiteRepositoryInterface;
 
 /**
  * Persists explicit OnSite clock-action evidence without booking work hours.
  *
- * Coordinates are intentionally not accepted or stored here. The mobile app
- * checks the selected personnel zone locally at the moment the employee
- * chooses Start/Stop work.
+ * Coordinates are intentionally not accepted or stored here.
  */
 final class OnSitePresenceEvidenceWriter {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly OnSiteAssignmentProvider $assignmentProvider,
+    private readonly OnSiteRepositoryInterface $repository,
   ) {}
 
   /**
@@ -47,16 +43,13 @@ final class OnSitePresenceEvidenceWriter {
     $zoneIdInt = $this->positiveIntOrZero($zoneId);
     $buildingIdInt = $this->positiveIntOrZero($buildingId);
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $zone = $zoneIdInt > 0 ? $storage->load($zoneIdInt) : NULL;
-    if ($zoneIdInt > 0 && (!$zone instanceof NodeInterface || $zone->bundle() !== 'brebo_clock_zone')) {
-      throw new \InvalidArgumentException('Ongeldige personeelszone.');
-    }
-
-    if ($zone instanceof NodeInterface) {
-      $zoneBuildingId = $zone->hasField('field_brebo_building_ref')
-        ? (int) ($zone->get('field_brebo_building_ref')->target_id ?? 0) : 0;
-      $zoneProjectId = (int) ($zone->get('field_brebo_project_ref')->target_id ?? 0);
+    if ($zoneIdInt > 0) {
+      $zone = $this->repository->clockZone($zoneIdInt);
+      if ($zone === NULL) {
+        throw new \InvalidArgumentException('Ongeldige personeelszone.');
+      }
+      $zoneBuildingId = (int) $zone['building_id'];
+      $zoneProjectId = (int) $zone['project_id'];
       if ($buildingIdInt <= 0) {
         $buildingIdInt = $zoneBuildingId;
       }
@@ -74,25 +67,14 @@ final class OnSitePresenceEvidenceWriter {
     if ($buildingIdInt <= 0 && $projectIdInt <= 0) {
       throw new \InvalidArgumentException('Gebouw of project ontbreekt.');
     }
-
-    if ($buildingIdInt > 0) {
-      $building = $storage->load($buildingIdInt);
-      if (!$building instanceof NodeInterface || $building->bundle() !== 'brebo_building') {
-        throw new \InvalidArgumentException('Ongeldig gebouw.');
-      }
+    if ($buildingIdInt > 0 && !$this->repository->validBuilding($buildingIdInt)) {
+      throw new \InvalidArgumentException('Ongeldig gebouw.');
     }
-    if ($projectIdInt > 0) {
-      $project = $storage->load($projectIdInt);
-      if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
-        throw new \InvalidArgumentException('Ongeldig project.');
-      }
+    if ($projectIdInt > 0 && !$this->repository->validProject($projectIdInt)) {
+      throw new \InvalidArgumentException('Ongeldig project.');
     }
 
-    // A clock action is intentionally NOT gated by a daily planning record:
-    // actual work may differ from the plan. The employee explicitly initiated
-    // this event; Office does not create it from background location changes.
-    $node = $storage->create([
-      'type' => 'brebo_onsite_presence_event',
+    $id = $this->repository->createPresenceEvent([
       'title' => sprintf(
         'OnSite %s gebruiker %d gebouw %d project %d %s',
         strtoupper($kind),
@@ -101,18 +83,16 @@ final class OnSitePresenceEvidenceWriter {
         $projectIdInt,
         $occurred->format('Y-m-d H:i:s'),
       ),
-      'field_brebo_clock_user' => ['target_id' => $uid],
-      'field_brebo_project_ref' => $projectIdInt > 0 ? ['target_id' => $projectIdInt] : NULL,
-      'field_brebo_building_ref' => $buildingIdInt > 0 ? ['target_id' => $buildingIdInt] : NULL,
-      'field_brebo_clock_zone_ref' => $zoneIdInt > 0 ? ['target_id' => $zoneIdInt] : NULL,
-      'field_brebo_onsite_event_kind' => $kind,
-      'field_brebo_onsite_occurred_at' => $occurred->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s'),
-      'status' => 1,
+      'user_id' => $uid,
+      'project_id' => $projectIdInt,
+      'building_id' => $buildingIdInt,
+      'zone_id' => $zoneIdInt,
+      'kind' => $kind,
+      'occurred_at' => $occurred->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d\\TH:i:s'),
     ]);
-    $node->save();
 
     return [
-      'id' => (int) $node->id(),
+      'id' => $id,
       'project_id' => $projectIdInt > 0 ? (string) $projectIdInt : '',
       'building_id' => $buildingIdInt > 0 ? (string) $buildingIdInt : '',
       'zone_id' => $zoneIdInt > 0 ? (string) $zoneIdInt : '',
