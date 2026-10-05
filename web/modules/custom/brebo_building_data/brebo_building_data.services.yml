@@ -12,13 +12,16 @@ services:
     arguments: ['@database', '@entity_type.manager', '@datetime.time']
 
   brebo_building_data.truth_repository:
-    class: Drupal\brebo_building_data\Service\BuildingTruthRepository
+    class: Drupal\brebo_building_data\Infrastructure\DatabaseBuildingTruthRepository
     arguments:
       - '@database'
       - '@entity_type.manager'
       - '@datetime.time'
       - '@lock'
       - '@brebo_building_data.object_repository'
+
+  Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface:
+    alias: brebo_building_data.truth_repository
 
   brebo_building_data.pdok_enricher:
     class: Drupal\brebo_building_data\Service\PdokBuildingEnricher
