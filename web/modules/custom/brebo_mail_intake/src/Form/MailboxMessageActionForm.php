@@ -39,7 +39,7 @@ final class MailboxMessageActionForm extends FormBase {
       return [];
     }
 
-    $row = $this->storage->messageState($mailboxId, $communicationId);
+    $row = $this->storage->messageState($mailbox_id, $communication_id);
 
     if ($row === NULL) {
       return [];
@@ -107,9 +107,9 @@ final class MailboxMessageActionForm extends FormBase {
       return;
     }
 
-    $row = $this->storage->messageState($mailbox_id, $communication_id);
+    $row = $this->storage->messageState($mailboxId, $communicationId);
 
-    if (!$row) {
+    if ($row === NULL) {
       $this->messenger()->addError($this->t('Het bericht is niet meer aan deze mailbox gekoppeld.'));
       return;
     }
