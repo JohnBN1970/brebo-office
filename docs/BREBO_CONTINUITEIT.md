@@ -347,6 +347,10 @@ Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Dr
 
 `PersonnelAssignmentComparison` is losgetrokken van Drupal entities, config en time services. Assignmentprojectie, klokregistraties en timezoneconfig worden via `PersonnelAssignmentComparisonRepositoryInterface` aangeleverd; de service houdt alleen planned-versus-actual urenvergelijking en statusclassificatie over. Consumenten roepen de vergelijking nu aan via assignment-id in plaats van een Drupal `NodeInterface`.
 
+### Inzet — personnel actual-hours / Finance boundary
+
+De laatste directe Drupal-entiteiten in de Inzet-servicelaag zijn verwijderd uit `PersonnelActualHoursManager`, `PersonnelFinanceSynchronizer` en `PersonnelLabourLineResolver`. Assignmentprojectie, medewerkerkostprijs, budget-linekoppeling en operationele review-opslag lopen via `PersonnelAssignmentRepositoryInterface`; Drupal node/user-opslag zit in `DrupalPersonnelAssignmentRepository`. Serviceconsumenten werken via assignment-id en neutrale kostprijsdata.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
