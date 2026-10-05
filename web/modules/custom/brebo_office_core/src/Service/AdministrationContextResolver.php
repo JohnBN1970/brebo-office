@@ -4,24 +4,22 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_office_core\Contract\AdministrationContextStoreInterface;
 use Drupal\node\NodeInterface;
 
 /** Resolves the legal/financial administration for project-derived content. */
 final class AdministrationContextResolver {
 
-  private const COLLECTION = 'brebo_office_core.project_administration';
-
   public function __construct(
     private readonly AdministrationRegistry $registry,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly AdministrationContextStoreInterface $store,
   ) {}
 
   public function projectCode(NodeInterface $project): string {
     if ($project->bundle() !== 'brebo_project') {
       throw new \InvalidArgumentException('Administration can only be assigned directly to a BREBO project.');
     }
-    $stored = trim((string) $this->keyValueFactory->get(self::COLLECTION)->get((string) $project->id(), ''));
+    $stored = $this->store->getProjectAdministrationCode((int) $project->id());
     if ($stored !== '') {
       try {
         $this->registry->get($stored);
@@ -42,14 +40,14 @@ final class AdministrationContextResolver {
     if ($project->isNew() || !$project->id()) {
       throw new \LogicException('Save the project before persisting its administration assignment.');
     }
-    $this->keyValueFactory->get(self::COLLECTION)->set((string) $project->id(), $code);
+    $this->store->setProjectAdministrationCode((int) $project->id(), $code);
   }
 
   public function unassignProject(NodeInterface $project): void {
     if ($project->bundle() !== 'brebo_project' || !$project->id()) {
       return;
     }
-    $this->keyValueFactory->get(self::COLLECTION)->delete((string) $project->id());
+    $this->store->deleteProjectAdministrationCode((int) $project->id());
   }
 
   /** @return array<string, mixed> */
