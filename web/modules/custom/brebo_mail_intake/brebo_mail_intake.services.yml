@@ -1,9 +1,17 @@
 services:
-  brebo_mail_intake.ingestor:
-    class: Drupal\brebo_mail_intake\Service\MailIntakeIngestor
+  brebo_mail_intake.communication_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailCommunicationRepository
     arguments:
       - '@entity_type.manager'
       - '@current_user'
+
+  Drupal\brebo_mail_intake\Contract\MailCommunicationRepositoryInterface:
+    alias: brebo_mail_intake.communication_repository
+
+  brebo_mail_intake.ingestor:
+    class: Drupal\brebo_mail_intake\Service\MailIntakeIngestor
+    arguments:
+      - '@brebo_mail_intake.communication_repository'
       - '@brebo_mail_intake.mailbox_storage_repository'
 
   brebo_mail_intake.classifier:
