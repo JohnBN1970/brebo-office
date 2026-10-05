@@ -7,7 +7,7 @@ namespace Drupal\brebo_mail_intake\Controller;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -29,7 +29,7 @@ final class MailSearchController extends ControllerBase {
   public function __construct(
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $storage,
     private readonly AccountProxyInterface $mailboxCurrentUser,
     private readonly RequestStack $requestStack,
   ) {}
@@ -38,7 +38,7 @@ final class MailSearchController extends ControllerBase {
     return new static(
       $container->get('brebo_mail_intake.mailbox_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
-      $container->get('database'),
+      $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->get('current_user'),
       $container->get('request_stack'),
     );
@@ -151,38 +151,7 @@ final class MailSearchController extends ControllerBase {
    *  @return array<int, array<string, mixed>>
    */
   private function searchRows(array $visibleMailboxIds, string $term, int $mailboxId, string $state): array {
-    $query = $this->database->select('brebo_mailbox_message', 'bm');
-    $query->join('brebo_mailbox', 'mb', 'mb.id = bm.mailbox_id');
-    $query->join('node_field_data', 'n', 'n.nid = bm.communication_id AND n.default_langcode = 1');
-    $query->leftJoin('node__field_brebo_mail_from', 'mf', 'mf.entity_id = n.nid AND mf.deleted = 0');
-    $query->leftJoin('node__field_brebo_mail_to', 'mt', 'mt.entity_id = n.nid AND mt.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_subject', 'ms', 'ms.entity_id = n.nid AND ms.deleted = 0');
-    $query->leftJoin('node__field_brebo_transcript', 'tr', 'tr.entity_id = n.nid AND tr.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_datetime', 'md', 'md.entity_id = n.nid AND md.deleted = 0');
-
-    $query->fields('bm', ['mailbox_id', 'communication_id', 'mail_state']);
-    $query->addField('mb', 'label', 'mailbox_label');
-    $query->addField('mf', 'field_brebo_mail_from_value', 'mail_from');
-    $query->addField('ms', 'field_brebo_comm_subject_value', 'subject');
-    $query->addField('md', 'field_brebo_comm_datetime_value', 'mail_datetime');
-    $query->condition('n.type', 'brebo_communication');
-    $query->condition('bm.mailbox_id', $mailboxId > 0 ? [$mailboxId] : $visibleMailboxIds, 'IN');
-    if ($state !== '') {
-      $query->condition('bm.mail_state', $state);
-    }
-
-    $needle = '%' . $this->database->escapeLike($term) . '%';
-    $or = $query->orConditionGroup()
-      ->condition('ms.field_brebo_comm_subject_value', $needle, 'LIKE')
-      ->condition('mf.field_brebo_mail_from_value', $needle, 'LIKE')
-      ->condition('mt.field_brebo_mail_to_value', $needle, 'LIKE')
-      ->condition('tr.field_brebo_transcript_value', $needle, 'LIKE');
-    $query->condition($or);
-    $query->orderBy('md.field_brebo_comm_datetime_value', 'DESC');
-    $query->orderBy('bm.changed', 'DESC');
-    $query->range(0, 100);
-
-    return array_values(array_map('get_object_vars', $query->execute()->fetchAll()));
+    return $this->storage->search($visibleMailboxIds, $term, $mailboxId, $state);
   }
 
 }
