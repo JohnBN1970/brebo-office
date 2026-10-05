@@ -4,27 +4,20 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_glass\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_glass\Contract\GlassCalculationLinkRepositoryInterface;
 
 /** Prevents duplicate glass exports and detects stale source checksums. */
 final class GlassCalculationLinkGuard {
   public function __construct(
-    private readonly Connection $database,
+    private readonly GlassCalculationLinkRepositoryInterface $repository,
     private readonly GlassPositionRepository $positions,
   ) {}
 
   public function assertNotExported(int $positionId, int $calculationId, string $version): void {
-    if (!$this->database->schema()->tableExists('brebo_calculation_row_domain')) {
+    if (!$this->repository->isAvailable()) {
       throw new \RuntimeException('Calculatiebronkoppelingen zijn nog niet geinstalleerd.');
     }
-    $count = (int) $this->database->select('brebo_calculation_row_domain', 'r')
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('source_domain', 'brebo_glass_position')
-      ->condition('source_reference', (string) $positionId)
-      ->countQuery()
-      ->execute()
-      ->fetchField();
+    $count = $this->repository->countLinks($positionId, $calculationId, $version);
     if ($count > 0) {
       throw new \RuntimeException('Deze glaspositie is al opgenomen in deze calculatieversie. Dubbele export is geblokkeerd.');
     }
@@ -37,14 +30,7 @@ final class GlassCalculationLinkGuard {
       throw new \InvalidArgumentException('Glaspositie bestaat niet.');
     }
     $current = trim((string) ($position['approval_checksum'] ?? ''));
-    $rows = $this->database->select('brebo_calculation_row_domain', 'r')
-      ->fields('r', ['row_id', 'source_checksum'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('version', $version)
-      ->condition('source_domain', 'brebo_glass_position')
-      ->condition('source_reference', (string) $positionId)
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->links($positionId, $calculationId, $version);
     if ($rows === []) {
       return ['state'=>'not_exported','current_checksum'=>$current,'exported_checksums'=>[],'row_ids'=>[],'message'=>'Glaspositie is nog niet in deze calculatieversie opgenomen.'];
     }
