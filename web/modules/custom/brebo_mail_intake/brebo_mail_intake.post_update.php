@@ -170,7 +170,7 @@ function brebo_mail_intake_post_update_mailbox_projection_backfill(array &$sandb
   $ingestor = \Drupal::service('brebo_mail_intake.ingestor');
   $repaired = 0;
   foreach ($storage->loadMultiple($ids) as $node) {
-    if ($ingestor->projectExisting($node)) {
+    if ($ingestor->projectExisting((int) $node->id())) {
       $repaired++;
     }
   }
