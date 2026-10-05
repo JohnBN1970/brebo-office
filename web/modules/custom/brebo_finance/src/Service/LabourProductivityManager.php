@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\LabourProductivityRepositoryInterface;
 use InvalidArgumentException;
 use UnexpectedValueException;
 
@@ -17,7 +17,7 @@ final class LabourProductivityManager {
   private const array ACTUAL_SUBMITTED_STATUSES = ['worked', 'approved'];
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly LabourProductivityRepositoryInterface $repository,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -49,17 +49,14 @@ final class LabourProductivityManager {
 
     $beforeHash = $this->hash($line);
     $now = time();
-    $this->database->update('brebo_finance_budget_line')
-      ->fields([
+    $this->repository->updateBudgetLine($budgetLineId, [
         'budget_hours' => $budgetHours,
         'hourly_cost_ex_vat' => $hourlyCostExVat,
         'amount_ex_vat' => $this->decimal->multiply($budgetHours, $hourlyCostExVat),
         'amount_inc_vat' => $this->decimal->multiply($budgetHours, $hourlyCostExVat),
         'changed' => $now,
         'changed_by' => $userId,
-      ])
-      ->condition('id', $budgetLineId)
-      ->execute();
+      ]);
 
     $this->audit(
       (int) $line['project_nid'],
@@ -133,16 +130,11 @@ final class LabourProductivityManager {
 
     $sourceJson = json_encode($sourcePayload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION);
     $sourceHash = hash('sha256', $sourceJson);
-    $existing = $this->database->select('brebo_finance_labour_entry', 'e')
-      ->fields('e')
-      ->condition('source_system', trim($sourceSystem))
-      ->condition('source_record_id', trim($sourceRecordId))
-      ->execute()
-      ->fetchAssoc();
-    if ($existing !== FALSE && (int) $existing['recorded_at'] > $recordedAt) {
+    $existing = $this->repository->labourEntryBySource(trim($sourceSystem), trim($sourceRecordId));
+    if ($existing !== NULL && (int) $existing['recorded_at'] > $recordedAt) {
       throw new UnexpectedValueException('An older labour source record cannot overwrite newer evidence.');
     }
-    if ($existing !== FALSE && hash_equals((string) $existing['source_hash'], $sourceHash)) {
+    if ($existing !== NULL && hash_equals((string) $existing['source_hash'], $sourceHash)) {
       return (int) $existing['id'];
     }
 
@@ -167,30 +159,25 @@ final class LabourProductivityManager {
       'changed_by' => $systemUserId,
     ];
 
-    if ($existing === FALSE) {
-      $entryId = (int) $this->database->insert('brebo_finance_labour_entry')
-        ->fields($fields + [
-          'source_system' => trim($sourceSystem),
-          'source_record_id' => trim($sourceRecordId),
-          'created' => $now,
-          'created_by' => $systemUserId,
-        ])
-        ->execute();
+    if ($existing === NULL) {
+      $entryId = $this->repository->createLabourEntry($fields + [
+        'source_system' => trim($sourceSystem),
+        'source_record_id' => trim($sourceRecordId),
+        'created' => $now,
+        'created_by' => $systemUserId,
+      ]);
     }
     else {
       $entryId = (int) $existing['id'];
-      $this->database->update('brebo_finance_labour_entry')
-        ->fields($fields)
-        ->condition('id', $entryId)
-        ->execute();
+      $this->repository->updateLabourEntry($entryId, $fields);
     }
 
     $this->audit(
       $projectNid,
       'labour_entry',
       $entryId,
-      $existing === FALSE ? 'source_created' : 'source_updated',
-      $existing !== FALSE ? $this->hash($existing) : NULL,
+      $existing === NULL ? 'source_created' : 'source_updated',
+      $existing !== NULL ? $this->hash($existing) : NULL,
       $this->hash($this->loadEntry($entryId)),
       ['source_system' => trim($sourceSystem), 'source_hash' => $sourceHash],
       'Synchronized from sealed personnel or time-registration evidence.',
@@ -294,7 +281,7 @@ final class LabourProductivityManager {
    * @return list<array<string, mixed>>
    */
   public function labourBudgetLines(int $projectNid): array {
-    return $this->lockedLabourLines($projectNid);
+    return $this->repository->lockedLabourLines($projectNid);
   }
 
   /**
@@ -303,21 +290,7 @@ final class LabourProductivityManager {
    * @return array<int, array{status:string,actual_hours:string,changed:int}>
    */
   public function inzetActualStatuses(int $projectNid): array {
-    $query = $this->database->select('brebo_finance_labour_entry', 'e');
-    $query->fields('e', ['assignment_nid', 'status', 'actual_hours', 'changed']);
-    $query->condition('project_nid', $projectNid);
-    $query->condition('source_system', 'brebo_inzet_actual');
-    $query->condition('status', ['worked', 'approved'], 'IN');
-    $query->isNotNull('assignment_nid');
-    $result = [];
-    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-      $result[(int) $row['assignment_nid']] = [
-        'status' => (string) $row['status'],
-        'actual_hours' => (string) $row['actual_hours'],
-        'changed' => (int) $row['changed'],
-      ];
-    }
-    return $result;
+    return $this->repository->inzetActualStatuses($projectNid);
   }
 
   /**
@@ -329,63 +302,29 @@ final class LabourProductivityManager {
     if ($projectNid <= 0 || $assignmentNid <= 0) {
       return NULL;
     }
-    $query = $this->database->select('brebo_finance_labour_entry', 'e');
-    $query->fields('e', ['status', 'actual_hours', 'changed']);
-    $query->condition('project_nid', $projectNid);
-    $query->condition('source_system', 'brebo_inzet_actual');
-    $query->condition('source_record_id', 'assignment:' . $assignmentNid);
-    $row = $query->execute()->fetchAssoc();
-    if ($row === FALSE) {
-      return NULL;
-    }
-    return [
-      'status' => (string) $row['status'],
-      'actual_hours' => (string) $row['actual_hours'],
-      'changed' => (int) $row['changed'],
-    ];
+    return $this->repository->inzetActualStatus($projectNid, $assignmentNid);
   }
 
   private function lockedLabourLines(int $projectNid): array {
-    $query = $this->database->select('brebo_finance_budget_line', 'l');
-    $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
-    $query->fields('l', ['id', 'work_package', 'description', 'budget_hours', 'hourly_cost_ex_vat', 'amount_ex_vat']);
-    $query->condition('b.project_nid', $projectNid);
-    $query->condition('b.budget_type', 'working');
-    $query->condition('b.status', 'locked');
-    $query->condition('l.cost_code', 'arbeid');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->lockedLabourLines($projectNid);
   }
 
   /**
    * @param list<string> $statuses
    */
   private function sumHours(int $budgetLineId, string $field, array $statuses): string {
-    $query = $this->database->select('brebo_finance_labour_entry', 'e');
-    $query->condition('budget_line_id', $budgetLineId);
-    $query->condition('status', $statuses, 'IN');
-    $query->addExpression("COALESCE(SUM($field), 0)", 'total');
-    return (string) $query->execute()->fetchField();
+    return $this->repository->sumHours($budgetLineId, $field, $statuses);
   }
 
   /**
    * @param list<string> $statuses
    */
   private function sumCost(int $budgetLineId, array $statuses, string $sourceSystem): string {
-    $query = $this->database->select('brebo_finance_labour_entry', 'e');
-    $query->condition('budget_line_id', $budgetLineId);
-    $query->condition('status', $statuses, 'IN');
-    $query->condition('source_system', $sourceSystem);
-    $query->addExpression('COALESCE(SUM(actual_cost_ex_vat), 0)', 'total');
-    return (string) $query->execute()->fetchField();
+    return $this->repository->sumCost($budgetLineId, $statuses, $sourceSystem);
   }
 
   private function maxProgress(int $budgetLineId): ?string {
-    $query = $this->database->select('brebo_finance_labour_entry', 'e');
-    $query->condition('budget_line_id', $budgetLineId);
-    $query->condition('status', self::ACTIVE_PLANNING_STATUSES, 'IN');
-    $query->addExpression('MAX(progress_pct)', 'progress');
-    $value = $query->execute()->fetchField();
-    return $value !== FALSE && $value !== NULL ? (string) $value : NULL;
+    return $this->repository->maxProgress($budgetLineId, self::ACTIVE_PLANNING_STATUSES);
   }
 
   /**
@@ -402,13 +341,7 @@ final class LabourProductivityManager {
   }
 
   private function countUnlinked(int $projectNid): int {
-    return (int) $this->database->select('brebo_finance_labour_entry', 'e')
-      ->condition('project_nid', $projectNid)
-      ->isNull('building_object_id')
-      ->condition('status', 'cancelled', '<>')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
+    return $this->repository->countUnlinked($projectNid);
   }
 
   private function assertNonNegative(string $value, string $label): void {
@@ -421,13 +354,8 @@ final class LabourProductivityManager {
    * @return array<string, mixed>
    */
   private function loadBudgetLine(int $budgetLineId): array {
-    $query = $this->database->select('brebo_finance_budget_line', 'l');
-    $query->join('brebo_finance_budget', 'b', 'b.id = l.budget_id');
-    $query->fields('l');
-    $query->addField('b', 'project_nid');
-    $query->addField('b', 'status', 'budget_status');
-    $line = $query->condition('l.id', $budgetLineId)->execute()->fetchAssoc();
-    if ($line === FALSE) {
+    $line = $this->repository->budgetLine($budgetLineId);
+    if ($line === NULL) {
       throw new UnexpectedValueException('Working-budget line does not exist.');
     }
     return $line;
@@ -437,12 +365,8 @@ final class LabourProductivityManager {
    * @return array<string, mixed>
    */
   private function loadEntry(int $entryId): array {
-    $entry = $this->database->select('brebo_finance_labour_entry', 'e')
-      ->fields('e')
-      ->condition('id', $entryId)
-      ->execute()
-      ->fetchAssoc();
-    if ($entry === FALSE) {
+    $entry = $this->repository->labourEntry($entryId);
+    if ($entry === NULL) {
       throw new UnexpectedValueException('Labour entry does not exist.');
     }
     return $entry;
@@ -471,8 +395,7 @@ final class LabourProductivityManager {
     int $userId,
     int $now,
   ): void {
-    $this->database->insert('brebo_finance_audit')
-      ->fields([
+    $this->repository->appendAudit([
         'project_nid' => $projectNid,
         'entity_type' => $entityType,
         'entity_id' => $entityId,
@@ -483,8 +406,7 @@ final class LabourProductivityManager {
         'reason' => $reason,
         'created' => $now,
         'created_by' => $userId,
-      ])
-      ->execute();
+      ]);
   }
 
 }
