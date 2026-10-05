@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\SalesTaxSettings;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\StandaloneSalesInvoiceRepositoryInterface;
 use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class StandaloneSalesInvoiceForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly StandaloneSalesInvoiceRepositoryInterface $invoices,
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly OrganizationReferenceGatewayInterface $organizations,
     private readonly SalesTaxSettings $taxSettings,
@@ -25,28 +25,26 @@ final class StandaloneSalesInvoiceForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.standalone_sales_invoice_repository'),
       $container->get('keyvalue'),
       $container->get('brebo_finance.organization_reference_gateway'),
-      new SalesTaxSettings($container->get('config.factory')),
+      $container->get('brebo_finance.sales_tax_settings'),
     );
   }
 
   public function getFormId(): string { return 'brebo_finance_standalone_sales_invoice_form'; }
 
   public function buildForm(array $form, FormStateInterface $form_state, ?int $draft = NULL): array {
-    foreach (['brebo_finance_sales_invoice_draft', 'brebo_finance_sales_invoice_draft_line'] as $table) {
-      if (!$this->database->schema()->tableExists($table)) {
-        $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Factuurconcept-opslag ontbreekt. Voer eerst database-updates uit.') . '</strong></p>'];
-        return $form;
-      }
+    if (!$this->invoices->draftStorageAvailable()) {
+      $form['warning'] = ['#markup' => '<p><strong>' . $this->t('Factuurconcept-opslag ontbreekt. Voer eerst database-updates uit.') . '</strong></p>'];
+      return $form;
     }
 
     $draftId = (int) ($draft ?? $form_state->get('draft_id') ?? 0);
     $existing = NULL; $context = []; $storedLines = [];
     if ($draftId > 0) {
-      $existing = $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d')->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute()->fetchAssoc();
-      if ($existing === FALSE) throw new \InvalidArgumentException('Editable standalone invoice draft not found.');
+      $existing = $this->invoices->editableDraft($draftId);
+      if ($existing === NULL) throw new \InvalidArgumentException('Editable standalone invoice draft not found.');
       $context = $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->get((string) $draftId, []);
       $storedLines = is_array($context['lines'] ?? NULL) ? array_values($context['lines']) : [];
       $form_state->set('draft_id', $draftId);
@@ -146,18 +144,20 @@ final class StandaloneSalesInvoiceForm extends FormBase {
     if ($gOn && (!$gConfig['enabled'] || $gConfig['g_iban'] === '')) throw new \RuntimeException('G-rekening is niet volledig geconfigureerd in Verkoopinstellingen.');
 
     $actor = (int) $this->currentUser()->id(); $now = time(); $draftId = (int) ($form_state->get('draft_id') ?? 0);
-    $draftNumber = $draftId > 0 ? (string) $this->database->select('brebo_finance_sales_invoice_draft', 'd')->fields('d', ['draft_number'])->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute()->fetchField() : 'CON-LOS-' . date('Ymd-His');
-    $transaction = $this->database->startTransaction();
+    $editable = $draftId > 0 ? $this->invoices->editableDraft($draftId) : NULL;
+    if ($draftId > 0 && $editable === NULL) throw new \RuntimeException('Editable standalone invoice draft not found.');
+    $draftNumber = $draftId > 0 ? (string) $editable['draft_number'] : 'CON-LOS-' . date('Ymd-His');
+    $draftFields = ['project_nid' => 0, 'status' => 'draft', 'invoice_date' => $invoiceDate, 'due_date' => $dueDate, 'description' => trim((string) $form_state->getValue('description')), 'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''), 'vat_amount' => number_format($totals['vat'], 4, '.', ''), 'amount_inc_vat' => number_format($totals['inc'], 4, '.', ''), 'changed' => $now, 'changed_by' => $actor];
+    if ($draftId === 0) { $draftFields['created'] = $now; $draftFields['created_by'] = $actor; }
+    $lineFields = [];
+    foreach ($lines as $delta => $line) {
+      $lineFields[] = ['project_nid' => 0, 'line_number' => $delta + 1, 'source_type' => 'standalone', 'source_id' => 0, 'description' => $line['description'], 'amount_ex_vat' => number_format($line['amount_ex_vat'], 4, '.', ''), 'vat_code' => $line['vat_code'], 'vat_rate' => number_format($line['vat_rate'], 4, '.', ''), 'vat_amount' => number_format($line['vat_amount'], 4, '.', ''), 'amount_inc_vat' => number_format($line['amount_inc_vat'], 4, '.', ''), 'created' => $now, 'created_by' => $actor];
+    }
+    $draftId = $this->invoices->saveDraft($draftId, $draftNumber, $draftFields, $lineFields);
     try {
-      $draftFields = ['project_nid' => 0, 'status' => 'draft', 'invoice_date' => $invoiceDate, 'due_date' => $dueDate, 'description' => trim((string) $form_state->getValue('description')), 'amount_ex_vat' => number_format($totals['ex'], 4, '.', ''), 'vat_amount' => number_format($totals['vat'], 4, '.', ''), 'amount_inc_vat' => number_format($totals['inc'], 4, '.', ''), 'changed' => $now, 'changed_by' => $actor];
-      if ($draftId > 0) { $this->database->update('brebo_finance_sales_invoice_draft')->fields($draftFields)->condition('id', $draftId)->condition('project_nid', 0)->condition('status', 'draft')->execute(); $this->database->delete('brebo_finance_sales_invoice_draft_line')->condition('draft_id', $draftId)->execute(); }
-      else { $draftFields['draft_number'] = $draftNumber; $draftFields['created'] = $now; $draftFields['created_by'] = $actor; $draftId = (int) $this->database->insert('brebo_finance_sales_invoice_draft')->fields($draftFields)->execute(); }
-      foreach ($lines as $delta => $line) {
-        $this->database->insert('brebo_finance_sales_invoice_draft_line')->fields(['draft_id' => $draftId, 'project_nid' => 0, 'line_number' => $delta + 1, 'source_type' => 'standalone', 'source_id' => 0, 'description' => $line['description'], 'amount_ex_vat' => number_format($line['amount_ex_vat'], 4, '.', ''), 'vat_code' => $line['vat_code'], 'vat_rate' => number_format($line['vat_rate'], 4, '.', ''), 'vat_amount' => number_format($line['vat_amount'], 4, '.', ''), 'amount_inc_vat' => number_format($line['amount_inc_vat'], 4, '.', ''), 'created' => $now, 'created_by' => $actor])->execute();
-      }
       $this->keyValueFactory->get('brebo_finance.sales_invoice_draft_context')->set((string) $draftId, ['origin' => 'standalone', 'customer_organization_nid' => $organizationId, 'customer_name' => $organization['name'], 'customer_ref' => trim((string) $form_state->getValue('customer_ref')), 'payment_term_days' => $paymentDays, 'payment_term_source' => $paymentSource, 'due_date_calculated' => TRUE, 'vat_snapshot' => array_values(array_map(static fn(array $line): array => ['code' => $line['vat_code'], 'label' => $line['vat_label'], 'rate' => $line['vat_rate'], 'treatment' => $line['vat_treatment']], $lines)), 'g_account_on' => $gOn, 'g_account_percentage' => $split['percentage'], 'g_account_amount' => $split['g_amount'], 'regular_account_amount' => $split['regular_amount'], 'regular_iban' => $gConfig['regular_iban'], 'g_account_iban' => $gOn ? $gConfig['g_iban'] : '', 'lines' => $lines]);
     }
-    catch (\Throwable $exception) { $transaction->rollBack(); throw $exception; }
+    catch (\Throwable $exception) { throw $exception; }
 
     $this->messenger()->addStatus($this->t('Losse factuur @number is als concept opgeslagen. Btw en eventuele G-rekeningverdeling zijn vastgelegd; definitief nummer volgt pas bij vrijgave.', ['@number' => $draftNumber]));
     $form_state->setRedirect('brebo_finance.sales_workspace');

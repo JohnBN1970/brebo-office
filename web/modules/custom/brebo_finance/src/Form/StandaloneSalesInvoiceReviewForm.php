@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\StandaloneSalesInvoiceRepositoryInterface;
 use Drupal\brebo_finance\Contract\OrganizationReferenceGatewayInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -19,7 +19,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class StandaloneSalesInvoiceReviewForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly StandaloneSalesInvoiceRepositoryInterface $invoices,
     private readonly KeyValueFactoryInterface $keyValueFactory,
     private readonly OrganizationReferenceGatewayInterface $organizations,
     private readonly MailManagerInterface $mailManager,
@@ -29,7 +29,7 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.standalone_sales_invoice_repository'),
       $container->get('keyvalue'),
       $container->get('brebo_finance.organization_reference_gateway'),
       $container->get('plugin.manager.mail'),
@@ -206,17 +206,11 @@ final class StandaloneSalesInvoiceReviewForm extends FormBase {
 
   /** @return array<string, mixed> */
   private function loadDraft(int $draftId): array {
-    if ($draftId <= 0 || !$this->database->schema()->tableExists('brebo_finance_sales_invoice_draft')) {
+    if ($draftId <= 0) {
       throw new \InvalidArgumentException('Standalone invoice draft not found.');
     }
-    $draft = $this->database->select('brebo_finance_sales_invoice_draft', 'd')
-      ->fields('d')
-      ->condition('id', $draftId)
-      ->condition('project_nid', 0)
-      ->condition('status', 'draft')
-      ->execute()
-      ->fetchAssoc();
-    if ($draft === FALSE) {
+    $draft = $this->invoices->editableDraft($draftId);
+    if ($draft === NULL) {
       throw new \InvalidArgumentException('Standalone invoice draft is no longer available for review.');
     }
     return $draft;

@@ -1,4 +1,14 @@
 services:
+  brebo_finance.standalone_sales_invoice_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseStandaloneSalesInvoiceRepository
+    arguments: ['@database']
+  brebo_finance.sales_tax_settings:
+    class: Drupal\brebo_finance\Service\SalesTaxSettings
+    arguments: ['@config.factory']
+  brebo_finance.sales_invoice_number_manager:
+    class: Drupal\brebo_finance\Service\SalesInvoiceNumberManager
+    arguments: ['@config.factory', '@keyvalue', '@lock']
+
   brebo_finance.receivables_workspace_read_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseReceivablesWorkspaceReadRepository
     arguments: ['@database']
