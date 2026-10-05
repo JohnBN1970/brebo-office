@@ -309,9 +309,12 @@ services:
   brebo_finance.labour_productivity_manager:
     class: Drupal\brebo_finance\Service\LabourProductivityManager
     arguments: ['@database', '@brebo_finance.vat_calculator']
+  brebo_finance.financial_cockpit_read_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialCockpitReadRepository
+    arguments: ['@database']
   brebo_finance.financial_cockpit_builder:
     class: Drupal\brebo_finance\Service\FinancialCockpitBuilder
-    arguments: ['@database', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
+    arguments: ['@brebo_finance.financial_cockpit_read_repository', '@brebo_finance.controller_briefing_builder', '@brebo_finance.labour_productivity_manager']
   brebo_finance.financial_command_center_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialCommandCenterRepository
     arguments: ['@database']
