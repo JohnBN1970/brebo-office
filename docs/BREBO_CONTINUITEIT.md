@@ -313,6 +313,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 `AdministrationContextResolver` schrijft/leest projectadministratie niet meer rechtstreeks via Drupal KeyValue. De persistence loopt via `AdministrationContextStoreInterface` met `DrupalAdministrationContextStore` aan de buitenrand. Deze slice wijzigt bewust nog niet de Node-contextsignatures; die entitygrens volgt apart zodat Finance-/offerteconsumenten niet tegelijk functioneel hoeven te veranderen.
 
+### Office Core — administration registry source boundary
+
+`AdministrationRegistry` leest geen Drupal Config meer rechtstreeks. Geconfigureerde administraties, primaire administratie en legacy-organisatie-instellingen komen via `AdministrationRegistrySourceInterface`; `DrupalAdministrationRegistrySource` bezit de ConfigFactory-afhankelijkheid. Fallback- en nummeringslogica blijven in de registry-service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.

@@ -4,25 +4,22 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_office_core\Contract\AdministrationRegistrySourceInterface;
 
 /** Canonical registry for legal entities / financial administrations in Office. */
 final class AdministrationRegistry {
 
-  private const CONFIG_NAME = 'brebo_office_core.settings';
-
-  public function __construct(private readonly ConfigFactoryInterface $configFactory) {}
+  public function __construct(private readonly AdministrationRegistrySourceInterface $source) {}
 
   /** @return array<string, array<string, mixed>> */
   public function all(): array {
-    $configured = $this->configFactory->get(self::CONFIG_NAME)->get('administrations');
-    if (is_array($configured) && $configured !== []) return $configured;
+    $configured = $this->source->administrations();
+    if ($configured !== []) return $configured;
     return ['primary' => $this->legacyPrimaryAdministration()];
   }
 
   public function primaryCode(): string {
-    $config = $this->configFactory->get(self::CONFIG_NAME);
-    $requested = trim((string) ($config->get('primary_administration') ?? 'primary'));
+    $requested = $this->source->primaryAdministrationCode();
     $all = $this->all();
     return $requested !== '' && isset($all[$requested]) ? $requested : (string) array_key_first($all);
   }
@@ -39,26 +36,34 @@ final class AdministrationRegistry {
 
   /** @return array<string, mixed> */
   private function legacyPrimaryAdministration(): array {
-    $config = $this->configFactory->get(self::CONFIG_NAME);
+    $settings = $this->source->legacySettings();
+    $tradeName = trim((string) ($settings['trade_name'] ?? 'BREBO'));
     return [
-      'code' => 'primary', 'active' => TRUE,
-      'trade_name' => (string) ($config->get('organization.trade_name') ?? 'BREBO'),
-      'legal_name' => (string) ($config->get('organization.legal_name') ?? 'BREBO Bouw en Advies B.V.'),
-      'registration_number' => (string) ($config->get('organization.registration_number') ?? ''),
-      'vat_number' => (string) ($config->get('organization.vat_number') ?? ''),
-      'address' => (string) ($config->get('organization.address') ?? ''), 'postal_code' => (string) ($config->get('organization.postal_code') ?? ''),
-      'city' => (string) ($config->get('organization.city') ?? ''), 'country' => (string) ($config->get('organization.country') ?? 'NL'),
-      'general_email' => (string) ($config->get('organization.general_email') ?? ''), 'general_phone' => (string) ($config->get('organization.general_phone') ?? ''),
-      'website' => (string) ($config->get('organization.website') ?? ''), 'logo_uri' => (string) ($config->get('organization.logo_uri') ?? ''),
-      'logo_compact_uri' => (string) ($config->get('organization.logo_compact_uri') ?? ''), 'currency' => (string) ($config->get('organization.currency') ?? 'EUR'),
-      'timezone' => (string) ($config->get('project.timezone') ?? 'Europe/Amsterdam'), 'default_iban' => (string) ($config->get('organization.default_iban') ?? ''),
-      'bic' => (string) ($config->get('organization.bic') ?? ''), 'moneybird_administration_id' => (string) ($config->get('organization.moneybird_administration_id') ?? ''),
-      'numbering' => $this->defaultNumbering($this->legacyProjectPrefix($config)),
+      'code' => 'primary',
+      'active' => TRUE,
+      'trade_name' => $tradeName,
+      'legal_name' => (string) ($settings['legal_name'] ?? 'BREBO Bouw en Advies B.V.'),
+      'registration_number' => (string) ($settings['registration_number'] ?? ''),
+      'vat_number' => (string) ($settings['vat_number'] ?? ''),
+      'address' => (string) ($settings['address'] ?? ''),
+      'postal_code' => (string) ($settings['postal_code'] ?? ''),
+      'city' => (string) ($settings['city'] ?? ''),
+      'country' => (string) ($settings['country'] ?? 'NL'),
+      'general_email' => (string) ($settings['general_email'] ?? ''),
+      'general_phone' => (string) ($settings['general_phone'] ?? ''),
+      'website' => (string) ($settings['website'] ?? ''),
+      'logo_uri' => (string) ($settings['logo_uri'] ?? ''),
+      'logo_compact_uri' => (string) ($settings['logo_compact_uri'] ?? ''),
+      'currency' => (string) ($settings['currency'] ?? 'EUR'),
+      'timezone' => (string) ($settings['timezone'] ?? 'Europe/Amsterdam'),
+      'default_iban' => (string) ($settings['default_iban'] ?? ''),
+      'bic' => (string) ($settings['bic'] ?? ''),
+      'moneybird_administration_id' => (string) ($settings['moneybird_administration_id'] ?? ''),
+      'numbering' => $this->defaultNumbering($this->legacyProjectPrefix($tradeName)),
     ];
   }
 
-  private function legacyProjectPrefix($config): string {
-    $tradeName = trim((string) ($config->get('organization.trade_name') ?? ''));
+  private function legacyProjectPrefix(string $tradeName): string {
     $prefix = strtoupper((string) preg_replace('/[^A-Za-z0-9]+/', '', $tradeName));
     return $prefix !== '' ? substr($prefix, 0, 16) : 'PRJ';
   }
