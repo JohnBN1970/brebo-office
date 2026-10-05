@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SupplierInvoiceAnalyticsRepositoryInterface;
 
 /**
  * Builds evidence-based supplier scorecards from finance and performance data.
@@ -12,26 +12,13 @@ use Drupal\Core\Database\Connection;
 final class SupplierScorecardService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly SupplierInvoiceAnalyticsRepositoryInterface $invoiceAnalytics,
     private readonly SupplierPerformanceService $performance,
   ) {}
 
   /** @return array<int, array<string, mixed>> */
   public function all(): array {
-    if (!$this->database->schema()->tableExists('brebo_supplier_invoice')) {
-      return [];
-    }
-
-    $query = $this->database->select('brebo_supplier_invoice', 'i');
-    $query->addField('i', 'supplier_name');
-    $query->addExpression('COUNT(*)', 'invoice_count');
-    $query->addExpression('COUNT(DISTINCT project_nid)', 'project_count');
-    $query->addExpression('COALESCE(SUM(gross_amount), 0)', 'turnover');
-    $query->addExpression("SUM(CASE WHEN match_status = 'matched' THEN 1 ELSE 0 END)", 'matched_count');
-    $query->addExpression("SUM(CASE WHEN match_status <> 'matched' THEN 1 ELSE 0 END)", 'exception_count');
-    $query->groupBy('supplier_name');
-
-    $rows = $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->invoiceAnalytics->supplierAggregates();
     $scorecards = [];
     foreach ($rows as $row) {
       $invoiceCount = max(1, (int) $row['invoice_count']);

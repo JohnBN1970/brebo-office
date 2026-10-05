@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_control\Service;
 
 use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\SupplierInvoiceAnalyticsRepositoryInterface;
 
 /**
  * Detects portfolio-wide deterioration and recurring financial patterns.
@@ -14,7 +14,7 @@ final class PortfolioEarlyWarningService {
 
   public function __construct(
     private readonly PortfolioControlService $portfolio,
-    private readonly Connection $database,
+    private readonly SupplierInvoiceAnalyticsRepositoryInterface $invoiceAnalytics,
     private readonly ControlActionRepositoryInterface $actions,
   ) {}
 
@@ -64,7 +64,7 @@ final class PortfolioEarlyWarningService {
       $patterns[] = $this->pattern('recurring_driver:' . $driver['driver_code'], $points, (int) $driver['project_count'], 'Controller / Directie');
     }
 
-    foreach ($this->supplierPatterns() as $supplier) {
+    foreach ($this->invoiceAnalytics->exceptionPatterns(2) as $supplier) {
       $points = min(15, 5 + ((int) $supplier['affected_projects'] * 2));
       $score += $points;
       $signals[] = 'Leverancier ' . $supplier['supplier_name'] . ' heeft afwijkende/geblokkeerde facturen op ' . $supplier['affected_projects'] . ' projecten (' . $supplier['invoice_count'] . ' facturen).';
@@ -89,22 +89,6 @@ final class PortfolioEarlyWarningService {
       'top_pattern' => $patterns[0] ?? NULL,
       'portfolio' => $portfolio,
     ];
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function supplierPatterns(): array {
-    if (!$this->database->schema()->tableExists('brebo_supplier_invoice')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_supplier_invoice', 'i');
-    $query->addField('i', 'supplier_name');
-    $query->addExpression('COUNT(*)', 'invoice_count');
-    $query->addExpression('COUNT(DISTINCT project_nid)', 'affected_projects');
-    $query->addExpression('COALESCE(SUM(gross_amount), 0)', 'invoice_amount');
-    $query->condition('match_status', 'matched', '<>');
-    $query->groupBy('supplier_name');
-    $query->having('COUNT(DISTINCT project_nid) >= :minimum', [':minimum' => 2]);
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
   /** @return array<string, mixed> */
