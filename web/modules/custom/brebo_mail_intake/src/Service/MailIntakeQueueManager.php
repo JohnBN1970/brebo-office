@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Core\Queue\QueueFactory;
+use Drupal\brebo_mail_intake\Contract\MailIntakeQueueInterface;
 use Drupal\brebo_mail_intake\Source\GmailSourceAdapter;
 use Drupal\brebo_mail_intake\Source\MailSourceAdapterInterface;
 
@@ -13,10 +13,8 @@ use Drupal\brebo_mail_intake\Source\MailSourceAdapterInterface;
  */
 final class MailIntakeQueueManager {
 
-  public const QUEUE_NAME = 'brebo_mail_intake_process';
-
   public function __construct(
-    private readonly QueueFactory $queueFactory,
+    private readonly MailIntakeQueueInterface $queue,
   ) {}
 
   public function enqueueSource(MailSourceAdapterInterface $adapter, string $mode = 'live'): int {
@@ -24,10 +22,9 @@ final class MailIntakeQueueManager {
       return 0;
     }
 
-    $queue = $this->queueFactory->get(self::QUEUE_NAME, TRUE);
     $count = 0;
     foreach ($adapter->messages() as $mail) {
-      $queue->createItem([
+      $this->queue->enqueue([
         'mode' => $mode,
         'mail' => $mail,
       ]);
@@ -46,10 +43,9 @@ final class MailIntakeQueueManager {
       return 0;
     }
 
-    $queue = $this->queueFactory->get(self::QUEUE_NAME, TRUE);
     $count = 0;
     foreach ($adapter->backfillMessages() as $mail) {
-      $queue->createItem([
+      $this->queue->enqueue([
         'mode' => 'backfill',
         'mail' => $mail,
       ]);
@@ -59,7 +55,7 @@ final class MailIntakeQueueManager {
   }
 
   public function pendingCount(): int {
-    return $this->queueFactory->get(self::QUEUE_NAME, TRUE)->numberOfItems();
+    return $this->queue->pendingCount();
   }
 
 }
