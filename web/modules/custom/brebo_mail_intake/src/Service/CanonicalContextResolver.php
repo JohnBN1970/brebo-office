@@ -85,7 +85,7 @@ final class CanonicalContextResolver {
     $projectState = 'existing';
     if (!($project instanceof NodeInterface)) {
       if ($projectEvidence['strong']) {
-        $projectState = 'candidate';
+        $projectState = 'provisional_required';
         $basis[] = 'Nieuwe projectkandidaat: ' . implode(', ', $projectEvidence['signals']) . '.';
       }
       elseif ($projectEvidence['signals'] !== []) {
@@ -100,7 +100,7 @@ final class CanonicalContextResolver {
 
     $buildingState = $building instanceof NodeInterface
       ? 'existing'
-      : ($buildingCandidates !== [] ? 'ambiguous' : ($pdokCandidates !== [] ? 'candidate' : 'none'));
+      : ($buildingCandidates !== [] ? 'ambiguous' : ($pdokCandidates !== [] ? 'provisional_required' : 'none'));
 
     return [
       'project_id' => $project instanceof NodeInterface ? (int) $project->id() : NULL,
@@ -109,7 +109,7 @@ final class CanonicalContextResolver {
       'building_state' => $buildingState,
       'building_candidate_ids' => $buildingCandidates,
       'pdok_address_candidates' => $pdokCandidates,
-      'requires_human_review' => in_array($projectState, ['candidate', 'ambiguous'], TRUE) || in_array($buildingState, ['candidate', 'ambiguous'], TRUE),
+      'requires_human_review' => in_array($projectState, ['provisional_required', 'ambiguous'], TRUE) || in_array($buildingState, ['provisional_required', 'ambiguous'], TRUE),
       'basis' => implode(' ', $basis) ?: 'Geen bestaande canonieke project- of gebouwcontext herkend.',
     ];
   }
