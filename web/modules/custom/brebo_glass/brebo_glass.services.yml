@@ -22,8 +22,11 @@ services:
     arguments: ['@database', '@entity_type.manager', '@datetime.time', '@brebo_glass.approval_policy']
 
   brebo_glass.product_repository:
-    class: Drupal\brebo_glass\Service\GlassProductRepository
+    class: Drupal\brebo_glass\Infrastructure\DatabaseGlassProductRepository
     arguments: ['@database', '@datetime.time']
+
+  Drupal\brebo_glass\Contract\GlassProductRepositoryInterface:
+    alias: brebo_glass.product_repository
 
   brebo_glass.calculation_context_builder:
     class: Drupal\brebo_glass\Service\GlassCalculationContextBuilder

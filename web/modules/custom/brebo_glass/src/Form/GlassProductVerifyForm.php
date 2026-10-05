@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_glass\Form;
 
-use Drupal\brebo_glass\Service\GlassProductRepository;
+use Drupal\brebo_glass\Contract\GlassProductRepositoryInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -18,7 +18,7 @@ final class GlassProductVerifyForm extends ConfirmFormBase {
   private int $productId;
   private array $product;
 
-  public function __construct(private readonly GlassProductRepository $repository) {}
+  public function __construct(private readonly GlassProductRepositoryInterface $repository) {}
 
   public static function create(ContainerInterface $container): static {
     return new static($container->get('brebo_glass.product_repository'));

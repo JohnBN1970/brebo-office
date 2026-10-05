@@ -329,6 +329,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 `GlassPriceResolver` bevat geen directe database- of Drupal-accountafhankelijkheid meer. Catalogusselectie en immutable artikelprijssnapshots lopen via `GlassPriceRepositoryInterface` met `DatabaseGlassPriceRepository`; productcode-, eenheid-, valuta- en tariefbeslislogica blijven in de resolver. De exporter geeft voor audit alleen een neutrale user-id door.
 
+### Glas — product repository boundary
+
+De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Consumers gebruiken `GlassProductRepositoryInterface`; `DatabaseGlassProductRepository` onder Infrastructure bezit database- en time-afhankelijkheden. Verificatie-, selectie- en catalogusgedrag blijven functioneel gelijk.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.

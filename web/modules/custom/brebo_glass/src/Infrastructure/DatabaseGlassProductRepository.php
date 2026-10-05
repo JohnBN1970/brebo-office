@@ -2,15 +2,16 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_glass\Service;
+namespace Drupal\brebo_glass\Infrastructure;
 
+use Drupal\brebo_glass\Contract\GlassProductRepositoryInterface;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
 
 /**
  * Stores verified product performance and supplies selection candidates.
  */
-final class GlassProductRepository {
+final class DatabaseGlassProductRepository implements GlassProductRepositoryInterface {
 
   public function __construct(
     private readonly Connection $database,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_glass\Controller;
 
-use Drupal\brebo_glass\Service\GlassProductRepository;
+use Drupal\brebo_glass\Contract\GlassProductRepositoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
@@ -17,7 +17,7 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class GlassProductOverviewController extends ControllerBase {
 
   public function __construct(
-    private readonly GlassProductRepository $repository,
+    private readonly GlassProductRepositoryInterface $repository,
     private readonly DateFormatterInterface $dateFormatter,
   ) {}
 
