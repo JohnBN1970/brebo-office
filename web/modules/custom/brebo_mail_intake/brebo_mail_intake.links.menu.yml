@@ -18,3 +18,18 @@ brebo_mail_intake.runtime_readiness:
   route_name: brebo_mail_intake.runtime_readiness
   parent: brebo_mail_intake.admin
   weight: 10
+
+
+brebo_mail_intake.core_mail_domains:
+  title: 'Maildomeinen'
+  description: 'Beheer domeinen via BREBO Mail core'
+  route_name: brebo_mail_intake.core_mail_domains
+  parent: brebo_mail_intake.admin
+  weight: 20
+
+brebo_mail_intake.core_mailboxes:
+  title: 'Mailboxen & aliassen'
+  description: 'Beheer mailboxen en aliassen via BREBO Mail core'
+  route_name: brebo_mail_intake.core_mailboxes
+  parent: brebo_mail_intake.admin
+  weight: 30
