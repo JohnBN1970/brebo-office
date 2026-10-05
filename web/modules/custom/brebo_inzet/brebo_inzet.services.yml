@@ -94,18 +94,24 @@ services:
     arguments: ['@keyvalue']
 
 
+  brebo_inzet.onsite_repository:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteRepository
+    arguments: ['@entity_type.manager']
+
+  Drupal\brebo_inzet\Contract\OnSiteRepositoryInterface:
+    alias: brebo_inzet.onsite_repository
+
   brebo_inzet.onsite_assignment_provider:
     class: Drupal\brebo_inzet\Service\OnSiteAssignmentProvider
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_inzet.onsite_repository'
       - '@brebo_inzet.project_clock_zone_manager'
 
 
   brebo_inzet.onsite_presence_evidence_writer:
     class: Drupal\brebo_inzet\Service\OnSitePresenceEvidenceWriter
     arguments:
-      - '@entity_type.manager'
-      - '@brebo_inzet.onsite_assignment_provider'
+      - '@brebo_inzet.onsite_repository'
 
 
   brebo_inzet.onsite_activation_manager:
