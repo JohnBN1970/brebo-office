@@ -10,12 +10,11 @@ use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\OutboundMailService;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_mail_intake\Contract\MailComposeSourceRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
-use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -27,7 +26,7 @@ final class MailComposeForm extends FormBase {
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
     private readonly MailboxStorageRepositoryInterface $storage,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly MailComposeSourceRepositoryInterface $sourceRepository,
     private readonly AccountProxyInterface $mailCurrentUser,
     private readonly MailEditorProvisioner $editorProvisioner,
     private readonly OutboundAttachmentService $attachmentService,
@@ -39,7 +38,7 @@ final class MailComposeForm extends FormBase {
       $container->get('brebo_mail_intake.mailbox_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
       $container->get('brebo_mail_intake.mailbox_storage_repository'),
-      $container->get('entity_type.manager'),
+      $container->get('brebo_mail_intake.compose_source_repository'),
       $container->get('current_user'),
       $container->get('brebo_mail_intake.editor_provisioner'),
       $container->get('brebo_mail_intake.outbound_attachments'),
@@ -55,27 +54,27 @@ final class MailComposeForm extends FormBase {
     if (!$this->accessPolicy->allowed($this->mailCurrentUser, $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
 
     $mode = in_array($mode, ['new', 'reply', 'reply-all', 'forward'], TRUE) ? $mode : 'new';
-    $source = $communication_id > 0 ? $this->loadSource($communication_id) : NULL;
+    $source = $communication_id > 0 ? $this->sourceRepository->load($communication_id, (int) $this->mailCurrentUser->id()) : NULL;
     if ($mode !== 'new' && !$source) { throw new NotFoundHttpException('Bronbericht niet gevonden of niet toegankelijk.'); }
 
     $to = $cc = $subject = $body = '';
     if ($source) {
-      $sourceSubject = trim((string) ($source->get('field_brebo_comm_subject')->value ?? $source->label()));
-      $sourceTranscript = trim((string) ($source->get('field_brebo_transcript')->value ?? ''));
-      $sourceHtml = $source->hasField('field_brebo_mail_html') ? trim((string) ($source->get('field_brebo_mail_html')->value ?? '')) : '';
+      $sourceSubject = (string) $source['subject'];
+      $sourceTranscript = (string) $source['transcript'];
+      $sourceHtml = (string) $source['html'];
       $sourceBody = $sourceHtml !== ''
         ? $this->displayableHtml($sourceHtml)
         : nl2br(htmlspecialchars($sourceTranscript, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8'), FALSE);
-      $sourceFrom = trim((string) ($source->get('field_brebo_mail_from')->value ?? ''));
-      $sourceDate = trim((string) ($source->get('field_brebo_comm_datetime')->value ?? ''));
+      $sourceFrom = (string) $source['from'];
+      $sourceDate = (string) $source['datetime'];
       $safeFrom = htmlspecialchars($sourceFrom, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeDate = htmlspecialchars($sourceDate, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       $safeSourceSubject = htmlspecialchars($sourceSubject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
       if (in_array($mode, ['reply', 'reply-all'], TRUE)) {
         $to = $this->extractAddress($sourceFrom);
         if ($mode === 'reply-all') {
-          $sourceTo = (string) ($source->get('field_brebo_mail_to')->value ?? '');
-          $sourceCc = (string) ($source->get('field_brebo_mail_cc')->value ?? '');
+          $sourceTo = (string) $source['to'];
+          $sourceCc = (string) $source['cc'];
           $cc = implode(', ', $this->replyAllCc($sourceTo . ',' . $sourceCc, $to, trim((string) ($mailbox['address'] ?? ''))));
         }
         $subject = preg_match('/^re:/i', $sourceSubject) ? $sourceSubject : 'Re: ' . $sourceSubject;
@@ -188,11 +187,6 @@ final class MailComposeForm extends FormBase {
     }
     $this->messenger()->addStatus($this->t('Concept opgeslagen in BREBO Office. Er is nog niets verzonden.'));
     $form_state->setRedirect('brebo_mail_intake.mailbox_message', ['mailbox_id' => $mailboxId, 'mail_state' => 'draft', 'communication_id' => $draftId]);
-  }
-
-  private function loadSource(int $communicationId): ?NodeInterface {
-    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
-    return $node instanceof NodeInterface && $node->bundle() === 'brebo_communication' && $node->access('view', $this->mailCurrentUser) ? $node : NULL;
   }
 
   /** @return string[] */
