@@ -18,9 +18,12 @@ services:
   brebo_finance.receivables_dunning_manager:
     class: Drupal\brebo_finance\Service\ReceivablesDunningManager
     arguments: ['@brebo_finance.receivables_dunning_repository', '@config.factory']
+  brebo_finance.collection_debtor_profile_store:
+    class: Drupal\brebo_finance\Infrastructure\DrupalCollectionDebtorProfileStore
+    arguments: ['@keyvalue']
   brebo_finance.collection_debtor_profile_repository:
     class: Drupal\brebo_finance\Service\CollectionDebtorProfileRepository
-    arguments: ['@keyvalue']
+    arguments: ['@brebo_finance.collection_debtor_profile_store']
   brebo_finance.collection_invoice_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseCollectionInvoiceRepository
     arguments: ['@database']

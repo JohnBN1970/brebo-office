@@ -4,19 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_finance\Contract\CollectionDebtorProfileStoreInterface;
 
 /** Stores structured legal/collection debtor data keyed to the canonical relation. */
 final class CollectionDebtorProfileRepository {
 
-  private const STORE = 'brebo_finance.collection_debtor_profile';
-
-  public function __construct(private readonly KeyValueFactoryInterface $keyValueFactory) {}
+  public function __construct(private readonly CollectionDebtorProfileStoreInterface $store) {}
 
   /** @return array<string,mixed> */
   public function get(int $organizationId): array {
-    $value = $this->keyValueFactory->get(self::STORE)->get((string) $organizationId, []);
-    return is_array($value) ? $value : [];
+    return $this->store->get($organizationId);
   }
 
   /** @param array<string,mixed> $profile */
@@ -39,7 +36,7 @@ final class CollectionDebtorProfileRepository {
       'changed' => time(),
       'changed_by' => $actorUid,
     ];
-    $this->keyValueFactory->get(self::STORE)->set((string) $organizationId, $normalized);
+    $this->store->save($organizationId, $normalized);
   }
 
   public function complete(int $organizationId): bool {
