@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\node\NodeInterface;
-
 /**
  * Creates controlled organization/bulk-style mail drafts one recipient at a time.
  *
@@ -23,7 +21,7 @@ final class OrganizationalMailDraftService {
   /**
    * @param array{to:string,subject:string,body:string,building_id?:int,project_id?:int,context_id?:int} $draft
    */
-  public function create(string $templateId, array $draft): NodeInterface {
+  public function create(string $templateId, array $draft): int {
     $template = $this->templates->get($templateId);
     $body = trim((string) ($draft['body'] ?? ''));
     if ($body === '') {
@@ -36,14 +34,12 @@ final class OrganizationalMailDraftService {
     }
 
     $draft['body'] = $body;
-    $node = $this->outbound->createDraft($draft);
-    $node->setNewRevision(TRUE);
-    $node->setRevisionLogMessage(sprintf(
+    $communicationId = $this->outbound->createDraft($draft);
+    $this->outbound->addDraftRevisionNote($communicationId, sprintf(
       'Mailconcept opgebouwd vanuit gecontroleerd BREBO-sjabloon %s; menselijke controle en verzendvrijgave blijven verplicht.',
       $templateId,
     ));
-    $node->save();
-    return $node;
+    return $communicationId;
   }
 
 }

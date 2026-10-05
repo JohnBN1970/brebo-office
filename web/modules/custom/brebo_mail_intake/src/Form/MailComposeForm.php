@@ -160,7 +160,7 @@ final class MailComposeForm extends FormBase {
     $mode = (string) $form_state->getValue('mode');
     $bodyValue = $form_state->getValue('body');
     $bodyHtml = is_array($bodyValue) ? trim((string) ($bodyValue['value'] ?? '')) : trim((string) $bodyValue);
-    $draft = $this->outbound->createDraft([
+    $draftId = $this->outbound->createDraft([
       'from' => trim((string) $form_state->getValue('from')),
       'to' => implode(', ', $this->addresses((string) $form_state->getValue('to'))),
       'cc' => implode(', ', $this->addresses((string) $form_state->getValue('cc'))),
@@ -171,9 +171,9 @@ final class MailComposeForm extends FormBase {
     ]);
     $uploadIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('uploads'))));
     $documentIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('documents'))));
-    $this->attachmentService->attach((int) $draft->id(), $uploadIds, $documentIds);
+    $this->attachmentService->attach($draftId, $uploadIds, $documentIds);
 
-    $this->storage->upsertMessageProjection($mailboxId, (int) $draft->id(), [
+    $this->storage->upsertMessageProjection($mailboxId, $draftId, [
       'mail_state' => 'draft',
       'is_read' => 1,
       'is_starred' => 0,
@@ -181,12 +181,13 @@ final class MailComposeForm extends FormBase {
       'changed' => time(),
     ]);
     if ($sourceId > 0 && in_array($mode, ['reply', 'reply-all', 'forward'], TRUE)) {
-      $draft->setNewRevision(TRUE);
-      $draft->setRevisionLogMessage(sprintf('Concept %s aangemaakt vanuit communicatie %d; bronbericht blijft ongewijzigd.', $mode, $sourceId));
-      $draft->save();
+      $this->outbound->addDraftRevisionNote(
+        $draftId,
+        sprintf('Concept %s aangemaakt vanuit communicatie %d; bronbericht blijft ongewijzigd.', $mode, $sourceId),
+      );
     }
     $this->messenger()->addStatus($this->t('Concept opgeslagen in BREBO Office. Er is nog niets verzonden.'));
-    $form_state->setRedirect('brebo_mail_intake.mailbox_message', ['mailbox_id' => $mailboxId, 'mail_state' => 'draft', 'communication_id' => (int) $draft->id()]);
+    $form_state->setRedirect('brebo_mail_intake.mailbox_message', ['mailbox_id' => $mailboxId, 'mail_state' => 'draft', 'communication_id' => $draftId]);
   }
 
   private function loadSource(int $communicationId): ?NodeInterface {
