@@ -287,6 +287,26 @@ Bronobject(en)
 9. Calculatiefunctionele werkbank, prijsbronnen en output verder afronden zonder de kern-/interfacegrens te doorbreken.
 10. Klantportaal, Outputgenerator, managementsturing en canonieke gebouw-/projectconsolidatie verder uitbouwen.
 
+## Architectuurontkoppeling — actuele stand 5 oktober 2026
+
+De ontkoppeling van actieve domeinlogica uit Drupal/databasekennis wordt module voor module voortgezet volgens het vaste patroon:
+
+```text
+domeinservice
+-> contract
+-> infrastructuuradapter
+-> Drupal/database uitsluitend aan de buitenrand
+```
+
+Actuele bewezen volgorde op `develop`:
+
+- Finance: actieve domeinservices zijn achter contracten/repositories geplaatst; Drupal Database `Connection` zit in de infrastructuurlaag;
+- Projecten/Intake: meerdere persistencegrenzen zijn geïsoleerd, waaronder projectfacturen, stelposten, intakebesluiten, mailboxprojecties en outbound attachments;
+- Buildings: project-gebouwrelatiepersistence is geïsoleerd;
+- eerstvolgende project-slice: centrale `ProjectPlanningService` wordt ontdaan van directe database- en schemakenis via `ProjectPlanningRepositoryInterface` en `DatabaseProjectPlanningRepository`.
+
+Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoonmaken en CI/acceptance bewijzen, daarna pas UI/functionele verbouwing.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
