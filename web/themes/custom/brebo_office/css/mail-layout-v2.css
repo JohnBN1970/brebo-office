@@ -232,3 +232,31 @@ body:has(.brebo-mail-workspace) .page-title {
     padding-left: 16px;
   }
 }
+
+
+/* Mail domain administration uses the same application language as Workspace v2. */
+.brebo-mail-domain-workspace {
+  display: grid;
+  gap: 14px;
+}
+
+.brebo-mail-domain-add {
+  max-width: 720px;
+  margin: 0;
+  padding: 4px 16px 14px;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brebo-mail-domain-table {
+  width: 100%;
+  border: 1px solid var(--brebo-border);
+  border-radius: 10px;
+  background: #fff;
+}
+
+.brebo-mail-domain-table code {
+  font-size: .72rem;
+  overflow-wrap: anywhere;
+}
