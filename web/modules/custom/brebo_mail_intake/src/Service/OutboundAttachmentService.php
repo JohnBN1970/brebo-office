@@ -6,7 +6,7 @@ namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\brebo_document_data\Service\DocumentRepository;
 use Drupal\brebo_document_data\Service\DocumentStorageLocator;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\OutboundAttachmentReadRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\File\FileSystemInterface;
 use Drupal\file\FileInterface;
@@ -19,7 +19,7 @@ final class OutboundAttachmentService {
   private const MAX_TOTAL_BYTES = 26214400;
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly OutboundAttachmentReadRepositoryInterface $attachmentReads,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly FileSystemInterface $fileSystem,
     private readonly FileUsageInterface $fileUsage,
@@ -30,16 +30,7 @@ final class OutboundAttachmentService {
 
   /** @return array<int|string,string> */
   public function documentOptions(): array {
-    if (!$this->database->schema()->tableExists('brebo_document')) {
-      return [];
-    }
-    $rows = $this->database->select('brebo_document', 'd')
-      ->fields('d', ['id', 'title', 'original_filename', 'revision_code'])
-      ->condition('lifecycle_status', 'deleted', '<>')
-      ->orderBy('changed', 'DESC')
-      ->range(0, 100)
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    $rows = $this->attachmentReads->recentDocuments();
 
     $options = [];
     foreach ($rows as $row) {
@@ -128,14 +119,8 @@ final class OutboundAttachmentService {
     $seenHashes = [];
     $totalBytes = 0;
     foreach (array_unique(array_filter(array_map('intval', $documentIds))) as $documentId) {
-      $document = $this->database->select('brebo_document', 'd')
-        ->fields('d', ['title', 'original_filename', 'mime_type', 'sha256'])
-        ->condition('id', $documentId)
-        ->condition('lifecycle_status', 'deleted', '<>')
-        ->range(0, 1)
-        ->execute()
-        ->fetchAssoc();
-      if (!$document) {
+      $document = $this->attachmentReads->document($documentId);
+      if ($document === NULL) {
         throw new \RuntimeException('Een gekozen BREBO-document is niet meer beschikbaar.');
       }
 
@@ -151,15 +136,8 @@ final class OutboundAttachmentService {
         }
       }
       elseif (($location['access_mode'] ?? '') === 'source_provider') {
-        $source = $this->database->select('brebo_document_source', 's')
-          ->fields('s', ['source_system'])
-          ->condition('document_id', $documentId)
-          ->orderBy('source_timestamp_authoritative', 'DESC')
-          ->orderBy('id', 'DESC')
-          ->range(0, 1)
-          ->execute()
-          ->fetchAssoc();
-        $result = $this->sourceMailboxReader->read((string) ($source['source_system'] ?? ''), (string) ($location['storage_key'] ?? ''));
+        $sourceSystem = $this->attachmentReads->latestSourceSystem($documentId) ?? '';
+        $result = $this->sourceMailboxReader->read($sourceSystem, (string) ($location['storage_key'] ?? ''));
         if (($result['state'] ?? '') === 'available') {
           $content = (string) ($result['content'] ?? '');
           $filename = trim((string) ($result['filename'] ?? $filename)) ?: $filename;
