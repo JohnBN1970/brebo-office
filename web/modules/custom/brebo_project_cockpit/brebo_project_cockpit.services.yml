@@ -1,4 +1,8 @@
 services:
+  brebo_project_cockpit.project_instalment_repository:
+    class: Drupal\brebo_project_cockpit\Infrastructure\DatabaseProjectInstalmentRepository
+    arguments: ['@database']
+
   brebo_project_cockpit.project_order_read_repository:
     class: Drupal\brebo_project_cockpit\Infrastructure\DatabaseProjectOrderReadRepository
     arguments: ['@database']

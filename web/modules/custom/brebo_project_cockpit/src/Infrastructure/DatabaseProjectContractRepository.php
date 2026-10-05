@@ -73,7 +73,7 @@ final class DatabaseProjectContractRepository implements ProjectContractReposito
       return NULL;
     }
     $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
-      ->fields('s', ['schedule_payload', 'content_hash'])
+      ->fields('s')
       ->condition('project_nid', $projectId)
       ->execute()
       ->fetchAssoc();

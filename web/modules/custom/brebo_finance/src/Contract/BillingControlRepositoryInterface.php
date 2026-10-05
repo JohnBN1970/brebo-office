@@ -7,6 +7,9 @@ namespace Drupal\brebo_finance\Contract;
 /** Persistence boundary for billing instalments and the sales-invoice mirror. */
 interface BillingControlRepositoryInterface {
 
+  /** @param callable():mixed $callback */
+  public function transactional(callable $callback): mixed;
+
   public function approvedContractExists(int $contractId, int $projectNid): bool;
 
   /** @param array<string,mixed> $fields

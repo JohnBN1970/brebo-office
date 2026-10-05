@@ -17,6 +17,11 @@ final class BillingControlManager {
     private readonly FinancialPhaseGateManager $phaseGateManager,
   ) {}
 
+  /** @param callable():mixed $callback */
+  public function transactional(callable $callback): mixed {
+    return $this->repository->transactional($callback);
+  }
+
   public function registerInstalment(array $data, int $actorUid): int {
     foreach (['project_nid', 'contract_id', 'instalment_number', 'description', 'trigger_type', 'planned_invoice_date'] as $required) {
       if (!isset($data[$required]) || $data[$required] === '') throw new InvalidArgumentException("$required is required.");
