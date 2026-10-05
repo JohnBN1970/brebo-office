@@ -47,7 +47,7 @@ final class MobileClockForm extends FormBase {
       ? $this->pausePolicy->normalize((string) $node->get('field_brebo_pause_mode')->value)
       : PausePolicy::OFF;
     $openForUser = $this->clockSessionManager->findOpenForUser($userId);
-    $open = $this->clockSessionManager->findOpen($node, $userId);
+    $open = $this->clockSessionManager->findOpen((int) $node->id(), $userId);
 
     $form['#attached']['library'][] = 'brebo_inzet/mobile-clock';
     $form['#attributes']['data-brebo-mobile-clock'] = 'true';
@@ -56,11 +56,11 @@ final class MobileClockForm extends FormBase {
       '#markup' => '<header class="brebo-mobile-clock__header"><span class="brebo-mobile-clock__eyebrow">' . $this->t('BREBO Inzet') . '</span><h2>' . htmlspecialchars((string) $node->label(), ENT_QUOTES, 'UTF-8') . '</h2></header>',
     ];
 
-    if ($openForUser instanceof NodeInterface) {
-      $activeProjectId = (int) ($openForUser->get('field_brebo_project_ref')->target_id ?? 0);
+    if ($openForUser !== NULL) {
+      $activeProjectId = (int) ($openForUser['project_id'] ?? 0);
       $activeProject = $activeProjectId > 0 ? $this->entityTypeManager->getStorage('node')->load($activeProjectId) : NULL;
       $activeLabel = $activeProject instanceof NodeInterface ? $activeProject->label() : $this->t('Onbekend project');
-      $clockInValue = (string) $openForUser->get('field_brebo_clock_in')->value;
+      $clockInValue = (string) ($openForUser['clock_in'] ?? '');
       $clockIn = $clockInValue !== '' ? new \DateTimeImmutable($clockInValue) : NULL;
       $duration = $clockIn ? $this->formatDuration($clockIn, new \DateTimeImmutable('now')) : $this->t('onbekend');
       $since = $clockIn ? $clockIn->format('H:i') : '-';
@@ -150,12 +150,32 @@ final class MobileClockForm extends FormBase {
 
     try {
       if ($action === 'clock_in') {
-        $result = $this->clockSessionManager->clockIn($project, $userId, $lat, $lng, $accuracy);
+        $result = $this->clockSessionManager->clockIn(
+          (int) $project->id(),
+          (string) $project->label(),
+          $userId,
+          $lat,
+          $lng,
+          $accuracy,
+        );
         $location = (string) ($result['location']['status'] ?? 'Onbekend');
         $this->messenger()->addStatus($this->t('Aanwezig gemeld. Locatiecontrole: @location.', ['@location' => $location]));
       }
       elseif ($action === 'clock_out') {
-        $result = $this->clockSessionManager->clockOut($project, $userId, $lat, $lng, $accuracy, (string) $form_state->getValue('reason'));
+        $defaultStart = $project->hasField('field_brebo_workday_start') && $project->get('field_brebo_workday_start')->value
+          ? (string) $project->get('field_brebo_workday_start')->value : '07:00';
+        $defaultEnd = $project->hasField('field_brebo_workday_end') && $project->get('field_brebo_workday_end')->value
+          ? (string) $project->get('field_brebo_workday_end')->value : '16:00';
+        $result = $this->clockSessionManager->clockOut(
+          (int) $project->id(),
+          $userId,
+          $defaultStart,
+          $defaultEnd,
+          $lat,
+          $lng,
+          $accuracy,
+          (string) $form_state->getValue('reason'),
+        );
         if (!empty($result['requires_reason'])) {
           $form_state->set('requires_reason', TRUE);
           $form_state->set('deviation_status', (string) ($result['verdict']['status'] ?? 'Afwijking vastgesteld'));
