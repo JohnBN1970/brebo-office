@@ -4,7 +4,7 @@ services:
     arguments:
       - '@entity_type.manager'
       - '@current_user'
-      - '@database'
+      - '@brebo_mail_intake.mailbox_storage_repository'
 
   brebo_mail_intake.classifier:
     class: Drupal\brebo_mail_intake\Service\MailClassifier
