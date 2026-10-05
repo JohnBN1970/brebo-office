@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Brebo\MailGateway\Infrastructure;
 
 use Brebo\MailGateway\Contract\GatewayProvisioningRepositoryInterface;
+use Brebo\MailGateway\Contract\GatewayStateReaderInterface;
 use PDO;
 use RuntimeException;
 
-final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRepositoryInterface {
+final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRepositoryInterface, GatewayStateReaderInterface {
 
   public function __construct(private readonly PDO $pdo) {
     $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -76,6 +77,39 @@ final class SqliteGatewayProvisioningRepository implements GatewayProvisioningRe
     ]);
 
     return $reference;
+  }
+
+  public function domains(): array {
+    $statement = $this->pdo->query('SELECT domain, payload_json FROM mail_domain ORDER BY domain');
+    $rows = [];
+    foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+      $payload = json_decode((string) $row['payload_json'], TRUE);
+      if (!is_array($payload)) {
+        $payload = [];
+      }
+      $payload['domain'] = (string) $row['domain'];
+      $rows[] = $payload;
+    }
+    return $rows;
+  }
+
+  public function mailboxes(): array {
+    $statement = $this->pdo->query('SELECT address, payload_json FROM mailbox ORDER BY address');
+    $rows = [];
+    foreach ($statement->fetchAll(PDO::FETCH_ASSOC) as $row) {
+      $payload = json_decode((string) $row['payload_json'], TRUE);
+      if (!is_array($payload)) {
+        $payload = [];
+      }
+      $payload['address'] = (string) $row['address'];
+      $rows[] = $payload;
+    }
+    return $rows;
+  }
+
+  public function aliases(): array {
+    $statement = $this->pdo->query('SELECT address, target_address FROM mailbox_alias ORDER BY address');
+    return array_values($statement->fetchAll(PDO::FETCH_ASSOC));
   }
 
   private function migrate(): void {
