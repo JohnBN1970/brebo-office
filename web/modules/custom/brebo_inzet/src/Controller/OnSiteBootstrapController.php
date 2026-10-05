@@ -43,6 +43,8 @@ final class OnSiteBootstrapController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'device_not_linked'], 401);
     }
 
+    $identity = $this->identityResolver->resolveByUid((int) $user->id());
+
     return new JsonResponse([
       'ok' => TRUE,
       'employee' => [
@@ -55,7 +57,7 @@ final class OnSiteBootstrapController extends ControllerBase {
         'job_title' => $this->fieldValue($user, 'field_brebo_job_title'),
         'skills' => $this->fieldValues($user, 'field_brebo_skills'),
         'workforce_status' => $this->fieldValue($user, 'field_brebo_workforce_status') ?: 'active',
-        'language' => $this->identityResolver->languageFor($user),
+        'language' => $identity['language'] ?? 'nl',
       ],
       'projects' => $this->assignmentProvider->currentForUser((int) $user->id()),
       'clock_locations' => $this->assignmentProvider->clockLocations(),

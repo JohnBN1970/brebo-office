@@ -39,10 +39,10 @@ final class OnSiteOtpManager {
     $this->flood->register('brebo_onsite_otp_request', 900, $identifier);
 
     $challengeId = bin2hex(random_bytes(24));
-    $user = $this->identityResolver->resolveByMobile($normalized);
+    $identity = $this->identityResolver->resolveByMobile($normalized);
 
     // Unknown numbers receive an indistinguishable challenge response, but no SMS.
-    if ($user === NULL) {
+    if ($identity === NULL) {
       $this->store()->setWithExpire($challengeId, [
         'valid' => FALSE,
         'attempts' => 0,
@@ -51,10 +51,10 @@ final class OnSiteOtpManager {
     }
 
     $code = (string) random_int(100000, 999999);
-    $language = $this->identityResolver->languageFor($user);
+    $language = $identity['language'];
     $this->store()->setWithExpire($challengeId, [
       'valid' => TRUE,
-      'uid' => (int) $user->id(),
+      'uid' => $identity['uid'],
       'mobile' => $normalized,
       'language' => $language,
       'code_hash' => $this->hashCode($challengeId, $code),

@@ -4,16 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\user\UserInterface;
+use Drupal\brebo_inzet\Contract\OnSiteIdentityRepositoryInterface;
 
-/**
- * Resolves an active Office user from the mobile number used by OnSite.
- */
+/** Resolves an active Office identity from the mobile number used by OnSite. */
 final class OnSiteIdentityResolver {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly OnSiteIdentityRepositoryInterface $identityRepository,
   ) {}
 
   public function normalizeMobile(string $mobile): string {
@@ -27,41 +24,24 @@ final class OnSiteIdentityResolver {
     return $digits === '' ? '' : $prefix . $digits;
   }
 
-  public function resolveByMobile(string $mobile): ?UserInterface {
+  /** @return array{uid:int,mobile:string,language:string}|null */
+  public function resolveByMobile(string $mobile): ?array {
     $normalized = $this->normalizeMobile($mobile);
     if ($normalized === '') {
       return NULL;
     }
 
-    $storage = $this->entityTypeManager->getStorage('user');
-    $ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('status', 1)
-      ->condition('field_brebo_mobile', $normalized)
-      ->range(0, 2)
-      ->execute();
-
-    if (count($ids) > 1) {
+    $identities = $this->identityRepository->activeByMobile($normalized);
+    if (count($identities) > 1) {
       throw new \RuntimeException('OnSite mobiel nummer is aan meerdere actieve gebruikers gekoppeld.');
     }
-    if ($ids === []) {
-      return NULL;
-    }
 
-    $user = $storage->load((int) reset($ids));
-    return $user instanceof UserInterface ? $user : NULL;
+    return $identities[0] ?? NULL;
   }
 
-  public function languageFor(UserInterface $user): string {
-    if ($user->hasField('field_brebo_onsite_language')) {
-      $configured = trim((string) $user->get('field_brebo_onsite_language')->value);
-      if ($configured !== '') {
-        return $configured;
-      }
-    }
-
-    $preferred = trim((string) $user->getPreferredLangcode());
-    return $preferred !== '' ? $preferred : 'nl';
+  /** @return array{uid:int,mobile:string,language:string}|null */
+  public function resolveByUid(int $uid): ?array {
+    return $uid > 0 ? $this->identityRepository->activeByUid($uid) : NULL;
   }
 
 }
