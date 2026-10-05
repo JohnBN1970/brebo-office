@@ -53,6 +53,20 @@ services:
     arguments:
       - '@brebo_mail_intake.mail_domain_repository'
 
+  brebo_mail_intake.mailbox_provisioning_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DatabaseMailboxProvisioningRepository
+    arguments:
+      - '@database'
+
+  Drupal\brebo_mail_intake\Contract\MailboxProvisioningRepositoryInterface:
+    alias: brebo_mail_intake.mailbox_provisioning_repository
+
+  brebo_mail_intake.mailbox_provisioning:
+    class: Drupal\brebo_mail_intake\Service\MailboxProvisioningService
+    arguments:
+      - '@brebo_mail_intake.mailbox_provisioning_repository'
+      - '@brebo_mail_intake.mail_domain_repository'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
