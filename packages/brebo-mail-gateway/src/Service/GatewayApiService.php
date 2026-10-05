@@ -6,6 +6,7 @@ namespace Brebo\MailGateway\Service;
 
 use Brebo\MailGateway\Contract\DkimKeyGeneratorInterface;
 use Brebo\MailGateway\Contract\GatewayProvisioningRepositoryInterface;
+use Brebo\MailGateway\Contract\MailStackAdapterInterface;
 use InvalidArgumentException;
 
 final class GatewayApiService {
@@ -13,6 +14,7 @@ final class GatewayApiService {
   public function __construct(
     private readonly GatewayProvisioningRepositoryInterface $repository,
     private readonly DkimKeyGeneratorInterface $dkim,
+    private readonly MailStackAdapterInterface $mailStack,
   ) {}
 
   /** @return array{provider:string,available:bool,message:string} */
@@ -36,6 +38,9 @@ final class GatewayApiService {
     $payload['domain'] = $domain;
     $reference = $this->repository->provisionDomain($payload);
     $dkim = $this->dkim->generate($domain);
+    $payload['dkim_selector'] = $dkim['selector'];
+    $payload['dkim_private_key_reference'] = $dkim['private_key_reference'];
+    $this->mailStack->applyDomain($payload);
 
     return [
       'reference' => $reference,
@@ -52,7 +57,9 @@ final class GatewayApiService {
       throw new InvalidArgumentException('Ongeldig mailboxadres.');
     }
     $payload['address'] = $address;
-    return ['reference' => $this->repository->provisionMailbox($payload)];
+    $reference = $this->repository->provisionMailbox($payload);
+    $this->mailStack->applyMailbox($payload);
+    return ['reference' => $reference];
   }
 
   /** @return array{reference:string} */
@@ -62,6 +69,8 @@ final class GatewayApiService {
     if (filter_var($aliasAddress, FILTER_VALIDATE_EMAIL) === FALSE || filter_var($targetAddress, FILTER_VALIDATE_EMAIL) === FALSE) {
       throw new InvalidArgumentException('Ongeldig alias- of doeladres.');
     }
-    return ['reference' => $this->repository->provisionAlias($aliasAddress, $targetAddress)];
+    $reference = $this->repository->provisionAlias($aliasAddress, $targetAddress);
+    $this->mailStack->applyAlias($aliasAddress, $targetAddress);
+    return ['reference' => $reference];
   }
 }

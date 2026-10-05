@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Brebo\MailGateway\Domain\GatewayRequest;
 use Brebo\MailGateway\Infrastructure\FilesystemDkimKeyGenerator;
+use Brebo\MailGateway\Infrastructure\FilesystemMailStackAdapter;
 use Brebo\MailGateway\Infrastructure\SqliteGatewayProvisioningRepository;
 use Brebo\MailGateway\Security\GatewayRequestVerifier;
 use Brebo\MailGateway\Service\GatewayApiService;
@@ -32,7 +33,8 @@ if (!is_dir($dataDir) && !mkdir($dataDir, 0700, TRUE) && !is_dir($dataDir)) {
 $pdo = new PDO('sqlite:' . $dataDir . DIRECTORY_SEPARATOR . 'gateway.sqlite');
 $repository = new SqliteGatewayProvisioningRepository($pdo);
 $dkim = new FilesystemDkimKeyGenerator($dataDir . DIRECTORY_SEPARATOR . 'dkim');
-$api = new GatewayApiService($repository, $dkim);
+$mailStack = new FilesystemMailStackAdapter($dataDir . DIRECTORY_SEPARATOR . 'mailstack');
+$api = new GatewayApiService($repository, $dkim, $mailStack);
 $verifier = new GatewayRequestVerifier($keyId, $secret);
 $router = new GatewayRequestRouter($api, $verifier);
 
