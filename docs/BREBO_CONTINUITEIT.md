@@ -375,6 +375,10 @@ De eerste Control-ontkoppeling centraliseert `brebo_control_action` achter `Cont
 
 Leveranciersfactuur-analytics blijven eigendom van Finance en worden ontsloten via `SupplierInvoiceAnalyticsRepositoryInterface` met `DatabaseSupplierInvoiceAnalyticsRepository`. Control leest daardoor niet meer rechtstreeks uit `brebo_supplier_invoice`. Supplier-performance-events zijn achter `SupplierPerformanceRepositoryInterface` geplaatst. `SupplierPerformanceService`, `SupplierScorecardService` en `PortfolioEarlyWarningService` bevatten daarmee geen directe databasecode meer.
 
+### Control — project source boundary
+
+Actieve projectselectie en Drupal-projectanalyse zijn achter `ControlProjectSourceInterface` geplaatst met `DrupalControlProjectSource` als buitenrand. `ControlAutomationRunner`, `PortfolioControlService`, `ControlActionManager`, `ControlHistoryService` en `ControlTrendActionService` werken nu met project-id's en neutrale analysearrays en bevatten geen `EntityTypeManagerInterface`, `NodeInterface`, directe databasecode of Drupal service locator meer.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
