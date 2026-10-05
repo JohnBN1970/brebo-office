@@ -4,23 +4,18 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_document_data\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_document_data\Contract\DocumentStorageReadRepositoryInterface;
 
 /** Provider-neutral physical storage locator for immutable originals. */
 final class DocumentStorageLocator {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly DocumentStorageReadRepositoryInterface $storageRepository) {}
 
   /** @return array<string, mixed> */
   public function locate(int $documentId): array {
-    $row = $this->database->select('brebo_document', 'd')
-      ->fields('d', ['id', 'storage_provider', 'storage_key', 'lifecycle_status'])
-      ->condition('id', $documentId)
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
+    $row = $this->storageRepository->storageRow($documentId);
 
-    if (!$row || ($row['lifecycle_status'] ?? '') === 'deleted') {
+    if ($row === NULL || ($row['lifecycle_status'] ?? '') === 'deleted') {
       return $this->result($documentId, 'unknown', NULL, 'missing', 'none', NULL);
     }
 
