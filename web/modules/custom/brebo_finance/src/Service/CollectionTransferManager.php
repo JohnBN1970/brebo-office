@@ -4,19 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_finance\Contract\CollectionTransferRepositoryInterface;
 
 /** Coordinates guarded, idempotent collection handoff and stores provider state. */
 final class CollectionTransferManager {
-
-  private const STORE = 'brebo_finance.collection_transfer';
 
   public function __construct(
     private readonly SalesInvoiceDebtorResolver $debtorResolver,
     private readonly CollectionDebtorProfileRepository $profileRepository,
     private readonly CollectionDossierBuilder $dossierBuilder,
     private readonly CollectionProviderInterface $provider,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly CollectionTransferRepositoryInterface $repository,
   ) {}
 
   /** @return array<string,mixed> */
@@ -50,7 +48,7 @@ final class CollectionTransferManager {
       'paid_amount' => NULL,
     ];
     if ($state['external_id'] === '') throw new \RuntimeException('Incassoprovider gaf geen dossier-id terug.');
-    $this->keyValueFactory->get(self::STORE)->set((string) $salesInvoiceId, $state);
+    $this->repository->save($salesInvoiceId, $state);
     return $state;
   }
 
@@ -63,13 +61,12 @@ final class CollectionTransferManager {
     $state['status'] = (string) ($remote['status'] ?? $state['status'] ?? 'unknown');
     $state['paid_amount'] = isset($remote['paid_amount']) ? (string) $remote['paid_amount'] : ($state['paid_amount'] ?? NULL);
     $state['last_checked'] = (int) ($remote['updated_at'] ?? time());
-    $this->keyValueFactory->get(self::STORE)->set((string) $salesInvoiceId, $state);
+    $this->repository->save($salesInvoiceId, $state);
     return $state;
   }
 
   /** @return array<string,mixed> */
   public function state(int $salesInvoiceId): array {
-    $value = $this->keyValueFactory->get(self::STORE)->get((string) $salesInvoiceId, []);
-    return is_array($value) ? $value : [];
+    return $this->repository->get($salesInvoiceId);
   }
 }
