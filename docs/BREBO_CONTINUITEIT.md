@@ -333,6 +333,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Consumers gebruiken `GlassProductRepositoryInterface`; `DatabaseGlassProductRepository` onder Infrastructure bezit database- en time-afhankelijkheden. Verificatie-, selectie- en catalogusgedrag blijven functioneel gelijk.
 
+### Glas — position persistence boundary
+
+`GlassPositionRepository` bevat geen directe Drupal database-, entity- of time-afhankelijkheden meer. Opslag, objectreferentievalidatie en request-time lopen via `GlassPositionPersistenceInterface` met `DrupalGlassPositionPersistence`; technische approval-policy, checksum en concurrencybeslissing blijven in de servicelaag.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
