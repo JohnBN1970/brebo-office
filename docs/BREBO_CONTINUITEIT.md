@@ -317,6 +317,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 `AdministrationRegistry` leest geen Drupal Config meer rechtstreeks. Geconfigureerde administraties, primaire administratie en legacy-organisatie-instellingen komen via `AdministrationRegistrySourceInterface`; `DrupalAdministrationRegistrySource` bezit de ConfigFactory-afhankelijkheid. Fallback- en nummeringslogica blijven in de registry-service.
 
+### Glas — availability persistence boundary
+
+`GlassAvailabilityService` bevat geen directe database- of schemakennis meer voor voorraadevents. Eventopslag en totalen lopen via `GlassAvailabilityRepositoryInterface` met `DatabaseGlassAvailabilityRepository`; groepering, validatie en vrije-voorraadberekening blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
