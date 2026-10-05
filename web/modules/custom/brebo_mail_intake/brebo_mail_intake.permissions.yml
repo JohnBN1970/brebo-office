@@ -7,3 +7,9 @@ send brebo outbound mail:
   title: 'BREBO uitgaande e-mail verzenden'
   description: 'Verzend uitsluitend expliciet vrijgegeven uitgaande communicatie via het geconfigureerde mailsysteem.'
   restrict access: true
+
+
+administer brebo mail domains:
+  title: 'BREBO maildomeinen beheren'
+  description: 'Registreer maildomeinen en controleer verificatie, MX, SPF, DKIM en DMARC.'
+  restrict access: true
