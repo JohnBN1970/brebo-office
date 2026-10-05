@@ -54,7 +54,7 @@ final class SalesInvoiceOutboxQueueWorker extends QueueWorkerBase implements Con
       $regularAmount = (string) ($invoice['regular_account_amount'] ?? $gross);
       $gAccountAmount = (string) ($invoice['g_account_amount'] ?? '0');
 
-      $this->outboxRepository->transactional(function () use ($row, $invoice, $mirrorStatus, $gross, $regularAmount, $gAccountAmount, $sourceHash, $completed, $moneybirdId, $invoiceNumber, $requestId, $outboxId): void {
+      $this->outboxRepository->transactional(function () use ($row, $invoice, $providerInvoice, $mirrorLines, $mirrorStatus, $gross, $regularAmount, $gAccountAmount, $sourceHash, $completed, $moneybirdId, $invoiceNumber, $requestId, $outboxId): void {
         $salesInvoiceId = $this->billingControlManager->synchronizeMoneybirdInvoice([
           'project_nid' => (int) $row['project_nid'], 'moneybird_id' => $moneybirdId, 'invoice_number' => $invoiceNumber,
           'invoice_date' => (string) ($invoice['invoice_date'] ?? $providerInvoice['invoice_date'] ?? ''), 'due_date' => (string) ($invoice['due_date'] ?? $providerInvoice['due_date'] ?? ''), 'status' => $mirrorStatus,
