@@ -118,3 +118,12 @@ brebo_mail_intake.mailbox_message:
     mailbox_id: '\d+'
     communication_id: '\d+'
     mail_state: 'inbox|sent|draft|spam|archive|trash'
+
+
+brebo_mail_intake.mailbox_provisioning:
+  path: '/mail/beheer/mailboxen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\MailboxProvisioningForm'
+    _title: 'Mailboxen & aliassen'
+  requirements:
+    _permission: 'administer brebo mailboxes'
