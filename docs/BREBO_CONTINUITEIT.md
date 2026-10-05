@@ -367,6 +367,10 @@ De laatste directe Drupal-entiteiten in de Inzet-servicelaag zijn verwijderd uit
 
 De eerste Control-ontkoppeling centraliseert `brebo_control_action` achter `ControlActionRepositoryInterface` met `DatabaseControlActionRepository`. `ControlActionManager`, `ControlInboxService`, `ControlTrendActionService`, `ControlHistoryService` (open-action count) en `PortfolioEarlyWarningService` (recurring drivers) gebruiken deze grens. Notification-deduplicatie en queue-opslag lopen daarnaast via `ControlNotificationRepositoryInterface` en `DatabaseControlNotificationRepository`. Directe action/notification-SQL is daarmee uit de betreffende services verdwenen.
 
+### Control — history boundary
+
+`ControlHistoryService` bevat geen directe database- of service-locatorlogica meer. Snapshot-opslag en history reads lopen via `ControlHistoryRepositoryInterface` met `DatabaseControlHistoryRepository`; project financial control wordt als dependency geïnjecteerd. De service houdt uitsluitend capturevoorwaarden en trendanalyse over.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
