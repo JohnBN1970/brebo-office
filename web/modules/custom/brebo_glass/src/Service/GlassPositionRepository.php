@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_glass\Service;
 
-use Drupal\Component\Datetime\TimeInterface;
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
+use Drupal\brebo_glass\Contract\GlassPositionPersistenceInterface;
 
 /**
  * Persists and retrieves glass positions in the canonical object structure.
@@ -24,9 +22,7 @@ final class GlassPositionRepository {
   ];
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly TimeInterface $time,
+    private readonly GlassPositionPersistenceInterface $persistence,
     private readonly GlassApprovalPolicy $approvalPolicy,
   ) {}
 
@@ -39,12 +35,10 @@ final class GlassPositionRepository {
       $this->assertNodeBundle((int) $values['project_nid'], 'brebo_project', 'project');
     }
 
-    $now = $this->time->getRequestTime();
+    $now = $this->persistence->currentTime();
     $values += ['created' => $now, 'changed' => $now];
 
-    return (int) $this->database->insert('brebo_glass_position')
-      ->fields($values)
-      ->execute();
+    return $this->persistence->insert($values);
   }
 
   /**
@@ -53,59 +47,23 @@ final class GlassPositionRepository {
    * @return array<int, array<string, mixed>>
    */
   public function findAll(string $search = '', string $status = '', string $sort = 'changed', string $direction = 'desc'): array {
-    $query = $this->database->select('brebo_glass_position', 'g')
-      ->fields('g');
-
-    if ($status !== '') {
-      $query->condition('g.technical_status', $status);
-    }
-
-    $search = trim($search);
-    if ($search !== '') {
-      $group = $query->orConditionGroup()
-        ->condition('g.position_code', '%' . $this->database->escapeLike($search) . '%', 'LIKE')
-        ->condition('g.location', '%' . $this->database->escapeLike($search) . '%', 'LIKE')
-        ->condition('g.composition', '%' . $this->database->escapeLike($search) . '%', 'LIKE');
-      $query->condition($group);
-    }
-
     $column = self::SORT_COLUMNS[$sort] ?? self::SORT_COLUMNS['changed'];
     $order = strtolower($direction) === 'asc' ? 'ASC' : 'DESC';
-
-    return $query
-      ->orderBy('g.' . $column, $order)
-      ->range(0, 250)
-      ->execute()
-      ->fetchAllAssoc('id', \PDO::FETCH_ASSOC);
+    return $this->persistence->findAll(trim($search), $status, $column, $order, 250);
   }
 
   /**
    * @return array<string, int>
    */
   public function countByStatus(): array {
-    $query = $this->database->select('brebo_glass_position', 'g');
-    $query->addField('g', 'technical_status', 'status');
-    $query->addExpression('COUNT(*)', 'total');
-    $query->groupBy('g.technical_status');
-
-    $counts = ['all' => 0];
-    foreach ($query->execute() as $row) {
-      $counts[(string) $row->status] = (int) $row->total;
-      $counts['all'] += (int) $row->total;
-    }
-    return $counts;
+    return $this->persistence->countByStatus();
   }
 
   /**
    * @return array<string, mixed>|null
    */
   public function find(int $id): ?array {
-    $record = $this->database->select('brebo_glass_position', 'g')
-      ->fields('g')
-      ->condition('id', $id)
-      ->execute()
-      ->fetchAssoc();
-    return $record ?: NULL;
+    return $this->persistence->find($id);
   }
 
   public function approve(int $id, int $userId, string $reference, string $note): void {
@@ -139,22 +97,17 @@ final class GlassPositionRepository {
       'recommended_glass_ref' => $position['recommended_glass_ref'],
     ];
     $checksum = hash('sha256', json_encode($checksumData, JSON_THROW_ON_ERROR));
-    $now = $this->time->getRequestTime();
+    $now = $this->persistence->currentTime();
 
-    $affected = $this->database->update('brebo_glass_position')
-      ->fields([
-        'technical_status' => 'approved',
-        'approved_by' => $userId,
-        'approved_at' => $now,
-        'approval_note' => trim($note),
-        'approval_reference' => trim($reference),
-        'approval_checksum' => $checksum,
-        'changed' => $now,
-      ])
-      ->condition('id', $id)
-      ->condition('technical_status', 'measured')
-      ->condition('approved_at', NULL, 'IS NULL')
-      ->execute();
+    $affected = $this->persistence->approveMeasured($id, [
+      'technical_status' => 'approved',
+      'approved_by' => $userId,
+      'approved_at' => $now,
+      'approval_note' => trim($note),
+      'approval_reference' => trim($reference),
+      'approval_checksum' => $checksum,
+      'changed' => $now,
+    ]);
 
     if ($affected !== 1) {
       throw new \RuntimeException('Vrijgave is niet opgeslagen; de positie is gelijktijdig gewijzigd.');
@@ -162,10 +115,8 @@ final class GlassPositionRepository {
   }
 
   private function assertNodeBundle(int $nid, string $bundle, string $label): void {
-    $node = $this->entityTypeManager->getStorage('node')->load($nid);
-    if (!$node || $node->bundle() !== $bundle) {
+    if (!$this->persistence->isNodeBundle($nid, $bundle)) {
       throw new \InvalidArgumentException(sprintf('Het gekozen %s is geen geldig BREBO-object.', $label));
     }
   }
-
 }
