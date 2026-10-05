@@ -379,6 +379,10 @@ Leveranciersfactuur-analytics blijven eigendom van Finance en worden ontsloten v
 
 `MailRelationSuggester` en `CanonicalContextResolver` zijn losgetrokken van Drupal node/entity-API's. Actieve project- en gebouwprojecties worden via `MailContextReadRepositoryInterface` aangeleverd door `DrupalMailContextReadRepository`. Project-gebouwafleiding, naam-/adresmatching, PDOK-resolutie en reviewstatus blijven functioneel gelijk; de bestaande `BuildingRelationRepositoryInterface` wordt nu correct als contract gebruikt.
 
+### Mail Intake — canonical CRM context boundary
+
+`CanonicalCrmContextResolver` is losgetrokken van Drupal node/entity-API's. Exacte contactmatches, organisatie-e-mailmatches en unieke niet-generieke domeinmatches worden via `MailCrmReadRepositoryInterface` aangeleverd door `DrupalMailCrmReadRepository`. De resolver houdt alleen CRM-matchvolgorde, confidence en provisional/canonical statuslogica over.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
