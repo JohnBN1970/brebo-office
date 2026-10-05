@@ -71,4 +71,37 @@ final class DrupalOutboundMailPersistence implements OutboundMailPersistenceInte
     $node->save();
   }
 
+
+  public function loadForSend(int $communicationId): ?array {
+    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
+      return NULL;
+    }
+
+    return [
+      'id' => (int) $node->id(),
+      'direction' => trim((string) ($node->get('field_brebo_comm_direction')->value ?? '')),
+      'formal_status' => trim((string) ($node->get('field_brebo_formal_status')->value ?? '')),
+      'to' => trim((string) ($node->get('field_brebo_mail_to')->value ?? '')),
+      'cc' => $node->hasField('field_brebo_mail_cc') ? trim((string) ($node->get('field_brebo_mail_cc')->value ?? '')) : '',
+      'bcc' => $node->hasField('field_brebo_mail_bcc') ? trim((string) ($node->get('field_brebo_mail_bcc')->value ?? '')) : '',
+      'subject' => trim((string) ($node->get('field_brebo_comm_subject')->value ?? '')),
+      'body' => trim((string) ($node->get('field_brebo_transcript')->value ?? '')),
+      'body_html' => $node->hasField('field_brebo_mail_html') ? trim((string) ($node->get('field_brebo_mail_html')->value ?? '')) : '',
+    ];
+  }
+
+  public function markSent(int $communicationId, string $processedAt, string $revisionMessage): void {
+    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
+      throw new \RuntimeException('BREBO Communication kon niet worden geladen.');
+    }
+    $node->set('field_brebo_comm_status', 'Verzonden');
+    $node->set('field_brebo_formal_status', 'Verzonden');
+    $node->set('field_brebo_processed_at', $processedAt);
+    $node->setNewRevision(TRUE);
+    $node->setRevisionLogMessage($revisionMessage);
+    $node->save();
+  }
+
 }
