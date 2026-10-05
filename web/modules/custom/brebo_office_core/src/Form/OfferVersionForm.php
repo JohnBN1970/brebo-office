@@ -4,10 +4,11 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Form;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessRepositoryInterface;
 use Drupal\brebo_calculation\Service\CalculationResultService;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
 use Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver;
 use Drupal\brebo_office_core\Service\ProjectDocumentNumberIssuer;
-use Drupal\Core\Database\Connection;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -31,7 +32,8 @@ final class OfferVersionForm extends FormBase {
     EntityTypeManagerInterface $entityTypeManager,
     private readonly ProjectDocumentNumberIssuer $documentNumbers,
     private readonly ProjectDocumentIdentityResolver $documentIdentity,
-    private readonly Connection $database,
+    private readonly CalculationAccessRepositoryInterface $calculationAccessRepository,
+    private readonly ProjectContractRepositoryInterface $projectContractRepository,
     private readonly CalculationResultService $calculationResultService,
   ) {
     $this->entityTypeManager = $entityTypeManager;
@@ -42,7 +44,8 @@ final class OfferVersionForm extends FormBase {
       $container->get('entity_type.manager'),
       $container->get('brebo_office_core.project_document_number_issuer'),
       $container->get('brebo_office_core.project_document_identity_resolver'),
-      $container->get('database'),
+      $container->get('brebo_calculation.access_repository'),
+      $container->get('brebo_project_cockpit.project_contract_repository'),
       $container->get('brebo_calculation.result'),
     );
   }
@@ -591,19 +594,11 @@ final class OfferVersionForm extends FormBase {
   }
 
   private function offerableCalculationVersion(int $calculationId): string {
-    $row = $this->database->select('brebo_calculation_version', 'v')
-      ->fields('v', ['version'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('status', 'established')
-      ->isNotNull('locked_at')
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
-    if (!is_array($row) || (string) ($row['version'] ?? '') === '') {
+    $version = $this->calculationAccessRepository->latestEstablishedVersion($calculationId);
+    if ($version === NULL) {
       throw new \RuntimeException('Maak eerst een vastgestelde calculatieversie voordat een offerte wordt gemaakt.');
     }
-    return (string) $row['version'];
+    return $version;
   }
 
   public function validateForm(array &$form, FormStateInterface $form_state): void {
@@ -736,21 +731,13 @@ final class OfferVersionForm extends FormBase {
    * @return array<string, mixed>|null
    */
   private function commercialInstalmentScheduleSnapshot(NodeInterface $calculation): ?array {
-    if (!$this->database->schema()->tableExists('brebo_project_commercial_instalment_schedule')) {
-      return NULL;
-    }
-
     $project = \Drupal::service('brebo_office_core.administration_context_resolver')->projectForNode($calculation);
     if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
       return NULL;
     }
 
-    $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')
-      ->fields('s', ['status', 'source_template_id', 'source_template_name', 'schedule_payload', 'content_hash', 'changed'])
-      ->condition('project_nid', (int) $project->id())
-      ->execute()
-      ->fetchAssoc();
-    if (!is_array($row)) {
+    $row = $this->projectContractRepository->commercialScheduleRecord((int) $project->id());
+    if ($row === NULL) {
       return NULL;
     }
 
@@ -769,5 +756,4 @@ final class OfferVersionForm extends FormBase {
       'snapshot_changed' => (int) $row['changed'],
     ];
   }
-
 }
