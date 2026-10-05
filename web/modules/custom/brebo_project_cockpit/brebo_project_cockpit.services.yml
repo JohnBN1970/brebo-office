@@ -30,9 +30,16 @@ services:
     class: Drupal\brebo_project_cockpit\Service\ProjectStatusAggregator
     arguments: ['@brebo_project_cockpit.project_status_read_repository']
 
+  brebo_project_cockpit.project_progress_read_repository:
+    class: Drupal\brebo_project_cockpit\Infrastructure\DrupalProjectProgressReadRepository
+    arguments: ['@entity_type.manager', '@entity_field.manager']
+
+  Drupal\brebo_project_cockpit\Contract\ProjectProgressReadRepositoryInterface:
+    alias: brebo_project_cockpit.project_progress_read_repository
+
   brebo_project_cockpit.project_progress_builder:
     class: Drupal\brebo_project_cockpit\Service\ProjectProgressBuilder
-    arguments: ['@entity_type.manager', '@entity_field.manager']
+    arguments: ['@brebo_project_cockpit.project_progress_read_repository']
 
   brebo_project_cockpit.project_milestone_builder:
     class: Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder
