@@ -62,6 +62,7 @@ final class BillingControlManager {
       'created' => $now, 'created_by' => $actorUid, 'changed' => $now, 'changed_by' => $actorUid,
     ];
     return $this->repository->createInstalment($fields, $lines, (int) $data['project_nid'], $actorUid, $now);
+  }
 
   /** Releases a reached instalment for manual invoicing under four eyes. */
   public function approveBillable(int $instalmentId, string $triggerEvidence, int $approverUid): void {
@@ -134,6 +135,7 @@ final class BillingControlManager {
       $actorUid,
       time(),
     );
+  }
 
   /** @return list<array<string, string>> */
   private function normalizeLines(mixed $lines): array {
