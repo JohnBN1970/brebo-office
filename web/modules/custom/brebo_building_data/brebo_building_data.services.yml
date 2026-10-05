@@ -1,7 +1,10 @@
 services:
   brebo_building_data.repository:
-    class: Drupal\brebo_building_data\Service\BuildingRelationRepository
+    class: Drupal\brebo_building_data\Infrastructure\DatabaseBuildingRelationRepository
     arguments: ['@database', '@entity_type.manager', '@datetime.time']
+
+  Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface:
+    alias: brebo_building_data.repository
 
   brebo_building_data.object_repository:
     class: Drupal\brebo_building_data\Infrastructure\DatabaseBuildingObjectRepository
