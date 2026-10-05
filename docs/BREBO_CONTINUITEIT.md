@@ -202,7 +202,7 @@ De factuurwerkbank toont het originele brondocument naast verwerking en gebruikt
 
 De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-, reader-, compose-, tabs- en linkingbaseline moet behouden blijven. Mail is nu tevens een echte adapter op de bron-neutrale intake; nieuwe mailverwerking mag deze centrale route niet omzeilen.
 
-Architectuurslag op 5 oktober 2026: na merge van PR #1148 (`1da6660…`) schrijft `MailIntakeIngestor` via een communicatie-repository in plaats van rechtstreeks via Drupal-entiteiten. De volgende slice is de uitgaande bijlagenketen: `OutboundAttachmentService` wordt achter `OutboundAttachmentPersistenceInterface` geplaatst; Drupal file/node/file-usage-afhankelijkheden horen uitsluitend in `DrupalOutboundAttachmentPersistence`. In de service blijven hashcontrole, 25 MB-totalisering en documentrelaties leidend.
+Architectuurslag op 5 oktober 2026: PR #1148 (`1da6660…`) bracht `MailIntakeIngestor` achter een communicatie-repository. PR #1149 (`c5e8c3a…`) bracht `OutboundAttachmentService` achter `OutboundAttachmentPersistenceInterface`; Drupal file/node/file-usage-afhankelijkheden zitten sindsdien uitsluitend in `DrupalOutboundAttachmentPersistence`, terwijl hashcontrole, 25 MB-totalisering en documentrelaties in de service bleven. De volgende slice trekt draft-persistence en outbound field provisioning uit `OutboundMailService` achter `OutboundMailPersistenceInterface`; transport en expliciete verzendvrijgave blijven functioneel ongemoeid.
 
 De historische Zoho-backfill blijft een afzonderlijke migratieopgave en mag niet worden geforceerd om runtime- of readinessproblemen heen.
 
