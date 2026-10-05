@@ -61,7 +61,7 @@ final class CollectionTransferManager {
     $state['status'] = (string) ($remote['status'] ?? $state['status'] ?? 'unknown');
     $state['paid_amount'] = isset($remote['paid_amount']) ? (string) $remote['paid_amount'] : ($state['paid_amount'] ?? NULL);
     $state['last_checked'] = (int) ($remote['updated_at'] ?? time());
-    $this->keyValueFactory->get(self::STORE)->set((string) $salesInvoiceId, $state);
+    $this->repository->save($salesInvoiceId, $state);
     return $state;
   }
 
