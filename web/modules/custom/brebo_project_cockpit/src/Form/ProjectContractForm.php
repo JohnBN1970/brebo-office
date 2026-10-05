@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Form;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -14,10 +14,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Registers the project contract before approval. */
 final class ProjectContractForm extends FormBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProjectContractRepositoryInterface $contracts) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_contract_repository'));
   }
 
   public function getFormId(): string {
@@ -53,8 +53,7 @@ final class ProjectContractForm extends FormBase {
   public function validateForm(array &$form, FormStateInterface $form_state): void {
     $number = trim((string) $form_state->getValue('contract_number'));
     $projectId = (int) $form_state->get('project_id');
-    $query = $this->database->select('brebo_finance_project_contract', 'c')->condition('contract_number', $number)->condition('project_nid', $projectId, '<>');
-    if ((bool) $query->countQuery()->execute()->fetchField()) {
+    if ($this->contracts->contractNumberUsedByOtherProject($number, $projectId)) {
       $form_state->setErrorByName('contract_number', $this->t('Dit contractnummer wordt al voor een ander project gebruikt.'));
     }
   }
@@ -90,28 +89,17 @@ final class ProjectContractForm extends FormBase {
       'changed' => $now,
       'changed_by' => $uid,
     ];
-    if ($current !== []) {
-      $updated = $this->database->update('brebo_finance_project_contract')
-        ->fields($values)
-        ->condition('project_nid', $projectId)
-        ->condition('status', 'draft')
-        ->execute();
-      if ($updated === 0) {
-        $this->messenger()->addError($this->t('Het projectcontract is intussen goedgekeurd of gewijzigd. Uw conceptwijzigingen zijn niet opgeslagen.'));
-        $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
-        return;
-      }
-    }
-    else {
-      $this->database->insert('brebo_finance_project_contract')->fields($values + ['project_nid' => $projectId, 'created' => $now, 'created_by' => $uid])->execute();
+    if (!$this->contracts->saveDraft($projectId, $values, $now, $uid)) {
+      $this->messenger()->addError($this->t('Het projectcontract is intussen goedgekeurd of gewijzigd. Uw conceptwijzigingen zijn niet opgeslagen.'));
+      $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
+      return;
     }
     $this->messenger()->addStatus($this->t('Conceptprojectcontract opgeslagen. Goedkeuring bevriest de contractwaarheid.'));
     $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
   }
 
   private function loadContract(int $projectId): array {
-    $row = $this->database->select('brebo_finance_project_contract', 'c')->fields('c')->condition('project_nid', $projectId)->execute()->fetchAssoc();
-    return is_array($row) ? $row : [];
+    return $this->contracts->contract($projectId);
   }
 
   private function vatRate(array $contract): string {

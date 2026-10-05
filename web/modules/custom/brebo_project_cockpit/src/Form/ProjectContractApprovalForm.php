@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_cockpit\Form;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
 use Drupal\Core\Form\ConfirmFormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -14,10 +14,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Approves a project contract and freezes its commercial instalment evidence. */
 final class ProjectContractApprovalForm extends ConfirmFormBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProjectContractRepositoryInterface $contracts) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_contract_repository'));
   }
 
   public function getFormId(): string {
@@ -96,7 +96,7 @@ final class ProjectContractApprovalForm extends ConfirmFormBase {
       'instalment_schedule_content_hash' => (string) $schedule['content_hash'],
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
 
-    $this->database->update('brebo_finance_project_contract')->fields([
+    if (!$this->contracts->approveDraft((int) $contract['id'], [
       'status' => 'approved',
       'content_hash' => $contractHash,
       'instalment_schedule_payload' => $payload,
@@ -107,21 +107,23 @@ final class ProjectContractApprovalForm extends ConfirmFormBase {
       'approved_by' => $uid,
       'changed' => $now,
       'changed_by' => $uid,
-    ])->condition('id', (int) $contract['id'])->condition('status', 'draft')->execute();
+    ])) {
+      $this->messenger()->addError($this->t('Het projectcontract is intussen gewijzigd of al goedgekeurd. Er is niets gewijzigd.'));
+      $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
+      return;
+    }
 
     $this->messenger()->addStatus($this->t('Projectcontract goedgekeurd. Contractwaarheid en commercieel termijnschema zijn bevroren.'));
     $form_state->setRedirect('brebo_project_cockpit.contracts', ['node' => $projectId]);
   }
 
   private function loadContract(int $projectId): array {
-    $row = $this->database->select('brebo_finance_project_contract', 'c')->fields('c')->condition('project_nid', $projectId)->execute()->fetchAssoc();
-    return is_array($row) ? $row : [];
+    return $this->contracts->contract($projectId);
   }
 
   /** @return array{content_hash:string,percentages:list<float>,labels:list<string>,payment_term_days:int}|null */
   private function commercialSchedule(int $projectId): ?array {
-    if (!$this->database->schema()->tableExists('brebo_project_commercial_instalment_schedule')) return NULL;
-    $row = $this->database->select('brebo_project_commercial_instalment_schedule', 's')->fields('s', ['schedule_payload', 'content_hash'])->condition('project_nid', $projectId)->execute()->fetchAssoc();
+    $row = $this->contracts->commercialScheduleRecord($projectId);
     if (!is_array($row) || (string) ($row['content_hash'] ?? '') === '') return NULL;
     $payload = json_decode((string) $row['schedule_payload'], TRUE);
     if (!is_array($payload)) return NULL;

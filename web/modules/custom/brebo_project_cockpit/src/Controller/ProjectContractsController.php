@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectContractRepositoryInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -15,11 +15,11 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class ProjectContractsController extends ControllerBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProjectContractRepositoryInterface $contracts,
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_contract_repository'));
   }
 
   public function title(NodeInterface $node): string {
@@ -134,26 +134,11 @@ final class ProjectContractsController extends ControllerBase {
   }
 
   private function loadContract(int $projectId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_project_contract')) {
-      return [];
-    }
-    $row = $this->database->select('brebo_finance_project_contract', 'c')
-      ->fields('c')
-      ->condition('project_nid', $projectId)
-      ->execute()
-      ->fetchAssoc();
-    return is_array($row) ? $row : [];
+    return $this->contracts->contract($projectId);
   }
 
   private function loadObligations(int $projectId): array {
-    if (!$this->database->schema()->tableExists('brebo_finance_contract_obligation')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_finance_contract_obligation', 'o')
-      ->fields('o')
-      ->condition('project_nid', $projectId)
-      ->orderBy('due_date', 'ASC');
-    return array_values($query->execute()->fetchAll(\PDO::FETCH_ASSOC));
+    return $this->contracts->obligations($projectId);
   }
 
   private function kpi(string $label, mixed $value, string $basis): string {
