@@ -49,6 +49,13 @@ services:
     class: Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver
     arguments: ['@brebo_finance.sales_invoice_debtor_source_repository', '@brebo_finance.organization_reference_gateway']
 
+  brebo_finance.sales_invoice_output_repository:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSalesInvoiceOutputRepository
+    arguments: ['@database', '@keyvalue']
+  brebo_finance.sales_invoice_output_builder:
+    class: Drupal\brebo_finance\Service\SalesInvoiceOutputBuilder
+    arguments: ['@brebo_finance.sales_invoice_output_repository', '@brebo_finance.organization_reference_gateway', '@brebo_office_core.simple_pdf_renderer']
+
   brebo_finance.purchase_invoice_supplier_source_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePurchaseInvoiceSupplierSourceRepository
     arguments: ['@database']
