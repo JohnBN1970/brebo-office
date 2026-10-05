@@ -235,6 +235,15 @@ services:
   Drupal\brebo_mail_intake\Contract\OutboundMailPersistenceInterface:
     alias: brebo_mail_intake.outbound_mail_persistence
 
+  brebo_mail_intake.compose_source_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailComposeSourceRepository
+    arguments:
+      - '@entity_type.manager'
+      - '@current_user'
+
+  Drupal\brebo_mail_intake\Contract\MailComposeSourceRepositoryInterface:
+    alias: brebo_mail_intake.compose_source_repository
+
   brebo_mail_intake.outbound:
     class: Drupal\brebo_mail_intake\Service\OutboundMailService
     arguments:
