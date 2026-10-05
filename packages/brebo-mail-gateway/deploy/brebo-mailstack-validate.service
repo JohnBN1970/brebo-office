@@ -1,0 +1,15 @@
+[Unit]
+Description=Validate BREBO Mail stack configuration
+After=brebo-mailstack-render.service
+Requires=brebo-mailstack-render.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/brebo-mail-gateway.env
+WorkingDirectory=/opt/brebo-office
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/validate-mailstack.php
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
