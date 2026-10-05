@@ -7,6 +7,7 @@ require dirname(__DIR__, 3) . '/vendor/autoload.php';
 use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\MailGateway\Contract\DkimKeyGeneratorInterface;
 use Brebo\MailGateway\Contract\GatewayProvisioningRepositoryInterface;
+use Brebo\MailGateway\Contract\MailStackAdapterInterface;
 use Brebo\MailGateway\Domain\GatewayRequest;
 use Brebo\MailGateway\Security\GatewayRequestVerifier;
 use Brebo\MailGateway\Service\GatewayApiService;
@@ -16,6 +17,15 @@ final class SmokeRepository implements GatewayProvisioningRepositoryInterface {
   public function provisionDomain(array $payload): string { return 'domain:test'; }
   public function provisionMailbox(array $payload): string { return 'mailbox:test'; }
   public function provisionAlias(string $aliasAddress, string $targetAddress): string { return 'alias:test'; }
+}
+final class SmokeMailStack implements MailStackAdapterInterface {
+  public array $domains = [];
+  public array $mailboxes = [];
+  public array $aliases = [];
+  public function applyDomain(array $domain): void { $this->domains[] = $domain; }
+  public function applyMailbox(array $mailbox): void { $this->mailboxes[] = $mailbox; }
+  public function applyAlias(string $aliasAddress, string $targetAddress): void { $this->aliases[$aliasAddress] = $targetAddress; }
+  public function health(): array { return ['available' => TRUE, 'message' => 'ok']; }
 }
 final class SmokeDkim implements DkimKeyGeneratorInterface {
   public function generate(string $domain): array {
@@ -31,7 +41,7 @@ $signature = GatewayRequestSignature::sign($keyId, $secret, $now, 'POST', '/v1/d
 $request = new GatewayRequest('POST', '/v1/domains', $body, $signature->headers());
 
 $router = new GatewayRequestRouter(
-  new GatewayApiService(new SmokeRepository(), new SmokeDkim()),
+  new GatewayApiService(new SmokeRepository(), new SmokeDkim(), new SmokeMailStack()),
   new GatewayRequestVerifier($keyId, $secret),
 );
 $response = $router->dispatch($request, $now);
