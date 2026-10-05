@@ -6,6 +6,7 @@ namespace Brebo\Mail\Service;
 
 use Brebo\Mail\Contract\DnsResolverInterface;
 use Brebo\Mail\Contract\MailDomainRepositoryInterface;
+use Brebo\Mail\Domain\DkimDescriptor;
 use Brebo\Mail\Domain\MailDomainDnsPolicy;
 use RuntimeException;
 
@@ -30,6 +31,13 @@ final class MailDomainDnsCheckService {
       $rootTxt = $this->dns->txt($name);
       $dmarcTxt = $this->dns->txt('_dmarc.' . $name);
       $mx = $this->dns->mx($name);
+      $dkimTxt = [];
+      $selector = trim((string) ($domain['dkim_selector'] ?? ''));
+      $publicKey = trim((string) ($domain['dkim_public_key'] ?? ''));
+      if ($selector !== '' && $publicKey !== '') {
+        $descriptor = new DkimDescriptor($selector, $publicKey);
+        $dkimTxt = $this->dns->txt($descriptor->recordName($name));
+      }
     }
     catch (RuntimeException $e) {
       return [
@@ -50,7 +58,12 @@ final class MailDomainDnsCheckService {
       $rootTxt,
       $dmarcTxt,
       $mx,
-      (string) ($domain['dkim_status'] ?? 'unknown'),
+      $this->dkimStatus(
+        $name,
+        $selector ?? '',
+        $publicKey ?? '',
+        $dkimTxt ?? [],
+      ),
     );
     $this->repository->setDnsChecks($domainId, $result->checks);
     $this->repository->setStatus($domainId, $result->verified ? 'verified' : 'pending');
@@ -62,6 +75,24 @@ final class MailDomainDnsCheckService {
       'mx' => $mx,
       'root_txt' => $rootTxt,
       'dmarc_txt' => $dmarcTxt,
+      'dkim_txt' => $dkimTxt,
     ];
   }
+
+  /** @param string[] $published */
+  private function dkimStatus(string $domain, string $selector, string $publicKey, array $published): string {
+    if ($selector === '' || $publicKey === '') {
+      return 'unknown';
+    }
+    $expected = (new DkimDescriptor($selector, $publicKey))->recordValue();
+    $normalize = static fn(string $value): string => preg_replace('/\s+/', '', mb_strtolower(trim($value))) ?? '';
+    $expectedNormalized = $normalize($expected);
+    foreach ($published as $value) {
+      if ($normalize($value) === $expectedNormalized) {
+        return 'ok';
+      }
+    }
+    return $published === [] ? 'missing' : 'invalid';
+  }
 }
+

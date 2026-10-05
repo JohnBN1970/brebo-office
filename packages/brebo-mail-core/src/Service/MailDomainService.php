@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Brebo\Mail\Service;
 
 use Brebo\Mail\Contract\MailDomainRepositoryInterface;
+use Brebo\Mail\Domain\DkimDescriptor;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -41,4 +42,32 @@ final class MailDomainService {
       'value' => 'brebo-domain-verification=' . (string) $domain['verification_token'],
     ];
   }
+  public function registerDkim(int $domainId, string $selector, string $publicKey): void {
+    $domain = $this->repository->load($domainId);
+    if (!$domain) {
+      throw new RuntimeException('Maildomein niet gevonden.');
+    }
+    $descriptor = new DkimDescriptor($selector, $publicKey);
+    $this->repository->setDkim($domainId, $descriptor->selector, $descriptor->publicKey);
+  }
+
+  /** @return array{type:string,name:string,value:string}|null */
+  public function dkimRecord(int $domainId): ?array {
+    $domain = $this->repository->load($domainId);
+    if (!$domain) {
+      throw new RuntimeException('Maildomein niet gevonden.');
+    }
+    $selector = trim((string) ($domain['dkim_selector'] ?? ''));
+    $publicKey = trim((string) ($domain['dkim_public_key'] ?? ''));
+    if ($selector === '' || $publicKey === '') {
+      return NULL;
+    }
+    $descriptor = new DkimDescriptor($selector, $publicKey);
+    return [
+      'type' => 'TXT',
+      'name' => $descriptor->recordName((string) $domain['domain']),
+      'value' => $descriptor->recordValue(),
+    ];
+  }
+
 }
