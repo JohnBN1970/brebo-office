@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\field\Entity\FieldConfig;
 use Drupal\field\Entity\FieldStorageConfig;
@@ -17,7 +17,7 @@ final class MailIntakeIngestor {
   public function __construct(
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $currentUser,
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $mailboxStorage,
   ) {}
 
   public function ingest(array $mail): array {
@@ -102,11 +102,6 @@ final class MailIntakeIngestor {
 
   /** Determines direction against all registered active BREBO mailbox addresses. */
   private function mailDirection(array $mail): string {
-    if (!$this->database->schema()->tableExists('brebo_mailbox')) {
-      $direction = trim((string) ($mail['direction'] ?? 'Inkomend'));
-      return in_array($direction, ['Inkomend', 'Uitgaand'], TRUE) ? $direction : 'Inkomend';
-    }
-
     $own = $this->activeMailboxAddresses();
     if ($own === []) {
       $direction = trim((string) ($mail['direction'] ?? 'Inkomend'));
@@ -126,26 +121,16 @@ final class MailIntakeIngestor {
 
   /** Projects one canonical Communication into each matching logical mailbox. */
   private function ensureMailboxProjection(int $communicationId, array $mail): bool {
-    if (!$this->database->schema()->tableExists('brebo_mailbox') || !$this->database->schema()->tableExists('brebo_mailbox_message')) {
-      return FALSE;
-    }
-
     $from = $this->emailAddresses((string) ($mail['from'] ?? ''));
     $to = $this->emailAddresses((string) ($mail['to'] ?? ''));
     if ($from === [] && $to === []) {
       return FALSE;
     }
 
-    $rows = $this->database->select('brebo_mailbox', 'mb')
-      ->fields('mb', ['id', 'address'])
-      ->condition('active', 1)
-      ->execute()
-      ->fetchAll();
-
     $projected = FALSE;
-    foreach ($rows as $row) {
-      $mailboxId = (int) $row->id;
-      $address = strtolower(trim((string) $row->address));
+    foreach ($this->mailboxStorage->activeMailboxes() as $mailbox) {
+      $mailboxId = (int) $mailbox['id'];
+      $address = strtolower(trim((string) $mailbox['address']));
       if ($address === '') {
         continue;
       }
@@ -161,10 +146,13 @@ final class MailIntakeIngestor {
         continue;
       }
 
-      $this->database->merge('brebo_mailbox_message')
-        ->keys(['mailbox_id' => $mailboxId, 'communication_id' => $communicationId])
-        ->fields(['mail_state' => $mailState, 'is_read' => 0, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
-        ->execute();
+      $this->mailboxStorage->upsertMessageProjection($mailboxId, $communicationId, [
+        'mail_state' => $mailState,
+        'is_read' => 0,
+        'is_starred' => 0,
+        'needs_action' => 0,
+        'changed' => time(),
+      ]);
       $projected = TRUE;
     }
 
@@ -173,12 +161,11 @@ final class MailIntakeIngestor {
 
   /** @return string[] */
   private function activeMailboxAddresses(): array {
-    $addresses = $this->database->select('brebo_mailbox', 'mb')
-      ->fields('mb', ['address'])
-      ->condition('active', 1)
-      ->execute()
-      ->fetchCol();
-    return array_values(array_unique(array_filter(array_map(static fn(string $address): string => strtolower(trim($address)), $addresses ?: []))));
+    $addresses = array_map(
+      static fn(array $mailbox): string => strtolower(trim((string) $mailbox['address'])),
+      $this->mailboxStorage->activeMailboxes(),
+    );
+    return array_values(array_unique(array_filter($addresses)));
   }
 
   /** @return string[] */

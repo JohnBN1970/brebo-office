@@ -24,6 +24,20 @@ final class DatabaseMailboxStorageRepository implements MailboxStorageRepository
     return array_values(array_unique(array_map('strval',$roles ?: [])));
   }
 
+  public function activeMailboxes(): array {
+    $schema=$this->database->schema();
+    if(!$schema->tableExists('brebo_mailbox') || !$schema->tableExists('brebo_mailbox_message')) return [];
+    $rows=$this->database->select('brebo_mailbox','mb')->fields('mb',['id','address'])->condition('active',1)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return array_values(array_map(static fn(array $row): array => ['id'=>(int)$row['id'],'address'=>(string)$row['address']], $rows ?: []));
+  }
+
+  public function upsertMessageProjection(int $mailboxId,int $communicationId,array $fields): void {
+    $this->database->merge('brebo_mailbox_message')
+      ->keys(['mailbox_id'=>$mailboxId,'communication_id'=>$communicationId])
+      ->fields($fields)
+      ->execute();
+  }
+
   public function messageRows(int $mailboxId, string $state, int $offset, int $limit): array {
     $query=$this->database->select('brebo_mailbox_message','bm');
     $query->join('node_field_data','n','n.nid = bm.communication_id AND n.default_langcode = 1');
