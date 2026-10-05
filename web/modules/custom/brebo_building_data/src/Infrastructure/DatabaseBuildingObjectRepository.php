@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_building_data\Service;
+namespace Drupal\brebo_building_data\Infrastructure;
+
+use Drupal\brebo_building_data\Contract\BuildingObjectRepositoryInterface;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
@@ -12,7 +14,7 @@ use InvalidArgumentException;
 use UnexpectedValueException;
 
 /** Canonical hierarchy for zones, building parts, elements and components. */
-final class BuildingObjectRepository {
+final class DatabaseBuildingObjectRepository implements BuildingObjectRepositoryInterface {
   private const TYPES = ['zone','building_part','element','component'];
 
   public function __construct(

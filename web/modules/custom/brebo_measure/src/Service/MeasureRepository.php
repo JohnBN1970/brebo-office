@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_measure\Service;
 
 use Drupal\Component\Datetime\TimeInterface;
-use Drupal\brebo_building_data\Service\BuildingObjectRepository;
+use Drupal\brebo_building_data\Contract\BuildingObjectRepositoryInterface;
 use Drupal\Core\Database\Connection;
 use InvalidArgumentException;
 use UnexpectedValueException;
@@ -16,7 +16,7 @@ final class MeasureRepository {
 
   public function __construct(
     private readonly Connection $database,
-    private readonly BuildingObjectRepository $objects,
+    private readonly BuildingObjectRepositoryInterface $objects,
     private readonly TimeInterface $time,
   ) {}
 

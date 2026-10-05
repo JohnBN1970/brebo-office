@@ -355,6 +355,10 @@ De laatste directe Drupal-entiteiten in de Inzet-servicelaag zijn verwijderd uit
 
 `BuildingTruthRepository` is uit de servicelaag gehaald en als infrastructuuradapter ondergebracht in `DatabaseBuildingTruthRepository` achter `BuildingTruthRepositoryInterface`. Forms/controllers gebruiken het contract; database-, entity-, lock- en schemakennis zitten daarmee expliciet aan de buitenrand. Functionele truth-/proposal-/historylogica is ongewijzigd.
 
+### Buildings — building object boundary
+
+`BuildingObjectRepository` is uit de servicelaag gehaald en als `DatabaseBuildingObjectRepository` onder `Infrastructure` geplaatst achter `BuildingObjectRepositoryInterface`. Controllers en afhankelijke modules (Finance, Measure en Building Truth) gebruiken nu het contract. Database-, entity-, time- en schemakennis zitten daarmee aan de buitenrand.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
