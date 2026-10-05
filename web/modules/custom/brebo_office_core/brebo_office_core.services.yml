@@ -28,10 +28,18 @@ services:
   brebo_office_core.simple_pdf_renderer:
     class: Drupal\brebo_office_core\Service\SimplePdfRenderer
 
+  brebo_office_core.administration_registry_source:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationRegistrySource
+    arguments:
+      - '@config.factory'
+
+  Drupal\brebo_office_core\Contract\AdministrationRegistrySourceInterface:
+    alias: brebo_office_core.administration_registry_source
+
   brebo_office_core.administration_registry:
     class: Drupal\brebo_office_core\Service\AdministrationRegistry
     arguments:
-      - '@config.factory'
+      - '@brebo_office_core.administration_registry_source'
 
   brebo_office_core.administration_document_identity:
     class: Drupal\brebo_office_core\Service\AdministrationDocumentIdentity
