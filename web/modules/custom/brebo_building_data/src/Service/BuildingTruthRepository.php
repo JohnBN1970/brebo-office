@@ -21,7 +21,7 @@ final class BuildingTruthRepository {
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly TimeInterface $time,
     private readonly LockBackendInterface $lock,
-    private readonly BuildingObjectRepository $objects,
+    private readonly BuildingObjectRepositoryInterface $objects,
   ) {}
 
   /** Returns the current verified fact, or NULL when no truth is established. */
