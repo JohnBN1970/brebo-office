@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_control\Service;
 
 use Drupal\brebo_office_core\Service\ProjectControllerActionService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 use Drupal\node\NodeInterface;
 
 /**
@@ -14,7 +14,7 @@ use Drupal\node\NodeInterface;
 final class ControlActionManager {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ControlActionRepositoryInterface $actions,
     private readonly ?ProjectControllerActionService $controllerActions,
     private readonly ControlEscalationMatrix $escalationMatrix,
   ) {}
@@ -36,9 +36,7 @@ final class ControlActionManager {
     foreach ($analysis['actions'] as $action) {
       $code = (string) $action['code'];
       $activeCodes[] = $code;
-      $existing = $this->database->select('brebo_control_action', 'a')
-        ->fields('a')->condition('project_nid', (int) $project->id())
-        ->condition('driver_code', $code)->execute()->fetchAssoc();
+      $existing = $this->actions->byProjectDriver((int) $project->id(), $code);
 
       $values = [
         'title' => (string) $action['title'],
@@ -59,31 +57,28 @@ final class ControlActionManager {
           $values['completed_at'] = NULL;
           $values['resolution'] = NULL;
         }
-        $this->database->update('brebo_control_action')->fields($values)
-          ->condition('id', (int) $existing['id'])->execute();
+        $this->actions->update((int) $existing['id'], $values);
       }
       else {
-        $this->database->insert('brebo_control_action')->fields($values + [
-          'project_nid' => (int) $project->id(),
-          'driver_code' => $code,
+        $this->actions->create((int) $project->id(), $code, $values + [
           'status' => 'open',
           'escalation_level' => 0,
           'created' => $now,
-        ])->execute();
+        ]);
       }
     }
 
-    $query = $this->database->select('brebo_control_action', 'a')->fields('a')
-      ->condition('project_nid', (int) $project->id())
-      ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN');
-    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+    foreach ($this->actions->projectActions((int) $project->id()) as $row) {
+      if (!in_array((string) $row['status'], ['open', 'reopened', 'in_progress', 'escalated'], TRUE)) {
+        continue;
+      }
       if (!in_array($row['driver_code'], $activeCodes, TRUE)) {
-        $this->database->update('brebo_control_action')->fields([
+        $this->actions->update((int) $row['id'], [
           'status' => 'auto_resolved',
           'resolution' => 'Onderliggend Early Warning-signaal is niet meer actief.',
           'completed_at' => $now,
           'changed' => $now,
-        ])->condition('id', (int) $row['id'])->execute();
+        ]);
       }
     }
 
@@ -95,14 +90,14 @@ final class ControlActionManager {
       throw new \InvalidArgumentException('Bewijs en afrondingsverklaring zijn verplicht.');
     }
     $now = time();
-    $this->database->update('brebo_control_action')->fields([
+    $this->actions->update($actionId, [
       'status' => 'completed',
       'evidence' => trim($evidence),
       'resolution' => trim($resolution),
       'completed_by' => $userId,
       'completed_at' => $now,
       'changed' => $now,
-    ])->condition('id', $actionId)->execute();
+    ]);
   }
 
   /**
@@ -112,20 +107,17 @@ final class ControlActionManager {
    */
   public function escalateOverdue(): array {
     $now = time();
-    $rows = $this->database->select('brebo_control_action', 'a')->fields('a')
-      ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN')
-      ->condition('due_at', 0, '>')->condition('due_at', $now, '<')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->actions->overdueRows($now);
 
     foreach ($rows as &$row) {
       $decision = $this->escalationMatrix->determine($row, $now);
       $currentLevel = (int) $row['escalation_level'];
       $level = max($currentLevel, (int) $decision['level']);
-      $this->database->update('brebo_control_action')->fields([
+      $this->actions->update((int) $row['id'], [
         'status' => 'escalated',
         'escalation_level' => $level,
         'changed' => $now,
-      ])->condition('id', (int) $row['id'])->execute();
+      ]);
       $row['status'] = 'escalated';
       $row['escalation_level'] = $level;
       $row['escalation_recipients'] = $decision['recipients'];
@@ -138,10 +130,7 @@ final class ControlActionManager {
 
   /** @return array<int, array<string, mixed>> */
   private function loadProjectActions(int $projectId): array {
-    return $this->database->select('brebo_control_action', 'a')->fields('a')
-      ->condition('project_nid', $projectId)
-      ->orderBy('risk_points', 'DESC')->orderBy('due_at', 'ASC')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->actions->projectActions($projectId);
   }
 
   private function dueAt(string $urgency, int $now): int {
