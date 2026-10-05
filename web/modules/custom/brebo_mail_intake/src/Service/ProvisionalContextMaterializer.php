@@ -33,7 +33,7 @@ final class ProvisionalContextMaterializer {
       $projectId = $this->createProject($communication, $resolution);
     }
 
-    if ($buildingId <= 0 && ($resolution['building_state'] ?? NULL) === 'candidate') {
+    if ($buildingId <= 0 && ($resolution['building_state'] ?? NULL) === 'provisional_required') {
       $buildingId = $this->createBuilding($communication, $resolution);
     }
 
