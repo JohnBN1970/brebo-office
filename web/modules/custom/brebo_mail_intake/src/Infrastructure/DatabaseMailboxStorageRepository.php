@@ -104,4 +104,17 @@ final class DatabaseMailboxStorageRepository implements MailboxStorageRepository
     }
     return array_keys($ids);
   }
+  public function clearManualDocumentContexts(array $documentIds): void {
+    if($documentIds===[] || !$this->database->schema()->tableExists('brebo_document_context')) return;
+    $this->database->delete('brebo_document_context')
+      ->condition('document_id',$documentIds,'IN')
+      ->condition('relation_source','mail_manual_confirmation')
+      ->execute();
+  }
+
+  public function transactional(callable $callback): mixed {
+    $transaction=$this->database->startTransaction();
+    try { return $callback(); }
+    catch(\Throwable $e){ $transaction->rollBack(); throw $e; }
+  }
 }
