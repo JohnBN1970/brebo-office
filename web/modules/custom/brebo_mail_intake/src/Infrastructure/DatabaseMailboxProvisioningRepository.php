@@ -24,10 +24,29 @@ final class DatabaseMailboxProvisioningRepository implements MailboxProvisioning
     ])->execute();
   }
 
-  public function mailboxIdByAddress(string $address): ?int {
-    $id = $this->database->select('brebo_mailbox', 'm')->fields('m', ['id'])
-      ->condition('address', mb_strtolower(trim($address)))->range(0, 1)->execute()->fetchField();
-    return $id === FALSE ? NULL : (int) $id;
+  public function mailboxExists(int $mailboxId): bool {
+    return (bool) $this->database->select('brebo_mailbox', 'm')
+      ->condition('id', $mailboxId)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+  }
+
+  public function addressInUse(string $address): bool {
+    $normalized = mb_strtolower(trim($address));
+    $mailbox = (bool) $this->database->select('brebo_mailbox', 'm')
+      ->condition('address', $normalized)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
+    if ($mailbox) {
+      return TRUE;
+    }
+    return (bool) $this->database->select('brebo_mailbox_alias', 'a')
+      ->condition('address', $normalized)
+      ->countQuery()
+      ->execute()
+      ->fetchField();
   }
 
   public function createAlias(int $mailboxId, string $address): int {
