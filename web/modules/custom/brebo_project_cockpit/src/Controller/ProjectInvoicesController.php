@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_project_cockpit\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_project_cockpit\Contract\ProjectInvoiceRepositoryInterface;
 use Drupal\Core\Url;
 use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,10 +14,10 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 /** Shows project billing instalments, changes, provisional sums and invoices. */
 final class ProjectInvoicesController extends ControllerBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProjectInvoiceRepositoryInterface $invoices) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_project_cockpit.project_invoice_repository'));
   }
 
   public function title(NodeInterface $node): string {
@@ -29,13 +29,14 @@ final class ProjectInvoicesController extends ControllerBase {
     $this->assertProject($node);
     $projectId = (int) $node->id();
 
-    $contract = $this->loadOne('brebo_finance_project_contract', $projectId);
-    $instalments = $this->loadMany('brebo_finance_billing_instalment', $projectId, 'planned_invoice_date');
-    $changes = $this->loadMany('brebo_finance_change_order', $projectId, 'changed', 'DESC');
-    $provisionalSums = $this->loadMany('brebo_finance_provisional_sum', $projectId, 'changed', 'DESC');
-    $drafts = $this->loadMany('brebo_finance_sales_invoice_draft', $projectId, 'changed', 'DESC');
-    $outbox = $this->loadMany('brebo_finance_sales_invoice_outbox', $projectId, 'created', 'DESC');
-    $invoices = $this->loadMany('brebo_finance_sales_invoice', $projectId, 'invoice_date', 'DESC');
+    $data = $this->invoices->projectOverview($projectId);
+    $contract = $data['contract'];
+    $instalments = $data['instalments'];
+    $changes = $data['changes'];
+    $provisionalSums = $data['provisional_sums'];
+    $drafts = $data['drafts'];
+    $outbox = $data['outbox'];
+    $invoices = $data['sales_invoices'];
 
     $contractValue = (float) ($contract['amount_ex_vat'] ?? 0);
     $approvedChanges = 0.0;
@@ -214,19 +215,6 @@ final class ProjectInvoicesController extends ControllerBase {
     return is_numeric($value) ? max(0, (int) $value) : 14;
   }
 
-  private function loadOne(string $table, int $projectId): array {
-    if (!$this->database->schema()->tableExists($table)) return [];
-    $row = $this->database->select($table, 't')->fields('t')->condition('project_nid', $projectId)->execute()->fetchAssoc();
-    return is_array($row) ? $row : [];
-  }
-
-  private function loadMany(string $table, int $projectId, string $orderField, string $direction = 'ASC'): array {
-    if (!$this->database->schema()->tableExists($table)) return [];
-    $query = $this->database->select($table, 't')->fields('t')->condition('project_nid', $projectId);
-    if ($this->database->schema()->fieldExists($table, $orderField)) $query->orderBy($orderField, $direction);
-    return array_values($query->execute()->fetchAll(\PDO::FETCH_ASSOC));
-  }
-
   private function kpi(string $label, mixed $value, string $basis): string {
     return '<div class="brebo-procurement-kpi"><strong>' . $this->money($value) . '</strong><span>' . $label . ' · ' . $basis . '</span></div>';
   }
@@ -255,10 +243,8 @@ final class ProjectInvoicesController extends ControllerBase {
   }
 
   private function instalmentVatLabel(array $row): string {
-    if (($row['vat_code'] ?? '') === 'MIXED' && !empty($row['id']) && $this->database->schema()->tableExists('brebo_finance_billing_instalment_line')) {
-      $query = $this->database->select('brebo_finance_billing_instalment_line', 'l');
-      $query->addField('l', 'vat_rate'); $query->condition('instalment_id', (int) $row['id']); $query->distinct();
-      $rates = array_map('floatval', $query->execute()->fetchCol()); sort($rates, SORT_NUMERIC);
+    if (($row['vat_code'] ?? '') === 'MIXED' && !empty($row['id'])) {
+      $rates = $this->invoices->instalmentVatRates((int) $row['id']);
       if ($rates !== []) return implode(' + ', array_map(static fn(float $rate): string => number_format($rate, 1, ',', '.') . '%', $rates));
       return (string) $this->t('Gemengd');
     }
