@@ -8,7 +8,7 @@ use Drupal\brebo_finance\Form\PaymentBatchPrepareForm;
 use Drupal\brebo_finance\Service\PayablesWorkQueueBuilder;
 use Drupal\brebo_finance\Service\PaymentBatchManager;
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PaymentCenterReadRepositoryInterface;
 use Drupal\Core\Form\FormBuilderInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final class PaymentCenterController extends ControllerBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PaymentCenterReadRepositoryInterface $paymentReads,
     private readonly PaymentBatchManager $batches,
     private readonly FormBuilderInterface $paymentFormBuilder,
     private readonly PayablesWorkQueueBuilder $workQueues,
@@ -29,7 +29,7 @@ final class PaymentCenterController extends ControllerBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.payment_center_read_repository'),
       $container->get('brebo_finance.payment_batch_manager'),
       $container->get('form_builder'),
       $container->get('brebo_finance.payables_work_queue_builder'),
@@ -48,46 +48,34 @@ final class PaymentCenterController extends ControllerBase {
     ];
 
     $batchRows = [];
-    if ($this->database->schema()->tableExists('brebo_finance_payment_batch')) {
-      $query = $this->database->select('brebo_finance_payment_batch', 'b')
-        ->fields('b')
-        ->orderBy('created', 'DESC')
-        ->range(0, 50);
-      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $batch) {
-        $batchId = (int) $batch['id'];
-        $actions = [];
-        if (in_array((string) $batch['status'], ['draft', 'reviewed'], TRUE)) {
-          $actions[] = $this->actionForm('brebo_finance.payment_center_review', ['batch_id' => $batchId], 'Controllercontrole', 'review:' . $batchId);
-        }
-        if ((string) $batch['status'] === 'reviewed') {
-          $actions[] = $this->actionForm('brebo_finance.payment_center_release', ['batch_id' => $batchId], 'Vier-ogen vrijgeven', 'release:' . $batchId, TRUE);
-        }
-        $batchRows[] = [
-          (string) $batch['batch_number'],
-          (string) $batch['execution_date'],
-          (string) $batch['status'],
-          (string) $batch['controller_verdict'],
-          $this->money($batch['control_sum']),
-          ['data' => ['#markup' => implode(' ', $actions)]],
-        ];
+    foreach ($this->paymentReads->paymentBatches() as $batch) {
+      $batchId = (int) $batch['id'];
+      $actions = [];
+      if (in_array((string) $batch['status'], ['draft', 'reviewed'], TRUE)) {
+        $actions[] = $this->actionForm('brebo_finance.payment_center_review', ['batch_id' => $batchId], 'Controllercontrole', 'review:' . $batchId);
       }
+      if ((string) $batch['status'] === 'reviewed') {
+        $actions[] = $this->actionForm('brebo_finance.payment_center_release', ['batch_id' => $batchId], 'Vier-ogen vrijgeven', 'release:' . $batchId, TRUE);
+      }
+      $batchRows[] = [
+        (string) $batch['batch_number'],
+        (string) $batch['execution_date'],
+        (string) $batch['status'],
+        (string) $batch['controller_verdict'],
+        $this->money($batch['control_sum']),
+        ['data' => ['#markup' => implode(' ', $actions)]],
+      ];
     }
 
     $reconciliationRows = [];
-    if ($this->database->schema()->tableExists('brebo_finance_bank_reconciliation')) {
-      $query = $this->database->select('brebo_finance_bank_reconciliation', 'r')
-        ->fields('r')
-        ->orderBy('created', 'DESC')
-        ->range(0, 50);
-      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $row) {
-        $reconciliationRows[] = [
-          strtoupper((string) $row['traffic_light']),
-          (string) $row['bank_transaction_id'],
-          $this->money(abs((float) $row['amount'])),
-          (string) $row['message'],
-          (string) $row['moneybird_state'],
-        ];
-      }
+    foreach ($this->paymentReads->bankReconciliations() as $row) {
+      $reconciliationRows[] = [
+        strtoupper((string) $row['traffic_light']),
+        (string) $row['bank_transaction_id'],
+        $this->money(abs((float) $row['amount'])),
+        (string) $row['message'],
+        (string) $row['moneybird_state'],
+      ];
     }
 
     $abnUrl = 'https://www.abnamro.nl/mijn-abnamro/authenticatie/inloggen/?aabChannel=IBB&aabAuthLevel=low';
