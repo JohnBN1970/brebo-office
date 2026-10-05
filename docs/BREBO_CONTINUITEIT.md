@@ -331,6 +331,10 @@ Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Dr
 
 `ClockRegistrationWriter` is losgetrokken van Drupal entities en `NodeInterface`. De writer ontvangt genormaliseerde project-/zone-/gebruikersidentiteit en klokdata en schrijft via `ClockRegistrationRepositoryInterface`; Drupal node-opslag zit in `DrupalClockRegistrationRepository`.
 
+### Inzet — clock session boundary
+
+`ClockSessionManager` en `ClockTransitionReconciler` zijn losgetrokken van Drupal entities en `NodeInterface`. Open sessies, assignment-tijden, registratie-updates en projectwisselreconciliatie lopen via de bestaande `ClockRegistrationRepositoryInterface`, waarvan Drupal node-opslag uitsluitend in `DrupalClockRegistrationRepository` zit. Formulieren/controllers consumeren neutrale sessieprojecties; geofence-, tijdcontrole- en afwijkingslogica blijft ongewijzigd.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
