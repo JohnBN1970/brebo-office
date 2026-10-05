@@ -1,0 +1,22 @@
+[Unit]
+Description=BREBO Mail Gateway
+After=network.target
+
+[Service]
+Type=simple
+User=brebomail
+Group=brebomail
+EnvironmentFile=/etc/brebo-mail-gateway.env
+WorkingDirectory=/opt/brebo-office
+ExecStart=/usr/bin/php -S 127.0.0.1:8088 -t packages/brebo-mail-gateway/public
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/brebo-mail-gateway /etc/brebo-mail-stack/generated
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
