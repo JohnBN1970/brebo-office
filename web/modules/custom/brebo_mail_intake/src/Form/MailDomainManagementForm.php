@@ -75,6 +75,7 @@ final class MailDomainManagementForm extends FormBase {
       $status = static fn(string $value): string => match ($value) {
         'ok', 'verified' => '✓ ' . $value,
         'missing' => '— ontbreekt',
+        'invalid' => '⚠ ongeldig',
         'pending' => '… controle nodig',
         default => '? ' . ($value ?: 'unknown'),
       };
@@ -122,9 +123,14 @@ final class MailDomainManagementForm extends FormBase {
     }
 
     $result = $this->dnsCheck->check($domainId);
-    $this->messenger()->addStatus($result['verified']
-      ? $this->t('DNS gecontroleerd: domeineigendom is geverifieerd.')
-      : $this->t('DNS gecontroleerd: verificatie-TXT is nog niet gevonden.'));
+    if (!empty($result['lookup_error'])) {
+      $this->messenger()->addWarning($this->t('DNS kon tijdelijk niet worden uitgelezen. De laatst bekende status is behouden.'));
+    }
+    else {
+      $this->messenger()->addStatus($result['verified']
+        ? $this->t('DNS gecontroleerd: domeineigendom is geverifieerd.')
+        : $this->t('DNS gecontroleerd: verificatie-TXT is nog niet gevonden.'));
+    }
     $form_state->setRedirect('brebo_mail_intake.mail_domains');
   }
 
