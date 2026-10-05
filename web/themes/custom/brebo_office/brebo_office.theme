@@ -238,7 +238,7 @@ function brebo_office_preprocess_page(array &$variables): void {
           if (!$assignment instanceof \Drupal\node\NodeInterface || !$assignment->access('view')) {
             continue;
           }
-          $result = $comparison->compare($assignment);
+          $result = $comparison->compare((int) $assignment->id());
           $inzet['management']['today_planned_hours'] += (float) $result['planned_hours'];
           $inzet['management']['today_clocked_hours'] += (float) $result['clocked_hours'];
           if (in_array($result['state'], ['under', 'over'], TRUE)) {
@@ -261,7 +261,7 @@ function brebo_office_preprocess_page(array &$variables): void {
           if (!$assignment instanceof \Drupal\node\NodeInterface || !$assignment->access('view')) {
             continue;
           }
-          $result = $comparison->compare($assignment);
+          $result = $comparison->compare((int) $assignment->id());
           if ($result['state'] === 'unclocked') {
             $inzet['management']['unclocked_7d']++;
           }
