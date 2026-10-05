@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_control\Contract\SupplierPerformanceRepositoryInterface;
 
 /**
  * Records auditable supplier performance events.
@@ -14,7 +14,7 @@ final class SupplierPerformanceService {
   private const CATEGORIES = ['planning', 'quality', 'failure_cost', 'complaint', 'warranty', 'kam', 'commercial'];
   private const IMPACTS = ['positive', 'negative'];
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly SupplierPerformanceRepositoryInterface $repository) {}
 
   public function record(
     string $supplierName,
@@ -48,7 +48,7 @@ final class SupplierPerformanceService {
     }
 
     $now = time();
-    return (int) $this->database->insert('brebo_supplier_performance_event')->fields([
+    return $this->repository->create([
       'supplier_name' => $supplierName,
       'project_nid' => $projectId,
       'category' => $category,
@@ -62,16 +62,12 @@ final class SupplierPerformanceService {
       'recorded_by' => $recordedBy,
       'occurred_at' => $occurredAt ?? $now,
       'created' => $now,
-    ])->execute();
+    ]);
   }
 
   /** @return array<string, mixed> */
   public function summarize(string $supplierName): array {
-    if (!$this->database->schema()->tableExists('brebo_supplier_performance_event')) {
-      return ['events' => 0, 'score_adjustment' => 0, 'failure_cost' => 0.0, 'hours_lost' => 0.0, 'categories' => []];
-    }
-    $rows = $this->database->select('brebo_supplier_performance_event', 'e')->fields('e')
-      ->condition('supplier_name', $supplierName)->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->eventsForSupplier($supplierName);
     $adjustment = 0;
     $failureCost = 0.0;
     $hours = 0.0;
