@@ -18,3 +18,11 @@ brebo_mail_intake.runtime_readiness:
   route_name: brebo_mail_intake.runtime_readiness
   parent: brebo_mail_intake.admin
   weight: 10
+
+
+brebo_mail_intake.mail_domains:
+  title: 'Maildomeinen'
+  description: 'Beheer maildomeinen en DNS-gereedheid'
+  route_name: brebo_mail_intake.mail_domains
+  parent: brebo_mail_intake.admin
+  weight: 20
