@@ -9,7 +9,12 @@ use Brebo\MailGateway\Contract\DkimKeyGeneratorInterface;
 use Brebo\MailGateway\Contract\GatewayProvisioningRepositoryInterface;
 use Brebo\MailGateway\Contract\MailStackAdapterInterface;
 use Brebo\MailGateway\Domain\GatewayRequest;
+use Brebo\MailGateway\Domain\MailStackProjection;
 use Brebo\MailGateway\Security\GatewayRequestVerifier;
+use Brebo\MailGateway\Service\DovecotProjectionRenderer;
+use Brebo\MailGateway\Service\MailStackConfigBundleRenderer;
+use Brebo\MailGateway\Service\PostfixProjectionRenderer;
+use Brebo\MailGateway\Service\RspamdProjectionRenderer;
 use Brebo\MailGateway\Service\GatewayApiService;
 use Brebo\MailGateway\Service\GatewayRequestRouter;
 
@@ -68,6 +73,34 @@ foreach ($iterator as $file) {
   if ($source === false || str_contains($source, 'Drupal\\')) {
     throw new RuntimeException('Framework dependency detected in ' . $file->getPathname());
   }
+}
+
+$projection = new MailStackProjection(
+  ['example.nl'],
+  ['info@example.nl'],
+  ['alias@example.nl' => 'info@example.nl'],
+  ['example.nl' => ['selector' => 'brebo1', 'private_key_reference' => 'file:///keys/example.pem']],
+);
+$bundle = (new MailStackConfigBundleRenderer(
+  new PostfixProjectionRenderer(),
+  new DovecotProjectionRenderer(),
+  new RspamdProjectionRenderer(),
+))->render($projection);
+
+if ($bundle['virtual_domains'] !== "example.nl OK\n") {
+  throw new RuntimeException('Postfix domain projection failed.');
+}
+if ($bundle['virtual_mailboxes'] !== "info@example.nl 1\n") {
+  throw new RuntimeException('Postfix mailbox projection failed.');
+}
+if ($bundle['virtual_aliases'] !== "alias@example.nl info@example.nl\n") {
+  throw new RuntimeException('Postfix alias projection failed.');
+}
+if ($bundle['users'] !== "info@example.nl:*::::::\n") {
+  throw new RuntimeException('Dovecot projection failed.');
+}
+if ($bundle['dkim_map'] !== "example.nl brebo1 file:///keys/example.pem\n") {
+  throw new RuntimeException('Rspamd DKIM projection failed.');
 }
 
 echo "BREBO_MAIL_GATEWAY_SMOKE=PASS\n";
