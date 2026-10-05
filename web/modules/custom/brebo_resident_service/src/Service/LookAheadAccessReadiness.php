@@ -4,50 +4,36 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_resident_service\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_resident_service\Contract\ResidentAccessReadRepositoryInterface;
 
 /** Builds an access-readiness look-ahead for upcoming work packages. */
 final class LookAheadAccessReadiness {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ResidentAccessReadRepositoryInterface $repository,
     private readonly WorkPackageAccessReadiness $workPackageReadiness,
-    private readonly ConfigFactoryInterface $configFactory,
   ) {}
 
-  /**
-   * @return array<int, array<string, mixed>>
-   */
+  /** @return array<int,array<string,mixed>> */
   public function forProject(int $projectId, int $days = 42): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()
-      ->accessCheck(TRUE)
-      ->condition('type', 'brebo_work_package')
-      ->condition('field_brebo_project_ref', $projectId)
-      ->sort('field_brebo_planned_start', 'ASC')
-      ->execute();
-
-    $timezoneName = (string) ($this->configFactory->get('system.date')->get('timezone.default') ?: date_default_timezone_get());
+    $timezoneName = $this->repository->timezoneName();
     $timezone = new \DateTimeZone($timezoneName ?: 'Europe/Brussels');
     $today = new \DateTimeImmutable('today', $timezone);
     $horizon = $today->modify('+' . max(1, $days) . ' days');
     $rows = [];
-    foreach ($storage->loadMultiple($ids) as $package) {
-      if (!$package instanceof NodeInterface) {
-        continue;
-      }
-      $start = $this->parseDate($package->hasField('field_brebo_planned_start') ? (string) $package->get('field_brebo_planned_start')->value : '', $timezone);
+
+    foreach ($this->repository->workPackagesForProject($projectId) as $package) {
+      $start = $this->parseDate((string) $package['planned_start'], $timezone);
       if ($start === NULL || $start < $today || $start > $horizon) {
         continue;
       }
-      $assessment = $this->workPackageReadiness->evaluate($package);
+
+      $assessment = $this->workPackageReadiness->evaluate((int) $package['id']);
       $daysUntil = (int) $today->diff($start)->format('%a');
       $signal = $this->signal($assessment, $daysUntil);
       $rows[] = [
-        'package_id' => (int) $package->id(),
-        'package' => $package->label(),
+        'package_id' => (int) $package['id'],
+        'package' => (string) $package['label'],
         'planned_start' => $start->format('Y-m-d'),
         'days_until_start' => $daysUntil,
         'signal' => $signal,
@@ -60,6 +46,7 @@ final class LookAheadAccessReadiness {
         'technical_zone_id' => $assessment['technical_zone_id'] ?? NULL,
       ];
     }
+
     return $rows;
   }
 
@@ -67,7 +54,6 @@ final class LookAheadAccessReadiness {
     if (!$assessment['applicable'] || $assessment['ready']) {
       return 'groen';
     }
-    // Red means unresolved access is close enough to threaten execution.
     return $daysUntil <= 7 ? 'rood' : 'oranje';
   }
 
@@ -89,4 +75,5 @@ final class LookAheadAccessReadiness {
       return NULL;
     }
   }
+
 }
