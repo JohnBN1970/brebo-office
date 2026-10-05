@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Form;
 
 use Drupal\brebo_finance\Service\PaymentBatchManager;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PaymentCenterReadRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,13 +14,13 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 final class PaymentBatchPrepareForm extends FormBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PaymentCenterReadRepositoryInterface $paymentReads,
     private readonly PaymentBatchManager $batches,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.payment_center_read_repository'),
       $container->get('brebo_finance.payment_batch_manager'),
     );
   }
@@ -31,25 +31,14 @@ final class PaymentBatchPrepareForm extends FormBase {
 
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $options = [];
-    if ($this->database->schema()->tableExists('brebo_finance_payment_release')) {
-      $query = $this->database->select('brebo_finance_payment_release', 'r');
-      $query->leftJoin('brebo_finance_purchase_invoice', 'i', 'i.id = r.invoice_id');
-      $query->fields('r');
-      $query->addField('i', 'invoice_number');
-      $query->addField('i', 'supplier_name');
-      $query->condition('r.status', 'approved');
-      $query->orderBy('r.created', 'DESC');
-      $query->range(0, 100);
-
-      foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $release) {
-        $id = (int) $release['id'];
-        $options[$id] = [
-          'supplier' => (string) ($release['supplier_name'] ?? ''),
-          'invoice' => (string) ($release['invoice_number'] ?? ''),
-          'release' => (string) ($release['release_number'] ?? ''),
-          'amount' => '€ ' . number_format((float) $release['total_amount'], 2, ',', '.'),
-        ];
-      }
+    foreach ($this->paymentReads->approvedPaymentReleases() as $release) {
+      $id = (int) $release['id'];
+      $options[$id] = [
+        'supplier' => (string) ($release['supplier_name'] ?? ''),
+        'invoice' => (string) ($release['invoice_number'] ?? ''),
+        'release' => (string) ($release['release_number'] ?? ''),
+        'amount' => '€ ' . number_format((float) $release['total_amount'], 2, ',', '.'),
+      ];
     }
 
     $form['releases'] = [
