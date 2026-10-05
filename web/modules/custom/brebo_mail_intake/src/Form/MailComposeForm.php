@@ -171,7 +171,7 @@ final class MailComposeForm extends FormBase {
     ]);
     $uploadIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('uploads'))));
     $documentIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('documents'))));
-    $this->attachmentService->attach($draft, $uploadIds, $documentIds);
+    $this->attachmentService->attach((int) $draft->id(), $uploadIds, $documentIds);
 
     $this->storage->upsertMessageProjection($mailboxId, (int) $draft->id(), [
       'mail_state' => 'draft',
