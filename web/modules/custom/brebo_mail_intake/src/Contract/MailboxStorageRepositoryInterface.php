@@ -24,4 +24,8 @@ interface MailboxStorageRepositoryInterface {
   public function replaceTags(int $communicationId, array $tags, int $uid): void;
   /** @return list<int> */
   public function linkedDocumentIds(int $communicationId): array;
+  /** @param list<int> $documentIds */
+  public function clearManualDocumentContexts(array $documentIds): void;
+  /** @param callable():mixed $callback */
+  public function transactional(callable $callback): mixed;
 }
