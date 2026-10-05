@@ -6,12 +6,8 @@ namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\brebo_document_data\Service\DocumentRepository;
 use Drupal\brebo_document_data\Service\DocumentStorageLocator;
+use Drupal\brebo_mail_intake\Contract\OutboundAttachmentPersistenceInterface;
 use Drupal\brebo_mail_intake\Contract\OutboundAttachmentReadRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\File\FileSystemInterface;
-use Drupal\file\FileInterface;
-use Drupal\file\FileUsage\FileUsageInterface;
-use Drupal\node\NodeInterface;
 
 /** Stores and resolves controlled attachments for outbound mail. */
 final class OutboundAttachmentService {
@@ -20,9 +16,7 @@ final class OutboundAttachmentService {
 
   public function __construct(
     private readonly OutboundAttachmentReadRepositoryInterface $attachmentReads,
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly FileSystemInterface $fileSystem,
-    private readonly FileUsageInterface $fileUsage,
+    private readonly OutboundAttachmentPersistenceInterface $persistence,
     private readonly DocumentRepository $documents,
     private readonly DocumentStorageLocator $storageLocator,
     private readonly SourceMailboxAttachmentReader $sourceMailboxReader,
@@ -44,57 +38,39 @@ final class OutboundAttachmentService {
   /** @param int[] $fileIds
    *  @param int[] $documentIds
    */
-  public function attach(NodeInterface $draft, array $fileIds, array $documentIds): void {
+  public function attach(int $communicationId, array $fileIds, array $documentIds): void {
     $files = [];
     foreach (array_unique(array_map('intval', $fileIds)) as $fileId) {
-      $file = $this->entityTypeManager->getStorage('file')->load($fileId);
-      if (!$file instanceof FileInterface) {
+      $upload = $this->persistence->promoteUploadedFile($communicationId, $fileId);
+      if ($upload === NULL) {
         continue;
       }
-      $file->setPermanent();
-      $file->save();
-      $files[] = ['target_id' => (int) $file->id(), 'description' => $file->getFilename()];
-      $this->fileUsage->add($file, 'brebo_mail_intake', 'node', (string) $draft->id());
-      $documentId = $this->registerUploadedDocument($draft, $file);
-      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'created_with');
-      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'sent_with');
+      $files[] = ['target_id' => $upload['id'], 'description' => $upload['filename']];
+      $documentId = $this->registerUploadedDocument($communicationId, $upload);
+      $this->documents->upsertCommunicationRelation($documentId, $communicationId, 'created_with');
+      $this->documents->upsertCommunicationRelation($documentId, $communicationId, 'sent_with');
     }
-    if ($draft->hasField('field_brebo_comm_attachments') && $files !== []) {
-      $draft->set('field_brebo_comm_attachments', $files);
-      $draft->setNewRevision(TRUE);
-      $draft->setRevisionLogMessage('Uitgaande privébijlagen aan mailconcept gekoppeld.');
-      $draft->save();
-    }
+    $this->persistence->attachUploadedFiles($communicationId, $files);
 
     foreach (array_unique(array_map('intval', $documentIds)) as $documentId) {
       if ($documentId <= 0 || !isset($this->documentOptions()[$documentId])) {
         continue;
       }
-      $this->documents->upsertCommunicationRelation($documentId, (int) $draft->id(), 'sent_with');
+      $this->documents->upsertCommunicationRelation($documentId, $communicationId, 'sent_with');
     }
   }
 
   /** @return array<int,array{filecontent:string,filename:string,filemime:string}> */
-  public function resolve(NodeInterface $communication): array {
+  public function resolve(int $communicationId): array {
     $attachments = [];
     $seenHashes = [];
     $totalBytes = 0;
 
-    if ($communication->hasField('field_brebo_comm_attachments')) {
-      foreach ($communication->get('field_brebo_comm_attachments')->referencedEntities() as $file) {
-        if (!$file instanceof FileInterface) {
-          continue;
-        }
-        $path = $this->fileSystem->realpath($file->getFileUri());
-        if (!is_string($path) || !is_readable($path)) {
-          throw new \RuntimeException('Een geüploade mailbijlage is niet meer leesbaar.');
-        }
-        $content = (string) file_get_contents($path);
-        $this->append($attachments, $seenHashes, $totalBytes, $content, $file->getFilename(), $file->getMimeType());
-      }
+    foreach ($this->persistence->uploadedFiles($communicationId) as $file) {
+      $this->append($attachments, $seenHashes, $totalBytes, $file['filecontent'], $file['filename'], $file['filemime']);
     }
 
-    $relations = $this->documents->documentsForCommunication((int) $communication->id());
+    $relations = $this->documents->documentsForCommunication($communicationId);
     foreach ($relations as $relation) {
       if (!in_array((string) ($relation['relation_role'] ?? ''), ['sent_with', 'created_with'], TRUE)) {
         continue;
@@ -130,10 +106,7 @@ final class OutboundAttachmentService {
       $mime = trim((string) ($document['mime_type'] ?? 'application/octet-stream')) ?: 'application/octet-stream';
 
       if (($location['access_mode'] ?? '') === 'local_private') {
-        $path = $this->fileSystem->realpath((string) ($location['local_uri'] ?? ''));
-        if (is_string($path) && is_readable($path)) {
-          $content = (string) file_get_contents($path);
-        }
+        $content = $this->persistence->readLocalUri((string) ($location['local_uri'] ?? '')) ?? '';
       }
       elseif (($location['access_mode'] ?? '') === 'source_provider') {
         $sourceSystem = $this->attachmentReads->latestSourceSystem($documentId) ?? '';
@@ -154,31 +127,28 @@ final class OutboundAttachmentService {
     return $attachments;
   }
 
-  private function registerUploadedDocument(NodeInterface $draft, FileInterface $file): int {
-    $path = $this->fileSystem->realpath($file->getFileUri());
-    if (!is_string($path) || !is_readable($path)) {
-      throw new \RuntimeException('De geüploade bijlage kon niet worden gecontroleerd.');
-    }
-    $sha256 = hash_file('sha256', $path);
+  /** @param array{id:int,filename:string,mime_type:string,file_size:int,uri:string,content:string,owner_name:string} $upload */
+  private function registerUploadedDocument(int $communicationId, array $upload): int {
+    $sha256 = hash('sha256', $upload['content']);
     $document = $this->documents->upsertDocument([
-      'title' => $file->getFilename(),
+      'title' => $upload['filename'],
       'document_type' => 'mail_attachment',
-      'original_filename' => $file->getFilename(),
-      'mime_type' => $file->getMimeType(),
-      'file_size' => (int) $file->getSize(),
+      'original_filename' => $upload['filename'],
+      'mime_type' => $upload['mime_type'],
+      'file_size' => $upload['file_size'],
       'sha256' => $sha256,
       'storage_provider' => 'drupal_private',
-      'storage_key' => $file->getFileUri(),
+      'storage_key' => $upload['uri'],
       'lifecycle_status' => 'active',
     ]);
     $this->documents->addSource((int) $document['id'], [
       'source_system' => 'brebo_outbound_mail',
-      'source_external_id' => 'communication:' . $draft->id() . ':file:' . $file->id(),
-      'communication_nid' => (int) $draft->id(),
-      'source_actor' => (string) $draft->getOwner()->getDisplayName(),
+      'source_external_id' => 'communication:' . $communicationId . ':file:' . $upload['id'],
+      'communication_nid' => $communicationId,
+      'source_actor' => $upload['owner_name'],
       'source_timestamp' => gmdate(DATE_ATOM),
       'source_timestamp_authoritative' => TRUE,
-      'original_filename' => $file->getFilename(),
+      'original_filename' => $upload['filename'],
       'sha256' => $sha256,
       'extraction_method' => 'direct_upload',
       'artifact_role' => 'original',
