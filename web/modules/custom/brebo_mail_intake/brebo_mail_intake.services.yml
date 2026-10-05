@@ -53,6 +53,17 @@ services:
     arguments:
       - '@brebo_mail_intake.mail_domain_repository'
 
+  brebo_mail_intake.gateway:
+    class: Drupal\brebo_mail_intake\Infrastructure\DeferredMailGateway
+
+  Drupal\brebo_mail_intake\Contract\MailGatewayInterface:
+    alias: brebo_mail_intake.gateway
+
+  brebo_mail_intake.gateway_service:
+    class: Drupal\brebo_mail_intake\Service\MailGatewayService
+    arguments:
+      - '@brebo_mail_intake.gateway'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
