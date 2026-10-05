@@ -9,7 +9,7 @@ use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
 use Drupal\brebo_mail_intake\Service\OutboundMailService;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
@@ -26,7 +26,7 @@ final class MailComposeForm extends FormBase {
     private readonly OutboundMailService $outbound,
     private readonly MailboxRepository $mailboxes,
     private readonly MailboxAccessPolicy $accessPolicy,
-    private readonly Connection $database,
+    private readonly MailboxStorageRepositoryInterface $storage,
     private readonly EntityTypeManagerInterface $entityTypeManager,
     private readonly AccountProxyInterface $mailCurrentUser,
     private readonly MailEditorProvisioner $editorProvisioner,
@@ -38,7 +38,7 @@ final class MailComposeForm extends FormBase {
       $container->get('brebo_mail_intake.outbound'),
       $container->get('brebo_mail_intake.mailbox_repository'),
       $container->get('brebo_mail_intake.mailbox_access_policy'),
-      $container->get('database'),
+      $container->get('brebo_mail_intake.mailbox_storage_repository'),
       $container->get('entity_type.manager'),
       $container->get('current_user'),
       $container->get('brebo_mail_intake.editor_provisioner'),
@@ -173,10 +173,13 @@ final class MailComposeForm extends FormBase {
     $documentIds = array_values(array_filter(array_map('intval', (array) $form_state->getValue('documents'))));
     $this->attachmentService->attach($draft, $uploadIds, $documentIds);
 
-    $this->database->merge('brebo_mailbox_message')
-      ->keys(['mailbox_id' => $mailboxId, 'communication_id' => (int) $draft->id()])
-      ->fields(['mail_state' => 'draft', 'is_read' => 1, 'is_starred' => 0, 'needs_action' => 0, 'changed' => time()])
-      ->execute();
+    $this->storage->upsertMessageProjection($mailboxId, (int) $draft->id(), [
+      'mail_state' => 'draft',
+      'is_read' => 1,
+      'is_starred' => 0,
+      'needs_action' => 0,
+      'changed' => time(),
+    ]);
     if ($sourceId > 0 && in_array($mode, ['reply', 'reply-all', 'forward'], TRUE)) {
       $draft->setNewRevision(TRUE);
       $draft->setRevisionLogMessage(sprintf('Concept %s aangemaakt vanuit communicatie %d; bronbericht blijft ongewijzigd.', $mode, $sourceId));
