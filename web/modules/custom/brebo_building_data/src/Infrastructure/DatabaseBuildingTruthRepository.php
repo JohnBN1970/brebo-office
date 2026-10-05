@@ -2,7 +2,10 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_building_data\Service;
+namespace Drupal\brebo_building_data\Infrastructure;
+
+use Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface;
+use Drupal\brebo_building_data\Service\BuildingObjectRepository;
 
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Database\Connection;
@@ -14,7 +17,7 @@ use RuntimeException;
 use UnexpectedValueException;
 
 /** Stores verified current building truth, proposals and immutable history. */
-final class BuildingTruthRepository {
+final class DatabaseBuildingTruthRepository implements BuildingTruthRepositoryInterface {
 
   public function __construct(
     private readonly Connection $database,

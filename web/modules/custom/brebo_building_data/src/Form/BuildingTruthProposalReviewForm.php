@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_building_data\Form;
 
-use Drupal\brebo_building_data\Service\BuildingTruthRepository;
+use Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -19,7 +19,7 @@ final class BuildingTruthProposalReviewForm extends FormBase {
   private ?array $proposal = NULL;
   private ?NodeInterface $building = NULL;
 
-  public function __construct(private readonly BuildingTruthRepository $truth) {}
+  public function __construct(private readonly BuildingTruthRepositoryInterface $truth) {}
 
   public static function create(ContainerInterface $container): static {
     return new static($container->get('brebo_building_data.truth_repository'));

@@ -6,7 +6,7 @@ namespace Drupal\brebo_building_data\Controller;
 
 use Drupal\brebo_building_data\Service\BuildingObjectRepository;
 use Drupal\brebo_building_data\Service\BuildingRelationRepository;
-use Drupal\brebo_building_data\Service\BuildingTruthRepository;
+use Drupal\brebo_building_data\Contract\BuildingTruthRepositoryInterface;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
@@ -20,7 +20,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class BuildingTruthWorkbenchController extends ControllerBase {
 
   public function __construct(
-    private readonly BuildingTruthRepository $truth,
+    private readonly BuildingTruthRepositoryInterface $truth,
     private readonly BuildingObjectRepository $objects,
     private readonly BuildingRelationRepository $relations,
     private readonly DateFormatterInterface $dateFormatter,
