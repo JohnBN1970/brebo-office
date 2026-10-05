@@ -327,6 +327,10 @@ Na Project Cockpit is de ontkoppeling voortgezet in `brebo_inzet`. `OnSiteIdenti
 
 Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Drupal entities. De manager werkt uitsluitend met een project-id en genormaliseerde clock-zonegegevens via `ProjectClockZoneRepositoryInterface`; Drupal node-query's, building-references en field-extractie zitten in `DrupalProjectClockZoneRepository`. Bestaande geofence- en clocksessiegedrag blijft ongewijzigd.
 
+### Inzet — clock registration persistence boundary
+
+`ClockRegistrationWriter` is losgetrokken van Drupal entities en `NodeInterface`. De writer ontvangt genormaliseerde project-/zone-/gebruikersidentiteit en klokdata en schrijft via `ClockRegistrationRepositoryInterface`; Drupal node-opslag zit in `DrupalClockRegistrationRepository`.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
