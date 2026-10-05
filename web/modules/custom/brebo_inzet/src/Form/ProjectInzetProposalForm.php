@@ -336,7 +336,7 @@ final class ProjectInzetProposalForm extends FormBase {
         $budgetLineId = 0;
         if ($hasLabourBudget) {
           try {
-            $labourLine = $this->labourLineResolver->resolve($projectId, $account);
+            $labourLine = $this->labourLineResolver->resolve($projectId, $account->hasField('field_brebo_hourly_cost') ? (float) ($account->get('field_brebo_hourly_cost')->value ?? 0) : 0.0);
             $budgetLineId = (int) $labourLine['id'];
           }
           catch (\Throwable $e) {
