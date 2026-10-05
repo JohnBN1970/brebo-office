@@ -321,6 +321,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 `GlassAvailabilityService` bevat geen directe database- of schemakennis meer voor voorraadevents. Eventopslag en totalen lopen via `GlassAvailabilityRepositoryInterface` met `DatabaseGlassAvailabilityRepository`; groepering, validatie en vrije-voorraadberekening blijven in de service.
 
+### Glas — calculation link persistence boundary
+
+`GlassCalculationLinkGuard` bevat geen directe database- of schemakennis meer. Exportlinks en bronchecksums worden gelezen via `GlassCalculationLinkRepositoryInterface` met `DatabaseGlassCalculationLinkRepository`; duplicate-export- en stale/current-logica blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
