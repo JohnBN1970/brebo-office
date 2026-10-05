@@ -54,35 +54,6 @@ final class MailDomainManagementForm extends FormBase {
       '#button_type' => 'primary',
     ];
 
-    $rows = [];
-    foreach ($this->domains->all() as $domain) {
-      $id = (int) $domain['id'];
-      $verification = $this->domains->verificationRecord($id);
-      $status = static fn(string $value): string => match ($value) {
-        'ok', 'verified' => '✓ ' . $value,
-        'missing' => '— ontbreekt',
-        'pending' => '… controle nodig',
-        default => '? ' . ($value ?: 'unknown'),
-      };
-
-      $rows[$id] = [
-        'domain' => ['#markup' => '<strong>' . htmlspecialchars((string) $domain['domain'], ENT_QUOTES, 'UTF-8') . '</strong><br><small>' . htmlspecialchars((string) $domain['status'], ENT_QUOTES, 'UTF-8') . '</small>'],
-        'verification' => ['#markup' => '<code>TXT @</code><br><code>' . htmlspecialchars((string) $verification['value'], ENT_QUOTES, 'UTF-8') . '</code>'],
-        'mx' => ['#markup' => $status((string) $domain['mx_status'])],
-        'spf' => ['#markup' => $status((string) $domain['spf_status'])],
-        'dkim' => ['#markup' => $status((string) $domain['dkim_status'])],
-        'dmarc' => ['#markup' => $status((string) $domain['dmarc_status'])],
-        'action' => [
-          '#type' => 'submit',
-          '#value' => $this->t('DNS controleren'),
-          '#name' => 'check_domain_' . $id,
-          '#submit' => ['::checkDomain'],
-          '#domain_id' => $id,
-          '#limit_validation_errors' => [],
-        ],
-      ];
-    }
-
     $form['domains'] = [
       '#type' => 'table',
       '#header' => [
@@ -94,17 +65,46 @@ final class MailDomainManagementForm extends FormBase {
         $this->t('DMARC'),
         $this->t('Actie'),
       ],
-      '#rows' => $rows,
       '#empty' => $this->t('Nog geen maildomeinen geregistreerd.'),
       '#attributes' => ['class' => ['brebo-mail-domain-table']],
     ];
+
+    foreach ($this->domains->all() as $domain) {
+      $id = (int) $domain['id'];
+      $verification = $this->domains->verificationRecord($id);
+      $status = static fn(string $value): string => match ($value) {
+        'ok', 'verified' => '✓ ' . $value,
+        'missing' => '— ontbreekt',
+        'pending' => '… controle nodig',
+        default => '? ' . ($value ?: 'unknown'),
+      };
+
+      $form['domains'][$id]['domain'] = [
+        '#markup' => '<strong>' . htmlspecialchars((string) $domain['domain'], ENT_QUOTES, 'UTF-8') . '</strong><br><small>' . htmlspecialchars((string) $domain['status'], ENT_QUOTES, 'UTF-8') . '</small>',
+      ];
+      $form['domains'][$id]['verification'] = [
+        '#markup' => '<code>TXT @</code><br><code>' . htmlspecialchars((string) $verification['value'], ENT_QUOTES, 'UTF-8') . '</code>',
+      ];
+      $form['domains'][$id]['mx'] = ['#markup' => $status((string) $domain['mx_status'])];
+      $form['domains'][$id]['spf'] = ['#markup' => $status((string) $domain['spf_status'])];
+      $form['domains'][$id]['dkim'] = ['#markup' => $status((string) $domain['dkim_status'])];
+      $form['domains'][$id]['dmarc'] = ['#markup' => $status((string) $domain['dmarc_status'])];
+      $form['domains'][$id]['action'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('DNS controleren'),
+        '#name' => 'check_domain_' . $id,
+        '#submit' => ['::checkDomain'],
+        '#domain_id' => $id,
+        '#limit_validation_errors' => [],
+      ];
+    }
 
     return $form;
   }
 
   public function registerDomain(array &$form, FormStateInterface $form_state): void {
     try {
-      $id = $this->domains->register((string) $form_state->getValue('domain'));
+      $this->domains->register((string) $form_state->getValue('domain'));
       $this->messenger()->addStatus($this->t('Maildomein geregistreerd. Plaats eerst het verificatie-TXT-record en voer daarna DNS-controle uit.'));
       $form_state->setRedirect('brebo_mail_intake.mail_domains');
     }
