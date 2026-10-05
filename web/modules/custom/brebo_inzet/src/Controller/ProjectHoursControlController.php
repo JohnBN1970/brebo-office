@@ -68,7 +68,7 @@ final class ProjectHoursControlController extends ControllerBase {
       if (!$assignment instanceof NodeInterface || !$assignment->access('view')) {
         continue;
       }
-      $actual = $this->comparison->compare($assignment);
+      $actual = $this->comparison->compare((int) $assignment->id());
       $planned = (float) $actual['planned_hours'];
       $clocked = (float) $actual['clocked_hours'];
       $plannedTotal += $planned;
