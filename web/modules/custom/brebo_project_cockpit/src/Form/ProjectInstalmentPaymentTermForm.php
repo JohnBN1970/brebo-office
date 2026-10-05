@@ -19,7 +19,7 @@ final class ProjectInstalmentPaymentTermForm extends FormBase {
   public function __construct(
     private readonly ProjectInstalmentRepositoryInterface $instalments,
     private readonly ProjectContractRepositoryInterface $contracts,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly ConfigFactoryInterface $salesConfigFactory,
   ) {}
 
   public static function create(ContainerInterface $container): static {
@@ -117,7 +117,7 @@ final class ProjectInstalmentPaymentTermForm extends FormBase {
   private function projectDefault(int $projectId): int {
     $value = $this->contracts->contract($projectId)['payment_term_days'] ?? NULL;
     if (is_numeric($value)) return max(0, (int) $value);
-    $global = $this->configFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
+    $global = $this->salesConfigFactory->get('brebo_finance.sales')->get('numbering.default_payment_term_days');
     return is_numeric($global) ? max(0, (int) $global) : 14;
   }
 }
