@@ -12,7 +12,8 @@ if ($address->value !== 'calculatie@brebobv.nl') {
   throw new RuntimeException('MailAddress normalization failed.');
 }
 
-$result = (new MailDomainDnsPolicy())->evaluate(
+$policy = new MailDomainDnsPolicy();
+$result = $policy->evaluate(
   'brebo-domain-verification=test',
   ['brebo-domain-verification=test', 'v=spf1 include:example.invalid -all'],
   ['v=DMARC1; p=quarantine'],
@@ -23,14 +24,38 @@ if (!$result->verified || $result->checks['mx_status'] !== 'ok' || $result->chec
   throw new RuntimeException('DNS policy evaluation failed.');
 }
 
-foreach ([
-  'packages/brebo-mail-core/src/Domain/MailAddress.php',
-  'packages/brebo-mail-core/src/Domain/MailDomainDnsPolicy.php',
-  'packages/brebo-mail-core/src/Contract/MailGatewayInterface.php',
-] as $path) {
-  $source = file_get_contents(dirname(__DIR__, 3) . '/' . $path);
-  if ($source === false || str_contains($source, 'Drupal\\')) {
-    throw new RuntimeException('Framework dependency detected in ' . $path);
+$nullMx = $policy->evaluate(
+  'brebo-domain-verification=test',
+  ['brebo-domain-verification=test', 'v=spf1 -all'],
+  ['v=DMARC1; p=reject'],
+  [['host' => '.', 'priority' => 0]],
+);
+if ($nullMx->checks['mx_status'] === 'ok') {
+  throw new RuntimeException('Null MX must never be considered deliverable.');
+}
+
+$invalidDmarc = $policy->evaluate(
+  'brebo-domain-verification=test',
+  ['brebo-domain-verification=test', 'v=spf1 -all'],
+  ['v=DMARC1'],
+  [['host' => 'mx.example.invalid', 'priority' => 10]],
+);
+if ($invalidDmarc->checks['dmarc_status'] === 'ok') {
+  throw new RuntimeException('DMARC without a valid p= policy must be rejected.');
+}
+
+$srcRoot = dirname(__DIR__) . '/src';
+$iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($srcRoot));
+foreach ($iterator as $file) {
+  if (!$file->isFile() || $file->getExtension() !== 'php') {
+    continue;
+  }
+  $source = file_get_contents($file->getPathname());
+  if ($source === false) {
+    throw new RuntimeException('Unable to read core source file ' . $file->getPathname());
+  }
+  if (str_contains($source, 'Drupal\\')) {
+    throw new RuntimeException('Framework dependency detected in ' . $file->getPathname());
   }
 }
 
