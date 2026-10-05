@@ -66,7 +66,7 @@ final class OnSiteAssignmentProvider {
       }
 
       $zones = [];
-      foreach ($this->zoneManager->loadForProject($project) as $zone) {
+      foreach ($this->zoneManager->loadForProject((int) $project->id()) as $zone) {
         if (!$zone['active']) {
           continue;
         }
