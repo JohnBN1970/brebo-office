@@ -41,9 +41,16 @@ services:
     class: Drupal\brebo_project_cockpit\Service\ProjectProgressBuilder
     arguments: ['@brebo_project_cockpit.project_progress_read_repository']
 
+  brebo_project_cockpit.project_milestone_read_repository:
+    class: Drupal\brebo_project_cockpit\Infrastructure\DrupalProjectMilestoneReadRepository
+    arguments: ['@entity_type.manager']
+
+  Drupal\brebo_project_cockpit\Contract\ProjectMilestoneReadRepositoryInterface:
+    alias: brebo_project_cockpit.project_milestone_read_repository
+
   brebo_project_cockpit.project_milestone_builder:
     class: Drupal\brebo_project_cockpit\Service\ProjectMilestoneBuilder
-    arguments: ['@entity_type.manager']
+    arguments: ['@brebo_project_cockpit.project_milestone_read_repository']
 
   brebo_project_cockpit.route_subscriber:
     class: Drupal\brebo_project_cockpit\Routing\ProjectCockpitRouteSubscriber
