@@ -57,9 +57,7 @@
   }
 
   function labelFromListLink(link, id) {
-    const text = (link.textContent || '').replace(/^[★●⚑\s]+/, '').trim();
-    const subject = text.includes(' — ') ? text.split(' — ').slice(1).join(' — ').split(' · ')[0].trim() : text;
-    return subject || 'E-mail ' + id;
+    return (link?.dataset.mailSubject || '').trim() || 'E-mail ' + id;
   }
 
   function render(workspace, mailboxId, activeId) {

@@ -6,14 +6,12 @@
   function parseItem(item) {
     const link = item.querySelector('a');
     const text = (link?.textContent || '').trim();
-    const unread = text.startsWith('●') || item.classList.contains('is-unread');
-    const starred = text.includes('★');
-    const needsAction = text.includes('⚑');
-    const cleaned = text.replace(/^[★●⚑\s]+/, '').trim();
-    const [left = '', date = ''] = cleaned.split(' · ');
-    const split = left.indexOf(' — ');
-    const from = split >= 0 ? left.slice(0, split).trim() : left.trim();
-    const subject = split >= 0 ? left.slice(split + 3).trim() : '';
+    const from = (link?.dataset.mailFrom || '').trim();
+    const subject = (link?.dataset.mailSubject || '').trim();
+    const date = (link?.dataset.mailDate || '').trim();
+    const unread = link?.dataset.mailUnread === '1';
+    const starred = link?.dataset.mailStarred === '1';
+    const needsAction = link?.dataset.mailAction === '1';
     const thread = subject.replace(/^\s*((re|fw|fwd|aw|sv)\s*:\s*)+/i, '').trim() || '(geen onderwerp)';
     const day = date ? date.slice(0, 10) : 'Onbekende datum';
     return {item, link, text, from, subject, date, unread, starred, needsAction, thread, day};

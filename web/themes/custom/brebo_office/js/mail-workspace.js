@@ -140,7 +140,7 @@
         if (!link) return;
         child.classList.add('brebo-mail-item');
         if (selectedId && link.pathname.endsWith('/' + selectedId)) child.classList.add('is-selected');
-        if (link.textContent.trim().startsWith('●')) child.classList.add('is-unread');
+        if (link.dataset.mailUnread === '1') child.classList.add('is-unread');
       });
     }
 

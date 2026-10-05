@@ -95,8 +95,11 @@ final class MailboxController extends ControllerBase {
 
     $build = [
       '#type' => 'container',
-      '#attributes' => ['class' => ['brebo-mail-workspace']],
+      '#attributes' => ['class' => ['brebo-mail-workspace', 'brebo-mail-workspace--v2']],
       '#cache' => ['max-age' => 0],
+      'workspace_header' => [
+        '#markup' => '<div class="brebo-mail-workspace-header"><div><span class="brebo-mail-workspace-header__eyebrow">Mail</span><h1>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</h1></div><div class="brebo-mail-workspace-header__state">' . htmlspecialchars(self::STATES[$mail_state], ENT_QUOTES, 'UTF-8') . '</div></div>',
+      ],
     ];
 
     if ($selected && $communication_id > 0) {
@@ -123,7 +126,7 @@ final class MailboxController extends ControllerBase {
     $items = [];
     foreach ($mailboxes as $mailbox) {
       $id = (int) $mailbox['id'];
-      $items[] = ['#markup' => '<div style="margin-top:.75rem"><strong>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</strong></div>'];
+      $items[] = ['#markup' => '<div class="brebo-mail-mailbox-name"><strong>' . htmlspecialchars((string) $mailbox['label'], ENT_QUOTES, 'UTF-8') . '</strong><span>' . htmlspecialchars((string) ($mailbox['address'] ?? ''), ENT_QUOTES, 'UTF-8') . '</span></div>'];
       foreach (self::STATES as $state => $label) {
         $url = Url::fromRoute('brebo_mail_intake.mailbox', ['mailbox_id' => $id, 'mail_state' => $state]);
         $active = $id === $selectedMailbox && $state === $selectedState;
@@ -131,7 +134,8 @@ final class MailboxController extends ControllerBase {
           '#type' => 'link',
           '#title' => $label,
           '#url' => $url,
-          '#prefix' => '<div style="padding:.2rem 0;' . ($active ? 'font-weight:700;' : '') . '">',
+          '#attributes' => ['class' => array_values(array_filter(['brebo-mail-folder__link', $active ? 'is-active' : NULL]))],
+          '#prefix' => '<div class="brebo-mail-folder">',
           '#suffix' => '</div>',
         ];
       }
@@ -172,15 +176,27 @@ final class MailboxController extends ControllerBase {
       foreach (($row['tags'] ?? []) as $tag) {
         $tagMarkup .= '<span class="brebo-mail-tag">' . htmlspecialchars((string) $tag, ENT_QUOTES, 'UTF-8') . '</span>';
       }
+      $safeFrom = htmlspecialchars($from, ENT_QUOTES, 'UTF-8');
+      $safeSubject = htmlspecialchars($subject, ENT_QUOTES, 'UTF-8');
+      $safeDate = htmlspecialchars($date, ENT_QUOTES, 'UTF-8');
+      $flagMarkup = $flags !== '' ? '<span class="brebo-mail-item__flags">' . htmlspecialchars(trim($flags), ENT_QUOTES, 'UTF-8') . '</span>' : '';
       $items[] = [
         '#type' => 'link',
-        '#title' => $flags . $from . ' — ' . $subject . ($date !== '' ? ' · ' . $date : ''),
+        '#title' => [
+          '#markup' => '<span class="brebo-mail-item__topline"><strong class="brebo-mail-item__from">' . $safeFrom . '</strong><time class="brebo-mail-item__date">' . $safeDate . '</time></span><span class="brebo-mail-item__subject">' . $safeSubject . '</span>' . $flagMarkup,
+        ],
         '#url' => $url,
         '#attributes' => [
-          'class' => $linked ? ['brebo-mail-message-link', 'is-office-linked'] : ['brebo-mail-message-link'],
+          'class' => array_values(array_filter(['brebo-mail-message-link', $linked ? 'is-office-linked' : NULL])),
           'title' => $linked ? 'Al gekoppeld aan BREBO Office' : '',
+          'data-mail-from' => $from,
+          'data-mail-subject' => $subject,
+          'data-mail-date' => $date,
+          'data-mail-unread' => empty($row['is_read']) ? '1' : '0',
+          'data-mail-starred' => !empty($row['is_starred']) ? '1' : '0',
+          'data-mail-action' => !empty($row['needs_action']) ? '1' : '0',
         ],
-        '#prefix' => '<div class="brebo-mail-message-row" style="padding:.65rem;border-bottom:1px solid #ddd;' . ($id === $selectedId ? 'font-weight:700;' : '') . '">',
+        '#prefix' => '<div class="brebo-mail-message-row' . ($id === $selectedId ? ' is-selected' : '') . '">',
         '#suffix' => ($tagMarkup !== '' ? '<div class="brebo-mail-tag-list">' . $tagMarkup . '</div>' : '') . '</div>',
       ];
     }
