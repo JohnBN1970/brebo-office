@@ -204,6 +204,8 @@ De centrale Mail Intake-kernketen is productiegeaccepteerd. De bewezen mailbox-,
 
 Architectuurslag op 5 oktober 2026: PR #1148 (`1da6660…`) bracht `MailIntakeIngestor` achter een communicatie-repository. PR #1149 (`c5e8c3a…`) bracht `OutboundAttachmentService` achter `OutboundAttachmentPersistenceInterface`; Drupal file/node/file-usage-afhankelijkheden zitten sindsdien uitsluitend in `DrupalOutboundAttachmentPersistence`, terwijl hashcontrole, 25 MB-totalisering en documentrelaties in de service bleven. De volgende slice trekt draft-persistence en outbound field provisioning uit `OutboundMailService` achter `OutboundMailPersistenceInterface`; transport en expliciete verzendvrijgave blijven functioneel ongemoeid.
 
+De Mail Intake queue hoort eveneens frameworkvrij in de servicelaag te zijn: `MailIntakeQueueManager` bepaalt bron-, backfill- en pending-logica; Drupal Queue hoort achter `MailIntakeQueueInterface` in Infrastructure.
+
 De historische Zoho-backfill blijft een afzonderlijke migratieopgave en mag niet worden geforceerd om runtime- of readinessproblemen heen.
 
 ## Project, publicatie en websitegrens
