@@ -90,6 +90,9 @@ services:
     class: Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver
     arguments: ['@brebo_finance.sales_invoice_debtor_source_repository', '@brebo_finance.organization_reference_gateway']
 
+  brebo_finance.sales_invoice_outbox_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseSalesInvoiceOutboxRepository
+    arguments: ['@database']
   brebo_finance.sales_invoice_output_repository:
     class: Drupal\brebo_finance\Infrastructure\DrupalSalesInvoiceOutputRepository
     arguments: ['@database', '@keyvalue']
