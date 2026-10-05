@@ -40,6 +40,19 @@ services:
     arguments:
       - '@database'
 
+  brebo_mail_intake.mail_domain_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DatabaseMailDomainRepository
+    arguments:
+      - '@database'
+
+  Drupal\brebo_mail_intake\Contract\MailDomainRepositoryInterface:
+    alias: brebo_mail_intake.mail_domain_repository
+
+  brebo_mail_intake.mail_domain_service:
+    class: Drupal\brebo_mail_intake\Service\MailDomainService
+    arguments:
+      - '@brebo_mail_intake.mail_domain_repository'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
