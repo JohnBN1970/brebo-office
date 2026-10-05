@@ -62,5 +62,8 @@ jobs:
       - name: Verify BREBO Mail Gateway independence
         run: php packages/brebo-mail-gateway/tests/smoke.php
 
+      - name: Verify BREBO Mail test-domain cutover guard
+        run: php packages/brebo-mail-gateway/tests/cutover_smoke.php
+
       - name: Verify PDOK building scope contract
         run: php scripts/test-pdok-building-scope.php
