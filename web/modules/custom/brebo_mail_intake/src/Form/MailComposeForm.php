@@ -54,7 +54,7 @@ final class MailComposeForm extends FormBase {
     if (!$this->accessPolicy->allowed($this->mailCurrentUser, $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
 
     $mode = in_array($mode, ['new', 'reply', 'reply-all', 'forward'], TRUE) ? $mode : 'new';
-    $source = $communication_id > 0 ? $this->sourceRepository->load($communication_id, (int) $this->mailCurrentUser->id()) : NULL;
+    $source = $communication_id > 0 ? $this->sourceRepository->load($communication_id) : NULL;
     if ($mode !== 'new' && !$source) { throw new NotFoundHttpException('Bronbericht niet gevonden of niet toegankelijk.'); }
 
     $to = $cc = $subject = $body = '';
