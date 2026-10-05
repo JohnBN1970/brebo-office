@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_mail_intake\Service;
 
 use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_mail_intake\Contract\MailContextReadRepositoryInterface;
 
 /**
  * Resolves mail text to existing canonical project/building context first.
@@ -17,9 +16,9 @@ use Drupal\node\NodeInterface;
 final class CanonicalContextResolver {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly MailContextReadRepositoryInterface $contextRepository,
     private readonly BagPdokClient $bagPdokClient,
-    private readonly ?BuildingRelationRepository $buildingRelations = NULL,
+    private readonly ?BuildingRelationRepositoryInterface $buildingRelations = NULL,
   ) {}
 
   /** @return array<string, mixed> */
@@ -30,28 +29,24 @@ final class CanonicalContextResolver {
     $basis = [];
     $buildingCandidates = [];
 
-    if ($project instanceof NodeInterface) {
-      $basis[] = sprintf('Bestaand project herkend: "%s".', $project->label());
+    if ($project !== NULL) {
+      $basis[] = sprintf('Bestaand project herkend: "%s".', $project['label']);
     }
 
-    if (!($building instanceof NodeInterface) && $project instanceof NodeInterface && $project->hasField('field_brebo_building_refs')) {
-      $projectBuildings = array_values(array_filter(
-        $project->get('field_brebo_building_refs')->referencedEntities(),
-        static fn ($entity): bool => $entity instanceof NodeInterface,
-      ));
-      if (count($projectBuildings) === 1) {
-        $building = $projectBuildings[0];
+    if ($building === NULL && $project !== NULL && count($project['building_ids'] ?? []) === 1) {
+      $building = $this->contextRepository->building((int) $project['building_ids'][0]);
+      if ($building !== NULL) {
         $basis[] = 'Gebouw eenduidig afgeleid uit de permanente gebouwrelatie van het project.';
       }
     }
 
-    if ($building instanceof NodeInterface) {
-      $basis[] = sprintf('Bestaand canoniek gebouw herkend: "%s".', $building->label());
+    if ($building !== NULL) {
+      $basis[] = sprintf('Bestaand canoniek gebouw herkend: "%s".', $building['label']);
     }
 
     $pdokCandidates = [];
     $addressQuery = '';
-    if (!($building instanceof NodeInterface)) {
+    if ($building === NULL) {
       $addressQuery = $this->extractAddressQuery($subject, $body);
       if ($addressQuery !== '') {
         try {
@@ -60,8 +55,8 @@ final class CanonicalContextResolver {
             $relationResolution = $this->resolveFromBuildingRelations($pdokCandidates);
             if (($relationResolution['state'] ?? '') === 'matched') {
               $candidateId = (int) ($relationResolution['building_id'] ?? 0);
-              $candidate = $candidateId > 0 ? $this->entityTypeManager->getStorage('node')->load($candidateId) : NULL;
-              if ($candidate instanceof NodeInterface && $candidate->bundle() === 'brebo_building') {
+              $candidate = $candidateId > 0 ? $this->contextRepository->building($candidateId) : NULL;
+              if ($candidate !== NULL) {
                 $building = $candidate;
                 $basis[] = sprintf('Bestaand gebouw herkend via %s', (string) ($relationResolution['basis'] ?? 'BAG-/adresidentiteit.'));
               }
@@ -83,7 +78,7 @@ final class CanonicalContextResolver {
 
     $projectEvidence = $this->projectEvidence($subject, $body, $addressQuery !== '' || $pdokCandidates !== []);
     $projectState = 'existing';
-    if (!($project instanceof NodeInterface)) {
+    if ($project === NULL) {
       if ($projectEvidence['strong']) {
         $projectState = 'provisional_required';
         $basis[] = 'Nieuwe projectkandidaat: ' . implode(', ', $projectEvidence['signals']) . '.';
@@ -98,13 +93,13 @@ final class CanonicalContextResolver {
       }
     }
 
-    $buildingState = $building instanceof NodeInterface
+    $buildingState = $building !== NULL
       ? 'existing'
       : ($buildingCandidates !== [] ? 'ambiguous' : ($pdokCandidates !== [] ? 'provisional_required' : 'none'));
 
     return [
-      'project_id' => $project instanceof NodeInterface ? (int) $project->id() : NULL,
-      'building_id' => $building instanceof NodeInterface ? (int) $building->id() : NULL,
+      'project_id' => $project !== NULL ? (int) $project['id'] : NULL,
+      'building_id' => $building !== NULL ? (int) $building['id'] : NULL,
       'project_state' => $projectState,
       'building_state' => $buildingState,
       'building_candidate_ids' => $buildingCandidates,
@@ -165,7 +160,7 @@ final class CanonicalContextResolver {
    * @return array{state:string,building_id:?int,candidate_building_ids:int[],basis:string}
    */
   private function resolveFromBuildingRelations(array $pdokCandidates): array {
-    if (!$this->buildingRelations instanceof BuildingRelationRepository) {
+    if (!$this->buildingRelations instanceof BuildingRelationRepositoryInterface) {
       return ['state' => 'unavailable', 'building_id' => NULL, 'candidate_building_ids' => [], 'basis' => 'Gebouwrelatie-opslag niet beschikbaar.'];
     }
     $matched = [];
@@ -198,40 +193,38 @@ final class CanonicalContextResolver {
     return ['state' => 'unmatched', 'building_id' => NULL, 'candidate_building_ids' => [], 'basis' => 'Geen bekende BAG-/adresidentiteit.'];
   }
 
-  private function findBestProject(string $text): ?NodeInterface {
-    return $this->findUniqueMatch('brebo_project', $text, ['title' => 50], 50);
+  /** @return array<string,mixed>|null */
+  private function findBestProject(string $text): ?array {
+    return $this->findUniqueMatch($this->contextRepository->activeProjects(), $text, ['label' => 50], 50);
   }
 
-  private function findBestBuilding(string $text): ?NodeInterface {
-    return $this->findUniqueMatch('brebo_building', $text, [
-      'title' => 50,
-      'field_brebo_address' => 50,
-      'field_brebo_postal_code' => 10,
-      'field_brebo_city' => 10,
+  /** @return array<string,mixed>|null */
+  private function findBestBuilding(string $text): ?array {
+    return $this->findUniqueMatch($this->contextRepository->activeBuildings(), $text, [
+      'label' => 50,
+      'address' => 50,
+      'postal_code' => 10,
+      'city' => 10,
     ], 50);
   }
 
-  /** @param array<string, int> $weightedFields */
-  private function findUniqueMatch(string $bundle, string $text, array $weightedFields, int $minimumScore): ?NodeInterface {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(FALSE)->condition('type', $bundle)->condition('status', 1)->execute();
-    if ($ids === []) {
-      return NULL;
-    }
+  /**
+   * @param list<array<string,mixed>> $items
+   * @param array<string,int> $weightedFields
+   * @return array<string,mixed>|null
+   */
+  private function findUniqueMatch(array $items, string $text, array $weightedFields, int $minimumScore): ?array {
     $scores = [];
-    foreach ($storage->loadMultiple($ids) as $node) {
-      if (!$node instanceof NodeInterface) {
+    $byId = [];
+    foreach ($items as $item) {
+      $id = (int) ($item['id'] ?? 0);
+      if ($id <= 0) {
         continue;
       }
       $score = 0;
       foreach ($weightedFields as $field => $weight) {
-        if ($field === 'title') {
-          $value = $node->label();
-        }
-        elseif ($node->hasField($field) && !$node->get($field)->isEmpty()) {
-          $value = (string) $node->get($field)->value;
-        }
-        else {
+        $value = trim((string) ($item[$field] ?? ''));
+        if ($value === '') {
           continue;
         }
         $needle = $this->normalize($value);
@@ -240,7 +233,8 @@ final class CanonicalContextResolver {
         }
       }
       if ($score >= $minimumScore) {
-        $scores[(int) $node->id()] = $score;
+        $scores[$id] = $score;
+        $byId[$id] = $item;
       }
     }
     if ($scores === []) {
@@ -254,8 +248,7 @@ final class CanonicalContextResolver {
     if ($bestScore === $secondScore) {
       return NULL;
     }
-    $match = $storage->load($bestId);
-    return $match instanceof NodeInterface ? $match : NULL;
+    return $byId[$bestId] ?? NULL;
   }
 
   private function extractAddressQuery(string $subject, string $body): string {

@@ -57,10 +57,18 @@ services:
       - '@brebo_mail_intake.attention_scorer'
       - '@brebo_mail_intake.failure_registry'
 
+  brebo_mail_intake.context_read_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailContextReadRepository
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_mail_intake\Contract\MailContextReadRepositoryInterface:
+    alias: brebo_mail_intake.context_read_repository
+
   brebo_mail_intake.relation_suggester:
     class: Drupal\brebo_mail_intake\Service\MailRelationSuggester
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_mail_intake.context_read_repository'
 
   brebo_mail_intake.bag_pdok:
     class: Drupal\brebo_mail_intake\Service\BagPdokClient
@@ -70,7 +78,7 @@ services:
   brebo_mail_intake.canonical_context_resolver:
     class: Drupal\brebo_mail_intake\Service\CanonicalContextResolver
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_mail_intake.context_read_repository'
       - '@brebo_mail_intake.bag_pdok'
       - '@?brebo_building_data.repository'
 
