@@ -126,11 +126,18 @@ services:
     parent: logger.channel_base
     arguments: ['brebo_mail_intake']
 
+  brebo_mail_intake.proposal_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailProposalRepository
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_mail_intake\Contract\MailProposalRepositoryInterface:
+    alias: brebo_mail_intake.proposal_repository
+
   brebo_mail_intake.proposal_materializer:
     class: Drupal\brebo_mail_intake\Service\MailProposalMaterializer
     arguments:
-      - '@entity_type.manager'
-      - '@current_user'
+      - '@brebo_mail_intake.proposal_repository'
 
   brebo_mail_intake.gmail_source:
     class: Drupal\brebo_mail_intake\Source\GmailSourceAdapter
