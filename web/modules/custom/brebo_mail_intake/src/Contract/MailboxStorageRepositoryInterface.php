@@ -6,6 +6,12 @@ namespace Drupal\brebo_mail_intake\Contract;
 
 interface MailboxStorageRepositoryInterface {
   /** @return list<array<string,mixed>> */
+  public function mailboxes(): array;
+  /** @return array<string,mixed>|null */
+  public function mailbox(int $mailboxId): ?array;
+  /** @return list<string> */
+  public function allowedRoles(int $mailboxId, string $capability = 'view'): array;
+  /** @return list<array<string,mixed>> */
   public function messageRows(int $mailboxId, string $state, int $offset, int $limit): array;
   /** @return array<int,list<string>> */
   public function tagsForCommunications(array $communicationIds): array;
