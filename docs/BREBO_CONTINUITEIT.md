@@ -335,6 +335,10 @@ Na de OnSite identity-grens is ook `ProjectClockZoneManager` losgetrokken van Dr
 
 `ClockSessionManager` en `ClockTransitionReconciler` zijn losgetrokken van Drupal entities en `NodeInterface`. Open sessies, assignment-tijden, registratie-updates en projectwisselreconciliatie lopen via de bestaande `ClockRegistrationRepositoryInterface`, waarvan Drupal node-opslag uitsluitend in `DrupalClockRegistrationRepository` zit. Formulieren/controllers consumeren neutrale sessieprojecties; geofence-, tijdcontrole- en afwijkingslogica blijft ongewijzigd.
 
+### Inzet — OnSite persistence boundary
+
+`OnSiteAssignmentProvider` en `OnSitePresenceEvidenceWriter` kennen geen Drupal entity storage of `NodeInterface` meer. Project-/assignmentselectie, gebouw- en zoneprojecties, referentievalidatie en presence-event opslag lopen via `OnSiteRepositoryInterface`; Drupal node-opslag zit in `DrupalOnSiteRepository`. De expliciete user-actionregel blijft ongewijzigd: geen achtergrondtracking en geen automatische aanwezigheidsregistratie.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
