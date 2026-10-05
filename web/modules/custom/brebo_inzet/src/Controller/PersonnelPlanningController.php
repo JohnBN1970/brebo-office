@@ -64,7 +64,7 @@ final class PersonnelPlanningController extends ControllerBase {
       $person = $assignment->get('field_brebo_plan_user')->entity;
       $statusItem = $assignment->get('field_brebo_assignment_status')->first();
       $status = $statusItem ? (string) $statusItem->getString() : '';
-      $actual = $this->comparison->compare($assignment);
+      $actual = $this->comparison->compare((int) $assignment->id());
       $delta = (float) $actual['delta_hours'];
       $deltaLabel = ($delta > 0 ? '+' : '') . number_format($delta, 2, ',', '.') . ' u';
 
