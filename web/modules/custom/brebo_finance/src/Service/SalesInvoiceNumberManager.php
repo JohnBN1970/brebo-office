@@ -4,19 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\SalesInvoiceNumberSettingsInterface;
 use Drupal\brebo_finance\Contract\SalesInvoiceNumberStoreInterface;
-use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\brebo_finance\Contract\SalesInvoiceNumberLockInterface;
 
 /** Owns BREBO sales invoice numbering, reservations and skips. */
 final class SalesInvoiceNumberManager {
 
-  private const LOCK = 'brebo_finance.sales_invoice_numbers';
-
   public function __construct(
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly SalesInvoiceNumberSettingsInterface $settings,
     private readonly SalesInvoiceNumberStoreInterface $store,
-    private readonly LockBackendInterface $lock,
+    private readonly SalesInvoiceNumberLockInterface $lock,
   ) {}
 
   public function nextAutomatic(?int $year = NULL): string {
@@ -27,7 +25,7 @@ final class SalesInvoiceNumberManager {
 
   public function reserveNextAutomatic(?int $year = NULL): string {
     $year ??= (int) date('Y');
-    if (!$this->lock->acquire(self::LOCK, 10.0)) {
+    if (!$this->lock->acquire(10.0)) {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
@@ -43,7 +41,7 @@ final class SalesInvoiceNumberManager {
       return $candidate;
     }
     finally {
-      $this->lock->release(self::LOCK);
+      $this->lock->release();
     }
   }
 
@@ -63,7 +61,7 @@ final class SalesInvoiceNumberManager {
       $this->store->set($key, ['status' => 'reserved']);
     }
     finally {
-      $this->lock->release(self::LOCK);
+      $this->lock->release();
     }
   }
 
@@ -83,7 +81,7 @@ final class SalesInvoiceNumberManager {
       $this->store->set($this->numberKey($invoiceNumber), ['status' => 'used']);
     }
     finally {
-      $this->lock->release(self::LOCK);
+      $this->lock->release();
     }
   }
 
@@ -92,23 +90,20 @@ final class SalesInvoiceNumberManager {
   }
 
   public function format(int $sequence, ?int $year = NULL): string {
-    $config = $this->configFactory->get('brebo_finance.sales');
+    $settings = $this->settings->settings();
     $year ??= (int) date('Y');
-    $prefix = (string) ($config->get('numbering.prefix') ?? 'VF-');
-    $separator = (string) ($config->get('numbering.separator') ?? '-');
-    $digits = max(1, min(10, (int) ($config->get('numbering.digits') ?? 4)));
-    $includeYear = (bool) ($config->get('numbering.include_year') ?? TRUE);
-    $number = str_pad((string) $sequence, $digits, '0', STR_PAD_LEFT);
-    return $includeYear ? $prefix . $year . $separator . $number : $prefix . $number;
+    $number = str_pad((string) $sequence, $settings['digits'], '0', STR_PAD_LEFT);
+    return $settings['include_year']
+      ? $settings['prefix'] . $year . $settings['separator'] . $number
+      : $settings['prefix'] . $number;
   }
 
   private function startNumber(): int {
-    return max(1, (int) ($this->configFactory->get('brebo_finance.sales')->get('numbering.start_number') ?? 1));
+    return $this->settings->settings()['start_number'];
   }
 
   private function cursorKey(int $year): string {
-    $resetYearly = (bool) ($this->configFactory->get('brebo_finance.sales')->get('numbering.reset_yearly') ?? TRUE);
-    return 'cursor:' . ($resetYearly ? (string) $year : 'global');
+    return 'cursor:' . ($this->settings->settings()['reset_yearly'] ? (string) $year : 'global');
   }
 
   private function numberKey(string $invoiceNumber): string {
