@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceReadRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\brebo_finance\Service\PaymentReleaseManager;
 use Drupal\brebo_finance\Service\PerformanceReceiptManager;
@@ -22,7 +22,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class PurchaseInvoiceActionController extends ControllerBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PurchaseInvoiceReadRepositoryInterface $invoices,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly ThreeWayMatchManager $matchManager,
     private readonly PaymentReleaseManager $paymentReleaseManager,
@@ -32,7 +32,7 @@ final class PurchaseInvoiceActionController extends ControllerBase {
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.purchase_invoice_read_repository'),
       $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.three_way_match_manager'),
       $container->get('brebo_finance.payment_release_manager'),
@@ -188,12 +188,8 @@ final class PurchaseInvoiceActionController extends ControllerBase {
 
   /** @return array<string, mixed> */
   private function assertInvoiceAccess(int $invoiceId): array {
-    $invoice = $this->database->select('brebo_finance_purchase_invoice', 'i')
-      ->fields('i')
-      ->condition('id', $invoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if (!$invoice) {
+    $invoice = $this->invoices->invoice($invoiceId);
+    if ($invoice === NULL) {
       throw new NotFoundHttpException('Purchase invoice not found.');
     }
     $projectNid = (int) ($invoice['project_nid'] ?? 0);
@@ -211,41 +207,21 @@ final class PurchaseInvoiceActionController extends ControllerBase {
 
   /** @return array<string, mixed> */
   private function invoiceLine(int $invoiceId, int $lineId): array {
-    $line = $this->database->select('brebo_finance_purchase_invoice_line', 'il')
-      ->fields('il')
-      ->condition('id', $lineId)
-      ->condition('invoice_id', $invoiceId)
-      ->execute()
-      ->fetchAssoc();
-    if (!$line) {
+    $line = $this->invoices->invoiceLine($invoiceId, $lineId);
+    if ($line === NULL) {
       throw new NotFoundHttpException('Purchase invoice line not found.');
     }
     return $line;
   }
 
   private function assertReceiptBelongsToInvoice(int $invoiceId, int $receiptId): void {
-    $query = $this->database->select('brebo_finance_performance_receipt', 'pr');
-    $query->innerJoin('brebo_finance_purchase_invoice_line', 'il', 'il.commitment_line_id = pr.commitment_line_id');
-    $exists = $query
-      ->fields('pr', ['id'])
-      ->condition('pr.id', $receiptId)
-      ->condition('il.invoice_id', $invoiceId)
-      ->range(0, 1)
-      ->execute()
-      ->fetchField();
-    if (!$exists) {
+    if (!$this->invoices->receiptBelongsToInvoice($invoiceId, $receiptId)) {
       throw new NotFoundHttpException('Performance receipt not found for this invoice.');
     }
   }
 
   private function assertReleaseBelongsToInvoice(int $invoiceId, int $releaseId): void {
-    $exists = $this->database->select('brebo_finance_payment_release', 'pr')
-      ->fields('pr', ['id'])
-      ->condition('id', $releaseId)
-      ->condition('invoice_id', $invoiceId)
-      ->execute()
-      ->fetchField();
-    if (!$exists) {
+    if (!$this->invoices->releaseBelongsToInvoice($invoiceId, $releaseId)) {
       throw new NotFoundHttpException('Payment release not found for this invoice.');
     }
   }
