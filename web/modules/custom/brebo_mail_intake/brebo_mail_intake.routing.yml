@@ -118,3 +118,29 @@ brebo_mail_intake.mailbox_message:
     mailbox_id: '\d+'
     communication_id: '\d+'
     mail_state: 'inbox|sent|draft|spam|archive|trash'
+
+
+brebo_mail_intake.core_mail_domains:
+  path: '/mail/beheer/domeinen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\CoreMailDomainManagementForm'
+    _title: 'Maildomeinen'
+  requirements:
+    _permission: 'administer brebo mail platform'
+
+brebo_mail_intake.core_mailboxes:
+  path: '/mail/beheer/mailboxen'
+  defaults:
+    _form: '\Drupal\brebo_mail_intake\Form\CoreMailboxProvisioningForm'
+    _title: 'Mailboxen & aliassen'
+  requirements:
+    _permission: 'administer brebo mail platform'
+
+
+brebo_mail_intake.core_mail_platform_status:
+  path: '/mail/beheer/status'
+  defaults:
+    _controller: '\Drupal\brebo_mail_intake\Controller\CoreMailPlatformStatusController::page'
+    _title: 'Mail platformstatus'
+  requirements:
+    _permission: 'administer brebo mail platform'

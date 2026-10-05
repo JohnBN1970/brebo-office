@@ -358,3 +358,98 @@ function brebo_mail_intake_update_11002(): string {
 
   return 'Provider-independent BREBO mail-domain registry aangemaakt.';
 }
+
+
+/**
+ * Adds provider-independent mailbox aliases for the BREBO Mail core adapter.
+ */
+function brebo_mail_intake_update_11003(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('brebo_mailbox_alias')) {
+    return 'BREBO mailbox-aliasregister bestond al.';
+  }
+
+  $schema->createTable('brebo_mailbox_alias', [
+    'description' => 'Provider-independent aliases for logical BREBO mailboxes.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'mailbox_id' => ['type' => 'int', 'not null' => TRUE],
+      'address' => ['type' => 'varchar', 'length' => 320, 'not null' => TRUE],
+      'active' => ['type' => 'int', 'size' => 'tiny', 'not null' => TRUE, 'default' => 1],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['brebo_mailbox_alias_address' => ['address']],
+    'indexes' => ['brebo_mailbox_alias_mailbox' => ['mailbox_id', 'active']],
+  ]);
+
+  return 'Provider-independent BREBO mailbox-aliasregister aangemaakt.';
+}
+
+
+/**
+ * Adds provider-independent provisioning job persistence.
+ */
+function brebo_mail_intake_update_11004(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('brebo_mail_provisioning_job')) {
+    return 'BREBO mail provisioning jobregister bestond al.';
+  }
+
+  $schema->createTable('brebo_mail_provisioning_job', [
+    'description' => 'Provider-independent BREBO Mail provisioning jobs.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'resource_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'resource_id' => ['type' => 'int', 'not null' => TRUE],
+      'operation' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
+      'provider_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''],
+      'error_message' => ['type' => 'varchar', 'length' => 1000, 'not null' => TRUE, 'default' => ''],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'brebo_mail_provisioning_resource' => ['resource_type', 'resource_id'],
+      'brebo_mail_provisioning_status' => ['status', 'changed'],
+    ],
+  ]);
+
+  return 'BREBO Mail provisioning jobregister aangemaakt.';
+}
+
+
+/**
+ * Adds DKIM selector/public-key state for BREBO Mail domains.
+ */
+function brebo_mail_intake_update_11005(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if (!$schema->tableExists('brebo_mail_domain')) {
+    return 'BREBO mail-domain registry ontbreekt; DKIM velden niet toegevoegd.';
+  }
+
+  if (!$schema->fieldExists('brebo_mail_domain', 'dkim_selector')) {
+    $schema->addField('brebo_mail_domain', 'dkim_selector', [
+      'type' => 'varchar',
+      'length' => 128,
+      'not null' => TRUE,
+      'default' => '',
+    ]);
+  }
+  if (!$schema->fieldExists('brebo_mail_domain', 'dkim_public_key')) {
+    $schema->addField('brebo_mail_domain', 'dkim_public_key', [
+      'type' => 'text',
+      'size' => 'big',
+      'not null' => TRUE,
+    ]);
+  }
+
+  return 'DKIM selector/public-key state toegevoegd aan BREBO Mail domeinen.';
+}

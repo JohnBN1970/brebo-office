@@ -9,6 +9,7 @@ on:
       - 'composer.lock'
       - 'scripts/test-pdok-building-scope.php'
       - 'web/modules/custom/**/*.php'
+      - 'packages/brebo-mail-core/**/*.php'
       - '.github/workflows/php-quality.yml'
   workflow_dispatch:
 
@@ -45,7 +46,7 @@ jobs:
       - name: Lint custom PHP
         shell: bash
         run: |
-          mapfile -d '' files < <(find web/modules/custom -type f -name '*.php' -print0)
+          mapfile -d '' files < <(find web/modules/custom packages/brebo-mail-core -type f -name '*.php' -print0)
           if (( ${#files[@]} == 0 )); then
             echo 'No custom PHP files found.'
             exit 0
@@ -53,6 +54,9 @@ jobs:
           for file in "${files[@]}"; do
             php -l "$file"
           done
+
+      - name: Verify BREBO Mail core independence
+        run: php packages/brebo-mail-core/tests/smoke.php
 
       - name: Verify PDOK building scope contract
         run: php scripts/test-pdok-building-scope.php
