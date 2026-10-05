@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceReadRepositoryInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Session\AccountProxyInterface;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class PurchaseInvoiceCodingController implements ContainerInjectionInterface {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PurchaseInvoiceReadRepositoryInterface $invoices,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceCodingManager $codingManager,
     private readonly PurchaseInvoiceIntegrationClient $integrationClient,
@@ -30,7 +30,7 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
 
   public static function create(ContainerInterface $container): self {
     return new self(
-      $container->get('database'),
+      $container->get('brebo_finance.purchase_invoice_read_repository'),
       $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.purchase_invoice_coding_manager'),
       $container->get('brebo_finance.purchase_invoice_integration_client'),
@@ -44,22 +44,8 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
     if ($projectNid > 0) {
       $this->assertProjectAccess($projectNid);
     }
-    $lines = $this->database->select('brebo_finance_purchase_invoice_line', 'l')->fields('l')->condition('invoice_id', $invoice_id)->orderBy('line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $commitments = [];
-    if ($projectNid > 0) {
-      $query = $this->database->select('brebo_finance_commitment_line', 'cl');
-      $query->join('brebo_finance_commitment', 'c', 'c.id = cl.commitment_id');
-      $query->addField('cl', 'id');
-      $query->addField('cl', 'line_number');
-      $query->addField('cl', 'description');
-      $query->addField('cl', 'amount_ex_vat');
-      $query->addField('cl', 'unit_price_ex_vat');
-      $query->addField('cl', 'vat_code');
-      $query->addField('c', 'id', 'commitment_id');
-      $query->addField('c', 'commitment_number');
-      $query->addField('c', 'supplier_name');
-      $commitments = $query->condition('c.project_nid', $projectNid)->condition('c.status', ['cancelled'], 'NOT IN')->orderBy('c.id', 'DESC')->orderBy('cl.line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    }
+    $lines = $this->invoices->lines($invoice_id);
+    $commitments = $projectNid > 0 ? $this->invoices->commitmentLinesForProject($projectNid) : [];
     $source = $this->sourceInvoice($invoice);
     $lineTotal = array_reduce($lines, static fn(float $sum, array $line): float => $sum + (float) ($line['amount_inc_vat'] ?? 0), 0.0);
     return $this->json([
@@ -106,8 +92,8 @@ final class PurchaseInvoiceCodingController implements ContainerInjectionInterfa
   }
 
   private function invoice(int $invoiceId): array {
-    $invoice = $this->database->select('brebo_finance_purchase_invoice', 'i')->fields('i')->condition('id', $invoiceId)->execute()->fetchAssoc();
-    if ($invoice === FALSE) {
+    $invoice = $this->invoices->invoice($invoiceId);
+    if ($invoice === NULL) {
       throw new NotFoundHttpException('Purchase invoice does not exist.');
     }
     return $invoice;
