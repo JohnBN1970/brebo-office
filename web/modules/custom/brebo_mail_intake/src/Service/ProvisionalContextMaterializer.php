@@ -53,7 +53,7 @@ final class ProvisionalContextMaterializer {
       'field_brebo_project_code' => 'MAIL-' . $seed,
       'field_brebo_client' => 'Te beoordelen',
       'field_brebo_location' => $location,
-      'field_brebo_status' => 'Mogelijk nieuw - te beoordelen',
+      'field_brebo_status' => 'concept',
       'field_brebo_description' => $this->sourceDescription($communication, $resolution, 'project'),
     ]);
     if (!$node instanceof NodeInterface) {
