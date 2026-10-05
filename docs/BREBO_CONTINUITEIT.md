@@ -311,6 +311,10 @@ Nieuwe ontkoppelslices mogen functioneel gedrag niet wijzigen: eerst grens schoo
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
 
+### Project Cockpit — progress read boundary
+
+Na de statusaggregatie is ook `ProjectProgressBuilder` losgetrokken van Drupal entity- en field-API's. De builder bevat uitsluitend voortgangs-, tijdsverloop- en afwijkingslogica; bronactiviteiten worden genormaliseerd aangeleverd via `ProjectProgressReadRepositoryInterface` met een Drupal-adapter aan de buitenrand.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
