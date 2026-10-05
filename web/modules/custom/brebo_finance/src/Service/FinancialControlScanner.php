@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinancialControlScannerRepositoryInterface;
 
 /**
  * Produces cause-and-effect findings from the financial project state.
@@ -14,7 +14,7 @@ final class FinancialControlScanner {
   private const string SOURCE = 'automatic_financial_control';
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FinancialControlScannerRepositoryInterface $repository,
     private readonly LabourProductivityManager $labourProductivityManager,
     private readonly VatCalculator $decimal,
   ) {}
@@ -30,7 +30,7 @@ final class FinancialControlScanner {
     $seen = [];
     $counts = ['critical' => 0, 'high' => 0, 'medium' => 0, 'low' => 0];
 
-    if (!$this->hasLockedBudget($projectNid)) {
+    if (!$this->repository->hasLockedBudget($projectNid)) {
       $this->record($projectNid, 'FIN-BASELINE-MISSING', 'critical', 'project', $projectNid,
         'Goedgekeurde werkbegroting ontbreekt',
         'De werkbegroting is nog niet multidisciplinair goedgekeurd en vergrendeld.',
@@ -42,7 +42,7 @@ final class FinancialControlScanner {
       $counts['critical']++;
     }
 
-    if ($this->hasLockedBudget($projectNid)) {
+    if ($this->repository->hasLockedBudget($projectNid)) {
       $labour = $this->labourProductivityManager->analyzeProject($projectNid);
       foreach ($labour['lines'] as $line) {
         if ($line['status'] === 'forecast_overrun') {
