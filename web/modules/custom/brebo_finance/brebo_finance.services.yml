@@ -447,6 +447,13 @@ services:
   brebo_finance.finance_operating_layer:
     class: Drupal\brebo_finance\Service\FinanceOperatingLayer
     arguments: ['@database']
+  brebo_finance.supplier_invoice_analytics_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseSupplierInvoiceAnalyticsRepository
+    arguments: ['@database']
+
+  Drupal\brebo_finance\Contract\SupplierInvoiceAnalyticsRepositoryInterface:
+    alias: brebo_finance.supplier_invoice_analytics_repository
+
   brebo_finance.route_subscriber:
     class: Drupal\brebo_finance\Routing\FinanceRouteSubscriber
     tags:
