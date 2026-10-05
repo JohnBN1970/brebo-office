@@ -23,6 +23,24 @@ brebo_data_intake.review_decision:
     _permission: 'review brebo office intake'
     record: '\d+'
 
+brebo_data_intake.external_project_v1:
+  path: '/brebo-internal/intake/v1/project-request'
+  defaults:
+    _controller: '\Drupal\brebo_data_intake\Controller\ExternalProjectIntakeController::ingest'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
+
+brebo_data_intake.external_project_document_v1:
+  path: '/brebo-internal/intake/v1/project-document'
+  defaults:
+    _controller: '\Drupal\brebo_data_intake\Controller\ExternalProjectDocumentController::upload'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
+
+# Backward-compatible legacy routes. brebo-platform can migrate to v1 without
+# forcing an atomic deploy of both repositories.
 brebo_data_intake.website_europakozijn:
   path: '/brebo-internal/intake/europakozijn'
   defaults:
