@@ -9,6 +9,13 @@ interface MailboxStorageRepositoryInterface {
   public function mailboxes(): array;
   /** @return array<string,mixed>|null */
   public function mailbox(int $mailboxId): ?array;
+  public function projectionStorageAvailable(): bool;
+  /** @return list<array{id:int,address:string}> */
+  public function activeMailboxes(): array;
+  /** @return list<string> */
+  public function activeMailboxAddresses(): array;
+  /** @param array<string,mixed> $fields */
+  public function upsertMessageProjection(int $mailboxId, int $communicationId, array $fields): void;
   /** @return list<string> */
   public function allowedRoles(int $mailboxId, string $capability = 'view'): array;
   /** @return list<array<string,mixed>> */
