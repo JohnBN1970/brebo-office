@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Service;
 
+use Drupal\brebo_data_intake\Contract\IntakeDecisionRepositoryInterface;
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
-use Drupal\Core\Database\Connection;
-use Drupal\Core\Datetime\TimeInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 use RuntimeException;
 
@@ -15,20 +14,15 @@ final class IntakeDecisionManager {
 
   /** @param iterable<IntakeDestinationInterface> $destinations */
   public function __construct(
-    private readonly Connection $database,
-    private readonly TimeInterface $time,
+    private readonly IntakeDecisionRepositoryInterface $repository,
     private readonly LockBackendInterface $lock,
     private readonly iterable $destinations,
   ) {}
 
   /** @return array<string, mixed>|null */
   public function snapshot(int $recordId): ?array {
-    $row = $this->database->select('brebo_data_record', 'record')
-      ->fields('record', ['id', 'payload', 'status', 'created'])
-      ->condition('record.id', $recordId)
-      ->execute()
-      ->fetchAssoc();
-    if (!$row) {
+    $row = $this->repository->record($recordId);
+    if ($row === NULL) {
       return NULL;
     }
 
@@ -69,18 +63,12 @@ final class IntakeDecisionManager {
         return ['state' => 'unchanged', 'record_id' => $recordId, 'revision' => $expectedRevision];
       }
       $action = $classificationChanged && $canonicalChanged ? 'reclassify_relink' : ($classificationChanged ? 'reclassify' : 'relink');
-      $transaction = $this->database->startTransaction();
-      try {
-        $updated = $this->database->update('brebo_data_record')->fields(['payload' => $encoded])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
-        if ($updated !== 1) {
+      $this->repository->transactional(function () use ($recordId, $current, $encoded, $action, $actorUid, $classification, $canonical, $note): void {
+        if (!$this->repository->updateReviewPayload($recordId, $current['payload'], $encoded)) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders gewijzigd. Vernieuw de pagina.');
         }
-        $this->audit($recordId, $action, 'review_required', 'review_required', $actorUid, $classification, $canonical, $note);
-      }
-      catch (\Throwable $e) {
-        $transaction->rollBack();
-        throw $e;
-      }
+        $this->repository->audit($recordId, $action, 'review_required', 'review_required', $actorUid, $classification, $canonical, $note);
+      });
       return ['state' => 'review_required', 'record_id' => $recordId, 'revision' => $this->revision('review_required', $encoded), 'action' => $action];
     });
   }
@@ -109,18 +97,12 @@ final class IntakeDecisionManager {
         throw new RuntimeException('De vakmodule heeft het item niet geaccepteerd: ' . $destinationResult->reason . '.');
       }
       $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
-      $transaction = $this->database->startTransaction();
-      try {
-        $updated = $this->database->update('brebo_data_record')->fields(['status' => 'accepted'])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
-        if ($updated !== 1) {
+      $this->repository->transactional(function () use ($recordId, $current, $actorUid, $classification, $canonical, $note): void {
+        if (!$this->repository->transitionReviewStatus($recordId, $current['payload'], 'accepted')) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders beoordeeld.');
         }
-        $this->audit($recordId, 'accept', 'review_required', 'accepted', $actorUid, $classification, $canonical, $note);
-      }
-      catch (\Throwable $e) {
-        $transaction->rollBack();
-        throw $e;
-      }
+        $this->repository->audit($recordId, 'accept', 'review_required', 'accepted', $actorUid, $classification, $canonical, $note);
+      });
       return ['state' => 'accepted', 'record_id' => $recordId, 'destination' => $destinationResult->toArray()];
     });
   }
@@ -137,26 +119,20 @@ final class IntakeDecisionManager {
       $envelope = is_array($stored['envelope'] ?? NULL) ? $stored['envelope'] : [];
       $classification = strtolower(trim((string) ($envelope['classification'] ?? '')));
       $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
-      $transaction = $this->database->startTransaction();
-      try {
-        $updated = $this->database->update('brebo_data_record')->fields(['status' => 'rejected'])->condition('id', $recordId)->condition('status', 'review_required')->condition('payload', $current['payload'])->execute();
-        if ($updated !== 1) {
+      $this->repository->transactional(function () use ($recordId, $current, $actorUid, $classification, $canonical, $note): void {
+        if (!$this->repository->transitionReviewStatus($recordId, $current['payload'], 'rejected')) {
           throw new RuntimeException('Dit intake-item is inmiddels door iemand anders beoordeeld.');
         }
-        $this->audit($recordId, 'reject', 'review_required', 'rejected', $actorUid, $classification, $canonical, $note);
-      }
-      catch (\Throwable $e) {
-        $transaction->rollBack();
-        throw $e;
-      }
+        $this->repository->audit($recordId, 'reject', 'review_required', 'rejected', $actorUid, $classification, $canonical, $note);
+      });
       return ['state' => 'rejected', 'record_id' => $recordId];
     });
   }
 
   /** @return array{payload:string,status:string} */
   private function loadCurrent(int $recordId, string $expectedRevision): array {
-    $row = $this->database->select('brebo_data_record', 'record')->fields('record', ['payload', 'status'])->condition('record.id', $recordId)->execute()->fetchAssoc();
-    if (!$row) {
+    $row = $this->repository->record($recordId);
+    if ($row === NULL) {
       throw new RuntimeException('Intake-item bestaat niet meer.');
     }
     $status = (string) $row['status'];
@@ -209,21 +185,6 @@ final class IntakeDecisionManager {
       $normalized[$key] = $value;
     }
     return $normalized;
-  }
-
-  /** @param array<string,mixed> $canonical */
-  private function audit(int $recordId, string $action, string $previousStatus, string $newStatus, int $actorUid, string $classification, array $canonical, string $note): void {
-    $this->database->insert('brebo_data_intake_decision')->fields([
-      'record_id' => $recordId,
-      'action' => $action,
-      'previous_status' => $previousStatus,
-      'new_status' => $newStatus,
-      'classification' => $classification,
-      'canonical' => json_encode($canonical, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-      'note' => trim($note) !== '' ? trim($note) : NULL,
-      'actor_uid' => max(0, $actorUid),
-      'created' => $this->time->getRequestTime(),
-    ])->execute();
   }
 
   private function revision(string $status, string $payload): string {

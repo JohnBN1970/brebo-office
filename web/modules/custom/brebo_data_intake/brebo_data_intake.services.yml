@@ -97,10 +97,13 @@ services:
     class: Drupal\brebo_data_intake\Infrastructure\DatabaseIntakeReviewRepository
     arguments: ['@database']
 
+  brebo_data_intake.decision_repository:
+    class: Drupal\brebo_data_intake\Infrastructure\DatabaseIntakeDecisionRepository
+    arguments: ['@database', '@datetime.time']
+
   brebo_data_intake.decision_manager:
     class: Drupal\brebo_data_intake\Service\IntakeDecisionManager
     arguments:
-      - '@database'
-      - '@datetime.time'
+      - '@brebo_data_intake.decision_repository'
       - '@lock'
       - '@brebo_data_intake.destination_dispatcher'
