@@ -82,10 +82,18 @@ services:
       - '@brebo_mail_intake.bag_pdok'
       - '@?brebo_building_data.repository'
 
+  brebo_mail_intake.crm_read_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailCrmReadRepository
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_mail_intake\Contract\MailCrmReadRepositoryInterface:
+    alias: brebo_mail_intake.crm_read_repository
+
   brebo_mail_intake.canonical_crm_context_resolver:
     class: Drupal\brebo_mail_intake\Service\CanonicalCrmContextResolver
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_mail_intake.crm_read_repository'
 
   brebo_mail_intake.provisional_context_materializer:
     class: Drupal\brebo_mail_intake\Service\ProvisionalContextMaterializer
