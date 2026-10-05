@@ -7,3 +7,9 @@ send brebo outbound mail:
   title: 'BREBO uitgaande e-mail verzenden'
   description: 'Verzend uitsluitend expliciet vrijgegeven uitgaande communicatie via het geconfigureerde mailsysteem.'
   restrict access: true
+
+
+administer brebo mailboxes:
+  title: 'BREBO mailboxen beheren'
+  description: 'Maak logische mailboxen en aliassen aan onder geverifieerde maildomeinen.'
+  restrict access: true
