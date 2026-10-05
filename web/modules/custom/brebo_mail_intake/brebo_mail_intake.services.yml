@@ -63,10 +63,18 @@ services:
     arguments:
       - '@brebo_mail_intake.mailbox_repository'
 
+  brebo_mail_intake.failure_store:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailIntakeFailureStore
+    arguments:
+      - '@state'
+
+  Drupal\brebo_mail_intake\Contract\MailIntakeFailureStoreInterface:
+    alias: brebo_mail_intake.failure_store
+
   brebo_mail_intake.failure_registry:
     class: Drupal\brebo_mail_intake\Service\MailIntakeFailureRegistry
     arguments:
-      - '@state'
+      - '@brebo_mail_intake.failure_store'
 
   brebo_mail_intake.review_controller:
     class: Drupal\brebo_mail_intake\Controller\MailIntakeReviewV2Controller
