@@ -6,7 +6,7 @@ namespace Drupal\brebo_glass\Form;
 
 use Drupal\brebo_glass\Service\GlassCandidateSelector;
 use Drupal\brebo_glass\Service\GlassPositionRepository;
-use Drupal\brebo_glass\Service\GlassProductRepository;
+use Drupal\brebo_glass\Contract\GlassProductRepositoryInterface;
 use Drupal\brebo_glass\Service\GlassThreePointMeasurementCalculator;
 use Drupal\brebo_glass\Service\GlassSpecificationCalculator;
 use Drupal\brebo_glass\Service\GlassTechnicalRuleEvaluator;
@@ -27,7 +27,7 @@ final class GlassPositionForm extends FormBase {
     private readonly GlassTechnicalRuleEvaluator $technicalRules,
     private readonly GlassWindLoadCalculator $windCalculator,
     private readonly GlassCandidateSelector $candidateSelector,
-    private readonly GlassProductRepository $productRepository,
+    private readonly GlassProductRepositoryInterface $productRepository,
     private readonly GlassPositionRepository $repository,
     private readonly UuidInterface $uuid,
   ) {}
