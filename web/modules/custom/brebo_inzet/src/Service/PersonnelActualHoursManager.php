@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_inzet\Service;
 
 use Drupal\brebo_finance\Service\LabourProductivityManager;
-use Drupal\datetime\Plugin\Field\FieldType\DateTimeItemInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_inzet\Contract\PersonnelAssignmentRepositoryInterface;
 
 /**
  * Submits and approves actual personnel hours.
@@ -20,78 +19,91 @@ final class PersonnelActualHoursManager {
     private readonly PersonnelAssignmentComparison $comparison,
     private readonly LabourProductivityManager $labourProductivity,
     private readonly PersonnelLabourLineResolver $labourLineResolver,
+    private readonly PersonnelAssignmentRepositoryInterface $assignmentRepository,
   ) {}
 
-  public function submit(NodeInterface $assignment, int $userId): int {
-    $actual = $this->closedActual($assignment);
-    $this->storeOperationalReview($assignment, $actual['clocked_hours'], 'worked', $userId);
-    return $this->synchronizeFinanceIfPossible($assignment, 'worked', $actual, $userId);
+  public function submit(int $assignmentId, int $userId): int {
+    $actual = $this->closedActual($assignmentId);
+    $this->assignmentRepository->storeActualReview(
+      $assignmentId,
+      (float) $actual['clocked_hours'],
+      'worked',
+      $userId,
+      gmdate('Y-m-d\\TH:i:s'),
+    );
+    return $this->synchronizeFinanceIfPossible($assignmentId, 'worked', $actual, $userId);
   }
 
-  public function approve(NodeInterface $assignment, int $userId): int {
-    $this->assertAssignment($assignment);
-    $status = (string) ($assignment->get('field_brebo_actual_status')->value ?? 'open');
-    if ($status !== 'worked') {
+  public function approve(int $assignmentId, int $userId): int {
+    $assignment = $this->requireAssignment($assignmentId);
+    if ($assignment['actual_status'] !== 'worked') {
       throw new \UnexpectedValueException('Alleen ingediende uren kunnen worden goedgekeurd.');
     }
-
-    $hours = max(0.0, (float) ($assignment->get('field_brebo_actual_hours')->value ?? 0));
-    if ($hours <= 0) {
+    if ($assignment['actual_hours'] <= 0) {
       throw new \UnexpectedValueException('Ingediende uren bevatten geen werkelijke uren.');
     }
 
-    $actual = $this->comparison->compare((int) $assignment->id());
-    $actual['clocked_hours'] = $hours;
-    $this->storeOperationalReview($assignment, $hours, 'approved', $userId);
-    return $this->synchronizeFinanceIfPossible($assignment, 'approved', $actual, $userId);
+    $actual = $this->comparison->compare($assignmentId);
+    $actual['clocked_hours'] = $assignment['actual_hours'];
+    $this->assignmentRepository->storeActualReview(
+      $assignmentId,
+      $assignment['actual_hours'],
+      'approved',
+      $userId,
+      gmdate('Y-m-d\\TH:i:s'),
+    );
+    return $this->synchronizeFinanceIfPossible($assignmentId, 'approved', $actual, $userId);
   }
 
-  /**
-   * Backfills an approved/ submitted assignment into Finance when possible.
-   */
-  public function synchronizeFinanceIfPossible(NodeInterface $assignment, ?string $status = NULL, ?array $actual = NULL, int $userId = 0): int {
-    $this->assertAssignment($assignment);
-    $projectId = (int) ($assignment->get('field_brebo_project_ref')->target_id ?? 0);
+  /** Backfills approved/submitted assignment hours into Finance when possible. */
+  public function synchronizeFinanceIfPossible(
+    int $assignmentId,
+    ?string $status = NULL,
+    ?array $actual = NULL,
+    int $userId = 0,
+  ): int {
+    $assignment = $this->requireAssignment($assignmentId);
+    $projectId = $assignment['project_id'];
     if ($projectId <= 0) {
       return 0;
     }
 
-    $budgetLineId = (int) ($assignment->get('field_brebo_budget_line_id')->value ?? 0);
+    $budgetLineId = $assignment['budget_line_id'];
     if ($budgetLineId <= 0) {
-      $account = $assignment->get('field_brebo_plan_user')->entity;
-      if ($account instanceof \Drupal\user\UserInterface) {
-        try {
-          $budgetLineId = (int) $this->labourLineResolver->resolve($projectId, $account)['id'];
-          if ($budgetLineId > 0) {
-            $assignment->set('field_brebo_budget_line_id', $budgetLineId);
-            $assignment->save();
-          }
+      try {
+        $budgetLineId = (int) $this->labourLineResolver->resolve(
+          $projectId,
+          $assignment['hourly_cost'],
+        )['id'];
+        if ($budgetLineId > 0) {
+          $this->assignmentRepository->setBudgetLine($assignmentId, $budgetLineId);
+          $assignment['budget_line_id'] = $budgetLineId;
         }
-        catch (\Throwable) {
-          return 0;
-        }
+      }
+      catch (\Throwable) {
+        return 0;
       }
     }
     if ($budgetLineId <= 0) {
       return 0;
     }
 
-    $status ??= (string) ($assignment->get('field_brebo_actual_status')->value ?? 'open');
+    $status ??= $assignment['actual_status'];
     if (!in_array($status, ['worked', 'approved'], TRUE)) {
       return 0;
     }
 
-    $actual ??= $this->comparison->compare((int) $assignment->id());
-    $hours = max(0.0, (float) ($assignment->get('field_brebo_actual_hours')->value ?? $actual['clocked_hours'] ?? 0));
+    $actual ??= $this->comparison->compare($assignmentId);
+    $hours = max(0.0, $assignment['actual_hours'] ?: (float) ($actual['clocked_hours'] ?? 0));
     if ($hours <= 0) {
       return 0;
     }
 
     $planned = max(0.0, (float) ($actual['planned_hours'] ?? 0));
-    $employeeCost = $this->employeeHourlyCost($assignment);
+    $employeeCost = max(0.0, $assignment['hourly_cost']);
     $actualCost = number_format($hours * $employeeCost, 4, '.', '');
     $payload = [
-      'assignment_nid' => (int) $assignment->id(),
+      'assignment_nid' => $assignmentId,
       'project_nid' => $projectId,
       'budget_line_id' => $budgetLineId,
       'planned_hours' => $planned,
@@ -104,17 +116,31 @@ final class PersonnelActualHoursManager {
     ];
 
     return $this->labourProductivity->synchronizeEntry(
-      $projectId, $budgetLineId, 'brebo_inzet_actual', 'assignment:' . $assignment->id(),
-      (string) $assignment->getRevisionId(), (int) $assignment->id(), NULL, NULL, NULL,
-      NULL, '0.0000', number_format($hours, 4, '.', ''),
-      NULL, $actualCost, $status, time(), $payload, $userId,
+      $projectId,
+      $budgetLineId,
+      'brebo_inzet_actual',
+      'assignment:' . $assignmentId,
+      $assignment['revision_id'],
+      $assignmentId,
+      NULL,
+      NULL,
+      NULL,
+      NULL,
+      '0.0000',
+      number_format($hours, 4, '.', ''),
+      NULL,
+      $actualCost,
+      $status,
+      time(),
+      $payload,
+      $userId,
     );
   }
 
   /** @return array<string,mixed> */
-  private function closedActual(NodeInterface $assignment): array {
-    $this->assertAssignment($assignment);
-    $actual = $this->comparison->compare((int) $assignment->id());
+  private function closedActual(int $assignmentId): array {
+    $this->requireAssignment($assignmentId);
+    $actual = $this->comparison->compare($assignmentId);
     if ((bool) $actual['open_session']) {
       throw new \UnexpectedValueException('Open klokregistraties kunnen nog niet worden ingediend.');
     }
@@ -124,28 +150,13 @@ final class PersonnelActualHoursManager {
     return $actual;
   }
 
-  private function storeOperationalReview(NodeInterface $assignment, float $hours, string $status, int $userId): void {
-    $assignment->set('field_brebo_actual_hours', round(max(0.0, $hours), 2));
-    $assignment->set('field_brebo_actual_status', $status);
-    $assignment->set('field_brebo_actual_reviewed_by', $userId > 0 ? ['target_id' => $userId] : NULL);
-    $assignment->set('field_brebo_actual_reviewed_at', gmdate(DateTimeItemInterface::DATETIME_STORAGE_FORMAT));
-    $assignment->setNewRevision(TRUE);
-    $assignment->setRevisionLogMessage('Werkelijke personeelsuren ' . ($status === 'approved' ? 'goedgekeurd' : 'ingediend') . '.');
-    $assignment->save();
-  }
-
-  private function employeeHourlyCost(NodeInterface $assignment): float {
-    $account = $assignment->get('field_brebo_plan_user')->entity;
-    if (!$account instanceof \Drupal\user\UserInterface || !$account->hasField('field_brebo_hourly_cost')) {
-      return 0.0;
-    }
-    return max(0.0, (float) ($account->get('field_brebo_hourly_cost')->value ?? 0));
-  }
-
-  private function assertAssignment(NodeInterface $assignment): void {
-    if ($assignment->bundle() !== 'brebo_personnel_assignment') {
+  /** @return array<string,mixed> */
+  private function requireAssignment(int $assignmentId): array {
+    $assignment = $this->assignmentRepository->assignment($assignmentId);
+    if ($assignment === NULL) {
       throw new \InvalidArgumentException('Only personnel assignments can be processed.');
     }
+    return $assignment;
   }
 
 }

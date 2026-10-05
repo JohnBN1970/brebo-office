@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_inzet\Service;
 
 use Drupal\brebo_finance\Service\LabourProductivityManager;
-use Drupal\user\UserInterface;
 
 /**
  * Allocates personnel planning to labour budget capacity, independent of rate.
@@ -25,7 +24,7 @@ final class PersonnelLabourLineResolver {
    *
    * @return array{id:int,employee_hourly_cost:float,description:string}
    */
-  public function resolve(int $projectId, UserInterface $account): array {
+  public function resolve(int $projectId, float $employeeHourlyCost = 0.0): array {
     $lines = $this->labourProductivity->labourBudgetLines($projectId);
     if ($lines === []) {
       throw new \UnexpectedValueException('Geen vergrendelde arbeidsbegroting met arbeid gevonden voor dit project.');
@@ -46,10 +45,7 @@ final class PersonnelLabourLineResolver {
       return $aRemaining < $bRemaining ? 1 : -1;
     });
 
-    $employeeHourlyCost = 0.0;
-    if ($account->hasField('field_brebo_hourly_cost')) {
-      $employeeHourlyCost = round((float) ($account->get('field_brebo_hourly_cost')->value ?? 0), 2);
-    }
+    $employeeHourlyCost = round(max(0.0, $employeeHourlyCost), 2);
 
     return [
       'id' => (int) $lines[0]['id'],

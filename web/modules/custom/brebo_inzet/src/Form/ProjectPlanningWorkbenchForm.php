@@ -253,7 +253,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
         $budgetLineId = 0;
         if ($hasLabourBudget) {
           try {
-            $budgetLineId = (int) $this->labourLineResolver->resolve($projectId, $account)['id'];
+            $budgetLineId = (int) $this->labourLineResolver->resolve($projectId, $account->hasField('field_brebo_hourly_cost') ? (float) ($account->get('field_brebo_hourly_cost')->value ?? 0) : 0.0)['id'];
           }
           catch (\Throwable) {
             $budgetLineId = 0;
@@ -283,7 +283,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
         $assignment->save();
 
         if ($budgetLineId > 0) {
-          $this->financeSynchronizer->synchronize($assignment);
+          $this->financeSynchronizer->synchronize((int) $assignment->id());
         }
       }
     }
