@@ -11,8 +11,18 @@ namespace Drupal\node {
   }
 }
 
+namespace Drupal\brebo_building_data\Contract {
+  interface BuildingRelationRepositoryInterface {
+    public function clearSourceRelations(int $buildingNid, string $source): array;
+    public function upsertAddress(int $buildingNid, array $data): array;
+    public function upsertBagIdentity(int $buildingNid, string $type, string $bagId, array $data = []): array;
+  }
+}
+
 namespace Drupal\brebo_building_data\Service {
-  final class BuildingRelationRepository {
+  use Drupal\brebo_building_data\Contract\BuildingRelationRepositoryInterface;
+
+  final class BuildingRelationRepository implements BuildingRelationRepositoryInterface {
     public array $addresses = [];
     public array $identities = [];
     public int $clearCalls = 0;
