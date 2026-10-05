@@ -12,4 +12,7 @@ interface OnSiteIdentityRepositoryInterface {
    */
   public function activeByMobile(string $normalizedMobile): array;
 
+  /** @return array{uid:int,mobile:string,language:string}|null */
+  public function activeByUid(int $uid): ?array;
+
 }
