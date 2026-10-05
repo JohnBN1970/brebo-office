@@ -5,6 +5,7 @@ declare(strict_types=1);
 require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
 use Brebo\Mail\Domain\MailAddress;
+use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\Mail\Domain\MailDomainDnsPolicy;
 
 $address = MailAddress::fromParts('calculatie', 'brebobv.nl');
@@ -57,6 +58,11 @@ foreach ($iterator as $file) {
   if (str_contains($source, 'Drupal\\')) {
     throw new RuntimeException('Framework dependency detected in ' . $file->getPathname());
   }
+}
+
+$signature = GatewayRequestSignature::sign('test-key', 'secret', 1700000000, 'POST', '/v1/domains', '{"domain":"example.nl"}');
+if ($signature->headers()['X-Brebo-Key-Id'] !== 'test-key' || strlen($signature->signature) !== 64) {
+  throw new RuntimeException('Gateway request signing failed.');
 }
 
 echo "BREBO_MAIL_CORE_SMOKE=PASS\n";
