@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Form;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\Url;
@@ -13,10 +13,10 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 /** Edits lightweight user-managed tags for one mailbox communication. */
 final class MailboxTagForm extends FormBase {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly MailboxStorageRepositoryInterface $storage) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'));
+    return new static($container->get('brebo_mail_intake.mailbox_storage_repository'));
   }
 
   public function getFormId(): string {
@@ -29,15 +29,7 @@ final class MailboxTagForm extends FormBase {
     $form['communication_id'] = ['#type' => 'hidden', '#value' => $communication_id];
     $form['mail_state'] = ['#type' => 'hidden', '#value' => $mail_state];
 
-    $tags = [];
-    if ($communication_id > 0 && $this->database->schema()->tableExists('brebo_mail_tag')) {
-      $tags = $this->database->select('brebo_mail_tag', 't')
-        ->fields('t', ['tag'])
-        ->condition('communication_id', $communication_id)
-        ->orderBy('tag')
-        ->execute()
-        ->fetchCol();
-    }
+    $tags = $communication_id > 0 ? $this->storage->tags($communication_id) : [];
 
     $form['tags'] = [
       '#type' => 'textfield',
@@ -56,11 +48,6 @@ final class MailboxTagForm extends FormBase {
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {
-    if (!$this->database->schema()->tableExists('brebo_mail_tag')) {
-      $this->messenger()->addError($this->t('De tag-opslag is nog niet geïnstalleerd. Voer eerst de database-updates uit.'));
-      return;
-    }
-
     $communicationId = (int) $form_state->getValue('communication_id');
     $mailboxId = (int) $form_state->getValue('mailbox_id');
     $mailState = (string) $form_state->getValue('mail_state');
@@ -75,22 +62,12 @@ final class MailboxTagForm extends FormBase {
     ))));
     $tags = array_slice($tags, 0, 20);
 
-    $transaction = $this->database->startTransaction();
     try {
-      $this->database->delete('brebo_mail_tag')->condition('communication_id', $communicationId)->execute();
-      $now = time();
-      foreach ($tags as $tag) {
-        $this->database->insert('brebo_mail_tag')->fields([
-          'communication_id' => $communicationId,
-          'tag' => $tag,
-          'created' => $now,
-          'uid' => (int) $this->currentUser()->id(),
-        ])->execute();
-      }
+      $this->storage->replaceTags($communicationId, $tags, (int) $this->currentUser()->id());
     }
-    catch (\Throwable $e) {
-      unset($transaction);
-      throw $e;
+    catch (\RuntimeException $e) {
+      $this->messenger()->addError($this->t($e->getMessage()));
+      return;
     }
 
     $this->messenger()->addStatus($this->t('Tags opgeslagen.'));
