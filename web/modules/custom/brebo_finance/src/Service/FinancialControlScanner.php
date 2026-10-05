@@ -559,16 +559,6 @@ final class FinancialControlScanner {
     return $counts;
   }
 
-  private function hasLockedBudget(int $projectNid): bool {
-    return (bool) $this->database->select('brebo_finance_budget', 'b')
-      ->condition('project_nid', $projectNid)
-      ->condition('budget_type', 'working')
-      ->condition('status', 'locked')
-      ->countQuery()
-      ->execute()
-      ->fetchField();
-  }
-
   private function record(
     int $projectNid,
     string $code,
@@ -582,14 +572,7 @@ final class FinancialControlScanner {
     int $now,
     array $payload = [],
   ): void {
-    $currentStatus = $this->database->select('brebo_finance_control_finding', 'f')
-      ->fields('f', ['status'])
-      ->condition('project_nid', $projectNid)
-      ->condition('control_code', $code)
-      ->condition('source_type', $sourceType)
-      ->condition('source_id', $sourceId)
-      ->execute()
-      ->fetchField();
+    $currentStatus = $this->repository->findingStatus($projectNid, $code, $sourceType, $sourceId);
     $pendingVerification = $currentStatus === 'pending_verification';
 
     $fields = [
@@ -615,19 +598,15 @@ final class FinancialControlScanner {
       ];
     }
 
-    $this->database->merge('brebo_finance_control_finding')
-      ->keys([
+    $this->repository->upsertFinding([
         'project_nid' => $projectNid,
         'control_code' => $code,
         'source_type' => $sourceType,
         'source_id' => $sourceId,
-      ])
-      ->insertFields([
+      ], [
         'detected' => $now,
         'created' => $now,
-      ])
-      ->fields($fields)
-      ->execute();
+      ], $fields);
   }
 
   /**
@@ -636,23 +615,15 @@ final class FinancialControlScanner {
    * @param list<string> $seen
    */
   private function resolveDisappeared(int $projectNid, array $seen, int $now): void {
-    $query = $this->database->select('brebo_finance_control_finding', 'f');
-    $query->fields('f', ['id', 'control_code', 'source_type', 'source_id']);
-    $query->condition('project_nid', $projectNid);
-    $query->condition('status', 'open');
-    $query->condition('origin', self::SOURCE);
-    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) as $finding) {
+    foreach ($this->repository->openAutomaticFindings($projectNid, self::SOURCE) as $finding) {
       $key = $this->key($finding['control_code'], $finding['source_type'], (int) $finding['source_id']);
       if (!in_array($key, $seen, TRUE)) {
-        $this->database->update('brebo_finance_control_finding')
-          ->fields([
+        $this->repository->updateFinding((int) $finding['id'], [
             'status' => 'resolved_automatically',
             'resolved' => $now,
             'resolution_note' => 'The underlying control condition is no longer present.',
             'changed' => $now,
-          ])
-          ->condition('id', $finding['id'])
-          ->execute();
+          ]);
       }
     }
   }
