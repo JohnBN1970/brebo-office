@@ -27,10 +27,15 @@ services:
       - '@?brebo_document_data.repository'
       - '@?brebo_document_data.revision_series'
 
+  brebo_mail_intake.mailbox_storage_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DatabaseMailboxStorageRepository
+    arguments:
+      - '@database'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:
-      - '@database'
+      - '@brebo_mail_intake.mailbox_storage_repository'
 
   brebo_mail_intake.mailbox_access_policy:
     class: Drupal\brebo_mail_intake\Service\MailboxAccessPolicy
