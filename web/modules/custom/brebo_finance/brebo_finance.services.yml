@@ -152,6 +152,14 @@ services:
     class: Drupal\brebo_finance\Service\AiFinancialAssessmentManager
     arguments: ['@brebo_finance.ai_financial_assessment_repository']
 
+  brebo_finance.digital_controller_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseDigitalControllerRepository
+    arguments: ['@database']
+  brebo_finance.digital_controller:
+    class: Drupal\brebo_finance\Service\DigitalController
+    arguments: ['@brebo_finance.digital_controller_repository', '@brebo_finance.control_scanner', '@brebo_finance.controller_briefing_builder', '@brebo_finance.ai_financial_assessment_manager']
+
+
   brebo_finance.performance_evidence_review_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePerformanceEvidenceReviewRepository
     arguments: ['@database']
