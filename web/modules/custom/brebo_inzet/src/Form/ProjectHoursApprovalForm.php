@@ -107,7 +107,7 @@ final class ProjectHoursApprovalForm extends FormBase {
         if (!$approve && $reviewStatus === 'approved') {
           throw new \UnexpectedValueException('Goedgekeurde uren kunnen niet opnieuw worden ingediend.');
         }
-        $approve ? $this->actualHours->approve($assignment, (int) $this->currentUser()->id()) : $this->actualHours->submit($assignment, (int) $this->currentUser()->id());
+        $approve ? $this->actualHours->approve((int) $assignment->id(), (int) $this->currentUser()->id()) : $this->actualHours->submit((int) $assignment->id(), (int) $this->currentUser()->id());
         $done++;
       }
       catch (\Throwable $e) {
