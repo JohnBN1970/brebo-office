@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
+use Drupal\brebo_control\Contract\ControlNotificationRepositoryInterface;
 
 /**
  * Creates notification events only when a control state deserves attention.
@@ -12,7 +13,8 @@ use Drupal\Core\Database\Connection;
 final class ControlNotificationEngine {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ControlActionRepositoryInterface $actions,
+    private readonly ControlNotificationRepositoryInterface $notifications,
     private readonly ControlEscalationMatrix $escalationMatrix,
   ) {}
 
@@ -22,13 +24,7 @@ final class ControlNotificationEngine {
    * @return array<int, array<string, mixed>>
    */
   public function scan(int $now): array {
-    if (!$this->database->schema()->tableExists('brebo_control_action') || !$this->database->schema()->tableExists('brebo_control_notification')) {
-      return [];
-    }
-
-    $rows = $this->database->select('brebo_control_action', 'a')->fields('a')
-      ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->actions->activeRows();
 
     $queued = [];
     foreach ($rows as $action) {
@@ -117,13 +113,11 @@ final class ControlNotificationEngine {
    */
   private function queue(array $action, string $type, string $recipient, string $subject, string $message, string $stateKey, int $now): ?array {
     $dedupKey = hash('sha256', implode('|', [(int) $action['id'], $type, $recipient, $stateKey]));
-    $exists = $this->database->select('brebo_control_notification', 'n')
-      ->condition('dedup_key', $dedupKey)->countQuery()->execute()->fetchField();
-    if ((int) $exists > 0) {
+    if ($this->notifications->existsByDedupKey($dedupKey)) {
       return NULL;
     }
 
-    $id = $this->database->insert('brebo_control_notification')->fields([
+    $id = $this->notifications->create([
       'action_id' => (int) $action['id'],
       'project_nid' => (int) $action['project_nid'],
       'event_type' => $type,
@@ -133,7 +127,7 @@ final class ControlNotificationEngine {
       'message' => $message,
       'status' => 'pending',
       'created' => $now,
-    ])->execute();
+    ]);
 
     return [
       'id' => (int) $id,
