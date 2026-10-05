@@ -5,18 +5,17 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Config\ConfigFactoryInterface;
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
+use Drupal\brebo_finance\Contract\SalesInvoiceNumberStoreInterface;
 use Drupal\Core\Lock\LockBackendInterface;
 
 /** Owns BREBO sales invoice numbering, reservations and skips. */
 final class SalesInvoiceNumberManager {
 
-  private const COLLECTION = 'brebo_finance.sales_invoice_numbers';
   private const LOCK = 'brebo_finance.sales_invoice_numbers';
 
   public function __construct(
     private readonly ConfigFactoryInterface $configFactory,
-    private readonly KeyValueFactoryInterface $keyValueFactory,
+    private readonly SalesInvoiceNumberStoreInterface $store,
     private readonly LockBackendInterface $lock,
   ) {}
 
@@ -32,16 +31,15 @@ final class SalesInvoiceNumberManager {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-      $store = $this->keyValueFactory->get(self::COLLECTION);
-      $cursorKey = $this->cursorKey($year);
-      $cursor = max($this->startNumber(), (int) $store->get($cursorKey, $this->startNumber()));
+            $cursorKey = $this->cursorKey($year);
+      $cursor = max($this->startNumber(), (int) $this->store->get($cursorKey, $this->startNumber()));
       do {
         $candidate = $this->format($cursor, $year);
         $cursor++;
-      } while ($store->has($this->numberKey($candidate)));
+      } while ($this->store->has($this->numberKey($candidate)));
 
-      $store->set($cursorKey, $cursor);
-      $store->set($this->numberKey($candidate), ['status' => 'reserved', 'year' => $year]);
+      $this->store->set($cursorKey, $cursor);
+      $this->store->set($this->numberKey($candidate), ['status' => 'reserved', 'year' => $year]);
       return $candidate;
     }
     finally {
@@ -58,12 +56,11 @@ final class SalesInvoiceNumberManager {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-      $store = $this->keyValueFactory->get(self::COLLECTION);
-      $key = $this->numberKey($invoiceNumber);
-      if ($store->has($key)) {
+            $key = $this->numberKey($invoiceNumber);
+      if ($this->store->has($key)) {
         throw new \RuntimeException('Dit factuurnummer is al gereserveerd of gebruikt.');
       }
-      $store->set($key, ['status' => 'reserved']);
+      $this->store->set($key, ['status' => 'reserved']);
     }
     finally {
       $this->lock->release(self::LOCK);
@@ -79,12 +76,11 @@ final class SalesInvoiceNumberManager {
       throw new \RuntimeException('Factuurnummering is tijdelijk bezet. Probeer opnieuw.');
     }
     try {
-      $store = $this->keyValueFactory->get(self::COLLECTION);
-      $existing = $store->get($this->numberKey($invoiceNumber));
+            $existing = $this->store->get($this->numberKey($invoiceNumber));
       if (is_array($existing) && ($existing['status'] ?? '') === 'used') {
         return;
       }
-      $store->set($this->numberKey($invoiceNumber), ['status' => 'used']);
+      $this->store->set($this->numberKey($invoiceNumber), ['status' => 'used']);
     }
     finally {
       $this->lock->release(self::LOCK);
@@ -92,7 +88,7 @@ final class SalesInvoiceNumberManager {
   }
 
   public function isOccupied(string $invoiceNumber): bool {
-    return $this->keyValueFactory->get(self::COLLECTION)->has($this->numberKey(trim($invoiceNumber)));
+    return $this->store->has($this->numberKey(trim($invoiceNumber)));
   }
 
   public function format(int $sequence, ?int $year = NULL): string {
