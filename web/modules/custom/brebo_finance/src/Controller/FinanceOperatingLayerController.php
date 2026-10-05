@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Controller;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\FinanceOperatingLayerReadRepositoryInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
@@ -21,7 +21,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class FinanceOperatingLayerController implements ContainerInjectionInterface {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly FinanceOperatingLayerReadRepositoryInterface $reads,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly WorkingBudgetApprovalManager $budgetApprovalManager,
     private readonly CommitmentManager $commitmentManager,
@@ -30,7 +30,7 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
 
   public static function create(ContainerInterface $container): self {
     return new self(
-      $container->get('database'),
+      $container->get('brebo_finance.finance_operating_layer_read_repository'),
       $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.working_budget_approval_manager'),
       $container->get('brebo_finance.commitment_manager'),
@@ -40,16 +40,7 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
 
   public function overview(int $project_nid): JsonResponse {
     $this->assertProjectAccess($project_nid);
-    $budget = $this->database->select('brebo_finance_budget', 'b')->fields('b')->condition('project_nid', $project_nid)->condition('budget_type', 'working')->orderBy('id', 'DESC')->range(0, 1)->execute()->fetchAssoc();
-    $budgetId = $budget !== FALSE ? (int) $budget['id'] : 0;
-    $lines = $budgetId ? $this->database->select('brebo_finance_budget_line', 'l')->fields('l')->condition('budget_id', $budgetId)->orderBy('sort_order')->orderBy('id')->execute()->fetchAll(\PDO::FETCH_ASSOC) : [];
-    $approvals = $budgetId ? $this->database->select('brebo_finance_budget_approval', 'a')->fields('a')->condition('budget_id', $budgetId)->execute()->fetchAll(\PDO::FETCH_ASSOC) : [];
-    $commitments = $this->database->select('brebo_finance_commitment', 'c')->fields('c')->condition('project_nid', $project_nid)->orderBy('id', 'DESC')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    foreach ($commitments as &$commitment) {
-      $commitment['lines'] = $this->database->select('brebo_finance_commitment_line', 'l')->fields('l')->condition('commitment_id', (int) $commitment['id'])->orderBy('line_number')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    }
-    unset($commitment);
-    return $this->json(['project_nid' => $project_nid, 'working_budget' => $budget !== FALSE ? $budget : NULL, 'budget_lines' => $lines, 'approvals' => $approvals, 'commitments' => $commitments]);
+    return $this->json($this->reads->overview($project_nid));
   }
 
   public function reviewBudget(int $project_nid, int $budget_id, Request $request): JsonResponse {
@@ -85,15 +76,13 @@ final class FinanceOperatingLayerController implements ContainerInjectionInterfa
   }
 
   private function assertBudgetBelongsToProject(int $budgetId, int $projectNid): void {
-    $ownerProject = $this->database->select('brebo_finance_budget', 'b')->fields('b', ['project_nid'])->condition('id', $budgetId)->condition('budget_type', 'working')->execute()->fetchField();
-    if ($ownerProject === FALSE || (int) $ownerProject !== $projectNid) {
+    if (!$this->reads->budgetBelongsToProject($budgetId, $projectNid)) {
       throw new NotFoundHttpException('Working budget does not belong to this project.');
     }
   }
 
   private function assertCommitmentBelongsToProject(int $commitmentId, int $projectNid): void {
-    $ownerProject = $this->database->select('brebo_finance_commitment', 'c')->fields('c', ['project_nid'])->condition('id', $commitmentId)->execute()->fetchField();
-    if ($ownerProject === FALSE || (int) $ownerProject !== $projectNid) {
+    if (!$this->reads->commitmentBelongsToProject($commitmentId, $projectNid)) {
       throw new NotFoundHttpException('Commitment does not belong to this project.');
     }
   }
