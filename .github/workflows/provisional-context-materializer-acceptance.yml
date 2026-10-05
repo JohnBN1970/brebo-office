@@ -121,7 +121,12 @@ jobs:
                 throw new \RuntimeException("No unused PDOK-backed fixture produced provisional-required context.");
               }
 
+              $reflection = new \ReflectionClass($materializer);
+              echo "MATERIALIZER_CLASS_FILE=" . (string) $reflection->getFileName() . PHP_EOL;
+              echo "RESOLUTION_PROJECT_STATE=" . (string) ($resolution["project_state"] ?? "") . PHP_EOL;
+              echo "RESOLUTION_BUILDING_STATE=" . (string) ($resolution["building_state"] ?? "") . PHP_EOL;
               $result = $materializer->materialize($communication, $resolution);
+              echo "MATERIALIZER_RESULT=" . json_encode($result, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
               $projectId = (int) ($result["project_id"] ?? 0);
               $buildingId = (int) ($result["building_id"] ?? 0);
               if ($projectId <= 0 || $buildingId <= 0) {
