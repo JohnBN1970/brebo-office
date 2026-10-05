@@ -283,7 +283,7 @@ final class ProjectPlanningWorkbenchForm extends FormBase {
         $assignment->save();
 
         if ($budgetLineId > 0) {
-          $this->financeSynchronizer->synchronize($assignment);
+          $this->financeSynchronizer->synchronize((int) $assignment->id());
         }
       }
     }
