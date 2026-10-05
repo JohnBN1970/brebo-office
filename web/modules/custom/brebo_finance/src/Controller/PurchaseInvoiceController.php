@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\Core\Controller\ControllerBase;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\PurchaseInvoiceReadRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 use Drupal\Core\Link;
 use Drupal\Core\Url;
@@ -17,14 +17,14 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 final class PurchaseInvoiceController extends ControllerBase {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly PurchaseInvoiceReadRepositoryInterface $invoices,
     private readonly ProjectReferenceGatewayInterface $projects,
     private readonly PurchaseInvoiceControlViewBuilder $controlViewBuilder,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
-      $container->get('database'),
+      $container->get('brebo_finance.purchase_invoice_read_repository'),
       $container->get('brebo_finance.project_reference_gateway'),
       $container->get('brebo_finance.purchase_invoice_control_view_builder'),
     );
@@ -242,40 +242,12 @@ final class PurchaseInvoiceController extends ControllerBase {
 
   /** @return array<int, array<string, mixed>> */
   private function loadInvoices(): array {
-    $table = 'brebo_finance_purchase_invoice';
-    $schema = $this->database->schema();
-    if (!$schema->tableExists($table)) {
-      return [];
-    }
-
-    $wanted = ['id', 'project_nid', 'supplier_name', 'invoice_number', 'invoice_date', 'due_date', 'status', 'match_status', 'amount_ex_vat', 'vat_amount', 'amount_inc_vat', 'source_system', 'source', 'source_record_id', 'external_id', 'moneybird_id', 'created', 'changed'];
-    $fields = array_values(array_filter($wanted, static fn(string $field): bool => $schema->fieldExists($table, $field)));
-    if (!in_array('id', $fields, TRUE)) {
-      return [];
-    }
-
-    $query = $this->database->select($table, 'i')->fields('i', $fields);
-    if ($schema->fieldExists($table, 'invoice_date')) {
-      $query->orderBy('invoice_date', 'DESC');
-    }
-    elseif ($schema->fieldExists($table, 'changed')) {
-      $query->orderBy('changed', 'DESC');
-    }
-    else {
-      $query->orderBy('id', 'DESC');
-    }
-
-    return array_map(static fn(object $row): array => (array) $row, $query->execute()->fetchAll());
+    return $this->invoices->invoices();
   }
 
   /** @return array<string, mixed>|null */
   private function loadInvoice(int $invoiceId): ?array {
-    foreach ($this->loadInvoices() as $invoice) {
-      if ((int) $invoice['id'] === $invoiceId) {
-        return $invoice;
-      }
-    }
-    return NULL;
+    return $this->invoices->invoice($invoiceId);
   }
 
   private function projectLabel(int $projectNid): string {
