@@ -28,7 +28,7 @@ final class WorkPackageAccessController extends ControllerBase {
     if ($node->bundle() !== 'brebo_work_package') {
       throw new NotFoundHttpException();
     }
-    $evaluation = $this->readiness->evaluate($node);
+    $evaluation = $this->readiness->evaluate((int) $node->id());
     $summary = $evaluation['summary'];
     $rows = [];
     foreach ($summary['rows'] ?? [] as $row) {
