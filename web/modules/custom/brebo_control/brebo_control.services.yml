@@ -21,10 +21,18 @@ services:
     arguments:
       - '@brebo_control.action_repository'
 
+  brebo_control.notification_repository:
+    class: Drupal\brebo_control\Infrastructure\DatabaseControlNotificationRepository
+    arguments: ['@database']
+
+  Drupal\brebo_control\Contract\ControlNotificationRepositoryInterface:
+    alias: brebo_control.notification_repository
+
   brebo_control.notification_engine:
     class: Drupal\brebo_control\Service\ControlNotificationEngine
     arguments:
-      - '@database'
+      - '@brebo_control.action_repository'
+      - '@brebo_control.notification_repository'
       - '@brebo_control.escalation_matrix'
 
   brebo_control.history:
