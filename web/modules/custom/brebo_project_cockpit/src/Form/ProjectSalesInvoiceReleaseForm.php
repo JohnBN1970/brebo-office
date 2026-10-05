@@ -25,7 +25,7 @@ final class ProjectSalesInvoiceReleaseForm extends ConfirmFormBase {
   public function __construct(private readonly Connection $database, private readonly QueueFactory $queueFactory, private readonly KeyValueFactoryInterface $keyValueFactory, private readonly EntityTypeManagerInterface $entityTypeManager, private readonly MailManagerInterface $mailManager, private readonly SalesInvoiceNumberManager $numberManager, private readonly SalesInvoiceOutputBuilder $outputBuilder, private readonly OutboundAttachmentService $attachmentService) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'), new SalesInvoiceNumberManager($container->get('config.factory'), $container->get('keyvalue'), $container->get('lock')), new SalesInvoiceOutputBuilder($container->get('database'), $container->get('keyvalue'), $container->get('brebo_finance.organization_reference_gateway'), $container->get('brebo_office_core.simple_pdf_renderer')), $container->get('brebo_mail_intake.outbound_attachments'));
+    return new static($container->get('database'), $container->get('queue'), $container->get('keyvalue'), $container->get('entity_type.manager'), $container->get('plugin.manager.mail'), new SalesInvoiceNumberManager($container->get('config.factory'), $container->get('keyvalue'), $container->get('lock')), $container->get('brebo_finance.sales_invoice_output_builder'), $container->get('brebo_mail_intake.outbound_attachments'));
   }
 
   public function getFormId(): string { return 'brebo_project_cockpit_sales_invoice_release_form'; }
