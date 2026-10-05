@@ -11,7 +11,7 @@ use Drupal\brebo_finance\Service\CollectionTransferManager;
 use Drupal\brebo_finance\Service\NlLegalCollectionProvider;
 use Drupal\brebo_finance\Service\ReceivablesDunningManager;
 use Drupal\brebo_finance\Service\SalesInvoiceDebtorResolver;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_finance\Contract\ReceivablesWorkspaceReadRepositoryInterface;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
@@ -26,7 +26,7 @@ final class ReceivablesBulkActionForm extends FormBase {
   private const STATUS_SYNC_INTERVAL = 900;
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ReceivablesWorkspaceReadRepositoryInterface $reads,
     private readonly ReceivablesDunningManager $dunningManager,
     private readonly MailManagerInterface $mailManager,
     private readonly SalesInvoiceDebtorResolver $debtorResolver,
@@ -37,14 +37,16 @@ final class ReceivablesBulkActionForm extends FormBase {
   ) {}
 
   public static function create(ContainerInterface $container): static {
-    $dunning = new ReceivablesDunningManager(new \Drupal\brebo_finance\Infrastructure\DrupalReceivablesDunningRepository($container->get('database'), $container->get('keyvalue')), $container->get('config.factory'));
-    $resolver = $container->get('brebo_finance.sales_invoice_debtor_resolver');
-    $profiles = new CollectionDebtorProfileRepository($container->get('keyvalue'));
-    $builder = new CollectionDossierBuilder($container->get('database'), $dunning);
-    $provider = new NlLegalCollectionProvider($container->get('http_client'), $container->get('config.factory'));
-    $transfer = new CollectionTransferManager($resolver, $profiles, $builder, $provider, $container->get('keyvalue'));
-    $reconciler = new CollectionReceivablesReconciler($container->get('brebo_finance.collection_receivables_repository'), $transfer);
-    return new static($container->get('database'), $dunning, $container->get('plugin.manager.mail'), $resolver, $profiles, $transfer, $reconciler, $container->get('keyvalue'));
+    return new static(
+      $container->get('brebo_finance.receivables_workspace_read_repository'),
+      $container->get('brebo_finance.receivables_dunning_manager'),
+      $container->get('plugin.manager.mail'),
+      $container->get('brebo_finance.sales_invoice_debtor_resolver'),
+      $container->get('brebo_finance.collection_debtor_profile_repository'),
+      $container->get('brebo_finance.collection_transfer_manager'),
+      $container->get('brebo_finance.collection_receivables_reconciler'),
+      $container->get('keyvalue'),
+    );
   }
 
   public function getFormId(): string { return 'brebo_finance_receivables_bulk_action_form'; }
@@ -52,9 +54,7 @@ final class ReceivablesBulkActionForm extends FormBase {
   public function buildForm(array $form, FormStateInterface $form_state): array {
     $syncMessage = $this->refreshCollectionStatusIfDue();
     $options = []; $profileRows = []; $collectionRows = [];
-    if ($this->database->schema()->tableExists('brebo_finance_sales_invoice')) {
-      $rows = $this->database->select('brebo_finance_sales_invoice', 'i')->fields('i', ['id'])->orderBy('due_date')->range(0, 250)->execute()->fetchCol();
-      foreach ($rows as $id) {
+    foreach ($this->reads->salesInvoiceIds() as $id) {
         $invoiceId = (int) $id;
         $state = $this->dunningManager->state($invoiceId);
         if ($state['blocked_reason'] !== NULL) continue;
@@ -88,7 +88,6 @@ final class ReceivablesBulkActionForm extends FormBase {
           }
         }
       }
-    }
 
     $form['intro'] = ['#markup' => '<p><strong>Bulk debiteurenwerkbak.</strong> Office controleert iedere factuur opnieuw vlak vóór uitvoering. Incassodossiers worden bij openen van deze werkbak periodiek met de provider ververst; bevestigde betalingen worden in dezelfde verkoopfactuurspiegel verwerkt.</p>'];
     if ($syncMessage !== '') $form['sync'] = ['#markup' => '<p><em>' . htmlspecialchars($syncMessage) . '</em></p>'];
