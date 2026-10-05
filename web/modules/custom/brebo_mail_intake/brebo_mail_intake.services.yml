@@ -157,10 +157,15 @@ services:
       - '@entity_type.manager'
       - '@config.factory'
 
+  brebo_mail_intake.outbound_attachment_read_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\DatabaseOutboundAttachmentReadRepository
+    arguments:
+      - '@database'
+
   brebo_mail_intake.outbound_attachments:
     class: Drupal\brebo_mail_intake\Service\OutboundAttachmentService
     arguments:
-      - '@database'
+      - '@brebo_mail_intake.outbound_attachment_read_repository'
       - '@entity_type.manager'
       - '@file_system'
       - '@file.usage'
