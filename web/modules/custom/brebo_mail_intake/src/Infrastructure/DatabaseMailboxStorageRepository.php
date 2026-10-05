@@ -19,6 +19,31 @@ final class DatabaseMailboxStorageRepository implements MailboxStorageRepository
     return $row===FALSE?NULL:$row;
   }
 
+  public function projectionStorageAvailable(): bool {
+    $schema=$this->database->schema();
+    return $schema->tableExists('brebo_mailbox') && $schema->tableExists('brebo_mailbox_message');
+  }
+
+  public function activeMailboxes(): array {
+    if(!$this->projectionStorageAvailable()) return [];
+    return array_values(array_map(static fn(object $row): array => ['id'=>(int)$row->id,'address'=>(string)$row->address],
+      $this->database->select('brebo_mailbox','mb')->fields('mb',['id','address'])->condition('active',1)->execute()->fetchAll()));
+  }
+
+  public function activeMailboxAddresses(): array {
+    return array_values(array_unique(array_filter(array_map(
+      static fn(array $mailbox): string => strtolower(trim((string)$mailbox['address'])),
+      $this->activeMailboxes()
+    ))));
+  }
+
+  public function upsertMessageProjection(int $mailboxId,int $communicationId,array $fields): void {
+    $this->database->merge('brebo_mailbox_message')
+      ->keys(['mailbox_id'=>$mailboxId,'communication_id'=>$communicationId])
+      ->fields($fields)
+      ->execute();
+  }
+
   public function allowedRoles(int $mailboxId,string $capability='view'): array {
     $roles=$this->database->select('brebo_mailbox_role','r')->fields('r',['role_id'])->condition('mailbox_id',$mailboxId)->condition('capability',$capability)->execute()->fetchCol();
     return array_values(array_unique(array_map('strval',$roles ?: [])));
