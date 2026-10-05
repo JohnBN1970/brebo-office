@@ -1,23 +1,38 @@
 services:
+  brebo_control.action_repository:
+    class: Drupal\brebo_control\Infrastructure\DatabaseControlActionRepository
+    arguments: ['@database']
+
+  Drupal\brebo_control\Contract\ControlActionRepositoryInterface:
+    alias: brebo_control.action_repository
+
   brebo_control.escalation_matrix:
     class: Drupal\brebo_control\Service\ControlEscalationMatrix
 
   brebo_control.action_manager:
     class: Drupal\brebo_control\Service\ControlActionManager
     arguments:
-      - '@database'
+      - '@brebo_control.action_repository'
       - '@?brebo_office_core.project_controller_actions'
       - '@brebo_control.escalation_matrix'
 
   brebo_control.inbox:
     class: Drupal\brebo_control\Service\ControlInboxService
     arguments:
-      - '@database'
+      - '@brebo_control.action_repository'
+
+  brebo_control.notification_repository:
+    class: Drupal\brebo_control\Infrastructure\DatabaseControlNotificationRepository
+    arguments: ['@database']
+
+  Drupal\brebo_control\Contract\ControlNotificationRepositoryInterface:
+    alias: brebo_control.notification_repository
 
   brebo_control.notification_engine:
     class: Drupal\brebo_control\Service\ControlNotificationEngine
     arguments:
-      - '@database'
+      - '@brebo_control.action_repository'
+      - '@brebo_control.notification_repository'
       - '@brebo_control.escalation_matrix'
 
   brebo_control.history:
@@ -25,11 +40,12 @@ services:
     arguments:
       - '@database'
       - '@?brebo_office_core.project_early_warning'
+      - '@brebo_control.action_repository'
 
   brebo_control.trend_actions:
     class: Drupal\brebo_control\Service\ControlTrendActionService
     arguments:
-      - '@database'
+      - '@brebo_control.action_repository'
       - '@brebo_control.history'
 
   brebo_control.portfolio:
@@ -44,6 +60,7 @@ services:
     arguments:
       - '@brebo_control.portfolio'
       - '@database'
+      - '@brebo_control.action_repository'
 
   brebo_control.supplier_performance:
     class: Drupal\brebo_control\Service\SupplierPerformanceService

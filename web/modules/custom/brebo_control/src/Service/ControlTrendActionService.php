@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 use Drupal\node\NodeInterface;
 
 /**
@@ -13,7 +13,7 @@ use Drupal\node\NodeInterface;
 final class ControlTrendActionService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ControlActionRepositoryInterface $actions,
     private readonly ControlHistoryService $history,
   ) {}
 
@@ -23,26 +23,17 @@ final class ControlTrendActionService {
    * @return array<string, mixed>|null
    */
   public function synchronize(NodeInterface $project, int $now): ?array {
-    if (!$this->database->schema()->tableExists('brebo_control_action')) {
-      return NULL;
-    }
-
     $trend = $this->history->trend((int) $project->id());
-    $existing = $this->database->select('brebo_control_action', 'a')
-      ->fields('a')
-      ->condition('project_nid', (int) $project->id())
-      ->condition('driver_code', 'trend_deterioration')
-      ->execute()
-      ->fetchAssoc();
+    $existing = $this->actions->byProjectDriver((int) $project->id(), 'trend_deterioration');
 
     if (($trend['status'] ?? '') !== 'deteriorating') {
       if ($existing && in_array($existing['status'], ['open', 'reopened', 'in_progress', 'escalated'], TRUE)) {
-        $this->database->update('brebo_control_action')->fields([
+        $this->actions->update((int) $existing['id'], [
           'status' => 'auto_resolved',
           'resolution' => 'Historische projecttrend is niet langer verslechterend.',
           'completed_at' => $now,
           'changed' => $now,
-        ])->condition('id', (int) $existing['id'])->execute();
+        ]);
       }
       return NULL;
     }
@@ -70,22 +61,18 @@ final class ControlTrendActionService {
         $values['completed_at'] = NULL;
         $values['resolution'] = NULL;
       }
-      $this->database->update('brebo_control_action')->fields($values)
-        ->condition('id', (int) $existing['id'])->execute();
+      $this->actions->update((int) $existing['id'], $values);
       $id = (int) $existing['id'];
     }
     else {
-      $id = (int) $this->database->insert('brebo_control_action')->fields($values + [
-        'project_nid' => (int) $project->id(),
-        'driver_code' => 'trend_deterioration',
+      $id = $this->actions->create((int) $project->id(), 'trend_deterioration', $values + [
         'status' => 'open',
         'escalation_level' => 0,
         'created' => $now,
-      ])->execute();
+      ]);
     }
 
-    return (array) $this->database->select('brebo_control_action', 'a')
-      ->fields('a')->condition('id', $id)->execute()->fetchAssoc();
+    return $this->actions->byId($id);
   }
 
   /** @param array<string, mixed> $trend */

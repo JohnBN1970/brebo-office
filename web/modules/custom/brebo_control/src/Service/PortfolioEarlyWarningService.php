@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 use Drupal\Core\Database\Connection;
 
 /**
@@ -14,6 +15,7 @@ final class PortfolioEarlyWarningService {
   public function __construct(
     private readonly PortfolioControlService $portfolio,
     private readonly Connection $database,
+    private readonly ControlActionRepositoryInterface $actions,
   ) {}
 
   /** @return array<string, mixed> */
@@ -55,7 +57,7 @@ final class PortfolioEarlyWarningService {
       $patterns[] = $this->pattern('risk_concentration_top_projects', $points, count($top80), 'Directie');
     }
 
-    foreach ($this->recurringDrivers() as $driver) {
+    foreach ($this->actions->recurringDrivers(2) as $driver) {
       $points = min(15, 3 + ((int) $driver['project_count'] * 2));
       $score += $points;
       $signals[] = 'Risicodriver "' . $driver['driver_code'] . '" is actief op ' . $driver['project_count'] . ' projecten.';
@@ -87,20 +89,6 @@ final class PortfolioEarlyWarningService {
       'top_pattern' => $patterns[0] ?? NULL,
       'portfolio' => $portfolio,
     ];
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function recurringDrivers(): array {
-    if (!$this->database->schema()->tableExists('brebo_control_action')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_control_action', 'a');
-    $query->addField('a', 'driver_code');
-    $query->addExpression('COUNT(DISTINCT project_nid)', 'project_count');
-    $query->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN');
-    $query->groupBy('driver_code');
-    $query->having('COUNT(DISTINCT project_nid) >= :minimum', [':minimum' => 2]);
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
   }
 
   /** @return array<int, array<string, mixed>> */

@@ -363,6 +363,10 @@ De laatste directe Drupal-entiteiten in de Inzet-servicelaag zijn verwijderd uit
 
 `BuildingRelationRepository` is uit de servicelaag gehaald en als `DatabaseBuildingRelationRepository` onder `Infrastructure` geplaatst achter `BuildingRelationRepositoryInterface`. PDOK/BAG, Mail Intake en de Building Truth-workbench gebruiken voortaan het contract. Database-, entity- en time-afhankelijkheden zitten daarmee aan de buitenrand; de PDOK acceptance-test is op dezelfde contractgrens aangepast.
 
+### Control — shared action and notification boundaries
+
+De eerste Control-ontkoppeling centraliseert `brebo_control_action` achter `ControlActionRepositoryInterface` met `DatabaseControlActionRepository`. `ControlActionManager`, `ControlInboxService`, `ControlTrendActionService`, `ControlHistoryService` (open-action count) en `PortfolioEarlyWarningService` (recurring drivers) gebruiken deze grens. Notification-deduplicatie en queue-opslag lopen daarnaast via `ControlNotificationRepositoryInterface` en `DatabaseControlNotificationRepository`. Directe action/notification-SQL is daarmee uit de betreffende services verdwenen.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.

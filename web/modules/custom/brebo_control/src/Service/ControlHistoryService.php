@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
+use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 use Drupal\brebo_office_core\Service\ProjectEarlyWarningService;
 use Drupal\Core\Database\Connection;
 use Drupal\node\NodeInterface;
@@ -16,6 +17,7 @@ final class ControlHistoryService {
   public function __construct(
     private readonly Connection $database,
     private readonly ?ProjectEarlyWarningService $earlyWarning,
+    private readonly ControlActionRepositoryInterface $actions,
   ) {}
 
   public function capture(NodeInterface $project, int $now): bool {
@@ -34,10 +36,7 @@ final class ControlHistoryService {
 
     $warning = $this->earlyWarning->analyze($project);
     $financial = $warning['financial_snapshot'];
-    $openActions = (int) $this->database->select('brebo_control_action', 'a')
-      ->condition('project_nid', (int) $project->id())
-      ->condition('status', ['open', 'reopened', 'in_progress', 'escalated'], 'IN')
-      ->countQuery()->execute()->fetchField();
+    $openActions = $this->actions->countOpenForProject((int) $project->id());
 
     $finance = \Drupal::service('brebo_office_core.project_financial_control')->analyze($project);
     $this->database->insert('brebo_control_snapshot')->fields([
