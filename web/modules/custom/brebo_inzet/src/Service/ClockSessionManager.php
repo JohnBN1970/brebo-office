@@ -4,141 +4,141 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_inzet\Contract\ClockRegistrationRepositoryInterface;
 
-/**
- * Opens and closes durable project clock registrations.
- */
+/** Opens and closes durable project clock registrations. */
 final class ClockSessionManager {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ClockRegistrationRepositoryInterface $registrationRepository,
     private readonly ProjectClockZoneManager $zoneManager,
     private readonly ProjectClockZoneControl $zoneControl,
     private readonly ClockActionControl $actionControl,
     private readonly ClockTransitionReconciler $transitionReconciler,
   ) {}
 
-  public function findOpen(NodeInterface $project, int $userId): ?NodeInterface {
+  /** @return array<string,mixed>|null */
+  public function findOpen(int $projectId, int $userId): ?array {
     $open = $this->findOpenForUser($userId);
-    if (!$open instanceof NodeInterface) {
-      return NULL;
-    }
-    return (int) ($open->get('field_brebo_project_ref')->target_id ?? 0) === (int) $project->id() ? $open : NULL;
+    return $open !== NULL && (int) $open['project_id'] === $projectId ? $open : NULL;
   }
 
-  public function findOpenForUser(int $userId): ?NodeInterface {
-    $ids = $this->entityTypeManager->getStorage('node')->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_clock_registration')
-      ->condition('field_brebo_clock_user', $userId)
-      ->condition('field_brebo_clock_status', 'Open')
-      ->sort('created', 'DESC')
-      ->range(0, 1)
-      ->execute();
-    if ($ids === []) {
-      return NULL;
-    }
-    $registration = $this->entityTypeManager->getStorage('node')->load((int) reset($ids));
-    return $registration instanceof NodeInterface ? $registration : NULL;
+  /** @return array<string,mixed>|null */
+  public function findOpenForUser(int $userId): ?array {
+    return $this->registrationRepository->openForUser($userId);
   }
 
-  /** @return array<string, mixed> */
-  public function clockIn(NodeInterface $project, int $userId, ?float $latitude, ?float $longitude, ?float $accuracy): array {
+  /** @return array<string,mixed> */
+  public function clockIn(
+    int $projectId,
+    string $projectLabel,
+    int $userId,
+    ?float $latitude,
+    ?float $longitude,
+    ?float $accuracy,
+  ): array {
     $existing = $this->findOpenForUser($userId);
-    if ($existing instanceof NodeInterface) {
-      $existingProjectId = (int) ($existing->get('field_brebo_project_ref')->target_id ?? 0);
-      $existingProject = $existingProjectId > 0 ? $this->entityTypeManager->getStorage('node')->load($existingProjectId) : NULL;
-      $label = $existingProject instanceof NodeInterface ? $existingProject->label() : ('project ' . $existingProjectId);
+    if ($existing !== NULL) {
+      $label = trim((string) ($existing['project_label'] ?? '')) ?: ('project ' . (int) $existing['project_id']);
       throw new \InvalidArgumentException(sprintf('Je bent al ingeklokt op %s. Klok daar eerst uit voordat je op een ander project inklokt.', $label));
     }
 
-    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject((int) $project->id()), $latitude, $longitude, $accuracy);
+    $geo = $this->zoneControl->assess(
+      $this->zoneManager->loadForProject($projectId),
+      $latitude,
+      $longitude,
+      $accuracy,
+    );
     $now = new \DateTimeImmutable('now');
-    $registration = $this->entityTypeManager->getStorage('node')->create([
-      'type' => 'brebo_clock_registration',
-      'title' => sprintf('Klokregistratie %s - %s', $project->label(), $now->format('Y-m-d H:i')),
-      'field_brebo_project_ref' => ['target_id' => (int) $project->id()],
-      'field_brebo_clock_user' => ['target_id' => $userId],
-      'field_brebo_clock_zone_ref' => !empty($geo['matched_zone_id']) ? ['target_id' => (int) $geo['matched_zone_id']] : NULL,
-      'field_brebo_clock_in' => $now->format('Y-m-d\\TH:i:s'),
-      'field_brebo_clock_latitude' => $latitude,
-      'field_brebo_clock_longitude' => $longitude,
-      'field_brebo_clock_accuracy' => $accuracy,
-      'field_brebo_clock_distance' => $geo['distance'] ?? NULL,
-      'field_brebo_clock_status' => 'Open',
-      'field_brebo_clock_severity' => ($geo['status'] ?? '') === 'Binnen zone' ? 'groen' : 'rood',
-      'field_brebo_clock_message' => json_encode(['location' => $geo], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-      'status' => 1,
+    $registrationId = $this->registrationRepository->create([
+      'title' => sprintf('Klokregistratie %s - %s', $projectLabel, $now->format('Y-m-d H:i')),
+      'project_id' => $projectId,
+      'user_id' => $userId,
+      'clock_zone_id' => !empty($geo['matched_zone_id']) ? (int) $geo['matched_zone_id'] : NULL,
+      'clock_in' => $now->format('Y-m-d\\TH:i:s'),
+      'clock_out' => NULL,
+      'latitude' => $latitude,
+      'longitude' => $longitude,
+      'accuracy' => $accuracy,
+      'distance' => $geo['distance'] ?? NULL,
+      'status' => 'Open',
+      'severity' => ($geo['status'] ?? '') === 'Binnen zone' ? 'groen' : 'rood',
+      'reason' => '',
+      'next_project_id' => NULL,
+      'message_json' => json_encode(['location' => $geo], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
     ]);
-    $registration->save();
 
-    $reconciled = $this->transitionReconciler->reconcileAfterClockIn($registration, (string) ($geo['status'] ?? 'Geen locatie'));
+    $registration = $this->registrationRepository->registration($registrationId);
+    $reconciled = $registration === NULL
+      ? NULL
+      : $this->transitionReconciler->reconcileAfterClockIn($registration, (string) ($geo['status'] ?? 'Geen locatie'));
 
-    return ['registration' => $registration, 'location' => $geo, 'reconciled_registration' => $reconciled];
+    return [
+      'registration' => $registration,
+      'location' => $geo,
+      'reconciled_registration' => $reconciled,
+    ];
   }
 
   /**
-   * Returns employee-specific planned times for the project/day, with the
-   * project defaults only as fallback when no day assignment exists.
-   *
    * @return array{0:string,1:string}
    */
-  private function plannedTimesForUser(NodeInterface $project, int $userId, string $date): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_personnel_assignment')
-      ->condition('field_brebo_project_ref', (int) $project->id())
-      ->condition('field_brebo_plan_user', $userId)
-      ->condition('field_brebo_plan_date', $date)
-      ->condition('field_brebo_assignment_status', 'cancelled', '<>')
-      ->range(0, 1)
-      ->execute();
-
-    if ($ids !== []) {
-      $assignment = $storage->load((int) reset($ids));
-      if ($assignment instanceof NodeInterface) {
-        $start = (string) ($assignment->get('field_brebo_assignment_start')->value ?? '');
-        $end = (string) ($assignment->get('field_brebo_assignment_end')->value ?? '');
-        if (preg_match('/^\d{2}:\d{2}$/', $start) === 1 && preg_match('/^\d{2}:\d{2}$/', $end) === 1 && $end > $start) {
-          return [$start, $end];
-        }
-      }
-    }
-
-    $start = $project->hasField('field_brebo_workday_start') && $project->get('field_brebo_workday_start')->value
-      ? (string) $project->get('field_brebo_workday_start')->value : '07:00';
-    $end = $project->hasField('field_brebo_workday_end') && $project->get('field_brebo_workday_end')->value
-      ? (string) $project->get('field_brebo_workday_end')->value : '16:00';
-    return [$start, $end];
+  private function plannedTimesForUser(
+    int $projectId,
+    int $userId,
+    string $date,
+    string $defaultStart,
+    string $defaultEnd,
+  ): array {
+    $assignment = $this->registrationRepository->plannedTimes($projectId, $userId, $date);
+    return $assignment ?? [$defaultStart, $defaultEnd];
   }
 
-  /** @return array<string, mixed> */
-  public function clockOut(NodeInterface $project, int $userId, ?float $latitude, ?float $longitude, ?float $accuracy, ?string $reason = NULL): array {
-    $registration = $this->findOpen($project, $userId);
+  /** @return array<string,mixed> */
+  public function clockOut(
+    int $projectId,
+    int $userId,
+    string $defaultStart,
+    string $defaultEnd,
+    ?float $latitude,
+    ?float $longitude,
+    ?float $accuracy,
+    ?string $reason = NULL,
+  ): array {
+    $registration = $this->findOpen($projectId, $userId);
     if ($registration === NULL) {
       $otherOpen = $this->findOpenForUser($userId);
-      if ($otherOpen instanceof NodeInterface) {
-        $otherProjectId = (int) ($otherOpen->get('field_brebo_project_ref')->target_id ?? 0);
-        throw new \InvalidArgumentException(sprintf('Je actieve klokregistratie hoort bij project %d. Open dat project om uit te klokken.', $otherProjectId));
+      if ($otherOpen !== NULL) {
+        throw new \InvalidArgumentException(sprintf(
+          'Je actieve klokregistratie hoort bij project %d. Open dat project om uit te klokken.',
+          (int) $otherOpen['project_id'],
+        ));
       }
       throw new \InvalidArgumentException('Er is geen open klokregistratie om uit te klokken.');
     }
 
-    $clockInValue = (string) $registration->get('field_brebo_clock_in')->value;
-    $clockIn = new \DateTimeImmutable($clockInValue);
+    $clockIn = new \DateTimeImmutable((string) $registration['clock_in']);
     $clockOut = new \DateTimeImmutable('now');
-    $geo = $this->zoneControl->assess($this->zoneManager->loadForProject((int) $project->id()), $latitude, $longitude, $accuracy);
+    $geo = $this->zoneControl->assess(
+      $this->zoneManager->loadForProject($projectId),
+      $latitude,
+      $longitude,
+      $accuracy,
+    );
 
     $date = $clockIn->format('Y-m-d');
-    [$startTime, $endTime] = $this->plannedTimesForUser($project, $userId, $date);
+    [$startTime, $endTime] = $this->plannedTimesForUser(
+      $projectId,
+      $userId,
+      $date,
+      $defaultStart,
+      $defaultEnd,
+    );
     $plannedStart = new \DateTimeImmutable($date . ' ' . $startTime);
     $plannedEnd = new \DateTimeImmutable($date . ' ' . $endTime);
 
     $verdict = $this->actionControl->assess(
-      (int) $project->id(),
+      $projectId,
       $plannedStart,
       $plannedEnd,
       $clockIn,
@@ -148,22 +148,33 @@ final class ClockSessionManager {
 
     $normalizedReason = trim((string) $reason);
     if (!empty($verdict['requires_reason']) && $normalizedReason === '') {
-      return ['registration' => $registration, 'location' => $geo, 'verdict' => $verdict, 'requires_reason' => TRUE];
+      return [
+        'registration' => $registration,
+        'location' => $geo,
+        'verdict' => $verdict,
+        'requires_reason' => TRUE,
+      ];
     }
 
-    $registration->set('field_brebo_clock_out', $clockOut->format('Y-m-d\\TH:i:s'));
-    $registration->set('field_brebo_clock_zone_ref', !empty($geo['matched_zone_id']) ? ['target_id' => (int) $geo['matched_zone_id']] : NULL);
-    $registration->set('field_brebo_clock_latitude', $latitude);
-    $registration->set('field_brebo_clock_longitude', $longitude);
-    $registration->set('field_brebo_clock_accuracy', $accuracy);
-    $registration->set('field_brebo_clock_distance', $geo['distance'] ?? NULL);
-    $registration->set('field_brebo_clock_status', (string) $verdict['status']);
-    $registration->set('field_brebo_clock_severity', (string) $verdict['severity']);
-    $registration->set('field_brebo_clock_reason', $normalizedReason);
-    $registration->set('field_brebo_clock_message', json_encode($verdict, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR));
-    $registration->save();
+    $this->registrationRepository->update((int) $registration['id'], [
+      'clock_out' => $clockOut->format('Y-m-d\\TH:i:s'),
+      'clock_zone_id' => !empty($geo['matched_zone_id']) ? (int) $geo['matched_zone_id'] : NULL,
+      'latitude' => $latitude,
+      'longitude' => $longitude,
+      'accuracy' => $accuracy,
+      'distance' => $geo['distance'] ?? NULL,
+      'status' => (string) $verdict['status'],
+      'severity' => (string) $verdict['severity'],
+      'reason' => $normalizedReason,
+      'message_json' => json_encode($verdict, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+    ]);
 
-    return ['registration' => $registration, 'location' => $geo, 'verdict' => $verdict, 'requires_reason' => FALSE];
+    return [
+      'registration' => $this->registrationRepository->registration((int) $registration['id']),
+      'location' => $geo,
+      'verdict' => $verdict,
+      'requires_reason' => FALSE,
+    ];
   }
 
 }
