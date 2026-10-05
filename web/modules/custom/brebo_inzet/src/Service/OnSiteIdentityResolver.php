@@ -39,4 +39,9 @@ final class OnSiteIdentityResolver {
     return $identities[0] ?? NULL;
   }
 
+  /** @return array{uid:int,mobile:string,language:string}|null */
+  public function resolveByUid(int $uid): ?array {
+    return $uid > 0 ? $this->identityRepository->activeByUid($uid) : NULL;
+  }
+
 }
