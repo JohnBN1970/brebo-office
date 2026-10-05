@@ -33,7 +33,8 @@ final class OnSiteInvitationManager {
       throw new \InvalidArgumentException('Gebruiker heeft geen geldig mobiel nummer.');
     }
 
-    $language = $this->identityResolver->languageFor($user);
+    $identity = $this->identityResolver->resolveByUid((int) $user->id());
+    $language = $identity['language'] ?? 'nl';
     $activationToken = $this->activationManager->issue((int) $user->id());
     $installUrl = Url::fromRoute('brebo_inzet.onsite_install', [], [
       'absolute' => TRUE,
