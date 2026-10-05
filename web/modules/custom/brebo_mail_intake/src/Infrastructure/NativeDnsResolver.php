@@ -9,7 +9,11 @@ use Drupal\brebo_mail_intake\Contract\DnsResolverInterface;
 final class NativeDnsResolver implements DnsResolverInterface {
 
   public function txt(string $name): array {
-    $records = dns_get_record($name, DNS_TXT) ?: [];
+    $records = dns_get_record($name, DNS_TXT);
+    if ($records === FALSE) {
+      throw new \RuntimeException('DNS TXT lookup failed for ' . $name . '.');
+    }
+
     $values = [];
     foreach ($records as $record) {
       $value = trim((string) ($record['txt'] ?? ''));
@@ -21,7 +25,11 @@ final class NativeDnsResolver implements DnsResolverInterface {
   }
 
   public function mx(string $name): array {
-    $records = dns_get_record($name, DNS_MX) ?: [];
+    $records = dns_get_record($name, DNS_MX);
+    if ($records === FALSE) {
+      throw new \RuntimeException('DNS MX lookup failed for ' . $name . '.');
+    }
+
     $values = [];
     foreach ($records as $record) {
       $host = rtrim(mb_strtolower(trim((string) ($record['target'] ?? ''))), '.');
