@@ -67,18 +67,25 @@ services:
     class: Drupal\brebo_control\Service\PortfolioEarlyWarningService
     arguments:
       - '@brebo_control.portfolio'
-      - '@database'
+      - '@brebo_finance.supplier_invoice_analytics_repository'
       - '@brebo_control.action_repository'
+
+  brebo_control.supplier_performance_repository:
+    class: Drupal\brebo_control\Infrastructure\DatabaseSupplierPerformanceRepository
+    arguments: ['@database']
+
+  Drupal\brebo_control\Contract\SupplierPerformanceRepositoryInterface:
+    alias: brebo_control.supplier_performance_repository
 
   brebo_control.supplier_performance:
     class: Drupal\brebo_control\Service\SupplierPerformanceService
     arguments:
-      - '@database'
+      - '@brebo_control.supplier_performance_repository'
 
   brebo_control.supplier_scorecard:
     class: Drupal\brebo_control\Service\SupplierScorecardService
     arguments:
-      - '@database'
+      - '@brebo_finance.supplier_invoice_analytics_repository'
       - '@brebo_control.supplier_performance'
 
   # Temporary compatibility alias: an older deployed contract-control container
