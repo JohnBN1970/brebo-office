@@ -46,4 +46,28 @@ final class DrupalOnSiteIdentityRepository implements OnSiteIdentityRepositoryIn
     return $identities;
   }
 
+  public function activeByUid(int $uid): ?array {
+    $user = $this->entityTypeManager->getStorage('user')->load($uid);
+    if (!$user instanceof UserInterface || !$user->isActive()) {
+      return NULL;
+    }
+
+    $mobile = $user->hasField('field_brebo_mobile')
+      ? trim((string) $user->get('field_brebo_mobile')->value)
+      : '';
+    $language = '';
+    if ($user->hasField('field_brebo_onsite_language')) {
+      $language = trim((string) $user->get('field_brebo_onsite_language')->value);
+    }
+    if ($language === '') {
+      $language = trim((string) $user->getPreferredLangcode());
+    }
+
+    return [
+      'uid' => (int) $user->id(),
+      'mobile' => $mobile,
+      'language' => $language !== '' ? $language : 'nl',
+    ];
+  }
+
 }
