@@ -5,9 +5,18 @@ services:
   brebo_finance.sales_tax_settings:
     class: Drupal\brebo_finance\Service\SalesTaxSettings
     arguments: ['@config.factory']
+  brebo_finance.sales_invoice_number_store:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSalesInvoiceNumberStore
+    arguments: ['@keyvalue']
+  brebo_finance.sales_invoice_number_settings:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSalesInvoiceNumberSettings
+    arguments: ['@config.factory']
+  brebo_finance.sales_invoice_number_lock:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSalesInvoiceNumberLock
+    arguments: ['@lock']
   brebo_finance.sales_invoice_number_manager:
     class: Drupal\brebo_finance\Service\SalesInvoiceNumberManager
-    arguments: ['@config.factory', '@keyvalue', '@lock']
+    arguments: ['@brebo_finance.sales_invoice_number_settings', '@brebo_finance.sales_invoice_number_store', '@brebo_finance.sales_invoice_number_lock']
 
   brebo_finance.receivables_workspace_read_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseReceivablesWorkspaceReadRepository
