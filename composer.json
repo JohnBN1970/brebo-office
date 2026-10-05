@@ -105,7 +105,8 @@
     },
     "autoload": {
         "psr-4": {
-            "Brebo\\Mail\\": "packages/brebo-mail-core/src/"
+            "Brebo\\Mail\\": "packages/brebo-mail-core/src/",
+            "Brebo\\MailGateway\\": "packages/brebo-mail-gateway/src/"
         }
     }
 }
