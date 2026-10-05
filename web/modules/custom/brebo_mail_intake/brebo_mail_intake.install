@@ -324,3 +324,37 @@ function brebo_mail_intake_update_11001(): string {
     $personalCount,
   );
 }
+
+
+/**
+ * Adds provider-independent mail-domain registry.
+ */
+function brebo_mail_intake_update_11002(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('brebo_mail_domain')) {
+    return 'BREBO mail-domain registry bestond al.';
+  }
+
+  $schema->createTable('brebo_mail_domain', [
+    'description' => 'Provider-independent mail domains managed by BREBO Office.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'domain' => ['type' => 'varchar', 'length' => 253, 'not null' => TRUE],
+      'verification_token' => ['type' => 'varchar', 'length' => 64, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE, 'default' => 'pending'],
+      'mx_status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'unknown'],
+      'spf_status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'unknown'],
+      'dkim_status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'unknown'],
+      'dmarc_status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'unknown'],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'unique keys' => ['brebo_mail_domain_domain' => ['domain']],
+    'indexes' => ['brebo_mail_domain_status' => ['status']],
+  ]);
+
+  return 'Provider-independent BREBO mail-domain registry aangemaakt.';
+}
