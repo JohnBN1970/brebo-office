@@ -1,4 +1,32 @@
 services:
+  brebo_finance.receivables_workspace_read_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseReceivablesWorkspaceReadRepository
+    arguments: ['@database']
+  brebo_finance.receivables_dunning_repository:
+    class: Drupal\brebo_finance\Infrastructure\DrupalReceivablesDunningRepository
+    arguments: ['@database', '@keyvalue']
+  brebo_finance.receivables_dunning_manager:
+    class: Drupal\brebo_finance\Service\ReceivablesDunningManager
+    arguments: ['@brebo_finance.receivables_dunning_repository', '@config.factory']
+  brebo_finance.collection_debtor_profile_repository:
+    class: Drupal\brebo_finance\Service\CollectionDebtorProfileRepository
+    arguments: ['@keyvalue']
+  brebo_finance.collection_invoice_repository:
+    class: Drupal\brebo_finance\Infrastructure\DatabaseCollectionInvoiceRepository
+    arguments: ['@database']
+  brebo_finance.collection_dossier_builder:
+    class: Drupal\brebo_finance\Service\CollectionDossierBuilder
+    arguments: ['@brebo_finance.collection_invoice_repository', '@brebo_finance.receivables_dunning_manager']
+  brebo_finance.collection_provider:
+    class: Drupal\brebo_finance\Service\NlLegalCollectionProvider
+    arguments: ['@http_client', '@config.factory']
+  brebo_finance.collection_transfer_manager:
+    class: Drupal\brebo_finance\Service\CollectionTransferManager
+    arguments: ['@brebo_finance.sales_invoice_debtor_resolver', '@brebo_finance.collection_debtor_profile_repository', '@brebo_finance.collection_dossier_builder', '@brebo_finance.collection_provider', '@keyvalue']
+  brebo_finance.collection_receivables_reconciler:
+    class: Drupal\brebo_finance\Service\CollectionReceivablesReconciler
+    arguments: ['@brebo_finance.collection_receivables_repository', '@brebo_finance.collection_transfer_manager']
+
   brebo_finance.vat_calculator:
     class: Drupal\brebo_finance\Service\VatCalculator
   brebo_finance.collection_receivables_repository:
