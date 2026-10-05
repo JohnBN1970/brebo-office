@@ -4,49 +4,47 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_resident_service\Service;
 
-use Drupal\node\NodeInterface;
+use Drupal\brebo_resident_service\Contract\ResidentAccessReadRepositoryInterface;
 
 /** Evaluates whether a work package is access-ready using its canonical scope. */
 final class WorkPackageAccessReadiness {
 
-  public function __construct(private readonly ZoneAccessReadiness $zoneReadiness) {}
+  public function __construct(
+    private readonly ResidentAccessReadRepositoryInterface $repository,
+    private readonly ZoneAccessReadiness $zoneReadiness,
+  ) {}
 
-  /**
-   * @return array{applicable:bool,ready:bool,reason:string,project_id:?int,building_nid:?int,technical_zone_id:?int,summary:array}
-   */
-  public function evaluate(NodeInterface $package): array {
-    if ($package->bundle() !== 'brebo_work_package') {
+  /** @return array{applicable:bool,ready:bool,reason:string,project_id:?int,building_nid:?int,technical_zone_id:?int,summary:array} */
+  public function evaluate(int $packageId): array {
+    $package = $this->repository->workPackage($packageId);
+    if ($package === NULL) {
       throw new \InvalidArgumentException('Access readiness can only evaluate brebo_work_package nodes.');
     }
 
-    $projectId = $package->hasField('field_brebo_project_ref') && !$package->get('field_brebo_project_ref')->isEmpty()
-      ? (int) $package->get('field_brebo_project_ref')->target_id : NULL;
-    $zoneId = $package->hasField('field_brebo_cluster_ref') && !$package->get('field_brebo_cluster_ref')->isEmpty()
-      ? (int) $package->get('field_brebo_cluster_ref')->target_id : NULL;
-
+    $projectId = $package['project_id'];
+    $zoneId = $package['technical_zone_id'];
     if (!$projectId || !$zoneId) {
       return [
-        'applicable' => FALSE, 'ready' => TRUE,
+        'applicable' => FALSE,
+        'ready' => TRUE,
         'reason' => 'Geen technische zone aan dit werkpakket gekoppeld; geen zonegebonden toegangscontrole toegepast.',
-        'project_id' => $projectId, 'building_nid' => NULL, 'technical_zone_id' => $zoneId, 'summary' => [],
+        'project_id' => $projectId,
+        'building_nid' => NULL,
+        'technical_zone_id' => $zoneId,
+        'summary' => [],
       ];
     }
 
-    $zone = \Drupal::entityTypeManager()->getStorage('node')->load($zoneId);
-    if (!$zone instanceof NodeInterface || $zone->bundle() !== 'brebo_cluster') {
-      return [
-        'applicable' => TRUE, 'ready' => FALSE,
-        'reason' => 'Technische zone ontbreekt of is ongeldig.',
-        'project_id' => $projectId, 'building_nid' => NULL, 'technical_zone_id' => $zoneId, 'summary' => [],
-      ];
-    }
-    $buildingNid = $zone->hasField('field_brebo_building_ref') && !$zone->get('field_brebo_building_ref')->isEmpty()
-      ? (int) $zone->get('field_brebo_building_ref')->target_id : NULL;
+    $buildingNid = $this->repository->buildingForZone($zoneId);
     if (!$buildingNid) {
       return [
-        'applicable' => TRUE, 'ready' => FALSE,
-        'reason' => 'Technische zone heeft geen canoniek gebouw.',
-        'project_id' => $projectId, 'building_nid' => NULL, 'technical_zone_id' => $zoneId, 'summary' => [],
+        'applicable' => TRUE,
+        'ready' => FALSE,
+        'reason' => 'Technische zone ontbreekt, is ongeldig of heeft geen canoniek gebouw.',
+        'project_id' => $projectId,
+        'building_nid' => NULL,
+        'technical_zone_id' => $zoneId,
+        'summary' => [],
       ];
     }
 
@@ -62,4 +60,5 @@ final class WorkPackageAccessReadiness {
       'summary' => $summary,
     ];
   }
+
 }
