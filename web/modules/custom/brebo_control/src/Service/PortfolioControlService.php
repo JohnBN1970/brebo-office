@@ -4,55 +4,34 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\brebo_office_core\Service\ProjectEarlyWarningService;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_control\Contract\ControlProjectSourceInterface;
 
-/**
- * Aggregates project control into a management portfolio view.
- */
+/** Aggregates project control into a management portfolio view. */
 final class PortfolioControlService {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly ?ProjectEarlyWarningService $earlyWarning,
+    private readonly ControlProjectSourceInterface $projectSource,
     private readonly ControlHistoryService $history,
   ) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if ($this->earlyWarning === NULL) {
-      return [
-        'project_count' => 0,
-        'critical_or_high' => 0,
-        'deteriorating' => 0,
-        'portfolio_expected_result' => 0.0,
-        'total_exposure_score' => 0.0,
-        'top_risk_projects' => [],
-        'projects_covering_80_pct_risk' => [],
-        'projects' => [],
-      ];
-    }
-
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(FALSE)
-      ->condition('type', 'brebo_project')
-      ->condition('status', 1)
-      ->execute();
-
     $projects = [];
     $totalExposure = 0.0;
     $totalExpectedResult = 0.0;
-    foreach ($storage->loadMultiple($ids) as $project) {
-      if (!$project instanceof NodeInterface) {
+
+    foreach ($this->projectSource->activeProjects() as $project) {
+      $warning = $project['early_warning'];
+      if ($warning === NULL) {
         continue;
       }
-      $warning = $this->earlyWarning->analyze($project);
-      $trend = $this->history->trend((int) $project->id());
-      $snapshot = $warning['financial_snapshot'];
-      $expectedResult = (float) $snapshot['expected_result'];
-      $marginDelta = (float) $snapshot['margin_delta_pct'];
-      $riskScore = (int) $warning['score'];
+
+      $projectId = (int) $project['project_id'];
+      $trend = $this->history->trend($projectId);
+      $snapshot = (array) ($warning['financial_snapshot'] ?? []);
+      $expectedResult = (float) ($snapshot['expected_result'] ?? 0);
+      $marginDelta = (float) ($snapshot['margin_delta_pct'] ?? 0);
+      $riskScore = (int) ($warning['score'] ?? 0);
       $trendPenalty = ($trend['status'] ?? '') === 'deteriorating' ? 15 : 0;
       $resultExposure = $expectedResult < 0 ? abs($expectedResult) : 0.0;
       $marginExposure = $marginDelta < 0 ? abs($marginDelta) * 1000 : 0.0;
@@ -61,12 +40,12 @@ final class PortfolioControlService {
       $totalExposure += $exposure;
       $totalExpectedResult += $expectedResult;
       $projects[] = [
-        'project_id' => (int) $project->id(),
-        'project' => (string) $project->label(),
+        'project_id' => $projectId,
+        'project' => (string) $project['project_label'],
         'risk_score' => $riskScore,
-        'risk_level' => (string) $warning['level'],
+        'risk_level' => (string) ($warning['level'] ?? 'laag'),
         'expected_result' => round($expectedResult, 2),
-        'expected_margin_pct' => round((float) $snapshot['expected_margin_pct'], 2),
+        'expected_margin_pct' => round((float) ($snapshot['expected_margin_pct'] ?? 0), 2),
         'margin_delta_pct' => round($marginDelta, 2),
         'trend_status' => (string) ($trend['status'] ?? 'insufficient_data'),
         'trend_risk_delta' => (int) ($trend['risk_delta'] ?? 0),
