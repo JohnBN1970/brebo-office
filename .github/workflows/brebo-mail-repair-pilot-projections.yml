@@ -31,7 +31,7 @@ jobs:
               $repaired = 0;
               $skipped = 0;
               foreach ($storage->loadMultiple($ids) as $node) {
-                if ($ingestor->projectExisting($node)) {
+                if ($ingestor->projectExisting((int) $node->id())) {
                   $repaired++;
                   print "PROJECTED=" . $node->id() . "\n";
                 }
