@@ -96,6 +96,26 @@ services:
       - '@brebo_mail_intake.core_mailbox_provisioning_repository'
       - '@brebo_mail_intake.core_mail_domain_repository'
 
+  brebo_mail_intake.core_mail_gateway:
+    class: Drupal\brebo_mail_intake\Infrastructure\DeferredCoreMailGatewayAdapter
+
+  Brebo\Mail\Contract\MailGatewayInterface:
+    alias: brebo_mail_intake.core_mail_gateway
+
+  brebo_mail_intake.core_provisioning_job_repository:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreProvisioningJobRepositoryAdapter
+    arguments:
+      - '@database'
+
+  Brebo\Mail\Contract\ProvisioningJobRepositoryInterface:
+    alias: brebo_mail_intake.core_provisioning_job_repository
+
+  brebo_mail_intake.core_provisioning:
+    class: Brebo\Mail\Service\ProvisioningService
+    arguments:
+      - '@brebo_mail_intake.core_provisioning_job_repository'
+      - '@brebo_mail_intake.core_mail_gateway'
+
   brebo_mail_intake.mailbox_repository:
     class: Drupal\brebo_mail_intake\Service\MailboxRepository
     arguments:

@@ -387,3 +387,38 @@ function brebo_mail_intake_update_11003(): string {
 
   return 'Provider-independent BREBO mailbox-aliasregister aangemaakt.';
 }
+
+
+/**
+ * Adds provider-independent provisioning job persistence.
+ */
+function brebo_mail_intake_update_11004(): string {
+  $database = \Drupal::database();
+  $schema = $database->schema();
+
+  if ($schema->tableExists('brebo_mail_provisioning_job')) {
+    return 'BREBO mail provisioning jobregister bestond al.';
+  }
+
+  $schema->createTable('brebo_mail_provisioning_job', [
+    'description' => 'Provider-independent BREBO Mail provisioning jobs.',
+    'fields' => [
+      'id' => ['type' => 'serial', 'unsigned' => TRUE, 'not null' => TRUE],
+      'resource_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+      'resource_id' => ['type' => 'int', 'not null' => TRUE],
+      'operation' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE],
+      'status' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE, 'default' => 'pending'],
+      'provider_reference' => ['type' => 'varchar', 'length' => 255, 'not null' => TRUE, 'default' => ''],
+      'error_message' => ['type' => 'varchar', 'length' => 1000, 'not null' => TRUE, 'default' => ''],
+      'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+      'changed' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE, 'default' => 0],
+    ],
+    'primary key' => ['id'],
+    'indexes' => [
+      'brebo_mail_provisioning_resource' => ['resource_type', 'resource_id'],
+      'brebo_mail_provisioning_status' => ['status', 'changed'],
+    ],
+  ]);
+
+  return 'BREBO Mail provisioning jobregister aangemaakt.';
+}
