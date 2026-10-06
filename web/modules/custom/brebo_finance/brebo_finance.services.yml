@@ -86,6 +86,9 @@ services:
   brebo_finance.portfolio_liquidity_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePortfolioLiquidityRepository
     arguments: ['@database']
+  brebo_finance.portfolio_liquidity_projection:
+    class: Drupal\brebo_finance\Service\PortfolioLiquidityProjection
+    arguments: ['@brebo_finance.portfolio_liquidity_repository', '@brebo_finance.project_reference_gateway', '@brebo_finance.business_health_settings_source', '@brebo_finance.vat_calculator']
 
   brebo_finance.invoice_blocker_action_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoiceBlockerActionRepository
