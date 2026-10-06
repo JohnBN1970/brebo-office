@@ -96,10 +96,17 @@ services:
       - '@database'
       - '@brebo_contract_control.management_control_center'
 
+  brebo_contract_control.control_effectiveness_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseControlEffectivenessReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ControlEffectivenessReadRepositoryInterface:
+    alias: brebo_contract_control.control_effectiveness_read_repository
+
   brebo_contract_control.control_effectiveness:
     class: Drupal\brebo_contract_control\Service\ControlEffectivenessIntelligenceService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.control_effectiveness_read_repository'
 
   brebo_contract_control.root_cause_intelligence:
     class: Drupal\brebo_contract_control\Service\RootCauseIntelligenceService
