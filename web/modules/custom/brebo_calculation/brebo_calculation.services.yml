@@ -368,11 +368,19 @@ services:
     tags:
       - { name: event_subscriber }
 
-  brebo_calculation.calculation_document_set:
-    class: Drupal\brebo_calculation\Service\CalculationDocumentSetService
+  brebo_calculation.calculation_document_set_store:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationDocumentSetStore
     arguments:
       - '@database'
       - '@datetime.time'
+
+  Drupal\brebo_calculation\Contract\CalculationDocumentSetStoreInterface:
+    alias: brebo_calculation.calculation_document_set_store
+
+  brebo_calculation.calculation_document_set:
+    class: Drupal\brebo_calculation\Service\CalculationDocumentSetService
+    arguments:
+      - '@brebo_calculation.calculation_document_set_store'
 
   brebo_calculation.calculation_fact_store:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationFactStore
