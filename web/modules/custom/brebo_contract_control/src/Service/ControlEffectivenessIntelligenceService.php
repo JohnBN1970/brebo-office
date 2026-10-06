@@ -4,20 +4,19 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ControlEffectivenessReadRepositoryInterface;
 
 /** Measures whether management interventions stay effective over time. */
 final class ControlEffectivenessIntelligenceService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ControlEffectivenessReadRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if (!$this->database->schema()->tableExists('brebo_management_action')) {
+    $rows = $this->repository->findManagementActions();
+    if ($rows === []) {
       return ['observations' => 0, 'status' => 'no_data', 'action_types' => []];
     }
-
-    $rows = $this->database->select('brebo_management_action', 'a')->fields('a')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $groups = [];
     foreach ($rows as $row) {
       $key = (string) $row['action_key'];
