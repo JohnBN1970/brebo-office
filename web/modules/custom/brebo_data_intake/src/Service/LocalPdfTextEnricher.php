@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeEnricherInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\File\FileSystemInterface;
-use Drupal\file\FileInterface;
+use Drupal\brebo_data_intake\Contract\IntakeAttachmentSourceInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
@@ -15,8 +13,7 @@ use Symfony\Component\Process\Process;
 final class LocalPdfTextEnricher implements IntakeEnricherInterface {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly FileSystemInterface $fileSystem,
+    private readonly IntakeAttachmentSourceInterface $attachments,
     private readonly PurchaseInvoiceTextEnricher $invoiceTextEnricher,
   ) {}
 
@@ -52,7 +49,6 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
       return $envelope;
     }
 
-    $storage = $this->entityTypeManager->getStorage('file');
     $added = 0;
     foreach ((array) $originalAttachments as $attachment) {
       if (!is_array($attachment) || strtolower((string) ($attachment['mime_type'] ?? '')) !== 'application/pdf') {
@@ -66,18 +62,11 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
       if ($hash !== '' && isset($seen[$hash])) {
         continue;
       }
-      $file = $storage->load($fid);
-      if (!$file instanceof FileInterface || !$file->isPermanent()) {
+      $source = $this->attachments->resolve($fid);
+      if ($source === NULL) {
         continue;
       }
-      $uri = $file->getFileUri();
-      if (!str_starts_with($uri, 'private://brebo-intake/')) {
-        continue;
-      }
-      $realpath = $this->fileSystem->realpath($uri);
-      if (!is_string($realpath) || $realpath === '' || !is_file($realpath) || !is_readable($realpath)) {
-        continue;
-      }
+      $realpath = $source['path'];
 
       $process = new Process([$binary, '-layout', '-enc', 'UTF-8', $realpath, '-']);
       $process->setTimeout(20.0);
@@ -90,7 +79,7 @@ final class LocalPdfTextEnricher implements IntakeEnricherInterface {
         continue;
       }
       $evidence[] = [
-        'filename' => (string) ($attachment['filename'] ?? $file->getFilename()),
+        'filename' => (string) ($attachment['filename'] ?? $source['filename']),
         'mime_type' => 'application/pdf',
         'content_sha256' => $hash,
         'text' => $text,
