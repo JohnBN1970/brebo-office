@@ -361,6 +361,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 Managed document extraction, local PDF text extraction en local OCR laden intakebestanden niet meer rechtstreeks via Drupal file entities en FileSystem. Alle drie gebruiken `IntakeAttachmentSourceInterface`; `DrupalIntakeAttachmentSource` valideert permanente bestanden, de private intake-URI en het leesbare pad. Extractie- en normalisatielogica blijven in de enrichers.
 
+### Data Intake — website opportunity gateway boundary
+
+`WebsiteProjectRequestIntakeDestination` kent Drupal Settings, user storage en node entities niet meer rechtstreeks. Lead-owner-resolutie, duplicate lookup en opportunity-persistence lopen via `WebsiteOpportunityGatewayInterface` met `DrupalWebsiteOpportunityGateway`; request-id-validatie, titelvorming en voorlopige scopesamenstelling blijven in de destination-service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
