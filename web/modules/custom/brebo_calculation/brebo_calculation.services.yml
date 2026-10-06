@@ -145,13 +145,20 @@ services:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationEstablishmentRepository
     arguments: ['@database']
 
+  brebo_calculation.clock:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalculationClock
+    arguments: ['@datetime.time']
+
+  Drupal\brebo_calculation\Contract\CalculationClockInterface:
+    alias: brebo_calculation.clock
+
   brebo_calculation.version_establisher:
     class: Drupal\brebo_calculation\Service\CalculationVersionEstablisher
     arguments:
       - '@brebo_calculation.establishment_repository'
       - '@brebo_calculation.result'
       - '@brebo_calculation.readiness_inspector'
-      - '@datetime.time'
+      - '@brebo_calculation.clock'
       - '@brebo_calculation.line_read_model'
       - '@brebo_calculation.legacy_line_mirror_map'
 
