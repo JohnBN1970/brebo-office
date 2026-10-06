@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeEnricherInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\File\FileSystemInterface;
-use Drupal\file\FileInterface;
+use Drupal\brebo_data_intake\Contract\IntakeAttachmentSourceInterface;
 use Symfony\Component\Process\ExecutableFinder;
 use Symfony\Component\Process\Process;
 
@@ -24,8 +22,7 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
   private const MAX_PDF_PAGES = 10;
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly FileSystemInterface $fileSystem,
+    private readonly IntakeAttachmentSourceInterface $attachments,
     private readonly PurchaseInvoiceTextEnricher $invoiceTextEnricher,
   ) {}
 
@@ -63,7 +60,6 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
 
     $pdftoppm = (new ExecutableFinder())->find('pdftoppm');
     $language = $this->ocrLanguage($tesseract);
-    $storage = $this->entityTypeManager->getStorage('file');
     $added = 0;
 
     foreach ((array) $originalAttachments as $attachment) {
@@ -84,18 +80,11 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
         continue;
       }
 
-      $file = $storage->load($fid);
-      if (!$file instanceof FileInterface || !$file->isPermanent()) {
+      $source = $this->attachments->resolve($fid);
+      if ($source === NULL) {
         continue;
       }
-      $uri = $file->getFileUri();
-      if (!str_starts_with($uri, 'private://brebo-intake/')) {
-        continue;
-      }
-      $realpath = $this->fileSystem->realpath($uri);
-      if (!is_string($realpath) || $realpath === '' || !is_file($realpath) || !is_readable($realpath)) {
-        continue;
-      }
+      $realpath = $source['path'];
 
       $pageTexts = $mime === 'application/pdf'
         ? $this->ocrPdf($realpath, $tesseract, $pdftoppm, $language)
@@ -110,7 +99,7 @@ final class LocalOcrTextEnricher implements IntakeEnricherInterface {
       }
 
       $evidence[] = [
-        'filename' => (string) ($attachment['filename'] ?? $file->getFilename()),
+        'filename' => (string) ($attachment['filename'] ?? $source['filename']),
         'mime_type' => $mime,
         'content_sha256' => $hash,
         'text' => $text,
