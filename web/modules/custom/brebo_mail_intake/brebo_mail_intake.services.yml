@@ -324,6 +324,17 @@ services:
   Drupal\brebo_mail_intake\Contract\OutboundMailPersistenceInterface:
     alias: brebo_mail_intake.outbound_mail_persistence
 
+  brebo_mail_intake.outbound_mail_runtime:
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalOutboundMailRuntime
+    arguments:
+      - '@current_user'
+      - '@plugin.manager.mail'
+      - '@datetime.time'
+      - '@config.factory'
+
+  Drupal\brebo_mail_intake\Contract\OutboundMailRuntimeInterface:
+    alias: brebo_mail_intake.outbound_mail_runtime
+
   brebo_mail_intake.compose_source_repository:
     class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailComposeSourceRepository
     arguments:
@@ -337,10 +348,7 @@ services:
     class: Drupal\brebo_mail_intake\Service\OutboundMailService
     arguments:
       - '@brebo_mail_intake.outbound_mail_persistence'
-      - '@current_user'
-      - '@plugin.manager.mail'
-      - '@datetime.time'
-      - '@config.factory'
+      - '@brebo_mail_intake.outbound_mail_runtime'
       - '@brebo_mail_intake.signature_builder'
       - '@brebo_mail_intake.outbound_attachments'
 
