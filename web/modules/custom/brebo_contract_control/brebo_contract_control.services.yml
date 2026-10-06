@@ -158,10 +158,17 @@ services:
     arguments:
       - '@brebo_contract_control.audit_package_verification_read_repository'
 
+  brebo_contract_control.audit_package_export_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseAuditPackageExportReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\AuditPackageExportReadRepositoryInterface:
+    alias: brebo_contract_control.audit_package_export_read_repository
+
   brebo_contract_control.audit_package_export:
     class: Drupal\brebo_contract_control\Service\AuditPackageExportService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.audit_package_export_read_repository'
       - '@brebo_contract_control.audit_package_verification'
 
   brebo_contract_control.audit_document_renderer:
