@@ -349,6 +349,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `CalculationDocumentSetService` bevat geen directe database- of time-afhankelijkheid meer. Documentsetopslag, projectdocumentprojectie en itemopslag lopen via `CalculationDocumentSetStoreInterface` met `DatabaseCalculationDocumentSetStore`; classificatie, relevantiescore en reviewstatusbeslissing blijven in de service.
 
+### Data Intake — canonical attachment source boundary
+
+Managed document extraction, local PDF text extraction en local OCR laden intakebestanden niet meer rechtstreeks via Drupal file entities en FileSystem. Alle drie gebruiken `IntakeAttachmentSourceInterface`; `DrupalIntakeAttachmentSource` valideert permanente bestanden, de private intake-URI en het leesbare pad. Extractie- en normalisatielogica blijven in de enrichers.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
