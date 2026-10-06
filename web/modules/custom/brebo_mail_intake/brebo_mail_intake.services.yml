@@ -271,9 +271,12 @@ services:
     class: Drupal\brebo_mail_intake\Service\SourceMailboxAttachmentReader
 
   brebo_mail_intake.editor_provisioner:
-    class: Drupal\brebo_mail_intake\Service\MailEditorProvisioner
+    class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailEditorProvisioner
     arguments:
       - '@module_handler'
+
+  Drupal\brebo_mail_intake\Contract\MailEditorProvisionerInterface:
+    alias: brebo_mail_intake.editor_provisioner
 
   brebo_mail_intake.signature_read_repository:
     class: Drupal\brebo_mail_intake\Infrastructure\DrupalMailSignatureReadRepository

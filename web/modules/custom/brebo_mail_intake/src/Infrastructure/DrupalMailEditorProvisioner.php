@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Drupal\brebo_mail_intake\Service;
+namespace Drupal\brebo_mail_intake\Infrastructure;
+
+use Drupal\brebo_mail_intake\Contract\MailEditorProvisionerInterface;
 
 use Drupal\Core\Extension\ModuleHandlerInterface;
 use Drupal\editor\Entity\Editor;
@@ -10,7 +12,7 @@ use Drupal\filter\Entity\FilterFormat;
 use Drupal\user\Entity\Role;
 
 /** Idempotently provisions the shared HTML format used for BREBO mail. */
-final class MailEditorProvisioner {
+final class DrupalMailEditorProvisioner implements MailEditorProvisionerInterface {
 
   public function __construct(private readonly ModuleHandlerInterface $moduleHandler) {}
 
