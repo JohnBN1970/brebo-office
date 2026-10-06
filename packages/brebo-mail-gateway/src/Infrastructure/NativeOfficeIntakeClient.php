@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Brebo\MailGateway\Infrastructure;
 
-use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\Mail\Domain\NormalizedMailMessage;
 use Brebo\MailGateway\Contract\OfficeIntakeClientInterface;
+use Brebo\MailGateway\Service\OfficeIntakeRequestFactory;
 use RuntimeException;
 
 final class NativeOfficeIntakeClient implements OfficeIntakeClientInterface {
@@ -26,23 +26,14 @@ final class NativeOfficeIntakeClient implements OfficeIntakeClientInterface {
       throw new RuntimeException('Office intake callback credentials ontbreken.');
     }
 
-    $path = '/mail/api/v1/intake';
-    $body = json_encode($message->toArray(), JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR);
-    $timestamp = time();
-    $signature = GatewayRequestSignature::sign(
-      $this->keyId,
-      $this->secret,
-      $timestamp,
-      'POST',
-      $path,
-      $body,
-    );
-
+    $request = (new OfficeIntakeRequestFactory($this->keyId, $this->secret))->create($message, time());
+    $path = $request['path'];
+    $body = $request['body'];
     $headers = [
       'Content-Type: application/json',
       'Accept: application/json',
     ];
-    foreach ($signature->headers() as $name => $value) {
+    foreach ($request['headers'] as $name => $value) {
       $headers[] = $name . ': ' . $value;
     }
 
