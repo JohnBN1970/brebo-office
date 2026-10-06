@@ -371,7 +371,7 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 ### Finance — business health settings boundary
 
-`BusinessHealthBuilder` kent Drupal Config niet meer rechtstreeks. Vaste-kostencategorieën en liquiditeitsdrempels lopen via `BusinessHealthSettingsSourceInterface` met `DrupalBusinessHealthSettingsSource`. De builder is daarnaast als container-service bedraad, zodat controllers hem niet meer handmatig met `config.factory` construeren. Normalisatie, break-evenberekening en managementsignalen blijven Finance-businesslogica.
+`BusinessHealthBuilder` en `PortfolioLiquidityProjection` kennen Drupal Config niet meer rechtstreeks. Vaste-kostencategorieën, liquiditeitsdrempels en bankrekeningrollen lopen via `BusinessHealthSettingsSourceInterface` met `DrupalBusinessHealthSettingsSource`. Beide services zijn via de container bedraad, zodat controllers ze niet meer handmatig met `config.factory` construeren. Normalisatie, break-evenberekening, liquiditeitsprojectie en managementsignalen blijven Finance-businesslogica.
 
 ### Projecten/Office Core — offerteformulier
 
