@@ -494,3 +494,10 @@ Voor Mail geldt: behoud de bewezen baseline en gebruik de bron-neutrale intake v
 Voor website/klantportaal geldt: BREBO Office blijft bron en externe zichtbaarheid ontstaat uitsluitend via expliciete veilige publicatie/projectie.
 
 Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewerkt wanneer architectuur, implementatiestatus, open technische punten of eerstvolgende stap verandert.
+
+
+## Drupal-ontkoppeling — 6 oktober 2026
+
+- PR #1222 is gemerged als `bc7e008da00c2fe90f5e5a6db2372150876525e7`: `AuditReadinessEngine` leest beleidsregels en compliance-evidence via `AuditReadinessReadRepositoryInterface`; directe Drupal Database-afhankelijkheid is uit de service verwijderd.
+- Volgende lineaire slice: `AuditPackageVerificationService`. De package- en evidence-reads lopen via `AuditPackageVerificationReadRepositoryInterface` en `DatabaseAuditPackageVerificationReadRepository`; hash- en integriteitslogica blijft in de service.
+- Werk uitsluitend vanaf actuele `develop`; oude architectuurbranches niet hergebruiken.
