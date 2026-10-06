@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\RootCauseReadRepositoryInterface;
 
 /**
  * Ranks recurring control failures by likely root-cause family and evidence.
@@ -14,15 +14,14 @@ use Drupal\Core\Database\Connection;
  */
 final class RootCauseIntelligenceService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly RootCauseReadRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if (!$this->database->schema()->tableExists('brebo_management_action')) {
+    $rows = $this->repository->findManagementActions();
+    if ($rows === []) {
       return ['status' => 'no_data', 'causes' => [], 'observations' => 0];
     }
-
-    $rows = $this->database->select('brebo_management_action', 'a')->fields('a')->execute()->fetchAll(\PDO::FETCH_ASSOC);
     $causes = [];
 
     foreach ($rows as $row) {
