@@ -369,6 +369,10 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 `CalculationVersionEstablisher` kent Drupal Time niet meer rechtstreeks. Het vaststeltijdstip loopt via `CalculationClockInterface` met `DrupalCalculationClock`; readiness, hashopbouw, snapshots en lockbeslissingen blijven in de servicelaag.
 
+### Project Publication — public projection read boundary
+
+`PublicProjectProjection` bevat geen directe database- of file-URL-generatorafhankelijkheid meer. Vrijgegeven projectrecords en media lopen via `PublicProjectPublicationReadRepositoryInterface` met `DatabasePublicProjectPublicationReadRepository`; publieke veldprojectie en JSON-normalisatie blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
