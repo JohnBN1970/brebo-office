@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Core\Http\ClientFactory;
+use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 
 /**
@@ -20,7 +20,7 @@ final class BagPdokClient {
   private const BAG_BASE_URL = 'https://api.pdok.nl/kadaster/bag/ogc/v2';
 
   public function __construct(
-    private readonly ClientFactory $httpClientFactory,
+    private readonly ClientInterface $httpClient,
   ) {}
 
   /**
@@ -34,16 +34,13 @@ final class BagPdokClient {
       return [];
     }
 
-    $client = $this->httpClientFactory->fromOptions([
-      'timeout' => 10,
-      'headers' => [
-        'Accept' => 'application/json',
-        'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
-      ],
-    ]);
-
     try {
-      $response = $client->get(self::LOCATION_SEARCH_URL, [
+      $response = $this->httpClient->get(self::LOCATION_SEARCH_URL, [
+        'timeout' => 10,
+        'headers' => [
+          'Accept' => 'application/json',
+          'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
+        ],
         'query' => [
           'q' => $query,
           'fq' => 'type:adres',
@@ -100,16 +97,15 @@ final class BagPdokClient {
       return NULL;
     }
 
-    $client = $this->httpClientFactory->fromOptions([
-      'timeout' => 10,
-      'headers' => [
-        'Accept' => 'application/geo+json, application/json',
-        'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
-      ],
-    ]);
-
     try {
-      $response = $client->get($url, ['query' => ['f' => 'geojson']]);
+      $response = $this->httpClient->get($url, [
+        'timeout' => 10,
+        'headers' => [
+          'Accept' => 'application/geo+json, application/json',
+          'User-Agent' => 'BREBO Office/1.0 (sboffice.brebobv.nl)',
+        ],
+        'query' => ['f' => 'geojson'],
+      ]);
       $payload = json_decode((string) $response->getBody(), TRUE, 512, JSON_THROW_ON_ERROR);
     }
     catch (GuzzleException | \JsonException $exception) {
