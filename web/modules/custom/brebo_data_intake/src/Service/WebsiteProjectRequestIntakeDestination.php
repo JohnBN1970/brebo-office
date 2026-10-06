@@ -6,15 +6,13 @@ namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
 use Drupal\brebo_data_intake\ValueObject\IntakeDestinationResult;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\Site\Settings;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_data_intake\Contract\WebsiteOpportunityGatewayInterface;
 
 /** Creates the canonical CRM lead for a Europakozijn website request. */
 final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationInterface {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly WebsiteOpportunityGatewayInterface $opportunities,
   ) {}
 
   public function supports(string $classification): bool {
@@ -34,10 +32,8 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       );
     }
 
-    $ownerUid = (int) Settings::get('brebo_website_lead_owner_uid', 1);
-    $userStorage = $this->entityTypeManager->getStorage('user');
-    $owner = $ownerUid > 0 ? $userStorage->load($ownerUid) : NULL;
-    if ($owner === NULL || !$owner->isActive()) {
+    $ownerUid = $this->opportunities->configuredOwnerUid();
+    if (!$this->opportunities->ownerIsActive($ownerUid)) {
       return new IntakeDestinationResult(
         IntakeDestinationResult::REVIEW_REQUIRED,
         'lead_owner_unavailable',
@@ -54,30 +50,14 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
     $label = mb_substr($label, 0, 140);
     $title = sprintf('Europakozijn - %s [%s]', $label, substr($requestId, 0, 8));
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $existingIds = $storage->getQuery()
-      ->accessCheck(FALSE)
-      ->condition('type', 'brebo_opportunity')
-      ->condition('title', $title)
-      ->range(0, 1)
-      ->execute();
-    if ($existingIds !== []) {
-      $existing = $storage->load((int) reset($existingIds));
-      if ($existing instanceof NodeInterface) {
-        return new IntakeDestinationResult(
-          IntakeDestinationResult::REVIEW_REQUIRED,
-          'website_project_request_requires_review',
-          ['opportunity_id' => (int) $existing->id(), 'lead_duplicate' => TRUE],
-        );
-      }
+    $existingId = $this->opportunities->findOpportunityIdByTitle($title);
+    if ($existingId !== NULL) {
+      return new IntakeDestinationResult(
+        IntakeDestinationResult::REVIEW_REQUIRED,
+        'website_project_request_requires_review',
+        ['opportunity_id' => $existingId, 'lead_duplicate' => TRUE],
+      );
     }
-
-    $lead = $storage->create([
-      'type' => 'brebo_opportunity',
-      'title' => $title,
-      'status' => 1,
-      'uid' => $ownerUid,
-    ]);
 
     $values = [
       'field_brebo_opp_stage' => 'Lead',
@@ -95,13 +75,7 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       $values['field_brebo_opp_requirement'] = $scopeText;
     }
 
-    foreach ($values as $fieldName => $value) {
-      if ($lead->hasField($fieldName)) {
-        $lead->set($fieldName, $value);
-      }
-    }
-
-    $lead->save();
+    $opportunityId = $this->opportunities->createOpportunity($title, $ownerUid, $values);
 
     // The lead is created immediately, while each source attachment remains in
     // the central intake workbench until the machine result has been reviewed.
@@ -109,7 +83,7 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       IntakeDestinationResult::REVIEW_REQUIRED,
       'website_project_request_requires_review',
       [
-        'opportunity_id' => (int) $lead->id(),
+        'opportunity_id' => $opportunityId,
         'lead_duplicate' => FALSE,
         'preliminary_scope_available' => $scopeText !== '',
       ],
