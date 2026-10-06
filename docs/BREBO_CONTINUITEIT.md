@@ -341,6 +341,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `CalculationFactService` bevat geen directe database- of time-afhankelijkheid meer. Fact- en take-offopslag en request-time lopen via `CalculationFactStoreInterface` met `DatabaseCalculationFactStore`; leveranciersquote-normalisatie, maatdetectie en geometrieberekening blijven in de service.
 
+### Measure — storage boundary
+
+`MeasureRepository` bevat geen directe database- of time-afhankelijkheid meer. Opslag, lookup, capture-versiebepaling en request-time lopen via `MeasureStorageInterface` met `DatabaseMeasureStorage`; domeinvalidatie, provenance, JSON-normalisatie en workflowvoorwaarden blijven in de servicelaag.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
