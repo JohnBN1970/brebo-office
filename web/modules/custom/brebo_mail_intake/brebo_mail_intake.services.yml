@@ -14,6 +14,19 @@ services:
       - '@brebo_mail_intake.communication_repository'
       - '@brebo_mail_intake.mailbox_storage_repository'
 
+  brebo_mail_intake.core_intake_sink:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreMailIntakeSinkAdapter
+    arguments:
+      - '@brebo_mail_intake.ingestor'
+
+  Brebo\Mail\Contract\MailIntakeSinkInterface:
+    alias: brebo_mail_intake.core_intake_sink
+
+  brebo_mail_intake.core_intake_bridge:
+    class: Brebo\Mail\Service\MailIntakeBridge
+    arguments:
+      - '@brebo_mail_intake.core_intake_sink'
+
   brebo_mail_intake.classifier:
     class: Drupal\brebo_mail_intake\Service\MailClassifier
 
