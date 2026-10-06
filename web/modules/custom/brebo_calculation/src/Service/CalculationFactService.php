@@ -4,20 +4,18 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Component\Datetime\TimeInterface;
+use Drupal\brebo_calculation\Contract\CalculationFactStoreInterface;
 
 /** Builds source-preserving facts and the first geometry take-off. */
 final class CalculationFactService {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly TimeInterface $time,
+    private readonly CalculationFactStoreInterface $store,
   ) {}
 
   /** @param list<array<string,mixed>> $quoteLines @return array<string,mixed> */
   public function importSupplierQuoteLines(int $setId, int $documentId, array $quoteLines): array {
-    $now = $this->time->getRequestTime();
+    $now = $this->store->currentTime();
     $facts = [];
     $takeoff = [];
 
@@ -50,7 +48,7 @@ final class CalculationFactService {
         $right = $height / 1000.0;
         $area = ($width / 1000.0) * ($height / 1000.0);
         $perimeter = $top + $bottom + $left + $right;
-        $this->database->insert('brebo_calculation_takeoff')->fields([
+        $this->store->insertTakeoff([
           'set_id' => $setId,
           'position_ref' => $position,
           'quantity' => $quantity,
@@ -63,7 +61,7 @@ final class CalculationFactService {
           'left_m' => $left,
           'right_m' => $right,
           'created' => $now,
-        ])->execute();
+        ]);
         $takeoff[] = compact('position', 'quantity', 'width', 'height', 'area', 'perimeter', 'top', 'bottom', 'left', 'right');
       }
       $facts[] = $position;
@@ -81,7 +79,7 @@ final class CalculationFactService {
   }
 
   private function insertFact(int $setId, int $documentId, string $type, string $position, ?string $text, ?float $number, ?string $unit, ?int $page, ?string $fragment, string $method, float $confidence, int $now): void {
-    $this->database->insert('brebo_calculation_fact')->fields([
+    $this->store->insertFact([
       'set_id' => $setId,
       'document_id' => $documentId,
       'fact_type' => $type,
@@ -95,7 +93,7 @@ final class CalculationFactService {
       'confidence' => $confidence,
       'review_status' => 'proposed',
       'created' => $now,
-    ])->execute();
+    ]);
   }
 
 }
