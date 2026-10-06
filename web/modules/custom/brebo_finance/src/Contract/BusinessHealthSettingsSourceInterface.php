@@ -12,4 +12,7 @@ interface BusinessHealthSettingsSourceInterface {
   /** @return array{red:float,orange:float} */
   public function liquidityThresholds(): array;
 
+  /** @return array<string,string> */
+  public function bankAccountRoles(): array;
+
 }
