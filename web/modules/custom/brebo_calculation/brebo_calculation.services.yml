@@ -374,11 +374,19 @@ services:
       - '@database'
       - '@datetime.time'
 
-  brebo_calculation.calculation_fact:
-    class: Drupal\brebo_calculation\Service\CalculationFactService
+  brebo_calculation.calculation_fact_store:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationFactStore
     arguments:
       - '@database'
       - '@datetime.time'
+
+  Drupal\brebo_calculation\Contract\CalculationFactStoreInterface:
+    alias: brebo_calculation.calculation_fact_store
+
+  brebo_calculation.calculation_fact:
+    class: Drupal\brebo_calculation\Service\CalculationFactService
+    arguments:
+      - '@brebo_calculation.calculation_fact_store'
 
   brebo_calculation.calculation_context_snapshot:
     class: Drupal\brebo_calculation\Service\CalculationContextSnapshotService
