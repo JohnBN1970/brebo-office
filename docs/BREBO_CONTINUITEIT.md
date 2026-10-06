@@ -365,6 +365,10 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 `WebsiteProjectRequestIntakeDestination` kent Drupal Settings, user storage en node entities niet meer rechtstreeks. Lead-owner-resolutie, duplicate lookup en opportunity-persistence lopen via `WebsiteOpportunityGatewayInterface` met `DrupalWebsiteOpportunityGateway`; request-id-validatie, titelvorming en voorlopige scopesamenstelling blijven in de destination-service.
 
+### Calculatie — clock boundary
+
+`CalculationVersionEstablisher` kent Drupal Time niet meer rechtstreeks. Het vaststeltijdstip loopt via `CalculationClockInterface` met `DrupalCalculationClock`; readiness, hashopbouw, snapshots en lockbeslissingen blijven in de servicelaag.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
