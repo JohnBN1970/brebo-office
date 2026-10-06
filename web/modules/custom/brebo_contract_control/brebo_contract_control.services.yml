@@ -124,10 +124,17 @@ services:
     arguments:
       - '@brebo_contract_control.organizational_learning_repository'
 
+  brebo_contract_control.policy_enforcement_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabasePolicyStandardEnforcementRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\PolicyStandardEnforcementRepositoryInterface:
+    alias: brebo_contract_control.policy_enforcement_repository
+
   brebo_contract_control.policy_enforcement:
     class: Drupal\brebo_contract_control\Service\PolicyStandardEnforcementService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.policy_enforcement_repository'
 
   brebo_contract_control.compliance_evidence_repository:
     class: Drupal\brebo_contract_control\Infrastructure\DatabaseComplianceEvidenceRepository
