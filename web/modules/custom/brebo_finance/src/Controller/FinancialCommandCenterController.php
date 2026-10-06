@@ -7,7 +7,6 @@ namespace Drupal\brebo_finance\Controller;
 use Drupal\brebo_finance\Form\BankAccountRolesForm;
 use Drupal\brebo_finance\Form\BusinessHealthSettingsForm;
 use Drupal\brebo_finance\Service\BusinessHealthBuilder;
-use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\brebo_finance\Service\PortfolioLiquidityProjection;
 use Drupal\brebo_finance\Service\VatCalculator;
@@ -32,11 +31,7 @@ final class FinancialCommandCenterController extends ControllerBase {
     return new static(
       $container->get('brebo_finance.financial_command_center'),
       $container->get('date.formatter'),
-      new BusinessHealthBuilder(
-        new BusinessHealthIntegrationClient($container->get('http_client')),
-        $container->get('config.factory'),
-        $container->get('cache.default'),
-      ),
+      $container->get('brebo_finance.business_health_builder'),
       new PortfolioLiquidityProjection(
         $container->get('brebo_finance.portfolio_liquidity_repository'),
         $container->get('brebo_finance.project_reference_gateway'),
