@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ComplianceEvidenceRepositoryInterface;
 
 /** Records immutable-style evidence snapshots for policy compliance decisions. */
 final class ComplianceEvidenceEngine {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ComplianceEvidenceRepositoryInterface $repository,
     private readonly PolicyStandardEnforcementService $policyEnforcement,
   ) {}
 
@@ -31,7 +31,7 @@ final class ComplianceEvidenceEngine {
     }
 
     $encodedEvidence = json_encode($evidence, JSON_THROW_ON_ERROR);
-    $id = (int) $this->database->insert('brebo_compliance_evidence')->fields([
+    $id = $this->repository->insert([
       'policy_code' => $policyCode,
       'policy_version' => (string) ($decision['policy_version'] ?? ''),
       'scope' => $scope,
@@ -42,17 +42,14 @@ final class ComplianceEvidenceEngine {
       'decision_json' => json_encode($decision, JSON_THROW_ON_ERROR),
       'evidence_hash' => hash('sha256', $encodedEvidence),
       'evaluated_at' => $now,
-    ])->execute();
+    ]);
 
     return ['evidence_record_id' => $id, 'decision' => $decision, 'evidence_count' => count($evidenceRefs)];
   }
 
   /** @return array<int, array<string, mixed>> */
   public function auditTrail(string $policyCode, ?string $scope = NULL): array {
-    $query = $this->database->select('brebo_compliance_evidence', 'e')->fields('e')->condition('policy_code', $policyCode)->orderBy('evaluated_at', 'DESC');
-    if ($scope !== NULL) {
-      $query->condition('scope', $scope);
-    }
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->findAuditTrail($policyCode, $scope);
   }
+
 }
