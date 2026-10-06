@@ -543,3 +543,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1229 is gemerged als `b7d323654c51aaf31106d4e686a51862db06c966`: `ControlEffectivenessIntelligenceService` gebruikt uitsluitend `ControlEffectivenessReadRepositoryInterface` voor managementactie-reads.
 - Volgende lineaire slice: `RootCauseIntelligenceService`. Managementactie-reads lopen via `RootCauseReadRepositoryInterface` en `DatabaseRootCauseReadRepository`; classificatie, scoring, confidence en governance blijven in de service.
+
+
+### Contract-monitoring isolatie
+
+- PR #1230 is gemerged als `73af183c405c979014fad42b5598dfd807c2a5ba`: `RootCauseIntelligenceService` gebruikt uitsluitend `RootCauseReadRepositoryInterface` voor managementactie-reads.
+- Volgende lineaire slice: `ContractMonitoringService`. Award-read, obligation-opslag/-afronding en statusreads lopen via `ContractMonitoringRepositoryInterface` en `DatabaseContractMonitoringRepository`; validaties, overdue-/blockinglogica en close-status blijven in de service.
