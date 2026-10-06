@@ -6,7 +6,7 @@ namespace Drupal\brebo_mail_intake\Controller;
 
 use Drupal\brebo_mail_intake\Form\MailboxMessageActionForm;
 use Drupal\brebo_mail_intake\Form\MailboxTagForm;
-use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
+use Drupal\brebo_mail_intake\Contract\MailEditorProvisionerInterface;
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
 use Drupal\Core\Controller\ControllerBase;
@@ -39,7 +39,7 @@ final class MailboxController extends ControllerBase {
     private readonly MailboxStorageRepositoryInterface $storage,
     private readonly EntityTypeManagerInterface $mailboxEntityTypeManager,
     private readonly AccountProxyInterface $mailboxCurrentUser,
-    private readonly MailEditorProvisioner $editorProvisioner,
+    private readonly MailEditorProvisionerInterface $editorProvisioner,
     private readonly RequestStack $mailboxRequestStack,
   ) {}
 
