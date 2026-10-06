@@ -1,8 +1,15 @@
 services:
+  brebo_contract_control.monitoring_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseContractMonitoringRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ContractMonitoringRepositoryInterface:
+    alias: brebo_contract_control.monitoring_repository
+
   brebo_contract_control.monitoring:
     class: Drupal\brebo_contract_control\Service\ContractMonitoringService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.monitoring_repository'
 
   brebo_contract_control.payment_gate_read_repository:
     class: Drupal\brebo_contract_control\Infrastructure\DatabaseContractPaymentGateReadRepository
