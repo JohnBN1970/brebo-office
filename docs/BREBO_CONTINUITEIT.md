@@ -501,3 +501,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1222 is gemerged als `bc7e008da00c2fe90f5e5a6db2372150876525e7`: `AuditReadinessEngine` leest beleidsregels en compliance-evidence via `AuditReadinessReadRepositoryInterface`; directe Drupal Database-afhankelijkheid is uit de service verwijderd.
 - Volgende lineaire slice: `AuditPackageVerificationService`. De package- en evidence-reads lopen via `AuditPackageVerificationReadRepositoryInterface` en `DatabaseAuditPackageVerificationReadRepository`; hash- en integriteitslogica blijft in de service.
 - Werk uitsluitend vanaf actuele `develop`; oude architectuurbranches niet hergebruiken.
+
+
+### Audit-package exportisolatie
+
+- PR #1223 is gemerged als `edbe2f4288044b7df905fd219c5685f6c8cee682`: `AuditPackageVerificationService` leest packages en evidence uitsluitend via `AuditPackageVerificationReadRepositoryInterface`.
+- Volgende lineaire slice: `AuditPackageExportService`. De package-read loopt via `AuditPackageExportReadRepositoryInterface` en `DatabaseAuditPackageExportReadRepository`; verificatie, manifestopbouw, findings en render-targets blijven in de service.
