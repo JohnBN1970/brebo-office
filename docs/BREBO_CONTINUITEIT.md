@@ -429,6 +429,10 @@ Leveranciersfactuur-analytics blijven eigendom van Finance en worden ontsloten v
 
 `AccessContactResolver`, `ZoneAccessReadiness`, `WorkPackageAccessReadiness` en `LookAheadAccessReadiness` zijn losgetrokken van directe database-, node-, config- en entity-API's. Accessregels, zone-residenties, work-packageprojecties, zone-gebouwkoppeling en timezoneconfig worden via `ResidentAccessReadRepositoryInterface` aangeleverd door `DrupalResidentAccessReadRepository`. De readiness-, inherited-scope- en look-aheadlogica blijft in de services.
 
+### Resident Service — address-scope persistence boundary
+
+`AddressScopeIntake` bevat geen directe Drupal-databaseoperaties meer. Intake-opslag, resolutieresultaten, building-address materialization en residence-persistence lopen via `AddressScopeRepositoryInterface` met `DatabaseAddressScopeRepository` aan de buitenrand. Parser-, persistability-, PDOK-resolutie- en materializationregels blijven in de service. Daarmee is de Resident Service-servicelaag vrij van directe `Connection`, `EntityTypeManagerInterface` en `NodeInterface`-afhankelijkheden.
+
 ## Ontwikkelregel bij nieuwe chats
 
 Een nieuwe chat is een voortzetting van dezelfde BREBO Office-ontwikkeling. Begin niet opnieuw met architectuurverkenning. Herstel eerst de actuele stand uit de genoemde bronnen en de actuele GitHub-stand en ga verder vanaf de eerstvolgende technische stap.
