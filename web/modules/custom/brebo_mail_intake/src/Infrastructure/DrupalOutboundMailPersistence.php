@@ -48,7 +48,44 @@ final class DrupalOutboundMailPersistence implements OutboundMailPersistenceInte
     }
   }
 
-  public function createDraft(array $values, string $revisionMessage): int {
+  public function createDraft(
+    array $draft,
+    int $creatorUid,
+    string $sourceId,
+    string $revisionMessage,
+  ): int {
+    $values = [
+      'type' => 'brebo_communication',
+      'title' => '[CONCEPT] ' . (string) $draft['subject'],
+      'uid' => $creatorUid,
+      'status' => 1,
+      'field_brebo_source_id' => $sourceId,
+      'field_brebo_comm_channel' => 'E-mail',
+      'field_brebo_comm_direction' => 'Uitgaand',
+      'field_brebo_comm_subject' => (string) $draft['subject'],
+      'field_brebo_transcript' => (string) $draft['body'],
+      'field_brebo_mail_html' => (string) ($draft['body_html'] ?? ''),
+      'field_brebo_mail_from' => (string) ($draft['from'] ?? ''),
+      'field_brebo_mail_to' => (string) $draft['to'],
+      'field_brebo_mail_cc' => (string) ($draft['cc'] ?? ''),
+      'field_brebo_mail_bcc' => (string) ($draft['bcc'] ?? ''),
+      'field_brebo_comm_status' => 'Concept',
+      'field_brebo_formal_status' => 'Concept - goedkeuring vereist',
+      'field_brebo_ai_status' => 'Concept',
+      'field_brebo_intake_status' => 'Verwerkt',
+    ];
+
+    foreach ([
+      'building_id' => 'field_brebo_building_ref',
+      'project_id' => 'field_brebo_project_ref',
+      'context_id' => 'field_brebo_comm_scope_target',
+    ] as $input => $field) {
+      $targetId = (int) ($draft[$input] ?? 0);
+      if ($targetId > 0) {
+        $values[$field] = ['target_id' => $targetId];
+      }
+    }
+
     $node = $this->entityTypeManager->getStorage('node')->create($values);
     if (!$node instanceof NodeInterface) {
       throw new \RuntimeException('Uitgaand communicatieconcept kon niet worden aangemaakt.');
@@ -66,6 +103,40 @@ final class DrupalOutboundMailPersistence implements OutboundMailPersistenceInte
       throw new \RuntimeException('BREBO Communication kon niet worden geladen.');
     }
 
+    $node->setNewRevision(TRUE);
+    $node->setRevisionLogMessage($revisionMessage);
+    $node->save();
+  }
+
+
+  public function outboundMessage(int $communicationId): ?array {
+    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
+      return NULL;
+    }
+
+    return [
+      'id' => (int) $node->id(),
+      'direction' => trim((string) ($node->get('field_brebo_comm_direction')->value ?? '')),
+      'formal_status' => trim((string) ($node->get('field_brebo_formal_status')->value ?? '')),
+      'to' => trim((string) ($node->get('field_brebo_mail_to')->value ?? '')),
+      'cc' => $node->hasField('field_brebo_mail_cc') ? trim((string) ($node->get('field_brebo_mail_cc')->value ?? '')) : '',
+      'bcc' => $node->hasField('field_brebo_mail_bcc') ? trim((string) ($node->get('field_brebo_mail_bcc')->value ?? '')) : '',
+      'subject' => trim((string) ($node->get('field_brebo_comm_subject')->value ?? '')),
+      'body' => trim((string) ($node->get('field_brebo_transcript')->value ?? '')),
+      'body_html' => $node->hasField('field_brebo_mail_html') ? trim((string) ($node->get('field_brebo_mail_html')->value ?? '')) : '',
+    ];
+  }
+
+  public function markSent(int $communicationId, string $processedAt, string $revisionMessage): void {
+    $node = $this->entityTypeManager->getStorage('node')->load($communicationId);
+    if (!$node instanceof NodeInterface || $node->bundle() !== 'brebo_communication') {
+      throw new \RuntimeException('BREBO Communication kon niet worden geladen.');
+    }
+
+    $node->set('field_brebo_comm_status', 'Verzonden');
+    $node->set('field_brebo_formal_status', 'Verzonden');
+    $node->set('field_brebo_processed_at', $processedAt);
     $node->setNewRevision(TRUE);
     $node->setRevisionLogMessage($revisionMessage);
     $node->save();
