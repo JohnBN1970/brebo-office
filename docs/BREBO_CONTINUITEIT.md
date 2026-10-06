@@ -393,6 +393,10 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 `PaymentBatchControlService` bevat geen directe database- of schemakennis meer. Leveranciersfactuurcontrole loopt via `PaymentBatchControlReadRepositoryInterface` met `DatabasePaymentBatchControlReadRepository`; batch-deduplicatie, IBAN/G-rekeningchecks, vier-ogencontrole en anomalielogica blijven in de service.
 
+### Contract Control — audit readiness read boundary
+
+`AuditReadinessEngine` bevat geen directe databasekennis meer. Actieve beleidsregels en het laatste compliance-bewijs per beleidsversie lopen via `AuditReadinessReadRepositoryInterface` met `DatabaseAuditReadinessReadRepository`; volledigheidscontrole, readinesspercentage, ontbrekend-bewijsanalyse en statusclassificatie blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
