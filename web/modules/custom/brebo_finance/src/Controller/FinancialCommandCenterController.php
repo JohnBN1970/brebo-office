@@ -9,7 +9,6 @@ use Drupal\brebo_finance\Form\BusinessHealthSettingsForm;
 use Drupal\brebo_finance\Service\BusinessHealthBuilder;
 use Drupal\brebo_finance\Service\FinancialCommandCenter;
 use Drupal\brebo_finance\Service\PortfolioLiquidityProjection;
-use Drupal\brebo_finance\Service\VatCalculator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Datetime\DateFormatterInterface;
 use Drupal\Core\Link;
@@ -32,12 +31,7 @@ final class FinancialCommandCenterController extends ControllerBase {
       $container->get('brebo_finance.financial_command_center'),
       $container->get('date.formatter'),
       $container->get('brebo_finance.business_health_builder'),
-      new PortfolioLiquidityProjection(
-        $container->get('brebo_finance.portfolio_liquidity_repository'),
-        $container->get('brebo_finance.project_reference_gateway'),
-        $container->get('config.factory'),
-        new VatCalculator(),
-      ),
+      $container->get('brebo_finance.portfolio_liquidity_projection'),
     );
   }
 
