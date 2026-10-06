@@ -4,19 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\SalesTaxSettingsSourceInterface;
 use InvalidArgumentException;
 
 /** Reads and validates configurable sales VAT and G-account settings. */
 final class SalesTaxSettings {
 
-  private const CONFIG_NAME = 'brebo_finance.sales';
-
-  public function __construct(private readonly ConfigFactoryInterface $configFactory) {}
+  public function __construct(private readonly SalesTaxSettingsSourceInterface $source) {}
 
   /** @return array<string, array{label:string, rate:string, treatment:string, active:bool}> */
   public function vatRates(): array {
-    $configured = $this->configFactory->get(self::CONFIG_NAME)->get('vat_rates');
+    $configured = $this->source->salesSettings()['vat_rates'] ?? NULL;
     if (!is_array($configured) || $configured === []) {
       $configured = [
         'NL_21' => ['label' => '21%', 'rate' => '21.0000', 'treatment' => 'normal', 'active' => TRUE],
@@ -57,12 +55,13 @@ final class SalesTaxSettings {
 
   /** @return array{enabled:bool,default_percentage:string,regular_iban:string,g_iban:string} */
   public function gAccount(): array {
-    $config = $this->configFactory->get(self::CONFIG_NAME);
+    $settings = $this->source->salesSettings();
+    $gAccount = is_array($settings['g_account'] ?? NULL) ? $settings['g_account'] : [];
     return [
-      'enabled' => (bool) ($config->get('g_account.enabled') ?? FALSE),
-      'default_percentage' => number_format((float) ($config->get('g_account.default_percentage') ?? 0), 2, '.', ''),
-      'regular_iban' => trim((string) ($config->get('g_account.regular_iban') ?? '')),
-      'g_iban' => trim((string) ($config->get('g_account.g_iban') ?? '')),
+      'enabled' => (bool) ($gAccount['enabled'] ?? FALSE),
+      'default_percentage' => number_format((float) ($gAccount['default_percentage'] ?? 0), 2, '.', ''),
+      'regular_iban' => trim((string) ($gAccount['regular_iban'] ?? '')),
+      'g_iban' => trim((string) ($gAccount['g_iban'] ?? '')),
     ];
   }
 
