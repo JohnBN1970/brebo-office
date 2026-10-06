@@ -35,7 +35,7 @@ final class MailboxMessageActionForm extends FormBase {
   }
 
   public function buildForm(array $form, FormStateInterface $form_state, int $mailbox_id = 0, int $communication_id = 0, string $mail_state = 'inbox'): array {
-    if ($mailbox_id <= 0 || $communication_id <= 0 || !$this->accessPolicy->allowed($this->currentAccount, $mailbox_id, 'view')) {
+    if ($mailbox_id <= 0 || $communication_id <= 0 || !$this->accessPolicy->allowed((int) $this->currentAccount->id(), $this->currentAccount->getRoles(), $this->currentAccount->hasPermission('administer site configuration'), $mailbox_id, 'view')) {
       return [];
     }
 
@@ -102,7 +102,7 @@ final class MailboxMessageActionForm extends FormBase {
     $communicationId = (int) $form_state->getValue('communication_id');
     $returnState = (string) $form_state->getValue('return_state');
 
-    if (!$this->accessPolicy->allowed($this->currentAccount, $mailboxId, 'view')) {
+    if (!$this->accessPolicy->allowed((int) $this->currentAccount->id(), $this->currentAccount->getRoles(), $this->currentAccount->hasPermission('administer site configuration'), $mailboxId, 'view')) {
       $this->messenger()->addError($this->t('U heeft geen toegang tot deze mailbox.'));
       return;
     }

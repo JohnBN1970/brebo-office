@@ -47,7 +47,7 @@ final class MailSearchController extends ControllerBase {
   public function page(): array {
     $visible = array_values(array_filter(
       $this->mailboxes->all(),
-      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->mailboxCurrentUser, (int) $mailbox['id'], 'view'),
+      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed((int) $this->mailboxCurrentUser->id(), $this->mailboxCurrentUser->getRoles(), $this->mailboxCurrentUser->hasPermission('administer site configuration'), (int) $mailbox['id'], 'view'),
     ));
 
     if ($visible === []) {

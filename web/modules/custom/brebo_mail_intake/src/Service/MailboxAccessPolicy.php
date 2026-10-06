@@ -4,15 +4,22 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Core\Session\AccountInterface;
-
 /** Mailbox capability checks for role-based and owner-only mailboxes. */
 final class MailboxAccessPolicy {
 
   public function __construct(private readonly MailboxRepository $mailboxes) {}
 
-  public function allowed(AccountInterface $account, int $mailboxId, string $capability = 'view'): bool {
-    if ($account->hasPermission('administer site configuration')) {
+  /**
+   * @param string[] $roles
+   */
+  public function allowed(
+    int $userId,
+    array $roles,
+    bool $siteAdmin,
+    int $mailboxId,
+    string $capability = 'view',
+  ): bool {
+    if ($siteAdmin) {
       return TRUE;
     }
 
@@ -23,7 +30,7 @@ final class MailboxAccessPolicy {
 
     if (($mailbox['privacy_type'] ?? 'functional') === 'personal') {
       return (int) ($mailbox['owner_uid'] ?? 0) > 0
-        && (int) ($mailbox['owner_uid'] ?? 0) === (int) $account->id();
+        && (int) ($mailbox['owner_uid'] ?? 0) === $userId;
     }
 
     $allowedRoles = $this->mailboxes->allowedRoles($mailboxId, $capability);
@@ -31,7 +38,7 @@ final class MailboxAccessPolicy {
       return FALSE;
     }
 
-    return array_intersect($allowedRoles, $account->getRoles()) !== [];
+    return array_intersect($allowedRoles, $roles) !== [];
   }
 
 }
