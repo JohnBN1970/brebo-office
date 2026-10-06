@@ -36,10 +36,10 @@ final class GatewayApiService {
     }
 
     $payload['domain'] = $domain;
-    $reference = $this->repository->provisionDomain($payload);
     $dkim = $this->dkim->generate($domain);
     $payload['dkim_selector'] = $dkim['selector'];
     $payload['dkim_private_key_reference'] = $dkim['private_key_reference'];
+    $reference = $this->repository->provisionDomain($payload);
     $this->mailStack->applyDomain($payload);
 
     return [
