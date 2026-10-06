@@ -60,9 +60,16 @@ services:
   brebo_finance.collection_dossier_builder:
     class: Drupal\brebo_finance\Service\CollectionDossierBuilder
     arguments: ['@brebo_finance.collection_invoice_repository', '@brebo_finance.receivables_dunning_manager']
+  brebo_finance.collection_provider_runtime_config:
+    class: Drupal\brebo_finance\Infrastructure\DrupalNlLegalRuntimeConfig
+    arguments: ['@config.factory']
+
+  Drupal\brebo_finance\Contract\CollectionProviderRuntimeConfigInterface:
+    alias: brebo_finance.collection_provider_runtime_config
+
   brebo_finance.collection_provider:
     class: Drupal\brebo_finance\Service\NlLegalCollectionProvider
-    arguments: ['@http_client', '@config.factory']
+    arguments: ['@http_client', '@brebo_finance.collection_provider_runtime_config']
   brebo_finance.collection_transfer_repository:
     class: Drupal\brebo_finance\Infrastructure\DrupalCollectionTransferRepository
     arguments: ['@keyvalue']
