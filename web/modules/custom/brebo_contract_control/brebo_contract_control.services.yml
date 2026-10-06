@@ -108,10 +108,17 @@ services:
     arguments:
       - '@brebo_contract_control.control_effectiveness_read_repository'
 
+  brebo_contract_control.root_cause_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseRootCauseReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\RootCauseReadRepositoryInterface:
+    alias: brebo_contract_control.root_cause_read_repository
+
   brebo_contract_control.root_cause_intelligence:
     class: Drupal\brebo_contract_control\Service\RootCauseIntelligenceService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.root_cause_read_repository'
 
   brebo_contract_control.continuous_improvement:
     class: Drupal\brebo_contract_control\Service\ContinuousImprovementEngine
