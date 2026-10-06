@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\node\NodeInterface;
-
 /**
  * Guards the retired direct AI processing route.
  *
@@ -19,7 +17,7 @@ final class CommunicationAiProcessor {
     return FALSE;
   }
 
-  public function process(NodeInterface $communication): void {
+  public function process(mixed $communication = NULL): void {
     throw new \RuntimeException('Directe AI-verwerking is geblokkeerd. Gebruik de centrale BREBO Integration API.');
   }
 
