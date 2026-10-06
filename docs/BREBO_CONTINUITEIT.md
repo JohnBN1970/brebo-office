@@ -525,3 +525,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1226 is gemerged als `18153715573a0ce3dfee8ddfe6e0c1c613fd96e5`: `ComplianceEvidenceEngine` gebruikt uitsluitend `ComplianceEvidenceRepositoryInterface` voor evidence-opslag en audittrail-reads.
 - Volgende lineaire slice: `OrganizationalLearningRegistry`. Opslag, reviewselectie en historie lopen via `OrganizationalLearningRepositoryInterface` en `DatabaseOrganizationalLearningRepository`; validaties, vier-ogenprincipe en reviewsemantiek blijven in de service.
+
+
+### Policy-enforcement isolatie
+
+- PR #1227 is gemerged als `50e0926131b8f7c8a4dc7e4b8ad2253483196e24`: `OrganizationalLearningRegistry` gebruikt uitsluitend `OrganizationalLearningRepositoryInterface` voor opslag, reviewselectie en historie.
+- Volgende lineaire slice: `PolicyStandardEnforcementService`. Actieve policy-read, policy-by-id en exception-opslag lopen via `PolicyStandardEnforcementRepositoryInterface` en `DatabasePolicyStandardEnforcementRepository`; requirement-evaluatie, uitzonderingsvoorwaarden en vier-ogenprincipe blijven in de service.
