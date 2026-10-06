@@ -122,10 +122,17 @@ services:
     arguments:
       - '@database'
 
+  brebo_contract_control.compliance_evidence_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseComplianceEvidenceRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ComplianceEvidenceRepositoryInterface:
+    alias: brebo_contract_control.compliance_evidence_repository
+
   brebo_contract_control.compliance_evidence:
     class: Drupal\brebo_contract_control\Service\ComplianceEvidenceEngine
     arguments:
-      - '@database'
+      - '@brebo_contract_control.compliance_evidence_repository'
       - '@brebo_contract_control.policy_enforcement'
 
   brebo_contract_control.audit_readiness_read_repository:
