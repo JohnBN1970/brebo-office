@@ -349,6 +349,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `CalculationDocumentSetService` bevat geen directe database- of time-afhankelijkheid meer. Documentsetopslag, projectdocumentprojectie en itemopslag lopen via `CalculationDocumentSetStoreInterface` met `DatabaseCalculationDocumentSetStore`; classificatie, relevantiescore en reviewstatusbeslissing blijven in de service.
 
+### Finance — sales tax settings source boundary
+
+`SalesTaxSettings` kent Drupal Config niet meer rechtstreeks. Btw-regimes en G-rekeningconfiguratie lopen via `SalesTaxSettingsSourceInterface` met `DrupalSalesTaxSettingsSource`; defaults, validatie, actieve opties en G-rekeningsplit blijven Finance-businesslogica.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
