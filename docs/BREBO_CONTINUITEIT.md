@@ -353,6 +353,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `SalesTaxSettings` kent Drupal Config niet meer rechtstreeks. Btw-regimes en G-rekeningconfiguratie lopen via `SalesTaxSettingsSourceInterface` met `DrupalSalesTaxSettingsSource`; defaults, validatie, actieve opties en G-rekeningsplit blijven Finance-businesslogica.
 
+### Finance — receivables dunning schedule boundary
+
+`ReceivablesDunningManager` kent Drupal Config niet meer rechtstreeks. Het configureerbare herinnering/aanmaning/sommatie/incasso-schema loopt via `ReceivablesDunningScheduleSourceInterface` met `DrupalReceivablesDunningScheduleSource`; defaults, oplopend-schema-validatie, blokkades en escalatielogica blijven Finance-businesslogica.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
