@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\ReceivablesDunningScheduleSourceInterface;
 use Drupal\brebo_finance\Contract\ReceivablesDunningRepositoryInterface;
 use RuntimeException;
 
@@ -22,7 +22,7 @@ final class ReceivablesDunningManager {
 
   public function __construct(
     private readonly ReceivablesDunningRepositoryInterface $repository,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly ReceivablesDunningScheduleSourceInterface $scheduleSource,
   ) {}
 
   /** @return array<string,mixed> */
@@ -160,15 +160,15 @@ final class ReceivablesDunningManager {
 
   /** @return array{reminder:int,demand:int,final_notice:int,collection_ready:int} */
   public function schedule(): array {
-    $config = $this->configFactory->get('brebo_finance.receivables');
+    $settings = $this->scheduleSource->scheduleSettings();
     $read = static function (mixed $value, int $fallback): int {
       return is_numeric($value) ? max(0, (int) $value) : $fallback;
     };
     $schedule = [
-      'reminder' => $read($config->get('dunning.reminder_after_days'), 3),
-      'demand' => $read($config->get('dunning.demand_after_days'), 8),
-      'final_notice' => $read($config->get('dunning.final_notice_after_days'), 15),
-      'collection_ready' => $read($config->get('dunning.collection_ready_after_days'), 22),
+      'reminder' => $read($settings['reminder'] ?? NULL, 3),
+      'demand' => $read($settings['demand'] ?? NULL, 8),
+      'final_notice' => $read($settings['final_notice'] ?? NULL, 15),
+      'collection_ready' => $read($settings['collection_ready'] ?? NULL, 22),
     ];
     if (!($schedule['reminder'] <= $schedule['demand'] && $schedule['demand'] <= $schedule['final_notice'] && $schedule['final_notice'] <= $schedule['collection_ready'])) {
       throw new RuntimeException('Debiteurenschema moet oplopend zijn geconfigureerd.');
