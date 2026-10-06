@@ -144,3 +144,12 @@ brebo_mail_intake.core_mail_platform_status:
     _title: 'Mail platformstatus'
   requirements:
     _permission: 'administer brebo mail platform'
+
+
+brebo_mail_intake.core_gateway_mail_intake:
+  path: '/mail/api/v1/intake'
+  defaults:
+    _controller: '\Drupal\brebo_mail_intake\Controller\CoreGatewayMailIntakeController::ingest'
+  requirements:
+    _access: 'TRUE'
+  methods: [POST]
