@@ -4,23 +4,19 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\PolicyStandardEnforcementRepositoryInterface;
 
 /** Enforces approved organizational lessons as versioned operational policy rules. */
 final class PolicyStandardEnforcementService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly PolicyStandardEnforcementRepositoryInterface $repository,
+  ) {}
 
   /** @return array<string, mixed> */
   public function evaluate(string $policyCode, array $context, ?int $now = NULL): array {
     $now ??= time();
-    $query = $this->database->select('brebo_policy_rule', 'p')->fields('p')
-      ->condition('policy_code', $policyCode)
-      ->condition('status', 'active')
-      ->condition('effective_from', $now, '<=')
-      ->orderBy('version', 'DESC')
-      ->range(0, 1);
-    $rule = $query->execute()->fetchAssoc();
+    $rule = $this->repository->findActiveRule($policyCode, $now);
     if (!$rule) {
       return ['allowed' => TRUE, 'status' => 'no_active_rule', 'policy_code' => $policyCode];
     }
@@ -56,13 +52,13 @@ final class PolicyStandardEnforcementService {
   /** @return array<string, mixed> */
   public function grantException(int $policyId, string $reason, int $requestedBy, int $approvedBy, ?int $validUntil = NULL, ?int $now = NULL): array {
     $now ??= time();
-    $policy = $this->database->select('brebo_policy_rule', 'p')->fields('p')->condition('id', $policyId)->execute()->fetchAssoc();
+    $policy = $this->repository->findRuleById($policyId);
     if (!$policy) { throw new \InvalidArgumentException('Onbekende policyregel.'); }
     if (!(bool) $policy['exception_allowed']) { throw new \LogicException('Voor deze policy zijn uitzonderingen niet toegestaan.'); }
     if ($requestedBy === $approvedBy) { throw new \LogicException('Vier-ogenprincipe: aanvrager mag eigen policy-uitzondering niet goedkeuren.'); }
     if (trim($reason) === '') { throw new \InvalidArgumentException('Motivatie voor de uitzondering is verplicht.'); }
 
-    $id = (int) $this->database->insert('brebo_policy_exception')->fields([
+    $id = $this->repository->insertException([
       'policy_id' => $policyId,
       'reason' => $reason,
       'requested_by' => $requestedBy,
@@ -70,8 +66,9 @@ final class PolicyStandardEnforcementService {
       'approved_at' => $now,
       'valid_until' => $validUntil,
       'status' => 'approved',
-    ])->execute();
+    ]);
 
     return ['exception_id' => $id, 'status' => 'approved', 'valid_until' => $validUntil];
   }
+
 }
