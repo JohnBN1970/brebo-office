@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\AuditPackageGeneratorRepositoryInterface;
 
 /** Builds a reproducible audit manifest from policies, evidence and exceptions. */
 final class AuditPackageGenerator {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly AuditPackageGeneratorRepositoryInterface $repository,
     private readonly AuditReadinessEngine $readiness,
   ) {}
 
@@ -22,18 +22,11 @@ final class AuditPackageGenerator {
       return ['generated' => FALSE, 'status' => 'blocked_not_ready', 'readiness' => $assessment];
     }
 
-    $policies = $this->database->select('brebo_policy_rule', 'p')->fields('p')
-      ->condition('scope', $scope)->condition('status', 'active')->condition('effective_from', $now, '<=')
-      ->orderBy('policy_code')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    $evidence = $this->database->select('brebo_compliance_evidence', 'e')->fields('e')
-      ->condition('scope', $scope)->orderBy('evaluated_at')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $policies = $this->repository->findActivePolicies($scope, $now);
+    $evidence = $this->repository->findEvidence($scope);
 
     $policyIds = array_values(array_map(static fn(array $p): int => (int) $p['id'], $policies));
-    $exceptions = [];
-    if ($policyIds !== []) {
-      $exceptions = $this->database->select('brebo_policy_exception', 'x')->fields('x')
-        ->condition('policy_id', $policyIds, 'IN')->orderBy('approved_at')->execute()->fetchAll(\PDO::FETCH_ASSOC);
-    }
+    $exceptions = $this->repository->findExceptions($policyIds);
 
     $manifest = [
       'scope' => $scope,
@@ -52,7 +45,7 @@ final class AuditPackageGenerator {
     $packageHash = hash('sha256', $encoded);
     $packageRef = 'AUD-' . gmdate('Ymd-His', $now) . '-' . substr($packageHash, 0, 10);
 
-    $id = (int) $this->database->insert('brebo_audit_package')->fields([
+    $id = $this->repository->insertPackage([
       'package_ref' => $packageRef,
       'scope' => $scope,
       'readiness_pct' => (string) ($assessment['readiness_pct'] ?? 0),
@@ -61,8 +54,9 @@ final class AuditPackageGenerator {
       'package_hash' => $packageHash,
       'generated_by' => $generatedBy,
       'generated_at' => $now,
-    ])->execute();
+    ]);
 
     return ['generated' => TRUE, 'package_id' => $id, 'package_ref' => $packageRef, 'package_hash' => $packageHash, 'manifest' => $manifest];
   }
+
 }

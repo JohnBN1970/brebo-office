@@ -507,3 +507,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1223 is gemerged als `edbe2f4288044b7df905fd219c5685f6c8cee682`: `AuditPackageVerificationService` leest packages en evidence uitsluitend via `AuditPackageVerificationReadRepositoryInterface`.
 - Volgende lineaire slice: `AuditPackageExportService`. De package-read loopt via `AuditPackageExportReadRepositoryInterface` en `DatabaseAuditPackageExportReadRepository`; verificatie, manifestopbouw, findings en render-targets blijven in de service.
+
+
+### Audit-package generatorisolatie
+
+- PR #1224 is gemerged als `ed175a6423fd1ee5327e720514443126f8e6cfdb`: `AuditPackageExportService` leest packages uitsluitend via `AuditPackageExportReadRepositoryInterface`.
+- Volgende lineaire slice: `AuditPackageGenerator`. Policy-, evidence- en exception-reads plus package-opslag lopen via `AuditPackageGeneratorRepositoryInterface` en `DatabaseAuditPackageGeneratorRepository`; readiness, manifestopbouw, hashing en package-ref blijven in de service.
