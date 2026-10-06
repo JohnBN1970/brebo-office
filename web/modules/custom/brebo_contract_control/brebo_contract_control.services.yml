@@ -61,10 +61,17 @@ services:
       - '@database'
       - '@brebo_contract_control.management_control_center'
 
+  brebo_contract_control.management_action_source_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseManagementActionSourceReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ManagementActionSourceReadRepositoryInterface:
+    alias: brebo_contract_control.management_action_source_read_repository
+
   brebo_contract_control.management_action_source:
     class: Drupal\brebo_contract_control\Service\ManagementActionSourceResolver
     arguments:
-      - '@database'
+      - '@brebo_contract_control.management_action_source_read_repository'
 
   brebo_contract_control.management_trends:
     class: Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService
