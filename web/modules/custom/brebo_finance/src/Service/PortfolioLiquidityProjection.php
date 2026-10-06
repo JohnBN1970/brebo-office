@@ -6,7 +6,7 @@ namespace Drupal\brebo_finance\Service;
 
 use DateInterval;
 use DateTimeImmutable;
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\BusinessHealthSettingsSourceInterface;
 use Drupal\brebo_finance\Contract\PortfolioLiquidityRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
 
@@ -25,7 +25,7 @@ final class PortfolioLiquidityProjection {
   public function __construct(
     private readonly PortfolioLiquidityRepositoryInterface $repository,
     private readonly ProjectReferenceGatewayInterface $projects,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly BusinessHealthSettingsSourceInterface $settingsSource,
     private readonly VatCalculator $decimal,
   ) {}
 
@@ -37,8 +37,7 @@ final class PortfolioLiquidityProjection {
     $accounts = is_array($businessHealth['liquidity']['accounts'] ?? NULL)
       ? array_values($businessHealth['liquidity']['accounts'])
       : [];
-    $roles = $this->configFactory->get('brebo_finance.business_health')->get('bank_account_roles');
-    $roles = is_array($roles) ? $roles : [];
+    $roles = $this->settingsSource->bankAccountRoles();
 
     $opening = ['regular' => '0.0000', 'g_account' => '0.0000'];
     $classified = [];
