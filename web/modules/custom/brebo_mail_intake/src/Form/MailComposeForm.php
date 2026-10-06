@@ -51,7 +51,7 @@ final class MailComposeForm extends FormBase {
     $this->editorProvisioner->ensure();
     $mailbox = $this->mailboxes->load($mailbox_id);
     if (!$mailbox) { throw new NotFoundHttpException('Mailbox niet gevonden.'); }
-    if (!$this->accessPolicy->allowed($this->mailCurrentUser, $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
+    if (!$this->accessPolicy->allowed((int) $this->mailCurrentUser->id(), $this->mailCurrentUser->getRoles(), $this->mailCurrentUser->hasPermission('administer site configuration'), $mailbox_id, 'view')) { throw new AccessDeniedHttpException(); }
 
     $mode = in_array($mode, ['new', 'reply', 'reply-all', 'forward'], TRUE) ? $mode : 'new';
     $source = $communication_id > 0 ? $this->sourceRepository->load($communication_id) : NULL;
