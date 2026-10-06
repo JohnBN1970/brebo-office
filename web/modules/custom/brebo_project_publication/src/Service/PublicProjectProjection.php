@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_project_publication\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Core\File\FileUrlGeneratorInterface;
+use Drupal\brebo_project_publication\Contract\PublicProjectPublicationReadRepositoryInterface;
 
 /**
  * Read-only projection of explicitly released project presentation data.
@@ -17,27 +16,14 @@ use Drupal\Core\File\FileUrlGeneratorInterface;
 final class PublicProjectProjection {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly FileUrlGeneratorInterface $fileUrlGenerator,
+    private readonly PublicProjectPublicationReadRepositoryInterface $repository,
   ) {}
 
   /**
    * Returns all externally released project projections.
    */
   public function all(): array {
-    if (!$this->storageAvailable()) {
-      return [];
-    }
-
-    $rows = $this->database->select('brebo_project_publication', 'p')
-      ->fields('p')
-      ->condition('external_release', 1)
-      ->condition('review_status', 'approved')
-      ->orderBy('changed', 'DESC')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
-    return array_map(fn(array $row): array => $this->project($row), $rows);
+    return array_map(fn(array $row): array => $this->project($row), $this->repository->releasedProjects());
   }
 
   /**
@@ -45,19 +31,12 @@ final class PublicProjectProjection {
    */
   public function byPublicId(string $publicId): ?array {
     $publicId = trim($publicId);
-    if ($publicId === '' || !$this->storageAvailable()) {
+    if ($publicId === '') {
       return NULL;
     }
 
-    $row = $this->database->select('brebo_project_publication', 'p')
-      ->fields('p')
-      ->condition('public_id', $publicId)
-      ->condition('external_release', 1)
-      ->condition('review_status', 'approved')
-      ->execute()
-      ->fetchAssoc();
-
-    return $row === FALSE ? NULL : $this->project($row);
+    $row = $this->repository->releasedProjectByPublicId($publicId);
+    return $row === NULL ? NULL : $this->project($row);
   }
 
   private function project(array $row): array {
@@ -78,31 +57,7 @@ final class PublicProjectProjection {
   }
 
   private function media(int $publicationId): array {
-    if (!$this->database->schema()->tableExists('brebo_project_publication_media')) {
-      return [];
-    }
-
-    $query = $this->database->select('brebo_project_publication_media', 'm');
-    $query->innerJoin('file_managed', 'f', 'f.fid = m.file_id');
-    $query->fields('m', ['file_id', 'alt_text', 'sort_weight']);
-    $query->addField('f', 'uri');
-    $rows = $query
-      ->condition('m.publication_id', $publicationId)
-      ->condition('m.approved', 1)
-      ->orderBy('m.sort_weight', 'ASC')
-      ->orderBy('m.id', 'ASC')
-      ->execute()
-      ->fetchAll(\PDO::FETCH_ASSOC);
-
-    $media = [];
-    foreach ($rows as $row) {
-      $media[] = [
-        'id' => (int) $row['file_id'],
-        'url' => $this->fileUrlGenerator->generateAbsoluteString((string) $row['uri']),
-        'alt' => $this->nullableString($row['alt_text'] ?? NULL),
-      ];
-    }
-    return $media;
+    return $this->repository->approvedMedia($publicationId);
   }
 
   private function jsonList(mixed $value): array {
@@ -126,8 +81,5 @@ final class PublicProjectProjection {
     return $value === '' ? NULL : $value;
   }
 
-  private function storageAvailable(): bool {
-    return $this->database->schema()->tableExists('brebo_project_publication');
-  }
 
 }
