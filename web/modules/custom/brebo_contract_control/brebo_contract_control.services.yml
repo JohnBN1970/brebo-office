@@ -4,10 +4,17 @@ services:
     arguments:
       - '@database'
 
+  brebo_contract_control.payment_gate_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseContractPaymentGateReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ContractPaymentGateReadRepositoryInterface:
+    alias: brebo_contract_control.payment_gate_read_repository
+
   brebo_contract_control.payment_gate:
     class: Drupal\brebo_contract_control\Service\ContractPaymentGate
     arguments:
-      - '@database'
+      - '@brebo_contract_control.payment_gate_read_repository'
       - '@brebo_contract_control.monitoring'
 
   brebo_contract_control.payment_batch_control:
