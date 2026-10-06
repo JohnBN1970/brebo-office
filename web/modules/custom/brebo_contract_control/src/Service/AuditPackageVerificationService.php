@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\AuditPackageVerificationReadRepositoryInterface;
 
 /** Verifies frozen audit-package and evidence integrity. */
 final class AuditPackageVerificationService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly AuditPackageVerificationReadRepositoryInterface $repository,
+  ) {}
 
   /** @return array<string, mixed> */
   public function verify(int $packageId): array {
-    $package = $this->database->select('brebo_audit_package', 'p')->fields('p')->condition('id', $packageId)->execute()->fetchAssoc();
+    $package = $this->repository->findPackage($packageId);
     if (!$package) {
       throw new \InvalidArgumentException('Onbekend auditpakket.');
     }
@@ -26,7 +28,7 @@ final class AuditPackageVerificationService {
     $evidenceChecks = [];
     $evidenceOk = TRUE;
     foreach ((array) ($manifest['evidence_register'] ?? []) as $entry) {
-      $record = $this->database->select('brebo_compliance_evidence', 'e')->fields('e')->condition('id', (int) ($entry['id'] ?? 0))->execute()->fetchAssoc();
+      $record = $this->repository->findEvidence((int) ($entry['id'] ?? 0));
       if (!$record) {
         $evidenceOk = FALSE;
         $evidenceChecks[] = ['id' => (int) ($entry['id'] ?? 0), 'status' => 'missing'];
@@ -50,4 +52,5 @@ final class AuditPackageVerificationService {
       'evidence_checks' => $evidenceChecks,
     ];
   }
+
 }
