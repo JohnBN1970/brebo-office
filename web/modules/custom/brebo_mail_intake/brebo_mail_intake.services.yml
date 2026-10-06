@@ -167,7 +167,7 @@ services:
   brebo_mail_intake.bag_pdok:
     class: Drupal\brebo_mail_intake\Service\BagPdokClient
     arguments:
-      - '@http_client_factory'
+      - '@http_client'
 
   brebo_mail_intake.canonical_context_resolver:
     class: Drupal\brebo_mail_intake\Service\CanonicalContextResolver
