@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\AuditPackageExportReadRepositoryInterface;
 
 /** Converts a frozen audit package into a human-readable export structure. */
 final class AuditPackageExportService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly AuditPackageExportReadRepositoryInterface $repository,
     private readonly AuditPackageVerificationService $verification,
   ) {}
 
@@ -21,7 +21,11 @@ final class AuditPackageExportService {
       return ['exportable' => FALSE, 'status' => 'blocked_integrity_failure', 'integrity' => $integrity];
     }
 
-    $package = $this->database->select('brebo_audit_package', 'p')->fields('p')->condition('id', $packageId)->execute()->fetchAssoc();
+    $package = $this->repository->findPackage($packageId);
+    if (!$package) {
+      throw new \InvalidArgumentException('Onbekend auditpakket.');
+    }
+
     $manifest = json_decode((string) $package['manifest_json'], TRUE, 512, JSON_THROW_ON_ERROR);
     $readiness = (array) ($manifest['readiness'] ?? []);
 
@@ -58,4 +62,5 @@ final class AuditPackageExportService {
       'render_targets' => ['pdf', 'docx'],
     ];
   }
+
 }
