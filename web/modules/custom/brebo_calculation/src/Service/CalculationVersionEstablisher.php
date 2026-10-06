@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Component\Datetime\TimeInterface;
+use Drupal\brebo_calculation\Contract\CalculationClockInterface;
 use Drupal\brebo_calculation\Contract\CalculationEstablishmentRepositoryInterface;
 use Drupal\brebo_calculation\Contract\CalculationLegacyLineMirrorMapInterface;
 use Drupal\brebo_calculation\Contract\CalculationLineReadModelInterface;
@@ -18,7 +18,7 @@ final class CalculationVersionEstablisher {
     private readonly CalculationEstablishmentRepositoryInterface $repository,
     private readonly CalculationResultService $resultService,
     private readonly CalculationReadinessInspector $readinessInspector,
-    private readonly TimeInterface $time,
+    private readonly CalculationClockInterface $clock,
     private readonly CalculationLineReadModelInterface $lineReadModel,
     private readonly CalculationLegacyLineMirrorMapInterface $legacyMirrorMap,
   ) {}
@@ -96,7 +96,7 @@ final class CalculationVersionEstablisher {
       ];
     }
 
-    $lockedAt = $this->time->getCurrentTime();
+    $lockedAt = $this->clock->now();
     $snapshotResult = $result;
     $snapshotResult['content_hash'] = $contentHash;
     $payload = [
