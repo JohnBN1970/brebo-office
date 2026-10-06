@@ -6,17 +6,17 @@ namespace Drupal\brebo_mail_intake\Controller;
 
 use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\Mail\Domain\NormalizedMailMessage;
-use Brebo\Mail\Service\MailIntakeBridge;
+use Brebo\Mail\Service\MailIntakeAdmissionService;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
 final class CoreGatewayMailIntakeController {
 
-  public function __construct(private readonly MailIntakeBridge $bridge) {}
+  public function __construct(private readonly MailIntakeAdmissionService $admission) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_mail_intake.core_intake_bridge'));
+    return new static($container->get('brebo_mail_intake.core_intake_admission'));
   }
 
   public function ingest(Request $request): JsonResponse {
@@ -67,7 +67,7 @@ final class CoreGatewayMailIntakeController {
         (string) ($payload['received_at'] ?? ''),
         (string) ($payload['thread_id'] ?? ''),
       );
-      $result = $this->bridge->ingest($message);
+      $result = $this->admission->ingest($message);
       return new JsonResponse(['status' => 'ok', 'result' => $result], 200);
     }
     catch (\Throwable $e) {
