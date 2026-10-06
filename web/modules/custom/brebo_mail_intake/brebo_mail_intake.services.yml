@@ -27,6 +27,20 @@ services:
     arguments:
       - '@brebo_mail_intake.core_intake_sink'
 
+  brebo_mail_intake.core_mailbox_directory:
+    class: Drupal\brebo_mail_intake\Infrastructure\CoreMailboxDirectoryAdapter
+    arguments:
+      - '@brebo_mail_intake.mailbox_storage_repository'
+
+  Brebo\Mail\Contract\MailboxDirectoryInterface:
+    alias: brebo_mail_intake.core_mailbox_directory
+
+  brebo_mail_intake.core_intake_admission:
+    class: Brebo\Mail\Service\MailIntakeAdmissionService
+    arguments:
+      - '@brebo_mail_intake.core_mailbox_directory'
+      - '@brebo_mail_intake.core_intake_bridge'
+
   brebo_mail_intake.classifier:
     class: Drupal\brebo_mail_intake\Service\MailClassifier
 
