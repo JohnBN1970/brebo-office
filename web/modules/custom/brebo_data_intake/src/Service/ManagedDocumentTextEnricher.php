@@ -5,9 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeEnricherInterface;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\File\FileSystemInterface;
-use Drupal\file\FileInterface;
+use Drupal\brebo_data_intake\Contract\IntakeAttachmentSourceInterface;
 
 /** Extracts document text through the configured BREBO-managed runtime. */
 final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
@@ -15,8 +13,7 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
   private const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly FileSystemInterface $fileSystem,
+    private readonly IntakeAttachmentSourceInterface $attachments,
     private readonly DocumentTextExtractionProviderRegistry $providerRegistry,
     private readonly PurchaseInvoiceTextEnricher $invoiceTextEnricher,
   ) {}
@@ -49,7 +46,6 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
       }
     }
 
-    $storage = $this->entityTypeManager->getStorage('file');
     $added = 0;
     $lastStatus = 'unavailable';
 
@@ -72,18 +68,11 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
         continue;
       }
 
-      $file = $storage->load($fid);
-      if (!$file instanceof FileInterface || !$file->isPermanent()) {
+      $source = $this->attachments->resolve($fid);
+      if ($source === NULL) {
         continue;
       }
-      $uri = $file->getFileUri();
-      if (!str_starts_with($uri, 'private://brebo-intake/')) {
-        continue;
-      }
-      $realpath = $this->fileSystem->realpath($uri);
-      if (!is_string($realpath) || $realpath === '' || !is_file($realpath) || !is_readable($realpath)) {
-        continue;
-      }
+      $realpath = $source['path'];
       $size = filesize($realpath);
       if (!is_int($size) || $size <= 0) {
         continue;
@@ -100,7 +89,7 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
       $result = $provider->extract(
         $document,
         $mimeType,
-        (string) ($attachment['filename'] ?? $file->getFilename()),
+        (string) ($attachment['filename'] ?? $source['filename']),
       );
       $lastStatus = trim((string) ($result['status'] ?? 'provider_error')) ?: 'provider_error';
       $text = trim((string) ($result['text'] ?? ''));
@@ -109,7 +98,7 @@ final class ManagedDocumentTextEnricher implements IntakeEnricherInterface {
       }
 
       $evidence[] = [
-        'filename' => (string) ($attachment['filename'] ?? $file->getFilename()),
+        'filename' => (string) ($attachment['filename'] ?? $source['filename']),
         'mime_type' => $mimeType,
         'content_sha256' => $hash,
         'text' => $text,
