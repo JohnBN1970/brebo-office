@@ -1,4 +1,11 @@
 services:
+  brebo_data_intake.attachment_source:
+    class: Drupal\brebo_data_intake\Infrastructure\DrupalIntakeAttachmentSource
+    arguments: ['@entity_type.manager', '@file_system']
+
+  Drupal\brebo_data_intake\Contract\IntakeAttachmentSourceInterface:
+    alias: brebo_data_intake.attachment_source
+
   brebo_data_intake.ingest_repository:
     class: Drupal\brebo_data_intake\Infrastructure\DatabaseDataIngestRepository
     arguments: ['@database', '@datetime.time']
@@ -55,8 +62,7 @@ services:
   brebo_data_intake.managed_document_text_enricher:
     class: Drupal\brebo_data_intake\Service\ManagedDocumentTextEnricher
     arguments:
-      - '@entity_type.manager'
-      - '@file_system'
+      - '@brebo_data_intake.attachment_source'
       - '@brebo_data_intake.document_text_extraction_provider_registry'
       - '@brebo_data_intake.purchase_invoice_text_enricher'
     tags:
@@ -70,8 +76,7 @@ services:
   brebo_data_intake.local_pdf_text_enricher:
     class: Drupal\brebo_data_intake\Service\LocalPdfTextEnricher
     arguments:
-      - '@entity_type.manager'
-      - '@file_system'
+      - '@brebo_data_intake.attachment_source'
       - '@brebo_data_intake.purchase_invoice_text_enricher'
     tags:
       - { name: brebo_data_intake.enricher, priority: 200 }
@@ -79,8 +84,7 @@ services:
   brebo_data_intake.local_ocr_text_enricher:
     class: Drupal\brebo_data_intake\Service\LocalOcrTextEnricher
     arguments:
-      - '@entity_type.manager'
-      - '@file_system'
+      - '@brebo_data_intake.attachment_source'
       - '@brebo_data_intake.purchase_invoice_text_enricher'
     tags:
       - { name: brebo_data_intake.enricher, priority: 150 }
