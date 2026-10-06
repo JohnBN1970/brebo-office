@@ -357,6 +357,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `ReceivablesDunningManager` kent Drupal Config niet meer rechtstreeks. Het configureerbare herinnering/aanmaning/sommatie/incasso-schema loopt via `ReceivablesDunningScheduleSourceInterface` met `DrupalReceivablesDunningScheduleSource`; defaults, oplopend-schema-validatie, blokkades en escalatielogica blijven Finance-businesslogica.
 
+### Data Intake — website opportunity gateway boundary
+
+`WebsiteProjectRequestIntakeDestination` kent Drupal Settings, user storage en node entities niet meer rechtstreeks. Lead-owner-resolutie, duplicate lookup en opportunity-persistence lopen via `WebsiteOpportunityGatewayInterface` met `DrupalWebsiteOpportunityGateway`; request-id-validatie, titelvorming en voorlopige scopesamenstelling blijven in de destination-service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
