@@ -24,4 +24,9 @@ final class DrupalBusinessHealthSettingsSource implements BusinessHealthSettings
     ];
   }
 
+  public function bankAccountRoles(): array {
+    $roles = $this->configFactory->get('brebo_finance.business_health')->get('bank_account_roles');
+    return is_array($roles) ? array_map('strval', $roles) : [];
+  }
+
 }
