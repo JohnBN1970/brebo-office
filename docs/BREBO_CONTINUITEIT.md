@@ -337,6 +337,10 @@ De glasproductcatalogus zit niet meer als databaseklasse in de servicelaag. Cons
 
 `GlassPositionRepository` bevat geen directe Drupal database-, entity- of time-afhankelijkheden meer. Opslag, objectreferentievalidatie en request-time lopen via `GlassPositionPersistenceInterface` met `DrupalGlassPositionPersistence`; technische approval-policy, checksum en concurrencybeslissing blijven in de servicelaag.
 
+### Calculatie — document set storage boundary
+
+`CalculationDocumentSetService` bevat geen directe database- of time-afhankelijkheid meer. Documentsetopslag, projectdocumentprojectie en itemopslag lopen via `CalculationDocumentSetStoreInterface` met `DatabaseCalculationDocumentSetStore`; classificatie, relevantiescore en reviewstatusbeslissing blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
