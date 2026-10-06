@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\CollectionProviderRuntimeConfigInterface;
 use GuzzleHttp\ClientInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /** nl.legal REST adapter behind the provider-neutral collection boundary. */
 final class NlLegalCollectionProvider implements CollectionProviderInterface {
 
-  private const DEFAULT_BASE_URL = 'https://nl.legal/api/v1';
-
   public function __construct(
     private readonly ClientInterface $httpClient,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly CollectionProviderRuntimeConfigInterface $runtimeConfig,
   ) {}
 
   public function id(): string {
@@ -23,7 +21,7 @@ final class NlLegalCollectionProvider implements CollectionProviderInterface {
   }
 
   public function available(): bool {
-    return $this->apiKey() !== '';
+    return $this->runtimeConfig->apiKey() !== '';
   }
 
   public function submit(array $dossier): array {
@@ -37,9 +35,9 @@ final class NlLegalCollectionProvider implements CollectionProviderInterface {
       $idempotencyKey = hash('sha256', json_encode($dossier, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR));
     }
 
-    $response = $this->httpClient->request('POST', $this->baseUrl() . '/orders', [
+    $response = $this->httpClient->request('POST', $this->runtimeConfig->baseUrl() . '/orders', [
       'headers' => [
-        'Authorization' => 'Bearer ' . $this->apiKey(),
+        'Authorization' => 'Bearer ' . $this->runtimeConfig->apiKey(),
         'Accept' => 'application/json',
         'Content-Type' => 'application/json',
         'Idempotency-Key' => $idempotencyKey,
@@ -76,9 +74,9 @@ final class NlLegalCollectionProvider implements CollectionProviderInterface {
       throw new \RuntimeException('nl.legal API-key ontbreekt in de runtimeconfiguratie.');
     }
 
-    $response = $this->httpClient->request('GET', $this->baseUrl() . '/orders/' . rawurlencode($externalId), [
+    $response = $this->httpClient->request('GET', $this->runtimeConfig->baseUrl() . '/orders/' . rawurlencode($externalId), [
       'headers' => [
-        'Authorization' => 'Bearer ' . $this->apiKey(),
+        'Authorization' => 'Bearer ' . $this->runtimeConfig->apiKey(),
         'Accept' => 'application/json',
       ],
       'timeout' => 30,
@@ -141,19 +139,6 @@ final class NlLegalCollectionProvider implements CollectionProviderInterface {
         throw new \InvalidArgumentException('Incassodossier mist factuurveld: ' . $required . '.');
       }
     }
-  }
-
-  private function apiKey(): string {
-    $env = trim((string) getenv('NLLEGAL_API_KEY'));
-    if ($env !== '') {
-      return $env;
-    }
-    return trim((string) $this->configFactory->get('brebo_finance.collection')->get('nllegal_api_key'));
-  }
-
-  private function baseUrl(): string {
-    $configured = trim((string) $this->configFactory->get('brebo_finance.collection')->get('nllegal_base_url'));
-    return rtrim($configured !== '' ? $configured : self::DEFAULT_BASE_URL, '/');
   }
 
   /** @return array<string,mixed> */
