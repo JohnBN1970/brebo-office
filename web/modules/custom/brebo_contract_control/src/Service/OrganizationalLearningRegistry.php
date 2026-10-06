@@ -4,12 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\OrganizationalLearningRepositoryInterface;
 
 /** Stores approved organizational lessons as versioned BREBO knowledge. */
 final class OrganizationalLearningRegistry {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(
+    private readonly OrganizationalLearningRepositoryInterface $repository,
+  ) {}
 
   /** @param array<string, mixed> $evidence
    *  @return array<string, mixed>
@@ -32,7 +34,7 @@ final class OrganizationalLearningRegistry {
       throw new \InvalidArgumentException('Bronbewijs is verplicht voor een organisatieles.');
     }
 
-    $id = (int) $this->database->insert('brebo_organizational_learning')->fields([
+    $id = $this->repository->insert([
       'lesson_code' => $lessonCode,
       'version' => $version,
       'title' => $title,
@@ -45,7 +47,7 @@ final class OrganizationalLearningRegistry {
       'effective_at' => $effectiveAt,
       'review_at' => $reviewAt,
       'created_at' => $now,
-    ])->execute();
+    ]);
 
     return [
       'learning_id' => $id,
@@ -59,19 +61,12 @@ final class OrganizationalLearningRegistry {
 
   /** @return array<int, array<string, mixed>> */
   public function dueForReview(?int $now = NULL): array {
-    $now ??= time();
-    return $this->database->select('brebo_organizational_learning', 'l')->fields('l')
-      ->condition('status', 'approved')
-      ->condition('review_at', $now, '<=')
-      ->orderBy('review_at', 'ASC')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->findDueForReview($now ?? time());
   }
 
   /** @return array<int, array<string, mixed>> */
   public function history(string $lessonCode): array {
-    return $this->database->select('brebo_organizational_learning', 'l')->fields('l')
-      ->condition('lesson_code', $lessonCode)
-      ->orderBy('created_at', 'DESC')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    return $this->repository->findHistory($lessonCode);
   }
+
 }
