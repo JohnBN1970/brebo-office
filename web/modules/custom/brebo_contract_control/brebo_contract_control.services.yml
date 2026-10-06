@@ -112,10 +112,17 @@ services:
       - '@brebo_contract_control.root_cause_intelligence'
       - '@brebo_contract_control.control_effectiveness'
 
+  brebo_contract_control.organizational_learning_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseOrganizationalLearningRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\OrganizationalLearningRepositoryInterface:
+    alias: brebo_contract_control.organizational_learning_repository
+
   brebo_contract_control.organizational_learning:
     class: Drupal\brebo_contract_control\Service\OrganizationalLearningRegistry
     arguments:
-      - '@database'
+      - '@brebo_contract_control.organizational_learning_repository'
 
   brebo_contract_control.policy_enforcement:
     class: Drupal\brebo_contract_control\Service\PolicyStandardEnforcementService
