@@ -6,8 +6,7 @@ namespace Drupal\Tests\brebo_finance\Unit;
 
 use Drupal\brebo_finance\Service\ReceivablesDunningManager;
 use Drupal\brebo_finance\Contract\ReceivablesDunningRepositoryInterface;
-use Drupal\Core\Config\Config;
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\ReceivablesDunningScheduleSourceInterface;
 use PHPUnit\Framework\TestCase;
 
 /** @coversDefaultClass \Drupal\brebo_finance\Service\ReceivablesDunningManager */
@@ -64,11 +63,14 @@ final class ReceivablesDunningManagerTest extends TestCase {
     $repository->method('salesInvoice')->with(1)->willReturn($invoice);
     $repository->method('state')->with(1)->willReturn([]);
 
-    $config = $this->createMock(Config::class);
-    $config->method('get')->willReturn(NULL);
-    $configFactory = $this->createMock(ConfigFactoryInterface::class);
-    $configFactory->method('get')->willReturn($config);
+    $scheduleSource = $this->createMock(ReceivablesDunningScheduleSourceInterface::class);
+    $scheduleSource->method('scheduleSettings')->willReturn([
+      'reminder' => NULL,
+      'demand' => NULL,
+      'final_notice' => NULL,
+      'collection_ready' => NULL,
+    ]);
 
-    return new ReceivablesDunningManager($repository, $configFactory);
+    return new ReceivablesDunningManager($repository, $scheduleSource);
   }
 }
