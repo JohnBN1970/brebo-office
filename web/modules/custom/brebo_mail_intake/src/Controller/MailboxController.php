@@ -59,7 +59,7 @@ final class MailboxController extends ControllerBase {
     $this->editorProvisioner->ensure();
     $visibleMailboxes = array_values(array_filter(
       $this->mailboxes->all(),
-      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed($this->mailboxCurrentUser, (int) $mailbox['id'], 'view'),
+      fn(array $mailbox): bool => !empty($mailbox['active']) && $this->accessPolicy->allowed((int) $this->mailboxCurrentUser->id(), $this->mailboxCurrentUser->getRoles(), $this->mailboxCurrentUser->hasPermission('administer site configuration'), (int) $mailbox['id'], 'view'),
     ));
 
     if ($visibleMailboxes === []) {
@@ -77,7 +77,7 @@ final class MailboxController extends ControllerBase {
     if (!$mailbox) {
       throw new NotFoundHttpException();
     }
-    if (!$this->accessPolicy->allowed($this->mailboxCurrentUser, $mailbox_id, 'view')) {
+    if (!$this->accessPolicy->allowed((int) $this->mailboxCurrentUser->id(), $this->mailboxCurrentUser->getRoles(), $this->mailboxCurrentUser->hasPermission('administer site configuration'), $mailbox_id, 'view')) {
       throw new AccessDeniedHttpException();
     }
     if (!isset(self::STATES[$mail_state])) {
