@@ -1,4 +1,11 @@
 services:
+  brebo_project_publication.public_projection_repository:
+    class: Drupal\brebo_project_publication\Infrastructure\DatabasePublicProjectPublicationReadRepository
+    arguments: ['@database', '@file_url_generator']
+
+  Drupal\brebo_project_publication\Contract\PublicProjectPublicationReadRepositoryInterface:
+    alias: brebo_project_publication.public_projection_repository
+
   brebo_project_publication.public_projection:
     class: Drupal\brebo_project_publication\Service\PublicProjectProjection
-    arguments: ['@database', '@file_url_generator']
+    arguments: ['@brebo_project_publication.public_projection_repository']
