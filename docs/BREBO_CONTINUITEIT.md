@@ -531,3 +531,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1227 is gemerged als `50e0926131b8f7c8a4dc7e4b8ad2253483196e24`: `OrganizationalLearningRegistry` gebruikt uitsluitend `OrganizationalLearningRepositoryInterface` voor opslag, reviewselectie en historie.
 - Volgende lineaire slice: `PolicyStandardEnforcementService`. Actieve policy-read, policy-by-id en exception-opslag lopen via `PolicyStandardEnforcementRepositoryInterface` en `DatabasePolicyStandardEnforcementRepository`; requirement-evaluatie, uitzonderingsvoorwaarden en vier-ogenprincipe blijven in de service.
+
+
+### Control-effectiveness isolatie
+
+- PR #1228 is gemerged als `fea7b845d956a7aef9850e99989f7eb6c5f99dd7`: `PolicyStandardEnforcementService` gebruikt uitsluitend `PolicyStandardEnforcementRepositoryInterface` voor policy-reads en exception-opslag.
+- Volgende lineaire slice: `ControlEffectivenessIntelligenceService`. Managementactie-reads lopen via `ControlEffectivenessReadRepositoryInterface` en `DatabaseControlEffectivenessReadRepository`; scoring, exposure-, confidence- en effectivenesslogica blijven in de service.
