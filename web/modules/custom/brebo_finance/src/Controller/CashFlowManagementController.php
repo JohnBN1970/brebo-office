@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Controller;
 
 use Drupal\brebo_finance\Service\BusinessHealthBuilder;
-use Drupal\brebo_finance\Service\BusinessHealthIntegrationClient;
 use Drupal\brebo_finance\Service\CashFlowManagementReportBuilder;
 use Drupal\brebo_finance\Service\PortfolioLiquidityProjection;
 use Drupal\brebo_finance\Service\VatCalculator;
@@ -25,7 +24,7 @@ final class CashFlowManagementController extends ControllerBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       new CashFlowManagementReportBuilder($container->get('brebo_finance.cash_flow_management_repository')),
-      new BusinessHealthBuilder(new BusinessHealthIntegrationClient($container->get('http_client')), $container->get('config.factory'), $container->get('cache.default')),
+      $container->get('brebo_finance.business_health_builder'),
       new PortfolioLiquidityProjection($container->get('brebo_finance.portfolio_liquidity_repository'), $container->get('brebo_finance.project_reference_gateway'), $container->get('config.factory'), new VatCalculator()),
     );
   }
