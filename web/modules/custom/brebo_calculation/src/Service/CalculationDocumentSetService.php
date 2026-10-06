@@ -4,15 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Component\Datetime\TimeInterface;
+use Drupal\brebo_calculation\Contract\CalculationDocumentSetStoreInterface;
 
 /** Builds reviewable calculation document sets from Office project documents. */
 final class CalculationDocumentSetService {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly TimeInterface $time,
+    private readonly CalculationDocumentSetStoreInterface $store,
   ) {}
 
   /** @return array<string, mixed> */
@@ -21,30 +19,23 @@ final class CalculationDocumentSetService {
       throw new \InvalidArgumentException('Project en calculatie zijn verplicht.');
     }
 
-    $now = $this->time->getRequestTime();
-    $setId = (int) $this->database->insert('brebo_calculation_document_set')->fields([
+    $now = $this->store->currentTime();
+    $setId = (int) $this->store->createSet([
       'project_id' => $projectId,
       'calculation_id' => $calculationId,
       'status' => 'proposed',
       'selection_version' => 'v1',
       'created' => $now,
       'changed' => $now,
-    ])->execute();
+    ]);
 
-    $query = $this->database->select('brebo_document_context', 'c');
-    $query->innerJoin('brebo_document', 'd', 'd.id = c.document_id');
-    $query->fields('d', ['id', 'title', 'document_type', 'document_family', 'original_filename', 'mime_type']);
-    $query->condition('c.context_type', 'project');
-    $query->condition('c.context_id', $projectId);
-    $query->condition('d.lifecycle_status', 'deleted', '<>');
-    $query->distinct();
-    $query->orderBy('d.id', 'DESC');
+    $documents = $this->store->projectDocuments($projectId);
 
     $items = [];
-    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $document) {
+    foreach ($documents as $document) {
       [$role, $relevance] = $this->classify($document);
       $reviewStatus = $relevance >= 0.45 ? 'proposed' : 'excluded';
-      $itemId = (int) $this->database->insert('brebo_calculation_document_set_item')->fields([
+      $itemId = (int) $this->store->createItem([
         'set_id' => $setId,
         'document_id' => (int) $document['id'],
         'role' => $role,
@@ -54,7 +45,7 @@ final class CalculationDocumentSetService {
         'exclusion_reason' => $reviewStatus === 'excluded' ? 'Geen duidelijke calculatierelevantie herkend.' : NULL,
         'created' => $now,
         'changed' => $now,
-      ])->execute();
+      ]);
       $items[] = [
         'item_id' => $itemId,
         'document_id' => (int) $document['id'],
