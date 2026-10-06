@@ -128,10 +128,17 @@ services:
       - '@database'
       - '@brebo_contract_control.policy_enforcement'
 
+  brebo_contract_control.audit_readiness_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseAuditReadinessReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\AuditReadinessReadRepositoryInterface:
+    alias: brebo_contract_control.audit_readiness_read_repository
+
   brebo_contract_control.audit_readiness:
     class: Drupal\brebo_contract_control\Service\AuditReadinessEngine
     arguments:
-      - '@database'
+      - '@brebo_contract_control.audit_readiness_read_repository'
 
   brebo_contract_control.audit_package_generator:
     class: Drupal\brebo_contract_control\Service\AuditPackageGenerator
