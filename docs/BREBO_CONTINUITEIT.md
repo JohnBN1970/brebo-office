@@ -369,6 +369,10 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 `CalculationVersionEstablisher` kent Drupal Time niet meer rechtstreeks. Het vaststeltijdstip loopt via `CalculationClockInterface` met `DrupalCalculationClock`; readiness, hashopbouw, snapshots en lockbeslissingen blijven in de servicelaag.
 
+### Finance — business health settings boundary
+
+`BusinessHealthBuilder` kent Drupal Config niet meer rechtstreeks. Vaste-kostencategorieën en liquiditeitsdrempels lopen via `BusinessHealthSettingsSourceInterface` met `DrupalBusinessHealthSettingsSource`. De builder is daarnaast als container-service bedraad, zodat controllers hem niet meer handmatig met `config.factory` construeren. Normalisatie, break-evenberekening en managementsignalen blijven Finance-businesslogica.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
