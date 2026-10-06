@@ -140,4 +140,13 @@ foreach (['virtual_domains', 'virtual_mailboxes', 'virtual_aliases', 'users', 'd
   }
 }
 
+$dkimMap = (string) file_get_contents($output . '/dkim_map');
+if (
+  !str_contains($dkimMap, 'mail-test.example.nl')
+  || !str_contains($dkimMap, 'brebo1')
+  || !str_contains($dkimMap, 'file:///tmp/e2e.pem')
+) {
+  throw new RuntimeException('Rspamd DKIM projection is incomplete.');
+}
+
 echo "BREBO_MAIL_RUNTIME_E2E=PASS\n";
