@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\PaymentBatchControlReadRepositoryInterface;
 
 /** Final anomaly control before approved invoices enter a bank payment batch. */
 final class PaymentBatchControlService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly PaymentBatchControlReadRepositoryInterface $repository) {}
 
   /** @param array<int, array<string, mixed>> $payments
    *  @return array<string, mixed>
@@ -53,8 +53,8 @@ final class PaymentBatchControlService {
         $reasons[] = 'financial_four_eyes_failed';
       }
 
-      if ($invoiceId > 0 && $this->database->schema()->tableExists('brebo_supplier_invoice')) {
-        $invoice = $this->database->select('brebo_supplier_invoice', 'i')->fields('i')->condition('id', $invoiceId)->execute()->fetchAssoc();
+      if ($invoiceId > 0 && $this->repository->supplierInvoiceStorageAvailable()) {
+        $invoice = $this->repository->supplierInvoice($invoiceId);
         if (!$invoice) {
           $reasons[] = 'invoice_not_found';
         }

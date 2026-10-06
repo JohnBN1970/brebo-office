@@ -17,10 +17,17 @@ services:
       - '@brebo_contract_control.payment_gate_read_repository'
       - '@brebo_contract_control.monitoring'
 
+  brebo_contract_control.payment_batch_control_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabasePaymentBatchControlReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\PaymentBatchControlReadRepositoryInterface:
+    alias: brebo_contract_control.payment_batch_control_read_repository
+
   brebo_contract_control.payment_batch_control:
     class: Drupal\brebo_contract_control\Service\PaymentBatchControlService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.payment_batch_control_read_repository'
 
   brebo_contract_control.payment_anomaly_intelligence:
     class: Drupal\brebo_contract_control\Service\PaymentAnomalyIntelligenceService
