@@ -15,9 +15,16 @@ services:
     class: Drupal\brebo_data_intake\Infrastructure\DatabaseMasterdataCandidateRepository
     arguments: ['@database', '@datetime.time']
 
+  brebo_data_intake.website_opportunity_gateway:
+    class: Drupal\brebo_data_intake\Infrastructure\DrupalWebsiteOpportunityGateway
+    arguments: ['@entity_type.manager']
+
+  Drupal\brebo_data_intake\Contract\WebsiteOpportunityGatewayInterface:
+    alias: brebo_data_intake.website_opportunity_gateway
+
   brebo_data_intake.website_project_request_destination:
     class: Drupal\brebo_data_intake\Service\WebsiteProjectRequestIntakeDestination
-    arguments: ['@entity_type.manager']
+    arguments: ['@brebo_data_intake.website_opportunity_gateway']
     tags:
       - { name: brebo_data_intake.destination, priority: 200 }
 
