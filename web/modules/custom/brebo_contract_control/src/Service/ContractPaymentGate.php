@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ContractPaymentGateReadRepositoryInterface;
 
 /**
  * Determines whether a supplier invoice may be released for payment.
@@ -12,18 +12,18 @@ use Drupal\Core\Database\Connection;
 final class ContractPaymentGate {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ContractPaymentGateReadRepositoryInterface $repository,
     private readonly ContractMonitoringService $monitoring,
   ) {}
 
   /** @return array<string, mixed> */
   public function assess(int $awardId, int $invoiceId, bool $milestoneReached, bool $performanceAccepted, bool $qualityApproved, bool $gAccountCorrect, ?int $now = NULL): array {
     $now ??= time();
-    $award = $this->database->select('brebo_procurement_award', 'a')->fields('a')->condition('id', $awardId)->execute()->fetchAssoc();
+    $award = $this->repository->award($awardId);
     if (!$award) {
       throw new \InvalidArgumentException('Onbekende opdrachtverstrekking.');
     }
-    $invoice = $this->database->select('brebo_supplier_invoice', 'i')->fields('i')->condition('id', $invoiceId)->execute()->fetchAssoc();
+    $invoice = $this->repository->invoice($invoiceId);
     if (!$invoice) {
       throw new \InvalidArgumentException('Onbekende leveranciersfactuur.');
     }

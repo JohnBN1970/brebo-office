@@ -385,6 +385,10 @@ Managed document extraction, local PDF text extraction en local OCR laden intake
 
 `CommunicationAiProcessor` is alleen nog een fail-closed compatibility service voor de retired directe AI-route. De service kent geen Drupal `NodeInterface` meer; `process()` accepteert een neutrale compatibility-input en blijft altijd blokkeren ten gunste van de centrale BREBO Integration API.
 
+### Contract Control — payment gate read boundary
+
+`ContractPaymentGate` bevat geen directe databasekennis meer. Opdracht- en leveranciersfactuurreads lopen via `ContractPaymentGateReadRepositoryInterface` met `DatabaseContractPaymentGateReadRepository`; projectmatching, contractmonitoring en betaalvrijgavechecks blijven in de service.
+
 ### Projecten/Office Core — offerteformulier
 
 Na de planninggrens is ook `OfferVersionForm` ontdaan van directe databasekennis. Het formulier gebruikt voortaan de bestaande `CalculationAccessRepositoryInterface` voor de laatste vastgestelde calculatieversie en `ProjectContractRepositoryInterface` voor het commerciële termijnschemasnapshot. Daarmee ontstaat geen nieuw parallel contract en blijven bestaande domeingrenzen leidend.
