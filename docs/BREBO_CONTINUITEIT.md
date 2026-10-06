@@ -537,3 +537,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1228 is gemerged als `fea7b845d956a7aef9850e99989f7eb6c5f99dd7`: `PolicyStandardEnforcementService` gebruikt uitsluitend `PolicyStandardEnforcementRepositoryInterface` voor policy-reads en exception-opslag.
 - Volgende lineaire slice: `ControlEffectivenessIntelligenceService`. Managementactie-reads lopen via `ControlEffectivenessReadRepositoryInterface` en `DatabaseControlEffectivenessReadRepository`; scoring, exposure-, confidence- en effectivenesslogica blijven in de service.
+
+
+### Root-cause isolatie
+
+- PR #1229 is gemerged als `b7d323654c51aaf31106d4e686a51862db06c966`: `ControlEffectivenessIntelligenceService` gebruikt uitsluitend `ControlEffectivenessReadRepositoryInterface` voor managementactie-reads.
+- Volgende lineaire slice: `RootCauseIntelligenceService`. Managementactie-reads lopen via `RootCauseReadRepositoryInterface` en `DatabaseRootCauseReadRepository`; classificatie, scoring, confidence en governance blijven in de service.
