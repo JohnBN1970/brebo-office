@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Config\ConfigFactoryInterface;
+use Drupal\brebo_finance\Contract\BusinessHealthSettingsSourceInterface;
 
 /** Builds company-level financial health and steering information. */
 final class BusinessHealthBuilder {
@@ -14,7 +14,7 @@ final class BusinessHealthBuilder {
 
   public function __construct(
     private readonly BusinessHealthIntegrationClient $client,
-    private readonly ConfigFactoryInterface $configFactory,
+    private readonly BusinessHealthSettingsSourceInterface $settingsSource,
     private readonly CacheBackendInterface $cache,
   ) {}
 
@@ -164,8 +164,7 @@ final class BusinessHealthBuilder {
 
   /** @return array<string, mixed> */
   private function fixedCosts(array $expenseRows, float $elapsedMonths): array {
-    $config = $this->configFactory->get('brebo_finance.business_health');
-    $categories = $config->get('fixed_cost_categories');
+    $categories = $this->settingsSource->fixedCostCategories();
     if (!is_array($categories)) {
       $categories = $this->defaultCategories();
     }
@@ -233,9 +232,9 @@ final class BusinessHealthBuilder {
   }
 
   private function liquidityTone(float $closingBalance, ?float $months): string {
-    $config = $this->configFactory->get('brebo_finance.business_health');
-    $red = max(0.0, (float) ($config->get('liquidity.red_months') ?? 1));
-    $orange = max($red, (float) ($config->get('liquidity.orange_months') ?? 2));
+    $thresholds = $this->settingsSource->liquidityThresholds();
+    $red = max(0.0, (float) ($thresholds['red'] ?? 1));
+    $orange = max($red, (float) ($thresholds['orange'] ?? 2));
     if ($closingBalance < 0) return 'red';
     if ($months === NULL) return 'neutral';
     if ($months < $red) return 'red';

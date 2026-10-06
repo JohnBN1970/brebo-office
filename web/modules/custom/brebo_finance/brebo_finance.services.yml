@@ -1,4 +1,19 @@
 services:
+  brebo_finance.business_health_settings_source:
+    class: Drupal\brebo_finance\Infrastructure\DrupalBusinessHealthSettingsSource
+    arguments: ['@config.factory']
+
+  Drupal\brebo_finance\Contract\BusinessHealthSettingsSourceInterface:
+    alias: brebo_finance.business_health_settings_source
+
+  brebo_finance.business_health_integration_client:
+    class: Drupal\brebo_finance\Service\BusinessHealthIntegrationClient
+    arguments: ['@http_client']
+
+  brebo_finance.business_health_builder:
+    class: Drupal\brebo_finance\Service\BusinessHealthBuilder
+    arguments: ['@brebo_finance.business_health_integration_client', '@brebo_finance.business_health_settings_source', '@cache.default']
+
   brebo_finance.standalone_sales_invoice_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseStandaloneSalesInvoiceRepository
     arguments: ['@database']
@@ -71,6 +86,9 @@ services:
   brebo_finance.portfolio_liquidity_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePortfolioLiquidityRepository
     arguments: ['@database']
+  brebo_finance.portfolio_liquidity_projection:
+    class: Drupal\brebo_finance\Service\PortfolioLiquidityProjection
+    arguments: ['@brebo_finance.portfolio_liquidity_repository', '@brebo_finance.project_reference_gateway', '@brebo_finance.business_health_settings_source', '@brebo_finance.vat_calculator']
 
   brebo_finance.invoice_blocker_action_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseInvoiceBlockerActionRepository
