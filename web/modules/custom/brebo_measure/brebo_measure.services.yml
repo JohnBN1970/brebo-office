@@ -1,4 +1,11 @@
 services:
+  brebo_measure.storage:
+    class: Drupal\brebo_measure\Infrastructure\DatabaseMeasureStorage
+    arguments: ['@database', '@datetime.time']
+
+  Drupal\brebo_measure\Contract\MeasureStorageInterface:
+    alias: brebo_measure.storage
+
   brebo_measure.repository:
     class: Drupal\brebo_measure\Service\MeasureRepository
-    arguments: ['@database', '@brebo_building_data.object_repository', '@datetime.time']
+    arguments: ['@brebo_measure.storage', '@brebo_building_data.object_repository']
