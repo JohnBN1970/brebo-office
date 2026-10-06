@@ -4,30 +4,26 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\AuditReadinessReadRepositoryInterface;
 
 /** Calculates evidence completeness and audit readiness per scope. */
 final class AuditReadinessEngine {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly AuditReadinessReadRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function assess(string $scope, ?int $now = NULL): array {
     $now ??= time();
-    $rules = $this->database->select('brebo_policy_rule', 'p')->fields('p')
-      ->condition('scope', $scope)
-      ->condition('status', 'active')
-      ->condition('effective_from', $now, '<=')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rules = $this->repository->activePolicyRules($scope, $now);
 
     $checks = [];
     $complete = 0;
     foreach ($rules as $rule) {
-      $latest = $this->database->select('brebo_compliance_evidence', 'e')->fields('e')
-        ->condition('policy_code', (string) $rule['policy_code'])
-        ->condition('policy_version', (string) $rule['version'])
-        ->condition('scope', $scope)
-        ->orderBy('evaluated_at', 'DESC')->range(0, 1)->execute()->fetchAssoc();
+      $latest = $this->repository->latestComplianceEvidence(
+        (string) $rule['policy_code'],
+        (string) $rule['version'],
+        $scope,
+      );
 
       $ready = $latest && (string) ($latest['result'] ?? '') === 'compliant' && trim((string) ($latest['evidence_json'] ?? '')) !== '' && trim((string) ($latest['evidence_hash'] ?? '')) !== '';
       if ($ready) { $complete++; }
@@ -55,10 +51,10 @@ final class AuditReadinessEngine {
     ];
   }
 
-  /** @param array<string, mixed>|false $latest
+  /** @param array<string, mixed>|null $latest
    *  @return string[]
    */
-  private function missing(array|false $latest): array {
+  private function missing(?array $latest): array {
     if (!$latest) { return ['compliance_assessment', 'evidence', 'evidence_hash']; }
     $missing = [];
     if (($latest['result'] ?? '') !== 'compliant') { $missing[] = 'compliant_result'; }
