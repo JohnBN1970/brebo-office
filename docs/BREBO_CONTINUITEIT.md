@@ -519,3 +519,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1225 is gemerged als `56e997dc181bcf443063fdef9b5a59a533fd64a4`: `AuditPackageGenerator` gebruikt uitsluitend `AuditPackageGeneratorRepositoryInterface` voor policy-, evidence- en exception-reads en package-opslag.
 - Volgende lineaire slice: `ComplianceEvidenceEngine`. Evidence-opslag en audittrail-read lopen via `ComplianceEvidenceRepositoryInterface` en `DatabaseComplianceEvidenceRepository`; policy-evaluatie, bewijsvereiste en hashing blijven in de service.
+
+
+### Organizational-learning isolatie
+
+- PR #1226 is gemerged als `18153715573a0ce3dfee8ddfe6e0c1c613fd96e5`: `ComplianceEvidenceEngine` gebruikt uitsluitend `ComplianceEvidenceRepositoryInterface` voor evidence-opslag en audittrail-reads.
+- Volgende lineaire slice: `OrganizationalLearningRegistry`. Opslag, reviewselectie en historie lopen via `OrganizationalLearningRepositoryInterface` en `DatabaseOrganizationalLearningRepository`; validaties, vier-ogenprincipe en reviewsemantiek blijven in de service.
