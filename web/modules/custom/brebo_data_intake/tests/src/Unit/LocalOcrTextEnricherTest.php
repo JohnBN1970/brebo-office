@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\Tests\brebo_data_intake\Unit;
 
+use Drupal\brebo_data_intake\Contract\IntakeAttachmentSourceInterface;
 use Drupal\brebo_data_intake\Service\LocalOcrTextEnricher;
 use Drupal\brebo_data_intake\Service\PurchaseInvoiceTextEnricher;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\Core\File\FileSystemInterface;
 use PHPUnit\Framework\TestCase;
 
 /** Covers source and MIME boundaries for local invoice OCR. */
@@ -34,8 +33,7 @@ final class LocalOcrTextEnricherTest extends TestCase {
 
   private function enricher(): LocalOcrTextEnricher {
     return new LocalOcrTextEnricher(
-      $this->createMock(EntityTypeManagerInterface::class),
-      $this->createMock(FileSystemInterface::class),
+      $this->createMock(IntakeAttachmentSourceInterface::class),
       new PurchaseInvoiceTextEnricher(),
     );
   }
