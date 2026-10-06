@@ -6,7 +6,7 @@ namespace Drupal\brebo_mail_intake\Form;
 
 use Drupal\brebo_mail_intake\Service\MailboxAccessPolicy;
 use Drupal\brebo_mail_intake\Service\MailboxRepository;
-use Drupal\brebo_mail_intake\Service\MailEditorProvisioner;
+use Drupal\brebo_mail_intake\Contract\MailEditorProvisionerInterface;
 use Drupal\brebo_mail_intake\Service\OutboundMailService;
 use Drupal\brebo_mail_intake\Service\OutboundAttachmentService;
 use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
@@ -28,7 +28,7 @@ final class MailComposeForm extends FormBase {
     private readonly MailboxStorageRepositoryInterface $storage,
     private readonly MailComposeSourceRepositoryInterface $sourceRepository,
     private readonly AccountProxyInterface $mailCurrentUser,
-    private readonly MailEditorProvisioner $editorProvisioner,
+    private readonly MailEditorProvisionerInterface $editorProvisioner,
     private readonly OutboundAttachmentService $attachmentService,
   ) {}
 
