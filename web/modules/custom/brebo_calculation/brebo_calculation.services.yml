@@ -17,9 +17,16 @@ services:
     class: Drupal\brebo_calculation\Service\CalcSourceResolver
     arguments: ['@database']
 
+  brebo_calculation.calc_integration_runtime:
+    class: Drupal\brebo_calculation\Infrastructure\DrupalCalcIntegrationRuntime
+    arguments: ['@cache.default']
+
+  Drupal\brebo_calculation\Contract\CalcIntegrationRuntimeInterface:
+    alias: brebo_calculation.calc_integration_runtime
+
   brebo_calculation.calc_request_authenticator:
     class: Drupal\brebo_calculation\Service\CalcIntegrationRequestAuthenticator
-    arguments: ['@cache.default']
+    arguments: ['@brebo_calculation.calc_integration_runtime']
 
   brebo_calculation.workspace_resource_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseCalculationWorkspaceResourceRepository
