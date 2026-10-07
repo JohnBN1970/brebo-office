@@ -659,3 +659,11 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1248 is gemerged als `47680cf6b69cfc95f91bd225be3e1a68bfbfb5aa`: `OnSiteOtpManager` gebruikt dedicated store/rate-limit/secret contracts en kent geen Drupal KeyValue/Flood/PrivateKey meer.
 - `OnSiteInvitationManager` accepteert alleen `uid`, gebruikt `OnSiteIdentityResolver` voor actieve identity/mobiel/taal en `OnSiteInstallLinkBuilderInterface` voor de installatielink.
 - Drupal `UserInterface` en route-`Url` blijven alleen in controller/infrastructure.
+
+
+### Repo-brede Drupal-ontkoppeling — Office Core administration/document context
+
+- PR #1249 is gemerged als `6f357d6cb36d8606ddf6037760af46cac3361789`: `OnSiteInvitationManager` gebruikt alleen scalar uid + install-link contract.
+- `AdministrationContextResolver`, `ProjectDocumentIdentityResolver` en `ProjectDocumentNumberIssuer` kennen geen `NodeInterface` meer.
+- Node-traversal naar projectcontext loopt via `AdministrationNodeContextSourceInterface` en `DrupalAdministrationNodeContextSource`; service-API's gebruiken project-/context-node-id's.
+- Forms, module-hooks en Infrastructure mogen Drupal-entiteiten blijven kennen; administratie- en documentnummeringslogica in de servicelaag niet.
