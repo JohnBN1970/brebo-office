@@ -88,11 +88,19 @@ services:
       - '@brebo_office_core.administration_context_resolver'
       - '@brebo_office_core.administration_number_issuer'
 
+  brebo_office_core.administration_access_store:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationAccessStore
+    arguments:
+      - '@keyvalue'
+
+  Drupal\brebo_office_core\Contract\AdministrationAccessStoreInterface:
+    alias: brebo_office_core.administration_access_store
+
   brebo_office_core.administration_access_manager:
     class: Drupal\brebo_office_core\Service\AdministrationAccessManager
     arguments:
       - '@brebo_office_core.administration_registry'
-      - '@keyvalue'
+      - '@brebo_office_core.administration_access_store'
 
   brebo_office_core.onboarding_tour_store:
     class: Drupal\brebo_office_core\Infrastructure\DrupalOnboardingTourStore
