@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Core\State\StateInterface;
+use Drupal\brebo_mail_intake\Contract\MailIntakeFailureStoreInterface;
 
 /**
  * Stores a bounded, privacy-safe register of technical Mail Intake exceptions.
  */
 final class MailIntakeFailureRegistry {
 
-  private const STATE_KEY = 'brebo_mail_intake.technical_failures';
   private const MAX_ITEMS = 100;
 
   public function __construct(
-    private readonly StateInterface $state,
+    private readonly MailIntakeFailureStoreInterface $store,
   ) {}
 
   public function record(string $sourceReference, string $exceptionType): void {
@@ -37,7 +36,7 @@ final class MailIntakeFailureRegistry {
     if (count($items) > self::MAX_ITEMS) {
       $items = array_slice($items, 0, self::MAX_ITEMS, TRUE);
     }
-    $this->state->set(self::STATE_KEY, $items);
+    $this->store->save($items);
   }
 
   public function acknowledge(string $sourceReference): bool {
@@ -63,8 +62,7 @@ final class MailIntakeFailureRegistry {
 
   /** @return array<string, array<string, mixed>> */
   private function all(): array {
-    $items = $this->state->get(self::STATE_KEY, []);
-    return is_array($items) ? $items : [];
+    return $this->store->all();
   }
 
 }
