@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\brebo_office_core\Service\ProjectEarlyWarningService;
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_control\Contract\PortfolioProjectSourceInterface;
 
 /**
  * Aggregates project control into a management portfolio view.
@@ -14,14 +12,13 @@ use Drupal\node\NodeInterface;
 final class PortfolioControlService {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
-    private readonly ?ProjectEarlyWarningService $earlyWarning,
-    private readonly ControlHistoryService $history,
+    private readonly PortfolioProjectSourceInterface $projectSource,
   ) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if ($this->earlyWarning === NULL) {
+    $facts = $this->projectSource->activeProjectFacts();
+    if ($facts === []) {
       return [
         'project_count' => 0,
         'critical_or_high' => 0,
@@ -34,21 +31,12 @@ final class PortfolioControlService {
       ];
     }
 
-    $storage = $this->entityTypeManager->getStorage('node');
-    $ids = $storage->getQuery()->accessCheck(FALSE)
-      ->condition('type', 'brebo_project')
-      ->condition('status', 1)
-      ->execute();
-
     $projects = [];
     $totalExposure = 0.0;
     $totalExpectedResult = 0.0;
-    foreach ($storage->loadMultiple($ids) as $project) {
-      if (!$project instanceof NodeInterface) {
-        continue;
-      }
-      $warning = $this->earlyWarning->analyze($project);
-      $trend = $this->history->trend((int) $project->id());
+    foreach ($facts as $fact) {
+      $warning = (array) $fact['warning'];
+      $trend = (array) $fact['trend'];
       $snapshot = $warning['financial_snapshot'];
       $expectedResult = (float) $snapshot['expected_result'];
       $marginDelta = (float) $snapshot['margin_delta_pct'];
@@ -61,8 +49,8 @@ final class PortfolioControlService {
       $totalExposure += $exposure;
       $totalExpectedResult += $expectedResult;
       $projects[] = [
-        'project_id' => (int) $project->id(),
-        'project' => (string) $project->label(),
+        'project_id' => (int) $fact['project_id'],
+        'project' => (string) $fact['project'],
         'risk_score' => $riskScore,
         'risk_level' => (string) $warning['level'],
         'expected_result' => round($expectedResult, 2),
