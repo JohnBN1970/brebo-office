@@ -73,10 +73,17 @@ services:
     arguments:
       - '@brebo_contract_control.management_action_source_read_repository'
 
+  brebo_contract_control.management_trend_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseManagementTrendRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ManagementTrendRepositoryInterface:
+    alias: brebo_contract_control.management_trend_repository
+
   brebo_contract_control.management_trends:
     class: Drupal\brebo_contract_control\Service\ManagementTrendIntelligenceService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.management_trend_repository'
 
   brebo_contract_control.management_forecast:
     class: Drupal\brebo_contract_control\Service\ManagementForecastIntelligenceService
