@@ -56,12 +56,20 @@ services:
       - '@brebo_control.action_repository'
       - '@brebo_control.history'
 
-  brebo_control.portfolio:
-    class: Drupal\brebo_control\Service\PortfolioControlService
+  brebo_control.portfolio_project_source:
+    class: Drupal\brebo_control\Infrastructure\DrupalPortfolioProjectSource
     arguments:
       - '@entity_type.manager'
       - '@?brebo_office_core.project_early_warning'
       - '@brebo_control.history'
+
+  Drupal\brebo_control\Contract\PortfolioProjectSourceInterface:
+    alias: brebo_control.portfolio_project_source
+
+  brebo_control.portfolio:
+    class: Drupal\brebo_control\Service\PortfolioControlService
+    arguments:
+      - '@brebo_control.portfolio_project_source'
 
   brebo_control.portfolio_early_warning:
     class: Drupal\brebo_control\Service\PortfolioEarlyWarningService
