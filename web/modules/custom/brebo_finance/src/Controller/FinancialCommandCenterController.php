@@ -118,7 +118,7 @@ final class FinancialCommandCenterController extends ControllerBase {
   }
 
   public function api(): JsonResponse {
-    $data = $this->commandCenter->dashboard($this->currentUser());
+    $data = $this->commandCenter->dashboard((int) $this->currentUser()->id());
     $health = $this->businessHealth->build();
     $data['business_health'] = $health;
     $data['liquidity_horizons'] = $this->portfolioLiquidity->build((int) $this->currentUser()->id(), $health);
