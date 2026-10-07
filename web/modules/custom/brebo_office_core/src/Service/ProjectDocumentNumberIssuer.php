@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\node\NodeInterface;
-
 /** Issues administration-aware document numbers from project-derived context. */
 final class ProjectDocumentNumberIssuer {
 
@@ -14,58 +12,39 @@ final class ProjectDocumentNumberIssuer {
     private readonly AdministrationNumberIssuer $numbers,
   ) {}
 
-  /**
-   * Issues an immutable number for a project-derived node/context owner.
-   *
-   * @return array<string, mixed>
-   */
-  public function issueForNode(
-    NodeInterface $contextNode,
+  /** @return array<string, mixed> */
+  public function issueForContextNode(
+    int $contextNodeId,
     string $series,
     string $ownerType,
     string $ownerId,
     ?int $year = NULL,
   ): array {
-    $administrationCode = $this->context->codeForNode($contextNode);
+    $administrationCode = $this->context->codeForContextNode($contextNodeId);
     $receipt = $this->numbers->issue($administrationCode, $series, $ownerType, $ownerId, $year);
-    $receipt['context_node_id'] = (int) $contextNode->id();
+    $receipt['context_node_id'] = $contextNodeId;
     return $receipt;
   }
 
-  /** Convenience method for versioned offers created from a calculation. */
-  public function issueQuotation(NodeInterface $calculation, int $version, ?int $year = NULL): array {
-    if ($calculation->bundle() !== 'brebo_calculation') {
+  public function issueQuotation(int $calculationId, int $version, ?int $year = NULL): array {
+    if ($this->context->bundleForContextNode($calculationId) !== 'brebo_calculation') {
       throw new \InvalidArgumentException('Quotation numbering requires a BREBO calculation context.');
     }
-    return $this->issueForNode(
-      $calculation,
-      'quotation',
-      'offer_version',
-      (string) $calculation->id() . ':v' . $version,
-      $year,
-    );
+    return $this->issueForContextNode($calculationId, 'quotation', 'offer_version', $calculationId . ':v' . $version, $year);
   }
 
-  /** Issues one immutable sales-invoice number for a project invoice draft. */
-  public function issueSalesInvoice(NodeInterface $project, int|string $draftId, ?int $year = NULL): array {
-    if ($project->bundle() !== 'brebo_project') {
+  public function issueSalesInvoice(int $projectId, int|string $draftId, ?int $year = NULL): array {
+    if ($this->context->bundleForContextNode($projectId) !== 'brebo_project') {
       throw new \InvalidArgumentException('Sales invoice numbering requires a BREBO project context.');
     }
-    return $this->issueForNode(
-      $project,
-      'sales_invoice',
-      'sales_invoice_draft',
-      (string) $draftId,
-      $year,
-    );
+    return $this->issueForContextNode($projectId, 'sales_invoice', 'sales_invoice_draft', (string) $draftId, $year);
   }
 
-  /** Issues one immutable assignment/order number in project context. */
-  public function issueAssignment(NodeInterface $project, string $ownerId, ?int $year = NULL): array {
-    if ($project->bundle() !== 'brebo_project') {
+  public function issueAssignment(int $projectId, string $ownerId, ?int $year = NULL): array {
+    if ($this->context->bundleForContextNode($projectId) !== 'brebo_project') {
       throw new \InvalidArgumentException('Assignment numbering requires a BREBO project context.');
     }
-    return $this->issueForNode($project, 'assignment', 'assignment', $ownerId, $year);
+    return $this->issueForContextNode($projectId, 'assignment', 'assignment', $ownerId, $year);
   }
 
 }
