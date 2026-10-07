@@ -3,10 +3,33 @@ services:
     parent: logger.channel_base
     arguments: ['brebo_article']
 
+  brebo_article.sales005_repository:
+    class: Drupal\brebo_article\Infrastructure\DatabaseSales005CatalogRepository
+    arguments:
+      - '@database'
+
+  Drupal\brebo_article\Contract\Sales005CatalogRepositoryInterface:
+    alias: brebo_article.sales005_repository
+
+  brebo_article.sales005_source_path_resolver:
+    class: Drupal\brebo_article\Infrastructure\DrupalSales005SourcePathResolver
+    arguments:
+      - '@file_system'
+
+  Drupal\brebo_article\Contract\Sales005SourcePathResolverInterface:
+    alias: brebo_article.sales005_source_path_resolver
+
+  brebo_article.sales005_clock:
+    class: Drupal\brebo_article\Infrastructure\DrupalSales005Clock
+    arguments:
+      - '@datetime.time'
+
+  Drupal\brebo_article\Contract\Sales005ClockInterface:
+    alias: brebo_article.sales005_clock
+
   brebo_article.sales005_importer:
     class: Drupal\brebo_article\Service\Sales005Importer
     arguments:
-      - '@database'
-      - '@datetime.time'
-      - '@file_system'
-      - '@logger.channel.brebo_article'
+      - '@brebo_article.sales005_repository'
+      - '@brebo_article.sales005_clock'
+      - '@brebo_article.sales005_source_path_resolver'

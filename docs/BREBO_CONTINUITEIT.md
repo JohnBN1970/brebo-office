@@ -785,3 +785,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - `FinancialApprovalMatrix` gebruikt nu `FinancialActorGatewayInterface` en accepteert alleen `actorUid`; Drupal `AccountInterface` is uit de service.
 - `FinancialCommandCenter` accepteert alleen `actorUid`; projectzichtbaarheid en beslisautorisatie lopen via bestaande gateways/resolvers.
 - Controller- en theme-randen vertalen het Drupal-account naar uid.
+
+
+### Repo-brede Drupal-ontkoppeling — SALES005 importer
+
+- PR #1262 is gemerged als `dcfecad950c647bd9ea52e5e6cc71dac33af0c17`: Finance approval/command-center services gebruiken scalar actor-id's en bestaande gateways in plaats van Drupal `AccountInterface`.
+- `Sales005Importer` gebruikt nu `Sales005CatalogRepositoryInterface`, `Sales005ClockInterface` en `Sales005SourcePathResolverInterface`.
+- Drupal Database, FileSystem en Time zitten uitsluitend in Infrastructure; SALES005/XML-validatie, artikel-/prijsregels en importflow blijven in de service.

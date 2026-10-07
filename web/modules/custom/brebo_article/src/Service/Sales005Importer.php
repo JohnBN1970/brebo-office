@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_article\Service;
 
-use Drupal\Core\Database\Connection;
-use Drupal\Component\Datetime\TimeInterface;
-use Drupal\Core\File\FileSystemInterface;
-use Psr\Log\LoggerInterface;
+use Drupal\brebo_article\Contract\Sales005CatalogRepositoryInterface;
+use Drupal\brebo_article\Contract\Sales005ClockInterface;
+use Drupal\brebo_article\Contract\Sales005SourcePathResolverInterface;
 
 /**
  * Imports Ketenstandaard SALES005 catalogues into BREBO Artikelbeheer.
@@ -15,10 +14,9 @@ use Psr\Log\LoggerInterface;
 final class Sales005Importer {
 
   public function __construct(
-    private readonly Connection $database,
-    private readonly TimeInterface $time,
-    private readonly FileSystemInterface $fileSystem,
-    private readonly LoggerInterface $logger,
+    private readonly Sales005CatalogRepositoryInterface $repository,
+    private readonly Sales005ClockInterface $clock,
+    private readonly Sales005SourcePathResolverInterface $sourcePathResolver,
   ) {}
 
   /**
@@ -36,20 +34,10 @@ final class Sales005Importer {
         throw new \RuntimeException('De SHA-256-bronhash kon niet worden bepaald.');
       }
 
-      $existing = $this->database->select('brebo_catalog_import', 'ci')
-        ->fields('ci', ['id', 'record_count', 'status'])
-        ->condition('source_hash', $sourceHash)
-        ->execute()
-        ->fetchAssoc();
+      $existing = $this->repository->findImportByHash($sourceHash);
       if ($existing && in_array($existing['status'], ['completed', 'actief'], TRUE)) {
-        // Older importer versions stored successful catalogues as "completed",
-        // while the article search deliberately exposes only active catalogues.
-        // Promote such an import without creating duplicate price versions.
         if ($existing['status'] === 'completed') {
-          $this->database->update('brebo_catalog_import')
-            ->fields(['status' => 'actief'])
-            ->condition('id', (int) $existing['id'])
-            ->execute();
+          $this->repository->activateImport((int) $existing['id']);
         }
         return [
           'status' => 'already_imported',
@@ -59,12 +47,11 @@ final class Sales005Importer {
       }
 
       $metadata = $this->readMetadata($xmlPath);
-      $transaction = $this->database->startTransaction();
-      try {
+      return $this->repository->transactional(function () use ($existing, $metadata, $sourceName, $sourceHash, $xmlPath): array {
         $supplierId = $this->upsertSupplier($metadata);
         $importId = $existing
           ? (int) $existing['id']
-          : (int) $this->database->insert('brebo_catalog_import')->fields([
+          : $this->repository->createImport([
             'supplier_id' => $supplierId,
             'standard' => 'SALES005',
             'source_name' => mb_substr($sourceName, 0, 255),
@@ -72,21 +59,17 @@ final class Sales005Importer {
             'price_date' => $metadata['price_date'],
             'status' => 'processing',
             'record_count' => 0,
-            'created' => $this->time->getRequestTime(),
-          ])->execute();
+            'created' => $this->clock->now(),
+          ]);
 
         $counts = $this->importLines($xmlPath, $supplierId, $importId, $metadata);
-        $this->database->update('brebo_catalog_import')->fields([
+        $this->repository->updateImport($importId, [
           'status' => 'actief',
           'record_count' => $counts['records'],
-        ])->condition('id', $importId)->execute();
+        ]);
 
         return ['status' => 'completed', 'import_id' => $importId] + $counts;
-      }
-      catch (\Throwable $exception) {
-        $transaction->rollBack();
-        throw $exception;
-      }
+      });
     }
     finally {
       if ($temporaryPath !== NULL && is_file($temporaryPath)) {
@@ -97,7 +80,7 @@ final class Sales005Importer {
 
   /** @return array{0: string, 1: ?string} */
   private function resolveXmlPath(string $uri): array {
-    $path = $this->fileSystem->realpath($uri) ?: $uri;
+    $path = $this->sourcePathResolver->resolve($uri);
     if (!is_file($path)) {
       throw new \InvalidArgumentException('Het geuploade bronbestand is niet leesbaar.');
     }
@@ -170,23 +153,21 @@ final class Sales005Importer {
 
   /** @param array<string, string> $metadata */
   private function upsertSupplier(array $metadata): int {
-    $code = $metadata['supplier_gln'] !== '' ? 'GLN-' . $metadata['supplier_gln'] : 'SALES-' . substr(hash('sha256', $metadata['supplier_name']), 0, 16);
-    $now = $this->time->getRequestTime();
+    $code = $metadata['supplier_gln'] !== ''
+      ? 'GLN-' . $metadata['supplier_gln']
+      : 'SALES-' . substr(hash('sha256', $metadata['supplier_name']), 0, 16);
+    $now = $this->clock->now();
     $supplierFields = [
       'name' => $metadata['supplier_name'],
       'branch' => $metadata['supplier_branch'],
       'active' => 1,
       'changed' => $now,
     ];
-    $this->database->merge('brebo_supplier')
-      ->keys(['code' => $code])
-      ->fields($supplierFields)
-      ->insertFields([
-        'code' => $code,
-        'created' => $now,
-      ] + $supplierFields)
-      ->execute();
-    return (int) $this->database->select('brebo_supplier', 's')->fields('s', ['id'])->condition('code', $code)->execute()->fetchField();
+
+    return $this->repository->upsertSupplier($code, $supplierFields, [
+      'code' => $code,
+      'created' => $now,
+    ]);
   }
 
   /**
@@ -215,21 +196,21 @@ final class Sales005Importer {
       $productGroup = $this->value($line, 'TradeItemGrouping/BuyingGroup');
       $orderUnit = $this->value($line, 'OrderConditions/OrderUoM');
       $useUnit = $this->value($line, 'UseUnitInformation/UseUnitUoM') ?: $orderUnit ?: 'PCE';
-      $articleId = $this->database->select('brebo_article', 'a')->fields('a', ['id'])->condition('code', $code)->execute()->fetchField();
+      $articleId = $this->repository->articleIdByCode($code);
       $articleFields = [
         'description' => mb_substr($description, 0, 512),
         'search_text' => mb_strtolower($description . ' ' . $supplierArticleNo . ' ' . $gtin . ' ' . $productGroup),
         'base_unit' => mb_substr($useUnit, 0, 16),
         'cost_category' => 'Materiaal',
         'active' => 1,
-        'changed' => $this->time->getRequestTime(),
+        'changed' => $this->clock->now(),
       ];
       if ($articleId) {
-        $this->database->update('brebo_article')->fields($articleFields)->condition('id', $articleId)->execute();
+        $this->repository->updateArticle((int) $articleId, $articleFields);
         $counts['articles_updated']++;
       }
       else {
-        $articleId = $this->database->insert('brebo_article')->fields(['code' => $code, 'created' => $this->time->getRequestTime()] + $articleFields)->execute();
+        $articleId = $this->repository->createArticle(['code' => $code, 'created' => $this->clock->now()] + $articleFields);
         $counts['articles_created']++;
       }
 
@@ -244,8 +225,7 @@ final class Sales005Importer {
         'product_url' => mb_substr($this->value($line, 'Attachment/URLInformation/URL'), 0, 1024) ?: NULL,
         'active' => 1,
       ];
-      $this->database->merge('brebo_supplier_article')->keys(['supplier_id' => $supplierId, 'supplier_article_no' => $supplierArticleNo])->fields($supplierFields)->execute();
-      $supplierArticleId = (int) $this->database->select('brebo_supplier_article', 'sa')->fields('sa', ['id'])->condition('supplier_id', $supplierId)->condition('supplier_article_no', $supplierArticleNo)->execute()->fetchField();
+      $supplierArticleId = $this->repository->upsertSupplierArticle($supplierId, $supplierArticleNo, $supplierFields);
 
       $priceNodes = $this->nodes($line, 'PriceInformation');
       foreach ($priceNodes as $price) {
@@ -255,18 +235,18 @@ final class Sales005Importer {
         }
         $quantityFrom = $this->decimal($this->value($price, 'MinimumQuantity'), '1');
         $validFrom = $this->value($price, 'StartDatePriceInformation') ?: $metadata['price_date'];
-        $this->database->merge('brebo_article_price')->keys([
+        $this->repository->upsertArticlePrice([
           'supplier_article_id' => $supplierArticleId,
           'catalog_import_id' => $importId,
           'valid_from' => $validFrom,
           'quantity_from' => $quantityFrom,
-        ])->fields([
+        ], [
           'valid_until' => $this->value($price, 'EndDatePriceInformation') ?: NULL,
           'net_price' => $this->decimal($netPrice, '0'),
           'gross_price' => $this->value($price, 'GrossPrice') !== '' ? $this->decimal($this->value($price, 'GrossPrice'), '0') : NULL,
           'currency' => 'EUR',
           'vat_rate' => $this->value($line, 'VATInformation/VATPercentage') !== '' ? $this->decimal($this->value($line, 'VATInformation/VATPercentage'), '0') : NULL,
-        ])->execute();
+        ]);
         $counts['prices']++;
       }
       $counts['records']++;
