@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\user\UserInterface;
+use Drupal\brebo_office_core\Contract\AdministrationAccessStoreInterface;
 
 /**
  * Controls which approved administrations a user may work in.
@@ -15,31 +14,20 @@ use Drupal\user\UserInterface;
  */
 final class AdministrationAccessManager {
 
-  private const COLLECTION = 'brebo_office_core.administration_access';
-
   public function __construct(
     private readonly AdministrationRegistry $administrations,
-    private readonly KeyValueFactoryInterface $keyValue,
+    private readonly AdministrationAccessStoreInterface $store,
   ) {}
 
-  /**
-   * Returns all administration memberships for a user.
-   *
-   * @return array<string, array<string, mixed>>
-   */
-  public function memberships(UserInterface $user): array {
-    $value = $this->keyValue->get(self::COLLECTION)->get('user:' . $user->id(), []);
-    return is_array($value) ? $value : [];
+  /** @return array<string, array<string, mixed>> */
+  public function memberships(int $userId): array {
+    return $this->store->memberships($userId);
   }
 
-  /**
-   * Returns released, active administrations available to a user.
-   *
-   * @return array<string, array<string, mixed>>
-   */
-  public function availableAdministrations(UserInterface $user): array {
+  /** @return array<string, array<string, mixed>> */
+  public function availableAdministrations(int $userId): array {
     $available = [];
-    foreach ($this->memberships($user) as $code => $membership) {
+    foreach ($this->memberships($userId) as $code => $membership) {
       if (($membership['status'] ?? '') !== 'released') {
         continue;
       }
@@ -57,23 +45,18 @@ final class AdministrationAccessManager {
     return $available;
   }
 
-  public function hasAccess(UserInterface $user, string $administrationCode): bool {
-    return isset($this->availableAdministrations($user)[$administrationCode]);
+  public function hasAccess(int $userId, string $administrationCode): bool {
+    return isset($this->availableAdministrations($userId)[$administrationCode]);
   }
 
-  /**
-   * Creates or updates a membership; release is always explicit.
-   *
-   * @param string[] $roles
-   *   Administration-scoped functional roles.
-   */
-  public function setMembership(UserInterface $user, string $administrationCode, array $roles, string $status, int $actorUid): void {
+  /** @param string[] $roles */
+  public function setMembership(int $userId, string $administrationCode, array $roles, string $status, int $actorUid): void {
     $this->administrations->get($administrationCode);
     if (!in_array($status, ['pending', 'released', 'blocked', 'revoked'], TRUE)) {
       throw new \InvalidArgumentException('Unsupported administration membership status.');
     }
 
-    $memberships = $this->memberships($user);
+    $memberships = $this->memberships($userId);
     $existing = $memberships[$administrationCode] ?? [];
     $memberships[$administrationCode] = [
       'administration_code' => $administrationCode,
@@ -85,19 +68,19 @@ final class AdministrationAccessManager {
       'updated_at' => gmdate(DATE_ATOM),
       'updated_by' => $actorUid,
     ];
-    $this->keyValue->get(self::COLLECTION)->set('user:' . $user->id(), $memberships);
+    $this->store->saveMemberships($userId, $memberships);
   }
 
-  public function onboardingRequired(UserInterface $user): bool {
-    $state = $this->keyValue->get(self::COLLECTION)->get('onboarding:' . $user->id(), []);
-    return !is_array($state) || ($state['status'] ?? '') !== 'completed';
+  public function onboardingRequired(int $userId): bool {
+    $state = $this->store->onboardingState($userId);
+    return ($state['status'] ?? '') !== 'completed';
   }
 
-  public function completeOnboarding(UserInterface $user, int $actorUid): void {
-    if ($this->availableAdministrations($user) === []) {
+  public function completeOnboarding(int $userId, int $actorUid): void {
+    if ($this->availableAdministrations($userId) === []) {
       throw new \LogicException('Onboarding cannot complete without a released administration.');
     }
-    $this->keyValue->get(self::COLLECTION)->set('onboarding:' . $user->id(), [
+    $this->store->saveOnboardingState($userId, [
       'status' => 'completed',
       'completed_at' => gmdate(DATE_ATOM),
       'completed_by' => $actorUid,
