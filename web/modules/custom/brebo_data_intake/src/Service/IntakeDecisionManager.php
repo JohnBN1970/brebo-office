@@ -6,7 +6,7 @@ namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDecisionRepositoryInterface;
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
-use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\brebo_data_intake\Contract\IntakeLockInterface;
 use RuntimeException;
 
 /** Applies audited human decisions to source-neutral intake records. */
@@ -15,7 +15,7 @@ final class IntakeDecisionManager {
   /** @param iterable<IntakeDestinationInterface> $destinations */
   public function __construct(
     private readonly IntakeDecisionRepositoryInterface $repository,
-    private readonly LockBackendInterface $lock,
+    private readonly IntakeLockInterface $lock,
     private readonly iterable $destinations,
   ) {}
 
