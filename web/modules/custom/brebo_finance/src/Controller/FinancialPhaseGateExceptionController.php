@@ -63,7 +63,7 @@ final class FinancialPhaseGateExceptionController extends ControllerBase {
       ];
     }
     else {
-      $authorization = $this->approvalMatrix->authorize($this->currentUser(), $exception['gate'], $exposure['exposure_amount']);
+      $authorization = $this->approvalMatrix->authorize((int) $this->currentUser()->id(), $exception['gate'], $exposure['exposure_amount']);
       if (!$authorization['authorized']) {
         throw new AccessDeniedHttpException(sprintf('Insufficient procuration for %s at exposure EUR %s.', $exception['gate'], $exposure['exposure_amount']));
       }

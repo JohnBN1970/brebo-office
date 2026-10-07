@@ -777,3 +777,11 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - Zeven Procurement-services gebruiken nu `ProcurementControlRepositoryInterface`: decision, award, outcome, outcome-learning, decision-intelligence, context-intelligence en model-governance.
 - Drupal `Connection` zit uitsluitend in `DatabaseProcurementControlRepository`.
 - Selectie-/afwijkingsregels, award-controlmodus, outcome-classificatie, learningdiagnostiek, contextsegmentatie en vier-ogen-governance blijven in de servicelaag.
+
+
+### Repo-brede Drupal-ontkoppeling — Finance actor boundary
+
+- PR #1261 is gemerged als `6b56249ada3a96c748a1b55d72542489e002700c`: zeven Procurement control-services gebruiken uitsluitend `ProcurementControlRepositoryInterface`.
+- `FinancialApprovalMatrix` gebruikt nu `FinancialActorGatewayInterface` en accepteert alleen `actorUid`; Drupal `AccountInterface` is uit de service.
+- `FinancialCommandCenter` accepteert alleen `actorUid`; projectzichtbaarheid en beslisautorisatie lopen via bestaande gateways/resolvers.
+- Controller- en theme-randen vertalen het Drupal-account naar uid.
