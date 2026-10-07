@@ -4,18 +4,16 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\KeyValueStore\KeyValueFactoryInterface;
-use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\brebo_office_core\Contract\AdministrationNumberLockInterface;
+use Drupal\brebo_office_core\Contract\AdministrationNumberStoreInterface;
 
 /** Atomically issues immutable document numbers per administration and series. */
 final class AdministrationNumberIssuer {
 
-  private const COLLECTION = 'brebo_office_core.numbering';
-
   public function __construct(
     private readonly AdministrationRegistry $administrations,
-    private readonly KeyValueFactoryInterface $keyValue,
-    private readonly LockBackendInterface $lock,
+    private readonly AdministrationNumberStoreInterface $store,
+    private readonly AdministrationNumberLockInterface $lock,
   ) {}
 
   /**
@@ -39,9 +37,8 @@ final class AdministrationNumberIssuer {
       throw new \InvalidArgumentException('Owner type en owner id zijn verplicht voor nummeruitgifte.');
     }
 
-    $store = $this->keyValue->get(self::COLLECTION);
     $ownerKey = sprintf('issued:%s:%s:%s:%s', $administrationCode, $series, $ownerType, $ownerId);
-    $existing = $store->get($ownerKey);
+    $existing = $this->store->getReceipt($ownerKey);
     if (is_array($existing) && isset($existing['number'])) {
       return $existing;
     }
@@ -55,19 +52,19 @@ final class AdministrationNumberIssuer {
 
     try {
       // Re-check after acquiring the lock to make concurrent retries idempotent.
-      $existing = $store->get($ownerKey);
+      $existing = $this->store->getReceipt($ownerKey);
       if (is_array($existing) && isset($existing['number'])) {
         return $existing;
       }
 
       $cursorKey = sprintf('cursor:%s:%s:%s', $administrationCode, $series, $bucket);
       $start = max(1, (int) ($definition['start_number'] ?? 1));
-      $lastIssued = (int) $store->get($cursorKey, $start - 1);
+      $lastIssued = $this->store->getInt($cursorKey, $start - 1);
       $sequence = max($start, $lastIssued + 1);
       $number = $this->formatNumber($definition, $sequence, $issueYear);
 
       $numberKey = sprintf('number:%s:%s:%s', $administrationCode, $series, $number);
-      if ($store->get($numberKey) !== NULL) {
+      if ($this->store->exists($numberKey)) {
         throw new \LogicException(sprintf('Nummer %s is reeds uitgegeven; cursor is inconsistent.', $number));
       }
 
@@ -91,9 +88,9 @@ final class AdministrationNumberIssuer {
       ];
 
       // Persist receipt before moving the cursor; the number is never reusable.
-      $store->set($ownerKey, $receipt);
-      $store->set($numberKey, $receipt);
-      $store->set($cursorKey, $sequence);
+      $this->store->setReceipt($ownerKey, $receipt);
+      $this->store->setReceipt($numberKey, $receipt);
+      $this->store->setInt($cursorKey, $sequence);
       return $receipt;
     }
     finally {
