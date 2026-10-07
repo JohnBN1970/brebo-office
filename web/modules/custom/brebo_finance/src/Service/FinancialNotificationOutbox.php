@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_finance\Contract\FinancialNotificationOutboxRepositoryInterface;
-use Drupal\Core\Queue\QueueFactory;
+use Drupal\brebo_finance\Contract\FinancialNotificationQueueInterface;
 use UnexpectedValueException;
 
 /** Durable, deduplicated outbox for financial decision notifications. */
@@ -13,7 +13,7 @@ final class FinancialNotificationOutbox {
 
   public function __construct(
     private readonly FinancialNotificationOutboxRepositoryInterface $repository,
-    private readonly QueueFactory $queueFactory,
+    private readonly FinancialNotificationQueueInterface $queue,
   ) {}
 
   public function enqueue(array $decision, string $attention, int $escalationLevel, int $dueAt): ?int {
@@ -49,7 +49,7 @@ final class FinancialNotificationOutbox {
       'payload' => json_encode($payload, JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION),
       'last_error' => NULL, 'created' => $now, 'changed' => $now,
     ]);
-    $this->queueFactory->get('brebo_finance_notification_delivery')->createItem(['outbox_id' => $id]);
+    $this->queue->enqueue($id);
     return $id;
   }
 
