@@ -689,3 +689,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1252 is gemerged als `24bd1a8aee1a2eef42696121efd2d620b84dbb97`: `AdministrationAccessManager` gebruikt uitsluitend scalar user-id's en `AdministrationAccessStoreInterface`.
 - `AdministrationNumberIssuer` gebruikt nu `AdministrationNumberStoreInterface` en `AdministrationNumberLockInterface`; Drupal KeyValue en Lock zitten in Infrastructure.
 - Nummerreeksregels, idempotente owner-check, cursorberekening, immutable receipt-opbouw en nummerformattering blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Mail Intake queue
+
+- PR #1253 is gemerged als `09c1be70b1eb26f345de1723b78a3406ed75c0a2`: `AdministrationNumberIssuer` gebruikt dedicated store/lock contracts en kent geen Drupal KeyValue/Lock meer.
+- `MailIntakeQueueManager` gebruikt nu `MailIntakeQueueInterface`; Drupal QueueFactory zit in `DrupalMailIntakeQueue`.
+- Bronconfiguratie, backfill-limiet, mode-selectie en pending-thresholdlogica blijven in de service.
