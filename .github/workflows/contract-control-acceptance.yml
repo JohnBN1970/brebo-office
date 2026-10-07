@@ -77,13 +77,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          FILE=web/modules/custom/brebo_contract_control/src/Service/ManagementDecisionRecordService.php
-          grep -q 'brebo_management_decision_record' "$FILE"
-          grep -q 'decision_hash' "$FILE"
-          grep -q 'review_30_at' "$FILE"
-          grep -q 'review_90_at' "$FILE"
-          grep -q 'dueReviews' "$FILE"
-          grep -q 'recordOutcome' "$FILE"
+          SERVICE=web/modules/custom/brebo_contract_control/src/Service/ManagementDecisionRecordService.php
+          REPOSITORY=web/modules/custom/brebo_contract_control/src/Infrastructure/DatabaseManagementDecisionRecordRepository.php
+          grep -q 'brebo_management_decision_record' "$REPOSITORY"
+          grep -q 'decision_hash' "$SERVICE"
+          grep -q 'review_30_at' "$SERVICE"
+          grep -q 'review_90_at' "$SERVICE"
+          grep -q 'dueReviews' "$SERVICE"
+          grep -q 'recordOutcome' "$SERVICE"
 
       - name: Control Center chain smoke contract
         shell: bash
