@@ -652,3 +652,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1247 is gemerged als `b0ee8a94741e56642a31733c8b71f75d590ba64a`: `OnSiteActivationManager` gebruikt uitsluitend `OnSiteActivationStoreInterface` voor expirable activation storage.
 - `OnSiteOtpManager` gebruikt nu `OnSiteOtpStoreInterface`, `OnSiteOtpRateLimiterInterface` en `OnSiteOtpSecretProviderInterface`; Drupal KeyValue, Flood en PrivateKey zitten in Infrastructure.
 - Securitysemantiek blijft gelijk: 5 requests per 900 seconden, challenge-TTL 600 seconden, maximaal 5 verificatiepogingen en HMAC-SHA256 over challenge-id plus code.
+
+
+### Repo-brede Drupal-ontkoppeling — OnSite invitation
+
+- PR #1248 is gemerged als `47680cf6b69cfc95f91bd225be3e1a68bfbfb5aa`: `OnSiteOtpManager` gebruikt dedicated store/rate-limit/secret contracts en kent geen Drupal KeyValue/Flood/PrivateKey meer.
+- `OnSiteInvitationManager` accepteert alleen `uid`, gebruikt `OnSiteIdentityResolver` voor actieve identity/mobiel/taal en `OnSiteInstallLinkBuilderInterface` voor de installatielink.
+- Drupal `UserInterface` en route-`Url` blijven alleen in controller/infrastructure.
