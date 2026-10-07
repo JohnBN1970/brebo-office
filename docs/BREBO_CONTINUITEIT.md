@@ -549,3 +549,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1230 is gemerged als `73af183c405c979014fad42b5598dfd807c2a5ba`: `RootCauseIntelligenceService` gebruikt uitsluitend `RootCauseReadRepositoryInterface` voor managementactie-reads.
 - Volgende lineaire slice: `ContractMonitoringService`. Award-read, obligation-opslag/-afronding en statusreads lopen via `ContractMonitoringRepositoryInterface` en `DatabaseContractMonitoringRepository`; validaties, overdue-/blockinglogica en close-status blijven in de service.
+
+
+### Management-action-source isolatie
+
+- PR #1231 is gemerged als `988e6d2c084d1f473b52bc062dc5121bab753bfb`: `ContractMonitoringService` gebruikt uitsluitend `ContractMonitoringRepositoryInterface` voor award-, obligation- en deviation-persistence/reads.
+- Volgende lineaire slice: `ManagementActionSourceResolver`. Action-, controller-case-, blocked-invoice- en overdue-obligation-reads lopen via `ManagementActionSourceReadRepositoryInterface` en `DatabaseManagementActionSourceReadRepository`; source-type routing en contextinterpretatie blijven in de resolver.
