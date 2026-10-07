@@ -209,11 +209,7 @@ final class CalculationContextSnapshotService {
 
     $query = $this->database->select('node_field_data', 'n');
     $query->innerJoin('node__field_brebo_project_ref', 'p', 'p.entity_id = n.nid AND p.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_subject', 's', 's.entity_id = n.nid AND s.deleted = 0');
-    $query->leftJoin('node__field_brebo_comm_body', 'b', 'b.entity_id = n.nid AND b.deleted = 0');
-    $query->fields('n', ['nid']);
-    $query->addField('s', 'field_brebo_comm_subject_value', 'subject');
-    $query->addField('b', 'field_brebo_comm_body_value', 'body');
+    $query->fields('n', ['nid', 'title']);
     $query->condition('n.type', 'brebo_communication');
     $query->condition('p.field_brebo_project_ref_target_id', $projectId);
     $query->condition('n.status', 1);
@@ -223,7 +219,7 @@ final class CalculationContextSnapshotService {
     $montage = FALSE;
     $supply = FALSE;
     foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $row) {
-      $text = mb_strtolower(trim((string) ($row['subject'] ?? '') . "\n" . (string) ($row['body'] ?? '')));
+      $text = mb_strtolower(trim((string) ($row['title'] ?? '')));
       $montage = $montage || $this->containsAny($text, [
         'montage offerte', 'montageofferte', 'montage offertes', 'montageoffertes',
         'aanvraag montage', 'montage aanvraag', 'montageaanvraag',
