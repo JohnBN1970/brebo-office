@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_procurement_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /**
  * Creates auditable parameter proposals; never changes live model silently.
@@ -12,7 +12,7 @@ use Drupal\Core\Database\Connection;
 final class ProcurementModelGovernanceService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProcurementControlRepositoryInterface $repository,
     private readonly ProcurementOutcomeLearningService $learning,
   ) {}
 
@@ -32,7 +32,7 @@ final class ProcurementModelGovernanceService {
       throw new \InvalidArgumentException('Versies, wijzigingen en reden zijn verplicht.');
     }
 
-    $id = (int) $this->database->insert('brebo_procurement_model_review')->fields([
+    $id = (int) $this->repository->createModelReview([
       'from_version' => $fromVersion,
       'to_version' => $toVersion,
       'changes_json' => json_encode($changes, JSON_THROW_ON_ERROR),
@@ -41,7 +41,7 @@ final class ProcurementModelGovernanceService {
       'status' => 'proposed',
       'proposed_by' => $proposedBy,
       'proposed_at' => $now,
-    ])->execute();
+    ]);
 
     return ['created' => TRUE, 'review_id' => $id, 'status' => 'proposed', 'diagnostics' => $diagnostics];
   }
@@ -49,8 +49,7 @@ final class ProcurementModelGovernanceService {
   /** @return array<string, mixed> */
   public function approve(int $reviewId, int $approvedBy, string $approvalNote, ?int $now = NULL): array {
     $now ??= time();
-    $review = $this->database->select('brebo_procurement_model_review', 'r')->fields('r')
-      ->condition('id', $reviewId)->execute()->fetchAssoc();
+    $review = $this->repository->modelReview($reviewId);
     if (!$review) {
       throw new \InvalidArgumentException('Onbekende modelreview.');
     }
@@ -64,12 +63,12 @@ final class ProcurementModelGovernanceService {
       throw new \InvalidArgumentException('Goedkeuringsnotitie is verplicht.');
     }
 
-    $this->database->update('brebo_procurement_model_review')->fields([
+    $this->repository->updateModelReview($reviewId, [
       'status' => 'approved_for_implementation',
       'approved_by' => $approvedBy,
       'approved_at' => $now,
       'approval_note' => $approvalNote,
-    ])->condition('id', $reviewId)->execute();
+    ]);
 
     return [
       'review_id' => $reviewId,
