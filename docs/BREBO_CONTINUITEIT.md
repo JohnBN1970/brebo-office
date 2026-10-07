@@ -605,3 +605,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1239 is gemerged als `3aa7c48186c058ced05c1129c39c59fff24be022`: Contract Control is service-side vrij van directe `@database`-injecties.
 - Repo-brede eindscan gestart. Eerste resterende servicekoppeling: `MailIntakeFailureRegistry`.
 - Drupal State-opslag loopt nu via `MailIntakeFailureStoreInterface` en `DrupalStateMailIntakeFailureStore`; bounded register, privacy-safe inhoud, sortering en acknowledge-logica blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Receivables reconciliation state
+
+- PR #1240 is gemerged als `f431010bc5878a5bcb2a5e7c09e5f9a67ee7368f`: `MailIntakeFailureRegistry` gebruikt uitsluitend `MailIntakeFailureStoreInterface` voor statusopslag.
+- Volgende servicekoppeling: `ReceivablesReconciliationMonitor`. Drupal State-opslag loopt via `ReceivablesReconciliationStateStoreInterface` en `DrupalReceivablesReconciliationStateStore`; last-success-logica en audittrail blijven in de service.
