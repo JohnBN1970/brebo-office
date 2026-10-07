@@ -196,9 +196,9 @@ final class OpportunityProjectForm extends FormBase {
     $contextResolver = \Drupal::service('brebo_office_core.administration_context_resolver');
     try {
       $project->save();
-      $contextResolver->assignProject($project, $administrationCode);
-      $receipt = \Drupal::service('brebo_office_core.project_document_number_issuer')->issueForNode(
-        $project,
+      $contextResolver->assignProject((int) $project->id(), $administrationCode);
+      $receipt = \Drupal::service('brebo_office_core.project_document_number_issuer')->issueForContextNode(
+        (int) $project->id(),
         'project',
         'project',
         (string) $project->id(),
@@ -216,7 +216,7 @@ final class OpportunityProjectForm extends FormBase {
     }
     catch (\Throwable $exception) {
       if (!$project->isNew() && $project->id()) {
-        $contextResolver->unassignProject($project);
+        $contextResolver->unassignProject((int) $project->id());
         $project->delete();
       }
       throw $exception;
