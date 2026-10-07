@@ -5,22 +5,20 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_finance\Contract\FinanceAuditRepositoryInterface;
-use Drupal\Core\State\StateInterface;
+use Drupal\brebo_finance\Contract\ReceivablesReconciliationStateStoreInterface;
 
 /** Persists operational sync health and per-project reconciliation provenance. */
 final class ReceivablesReconciliationMonitor {
 
-  private const STATE_KEY = 'brebo_finance.receivables_reconciliation';
-
   public function __construct(
-    private readonly StateInterface $state,
+    private readonly ReceivablesReconciliationStateStoreInterface $stateStore,
     private readonly FinanceAuditRepositoryInterface $audit,
   ) {}
 
   /** @param array<string, int> $summary */
   public function succeeded(array $summary, int $startedAt): void {
     $completedAt = time();
-    $this->state->set(self::STATE_KEY, [
+    $this->stateStore->set([
       'status' => 'ok',
       'started_at' => $startedAt,
       'completed_at' => $completedAt,
@@ -39,7 +37,7 @@ final class ReceivablesReconciliationMonitor {
     $lastSuccessCompletedAt = $previous['last_success_completed_at'] ?? ($previousWasSuccessful ? ($previous['completed_at'] ?? NULL) : NULL);
     $lastSuccessSummary = $previous['last_success_summary'] ?? ($previousWasSuccessful ? ($previous['summary'] ?? NULL) : NULL);
 
-    $this->state->set(self::STATE_KEY, [
+    $this->stateStore->set([
       'status' => 'failed',
       'started_at' => $startedAt,
       'completed_at' => time(),
@@ -53,8 +51,7 @@ final class ReceivablesReconciliationMonitor {
 
   /** @return array<string, mixed> */
   public function status(): array {
-    $value = $this->state->get(self::STATE_KEY, []);
-    return is_array($value) ? $value : [];
+    return $this->stateStore->get();
   }
 
   /** Records one project-scoped immutable provenance event in the existing audit trail. */
