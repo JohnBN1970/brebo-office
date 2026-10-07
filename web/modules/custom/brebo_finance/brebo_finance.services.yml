@@ -1,4 +1,10 @@
 services:
+  brebo_finance.sepa_bank_account_config:
+    class: Drupal\brebo_finance\Infrastructure\DrupalSepaBankAccountConfig
+
+  Drupal\brebo_finance\Contract\SepaBankAccountConfigInterface:
+    alias: brebo_finance.sepa_bank_account_config
+
   brebo_finance.business_health_settings_source:
     class: Drupal\brebo_finance\Infrastructure\DrupalBusinessHealthSettingsSource
     arguments: ['@config.factory']
