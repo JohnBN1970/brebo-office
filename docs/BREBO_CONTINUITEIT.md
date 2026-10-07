@@ -805,3 +805,11 @@ Deze cleanup-slice isoleert de resterende concrete service-frameworkkoppelingen:
 - `PortalPublicationManager` bevat alleen publicatiebeleid/orchestratie; database, tijd, UUID en actor zitten achter `PortalPublicationStoreInterface`.
 
 Vaste scanregel: tel directe frameworkafhankelijkheden uitsluitend in service/domain/application/publication-code. `Infrastructure` is juist de toegestane adaptergrens en telt niet als architectuurlek.
+
+Aanvullend in dezelfde slice:
+- de vier Finance Integration API-clients delen `FinanceIntegrationApiConfigInterface` en lezen geen Drupal `Settings` meer;
+- `BusinessHealthBuilder` gebruikt `BusinessHealthCacheInterface` in plaats van Drupal Cache rechtstreeks;
+- Calc request-authenticatie gebruikt `CalcIntegrationRuntimeInterface` voor secret + replaystore;
+- Office Core `IntegrationApiClient` leest runtimeconfig via `IntegrationApiRuntimeConfigInterface`;
+- managed document extraction leest endpoint/token via `DocumentExtractionRuntimeConfigInterface`;
+- actuele branchcontrole op alle bekende offenders geeft nul directe `Drupal\Core`/`Drupal\Component` imports in service/publication-code.
