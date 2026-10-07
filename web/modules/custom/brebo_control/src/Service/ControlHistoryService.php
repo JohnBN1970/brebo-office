@@ -6,8 +6,7 @@ namespace Drupal\brebo_control\Service;
 
 use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
 use Drupal\brebo_control\Contract\ControlHistoryRepositoryInterface;
-use Drupal\brebo_office_core\Service\ProjectEarlyWarningService;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_control\Contract\ControlProjectAnalysisSourceInterface;
 
 /**
  * Captures project control history and detects persistent deterioration.
@@ -16,26 +15,26 @@ final class ControlHistoryService {
 
   public function __construct(
     private readonly ControlHistoryRepositoryInterface $historyRepository,
-    private readonly ?ProjectEarlyWarningService $earlyWarning,
+    private readonly ControlProjectAnalysisSourceInterface $projectAnalysis,
     private readonly ControlActionRepositoryInterface $actions,
-    private readonly ?object $projectFinancialControl,
   ) {}
 
-  public function capture(NodeInterface $project, int $now): bool {
-    if ($this->earlyWarning === NULL || $this->projectFinancialControl === NULL) {
+  public function capture(int $projectId, int $now): bool {
+    $snapshot = $this->projectAnalysis->historySnapshot($projectId);
+    if ($snapshot === NULL) {
       return FALSE;
     }
-    $last = $this->historyRepository->latestCapturedAt((int) $project->id());
+    $last = $this->historyRepository->latestCapturedAt($projectId);
     if ($last !== NULL && $now - $last < 6 * 3600) {
       return FALSE;
     }
 
-    $warning = $this->earlyWarning->analyze($project);
-    $financial = $warning['financial_snapshot'];
-    $openActions = $this->actions->countOpenForProject((int) $project->id());
+    $warning = (array) $snapshot['warning'];
+    $financial = (array) ($warning['financial_snapshot'] ?? []);
+    $finance = (array) $snapshot['finance'];
+    $openActions = $this->actions->countOpenForProject($projectId);
 
-    $finance = $this->projectFinancialControl->analyze($project);
-    $this->historyRepository->append((int) $project->id(), $now, [
+    $this->historyRepository->append($projectId, $now, [
       'risk_score' => (int) $warning['score'],
       'forecast_cost' => (float) $financial['forecast_cost'],
       'forecast_revenue' => (float) $financial['forecast_revenue'],
