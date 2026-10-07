@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ClosedLoopControlRepositoryInterface;
 
 /** Verifies whether resolved management actions actually fixed the underlying risk. */
 final class ClosedLoopControlService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ClosedLoopControlRepositoryInterface $repository,
     private readonly ManagementControlCenterService $controlCenter,
   ) {}
 
@@ -21,11 +21,7 @@ final class ClosedLoopControlService {
     $dashboard = $this->controlCenter->dashboard($now);
     $headline = (array) ($dashboard['headline'] ?? []);
 
-    $rows = $this->database->select('brebo_management_action', 'a')->fields('a')
-      ->condition('status', 'resolved')
-      ->condition('resolved_at', 0, '>')
-      ->condition('resolved_at', $cutoff, '<=')
-      ->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->findResolvedActionsBefore($cutoff);
 
     $verified = 0;
     $reopened = 0;
@@ -33,21 +29,21 @@ final class ClosedLoopControlService {
     foreach ($rows as $row) {
       $isResolved = $this->signalIsResolved((string) $row['action_key'], $headline);
       if ($isResolved) {
-        $this->database->update('brebo_management_action')->fields([
+        $this->repository->updateAction((int) $row['id'], [
           'status' => 'verified_closed',
           'verified_at' => $now,
           'verification_result' => 'Onderliggend controlsignaal bleef weg tijdens de verificatieperiode.',
-        ])->condition('id', (int) $row['id'])->execute();
+        ]);
         $verified++;
         $results[] = ['action_id' => (int) $row['id'], 'result' => 'verified_closed'];
       }
       else {
-        $this->database->update('brebo_management_action')->fields([
+        $this->repository->updateAction((int) $row['id'], [
           'status' => 'reopened',
           'due_at' => $now + $this->reopenDueSeconds((string) $row['severity']),
           'verified_at' => $now,
           'verification_result' => 'Onderliggend controlsignaal is teruggekeerd of onvoldoende opgelost.',
-        ])->condition('id', (int) $row['id'])->execute();
+        ]);
         $reopened++;
         $results[] = ['action_id' => (int) $row['id'], 'result' => 'reopened'];
       }
