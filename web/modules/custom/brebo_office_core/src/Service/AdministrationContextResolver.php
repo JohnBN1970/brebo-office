@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_office_core\Service;
 
 use Drupal\brebo_office_core\Contract\AdministrationContextStoreInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_office_core\Contract\AdministrationNodeContextSourceInterface;
 
 /** Resolves the legal/financial administration for project-derived content. */
 final class AdministrationContextResolver {
@@ -13,13 +13,14 @@ final class AdministrationContextResolver {
   public function __construct(
     private readonly AdministrationRegistry $registry,
     private readonly AdministrationContextStoreInterface $store,
+    private readonly AdministrationNodeContextSourceInterface $nodeContext,
   ) {}
 
-  public function projectCode(NodeInterface $project): string {
-    if ($project->bundle() !== 'brebo_project') {
-      throw new \InvalidArgumentException('Administration can only be assigned directly to a BREBO project.');
+  public function projectCode(int $projectId): string {
+    if ($projectId <= 0) {
+      throw new \InvalidArgumentException('A BREBO project id is required.');
     }
-    $stored = $this->store->getProjectAdministrationCode((int) $project->id());
+    $stored = $this->store->getProjectAdministrationCode($projectId);
     if ($stored !== '') {
       try {
         $this->registry->get($stored);
@@ -32,69 +33,45 @@ final class AdministrationContextResolver {
     return $this->registry->primaryCode();
   }
 
-  public function assignProject(NodeInterface $project, string $code): void {
-    if ($project->bundle() !== 'brebo_project') {
-      throw new \InvalidArgumentException('Administration can only be assigned directly to a BREBO project.');
-    }
-    $this->registry->get($code);
-    if ($project->isNew() || !$project->id()) {
+  public function assignProject(int $projectId, string $code): void {
+    if ($projectId <= 0) {
       throw new \LogicException('Save the project before persisting its administration assignment.');
     }
-    $this->store->setProjectAdministrationCode((int) $project->id(), $code);
+    $this->registry->get($code);
+    $this->store->setProjectAdministrationCode($projectId, $code);
   }
 
-  public function unassignProject(NodeInterface $project): void {
-    if ($project->bundle() !== 'brebo_project' || !$project->id()) {
-      return;
+  public function unassignProject(int $projectId): void {
+    if ($projectId > 0) {
+      $this->store->deleteProjectAdministrationCode($projectId);
     }
-    $this->store->deleteProjectAdministrationCode((int) $project->id());
-  }
-
-  /** @return array<string, mixed> */
-  public function forProject(NodeInterface $project): array {
-    return $this->registry->get($this->projectCode($project));
-  }
-
-  public function codeForNode(NodeInterface $node): string {
-    $project = $this->projectForNode($node);
-    return $project instanceof NodeInterface ? $this->projectCode($project) : $this->registry->primaryCode();
   }
 
   /** @return array<string, mixed> */
-  public function forNode(NodeInterface $node): array {
-    return $this->registry->get($this->codeForNode($node));
+  public function forProject(int $projectId): array {
+    return $this->registry->get($this->projectCode($projectId));
   }
 
-  public function projectForNode(NodeInterface $node): ?NodeInterface {
-    if ($node->bundle() === 'brebo_project') {
-      return $node;
-    }
+  public function codeForContextNode(int $nodeId): string {
+    $context = $this->nodeContext->context($nodeId);
+    $projectId = (int) ($context['project_id'] ?? 0);
+    return $projectId > 0 ? $this->projectCode($projectId) : $this->registry->primaryCode();
+  }
 
-    if ($node->hasField('field_brebo_project_ref')) {
-      $project = $node->get('field_brebo_project_ref')->entity;
-      if ($project instanceof NodeInterface && $project->bundle() === 'brebo_project') {
-        return $project;
-      }
-    }
+  /** @return array<string, mixed> */
+  public function forContextNode(int $nodeId): array {
+    return $this->registry->get($this->codeForContextNode($nodeId));
+  }
 
-    if ($node->hasField('field_brebo_package_ref')) {
-      $package = $node->get('field_brebo_package_ref')->entity;
-      if ($package instanceof NodeInterface) {
-        $project = $this->projectForNode($package);
-        if ($project instanceof NodeInterface) {
-          return $project;
-        }
-      }
-    }
+  public function projectIdForContextNode(int $nodeId): ?int {
+    $context = $this->nodeContext->context($nodeId);
+    $projectId = (int) ($context['project_id'] ?? 0);
+    return $projectId > 0 ? $projectId : NULL;
+  }
 
-    if ($node->hasField('field_brebo_calculation_ref')) {
-      $calculation = $node->get('field_brebo_calculation_ref')->entity;
-      if ($calculation instanceof NodeInterface) {
-        return $this->projectForNode($calculation);
-      }
-    }
-
-    return NULL;
+  public function bundleForContextNode(int $nodeId): ?string {
+    $context = $this->nodeContext->context($nodeId);
+    return isset($context['bundle']) ? (string) $context['bundle'] : NULL;
   }
 
 }

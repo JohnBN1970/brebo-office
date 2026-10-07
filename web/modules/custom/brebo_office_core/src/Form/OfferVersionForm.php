@@ -108,7 +108,7 @@ final class OfferVersionForm extends FormBase {
       return $submitted_input[$key] ?? $default;
     };
 
-    $identity = $this->documentIdentity->forNode($node);
+    $identity = $this->documentIdentity->forContextNode((int) $node->id());
     $form['intro'] = [
       '#markup' => '<p>' . $this->t('Maak een vaste commerciële offerteversie. Na opslaan blijven layout, teksten, fiscale instellingen en administratie-identiteit gekoppeld aan deze versie.') . '</p>',
     ];
@@ -635,7 +635,7 @@ final class OfferVersionForm extends FormBase {
 
     $storage = $this->entityTypeManager->getStorage('node');
     $version = (int) $form_state->getValue('offer_version');
-    $numberReceipt = $this->documentNumbers->issueQuotation($calculation, $version);
+    $numberReceipt = $this->documentNumbers->issueQuotation((int) $calculation->id(), $version);
     $offer_number = (string) $numberReceipt['number'];
     $g_account_on = (bool) $form_state->getValue('g_account_on');
     $commercialInstalmentSchedule = $this->commercialInstalmentScheduleSnapshot($calculation);
@@ -645,7 +645,7 @@ final class OfferVersionForm extends FormBase {
       'calculation_version' => (string) ($this->calculationVersion ?? $this->offerableCalculationVersion((int) $calculation->id())),
       'calculation_changed' => (int) $calculation->getChangedTime(),
       'document_number' => $numberReceipt,
-      'administration_identity' => $this->documentIdentity->snapshotForNode($calculation),
+      'administration_identity' => $this->documentIdentity->snapshotForContextNode((int) $calculation->id()),
       'commercial_instalment_schedule' => $commercialInstalmentSchedule,
       'calculation_domain_snapshot' => $this->calculationCommercialSnapshot($calculation),
       'created_at' => gmdate(DATE_ATOM),
@@ -731,12 +731,12 @@ final class OfferVersionForm extends FormBase {
    * @return array<string, mixed>|null
    */
   private function commercialInstalmentScheduleSnapshot(NodeInterface $calculation): ?array {
-    $project = \Drupal::service('brebo_office_core.administration_context_resolver')->projectForNode($calculation);
-    if (!$project instanceof NodeInterface || $project->bundle() !== 'brebo_project') {
+    $projectId = \Drupal::service('brebo_office_core.administration_context_resolver')->projectIdForContextNode((int) $calculation->id());
+    if ($projectId === NULL) {
       return NULL;
     }
 
-    $row = $this->projectContractRepository->commercialScheduleRecord((int) $project->id());
+    $row = $this->projectContractRepository->commercialScheduleRecord($projectId);
     if ($row === NULL) {
       return NULL;
     }
@@ -747,7 +747,7 @@ final class OfferVersionForm extends FormBase {
     }
 
     return [
-      'project_nid' => (int) $project->id(),
+      'project_nid' => $projectId,
       'status' => (string) $row['status'],
       'source_template_id' => $row['source_template_id'] !== NULL ? (string) $row['source_template_id'] : NULL,
       'source_template_name' => $row['source_template_name'] !== NULL ? (string) $row['source_template_name'] : NULL,

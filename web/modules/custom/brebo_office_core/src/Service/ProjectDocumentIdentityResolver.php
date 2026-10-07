@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\node\NodeInterface;
-
 /** Bridges project context to the canonical administration document identity. */
 final class ProjectDocumentIdentityResolver {
 
@@ -15,13 +13,13 @@ final class ProjectDocumentIdentityResolver {
   ) {}
 
   /** @return array<string, mixed> */
-  public function forNode(NodeInterface $node): array {
-    return $this->identity->forAdministration($this->context->codeForNode($node));
+  public function forContextNode(int $nodeId): array {
+    return $this->identity->forAdministration($this->context->codeForContextNode($nodeId));
   }
 
   /** @return array<string, mixed> */
-  public function snapshotForNode(NodeInterface $node): array {
-    return $this->identity->snapshot($this->context->codeForNode($node));
+  public function snapshotForContextNode(int $nodeId): array {
+    return $this->identity->snapshot($this->context->codeForContextNode($nodeId));
   }
 
 }

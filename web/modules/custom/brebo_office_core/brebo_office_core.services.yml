@@ -61,11 +61,20 @@ services:
   Drupal\brebo_office_core\Contract\AdministrationContextStoreInterface:
     alias: brebo_office_core.administration_context_store
 
+  brebo_office_core.administration_node_context_source:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationNodeContextSource
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_office_core\Contract\AdministrationNodeContextSourceInterface:
+    alias: brebo_office_core.administration_node_context_source
+
   brebo_office_core.administration_context_resolver:
     class: Drupal\brebo_office_core\Service\AdministrationContextResolver
     arguments:
       - '@brebo_office_core.administration_registry'
       - '@brebo_office_core.administration_context_store'
+      - '@brebo_office_core.administration_node_context_source'
 
   brebo_office_core.project_document_identity_resolver:
     class: Drupal\brebo_office_core\Service\ProjectDocumentIdentityResolver
