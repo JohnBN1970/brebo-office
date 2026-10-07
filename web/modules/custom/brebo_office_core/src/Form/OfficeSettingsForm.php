@@ -6,6 +6,7 @@ namespace Drupal\brebo_office_core\Form;
 
 use Drupal\Core\Form\ConfigFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
 
 /** Manages visible BREBO Office policy and operating defaults. */
 final class OfficeSettingsForm extends ConfigFormBase {
@@ -87,6 +88,25 @@ final class OfficeSettingsForm extends ConfigFormBase {
     $form['sales']['g_default_percentage'] = ['#type' => 'number', '#title' => $this->t('Standaard percentage naar G-rekening'), '#default_value' => (float) ($sales->get('g_account.default_percentage') ?? 0), '#min' => 0, '#max' => 100, '#step' => 0.01];
     $form['sales']['regular_iban'] = ['#type' => 'textfield', '#title' => $this->t('Regulier IBAN BREBO'), '#default_value' => (string) ($sales->get('g_account.regular_iban') ?? ''), '#maxlength' => 64];
     $form['sales']['g_iban'] = ['#type' => 'textfield', '#title' => $this->t('G-rekening IBAN BREBO'), '#default_value' => (string) ($sales->get('g_account.g_iban') ?? ''), '#maxlength' => 64];
+
+    $form['integrations'] = [
+      '#type' => 'details',
+      '#title' => $this->t('Integraties'),
+      '#open' => TRUE,
+      '#description' => $this->t('Verbindingsstatus en controles van externe BREBO-diensten. Geheime sleutels worden hier nooit opgeslagen of weergegeven.'),
+    ];
+    $form['integrations']['integration_api'] = [
+      '#type' => 'item',
+      '#title' => $this->t('BREBO Integration API'),
+      '#markup' => $this->t('Centrale beveiligde integratielaag voor Office. <a href=":status">Status controleren</a>.', [
+        ':status' => Url::fromRoute('brebo_office_core.integration_api_status')->toString(),
+      ]),
+    ];
+    $form['integrations']['website_platform'] = [
+      '#type' => 'item',
+      '#title' => $this->t('Website / Platform'),
+      '#markup' => $this->t('Aanvragen vanaf brebobv.nl lopen via BREBO Intake API v1 naar Office. De verbindingssleutel blijft in beveiligde runtime-opslag en wordt hier niet getoond.'),
+    ];
 
     $form['mail'] = ['#type' => 'details', '#title' => $this->t('Mailinrichting')];
     $form['mail']['domain'] = ['#type' => 'textfield', '#title' => $this->t('Maildomein'), '#default_value' => $config->get('mail.domain') ?? 'brebobv.nl'];
