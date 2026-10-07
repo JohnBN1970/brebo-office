@@ -41,7 +41,7 @@ final class ControlAutomationRunner {
       if ($this->history->capture($project, $now)) {
         $snapshots++;
       }
-      if ($this->trendActions->synchronize($project, $now) !== NULL) {
+      if ($this->trendActions->synchronize((int) $project->id(), $now) !== NULL) {
         $trendActions++;
       }
     }

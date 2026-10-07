@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_control\Service;
 
 use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
-use Drupal\node\NodeInterface;
-
 /**
  * Persists trend deterioration as its own controller action.
  */
@@ -22,9 +20,9 @@ final class ControlTrendActionService {
    *
    * @return array<string, mixed>|null
    */
-  public function synchronize(NodeInterface $project, int $now): ?array {
-    $trend = $this->history->trend((int) $project->id());
-    $existing = $this->actions->byProjectDriver((int) $project->id(), 'trend_deterioration');
+  public function synchronize(int $projectId, int $now): ?array {
+    $trend = $this->history->trend($projectId);
+    $existing = $this->actions->byProjectDriver($projectId, 'trend_deterioration');
 
     if (($trend['status'] ?? '') !== 'deteriorating') {
       if ($existing && in_array($existing['status'], ['open', 'reopened', 'in_progress', 'escalated'], TRUE)) {
@@ -65,7 +63,7 @@ final class ControlTrendActionService {
       $id = (int) $existing['id'];
     }
     else {
-      $id = $this->actions->create((int) $project->id(), 'trend_deterioration', $values + [
+      $id = $this->actions->create($projectId, 'trend_deterioration', $values + [
         'status' => 'open',
         'escalation_level' => 0,
         'created' => $now,

@@ -611,3 +611,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1240 is gemerged als `f431010bc5878a5bcb2a5e7c09e5f9a67ee7368f`: `MailIntakeFailureRegistry` gebruikt uitsluitend `MailIntakeFailureStoreInterface` voor statusopslag.
 - Volgende servicekoppeling: `ReceivablesReconciliationMonitor`. Drupal State-opslag loopt via `ReceivablesReconciliationStateStoreInterface` en `DrupalReceivablesReconciliationStateStore`; last-success-logica en audittrail blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Control trend Node-grens
+
+- PR #1241 is gemerged als `d20f54922868cdf75a855789b124b79db81b4831`: `ReceivablesReconciliationMonitor` gebruikt uitsluitend `ReceivablesReconciliationStateStoreInterface` voor statusopslag.
+- Volgende servicekoppeling: `ControlTrendActionService`. De service accepteert nu alleen `projectId` en kent geen `NodeInterface` meer; trend- en actionlogica blijven ongewijzigd.
+- `ControlAutomationRunner` vertaalt tijdelijk de Drupal Node naar projectId; die entity-laag wordt in een volgende slice achter een project-read abstraction geplaatst.
