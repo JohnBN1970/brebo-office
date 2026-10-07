@@ -4,9 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\brebo_office_core\Service\ProjectControllerActionService;
 use Drupal\brebo_control\Contract\ControlActionRepositoryInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_control\Contract\ControlProjectAnalysisSourceInterface;
 
 /**
  * Persists and manages project controller actions.
@@ -15,7 +14,7 @@ final class ControlActionManager {
 
   public function __construct(
     private readonly ControlActionRepositoryInterface $actions,
-    private readonly ?ProjectControllerActionService $controllerActions,
+    private readonly ControlProjectAnalysisSourceInterface $projectAnalysis,
     private readonly ControlEscalationMatrix $escalationMatrix,
   ) {}
 
@@ -24,19 +23,18 @@ final class ControlActionManager {
    *
    * @return array<int, array<string, mixed>>
    */
-  public function synchronize(NodeInterface $project): array {
-    if ($this->controllerActions === NULL) {
-      return $this->loadProjectActions((int) $project->id());
+  public function synchronize(int $projectId): array {
+    $analysis = $this->projectAnalysis->controllerActions($projectId);
+    if ($analysis === NULL) {
+      return $this->loadProjectActions($projectId);
     }
-
-    $analysis = $this->controllerActions->analyze($project);
     $activeCodes = [];
     $now = time();
 
     foreach ($analysis['actions'] as $action) {
       $code = (string) $action['code'];
       $activeCodes[] = $code;
-      $existing = $this->actions->byProjectDriver((int) $project->id(), $code);
+      $existing = $this->actions->byProjectDriver($projectId, $code);
 
       $values = [
         'title' => (string) $action['title'],
@@ -60,7 +58,7 @@ final class ControlActionManager {
         $this->actions->update((int) $existing['id'], $values);
       }
       else {
-        $this->actions->create((int) $project->id(), $code, $values + [
+        $this->actions->create($projectId, $code, $values + [
           'status' => 'open',
           'escalation_level' => 0,
           'created' => $now,
@@ -68,7 +66,7 @@ final class ControlActionManager {
       }
     }
 
-    foreach ($this->actions->projectActions((int) $project->id()) as $row) {
+    foreach ($this->actions->projectActions($projectId) as $row) {
       if (!in_array((string) $row['status'], ['open', 'reopened', 'in_progress', 'escalated'], TRUE)) {
         continue;
       }
@@ -82,7 +80,7 @@ final class ControlActionManager {
       }
     }
 
-    return $this->loadProjectActions((int) $project->id());
+    return $this->loadProjectActions($projectId);
   }
 
   public function complete(int $actionId, int $userId, string $evidence, string $resolution): void {
