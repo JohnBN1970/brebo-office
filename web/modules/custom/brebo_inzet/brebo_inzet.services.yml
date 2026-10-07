@@ -103,9 +103,16 @@ services:
       - '@flood'
 
 
+  brebo_inzet.onsite_device_store:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteDeviceStore
+    arguments: ['@keyvalue']
+
+  Drupal\brebo_inzet\Contract\OnSiteDeviceStoreInterface:
+    alias: brebo_inzet.onsite_device_store
+
   brebo_inzet.onsite_device_registry:
     class: Drupal\brebo_inzet\Service\OnSiteDeviceRegistry
-    arguments: ['@keyvalue']
+    arguments: ['@brebo_inzet.onsite_device_store']
 
 
   brebo_inzet.onsite_repository:

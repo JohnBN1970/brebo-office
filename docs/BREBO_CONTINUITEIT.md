@@ -633,3 +633,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - `ControlAutomationRunner` gebruikt nu `ControlProjectSourceInterface` en verwerkt alleen scalar project-id's.
 - `ControlActionManager` en `ControlHistoryService` gebruiken `ControlProjectAnalysisSourceInterface`; Node/entity/legacy-service calls zitten in `DrupalLegacyProjectControlAnalysisSource`.
 - De control-servicelaag bevat daarmee voor runner/action/history geen directe Drupal entity- of Node-contracten meer.
+
+
+### Repo-brede Drupal-ontkoppeling — OnSite device store
+
+- PR #1244 is gemerged als `59387c389a536d556ef95a5c4c67ba27842a2e42`: runner/action/history gebruiken project-source contracts in plaats van directe Drupal entity/Node-afhankelijkheden.
+- Volgende servicekoppeling: `OnSiteDeviceRegistry`. Drupal KeyValue-opslag loopt via `OnSiteDeviceStoreInterface` en `DrupalOnSiteDeviceStore`; tokenuitgifte, hashing, resolve en revoke blijven in de service.
