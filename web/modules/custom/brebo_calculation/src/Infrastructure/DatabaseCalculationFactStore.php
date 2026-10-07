@@ -33,4 +33,11 @@ final class DatabaseCalculationFactStore implements CalculationFactStoreInterfac
       ->execute();
   }
 
+  public function insertComponent(array $values): void {
+    $this->database
+      ->insert('brebo_calculation_position_component')
+      ->fields($values)
+      ->execute();
+  }
+
 }
