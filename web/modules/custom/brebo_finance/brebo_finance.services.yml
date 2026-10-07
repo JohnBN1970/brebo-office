@@ -213,9 +213,16 @@ services:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinancialNotificationOutboxRepository
     arguments: ['@database']
 
+  brebo_finance.financial_notification_queue:
+    class: Drupal\brebo_finance\Infrastructure\DrupalFinancialNotificationQueue
+    arguments: ['@queue']
+
+  Drupal\brebo_finance\Contract\FinancialNotificationQueueInterface:
+    alias: brebo_finance.financial_notification_queue
+
   brebo_finance.financial_notification_outbox:
     class: Drupal\brebo_finance\Service\FinancialNotificationOutbox
-    arguments: ['@brebo_finance.financial_notification_outbox_repository', '@queue']
+    arguments: ['@brebo_finance.financial_notification_outbox_repository', '@brebo_finance.financial_notification_queue']
   brebo_finance.project_transition_finance_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseProjectTransitionFinanceRepository
     arguments: ['@database']
