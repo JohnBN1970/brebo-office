@@ -172,7 +172,7 @@ function brebo_project_cockpit_sales_invoice_administration_number_validate(arra
   }
 
   if (empty($context['administration_identity_snapshot'])) {
-    $context['administration_identity_snapshot'] = \Drupal::service('brebo_office_core.project_document_identity_resolver')->snapshotForNode($project);
+    $context['administration_identity_snapshot'] = \Drupal::service('brebo_office_core.project_document_identity_resolver')->snapshotForContextNode($project_id);
   }
 
   if (trim((string) ($context['final_invoice_number'] ?? '')) === '') {
@@ -188,7 +188,7 @@ function brebo_project_cockpit_sales_invoice_administration_number_validate(arra
 
     $invoice_year = (int) substr((string) ($draft['invoice_date'] ?? ''), 0, 4);
     $receipt = \Drupal::service('brebo_office_core.project_document_number_issuer')->issueSalesInvoice(
-      $project,
+      $project_id,
       $draft_id,
       $invoice_year > 0 ? $invoice_year : NULL,
     );
