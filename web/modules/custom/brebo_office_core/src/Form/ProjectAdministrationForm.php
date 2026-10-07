@@ -54,7 +54,7 @@ final class ProjectAdministrationForm extends FormBase {
       '#type' => 'select',
       '#title' => $this->t('Administratie'),
       '#options' => $options,
-      '#default_value' => $this->resolver->projectCode($node),
+      '#default_value' => $this->resolver->projectCode((int) $node->id()),
       '#required' => TRUE,
     ];
     $form['inheritance'] = [
@@ -72,7 +72,7 @@ final class ProjectAdministrationForm extends FormBase {
       throw new \LogicException('Project context ontbreekt.');
     }
     $code = (string) $form_state->getValue('administration');
-    $this->resolver->assignProject($this->project, $code);
+    $this->resolver->assignProject((int) $this->project->id(), $code);
     $administration = $this->registry->get($code);
     $this->messenger()->addStatus($this->t('Administratie ingesteld op @name.', ['@name' => (string) ($administration['trade_name'] ?? $code)]));
     $form_state->setRedirect('brebo_office_core.project_dashboard', ['node' => $this->project->id()]);
