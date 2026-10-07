@@ -579,3 +579,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1235 is gemerged als `0516267885f3819af815999d6a05edf49a680e9e`: `ManagementDecisionRecordService` gebruikt uitsluitend `ManagementDecisionRecordRepositoryInterface` voor tabelbeheer, inserts, reads en outcome-updates; de acceptance-workflow is aangepast aan deze repositorygrens.
 - Volgende lineaire slice: `ControllerCaseManagementService`. Case insert/read/update lopen via `ControllerCaseRepositoryInterface` en `DatabaseControllerCaseRepository`; severity, exposure, deadlines en onafhankelijke-reviewlogica blijven in de service.
+
+
+### Payment-anomaly isolatie
+
+- PR #1236 is gemerged als `9bef1720455202f2515c8bacbcce6aa7020557e4`: `ControllerCaseManagementService` gebruikt uitsluitend `ControllerCaseRepositoryInterface` voor case insert/read/update.
+- Volgende lineaire slice: `PaymentAnomalyIntelligenceService`. Databeschikbaarheid en threshold-, exception-, decision-pair- en bank-change-reads lopen via `PaymentAnomalyReadRepositoryInterface` en `DatabasePaymentAnomalyReadRepository`; scoring, risiconiveau, signalen en governance blijven in de service.

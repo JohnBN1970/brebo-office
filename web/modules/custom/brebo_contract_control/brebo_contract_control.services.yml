@@ -36,10 +36,17 @@ services:
     arguments:
       - '@brebo_contract_control.payment_batch_control_read_repository'
 
+  brebo_contract_control.payment_anomaly_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabasePaymentAnomalyReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\PaymentAnomalyReadRepositoryInterface:
+    alias: brebo_contract_control.payment_anomaly_read_repository
+
   brebo_contract_control.payment_anomaly_intelligence:
     class: Drupal\brebo_contract_control\Service\PaymentAnomalyIntelligenceService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.payment_anomaly_read_repository'
 
   brebo_contract_control.controller_case_repository:
     class: Drupal\brebo_contract_control\Infrastructure\DatabaseControllerCaseRepository
