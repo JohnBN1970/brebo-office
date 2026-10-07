@@ -291,7 +291,7 @@ function brebo_office_preprocess_page(array &$variables): void {
     if (\Drupal::moduleHandler()->moduleExists('brebo_finance')
       && $account->hasPermission('access brebo finance')
       && \Drupal::hasService('brebo_finance.financial_command_center')) {
-      $financial_command_center = \Drupal::service('brebo_finance.financial_command_center')->build($account);
+      $financial_command_center = \Drupal::service('brebo_finance.financial_command_center')->build((int) $account->id());
       $portfolio = $financial_command_center['portfolio'] ?? [];
       $decisions = $financial_command_center['decisions'] ?? [];
       $finance = [
