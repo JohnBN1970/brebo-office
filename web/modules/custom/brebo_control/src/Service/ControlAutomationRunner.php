@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_control\Service;
 
-use Drupal\Core\Entity\EntityTypeManagerInterface;
-use Drupal\node\NodeInterface;
+use Drupal\brebo_control\Contract\ControlProjectSourceInterface;
 
 /**
  * Runs BREBO Control autonomously across active projects.
@@ -13,7 +12,7 @@ use Drupal\node\NodeInterface;
 final class ControlAutomationRunner {
 
   public function __construct(
-    private readonly EntityTypeManagerInterface $entityTypeManager,
+    private readonly ControlProjectSourceInterface $projectSource,
     private readonly ControlActionManager $actionManager,
     private readonly ControlNotificationEngine $notificationEngine,
     private readonly ControlHistoryService $history,
@@ -22,26 +21,17 @@ final class ControlAutomationRunner {
 
   /** @return array<string, int> */
   public function run(int $now): array {
-    $storage = $this->entityTypeManager->getStorage('node');
-    $projectIds = $storage->getQuery()->accessCheck(FALSE)
-      ->condition('type', 'brebo_project')
-      ->condition('status', 1)
-      ->execute();
-
     $projects = 0;
     $actions = 0;
     $snapshots = 0;
     $trendActions = 0;
-    foreach ($storage->loadMultiple($projectIds) as $project) {
-      if (!$project instanceof NodeInterface) {
-        continue;
-      }
+    foreach ($this->projectSource->activeProjectIds() as $projectId) {
       $projects++;
-      $actions += count($this->actionManager->synchronize($project));
-      if ($this->history->capture($project, $now)) {
+      $actions += count($this->actionManager->synchronize($projectId));
+      if ($this->history->capture($projectId, $now)) {
         $snapshots++;
       }
-      if ($this->trendActions->synchronize((int) $project->id(), $now) !== NULL) {
+      if ($this->trendActions->synchronize($projectId, $now) !== NULL) {
         $trendActions++;
       }
     }
