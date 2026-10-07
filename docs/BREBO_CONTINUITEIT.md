@@ -792,3 +792,16 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1262 is gemerged als `dcfecad950c647bd9ea52e5e6cc71dac33af0c17`: Finance approval/command-center services gebruiken scalar actor-id's en bestaande gateways in plaats van Drupal `AccountInterface`.
 - `Sales005Importer` gebruikt nu `Sales005CatalogRepositoryInterface`, `Sales005ClockInterface` en `Sales005SourcePathResolverInterface`.
 - Drupal Database, FileSystem en Time zitten uitsluitend in Infrastructure; SALES005/XML-validatie, artikel-/prijsregels en importflow blijven in de service.
+
+
+## Framework-service cleanup — 7 oktober 2026
+
+Na PR #1263 is de repo-brede nulscan aangescherpt: infrastructuuradapters mogen Drupal-frameworktypen blijven gebruiken; service/domain/publication-code niet.
+
+Deze cleanup-slice isoleert de resterende concrete service-frameworkkoppelingen:
+- Finance SEPA leest runtime-bankconfiguratie via `SepaBankAccountConfigInterface` + Drupal-adapter;
+- Mail HTML-rendering sanitiseert via `MailHtmlSanitizerInterface` + Drupal XSS-adapter;
+- `DocumentRepository` blijft als stabiele service-API bestaan maar de volledige database/tijd-persistence zit achter `DocumentRepositoryInterface` in `DatabaseDocumentRepository`;
+- `PortalPublicationManager` bevat alleen publicatiebeleid/orchestratie; database, tijd, UUID en actor zitten achter `PortalPublicationStoreInterface`.
+
+Vaste scanregel: tel directe frameworkafhankelijkheden uitsluitend in service/domain/application/publication-code. `Infrastructure` is juist de toegestane adaptergrens en telt niet als architectuurlek.
