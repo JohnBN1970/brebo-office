@@ -190,6 +190,7 @@ services:
     arguments: ['@brebo_finance.financial_gate_exposure_repository']
   brebo_finance.financial_approval_matrix:
     class: Drupal\brebo_finance\Service\FinancialApprovalMatrix
+    arguments: ['@brebo_finance.financial_actor_gateway']
   brebo_finance.financial_actor_gateway:
     class: Drupal\brebo_finance\Infrastructure\DrupalFinancialActorGateway
     arguments: ['@entity_type.manager']
