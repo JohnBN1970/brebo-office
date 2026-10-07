@@ -23,7 +23,7 @@ final class DrupalCommitmentNumberIssuer implements CommitmentNumberIssuerInterf
       throw new UnexpectedValueException('A BREBO project is required for commitment numbering.');
     }
 
-    return $this->documentNumberIssuer->issueAssignment($project, (string) $commitmentId, $year);
+    return $this->documentNumberIssuer->issueAssignment($projectNid, (string) $commitmentId, $year);
   }
 
 }
