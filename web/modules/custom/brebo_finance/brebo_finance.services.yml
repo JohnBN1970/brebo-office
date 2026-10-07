@@ -12,13 +12,26 @@ services:
   Drupal\brebo_finance\Contract\BusinessHealthSettingsSourceInterface:
     alias: brebo_finance.business_health_settings_source
 
+  brebo_finance.integration_api_config:
+    class: Drupal\brebo_finance\Infrastructure\DrupalFinanceIntegrationApiConfig
+
+  Drupal\brebo_finance\Contract\FinanceIntegrationApiConfigInterface:
+    alias: brebo_finance.integration_api_config
+
+  brebo_finance.business_health_cache:
+    class: Drupal\brebo_finance\Infrastructure\DrupalBusinessHealthCache
+    arguments: ['@cache.default']
+
+  Drupal\brebo_finance\Contract\BusinessHealthCacheInterface:
+    alias: brebo_finance.business_health_cache
+
   brebo_finance.business_health_integration_client:
     class: Drupal\brebo_finance\Service\BusinessHealthIntegrationClient
-    arguments: ['@http_client']
+    arguments: ['@http_client', '@brebo_finance.integration_api_config']
 
   brebo_finance.business_health_builder:
     class: Drupal\brebo_finance\Service\BusinessHealthBuilder
-    arguments: ['@brebo_finance.business_health_integration_client', '@brebo_finance.business_health_settings_source', '@cache.default']
+    arguments: ['@brebo_finance.business_health_integration_client', '@brebo_finance.business_health_settings_source', '@brebo_finance.business_health_cache']
 
   brebo_finance.standalone_sales_invoice_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseStandaloneSalesInvoiceRepository
@@ -490,9 +503,13 @@ services:
   brebo_finance.receivables_reconciliation_monitor:
     class: Drupal\brebo_finance\Service\ReceivablesReconciliationMonitor
     arguments: ['@brebo_finance.receivables_reconciliation_state_store', '@brebo_finance.finance_audit_repository']
+  brebo_finance.sales_invoice_integration_client:
+    class: Drupal\brebo_finance\Service\SalesInvoiceIntegrationClient
+    arguments: ['@http_client', '@brebo_finance.integration_api_config']
+
   brebo_finance.sales_invoice_receivables_integration_client:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
-    arguments: ['@http_client', '@config.factory']
+    arguments: ['@http_client', '@brebo_finance.integration_api_config']
   brebo_finance.sales_invoice_receivables_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabaseSalesInvoiceReceivablesRepository
     arguments: ['@database']
@@ -501,7 +518,7 @@ services:
     arguments: ['@brebo_finance.sales_invoice_receivables_repository', '@brebo_finance.sales_invoice_receivables_integration_client', '@brebo_finance.billing_control_manager', '@brebo_finance.receivables_reconciliation_monitor']
   brebo_finance.purchase_invoice_integration_client:
     class: Drupal\brebo_finance\Service\PurchaseInvoiceIntegrationClient
-    arguments: ['@http_client']
+    arguments: ['@http_client', '@brebo_finance.integration_api_config']
   brebo_finance.purchase_invoice_import_repository:
     class: Drupal\brebo_finance\Infrastructure\DatabasePurchaseInvoiceImportRepository
     arguments: ['@database']
