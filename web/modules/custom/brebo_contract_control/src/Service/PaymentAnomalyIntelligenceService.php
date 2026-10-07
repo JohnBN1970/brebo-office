@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\PaymentAnomalyReadRepositoryInterface;
 
 /**
  * Detects longitudinal payment patterns that warrant financial review.
@@ -14,11 +14,11 @@ use Drupal\Core\Database\Connection;
  */
 final class PaymentAnomalyIntelligenceService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly PaymentAnomalyReadRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function analyze(?int $since = NULL): array {
-    if (!$this->database->schema()->tableExists('brebo_supplier_invoice')) {
+    if (!$this->repository->hasSupplierInvoices()) {
       return ['score' => 0, 'level' => 'laag', 'signals' => [], 'patterns' => [], 'status' => 'no_data'];
     }
 
@@ -26,7 +26,7 @@ final class PaymentAnomalyIntelligenceService {
     $patterns = [];
     $score = 0;
 
-    foreach ($this->thresholdPatterns($since) as $pattern) {
+    foreach ($this->repository->findThresholdPatterns($since) as $pattern) {
       $points = min(20, 6 + ((int) $pattern['invoice_count'] * 2));
       $score += $points;
       $patterns[] = [
@@ -38,7 +38,7 @@ final class PaymentAnomalyIntelligenceService {
       ];
     }
 
-    foreach ($this->repeatExceptionPatterns($since) as $pattern) {
+    foreach ($this->repository->findRepeatExceptionPatterns($since) as $pattern) {
       $points = min(20, 5 + ((int) $pattern['exception_count'] * 2));
       $score += $points;
       $patterns[] = [
@@ -50,7 +50,7 @@ final class PaymentAnomalyIntelligenceService {
       ];
     }
 
-    foreach ($this->decisionPairPatterns($since) as $pattern) {
+    foreach ($this->repository->findDecisionPairPatterns($since) as $pattern) {
       $points = min(15, 4 + ((int) $pattern['decision_count']));
       $score += $points;
       $patterns[] = [
@@ -62,7 +62,7 @@ final class PaymentAnomalyIntelligenceService {
       ];
     }
 
-    foreach ($this->recentBankChangeSignals($since) as $signal) {
+    foreach ($this->repository->findRecentBankChangeSignals($since) as $signal) {
       $points = 15;
       $score += $points;
       $patterns[] = [
@@ -93,69 +93,4 @@ final class PaymentAnomalyIntelligenceService {
     ];
   }
 
-  /** @return array<int, array<string, mixed>> */
-  private function thresholdPatterns(int $since): array {
-    if (!$this->database->schema()->fieldExists('brebo_supplier_invoice', 'created')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_supplier_invoice', 'i');
-    $query->addField('i', 'supplier_name');
-    $query->addExpression('COUNT(*)', 'invoice_count');
-    $query->addExpression('COALESCE(SUM(gross_amount),0)', 'total_amount');
-    $query->condition('created', $since, '>=');
-    $or = $query->orConditionGroup();
-    foreach ([5000, 10000, 25000, 50000] as $limit) {
-      $or->condition('gross_amount', [$limit * 0.95, $limit], 'BETWEEN');
-    }
-    $query->condition($or);
-    $query->groupBy('supplier_name');
-    $query->having('COUNT(*) >= 3');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function repeatExceptionPatterns(int $since): array {
-    $query = $this->database->select('brebo_supplier_invoice', 'i');
-    $query->addField('i', 'supplier_name');
-    $query->addExpression('COUNT(*)', 'exception_count');
-    $query->addExpression('COALESCE(SUM(gross_amount),0)', 'exception_amount');
-    if ($this->database->schema()->fieldExists('brebo_supplier_invoice', 'created')) {
-      $query->condition('created', $since, '>=');
-    }
-    $query->condition('match_status', 'matched', '<>');
-    $query->groupBy('supplier_name');
-    $query->having('COUNT(*) >= 3');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function decisionPairPatterns(int $since): array {
-    if (!$this->database->schema()->tableExists('brebo_procurement_decision')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_procurement_decision', 'd');
-    $query->addField('d', 'selected_supplier');
-    $query->addField('d', 'decided_by');
-    $query->addField('d', 'approved_by');
-    $query->addExpression('COUNT(*)', 'decision_count');
-    $query->condition('created', $since, '>=');
-    $query->isNotNull('approved_by');
-    $query->groupBy('selected_supplier');
-    $query->groupBy('decided_by');
-    $query->groupBy('approved_by');
-    $query->having('COUNT(*) >= 5');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
-  }
-
-  /** @return array<int, array<string, mixed>> */
-  private function recentBankChangeSignals(int $since): array {
-    if (!$this->database->schema()->tableExists('brebo_payment_control_event')) {
-      return [];
-    }
-    $query = $this->database->select('brebo_payment_control_event', 'e');
-    $query->fields('e', ['supplier_name', 'amount', 'event_type']);
-    $query->condition('created_at', $since, '>=');
-    $query->condition('event_type', ['iban_changed', 'g_account_changed'], 'IN');
-    return $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
-  }
 }
