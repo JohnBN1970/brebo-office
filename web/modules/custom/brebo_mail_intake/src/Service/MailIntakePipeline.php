@@ -114,6 +114,7 @@ final class MailIntakePipeline {
     $result['classification_confidence'] = $classification['confidence'];
     $result['meaning_signals'] = $meaning['signals'];
     $result['meaning_subtypes'] = $meaning['subtypes'];
+    $result['work_scope'] = $meaning['work_scope'];
     $result['meaning_confidence'] = $meaning['confidence'];
     $result['meaning_basis'] = $meaning['basis'];
     $result['suggested_building_id'] = $mail['suggested_building_id'] ?? NULL;

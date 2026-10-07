@@ -10,7 +10,7 @@ namespace Drupal\brebo_mail_intake\Service;
 final class MailMeaningExtractor {
 
   /**
-   * @return array{signals:array<string,bool>,subtypes:string[],confidence:float,basis:string}
+   * @return array{signals:array<string,bool>,subtypes:string[],work_scope:array<string,mixed>,confidence:float,basis:string}
    */
   public function extract(string $subject, string $body): array {
     $text = mb_strtolower(trim($subject . "\n" . $body));
@@ -46,16 +46,60 @@ final class MailMeaningExtractor {
       $subtypes[] = 'keuring';
     }
 
+    $workScope = $this->extractWorkScope($text);
     $signalCount = count(array_filter($signals));
-    $evidenceCount = $signalCount + count($subtypes);
+    $evidenceCount = $signalCount + count($subtypes) + ($workScope['requested'] !== [] ? 1 : 0);
 
     return [
       'signals' => $signals,
       'subtypes' => array_values(array_unique($subtypes)),
+      'work_scope' => $workScope,
       'confidence' => $evidenceCount === 0 ? 0.0 : min(90.0, 50.0 + (($evidenceCount - 1) * 10.0)),
       'basis' => $evidenceCount === 0
         ? 'Geen beheerste betekenissignalen gevonden.'
         : sprintf('Deterministische betekenisextractie vond %d beheerste aanwijzing(en); menselijke controle blijft vereist.', $evidenceCount),
+    ];
+  }
+
+  /**
+   * Extracts commercial work-scope signals from the request itself.
+   *
+   * A positive montage request does not imply supply. Supply is only marked
+   * requested when the mail explicitly asks for levering/material supply.
+   *
+   * @return array{requested:string[],not_requested:string[],confidence:float,basis:string}
+   */
+  private function extractWorkScope(string $text): array {
+    $montage = $this->containsAny($text, [
+      'montage offerte', 'montageofferte', 'montage offertes', 'montageoffertes',
+      'aanvraag montage', 'montage aanvraag', 'montageaanvraag',
+      'prijs voor montage', 'offerte voor montage', 'montagewerkzaamheden',
+    ]);
+    $supply = $this->containsAny($text, [
+      'levering en montage', 'leveren en monteren', 'levering inclusief montage',
+      'levering kozijnen', 'leveren kozijnen', 'kozijnen leveren',
+      'levering glas', 'glas leveren', 'levering materialen', 'materialen leveren',
+    ]);
+
+    $requested = [];
+    $notRequested = [];
+    if ($montage) {
+      $requested[] = 'montage';
+      if (!$supply) {
+        $notRequested[] = 'levering';
+      }
+    }
+    if ($supply) {
+      $requested[] = 'levering';
+    }
+
+    return [
+      'requested' => $requested,
+      'not_requested' => $notRequested,
+      'confidence' => ($montage || $supply) ? 0.95 : 0.0,
+      'basis' => $montage && !$supply
+        ? 'De aanvraag noemt expliciet montage; levering wordt niet als gevraagde prestatie genoemd.'
+        : ($supply ? 'De aanvraag noemt expliciet levering.' : 'Geen expliciete werksoort uit de aanvraag afgeleid.'),
     ];
   }
 
