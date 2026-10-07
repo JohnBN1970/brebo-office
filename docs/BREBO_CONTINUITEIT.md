@@ -639,3 +639,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1244 is gemerged als `59387c389a536d556ef95a5c4c67ba27842a2e42`: runner/action/history gebruiken project-source contracts in plaats van directe Drupal entity/Node-afhankelijkheden.
 - Volgende servicekoppeling: `OnSiteDeviceRegistry`. Drupal KeyValue-opslag loopt via `OnSiteDeviceStoreInterface` en `DrupalOnSiteDeviceStore`; tokenuitgifte, hashing, resolve en revoke blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — OnSite activation store
+
+- PR #1246 is gemerged als `6a673c01fcec7c9ab5658c1078c6d32412bb0a68`: `OnSiteDeviceRegistry` gebruikt uitsluitend `OnSiteDeviceStoreInterface` voor durable device credentials.
+- Volgende servicekoppeling: `OnSiteActivationManager`. Expirable Drupal KeyValue-opslag loopt via `OnSiteActivationStoreInterface` en `DrupalOnSiteActivationStore`; tokenuitgifte en single-use activatielogica blijven in de service.
