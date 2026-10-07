@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Session\AccountInterface;
+use Drupal\brebo_finance\Contract\FinancialActorGatewayInterface;
 use InvalidArgumentException;
 
 /** Deterministic procuration and escalation policy for gate exceptions. */
 final class FinancialApprovalMatrix {
+
+  public function __construct(private readonly FinancialActorGatewayInterface $actors) {}
 
   private const BASE_PERMISSIONS = [
     'procurement_release' => 'approve brebo procurement gate exception',
@@ -28,12 +30,12 @@ final class FinancialApprovalMatrix {
     ['up_to' => NULL, 'permission' => 'approve brebo finance executive', 'level' => 'executive'],
   ];
 
-  public function authorize(AccountInterface $account, string $gate, string $exposureAmount): array {
+  public function authorize(int $actorUid, string $gate, string $exposureAmount): array {
     if (!isset(self::BASE_PERMISSIONS[$gate])) throw new InvalidArgumentException('Unknown financial phase gate.');
     if (!$this->validMoney($exposureAmount)) throw new InvalidArgumentException('Exposure amount must be a non-negative monetary amount with max two decimals.');
 
     $basePermission = self::BASE_PERMISSIONS[$gate];
-    if (!$account->hasPermission($basePermission)) {
+    if (!$this->actors->hasPermission($actorUid, $basePermission)) {
       return ['authorized' => FALSE, 'level' => 'gate_approver', 'required_permissions' => [$basePermission], 'exposure_amount' => $exposureAmount];
     }
 
@@ -41,7 +43,7 @@ final class FinancialApprovalMatrix {
     $required = [$basePermission];
     if ($band['permission'] !== NULL) $required[] = $band['permission'];
     foreach ($required as $permission) {
-      if (!$account->hasPermission($permission)) return ['authorized' => FALSE, 'level' => $band['level'], 'required_permissions' => $required, 'exposure_amount' => $exposureAmount];
+      if (!$this->actors->hasPermission($actorUid, $permission)) return ['authorized' => FALSE, 'level' => $band['level'], 'required_permissions' => $required, 'exposure_amount' => $exposureAmount];
     }
 
     return ['authorized' => TRUE, 'level' => $band['level'], 'required_permissions' => $required, 'exposure_amount' => $exposureAmount];
