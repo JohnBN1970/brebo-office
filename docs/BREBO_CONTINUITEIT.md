@@ -667,3 +667,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - `AdministrationContextResolver`, `ProjectDocumentIdentityResolver` en `ProjectDocumentNumberIssuer` kennen geen `NodeInterface` meer.
 - Node-traversal naar projectcontext loopt via `AdministrationNodeContextSourceInterface` en `DrupalAdministrationNodeContextSource`; service-API's gebruiken project-/context-node-id's.
 - Forms, module-hooks en Infrastructure mogen Drupal-entiteiten blijven kennen; administratie- en documentnummeringslogica in de servicelaag niet.
+
+
+### Repo-brede Drupal-ontkoppeling — Onboarding tour store
+
+- PR #1250 is gemerged als `4ee085f0dd983de5c92a18e3f7907420127e5f2e`: administratie- en documentcontextservices werken met scalar ids en contracts in plaats van `NodeInterface`.
+- `OnboardingTourManager` gebruikt nu `OnboardingTourStoreInterface`; Drupal KeyValue en user-entitydetails blijven in Infrastructure/controllers.
+- De tourservice-API gebruikt uitsluitend `userId`, `tourId`, status en step.
