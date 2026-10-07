@@ -41,10 +41,17 @@ services:
     arguments:
       - '@database'
 
+  brebo_contract_control.controller_case_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseControllerCaseRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ControllerCaseRepositoryInterface:
+    alias: brebo_contract_control.controller_case_repository
+
   brebo_contract_control.controller_cases:
     class: Drupal\brebo_contract_control\Service\ControllerCaseManagementService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.controller_case_repository'
       - '@brebo_contract_control.payment_anomaly_intelligence'
 
   brebo_contract_control.management_control_center:

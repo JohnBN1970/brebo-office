@@ -573,3 +573,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1234 is gemerged als `25083b7354f2b4e386e9bf81deaa30bb01dc831b`: `ManagementTrendIntelligenceService` gebruikt uitsluitend `ManagementTrendRepositoryInterface` voor snapshot-storage, reads en upserts.
 - Volgende lineaire slice: `ManagementDecisionRecordService`. Tabelbeheer, decision-record insert, unmeasured reads en outcome-updates lopen via `ManagementDecisionRecordRepositoryInterface` en `DatabaseManagementDecisionRecordRepository`; payload/hash-opbouw en 30/90-dagen reviewlogica blijven in de service.
+
+
+### Controller-case isolatie
+
+- PR #1235 is gemerged als `0516267885f3819af815999d6a05edf49a680e9e`: `ManagementDecisionRecordService` gebruikt uitsluitend `ManagementDecisionRecordRepositoryInterface` voor tabelbeheer, inserts, reads en outcome-updates; de acceptance-workflow is aangepast aan deze repositorygrens.
+- Volgende lineaire slice: `ControllerCaseManagementService`. Case insert/read/update lopen via `ControllerCaseRepositoryInterface` en `DatabaseControllerCaseRepository`; severity, exposure, deadlines en onafhankelijke-reviewlogica blijven in de service.
