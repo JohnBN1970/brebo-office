@@ -170,11 +170,18 @@ services:
       - '@brebo_inzet.onsite_activation_store'
       - '@brebo_inzet.onsite_device_registry'
 
+  brebo_inzet.onsite_install_link_builder:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteInstallLinkBuilder
+
+  Drupal\brebo_inzet\Contract\OnSiteInstallLinkBuilderInterface:
+    alias: brebo_inzet.onsite_install_link_builder
+
   brebo_inzet.onsite_invitation_manager:
     class: Drupal\brebo_inzet\Service\OnSiteInvitationManager
     arguments:
       - '@brebo_inzet.onsite_identity_resolver'
       - '@brebo_inzet.onsite_activation_manager'
+      - '@brebo_inzet.onsite_install_link_builder'
 
   brebo_inzet.personnel_assignment_repository:
     class: Drupal\brebo_inzet\Infrastructure\DrupalPersonnelAssignmentRepository
