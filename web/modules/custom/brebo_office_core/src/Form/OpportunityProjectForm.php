@@ -8,7 +8,6 @@ use Drupal\brebo_office_core\Project\ProjectLifecycle;
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
 use Drupal\node\NodeInterface;
-use Drupal\user\UserInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
@@ -41,10 +40,8 @@ final class OpportunityProjectForm extends FormBase {
     $calculation = $node->get('field_brebo_opp_calc_ref')->entity;
     $offer = $node->get('field_brebo_opp_offer_ref')->entity;
 
-    $user = \Drupal::entityTypeManager()->getStorage('user')->load((int) $this->currentUser()->id());
-    $availableAdministrations = $user instanceof UserInterface
-      ? \Drupal::service('brebo_office_core.administration_access_manager')->availableAdministrations($user)
-      : [];
+    $availableAdministrations = \Drupal::service('brebo_office_core.administration_access_manager')
+      ->availableAdministrations((int) $this->currentUser()->id());
     $administrationOptions = [];
     foreach ($availableAdministrations as $code => $administration) {
       $administrationOptions[(string) $code] = (string) ($administration['trade_name'] ?? $administration['legal_name'] ?? $code);
@@ -163,8 +160,7 @@ final class OpportunityProjectForm extends FormBase {
     }
 
     $administrationCode = trim((string) $form_state->getValue('administration_code'));
-    $user = \Drupal::entityTypeManager()->getStorage('user')->load((int) $this->currentUser()->id());
-    if (!$user instanceof UserInterface || !\Drupal::service('brebo_office_core.administration_access_manager')->hasAccess($user, $administrationCode)) {
+    if (!\Drupal::service('brebo_office_core.administration_access_manager')->hasAccess((int) $this->currentUser()->id(), $administrationCode)) {
       $form_state->setErrorByName('administration_code', $this->t('U heeft geen vrijgegeven toegang tot deze administratie.'));
     }
   }
