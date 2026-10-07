@@ -46,6 +46,7 @@ final class CalculationContextSnapshotService {
     }
 
     $setId = (int) $set['id'];
+    $workScope = $this->projectWorkScope((int) $set['project_id']);
 
     $documents = [];
     $query = $this->database->select('brebo_calculation_document_set_item', 'i');
@@ -170,6 +171,7 @@ final class CalculationContextSnapshotService {
     return [
       'calculation_id' => (int) $set['calculation_id'],
       'project_id' => (int) $set['project_id'],
+      'work_scope' => $workScope,
       'document_set' => [
         'id' => $setId,
         'status' => (string) $set['status'],
@@ -189,6 +191,80 @@ final class CalculationContextSnapshotService {
         'unresolved' => $unresolved,
       ],
     ];
+  }
+
+  /**
+   * Derives a conservative requested work scope from canonical project mail.
+   *
+   * Technical documents may describe supplied products without making supply
+   * part of BREBO's requested performance. Therefore only communication text
+   * can add these commercial scope signals here.
+   *
+   * @return array{requested:string[],not_requested:string[],basis:string}
+   */
+  private function projectWorkScope(int $projectId): array {
+    if ($projectId <= 0) {
+      return ['requested' => [], 'not_requested' => [], 'basis' => 'Geen projectcontext beschikbaar.'];
+    }
+
+    $query = $this->database->select('node_field_data', 'n');
+    $query->innerJoin('node__field_brebo_project_ref', 'p', 'p.entity_id = n.nid AND p.deleted = 0');
+    $query->leftJoin('node__field_brebo_comm_subject', 's', 's.entity_id = n.nid AND s.deleted = 0');
+    $query->leftJoin('node__field_brebo_comm_body', 'b', 'b.entity_id = n.nid AND b.deleted = 0');
+    $query->fields('n', ['nid']);
+    $query->addField('s', 'field_brebo_comm_subject_value', 'subject');
+    $query->addField('b', 'field_brebo_comm_body_value', 'body');
+    $query->condition('n.type', 'brebo_communication');
+    $query->condition('p.field_brebo_project_ref_target_id', $projectId);
+    $query->condition('n.status', 1);
+    $query->orderBy('n.changed', 'DESC');
+    $query->range(0, 50);
+
+    $montage = FALSE;
+    $supply = FALSE;
+    foreach ($query->execute()->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $row) {
+      $text = mb_strtolower(trim((string) ($row['subject'] ?? '') . "\n" . (string) ($row['body'] ?? '')));
+      $montage = $montage || $this->containsAny($text, [
+        'montage offerte', 'montageofferte', 'montage offertes', 'montageoffertes',
+        'aanvraag montage', 'montage aanvraag', 'montageaanvraag',
+        'prijs voor montage', 'offerte voor montage', 'montagewerkzaamheden',
+      ]);
+      $supply = $supply || $this->containsAny($text, [
+        'levering en montage', 'leveren en monteren', 'levering inclusief montage',
+        'levering kozijnen', 'leveren kozijnen', 'kozijnen leveren',
+        'levering glas', 'glas leveren', 'levering materialen', 'materialen leveren',
+      ]);
+    }
+
+    $requested = [];
+    $notRequested = [];
+    if ($montage) {
+      $requested[] = 'montage';
+      if (!$supply) {
+        $notRequested[] = 'levering';
+      }
+    }
+    if ($supply) {
+      $requested[] = 'levering';
+    }
+
+    return [
+      'requested' => $requested,
+      'not_requested' => $notRequested,
+      'basis' => $montage && !$supply
+        ? 'Projectcommunicatie vraagt expliciet montage; levering is niet als prestatie gevraagd.'
+        : ($supply ? 'Projectcommunicatie noemt expliciet levering.' : 'Geen expliciete montage-/leveringsscope in gekoppelde projectcommunicatie.'),
+    ];
+  }
+
+  /** @param string[] $terms */
+  private function containsAny(string $text, array $terms): bool {
+    foreach ($terms as $term) {
+      if (str_contains($text, $term)) {
+        return TRUE;
+      }
+    }
+    return FALSE;
   }
 
 }
