@@ -466,9 +466,16 @@ services:
     class: Drupal\brebo_finance\Infrastructure\DatabaseFinanceAuditRepository
     arguments: ['@database']
 
+  brebo_finance.receivables_reconciliation_state_store:
+    class: Drupal\brebo_finance\Infrastructure\DrupalReceivablesReconciliationStateStore
+    arguments: ['@state']
+
+  Drupal\brebo_finance\Contract\ReceivablesReconciliationStateStoreInterface:
+    alias: brebo_finance.receivables_reconciliation_state_store
+
   brebo_finance.receivables_reconciliation_monitor:
     class: Drupal\brebo_finance\Service\ReceivablesReconciliationMonitor
-    arguments: ['@state', '@brebo_finance.finance_audit_repository']
+    arguments: ['@brebo_finance.receivables_reconciliation_state_store', '@brebo_finance.finance_audit_repository']
   brebo_finance.sales_invoice_receivables_integration_client:
     class: Drupal\brebo_finance\Service\SalesInvoiceReceivablesIntegrationClient
     arguments: ['@http_client', '@config.factory']
