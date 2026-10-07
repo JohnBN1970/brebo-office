@@ -755,3 +755,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1257 is gemerged als `65a1bb71b99537a9c4ad39b6ece96bfec1a49e2e`: `GlassCalculationExporter` gebruikt uitsluitend scalar `actorId`.
 - `SandboxResetManager` gebruikt nu alleen `SandboxResetGatewayInterface`; database, entities, field metadata, State en Queue zitten in `DrupalSandboxResetGateway`.
 - Scopevalidatie, preview/reset-flow en resetroute-orchestratie blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Financial notification queue
+
+- PR #1258 is gemerged als `2a1508fcf28cb59387f235565fa94f0ed94db8ed`: `SandboxResetManager` gebruikt uitsluitend `SandboxResetGatewayInterface`.
+- `FinancialNotificationOutbox` gebruikt nu `FinancialNotificationQueueInterface`; Drupal QueueFactory zit in `DrupalFinancialNotificationQueue`.
+- Deduplicatie, payload-opbouw, outboxstatus en retry/read-semantiek blijven in de service.
