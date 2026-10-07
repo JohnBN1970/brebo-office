@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Site\Settings;
+use Drupal\brebo_finance\Contract\FinanceIntegrationApiConfigInterface;
 use GuzzleHttp\ClientInterface;
 
 /** Reads purchase invoices through the authenticated BREBO Integration API. */
@@ -12,12 +12,16 @@ final class PurchaseInvoiceIntegrationClient {
 
   private const PATH = '/v1/accounting/purchase-invoices';
 
-  public function __construct(private readonly ClientInterface $httpClient) {}
+  public function __construct(
+    private readonly ClientInterface $httpClient,
+    private readonly FinanceIntegrationApiConfigInterface $config,
+  ) {}
 
   /** @return array<int, array<string, mixed>> */
   public function fetchAll(): array {
-    $baseUrl = rtrim((string) Settings::get('brebo_integration_api_url', ''), '/');
-    $secret = (string) Settings::get('brebo_integration_shared_secret', '');
+    $configuration = $this->config->configuration();
+    $baseUrl = $configuration['base_url'];
+    $secret = $configuration['shared_secret'];
     if ($baseUrl === '' || $secret === '') {
       throw new \RuntimeException('BREBO integration API configuration is incomplete.');
     }
