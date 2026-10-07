@@ -94,10 +94,18 @@ services:
       - '@brebo_office_core.administration_registry'
       - '@keyvalue'
 
+  brebo_office_core.onboarding_tour_store:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalOnboardingTourStore
+    arguments:
+      - '@keyvalue'
+
+  Drupal\brebo_office_core\Contract\OnboardingTourStoreInterface:
+    alias: brebo_office_core.onboarding_tour_store
+
   brebo_office_core.onboarding_tour_manager:
     class: Drupal\brebo_office_core\Service\OnboardingTourManager
     arguments:
-      - '@keyvalue'
+      - '@brebo_office_core.onboarding_tour_store'
 
   brebo_office_core.onboarding_route_subscriber:
     class: Drupal\brebo_office_core\Routing\OnboardingRouteSubscriber
