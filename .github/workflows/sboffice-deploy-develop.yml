@@ -504,6 +504,75 @@ jobs:
           '
           REMOTE
 
+      - name: Verify Platform to Office production intake end-to-end
+        shell: bash
+        run: |
+          set -euo pipefail
+          request_id="$(cat /proc/sys/kernel/random/uuid)"
+          short_id="${request_id:0:8}"
+          payload="$(printf '{"request_id":"%s","observed":{"building":{"address":"BREBO production smoke %s"},"rooms":[{"id":"smoke-room"}],"frames":[{"id":"smoke-frame"}]},"detected":{},"calculated":{},"selected":{"project_name":"BREBO production smoke %s"}}' "$request_id" "$request_id" "$request_id")"
+          response_file="$(mktemp)"
+          http_status="$(curl -sS --max-time 30 -o "$response_file" -w '%{http_code}' -H 'Content-Type: application/json' -H 'Accept: application/json' --data "$payload" https://brebobv.nl/europakozijn/api/request)"
+          [[ "$http_status" == "202" ]] || { echo "::error::Platform intake smoke returned HTTP $http_status"; cat "$response_file"; exit 1; }
+          grep -q "\"request_id\":\"$request_id\"" "$response_file" || { echo "::error::Platform intake smoke response did not echo request id."; cat "$response_file"; exit 1; }
+          echo "PLATFORM_HANDOFF_HTTP_OK=202"
+
+          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "BREBO_SMOKE_REQUEST_ID='$request_id' BREBO_SMOKE_SHORT_ID='$short_id' bash -se" <<'REMOTE'
+          set -eEuo pipefail
+          cd "$HOME/domains/brebobv.nl/public_html/sboffice"
+          remote_php="/opt/alt/php83/usr/bin/php"
+          drush=("$remote_php" -d memory_limit=512M vendor/drush/drush/drush.php --root=web --uri=https://sboffice.brebobv.nl --no-ansi)
+          cleanup() {
+            "${drush[@]}" php:eval '
+              $requestId = (string) getenv("BREBO_SMOKE_REQUEST_ID");
+              $shortId = (string) getenv("BREBO_SMOKE_SHORT_ID");
+              $db = \Drupal::database();
+              $runIds = $db->select("brebo_data_ingest_run", "r")->fields("r", ["id"])->condition("source_reference", $requestId)->execute()->fetchCol();
+              if ($runIds !== []) {
+                $recordIds = $db->select("brebo_data_record", "d")->fields("d", ["id"])->condition("run_id", $runIds, "IN")->execute()->fetchCol();
+                if ($recordIds !== []) { $db->delete("brebo_data_intake_decision")->condition("record_id", $recordIds, "IN")->execute(); }
+                $db->delete("brebo_data_record")->condition("run_id", $runIds, "IN")->execute();
+                $db->delete("brebo_data_ingest_run")->condition("id", $runIds, "IN")->execute();
+              }
+              $title = "Europakozijn - aanvraag [" . $shortId . "]";
+              $storage = \Drupal::entityTypeManager()->getStorage("node");
+              $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_opportunity")->condition("title", $title)->execute();
+              if ($ids !== []) { $storage->delete($storage->loadMultiple($ids)); }
+            ' >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT ERR INT TERM
+
+          "${drush[@]}" php:eval '
+            $requestId = (string) getenv("BREBO_SMOKE_REQUEST_ID");
+            $shortId = (string) getenv("BREBO_SMOKE_SHORT_ID");
+            $db = \Drupal::database();
+            $runId = $db->select("brebo_data_ingest_run", "r")->fields("r", ["id"])->condition("source_reference", $requestId)->range(0, 1)->execute()->fetchField();
+            if (!$runId) { throw new \RuntimeException("Platform smoke intake run was not persisted."); }
+            $record = $db->select("brebo_data_record", "d")->fields("d", ["id", "status"])->condition("run_id", (int) $runId)->condition("source_reference", $requestId)->range(0, 1)->execute()->fetchAssoc();
+            if (!$record || ($record["status"] ?? "") !== "review_required") { throw new \RuntimeException("Platform smoke review record missing or invalid."); }
+            $title = "Europakozijn - aanvraag [" . $shortId . "]";
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $ids = $storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_opportunity")->condition("title", $title)->range(0, 1)->execute();
+            if ($ids === []) { throw new \RuntimeException("Platform smoke CRM opportunity was not created."); }
+            print "PLATFORM_OFFICE_E2E_STORAGE_OK=1\n";
+          '
+          cleanup
+          trap - EXIT ERR INT TERM
+
+          "${drush[@]}" php:eval '
+            $requestId = (string) getenv("BREBO_SMOKE_REQUEST_ID");
+            $shortId = (string) getenv("BREBO_SMOKE_SHORT_ID");
+            $db = \Drupal::database();
+            $runCount = (int) $db->select("brebo_data_ingest_run", "r")->condition("source_reference", $requestId)->countQuery()->execute()->fetchField();
+            $title = "Europakozijn - aanvraag [" . $shortId . "]";
+            $storage = \Drupal::entityTypeManager()->getStorage("node");
+            $oppCount = count($storage->getQuery()->accessCheck(FALSE)->condition("type", "brebo_opportunity")->condition("title", $title)->execute());
+            if ($runCount !== 0 || $oppCount !== 0) { throw new \RuntimeException("Platform smoke cleanup was incomplete."); }
+            print "PLATFORM_OFFICE_E2E_CLEANUP_OK=1\n";
+          '
+          REMOTE
+          rm -f "$response_file"
+
       - name: Download exported config
         shell: bash
         run: |
