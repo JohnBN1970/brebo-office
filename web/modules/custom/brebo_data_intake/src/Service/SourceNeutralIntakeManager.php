@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_data_intake\Service;
 
 use Drupal\brebo_data_intake\Contract\IntakeDestinationInterface;
-use Drupal\Core\Lock\LockBackendInterface;
+use Drupal\brebo_data_intake\Contract\IntakeLockInterface;
 use InvalidArgumentException;
 use RuntimeException;
 
@@ -16,7 +16,7 @@ final class SourceNeutralIntakeManager {
   public function __construct(
     private readonly iterable $destinations,
     private readonly DataIngestManager $ingestManager,
-    private readonly LockBackendInterface $lock,
+    private readonly IntakeLockInterface $lock,
     private readonly IntakeEnrichmentDispatcher $enrichmentDispatcher,
   ) {}
 
