@@ -762,3 +762,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1258 is gemerged als `2a1508fcf28cb59387f235565fa94f0ed94db8ed`: `SandboxResetManager` gebruikt uitsluitend `SandboxResetGatewayInterface`.
 - `FinancialNotificationOutbox` gebruikt nu `FinancialNotificationQueueInterface`; Drupal QueueFactory zit in `DrupalFinancialNotificationQueue`.
 - Deduplicatie, payload-opbouw, outboxstatus en retry/read-semantiek blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Data Intake locking
+
+- PR #1259 is gemerged als `c4be504263ffd2d07f94c9095ea56346b8b2fc66`: `FinancialNotificationOutbox` gebruikt uitsluitend `FinancialNotificationQueueInterface`.
+- `SourceNeutralIntakeManager` en `IntakeDecisionManager` gebruiken nu `IntakeLockInterface`; Drupal `LockBackendInterface` zit in `DrupalIntakeLock`.
+- Locknamen, 30-seconden timeouts, wait/retry bij review-persist en release-in-finally blijven ongewijzigd.
