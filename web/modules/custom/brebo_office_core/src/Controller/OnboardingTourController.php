@@ -51,16 +51,11 @@ final class OnboardingTourController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'missing_tour'], 400);
     }
 
-    $user = User::load((int) $this->currentUser()->id());
-    if ($user === NULL) {
-      throw new AccessDeniedHttpException();
-    }
-
-    match ($action) {
-      'start' => $this->tours->start($user, $tourId, $step),
-      'advance' => $this->tours->advance($user, $tourId, $step),
-      'complete' => $this->tours->complete($user, $tourId),
-      'skip' => $this->tours->skip($user, $tourId, $step),
+    $user =     match ($action) {
+      'start' => $this->tours->start((int) $this->currentUser()->id(), $tourId, $step),
+      'advance' => $this->tours->advance((int) $this->currentUser()->id(), $tourId, $step),
+      'complete' => $this->tours->complete((int) $this->currentUser()->id(), $tourId),
+      'skip' => $this->tours->skip((int) $this->currentUser()->id(), $tourId, $step),
       default => NULL,
     };
 
@@ -70,7 +65,7 @@ final class OnboardingTourController extends ControllerBase {
 
     return new JsonResponse([
       'ok' => TRUE,
-      'status' => $this->tours->status($user, $tourId),
+      'status' => $this->tours->status((int) $this->currentUser()->id(), $tourId),
       'onboarding_completed' => $tourId === 'welcome_core' && $action === 'complete',
     ]);
   }

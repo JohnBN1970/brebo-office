@@ -50,7 +50,7 @@ final class WelcomeOnboardingController extends ControllerBase {
 
     $names = array_map(static fn(array $a): string => (string) ($a['trade_name'] ?? $a['legal_name'] ?? $a['code'] ?? 'Administratie'), $administrations);
     $tourId = 'welcome_core';
-    $state = $this->tours->state($user, $tourId);
+    $state = $this->tours->state((int) $user->id(), $tourId);
     $progressUrl = Url::fromRoute('brebo_office_core.onboarding_tour_progress', [], [
       'query' => ['token' => $this->csrf->get('brebo_guided_tour')],
     ])->toString();
