@@ -135,10 +135,18 @@ services:
       - '@brebo_inzet.onsite_repository'
 
 
+  brebo_inzet.onsite_activation_store:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteActivationStore
+    arguments:
+      - '@keyvalue.expirable'
+
+  Drupal\brebo_inzet\Contract\OnSiteActivationStoreInterface:
+    alias: brebo_inzet.onsite_activation_store
+
   brebo_inzet.onsite_activation_manager:
     class: Drupal\brebo_inzet\Service\OnSiteActivationManager
     arguments:
-      - '@keyvalue.expirable'
+      - '@brebo_inzet.onsite_activation_store'
       - '@brebo_inzet.onsite_device_registry'
 
   brebo_inzet.onsite_invitation_manager:
