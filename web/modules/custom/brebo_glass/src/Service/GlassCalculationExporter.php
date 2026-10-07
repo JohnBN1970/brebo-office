@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Drupal\brebo_glass\Service;
 
 use Drupal\brebo_calculation\Service\CalculationObjectLineWriter;
-use Drupal\Core\Session\AccountInterface;
-
 /** Exports approved glass positions as traceable and priced calculation rows. */
 final class GlassCalculationExporter {
   public function __construct(
@@ -17,7 +15,7 @@ final class GlassCalculationExporter {
   ) {}
 
   /** @return array{material_row_id:int,labour_row_id:int,material_priced:bool,labour_priced:bool} */
-  public function export(int $positionId,int $calculationId,string $version,string $paragraphKey,AccountInterface $account): array {
+  public function export(int $positionId,int $calculationId,string $version,string $paragraphKey,int $actorId): array {
     $this->linkGuard->assertNotExported($positionId,$calculationId,$version);
     $context=$this->contextBuilder->build($positionId);
     $prices=$this->priceResolver->resolve($context);
@@ -30,16 +28,16 @@ final class GlassCalculationExporter {
       $context['description'].' · materiaal',
       (float)$context['material_quantity_m2'],'m²',
       ['material'=>(float)$prices['material']['unit_cost']],
-      $sourceDomain,$sourceReference,$checksum,$account,$prices['material'],
+      $sourceDomain,$sourceReference,$checksum,$actorId,$prices['material'],
     );
-    $this->priceResolver->snapshotMaterial($material,$prices['material'],(int) $account->id());
+    $this->priceResolver->snapshotMaterial($material,$prices['material'],$actorId);
 
     $labour=$this->writer->write(
       $calculationId,$version,$paragraphKey,
       $context['description'].' · montage',
       (float)$context['labour_hours'],'uur',
       ['labour'=>(float)$prices['labour']['unit_cost']],
-      $sourceDomain,$sourceReference,$checksum,$account,$prices['labour'],
+      $sourceDomain,$sourceReference,$checksum,$actorId,$prices['labour'],
     );
 
     return [
