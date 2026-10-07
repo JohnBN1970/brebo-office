@@ -567,3 +567,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1233 is gemerged als `b5f5fe0c96607f7742bb71fc06aca7700c7b5558`: `ClosedLoopControlService` gebruikt uitsluitend `ClosedLoopControlRepositoryInterface` voor resolved-action reads en updates.
 - Volgende lineaire slice: `ManagementTrendIntelligenceService`. Snapshot storage/read/upsert lopen via `ManagementTrendRepositoryInterface` en `DatabaseManagementTrendRepository`; periodeberekening, JSON-interpretatie, metric-delta's en risk-direction blijven in de service.
+
+
+### Management-decision-record isolatie
+
+- PR #1234 is gemerged als `25083b7354f2b4e386e9bf81deaa30bb01dc831b`: `ManagementTrendIntelligenceService` gebruikt uitsluitend `ManagementTrendRepositoryInterface` voor snapshot-storage, reads en upserts.
+- Volgende lineaire slice: `ManagementDecisionRecordService`. Tabelbeheer, decision-record insert, unmeasured reads en outcome-updates lopen via `ManagementDecisionRecordRepositoryInterface` en `DatabaseManagementDecisionRecordRepository`; payload/hash-opbouw en 30/90-dagen reviewlogica blijven in de service.

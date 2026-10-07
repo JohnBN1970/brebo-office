@@ -97,10 +97,17 @@ services:
   brebo_contract_control.management_decision_recommendation:
     class: Drupal\brebo_contract_control\Service\ManagementDecisionRecommendationEngine
 
+  brebo_contract_control.management_decision_record_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseManagementDecisionRecordRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ManagementDecisionRecordRepositoryInterface:
+    alias: brebo_contract_control.management_decision_record_repository
+
   brebo_contract_control.management_decision_records:
     class: Drupal\brebo_contract_control\Service\ManagementDecisionRecordService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.management_decision_record_repository'
 
   brebo_contract_control.management_decision_review_subscriber:
     class: Drupal\brebo_contract_control\EventSubscriber\ManagementDecisionReviewSubscriber
