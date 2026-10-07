@@ -104,10 +104,17 @@ services:
     tags:
       - { name: event_subscriber }
 
+  brebo_contract_control.closed_loop_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseClosedLoopControlRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ClosedLoopControlRepositoryInterface:
+    alias: brebo_contract_control.closed_loop_repository
+
   brebo_contract_control.closed_loop:
     class: Drupal\brebo_contract_control\Service\ClosedLoopControlService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.closed_loop_repository'
       - '@brebo_contract_control.management_control_center'
 
   brebo_contract_control.control_effectiveness_read_repository:
