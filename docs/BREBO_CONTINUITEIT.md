@@ -561,3 +561,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1232 is gemerged als `95b2544d42b67b0fe74b221e7be16144fabeac32`: `ManagementActionSourceResolver` gebruikt uitsluitend `ManagementActionSourceReadRepositoryInterface` voor action- en operationele bronreads.
 - Volgende lineaire slice: `ClosedLoopControlService`. Reads van resolved managementacties en action-updates lopen via `ClosedLoopControlRepositoryInterface` en `DatabaseClosedLoopControlRepository`; verificatielogica, signaaldrempels en reopen-termijnen blijven in de service.
+
+
+### Management-trend isolatie
+
+- PR #1233 is gemerged als `b5f5fe0c96607f7742bb71fc06aca7700c7b5558`: `ClosedLoopControlService` gebruikt uitsluitend `ClosedLoopControlRepositoryInterface` voor resolved-action reads en updates.
+- Volgende lineaire slice: `ManagementTrendIntelligenceService`. Snapshot storage/read/upsert lopen via `ManagementTrendRepositoryInterface` en `DatabaseManagementTrendRepository`; periodeberekening, JSON-interpretatie, metric-delta's en risk-direction blijven in de service.
