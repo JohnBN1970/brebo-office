@@ -93,14 +93,35 @@ services:
   brebo_inzet.onsite_sms_sender:
     class: Drupal\brebo_inzet\Service\UnavailableOnSiteSmsSender
 
+  brebo_inzet.onsite_otp_store:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteOtpStore
+    arguments: ['@keyvalue.expirable']
+
+  Drupal\brebo_inzet\Contract\OnSiteOtpStoreInterface:
+    alias: brebo_inzet.onsite_otp_store
+
+  brebo_inzet.onsite_otp_secret_provider:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteOtpSecretProvider
+    arguments: ['@private_key']
+
+  Drupal\brebo_inzet\Contract\OnSiteOtpSecretProviderInterface:
+    alias: brebo_inzet.onsite_otp_secret_provider
+
+  brebo_inzet.onsite_otp_rate_limiter:
+    class: Drupal\brebo_inzet\Infrastructure\DrupalOnSiteOtpRateLimiter
+    arguments: ['@flood']
+
+  Drupal\brebo_inzet\Contract\OnSiteOtpRateLimiterInterface:
+    alias: brebo_inzet.onsite_otp_rate_limiter
+
   brebo_inzet.onsite_otp_manager:
     class: Drupal\brebo_inzet\Service\OnSiteOtpManager
     arguments:
       - '@brebo_inzet.onsite_identity_resolver'
       - '@brebo_inzet.onsite_sms_sender'
-      - '@keyvalue.expirable'
-      - '@private_key'
-      - '@flood'
+      - '@brebo_inzet.onsite_otp_store'
+      - '@brebo_inzet.onsite_otp_secret_provider'
+      - '@brebo_inzet.onsite_otp_rate_limiter'
 
 
   brebo_inzet.onsite_device_store:

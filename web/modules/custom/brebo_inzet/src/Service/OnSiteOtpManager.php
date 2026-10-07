@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Flood\FloodInterface;
-use Drupal\Core\KeyValueStore\KeyValueExpirableFactoryInterface;
-use Drupal\Core\PrivateKey;
+use Drupal\brebo_inzet\Contract\OnSiteOtpRateLimiterInterface;
+use Drupal\brebo_inzet\Contract\OnSiteOtpSecretProviderInterface;
+use Drupal\brebo_inzet\Contract\OnSiteOtpStoreInterface;
 
 final class OnSiteOtpManager {
 
@@ -16,9 +16,9 @@ final class OnSiteOtpManager {
   public function __construct(
     private readonly OnSiteIdentityResolver $identityResolver,
     private readonly OnSiteSmsSenderInterface $smsSender,
-    private readonly KeyValueExpirableFactoryInterface $keyValueExpirable,
-    private readonly PrivateKey $privateKey,
-    private readonly FloodInterface $flood,
+    private readonly OnSiteOtpStoreInterface $store,
+    private readonly OnSiteOtpSecretProviderInterface $secretProvider,
+    private readonly OnSiteOtpRateLimiterInterface $rateLimiter,
   ) {}
 
   /**
@@ -33,17 +33,15 @@ final class OnSiteOtpManager {
     }
 
     $identifier = hash('sha256', $normalized . '|' . $clientIp);
-    if (!$this->flood->isAllowed('brebo_onsite_otp_request', 5, 900, $identifier)) {
+    if (!$this->rateLimiter->consume($identifier, 5, 900)) {
       throw new \RuntimeException('Te veel verificatieverzoeken. Probeer later opnieuw.');
     }
-    $this->flood->register('brebo_onsite_otp_request', 900, $identifier);
-
     $challengeId = bin2hex(random_bytes(24));
     $identity = $this->identityResolver->resolveByMobile($normalized);
 
     // Unknown numbers receive an indistinguishable challenge response, but no SMS.
     if ($identity === NULL) {
-      $this->store()->setWithExpire($challengeId, [
+      $this->store->set($challengeId, [
         'valid' => FALSE,
         'attempts' => 0,
       ], self::TTL);
@@ -52,7 +50,7 @@ final class OnSiteOtpManager {
 
     $code = (string) random_int(100000, 999999);
     $language = $identity['language'];
-    $this->store()->setWithExpire($challengeId, [
+    $this->store->set($challengeId, [
       'valid' => TRUE,
       'uid' => $identity['uid'],
       'mobile' => $normalized,
@@ -75,37 +73,33 @@ final class OnSiteOtpManager {
       return NULL;
     }
 
-    $store = $this->store();
-    $data = $store->get($challengeId);
+    $data = $this->store->get($challengeId);
     if (!is_array($data) || !($data['valid'] ?? FALSE)) {
       return NULL;
     }
 
     $attempts = (int) ($data['attempts'] ?? 0);
     if ($attempts >= self::MAX_ATTEMPTS) {
-      $store->delete($challengeId);
+      $this->store->delete($challengeId);
       return NULL;
     }
 
     if (!hash_equals((string) ($data['code_hash'] ?? ''), $this->hashCode($challengeId, $code))) {
       $data['attempts'] = $attempts + 1;
-      $store->setWithExpire($challengeId, $data, self::TTL);
+      $this->store->set($challengeId, $data, self::TTL);
       return NULL;
     }
 
-    $store->delete($challengeId);
+    $this->store->delete($challengeId);
     return [
       'uid' => (int) $data['uid'],
       'language' => (string) ($data['language'] ?? 'nl'),
     ];
   }
 
-  private function store() {
-    return $this->keyValueExpirable->get('brebo_inzet.onsite_otp');
-  }
 
   private function hashCode(string $challengeId, string $code): string {
-    return hash_hmac('sha256', $challengeId . '|' . $code, $this->privateKey->get());
+    return hash_hmac('sha256', $challengeId . '|' . $code, $this->secretProvider->secret());
   }
 
 }
