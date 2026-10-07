@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_contract_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ControllerCaseRepositoryInterface;
 
 /** Creates auditable controller investigations from financial anomaly signals. */
 final class ControllerCaseManagementService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ControllerCaseRepositoryInterface $repository,
     private readonly PaymentAnomalyIntelligenceService $anomalyIntelligence,
   ) {}
 
@@ -43,7 +43,7 @@ final class ControllerCaseManagementService {
       default => 14 * 86400,
     };
 
-    $id = (int) $this->database->insert('brebo_controller_case')->fields([
+    $id = $this->repository->insert([
       'case_ref' => 'CTRL-' . gmdate('Ymd-His', $now),
       'severity' => $severity,
       'risk_score' => (int) ($analysis['score'] ?? 0),
@@ -53,7 +53,7 @@ final class ControllerCaseManagementService {
       'status' => 'open',
       'deadline_at' => $deadline,
       'created_at' => $now,
-    ])->execute();
+    ]);
 
     return [
       'created' => TRUE,
@@ -69,7 +69,7 @@ final class ControllerCaseManagementService {
   /** @param array<string, mixed> $evidence */
   public function conclude(int $caseId, int $reviewerUid, string $conclusion, array $evidence, ?int $now = NULL): array {
     $now ??= time();
-    $case = $this->database->select('brebo_controller_case', 'c')->fields('c')->condition('id', $caseId)->execute()->fetchAssoc();
+    $case = $this->repository->findById($caseId);
     if (!$case) {
       throw new \InvalidArgumentException('Onbekend controllerdossier.');
     }
@@ -80,13 +80,13 @@ final class ControllerCaseManagementService {
       throw new \LogicException('Hoog/kritiek controllerdossier vereist onafhankelijke tweede beoordeling.');
     }
 
-    $this->database->update('brebo_controller_case')->fields([
+    $this->repository->update($caseId, [
       'status' => 'concluded',
       'reviewer_uid' => $reviewerUid,
       'conclusion' => $conclusion,
       'evidence_json' => json_encode($evidence, JSON_THROW_ON_ERROR),
       'concluded_at' => $now,
-    ])->condition('id', $caseId)->execute();
+    ]);
 
     return ['case_id' => $caseId, 'status' => 'concluded', 'message' => 'Controllerdossier inhoudelijk afgesloten met bewijs en reviewer.'];
   }
