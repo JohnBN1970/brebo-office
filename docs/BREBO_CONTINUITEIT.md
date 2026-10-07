@@ -618,3 +618,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1241 is gemerged als `d20f54922868cdf75a855789b124b79db81b4831`: `ReceivablesReconciliationMonitor` gebruikt uitsluitend `ReceivablesReconciliationStateStoreInterface` voor statusopslag.
 - Volgende servicekoppeling: `ControlTrendActionService`. De service accepteert nu alleen `projectId` en kent geen `NodeInterface` meer; trend- en actionlogica blijven ongewijzigd.
 - `ControlAutomationRunner` vertaalt tijdelijk de Drupal Node naar projectId; die entity-laag wordt in een volgende slice achter een project-read abstraction geplaatst.
+
+
+### Repo-brede Drupal-ontkoppeling — Portfolio project source
+
+- PR #1242 is gemerged als `7ec575ee56204ace2b86b130f7180f81119f201e`: `ControlTrendActionService` accepteert alleen nog `projectId` en kent geen `NodeInterface` meer.
+- `PortfolioControlService` gebruikt nu `PortfolioProjectSourceInterface`; actieve Drupal projectnodes en legacy early-warning/history calls zitten in `DrupalPortfolioProjectSource`.
+- Exposure-, sorteer-, concentratie- en managementportfolio-logica blijven volledig in de service.
