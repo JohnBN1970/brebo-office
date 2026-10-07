@@ -38,11 +38,13 @@ final class WebsiteEuropakozijnIntakeController extends ControllerBase {
     }
 
     $requestId = (string) $payload['request_id'];
+    $sourceId = (string) $payload['source'];
     $building = is_array($payload['observed']['building'] ?? NULL) ? $payload['observed']['building'] : [];
     $metadata = [
       'project_name' => trim((string) ($payload['selected']['project_name'] ?? $payload['observed']['project_name'] ?? '')),
       'address' => trim((string) ($building['address'] ?? $building['formatted_address'] ?? '')),
       'source_contract' => 'BREBO Intake API v1',
+      'source_id' => $sourceId,
       'source_schema_version' => (string) $payload['schema_version'],
     ];
 
@@ -54,6 +56,7 @@ final class WebsiteEuropakozijnIntakeController extends ControllerBase {
       'canonical' => [],
       'payload' => [
         'request_id' => $requestId,
+        'source' => $sourceId,
         'metadata' => array_filter($metadata, static fn(mixed $value): bool => $value !== ''),
         'website_request' => [
           'observed' => $payload['observed'],
@@ -88,7 +91,7 @@ final class WebsiteEuropakozijnIntakeController extends ControllerBase {
     if (!is_string($payload['request_id'] ?? NULL) || !preg_match('/^[0-9a-f-]{36}$/i', $payload['request_id'])) {
       return FALSE;
     }
-    if (($payload['source'] ?? NULL) !== 'brebo-platform.europakozijn') {
+    if (!is_string($payload['source'] ?? NULL) || !preg_match('/^brebo-platform\.[a-z0-9._-]+$/', $payload['source'])) {
       return FALSE;
     }
     foreach (['observed', 'detected', 'calculated', 'selected'] as $bucket) {
