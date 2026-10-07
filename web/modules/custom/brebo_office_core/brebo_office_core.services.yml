@@ -46,12 +46,28 @@ services:
     arguments:
       - '@brebo_office_core.administration_registry'
 
+  brebo_office_core.administration_number_store:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationNumberStore
+    arguments:
+      - '@keyvalue'
+
+  Drupal\brebo_office_core\Contract\AdministrationNumberStoreInterface:
+    alias: brebo_office_core.administration_number_store
+
+  brebo_office_core.administration_number_lock:
+    class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationNumberLock
+    arguments:
+      - '@lock'
+
+  Drupal\brebo_office_core\Contract\AdministrationNumberLockInterface:
+    alias: brebo_office_core.administration_number_lock
+
   brebo_office_core.administration_number_issuer:
     class: Drupal\brebo_office_core\Service\AdministrationNumberIssuer
     arguments:
       - '@brebo_office_core.administration_registry'
-      - '@keyvalue'
-      - '@lock'
+      - '@brebo_office_core.administration_number_store'
+      - '@brebo_office_core.administration_number_lock'
 
   brebo_office_core.administration_context_store:
     class: Drupal\brebo_office_core\Infrastructure\DrupalAdministrationContextStore
