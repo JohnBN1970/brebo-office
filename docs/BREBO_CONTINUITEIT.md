@@ -734,3 +734,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - Mail/intake mag niet van ieder bericht automatisch een project maken; projectvorming vereist voldoende context/confidence of menselijke bevestiging.
 - De mailpoort kan pas als operationele instroom worden beschouwd wanneer de ontvangende Office-runtime schoon is en de classificatie-/koppelketen fail-safe staat; presentatie/UX van de buitenkant blijft afzonderlijk af te werken.
 - Branch `feature/project-ai-order-draft` is aangemaakt vanaf actuele `develop` voor de gecontroleerde AI-conceptorderroute. Geen definitieve order mag door AI zelfstandig worden verzonden of vrijgegeven.
+
+
+### Repo-brede Drupal-ontkoppeling — Mail Intake queue
+
+- PR #1253 is gemerged als `09c1be70b1eb26f345de1723b78a3406ed75c0a2`: `AdministrationNumberIssuer` gebruikt dedicated store/lock contracts en kent geen Drupal KeyValue/Lock meer.
+- `MailIntakeQueueManager` gebruikt nu `MailIntakeQueueInterface`; Drupal QueueFactory zit in `DrupalMailIntakeQueue`.
+- Bronconfiguratie, backfill-limiet, mode-selectie en pending-thresholdlogica blijven in de service.
