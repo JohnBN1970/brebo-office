@@ -9,11 +9,22 @@ services:
   brebo_control.escalation_matrix:
     class: Drupal\brebo_control\Service\ControlEscalationMatrix
 
+  brebo_control.project_analysis_source:
+    class: Drupal\brebo_control\Infrastructure\DrupalLegacyProjectControlAnalysisSource
+    arguments:
+      - '@entity_type.manager'
+      - '@?brebo_office_core.project_controller_actions'
+      - '@?brebo_office_core.project_early_warning'
+      - '@?brebo_office_core.project_financial_control'
+
+  Drupal\brebo_control\Contract\ControlProjectAnalysisSourceInterface:
+    alias: brebo_control.project_analysis_source
+
   brebo_control.action_manager:
     class: Drupal\brebo_control\Service\ControlActionManager
     arguments:
       - '@brebo_control.action_repository'
-      - '@?brebo_office_core.project_controller_actions'
+      - '@brebo_control.project_analysis_source'
       - '@brebo_control.escalation_matrix'
 
   brebo_control.inbox:
@@ -46,9 +57,8 @@ services:
     class: Drupal\brebo_control\Service\ControlHistoryService
     arguments:
       - '@brebo_control.history_repository'
-      - '@?brebo_office_core.project_early_warning'
+      - '@brebo_control.project_analysis_source'
       - '@brebo_control.action_repository'
-      - '@?brebo_office_core.project_financial_control'
 
   brebo_control.trend_actions:
     class: Drupal\brebo_control\Service\ControlTrendActionService
@@ -107,10 +117,18 @@ services:
     arguments:
       - '@brebo_control.supplier_scorecard'
 
+  brebo_control.project_source:
+    class: Drupal\brebo_control\Infrastructure\DrupalControlProjectSource
+    arguments:
+      - '@entity_type.manager'
+
+  Drupal\brebo_control\Contract\ControlProjectSourceInterface:
+    alias: brebo_control.project_source
+
   brebo_control.automation_runner:
     class: Drupal\brebo_control\Service\ControlAutomationRunner
     arguments:
-      - '@entity_type.manager'
+      - '@brebo_control.project_source'
       - '@brebo_control.action_manager'
       - '@brebo_control.notification_engine'
       - '@brebo_control.history'

@@ -625,3 +625,11 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1242 is gemerged als `7ec575ee56204ace2b86b130f7180f81119f201e`: `ControlTrendActionService` accepteert alleen nog `projectId` en kent geen `NodeInterface` meer.
 - `PortfolioControlService` gebruikt nu `PortfolioProjectSourceInterface`; actieve Drupal projectnodes en legacy early-warning/history calls zitten in `DrupalPortfolioProjectSource`.
 - Exposure-, sorteer-, concentratie- en managementportfolio-logica blijven volledig in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Control project boundaries
+
+- PR #1243 is gemerged als `12d886541f19ee7f0ba8ad3b390d84be54003790`: `PortfolioControlService` gebruikt uitsluitend `PortfolioProjectSourceInterface` voor actieve projectfacts.
+- `ControlAutomationRunner` gebruikt nu `ControlProjectSourceInterface` en verwerkt alleen scalar project-id's.
+- `ControlActionManager` en `ControlHistoryService` gebruiken `ControlProjectAnalysisSourceInterface`; Node/entity/legacy-service calls zitten in `DrupalLegacyProjectControlAnalysisSource`.
+- De control-servicelaag bevat daarmee voor runner/action/history geen directe Drupal entity- of Node-contracten meer.
