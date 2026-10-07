@@ -682,3 +682,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - `AdministrationAccessManager` gebruikt nu `AdministrationAccessStoreInterface`; Drupal KeyValue en user-entitydetails blijven in Infrastructure/controllers/forms.
 - De access-service-API gebruikt uitsluitend scalar `userId`, administratiecode, rollen en status.
 - Tijdens de callercontrole is de resterende onnodige `$user = match (...)`-toewijzing in `OnboardingTourController` gecorrigeerd.
+
+
+### Repo-brede Drupal-ontkoppeling — Administration numbering
+
+- PR #1252 is gemerged als `24bd1a8aee1a2eef42696121efd2d620b84dbb97`: `AdministrationAccessManager` gebruikt uitsluitend scalar user-id's en `AdministrationAccessStoreInterface`.
+- `AdministrationNumberIssuer` gebruikt nu `AdministrationNumberStoreInterface` en `AdministrationNumberLockInterface`; Drupal KeyValue en Lock zitten in Infrastructure.
+- Nummerreeksregels, idempotente owner-check, cursorberekening, immutable receipt-opbouw en nummerformattering blijven in de service.
