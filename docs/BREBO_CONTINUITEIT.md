@@ -591,3 +591,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1237 is gemerged als `f357a325f641fd439f05bc2662e4792f1ef9a690`: `PaymentAnomalyIntelligenceService` gebruikt uitsluitend `PaymentAnomalyReadRepositoryInterface` voor databeschikbaarheid en patroonreads.
 - Volgende lineaire slice: `ManagementActionEngine`. Action insert/resolve/open/overdue/exists lopen via `ManagementActionRepositoryInterface` en `DatabaseManagementActionRepository`; triggerregels, severity, deadlines en escalatielogica blijven in de service.
+
+
+### Management-control-center isolatie
+
+- PR #1238 is gemerged als `dee15d7be1c372a0dc2ed060c3ac9937a5bb3093`: `ManagementActionEngine` gebruikt uitsluitend `ManagementActionRepositoryInterface` voor action-persistence en reads.
+- Laatste directe `@database`-service in Contract Control: `ManagementControlCenterService`. Blocked-payment-, overdue-obligation- en critical-controller-case-reads lopen via `ManagementControlCenterReadRepositoryInterface` en `DatabaseManagementControlCenterReadRepository`; managementstatus en aggregatielogica blijven in de service.
+- Na merge volgt een repo-brede eindscan op directe Drupal-koppelingen in service/domain code.
