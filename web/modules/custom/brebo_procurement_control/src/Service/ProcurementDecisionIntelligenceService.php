@@ -4,26 +4,21 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_procurement_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /**
  * Measures whether human procurement overrides add or destroy economic value.
  */
 final class ProcurementDecisionIntelligenceService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProcurementControlRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if (!$this->database->schema()->tableExists('brebo_procurement_decision') || !$this->database->schema()->tableExists('brebo_procurement_outcome')) {
+    $rows = $this->repository->decisionOutcomeRows();
+    if ($rows === []) {
       return ['observations' => 0, 'status' => 'no_data'];
     }
-
-    $query = $this->database->select('brebo_procurement_decision', 'd');
-    $query->join('brebo_procurement_outcome', 'o', 'o.decision_id = d.id');
-    $query->fields('d', ['id', 'selected_supplier', 'recommended_supplier', 'economic_delta', 'decision_status', 'decided_by', 'approved_by']);
-    $query->fields('o', ['actual_economic_cost', 'model_error', 'outcome', 'actual_failure_cost', 'actual_delay_cost', 'actual_warranty_cost']);
-    $rows = $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
 
     $overrideCount = 0;
     $wins = 0;

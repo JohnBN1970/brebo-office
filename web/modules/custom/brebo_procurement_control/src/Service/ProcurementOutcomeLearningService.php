@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_procurement_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /**
  * Records outcomes and explains where procurement predictions were wrong.
@@ -13,13 +13,12 @@ use Drupal\Core\Database\Connection;
  */
 final class ProcurementOutcomeLearningService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProcurementControlRepositoryInterface $repository) {}
 
   /** @return array<string, mixed> */
   public function record(int $decisionId, float $purchaseCost, float $failureCost, float $delayCost, float $warrantyCost, float $otherCost, int $recordedBy, ?string $assessment = NULL, ?int $now = NULL): array {
     $now ??= time();
-    $decision = $this->database->select('brebo_procurement_decision', 'd')->fields('d')
-      ->condition('id', $decisionId)->execute()->fetchAssoc();
+    $decision = $this->repository->decision($decisionId);
     if (!$decision) {
       throw new \InvalidArgumentException('Onbekende inkoopbeslissing.');
     }
@@ -44,7 +43,7 @@ final class ProcurementOutcomeLearningService {
       $outcome = abs($error) <= $tolerance ? 'model_confirmed' : ($error > 0 ? 'model_underestimated' : 'model_overestimated');
     }
 
-    $this->database->merge('brebo_procurement_outcome')->key(['decision_id' => $decisionId])->fields([
+    $this->repository->upsertOutcome($decisionId, [
       'actual_purchase_cost' => round($purchaseCost, 2),
       'actual_failure_cost' => round($failureCost, 2),
       'actual_delay_cost' => round($delayCost, 2),
@@ -56,7 +55,7 @@ final class ProcurementOutcomeLearningService {
       'assessment' => $assessment,
       'recorded_by' => $recordedBy,
       'recorded_at' => $now,
-    ])->execute();
+    ]);
 
     return [
       'decision_id' => $decisionId,
@@ -72,7 +71,7 @@ final class ProcurementOutcomeLearningService {
 
   /** @return array<string, mixed> */
   public function diagnostics(): array {
-    $rows = $this->database->select('brebo_procurement_outcome', 'o')->fields('o')->execute()->fetchAll(\PDO::FETCH_ASSOC);
+    $rows = $this->repository->outcomes();
     $count = count($rows);
     $absoluteError = 0.0;
     $outcomes = [];

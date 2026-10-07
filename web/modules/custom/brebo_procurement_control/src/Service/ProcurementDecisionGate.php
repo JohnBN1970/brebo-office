@@ -5,13 +5,13 @@ declare(strict_types=1);
 namespace Drupal\brebo_procurement_control\Service;
 
 use Drupal\brebo_control\Service\SupplierBidEvaluationService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /** Enforces explicit approval when procurement deviates from economic #1. */
 final class ProcurementDecisionGate {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProcurementControlRepositoryInterface $repository,
     private readonly SupplierBidEvaluationService $bidEvaluation,
   ) {}
 
@@ -53,7 +53,7 @@ final class ProcurementDecisionGate {
       }
     }
 
-    $id = (int) $this->database->insert('brebo_procurement_decision')->fields([
+    $id = (int) $this->repository->createDecision([
       'project_nid' => $projectNid,
       'procurement_ref' => $procurementRef,
       'selected_supplier' => (string) $selected['supplier_name'],
@@ -68,7 +68,7 @@ final class ProcurementDecisionGate {
       'approved_at' => $status === 'approved_deviation' ? $now : NULL,
       'decided_by' => $decidedBy,
       'created' => $now,
-    ])->execute();
+    ]);
 
     return [
       'decision_id' => $id,

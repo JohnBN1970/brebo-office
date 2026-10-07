@@ -769,3 +769,11 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1259 is gemerged als `c4be504263ffd2d07f94c9095ea56346b8b2fc66`: `FinancialNotificationOutbox` gebruikt uitsluitend `FinancialNotificationQueueInterface`.
 - `SourceNeutralIntakeManager` en `IntakeDecisionManager` gebruiken nu `IntakeLockInterface`; Drupal `LockBackendInterface` zit in `DrupalIntakeLock`.
 - Locknamen, 30-seconden timeouts, wait/retry bij review-persist en release-in-finally blijven ongewijzigd.
+
+
+### Repo-brede Drupal-ontkoppeling — Procurement control repository
+
+- PR #1260 is gemerged als `4a0da6c68dbceeff963f28af1163a8fc1132c0ab`: Data Intake concurrency gebruikt uitsluitend `IntakeLockInterface`.
+- Zeven Procurement-services gebruiken nu `ProcurementControlRepositoryInterface`: decision, award, outcome, outcome-learning, decision-intelligence, context-intelligence en model-governance.
+- Drupal `Connection` zit uitsluitend in `DatabaseProcurementControlRepository`.
+- Selectie-/afwijkingsregels, award-controlmodus, outcome-classificatie, learningdiagnostiek, contextsegmentatie en vier-ogen-governance blijven in de servicelaag.

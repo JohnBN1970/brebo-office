@@ -4,13 +4,13 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_procurement_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /** Prevents award until the complete procurement control chain is satisfied. */
 final class ProcurementAwardGate {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ProcurementControlRepositoryInterface $repository,
     private readonly ProcurementControlModeGate $controlModeGate,
   ) {}
 
@@ -19,7 +19,7 @@ final class ProcurementAwardGate {
    */
   public function award(int $decisionId, array $context, string $requestedMode, int $awardedBy, ?int $reviewedBy = NULL, ?int $now = NULL): array {
     $now ??= time();
-    $decision = $this->database->select('brebo_procurement_decision', 'd')->fields('d')->condition('id', $decisionId)->execute()->fetchAssoc();
+    $decision = $this->repository->decision($decisionId);
     if (!$decision) {
       throw new \InvalidArgumentException('Onbekende inkoopbeslissing.');
     }
@@ -41,12 +41,12 @@ final class ProcurementAwardGate {
       return ['awarded' => FALSE, 'status' => 'blocked_four_eyes', 'control_mode' => $mode, 'message' => 'Opdracht geblokkeerd: senior review vereist een tweede persoon.'];
     }
 
-    $existing = $this->database->select('brebo_procurement_award', 'a')->fields('a')->condition('decision_id', $decisionId)->execute()->fetchAssoc();
+    $existing = $this->repository->awardByDecision($decisionId);
     if ($existing) {
       return ['awarded' => TRUE, 'status' => 'already_awarded', 'award_id' => (int) $existing['id'], 'message' => 'Deze inkoopbeslissing is al definitief verstrekt.'];
     }
 
-    $id = (int) $this->database->insert('brebo_procurement_award')->fields([
+    $id = (int) $this->repository->createAward([
       'decision_id' => $decisionId,
       'project_nid' => (int) $decision['project_nid'],
       'procurement_ref' => (string) $decision['procurement_ref'],
@@ -57,7 +57,7 @@ final class ProcurementAwardGate {
       'awarded_by' => $awardedBy,
       'awarded_at' => $now,
       'status' => 'awarded',
-    ])->execute();
+    ]);
 
     return [
       'awarded' => TRUE,

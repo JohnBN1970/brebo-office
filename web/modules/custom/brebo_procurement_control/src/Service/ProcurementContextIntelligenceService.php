@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_procurement_control\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_procurement_control\Contract\ProcurementControlRepositoryInterface;
 
 /**
  * Learns in which procurement contexts human review adds the most value.
  */
 final class ProcurementContextIntelligenceService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly ProcurementControlRepositoryInterface $repository) {}
 
   /**
    * Store an auditable decision-time context snapshot.
@@ -37,25 +37,18 @@ final class ProcurementContextIntelligenceService {
         $clean[$key] = $context[$key];
       }
     }
-    $this->database->merge('brebo_procurement_decision_context')->key(['decision_id' => $decisionId])->fields([
+    $this->repository->upsertDecisionContext($decisionId, [
       'context_json' => json_encode($clean, JSON_THROW_ON_ERROR),
       'captured_at' => $now ?? time(),
-    ])->execute();
+    ]);
   }
 
   /** @return array<string, mixed> */
   public function analyze(): array {
-    if (!$this->database->schema()->tableExists('brebo_procurement_decision_context')) {
+    $rows = $this->repository->contextOutcomeRows();
+    if ($rows === []) {
       return ['observations' => 0, 'segments' => [], 'status' => 'no_context_data'];
     }
-
-    $query = $this->database->select('brebo_procurement_decision_context', 'c');
-    $query->join('brebo_procurement_decision', 'd', 'd.id = c.decision_id');
-    $query->join('brebo_procurement_outcome', 'o', 'o.decision_id = c.decision_id');
-    $query->fields('c', ['context_json']);
-    $query->fields('d', ['selected_supplier', 'recommended_supplier']);
-    $query->fields('o', ['outcome', 'model_error']);
-    $rows = $query->execute()->fetchAll(\PDO::FETCH_ASSOC);
 
     $segments = [];
     foreach ($rows as $row) {
