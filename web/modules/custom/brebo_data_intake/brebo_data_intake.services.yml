@@ -57,12 +57,19 @@ services:
     arguments:
       - !tagged_iterator brebo_data_intake.document_text_extraction_provider
 
+  brebo_data_intake.document_extraction_runtime_config:
+    class: Drupal\brebo_data_intake\Infrastructure\DrupalDocumentExtractionRuntimeConfig
+
+  Drupal\brebo_data_intake\Contract\DocumentExtractionRuntimeConfigInterface:
+    alias: brebo_data_intake.document_extraction_runtime_config
+
   brebo_data_intake.managed_document_text_extraction_provider:
     class: Drupal\brebo_data_intake\Service\ManagedDocumentTextExtractionProvider
     arguments:
       - '@http_client'
       - ''
       - ''
+      - '@brebo_data_intake.document_extraction_runtime_config'
     tags:
       - { name: brebo_data_intake.document_text_extraction_provider, priority: 100 }
 
