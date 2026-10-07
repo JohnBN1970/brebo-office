@@ -48,7 +48,10 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
       $label = $filename !== '' ? pathinfo($filename, PATHINFO_FILENAME) : 'Nieuwe aanvraag';
     }
     $label = mb_substr($label, 0, 140);
-    $title = sprintf('Europakozijn - %s [%s]', $label, substr($requestId, 0, 8));
+    // The cross-system request id is the stable identity. Labels may differ
+    // between document upload and the structured handoff and must never create
+    // a second CRM opportunity for the same website intake.
+    $title = sprintf('Europakozijn - aanvraag [%s]', substr($requestId, 0, 8));
 
     $existingId = $this->opportunities->findOpportunityIdByTitle($title);
     if ($existingId !== NULL) {
@@ -71,8 +74,15 @@ final class WebsiteProjectRequestIntakeDestination implements IntakeDestinationI
 
     $scope = is_array($payload['preliminary_scope'] ?? NULL) ? $payload['preliminary_scope'] : [];
     $scopeText = $this->scopeText($scope);
+    $contextLines = [];
+    if ($label !== '') {
+      $contextLines[] = 'Websiteproject: ' . $label;
+    }
     if ($scopeText !== '') {
-      $values['field_brebo_opp_requirement'] = $scopeText;
+      $contextLines[] = $scopeText;
+    }
+    if ($contextLines !== []) {
+      $values['field_brebo_opp_requirement'] = mb_substr(implode("\n", $contextLines), 0, 10000);
     }
 
     $opportunityId = $this->opportunities->createOpportunity($title, $ownerUid, $values);

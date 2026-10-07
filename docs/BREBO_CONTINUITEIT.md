@@ -813,3 +813,13 @@ Aanvullend in dezelfde slice:
 - Office Core `IntegrationApiClient` leest runtimeconfig via `IntegrationApiRuntimeConfigInterface`;
 - managed document extraction leest endpoint/token via `DocumentExtractionRuntimeConfigInterface`;
 - actuele branchcontrole op alle bekende offenders geeft nul directe `Drupal\Core`/`Drupal\Component` imports in service/publication-code.
+
+
+## Platform ↔ Office intake-koppeling — 7 oktober 2026
+
+De bestaande Europakozijn website-handoff loopt voortaan door de canonieke `SourceNeutralIntakeManager` in plaats van rechtstreeks naar losse data-ingest records.
+
+Keten:
+`brebo-platform` → signed website request → Office Data Intake → deduplicatie → review → `WebsiteProjectRequestIntakeDestination` → CRM-kans.
+
+Het bestaande documentpad blijft apart voor binaire bestanden, maar gebruikt dezelfde `request_id` als correlatie-id. BREBO Office blijft de bron van waarheid; Platform bewaart alleen presentatie-/klantreiscontext en tijdelijke intakeweergave.
