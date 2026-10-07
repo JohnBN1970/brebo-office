@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Controller;
 
-use Drupal\brebo_data_intake\Service\DataIngestManager;
+use Drupal\brebo_data_intake\Service\SourceNeutralIntakeManager;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Site\Settings;
 use Symfony\Component\DependencyInjection\ContainerInterface;
@@ -14,10 +14,10 @@ use Symfony\Component\HttpFoundation\Request;
 /** Receives authenticated Europakozijn website requests into central intake. */
 final class WebsiteEuropakozijnIntakeController extends ControllerBase {
 
-  public function __construct(private readonly DataIngestManager $ingestManager) {}
+  public function __construct(private readonly SourceNeutralIntakeManager $intakeManager) {}
 
   public static function create(ContainerInterface $container): static {
-    return new static($container->get('brebo_data_intake.ingest_manager'));
+    return new static($container->get('brebo_data_intake.source_neutral_intake_manager'));
   }
 
   public function ingest(Request $request): JsonResponse {
@@ -38,45 +38,46 @@ final class WebsiteEuropakozijnIntakeController extends ControllerBase {
     }
 
     $requestId = (string) $payload['request_id'];
-    $sourceId = $this->ingestManager->registerSource(
-      'website_europakozijn',
-      'Website Europakozijn',
-      'api',
-      'brebo-platform',
-    );
+    $building = is_array($payload['observed']['building'] ?? NULL) ? $payload['observed']['building'] : [];
+    $metadata = [
+      'project_name' => trim((string) ($payload['selected']['project_name'] ?? $payload['observed']['project_name'] ?? '')),
+      'address' => trim((string) ($building['address'] ?? $building['formatted_address'] ?? '')),
+      'source_contract' => 'BREBO Intake API v1',
+      'source_schema_version' => (string) $payload['schema_version'],
+    ];
 
-    $existing = $this->ingestManager->findRecordBySourceIdentity($sourceId, 'europakozijn_request', $requestId);
-    if ($existing !== NULL) {
-      return $this->response(['record_id' => $existing, 'duplicate' => TRUE], 200);
-    }
+    $intake = $this->intakeManager->intake([
+      'source' => 'website',
+      'source_record_id' => $requestId,
+      'classification' => 'website_project_request',
+      'confidence' => 1.0,
+      'canonical' => [],
+      'payload' => [
+        'request_id' => $requestId,
+        'metadata' => array_filter($metadata, static fn(mixed $value): bool => $value !== ''),
+        'website_request' => [
+          'observed' => $payload['observed'],
+          'detected' => $payload['detected'],
+          'calculated' => $payload['calculated'],
+          'selected' => $payload['selected'],
+        ],
+        'preliminary_scope' => is_array($payload['calculated']['preliminary_scope'] ?? NULL)
+          ? $payload['calculated']['preliminary_scope']
+          : [],
+      ],
+      'attachments' => [],
+      'received_at' => time(),
+      'actor_uid' => 0,
+    ]);
 
-    $sourceHash = hash('sha256', $raw);
-    $runId = $this->ingestManager->startRun(
-      $sourceId,
-      'api_push',
-      'brebo-platform:europakozijn:' . $requestId,
-      $sourceHash,
-      ['schema_version' => (string) $payload['schema_version']],
-    );
-
-    try {
-      $recordId = $this->ingestManager->addRecord(
-        $runId,
-        'europakozijn_request',
-        $payload,
-        $requestId,
-        'brebo-platform:europakozijn:' . $requestId,
-        NULL,
-        'review_required',
-      );
-      $this->ingestManager->finishRun($runId, 'completed', ['record_count' => 1]);
-    }
-    catch (\Throwable $e) {
-      $this->ingestManager->finishRun($runId, 'failed', ['error_count' => 1]);
-      throw $e;
-    }
-
-    return $this->response(['record_id' => $recordId, 'duplicate' => FALSE], 202);
+    $destination = is_array($intake['destination'] ?? NULL) ? $intake['destination'] : [];
+    return $this->response([
+      'intake_id' => $requestId,
+      'request_id' => $requestId,
+      'state' => (string) ($intake['state'] ?? 'review_required'),
+      'reference' => isset($destination['opportunity_id']) ? 'opportunity:' . (int) $destination['opportunity_id'] : NULL,
+      'intake' => $intake,
+    ], 202);
   }
 
   /** @param array<string,mixed> $payload */
