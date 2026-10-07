@@ -7,13 +7,13 @@ namespace Drupal\brebo_contract_control\Service;
 use Drupal\brebo_control\Service\PortfolioEarlyWarningService;
 use Drupal\brebo_control\Service\SupplierScorecardService;
 use Drupal\brebo_procurement_control\Service\ProcurementDecisionIntelligenceService;
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_contract_control\Contract\ManagementControlCenterReadRepositoryInterface;
 
 /** Aggregates finance, contract, supplier and decision control for management. */
 final class ManagementControlCenterService {
 
   public function __construct(
-    private readonly Connection $database,
+    private readonly ManagementControlCenterReadRepositoryInterface $repository,
     private readonly PortfolioEarlyWarningService $portfolioWarnings,
     private readonly SupplierScorecardService $supplierScorecards,
     private readonly ProcurementDecisionIntelligenceService $decisionIntelligence,
@@ -26,39 +26,11 @@ final class ManagementControlCenterService {
     $decisions = $this->decisionIntelligence->analyze();
     $suppliers = $this->supplierScorecards->all();
 
-    $blockedPayments = 0.0;
-    $overdueObligations = 0;
-    $criticalCases = 0;
-    $caseExposure = 0.0;
-
-    if ($this->database->schema()->tableExists('brebo_supplier_invoice')) {
-      $query = $this->database->select('brebo_supplier_invoice', 'i');
-      $query->addExpression('COALESCE(SUM(gross_amount),0)', 'amount');
-      $or = $query->orConditionGroup()
-        ->condition('approval_status', 'approved', '<>')
-        ->condition('match_status', 'matched', '<>');
-      $query->condition($or);
-      $blockedPayments = (float) $query->execute()->fetchField();
-    }
-
-    if ($this->database->schema()->tableExists('brebo_contract_obligation')) {
-      $overdueObligations = (int) $this->database->select('brebo_contract_obligation', 'o')
-        ->condition('status', 'completed', '<>')
-        ->condition('due_at', 0, '>')
-        ->condition('due_at', $now, '<')
-        ->countQuery()->execute()->fetchField();
-    }
-
-    if ($this->database->schema()->tableExists('brebo_controller_case')) {
-      $query = $this->database->select('brebo_controller_case', 'c');
-      $query->addExpression('COUNT(*)', 'case_count');
-      $query->addExpression('COALESCE(SUM(financial_exposure),0)', 'exposure');
-      $query->condition('status', 'concluded', '<>');
-      $query->condition('severity', ['high', 'critical'], 'IN');
-      $row = $query->execute()->fetchAssoc() ?: [];
-      $criticalCases = (int) ($row['case_count'] ?? 0);
-      $caseExposure = (float) ($row['exposure'] ?? 0);
-    }
+    $blockedPayments = $this->repository->blockedPaymentValue();
+    $overdueObligations = $this->repository->overdueObligationCount($now);
+    $caseSummary = $this->repository->criticalControllerCaseSummary();
+    $criticalCases = $caseSummary['case_count'];
+    $caseExposure = $caseSummary['exposure'];
 
     $supplierRisk = array_values(array_filter($suppliers, static fn(array $row): bool => (int) ($row['tco_adjusted_score'] ?? 100) < 65));
 

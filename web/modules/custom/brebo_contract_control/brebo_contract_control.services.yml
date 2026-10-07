@@ -61,10 +61,17 @@ services:
       - '@brebo_contract_control.controller_case_repository'
       - '@brebo_contract_control.payment_anomaly_intelligence'
 
+  brebo_contract_control.management_control_center_read_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseManagementControlCenterReadRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ManagementControlCenterReadRepositoryInterface:
+    alias: brebo_contract_control.management_control_center_read_repository
+
   brebo_contract_control.management_control_center:
     class: Drupal\brebo_contract_control\Service\ManagementControlCenterService
     arguments:
-      - '@database'
+      - '@brebo_contract_control.management_control_center_read_repository'
       - '@brebo_control.portfolio_early_warning'
       - '@brebo_control.supplier_scorecard'
       - '@brebo_procurement_control.decision_intelligence'
