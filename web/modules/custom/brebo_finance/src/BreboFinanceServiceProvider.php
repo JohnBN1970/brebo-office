@@ -32,6 +32,7 @@ final class BreboFinanceServiceProvider extends ServiceProviderBase {
       $container->register('brebo_finance.sepa_pain001_generator', SepaPain001Generator::class)
         ->setArguments([
           new Reference('brebo_finance.payment_batch_manager'),
+          new Reference('brebo_finance.sepa_bank_account_config'),
         ]);
     }
 

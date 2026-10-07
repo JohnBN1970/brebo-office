@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_finance\Service;
 
-use Drupal\Core\Cache\CacheBackendInterface;
+use Drupal\brebo_finance\Contract\BusinessHealthCacheInterface;
 use Drupal\brebo_finance\Contract\BusinessHealthSettingsSourceInterface;
 
 /** Builds company-level financial health and steering information. */
@@ -15,7 +15,7 @@ final class BusinessHealthBuilder {
   public function __construct(
     private readonly BusinessHealthIntegrationClient $client,
     private readonly BusinessHealthSettingsSourceInterface $settingsSource,
-    private readonly CacheBackendInterface $cache,
+    private readonly BusinessHealthCacheInterface $cache,
   ) {}
 
   /** @return array<string, mixed> */
@@ -54,7 +54,7 @@ final class BusinessHealthBuilder {
   private function cachedResult(): ?array {
     try {
       $cached = $this->cache->get(self::CACHE_ID);
-      return $cached && is_array($cached->data) ? $cached->data : NULL;
+      return is_array($cached) ? $cached : NULL;
     }
     catch (\Throwable) {
       return NULL;

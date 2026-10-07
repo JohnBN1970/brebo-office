@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Service;
 
-use Drupal\Core\Site\Settings;
+use Drupal\brebo_office_core\Contract\IntegrationApiRuntimeConfigInterface;
 use GuzzleHttp\ClientInterface;
 use Psr\Log\LoggerInterface;
 
@@ -17,6 +17,7 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
     private readonly ClientInterface $httpClient,
     private readonly LoggerInterface $logger,
     private readonly IntegrationApiRequestSigner $requestSigner,
+    private readonly IntegrationApiRuntimeConfigInterface $runtimeConfig,
   ) {}
 
   public function status(): array {
@@ -209,12 +210,7 @@ final class IntegrationApiClient implements IntegrationApiClientInterface {
 
   /** @return array{base_url: string, shared_secret: string}|null */
   private function getConfiguration(): ?array {
-    $baseUrl = rtrim(trim((string) Settings::get('brebo_integration_api_url', getenv('BREBO_INTEGRATION_API_URL') ?: '')), '/');
-    $sharedSecret = trim((string) Settings::get('brebo_shared_secret', getenv('BREBO_SHARED_SECRET') ?: ''));
-    if ($baseUrl === '' || $sharedSecret === '') {
-      return NULL;
-    }
-    return ['base_url' => $baseUrl, 'shared_secret' => $sharedSecret];
+    return $this->runtimeConfig->configuration();
   }
 
 }

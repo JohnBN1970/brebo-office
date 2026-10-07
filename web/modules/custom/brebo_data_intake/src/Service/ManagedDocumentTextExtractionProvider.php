@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_data_intake\Service;
 
+use Drupal\brebo_data_intake\Contract\DocumentExtractionRuntimeConfigInterface;
 use Drupal\brebo_data_intake\Contract\DocumentTextExtractionProviderInterface;
-use Drupal\Core\Site\Settings;
 use GuzzleHttp\ClientInterface;
 use GuzzleHttp\Exception\GuzzleException;
 
@@ -25,6 +25,7 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
     private readonly ClientInterface $httpClient,
     private readonly string $endpoint = '',
     private readonly string $token = '',
+    private readonly ?DocumentExtractionRuntimeConfigInterface $runtimeConfig = NULL,
   ) {}
 
   public function supports(string $mimeType): bool {
@@ -105,12 +106,7 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
       return trim($this->endpoint);
     }
 
-    $setting = trim((string) Settings::get('brebo_document_extraction_endpoint', ''));
-    if ($setting !== '') {
-      return $setting;
-    }
-
-    return trim((string) (getenv('BREBO_DOCUMENT_EXTRACTION_ENDPOINT') ?: ''));
+    return $this->runtimeConfig?->endpoint() ?? '';
   }
 
   private function configuredToken(): string {
@@ -118,12 +114,7 @@ final class ManagedDocumentTextExtractionProvider implements DocumentTextExtract
       return trim($this->token);
     }
 
-    $setting = trim((string) Settings::get('brebo_document_extraction_token', ''));
-    if ($setting !== '') {
-      return $setting;
-    }
-
-    return trim((string) (getenv('DOCUMENT_EXTRACTION_TOKEN') ?: ''));
+    return $this->runtimeConfig?->token() ?? '';
   }
 
   /**

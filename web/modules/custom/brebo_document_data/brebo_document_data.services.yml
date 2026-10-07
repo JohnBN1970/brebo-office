@@ -1,9 +1,17 @@
 services:
-  brebo_document_data.repository:
-    class: Drupal\brebo_document_data\Service\DocumentRepository
+  brebo_document_data.database_repository:
+    class: Drupal\brebo_document_data\Infrastructure\DatabaseDocumentRepository
     arguments:
       - '@database'
       - '@datetime.time'
+
+  Drupal\brebo_document_data\Contract\DocumentRepositoryInterface:
+    alias: brebo_document_data.database_repository
+
+  brebo_document_data.repository:
+    class: Drupal\brebo_document_data\Service\DocumentRepository
+    arguments:
+      - '@brebo_document_data.database_repository'
 
   brebo_document_data.context_classifier:
     class: Drupal\brebo_document_data\Service\DocumentContextClassifier
