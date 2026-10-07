@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele peildatum: 7 oktober 2026.**
+**Actuele peildatum: 5 oktober 2026.**
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -221,43 +221,9 @@ BREBO Office interne waarheid
 
 ## Project Cockpit en managementsturing
 
-De Project Cockpit is de projectspecifieke operationele stuurlaag. De vaste hoofdstructuur is per 7 oktober 2026:
+De Project Cockpit is een persistente operationele stuurlaag en bevat projectcontext voor onder meer project, planning, geld/cash, inzet, kwaliteit, risico en projectgebonden dossier-/financetabs.
 
-```text
-Overzicht
--> Planning
--> Documenten
--> Begroting
--> Orders
--> Contracten
--> Facturen
--> Inzet
--> Tekortkomingen
--> Oplevering
-```
-
-Vaste semantiek:
-
-- `Gebouwgegevens` is de eenvoudige gebruikersnaam voor de project-/gebouwcontext; projectkoppelingen en contactpersonen horen bij de project-/gebouwrelaties en niet in een los waarheidssilo.
-- `Tekortkomingen` is de gebruikersnaam voor operationele afwijkingen, gebreken, opleverpunten, schade en herstelpunten. Onderliggende kwaliteitsborging/controlelogica mag technisch `quality`/deviation blijven heten.
-- `Orders` verenigt inkomende en uitgaande orders/opdrachten. Inkomend = klantopdracht/verkooporder; uitgaand = inkooporder/opdracht aan leverancier of onderaannemer.
-- `Facturen` verenigt inkomende en uitgaande projectfacturen in één register, met richting-, status- en sorteermogelijkheden. Detailprocessen voor inkoop- en verkoopfacturen blijven daarachter intact.
-- `Bank` hoort niet in Projecten maar in Finance. Project toont hooguit betaalstatus en financiële context.
-- Een project, order, contract of projectverplichting is nooit een kunstmatige voorwaarde om een geldige factuur te verwerken of betalen. Finance kent zowel de order/match-route als de losse-factuurroute.
-- Contracten zijn juridische/contractuele vastlegging; financiële verplichting ontstaat uit de werkelijke order/opdracht of andere geldige grondslag, niet automatisch uit het bestaan van een projectcontract.
-- Met order geldt waar passend de controleketen `order -> prestatie -> factuur -> betaalbaar`; zonder order volgt de losse-factuurroute met classificatie en fiattering.
-
-PR **#748** is op 7 oktober 2026 gemerged als **`df446368a628205a19f7a21e424f60fde8c1f382`**. Deze slag bracht de canonieke opdrachtgever-/contactrelaties, Orders, het uniforme facturenregister, de handmatige uitgaande-orderroute, Tekortkomingen en compatibiliteitsroutes samen. PHP quality gate en Project Render Smoke waren groen vóór merge.
-
-De eerstvolgende Project-slag is functionele afbouw, niet opnieuw architectuur ontwerpen:
-
-1. Planning visueel afronden met project-Gantt, stoplicht/KPI-laag, filters en sortering bovenop de bestaande planningsdata.
-2. Documenten als zelfstandige hoofdmodule houden, met projectspecifieke doorsnede binnen Project; geen tweede documentopslag maken.
-3. Rapporten volgens hetzelfde patroon: centrale rapportmodule, projectspecifieke doorsnede binnen Project.
-4. Orders uitbreiden met een gecontroleerde AI-conceptroute. AI mag uitsluitend een conceptorder voorbereiden; menselijke controle/fiattering blijft vereist vóór definitieve opdracht.
-5. Daarna de resterende projecttabs één voor één functioneel nalopen en Projecten afsluiten voordat Calculatie weer de hoofdprioriteit wordt.
-
-Directie-/portfoliosturing, prognoses, faalkosten, organisatiebrede KPI's en leerpatronen blijven de managementlaag boven de projectspecifieke cockpit.
+Directie-/portfoliosturing, prognoses, faalkosten, organisatiebrede KPI's en leerpatronen blijven de volgende managementlaag.
 
 ## Inzet en personeelssturing
 
@@ -724,13 +690,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - `AdministrationNumberIssuer` gebruikt nu `AdministrationNumberStoreInterface` en `AdministrationNumberLockInterface`; Drupal KeyValue en Lock zitten in Infrastructure.
 - Nummerreeksregels, idempotente owner-check, cursorberekening, immutable receipt-opbouw en nummerformattering blijven in de service.
 
-## Projectafbouw — actuele continuïteit 7 oktober 2026
 
-- Projecten eerst functioneel afmaken; daarna Calculatie.
-- Projectlijst ondersteunt Lijst, Kanban en algemene verzamelplanning; de verzamelplanning is visueel/Gantt-georiënteerd en moet filters en sortering houden.
-- Projectspecificieke Planning gebruikt dezelfde visuele taal, maar met detailactiviteiten, mijlpalen, afhankelijkheden, baseline/voortgang en stoplichtstatus.
-- Documenten blijft een eigen hoofdmenu/module met classificaties, filters en sortering; binnen een project wordt slechts de projectspecifieke doorsnede getoond.
-- Rapporten volgen hetzelfde centrale-module-plus-projectdoorsnedeprincipe.
-- Mail/intake mag niet van ieder bericht automatisch een project maken; projectvorming vereist voldoende context/confidence of menselijke bevestiging.
-- De mailpoort kan pas als operationele instroom worden beschouwd wanneer de ontvangende Office-runtime schoon is en de classificatie-/koppelketen fail-safe staat; presentatie/UX van de buitenkant blijft afzonderlijk af te werken.
-- Branch `feature/project-ai-order-draft` is aangemaakt vanaf actuele `develop` voor de gecontroleerde AI-conceptorderroute. Geen definitieve order mag door AI zelfstandig worden verzonden of vrijgegeven.
+### Repo-brede Drupal-ontkoppeling — Mail Intake queue
+
+- PR #1253 is gemerged als `09c1be70b1eb26f345de1723b78a3406ed75c0a2`: `AdministrationNumberIssuer` gebruikt dedicated store/lock contracts en kent geen Drupal KeyValue/Lock meer.
+- `MailIntakeQueueManager` gebruikt nu `MailIntakeQueueInterface`; Drupal QueueFactory zit in `DrupalMailIntakeQueue`.
+- Bronconfiguratie, backfill-limiet, mode-selectie en pending-thresholdlogica blijven in de service.
