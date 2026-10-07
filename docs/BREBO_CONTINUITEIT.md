@@ -598,3 +598,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1238 is gemerged als `dee15d7be1c372a0dc2ed060c3ac9937a5bb3093`: `ManagementActionEngine` gebruikt uitsluitend `ManagementActionRepositoryInterface` voor action-persistence en reads.
 - Laatste directe `@database`-service in Contract Control: `ManagementControlCenterService`. Blocked-payment-, overdue-obligation- en critical-controller-case-reads lopen via `ManagementControlCenterReadRepositoryInterface` en `DatabaseManagementControlCenterReadRepository`; managementstatus en aggregatielogica blijven in de service.
 - Na merge volgt een repo-brede eindscan op directe Drupal-koppelingen in service/domain code.
+
+
+### Repo-brede Drupal-ontkoppeling — Mail Intake failure store
+
+- PR #1239 is gemerged als `3aa7c48186c058ced05c1129c39c59fff24be022`: Contract Control is service-side vrij van directe `@database`-injecties.
+- Repo-brede eindscan gestart. Eerste resterende servicekoppeling: `MailIntakeFailureRegistry`.
+- Drupal State-opslag loopt nu via `MailIntakeFailureStoreInterface` en `DrupalStateMailIntakeFailureStore`; bounded register, privacy-safe inhoud, sortering en acknowledge-logica blijven in de service.
