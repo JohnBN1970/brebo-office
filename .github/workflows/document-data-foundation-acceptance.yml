@@ -27,13 +27,13 @@ jobs:
       - name: Lint document data PHP
         run: |
           php -l web/modules/custom/brebo_document_data/brebo_document_data.install
-          php -l web/modules/custom/brebo_document_data/src/Service/DocumentRepository.php
+          php -l web/modules/custom/brebo_document_data/src/Infrastructure/DatabaseDocumentRepository.php
       - name: Prove document model invariants
         shell: bash
         run: |
           set -euo pipefail
           install_file='web/modules/custom/brebo_document_data/brebo_document_data.install'
-          repo_file='web/modules/custom/brebo_document_data/src/Service/DocumentRepository.php'
+          repo_file='web/modules/custom/brebo_document_data/src/Infrastructure/DatabaseDocumentRepository.php'
           grep -q "brebo_document_source" "$install_file"
           grep -q "brebo_document_context" "$install_file"
           grep -q "brebo_document_evidence" "$install_file"
