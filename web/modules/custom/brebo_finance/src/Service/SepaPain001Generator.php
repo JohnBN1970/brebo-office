@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Drupal\brebo_finance\Service;
 
 use DOMDocument;
-use Drupal\Core\Site\Settings;
+use Drupal\brebo_finance\Contract\SepaDebtorSettingsInterface;
 use RuntimeException;
 
 /** Generates a SEPA pain.001 fallback from one sealed BREBO payment batch. */
@@ -15,6 +15,7 @@ final class SepaPain001Generator {
 
   public function __construct(
     private readonly PaymentBatchManager $batchManager,
+    private readonly SepaDebtorSettingsInterface $settings,
     ?VatCalculator $decimal = NULL,
   ) {
     $this->decimal = $decimal ?? new VatCalculator();
@@ -29,9 +30,10 @@ final class SepaPain001Generator {
       throw new RuntimeException('A sealed payment batch contains no instructions.');
     }
 
-    $debtorName = trim((string) Settings::get('brebo_bank_account_name', 'BREBO Bouw en Advies BV'));
-    $debtorIban = $this->normaliseIban((string) Settings::get('brebo_bank_iban', ''));
-    $debtorBic = strtoupper(trim((string) Settings::get('brebo_bank_bic', '')));
+    $debtorSettings = $this->settings->debtor();
+    $debtorName = trim((string) $debtorSettings['name']);
+    $debtorIban = $this->normaliseIban((string) $debtorSettings['iban']);
+    $debtorBic = strtoupper(trim((string) $debtorSettings['bic']));
     if ($debtorName === '' || !$this->validIban($debtorIban)) {
       throw new RuntimeException('BREBO bankrekeningconfiguratie is onvolledig; SEPA-export is geblokkeerd.');
     }
