@@ -110,7 +110,14 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
       }
     }
 
-    $directory = 'private://brebo-intake/website-europakozijn/' . $requestId;
+    $sourceId = trim((string) ($metadata['source'] ?? 'brebo-platform.europakozijn'));
+    if (!preg_match('/^brebo-platform\.[a-z0-9._-]+$/', $sourceId)) {
+      return $this->error(422, 'invalid_source');
+    }
+    $metadata['source'] = $sourceId;
+
+    $sourceDirectory = preg_replace('/[^a-z0-9._-]+/', '-', strtolower($sourceId)) ?: 'brebo-platform';
+    $directory = 'private://brebo-intake/' . $sourceDirectory . '/' . $requestId;
     if (!$this->fileSystem->prepareDirectory(
       $directory,
       FileSystemInterface::CREATE_DIRECTORY | FileSystemInterface::MODIFY_PERMISSIONS,
@@ -139,6 +146,7 @@ final class WebsiteEuropakozijnProjectDocumentController extends ControllerBase 
       'canonical' => [],
       'payload' => [
         'request_id' => $requestId,
+        'source' => $sourceId,
         'filename' => $file->getFilename(),
         'file_id' => (int) $file->id(),
         'uri' => $file->getFileUri(),
