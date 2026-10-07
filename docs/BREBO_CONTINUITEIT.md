@@ -645,3 +645,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1246 is gemerged als `6a673c01fcec7c9ab5658c1078c6d32412bb0a68`: `OnSiteDeviceRegistry` gebruikt uitsluitend `OnSiteDeviceStoreInterface` voor durable device credentials.
 - Volgende servicekoppeling: `OnSiteActivationManager`. Expirable Drupal KeyValue-opslag loopt via `OnSiteActivationStoreInterface` en `DrupalOnSiteActivationStore`; tokenuitgifte en single-use activatielogica blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — OnSite OTP boundaries
+
+- PR #1247 is gemerged als `b0ee8a94741e56642a31733c8b71f75d590ba64a`: `OnSiteActivationManager` gebruikt uitsluitend `OnSiteActivationStoreInterface` voor expirable activation storage.
+- `OnSiteOtpManager` gebruikt nu `OnSiteOtpStoreInterface`, `OnSiteOtpRateLimiterInterface` en `OnSiteOtpSecretProviderInterface`; Drupal KeyValue, Flood en PrivateKey zitten in Infrastructure.
+- Securitysemantiek blijft gelijk: 5 requests per 900 seconden, challenge-TTL 600 seconden, maximaal 5 verificatiepogingen en HMAC-SHA256 over challenge-id plus code.
