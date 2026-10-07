@@ -14,4 +14,7 @@ interface CalculationFactStoreInterface {
   /** @param array<string,mixed> $values */
   public function insertTakeoff(array $values): void;
 
+  /** @param array<string,mixed> $values */
+  public function insertComponent(array $values): void;
+
 }

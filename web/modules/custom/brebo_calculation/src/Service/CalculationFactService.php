@@ -18,6 +18,7 @@ final class CalculationFactService {
     $now = $this->store->currentTime();
     $facts = [];
     $takeoff = [];
+    $components = [];
 
     foreach ($quoteLines as $row) {
       $position = trim((string) ($row['position'] ?? ''));
@@ -63,11 +64,45 @@ final class CalculationFactService {
           'created' => $now,
         ]);
         $takeoff[] = compact('position', 'quantity', 'width', 'height', 'area', 'perimeter', 'top', 'bottom', 'left', 'right');
+
+        // Seed a reviewable root component for each geometrically complete
+        // position. This does not invent vak/glas subdivisions: it only
+        // preserves the source position geometry as the parent for later
+        // managed extraction of children.
+        $componentRef = $position . ':frame';
+        $this->store->insertComponent([
+          'set_id' => $setId,
+          'document_id' => $documentId,
+          'position_ref' => $position,
+          'component_ref' => $componentRef,
+          'parent_component_ref' => NULL,
+          'component_type' => 'frame',
+          'classification_ref' => NULL,
+          'description' => $description !== '' ? mb_substr($description, 0, 255) : NULL,
+          'quantity' => $quantity > 0 ? $quantity : 1,
+          'width_mm' => $width,
+          'height_mm' => $height,
+          'area_m2' => $area * max(1.0, $quantity),
+          'perimeter_m' => $perimeter * max(1.0, $quantity),
+          'source_page' => $page,
+          'source_fragment' => $description !== '' ? $description : NULL,
+          'extraction_method' => 'supplier_quote_normalizer',
+          'confidence' => 0.92,
+          'review_status' => 'proposed',
+          'created' => $now,
+        ]);
+        $components[] = $componentRef;
       }
       $facts[] = $position;
     }
 
-    return ['positions' => count($facts), 'takeoff_rows' => count($takeoff), 'takeoff' => $takeoff];
+    return [
+      'positions' => count($facts),
+      'takeoff_rows' => count($takeoff),
+      'component_rows' => count($components),
+      'takeoff' => $takeoff,
+      'components' => $components,
+    ];
   }
 
   /** @return array{0:?float,1:?float} */
