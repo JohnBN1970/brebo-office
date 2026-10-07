@@ -8,7 +8,6 @@ use Drupal\Core\Access\CsrfTokenGenerator;
 use Drupal\Core\Controller\ControllerBase;
 use Drupal\brebo_office_core\Service\AdministrationAccessManager;
 use Drupal\brebo_office_core\Service\OnboardingTourManager;
-use Drupal\user\Entity\User;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
@@ -51,7 +50,7 @@ final class OnboardingTourController extends ControllerBase {
       return new JsonResponse(['ok' => FALSE, 'error' => 'missing_tour'], 400);
     }
 
-    $user =     match ($action) {
+    match ($action) {
       'start' => $this->tours->start((int) $this->currentUser()->id(), $tourId, $step),
       'advance' => $this->tours->advance((int) $this->currentUser()->id(), $tourId, $step),
       'complete' => $this->tours->complete((int) $this->currentUser()->id(), $tourId),
@@ -60,7 +59,7 @@ final class OnboardingTourController extends ControllerBase {
     };
 
     if ($tourId === 'welcome_core' && $action === 'complete') {
-      $this->access->completeOnboarding($user, (int) $this->currentUser()->id());
+      $this->access->completeOnboarding((int) $this->currentUser()->id(), (int) $this->currentUser()->id());
     }
 
     return new JsonResponse([

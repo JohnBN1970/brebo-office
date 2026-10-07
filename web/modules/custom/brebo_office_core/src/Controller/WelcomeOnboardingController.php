@@ -9,7 +9,6 @@ use Drupal\Core\Controller\ControllerBase;
 use Drupal\Core\Url;
 use Drupal\brebo_office_core\Service\AdministrationAccessManager;
 use Drupal\brebo_office_core\Service\OnboardingTourManager;
-use Drupal\user\Entity\User;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -34,11 +33,7 @@ final class WelcomeOnboardingController extends ControllerBase {
     if ($this->currentUser()->isAnonymous()) {
       throw new AccessDeniedHttpException();
     }
-    $user = User::load((int) $this->currentUser()->id());
-    if ($user === NULL) {
-      throw new AccessDeniedHttpException();
-    }
-    $administrations = $this->access->availableAdministrations($user);
+    $administrations = $this->access->availableAdministrations((int) $this->currentUser()->id());
     if ($administrations === []) {
       return [
         '#type' => 'container',
@@ -50,7 +45,7 @@ final class WelcomeOnboardingController extends ControllerBase {
 
     $names = array_map(static fn(array $a): string => (string) ($a['trade_name'] ?? $a['legal_name'] ?? $a['code'] ?? 'Administratie'), $administrations);
     $tourId = 'welcome_core';
-    $state = $this->tours->state((int) $user->id(), $tourId);
+    $state = $this->tours->state((int) $this->currentUser()->id(), $tourId);
     $progressUrl = Url::fromRoute('brebo_office_core.onboarding_tour_progress', [], [
       'query' => ['token' => $this->csrf->get('brebo_guided_tour')],
     ])->toString();

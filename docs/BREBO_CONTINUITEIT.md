@@ -674,3 +674,11 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1250 is gemerged als `4ee085f0dd983de5c92a18e3f7907420127e5f2e`: administratie- en documentcontextservices werken met scalar ids en contracts in plaats van `NodeInterface`.
 - `OnboardingTourManager` gebruikt nu `OnboardingTourStoreInterface`; Drupal KeyValue en user-entitydetails blijven in Infrastructure/controllers.
 - De tourservice-API gebruikt uitsluitend `userId`, `tourId`, status en step.
+
+
+### Repo-brede Drupal-ontkoppeling — Administration access
+
+- PR #1251 is gemerged als `b8ff5763c7e4d295b275322d9ae44cc58fbda6a9`: `OnboardingTourManager` gebruikt uitsluitend `OnboardingTourStoreInterface`.
+- `AdministrationAccessManager` gebruikt nu `AdministrationAccessStoreInterface`; Drupal KeyValue en user-entitydetails blijven in Infrastructure/controllers/forms.
+- De access-service-API gebruikt uitsluitend scalar `userId`, administratiecode, rollen en status.
+- Tijdens de callercontrole is de resterende onnodige `$user = match (...)`-toewijzing in `OnboardingTourController` gecorrigeerd.
