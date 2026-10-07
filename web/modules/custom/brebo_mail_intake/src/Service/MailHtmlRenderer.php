@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_mail_intake\Service;
 
-use Drupal\Component\Utility\Xss;
+use Drupal\brebo_mail_intake\Contract\MailHtmlSanitizerInterface;
 
 /** Renders approved content into the controlled BREBO HTML mail shell. */
 final class MailHtmlRenderer {
+
+  public function __construct(private readonly MailHtmlSanitizerInterface $sanitizer) {}
 
   /**
    * @param array{name?:string,roles?:string,company?:string,email?:string,phone?:string,address?:string} $signature
@@ -22,7 +24,7 @@ final class MailHtmlRenderer {
 
     $safeSubject = htmlspecialchars($subject, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $safeBody = $bodyHtml !== ''
-      ? Xss::filter($bodyHtml, [
+      ? $this->sanitizer->sanitize($bodyHtml, [
         'a', 'b', 'blockquote', 'br', 'code', 'em', 'h2', 'h3', 'h4',
         'hr', 'i', 'li', 'ol', 'p', 'pre', 'strong', 'u', 'ul',
       ])
