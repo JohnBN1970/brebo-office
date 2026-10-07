@@ -555,3 +555,9 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 
 - PR #1231 is gemerged als `988e6d2c084d1f473b52bc062dc5121bab753bfb`: `ContractMonitoringService` gebruikt uitsluitend `ContractMonitoringRepositoryInterface` voor award-, obligation- en deviation-persistence/reads.
 - Volgende lineaire slice: `ManagementActionSourceResolver`. Action-, controller-case-, blocked-invoice- en overdue-obligation-reads lopen via `ManagementActionSourceReadRepositoryInterface` en `DatabaseManagementActionSourceReadRepository`; source-type routing en contextinterpretatie blijven in de resolver.
+
+
+### Closed-loop isolatie
+
+- PR #1232 is gemerged als `95b2544d42b67b0fe74b221e7be16144fabeac32`: `ManagementActionSourceResolver` gebruikt uitsluitend `ManagementActionSourceReadRepositoryInterface` voor action- en operationele bronreads.
+- Volgende lineaire slice: `ClosedLoopControlService`. Reads van resolved managementacties en action-updates lopen via `ClosedLoopControlRepositoryInterface` en `DatabaseClosedLoopControlRepository`; verificatielogica, signaaldrempels en reopen-termijnen blijven in de service.
