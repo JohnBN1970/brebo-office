@@ -69,10 +69,17 @@ services:
       - '@brebo_control.supplier_scorecard'
       - '@brebo_procurement_control.decision_intelligence'
 
+  brebo_contract_control.management_action_repository:
+    class: Drupal\brebo_contract_control\Infrastructure\DatabaseManagementActionRepository
+    arguments: ['@database']
+
+  Drupal\brebo_contract_control\Contract\ManagementActionRepositoryInterface:
+    alias: brebo_contract_control.management_action_repository
+
   brebo_contract_control.management_actions:
     class: Drupal\brebo_contract_control\Service\ManagementActionEngine
     arguments:
-      - '@database'
+      - '@brebo_contract_control.management_action_repository'
       - '@brebo_contract_control.management_control_center'
 
   brebo_contract_control.management_action_source_read_repository:
