@@ -6,7 +6,6 @@ namespace Drupal\brebo_finance\Service;
 
 use Drupal\brebo_finance\Contract\FinancialCommandCenterRepositoryInterface;
 use Drupal\brebo_finance\Contract\ProjectReferenceGatewayInterface;
-use Drupal\Core\Session\AccountInterface;
 
 /** Builds a management-wide financial command center from verified sources. */
 final class FinancialCommandCenter {
@@ -25,8 +24,8 @@ final class FinancialCommandCenter {
    *
    * @return array<string, mixed>
    */
-  public function dashboard(AccountInterface $account): array {
-    $projectIds = $this->projects->viewableIds((int) $account->id());
+  public function dashboard(int $actorUid): array {
+    $projectIds = $this->projects->viewableIds($actorUid);
     $portfolio = $this->repository->portfolio($projectIds);
 
     $decisions = [];
@@ -34,7 +33,7 @@ final class FinancialCommandCenter {
     $priority = ['now' => 0, 'today' => 0, 'this_week' => 0];
     foreach ($this->decisionInbox->pending() as $decision) {
       if (!in_array((int) ($decision['project_nid'] ?? 0), $projectIds, TRUE)) continue;
-      $canAct = $this->assignmentResolver->canAct((int) $account->id(), (string) $decision['gate'], (string) $decision['authorization']['level']);
+      $canAct = $this->assignmentResolver->canAct($actorUid, (string) $decision['gate'], (string) $decision['authorization']['level']);
       if (!$canAct['authorized']) continue;
       $band = (string) ($decision['priority']['band'] ?? 'this_week');
       if (isset($priority[$band])) $priority[$band]++;
@@ -59,8 +58,8 @@ final class FinancialCommandCenter {
   }
 
   /** @return array<string, mixed> */
-  public function build(AccountInterface $account): array {
-    $projectIds = $this->projects->viewableIds((int) $account->id());
+  public function build(int $actorUid): array {
+    $projectIds = $this->projects->viewableIds($actorUid);
     $portfolio = [
       'project_count' => 0,
       'billable_not_invoiced_ex_vat' => 0.0,
@@ -109,7 +108,7 @@ final class FinancialCommandCenter {
     $decisionExposure = 0.0;
     $priority = ['now' => 0, 'today' => 0, 'this_week' => 0];
     foreach ($this->decisionInbox->pending() as $decision) {
-      $canAct = $this->assignmentResolver->canAct((int) $account->id(), (string) $decision['gate'], (string) $decision['authorization']['level']);
+      $canAct = $this->assignmentResolver->canAct($actorUid, (string) $decision['gate'], (string) $decision['authorization']['level']);
       if (!$canAct['authorized']) continue;
       $band = (string) ($decision['priority']['band'] ?? 'this_week');
       if (isset($priority[$band])) $priority[$band]++;
