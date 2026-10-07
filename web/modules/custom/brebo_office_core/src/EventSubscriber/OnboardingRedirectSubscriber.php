@@ -8,7 +8,6 @@ use Drupal\Core\Routing\TrustedRedirectResponse;
 use Drupal\Core\Session\AccountProxyInterface;
 use Drupal\Core\Url;
 use Drupal\brebo_office_core\Service\AdministrationAccessManager;
-use Drupal\user\Entity\User;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\RequestEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -38,11 +37,11 @@ final class OnboardingRedirectSubscriber implements EventSubscriberInterface {
       return;
     }
 
-    $user = User::load((int) $this->currentUser->id());
-    if ($user === NULL || !$this->access->onboardingRequired($user)) {
+    $userId = (int) $this->currentUser->id();
+    if (!$this->access->onboardingRequired($userId)) {
       return;
     }
-    if ($this->access->availableAdministrations($user) === []) {
+    if ($this->access->availableAdministrations($userId) === []) {
       return;
     }
 
