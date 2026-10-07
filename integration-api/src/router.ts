@@ -2,6 +2,7 @@ import core from "./index";
 import { documentExtraction, type ExtractionEnv } from "./document-extraction";
 import { orderDraft } from "./order-draft";
 import { publicProjects } from "./public-projects";
+import { publicEuropakozijnIntake } from "./public-intake";
 
 const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
 
@@ -15,6 +16,10 @@ export default {
 
     if (url.pathname === "/v1/orders/draft") {
       return orderDraft(request, env);
+    }
+
+    if (url.pathname === "/v1/intake/europakozijn") {
+      return publicEuropakozijnIntake(request, env);
     }
 
     if (url.pathname === "/v1/public/projects") {
