@@ -27,7 +27,7 @@ final class BusinessHealthSettingsForm extends ConfigFormBase {
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('config.factory'),
-      new BusinessHealthIntegrationClient($container->get('http_client')),
+      $container->get('brebo_finance.business_health_integration_client'),
       $container->get('cache_tags.invalidator'),
     );
   }
