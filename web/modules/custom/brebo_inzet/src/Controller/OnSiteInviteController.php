@@ -22,7 +22,7 @@ final class OnSiteInviteController extends ControllerBase {
 
   public function page(UserInterface $user): array {
     try {
-      $invitation = $this->invitationManager->invite($user);
+      $invitation = $this->invitationManager->invite((int) $user->id());
     }
     catch (\Throwable $e) {
       return [

@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_inzet\Service;
 
-use Drupal\Core\Url;
-use Drupal\user\UserInterface;
+use Drupal\brebo_inzet\Contract\OnSiteInstallLinkBuilderInterface;
 
 /**
  * Creates the personal OnSite installation invitation for an Office user.
@@ -15,34 +14,26 @@ final class OnSiteInvitationManager {
   public function __construct(
     private readonly OnSiteIdentityResolver $identityResolver,
     private readonly OnSiteActivationManager $activationManager,
+    private readonly OnSiteInstallLinkBuilderInterface $installLinkBuilder,
   ) {}
 
   /**
    * @return array{mobile: string, install_url: string, language: string}
    */
-  public function invite(UserInterface $user): array {
-    if (!$user->isActive()) {
-      throw new \InvalidArgumentException('Alleen actieve gebruikers kunnen voor OnSite worden uitgenodigd.');
-    }
-    if (!$user->hasField('field_brebo_mobile')) {
-      throw new \RuntimeException('Gebruiker heeft geen OnSite mobiel veld.');
+  public function invite(int $uid): array {
+    $identity = $this->identityResolver->resolveByUid($uid);
+    if ($identity === NULL) {
+      throw new \InvalidArgumentException('Alleen actieve gebruikers met een geldig OnSite mobiel nummer kunnen worden uitgenodigd.');
     }
 
-    $mobile = $this->identityResolver->normalizeMobile((string) $user->get('field_brebo_mobile')->value);
+    $mobile = $this->identityResolver->normalizeMobile((string) $identity['mobile']);
     if ($mobile === '') {
       throw new \InvalidArgumentException('Gebruiker heeft geen geldig mobiel nummer.');
     }
 
-    $identity = $this->identityResolver->resolveByUid((int) $user->id());
-    $language = $identity['language'] ?? 'nl';
-    $activationToken = $this->activationManager->issue((int) $user->id());
-    $installUrl = Url::fromRoute('brebo_inzet.onsite_install', [], [
-      'absolute' => TRUE,
-      'query' => [
-        'lang' => $language,
-        'activation' => $activationToken,
-      ],
-    ])->toString();
+    $language = (string) ($identity['language'] ?? 'nl');
+    $activationToken = $this->activationManager->issue($uid);
+    $installUrl = $this->installLinkBuilder->build($language, $activationToken);
 
     return [
       'mobile' => $mobile,
