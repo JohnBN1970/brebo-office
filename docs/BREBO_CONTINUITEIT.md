@@ -741,3 +741,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1253 is gemerged als `09c1be70b1eb26f345de1723b78a3406ed75c0a2`: `AdministrationNumberIssuer` gebruikt dedicated store/lock contracts en kent geen Drupal KeyValue/Lock meer.
 - `MailIntakeQueueManager` gebruikt nu `MailIntakeQueueInterface`; Drupal QueueFactory zit in `DrupalMailIntakeQueue`.
 - Bronconfiguratie, backfill-limiet, mode-selectie en pending-thresholdlogica blijven in de service.
+
+
+### Repo-brede Drupal-ontkoppeling — Glass exporter actor boundary
+
+- PR #1256 is gemerged als `459ef817d2df34a675d82722bc4188db1b140214`: `MailIntakeQueueManager` gebruikt uitsluitend `MailIntakeQueueInterface`.
+- `GlassCalculationExporter` accepteert nu uitsluitend scalar `actorId` en kent geen Drupal `AccountInterface` meer.
+- Hiermee is tegelijk de bestaande type-inconsistentie hersteld: `CalculationObjectLineWriter::write()` verwacht al een `int $actorId`, en ontvangt nu ook daadwerkelijk een int.
