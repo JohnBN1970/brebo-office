@@ -748,3 +748,10 @@ Bij iedere betekenisvolle bouwstap moet dit bestand daadwerkelijk worden bijgewe
 - PR #1256 is gemerged als `459ef817d2df34a675d82722bc4188db1b140214`: `MailIntakeQueueManager` gebruikt uitsluitend `MailIntakeQueueInterface`.
 - `GlassCalculationExporter` accepteert nu uitsluitend scalar `actorId` en kent geen Drupal `AccountInterface` meer.
 - Hiermee is tegelijk de bestaande type-inconsistentie hersteld: `CalculationObjectLineWriter::write()` verwacht al een `int $actorId`, en ontvangt nu ook daadwerkelijk een int.
+
+
+### Repo-brede Drupal-ontkoppeling — Sandbox reset gateway
+
+- PR #1257 is gemerged als `65a1bb71b99537a9c4ad39b6ece96bfec1a49e2e`: `GlassCalculationExporter` gebruikt uitsluitend scalar `actorId`.
+- `SandboxResetManager` gebruikt nu alleen `SandboxResetGatewayInterface`; database, entities, field metadata, State en Queue zitten in `DrupalSandboxResetGateway`.
+- Scopevalidatie, preview/reset-flow en resetroute-orchestratie blijven in de service.
