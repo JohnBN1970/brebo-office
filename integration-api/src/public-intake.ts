@@ -57,7 +57,22 @@ export async function publicEuropakozijnIntake(request: Request, env: Env): Prom
   }
 
   const responseBody = await response.text();
-  if (!response.ok) return error(502, "office_rejected_request");
+  if (!response.ok) {
+    let officeCode = "unknown";
+    try {
+      const decoded = JSON.parse(responseBody) as { error?: { code?: unknown } };
+      if (typeof decoded?.error?.code === "string" && /^[a-z0-9_]{1,80}$/.test(decoded.error.code)) {
+        officeCode = decoded.error.code;
+      }
+    } catch {
+      // Do not expose arbitrary upstream response bodies.
+    }
+    console.error(JSON.stringify({ event: "public_intake_office_rejected", office_status: response.status, office_code: officeCode }));
+    return Response.json(
+      { status: "error", error: { code: "office_rejected_request", upstream_status: response.status, upstream_code: officeCode } },
+      { status: 502, headers: publicHeaders() },
+    );
+  }
 
   try {
     const decoded = JSON.parse(responseBody);
