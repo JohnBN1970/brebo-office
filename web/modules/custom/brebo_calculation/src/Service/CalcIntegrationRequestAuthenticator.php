@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Cache\CacheBackendInterface;
-use Drupal\Core\Site\Settings;
+use Drupal\brebo_calculation\Contract\CalcIntegrationRuntimeInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 
@@ -13,11 +12,11 @@ use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 final class CalcIntegrationRequestAuthenticator {
 
   public function __construct(
-    private readonly CacheBackendInterface $cache,
+    private readonly CalcIntegrationRuntimeInterface $runtime,
   ) {}
 
   public function assertSigned(Request $request, string $body = ''): void {
-    $secret = trim((string) getenv('BREBO_CALC_SHARED_SECRET') ?: Settings::get('brebo_calc_shared_secret', ''));
+    $secret = $this->runtime->sharedSecret();
     $timestamp = trim((string) $request->headers->get('X-BREBO-Timestamp', ''));
     $requestId = trim((string) $request->headers->get('X-BREBO-Request-Id', ''));
     $signature = trim((string) $request->headers->get('X-BREBO-Signature', ''));
@@ -32,7 +31,7 @@ final class CalcIntegrationRequestAuthenticator {
     }
 
     $replayKey = 'brebo_calc_v2_request:' . hash('sha256', $requestId);
-    if ($this->cache->get($replayKey)) {
+    if ($this->runtime->has($replayKey)) {
       throw new AccessDeniedHttpException('Replayed request.');
     }
 
@@ -46,7 +45,7 @@ final class CalcIntegrationRequestAuthenticator {
       throw new AccessDeniedHttpException('Invalid signature.');
     }
 
-    $this->cache->set($replayKey, TRUE, $now + 600);
+    $this->runtime->remember($replayKey, $now + 600);
   }
 
   public function claimLaunchNonce(string $nonce, int $expiresAt): void {
@@ -56,11 +55,11 @@ final class CalcIntegrationRequestAuthenticator {
     }
 
     $key = 'brebo_calc_launch_nonce:' . hash('sha256', strtolower($nonce));
-    if ($this->cache->get($key)) {
+    if ($this->runtime->has($key)) {
       throw new AccessDeniedHttpException('Launch token already consumed.');
     }
 
-    $this->cache->set($key, TRUE, $expiresAt + 60);
+    $this->runtime->remember($key, $expiresAt + 60);
   }
 
 }
