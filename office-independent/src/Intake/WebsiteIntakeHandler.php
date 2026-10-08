@@ -4,9 +4,6 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
-use PDO;
-use RuntimeException;
-
 /** Coordinates validated website intake without any Drupal service dependency. */
 final class WebsiteIntakeHandler {
 
