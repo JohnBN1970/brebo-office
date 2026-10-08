@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_calculation\Service;
 
-use Drupal\Core\Database\Connection;
+use Drupal\brebo_calculation\Contract\CalcResultSnapshotRepositoryInterface;
 
 /**
  * Stores immutable results produced by the external Calc engine.
  */
 final class CalcResultSnapshotService {
 
-  public function __construct(private readonly Connection $database) {}
+  public function __construct(private readonly CalcResultSnapshotRepositoryInterface $repository) {}
 
   /** @param array<string,mixed> $payload */
   public function publish(int $calculationId, array $payload, int $actorId): array {
@@ -83,33 +83,7 @@ final class CalcResultSnapshotService {
     $json = json_encode($canonical, JSON_THROW_ON_ERROR | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     $hash = hash('sha256', $json);
 
-    $existing = $this->database->select('brebo_calculation_calc_result_snapshot', 's')
-      ->fields('s', ['id', 'published_at'])
-      ->condition('calculation_id', $calculationId)
-      ->condition('content_hash', $hash)
-      ->execute()
-      ->fetchAssoc();
-    if ($existing) {
-      return ['snapshot_id' => (int) $existing['id'], 'content_hash' => $hash, 'created' => FALSE];
-    }
-
-    $publishedAt = time();
-    $id = $this->database->insert('brebo_calculation_calc_result_snapshot')
-      ->fields([
-        'calculation_id' => $calculationId,
-        'office_version' => $officeVersion,
-        'calc_version' => $calcVersion,
-        'content_hash' => $hash,
-        'direct_cost' => $canonical['commercial_summary']['purchase'],
-        'markup_amount' => $canonical['commercial_summary']['margin'],
-        'sales_price' => $canonical['commercial_summary']['sales'],
-        'payload_json' => $json,
-        'published_by' => $actorId,
-        'published_at' => $publishedAt,
-      ])
-      ->execute();
-
-    return ['snapshot_id' => (int) $id, 'content_hash' => $hash, 'created' => TRUE, 'published_at' => $publishedAt];
+    return $this->repository->publish($calculationId, $officeVersion, $calcVersion, $canonical, $json, $hash, $actorId);
   }
 
   public function latestReadModel(int $calculationId): ?array {
@@ -161,23 +135,7 @@ final class CalcResultSnapshotService {
   }
 
   public function latest(int $calculationId): ?array {
-    $row = $this->database->select('brebo_calculation_calc_result_snapshot', 's')
-      ->fields('s')
-      ->condition('calculation_id', $calculationId)
-      ->orderBy('published_at', 'DESC')
-      ->orderBy('id', 'DESC')
-      ->range(0, 1)
-      ->execute()
-      ->fetchAssoc();
-    if (!$row) return NULL;
-    $payload = json_decode((string) $row['payload_json'], TRUE, 512, JSON_THROW_ON_ERROR);
-    return [
-      'snapshot_id' => (int) $row['id'],
-      'content_hash' => (string) $row['content_hash'],
-      'published_by' => (int) $row['published_by'],
-      'published_at' => (int) $row['published_at'],
-      'payload' => $payload,
-    ];
+    return $this->repository->latest($calculationId);
   }
 
 }
