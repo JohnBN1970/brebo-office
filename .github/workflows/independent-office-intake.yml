@@ -1,0 +1,19 @@
+name: Independent Office intake validation
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - '.github/workflows/independent-office-intake.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: |
+          find office-independent -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run standalone intake validator tests
+        run: php office-independent/tests/WebsiteIntakeValidatorTest.php
