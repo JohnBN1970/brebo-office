@@ -31,6 +31,9 @@ final class WebsiteIntakeStore {
         request_id CHAR(36) NOT NULL UNIQUE,
         title VARCHAR(255) NOT NULL,
         stage VARCHAR(40) NOT NULL,
+        lead_source VARCHAR(80) NOT NULL,
+        acquisition_channel VARCHAR(80) NOT NULL,
+        requirement_text TEXT NOT NULL,
         requires_review TINYINT(1) NOT NULL DEFAULT 1,
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_office_website_opportunity_intake
@@ -83,11 +86,18 @@ final class WebsiteIntakeStore {
       }
 
       $title = sprintf('Europakozijn - aanvraag [%s]', substr($requestId, 0, 8));
+      $metadata = is_array($payload['selected'] ?? null) ? $payload['selected'] : [];
+      $building = is_array($payload['observed']['building'] ?? null) ? $payload['observed']['building'] : [];
+      $projectName = trim((string) ($metadata['project_name'] ?? $payload['observed']['project_name'] ?? ''));
+      $address = trim((string) ($building['address'] ?? $building['formatted_address'] ?? ''));
+      $label = $projectName !== '' ? $projectName : ($address !== '' ? $address : 'Nieuwe aanvraag');
+      $requirement = mb_substr('Websiteproject: ' . $label, 0, 10000);
       $create = $this->db->prepare(
-        "INSERT INTO office_website_opportunity (request_id, title, stage, requires_review)
-         VALUES (:id, :title, 'Lead', 1)"
+        "INSERT INTO office_website_opportunity
+          (request_id, title, stage, lead_source, acquisition_channel, requirement_text, requires_review)
+         VALUES (:id, :title, 'Lead', 'Website - Europakozijn', 'Portaal', :requirement, 1)"
       );
-      $create->execute(['id' => $requestId, 'title' => $title]);
+      $create->execute(['id' => $requestId, 'title' => $title, 'requirement' => $requirement]);
       $opportunityId = (int) $this->db->lastInsertId();
       $this->db->commit();
       return ['opportunity_id' => $opportunityId, 'duplicate' => false, 'state' => 'review_required'];
