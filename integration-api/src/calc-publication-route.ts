@@ -10,10 +10,10 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   const path = new URL(request.url).pathname;
   const match = PATH.exec(path);
   if (!match) return error(404, "not_found");
-  if (request.method !== "POST") return error(405, "method_not_allowed");
-  if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") return error(415, "unsupported_media_type");
+  if (request.method !== "POST" && request.method !== "GET") return error(405, "method_not_allowed");
+  if (request.method === "POST" && request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") return error(415, "unsupported_media_type");
   const maxBytes = 32768;
-  const buffer = await request.arrayBuffer();
+  const buffer = request.method === "GET" ? new ArrayBuffer(0) : await request.arrayBuffer();
   if (buffer.byteLength > maxBytes) return error(413, "payload_too_large");
   const body = new TextDecoder().decode(buffer);
   const requestId = request.headers.get("X-BREBO-Request-Id") ?? "";
@@ -21,9 +21,17 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   const signature = SIGNATURE.exec(request.headers.get("X-BREBO-Signature") ?? "")?.[1];
   const timestamp = Number(timestampText);
   if (!UUID.test(requestId) || !signature || !Number.isSafeInteger(timestamp) || timestamp <= 0 || Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 300) return error(401, "invalid_signature");
-  const canonical = ["POST", path, await sha256Hex(body), timestampText, requestId].join("\n");
+  const canonical = [request.method, path, await sha256Hex(body), timestampText, requestId].join("\n");
   const expected = await hmacSha256Hex(env.BREBO_SHARED_SECRET, canonical);
   if (!(await fixedTimeEqual(signature, expected))) return error(401, "invalid_signature");
+
+  const calculationId = Number(match[1]);
+  if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
+  if (request.method === "GET") {
+    const latest = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest();
+    if (!latest) return error(404, "snapshot_not_found");
+    return Response.json({ ok: true, calculation_id: calculationId, ...latest }, { headers: { "Cache-Control": "no-store" } });
+  }
 
   let raw: unknown;
   try { raw = JSON.parse(body); } catch { return error(400, "invalid_json"); }
@@ -31,9 +39,6 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   try { publication = parseCalcPublication(raw); } catch { return error(400, "invalid_publication"); }
   const actorId = raw && typeof raw === "object" && "actor_id" in raw ? Number(raw.actor_id) : NaN;
   if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");
-  const calculationId = Number(match[1]);
-  if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
-
   const replayHash = await sha256Hex(requestId);
   const replay = env.REPLAY_GUARD.getByName(replayHash.slice(0, 2));
   const now = Math.floor(Date.now() / 1000);
