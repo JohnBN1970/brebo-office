@@ -38,6 +38,15 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
       return $this->error(422, 'invalid_payload');
     }
 
+    // A public caller may propose a profile, but cannot authorize its use.
+    // The approved product scope is held in Office runtime configuration.
+    $configuration = $payload['configuration'];
+    $approvedProducts = Settings::get('kozijn_public_approved_products');
+    $system = $configuration['system'] ?? NULL;
+    if (!is_array($approvedProducts) || !is_string($system) || !in_array($system, $approvedProducts, TRUE)) {
+      return $this->indicationUnavailable('product_not_approved');
+    }
+
     // Commercial policy is Office-owned and fail-closed. A public amount may
     // only leave Office after an explicit commercial policy is configured.
     $policy = Settings::get('kozijn_public_price_policy');
