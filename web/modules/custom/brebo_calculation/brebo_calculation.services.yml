@@ -303,6 +303,7 @@ services:
     class: Drupal\brebo_calculation\Service\SubcalculationManager
     arguments:
       - '@brebo_calculation.subcalculation_repository'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.object_exception_line_repository:
     class: Drupal\brebo_calculation\Infrastructure\DatabaseObjectExceptionLineRepository
