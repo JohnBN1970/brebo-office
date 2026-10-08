@@ -19,7 +19,7 @@ foreach (WebsiteIntakeStore::schema() as $statement) {
 }
 $store = new WebsiteIntakeStore($db);
 $id = 'bbbbbbbb-1111-4111-8111-111111111111';
-$payload = ['request_id' => $id, 'source' => 'website', 'observed' => ['building' => []]];
+$payload = ['request_id' => $id, 'source' => 'website', 'observed' => ['building' => []], 'calculated' => ['preliminary_scope' => ['summary' => 'Test kozijnen', 'items' => [['reference' => 'K1']]]]]];
 try {
   $first = $store->accept($id, 'website', $payload);
   $second = $store->accept($id, 'website', $payload);
@@ -39,6 +39,15 @@ try {
   $count->execute([$id]);
   if ((int) $count->fetchColumn() !== 1) {
     throw new RuntimeException('Expected exactly one opportunity.');
+  }
+  $scopeQuery = $db->prepare('SELECT preliminary_scope_json, lead_source, acquisition_channel FROM office_website_opportunity WHERE request_id = ?');
+  $scopeQuery->execute([$id]);
+  $stored = $scopeQuery->fetch(PDO::FETCH_ASSOC);
+  $scope = json_decode($stored['preliminary_scope_json'], true, 512, JSON_THROW_ON_ERROR);
+  if (($scope['items'][0]['reference'] ?? null) !== 'K1'
+    || $stored['lead_source'] !== 'Website - Europakozijn'
+    || $stored['acquisition_channel'] !== 'Portaal') {
+    throw new RuntimeException('CRM context or preliminary scope was not retained.');
   }
   echo "Database intake integration checks passed.\n";
 }
