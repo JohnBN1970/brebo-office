@@ -49,8 +49,8 @@ final class WebsiteIntakeStore {
     if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $requestId)) {
       throw new RuntimeException('Invalid website intake request ID.');
     }
-    if ($source === '') {
-      throw new RuntimeException('Missing website intake source.');
+    if ($source === '' || strlen($source) > 80) {
+      throw new RuntimeException('Invalid website intake source.');
     }
 
     $encoded = json_encode($payload, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
@@ -62,6 +62,15 @@ final class WebsiteIntakeStore {
          ON DUPLICATE KEY UPDATE request_id = request_id"
       );
       $insert->execute(['id' => $requestId, 'source' => $source, 'payload' => $encoded]);
+
+      $identity = $this->db->prepare(
+        'SELECT source, payload_json FROM office_website_intake WHERE request_id = :id FOR UPDATE'
+      );
+      $identity->execute(['id' => $requestId]);
+      $stored = $identity->fetch(PDO::FETCH_ASSOC);
+      if (!$stored || $stored['source'] !== $source || $stored['payload_json'] !== $encoded) {
+        throw new RuntimeException('Conflicting payload for existing website intake request ID.');
+      }
 
       $lookup = $this->db->prepare(
         'SELECT id FROM office_website_opportunity WHERE request_id = :id'
