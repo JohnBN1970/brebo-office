@@ -37,3 +37,5 @@ export default {
 } satisfies ExportedHandler<ExtractionEnv>;
 
 export { ReplayGuard, UsageGuard, SalesInvoiceDispatchGuard } from "./index";
+
+export { CalcPublicationStore } from "./calc-publication-store";
