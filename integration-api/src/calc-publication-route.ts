@@ -1,0 +1,52 @@
+import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
+import { parseCalcPublication } from "./calc-publication";
+
+const PATH = /^\/api\/workbench\/v2\/calculations\/([1-9][0-9]*)\/calc-results$/;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const SIGNATURE = /^v1=([a-f0-9]{64})$/;
+
+/** HMAC-authenticated standalone Office publication endpoint. */
+export async function calcPublication(request: Request, env: Env): Promise<Response> {
+  const path = new URL(request.url).pathname;
+  const match = PATH.exec(path);
+  if (!match) return error(404, "not_found");
+  if (request.method !== "POST") return error(405, "method_not_allowed");
+  if (request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") return error(415, "unsupported_media_type");
+  const maxBytes = 32768;
+  const buffer = await request.arrayBuffer();
+  if (buffer.byteLength > maxBytes) return error(413, "payload_too_large");
+  const body = new TextDecoder().decode(buffer);
+  const requestId = request.headers.get("X-BREBO-Request-Id") ?? "";
+  const timestampText = request.headers.get("X-BREBO-Timestamp") ?? "";
+  const signature = SIGNATURE.exec(request.headers.get("X-BREBO-Signature") ?? "")?.[1];
+  const timestamp = Number(timestampText);
+  if (!UUID.test(requestId) || !signature || !Number.isSafeInteger(timestamp) || timestamp <= 0 || Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 300) return error(401, "invalid_signature");
+  const canonical = ["POST", path, await sha256Hex(body), timestampText, requestId].join("\n");
+  const expected = await hmacSha256Hex(env.BREBO_SHARED_SECRET, canonical);
+  if (!(await fixedTimeEqual(signature, expected))) return error(401, "invalid_signature");
+
+  let raw: unknown;
+  try { raw = JSON.parse(body); } catch { return error(400, "invalid_json"); }
+  let publication: ReturnType<typeof parseCalcPublication>;
+  try { publication = parseCalcPublication(raw); } catch { return error(400, "invalid_publication"); }
+  const actorId = raw && typeof raw === "object" && "actor_id" in raw ? Number(raw.actor_id) : NaN;
+  if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");
+  const calculationId = Number(match[1]);
+  if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
+
+  const replayHash = await sha256Hex(requestId);
+  const replay = env.REPLAY_GUARD.getByName(replayHash.slice(0, 2));
+  const now = Math.floor(Date.now() / 1000);
+  if (!(await replay.useOnce(replayHash, now + 600, now))) return error(409, "replayed_request");
+
+  const canonicalPayload = { contract: "brebo-calc-commercial-summary-v1", calculation_id: calculationId, ...publication };
+  const json = JSON.stringify(canonicalPayload);
+  const contentHash = await sha256Hex(json);
+  const store = env.CALC_PUBLICATION_STORE.getByName(String(calculationId));
+  const result = await store.publish(contentHash, publication.office_version, publication.calc_version, json, actorId);
+  return Response.json({ ok: true, ...result }, { status: result.created ? 201 : 200, headers: { "Cache-Control": "no-store" } });
+}
+
+function error(status: number, code: string): Response {
+  return Response.json({ ok: false, error: { code } }, { status, headers: { "Cache-Control": "no-store" } });
+}
