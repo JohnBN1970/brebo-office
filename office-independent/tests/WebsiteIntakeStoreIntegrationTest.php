@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use Brebo\Office\Intake\WebsiteIntakeStore;
 
+require_once __DIR__ . '/../src/Intake/WebsiteLeadRepositoryInterface.php';
 require_once __DIR__ . '/../src/Intake/WebsiteIntakeStore.php';
 
 $dsn = getenv('OFFICE_INTAKE_TEST_DSN');
@@ -21,13 +22,13 @@ $store = new WebsiteIntakeStore($db);
 $id = 'bbbbbbbb-1111-4111-8111-111111111111';
 $payload = ['request_id' => $id, 'source' => 'website', 'observed' => ['building' => []], 'calculated' => ['preliminary_scope' => ['summary' => 'Test kozijnen', 'items' => [['reference' => 'K1']]]]];
 try {
-  $first = $store->accept($id, 'website', $payload);
-  $second = $store->accept($id, 'website', $payload);
+  $first = $store->acceptWebsiteLead($id, 'website', $payload);
+  $second = $store->acceptWebsiteLead($id, 'website', $payload);
   if ($first['duplicate'] || !$second['duplicate'] || $first['opportunity_id'] !== $second['opportunity_id']) {
     throw new RuntimeException('Idempotent replay failed.');
   }
   try {
-    $store->accept($id, 'website', array_replace($payload, ['changed' => true]));
+    $store->acceptWebsiteLead($id, 'website', array_replace($payload, ['changed' => true]));
     throw new RuntimeException('Conflicting replay was accepted.');
   }
   catch (RuntimeException $e) {
@@ -61,7 +62,7 @@ try {
   try {
     $failed = false;
     try {
-      $store->accept($rollbackId, 'website', array_replace($payload, ['request_id' => $rollbackId]));
+      $store->acceptWebsiteLead($rollbackId, 'website', array_replace($payload, ['request_id' => $rollbackId]));
     }
     catch (PDOException) {
       $failed = true;
