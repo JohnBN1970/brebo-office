@@ -33,6 +33,29 @@ jobs:
           find web/modules/custom/brebo_calculation -type f \( -name '*.php' -o -name '*.install' -o -name '*.module' \) -print0 \
             | xargs -0 -n1 php -l
 
+      - name: Guard Calc publication service wiring
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          services = Path('web/modules/custom/brebo_calculation/brebo_calculation.services.yml').read_text()
+          expected = {
+              'subcalculation_manager': 'subcalculation_repository',
+              'price_source_manager': 'price_source_repository',
+              'object_exception_line_manager': 'object_exception_line_repository',
+          }
+          for name, repository in expected.items():
+              marker = f'  brebo_calculation.{name}:\n'
+              if marker not in services:
+                  raise SystemExit(f'Missing service: {name}')
+              block = services.split(marker, 1)[1].split('\n  brebo_calculation.', 1)[0]
+              for dependency in (repository, 'access_gateway'):
+                  if f'@brebo_calculation.{dependency}' not in block:
+                      raise SystemExit(f'Missing dependency {dependency} in {name}')
+          print('Calc publication service wiring OK')
+          PY
+
       - name: Prove calculation schema invariants
         shell: bash
         run: |
