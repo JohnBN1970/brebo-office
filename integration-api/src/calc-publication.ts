@@ -59,7 +59,7 @@ export function parseCalcPublication(value: unknown): CalcPublication {
         rate: (item.rate as number | null | undefined) ?? null,
         taxable_base: item.taxable_base as number, vat_amount: item.vat_amount as number,
         reverse_charged: item.reverse_charged as boolean,
-      })).sort((a, b) => a.code.localeCompare(b.code) || a.label.localeCompare(b.label)),
+      })).sort((a, b) => compareOrdinal(a.code, b.code) || compareOrdinal(a.label, b.label)),
     },
   };
 }
@@ -67,3 +67,6 @@ export function parseCalcPublication(value: unknown): CalcPublication {
 function isRecord(value: unknown): value is Record<string, unknown> { return value !== null && typeof value === "object" && !Array.isArray(value); }
 function nonempty(value: unknown): value is string { return typeof value === "string" && value.trim().length > 0; }
 function finiteNumber(value: unknown): value is number { return typeof value === "number" && Number.isFinite(value); }
+
+// PHP usort compares these strings lexicographically, not with locale collation.
+function compareOrdinal(a: string, b: string): number { return a < b ? -1 : a > b ? 1 : 0; }
