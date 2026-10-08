@@ -19,7 +19,7 @@ foreach (WebsiteIntakeStore::schema() as $statement) {
 }
 $store = new WebsiteIntakeStore($db);
 $id = 'bbbbbbbb-1111-4111-8111-111111111111';
-$payload = ['request_id' => $id, 'source' => 'website', 'observed' => ['building' => []], 'calculated' => ['preliminary_scope' => ['summary' => 'Test kozijnen', 'items' => [['reference' => 'K1']]]]]];
+$payload = ['request_id' => $id, 'source' => 'website', 'observed' => ['building' => []], 'calculated' => ['preliminary_scope' => ['summary' => 'Test kozijnen', 'items' => [['reference' => 'K1']]]]];
 try {
   $first = $store->accept($id, 'website', $payload);
   $second = $store->accept($id, 'website', $payload);
