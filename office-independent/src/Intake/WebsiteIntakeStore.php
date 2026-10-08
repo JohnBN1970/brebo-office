@@ -13,7 +13,7 @@ use RuntimeException;
  * Migration prerequisite: execute schema() on the Office database before use.
  * This is an opt-in component; it does not change the production Drupal route.
  */
-final class WebsiteIntakeStore {
+final class WebsiteIntakeStore implements WebsiteLeadRepositoryInterface {
 
   public function __construct(private readonly PDO $db) {}
 
@@ -49,7 +49,7 @@ final class WebsiteIntakeStore {
    * @param array<string, mixed> $payload
    * @return array{opportunity_id:int, duplicate:bool, state:string}
    */
-  public function accept(string $requestId, string $source, array $payload): array {
+  public function acceptWebsiteLead(string $requestId, string $source, array $payload): array {
     if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $requestId)) {
       throw new RuntimeException('Invalid website intake request ID.');
     }
