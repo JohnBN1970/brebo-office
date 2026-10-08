@@ -465,7 +465,7 @@ brebo_calculation.workspace_v2_calc_result_publish:
     _controller: '\Drupal\brebo_calculation\Controller\CalculationWorkspaceCommandController::publishCalcResult'
   requirements:
     _access: 'TRUE'
-    calculation: '\\d+'
+    calculation: '\d+'
   methods: [POST]
   options:
     no_cache: TRUE
