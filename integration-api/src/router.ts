@@ -1,4 +1,5 @@
 import core from "./index";
+import { calcPublication } from "./calc-publication-route";
 import { documentExtraction, type ExtractionEnv } from "./document-extraction";
 import { orderDraft } from "./order-draft";
 import { publicProjects } from "./public-projects";
@@ -9,6 +10,10 @@ const PUBLIC_PROJECT_DETAIL = /^\/v1\/public\/projects\/([^/]+)$/;
 export default {
   async fetch(request: Request, env: ExtractionEnv): Promise<Response> {
     const url = new URL(request.url);
+
+    if (/^\/api\/workbench\/v2\/calculations\/[1-9][0-9]*\/calc-results$/.test(url.pathname)) {
+      return calcPublication(request, env);
+    }
 
     if (url.pathname === "/v1/internal/document-extraction") {
       return documentExtraction(request, env);
