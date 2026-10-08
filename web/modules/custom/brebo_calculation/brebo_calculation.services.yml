@@ -11,7 +11,7 @@ services:
 
   brebo_calculation.calc_result_snapshot:
     class: Drupal\brebo_calculation\Service\CalcResultSnapshotService
-    arguments: ['@database']
+    arguments: ['@brebo_calculation.calc_result_snapshot_repository']
 
   brebo_calculation.calc_source_resolver:
     class: Drupal\brebo_calculation\Service\CalcSourceResolver
@@ -422,3 +422,7 @@ services:
     class: Drupal\brebo_calculation\Service\RecipeCatalogService
     arguments:
       - '@brebo_calculation.recipe_repository'
+
+  brebo_calculation.calc_result_snapshot_repository:
+    class: Drupal\brebo_calculation\Infrastructure\DatabaseCalcResultSnapshotRepository
+    arguments: ['@database']
