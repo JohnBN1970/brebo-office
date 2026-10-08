@@ -9,7 +9,7 @@ final class WebsiteIntakeHandler {
 
   public function __construct(
     private readonly WebsiteIntakeValidator $validator,
-    private readonly WebsiteIntakeStore $store,
+    private readonly WebsiteLeadRepositoryInterface $leads,
   ) {}
 
   /**
@@ -18,7 +18,7 @@ final class WebsiteIntakeHandler {
    */
   public function handle(array $payload): array {
     $this->validator->validate($payload);
-    return $this->store->accept(
+    return $this->leads->acceptWebsiteLead(
       $payload['request_id'],
       $payload['source'],
       $payload,
