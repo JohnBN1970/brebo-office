@@ -288,6 +288,7 @@ services:
     class: Drupal\brebo_calculation\Service\CalculationPriceSourceManager
     arguments:
       - '@brebo_calculation.price_source_repository'
+      - '@brebo_calculation.access_gateway'
 
   brebo_calculation.supplier_quote_normalizer:
     class: Drupal\brebo_calculation\Service\SupplierQuoteNormalizer
