@@ -30,7 +30,7 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   if (request.method === "GET") {
     const latest = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest();
     if (!latest) return error(404, "snapshot_not_found");
-    return Response.json({ ok: true, calculation_id: calculationId, ...latest }, { headers: { "Cache-Control": "no-store" } });
+    return Response.json({ ok: true, calculation_id: calculationId, ...latest, commercial_summary: (latest.payload as { commercial_summary?: unknown })?.commercial_summary }, { headers: { "Cache-Control": "no-store" } });
   }
 
   let raw: unknown;
