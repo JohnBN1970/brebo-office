@@ -28,7 +28,7 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   const calculationId = Number(match[1]);
   if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
   if (request.method === "GET") {
-    const latest: { snapshot_id: number; content_hash: string; published_by: number; published_at: number; payload: unknown } | null = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest();
+    const latest = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest() as { snapshot_id: number; content_hash: string; published_by: number; published_at: number; payload: unknown } | null;
     if (!latest) return error(404, "snapshot_not_found");
     return Response.json({ ok: true, calculation_id: calculationId, ...latest, commercial_summary: (latest.payload as { commercial_summary?: unknown })?.commercial_summary }, { headers: { "Cache-Control": "no-store" } });
   }
