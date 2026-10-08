@@ -49,6 +49,37 @@ try {
     || $stored['acquisition_channel'] !== 'Portaal') {
     throw new RuntimeException('CRM context or preliminary scope was not retained.');
   }
+  // Force a database rejection after the intake insert and verify atomic rollback.
+  $rollbackId = 'cccccccc-2222-4222-8222-222222222222';
+  $db->exec("CREATE TRIGGER reject_test_opportunity BEFORE INSERT ON office_website_opportunity
+    FOR EACH ROW
+    BEGIN
+      IF NEW.request_id = 'cccccccc-2222-4222-8222-222222222222' THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Simulated CRM write failure';
+      END IF;
+    END");
+  try {
+    $failed = false;
+    try {
+      $store->accept($rollbackId, 'website', array_replace($payload, ['request_id' => $rollbackId]));
+    }
+    catch (PDOException) {
+      $failed = true;
+    }
+    if (!$failed) {
+      throw new RuntimeException('Expected CRM write failure.');
+    }
+    $check = $db->prepare('SELECT COUNT(*) FROM office_website_intake WHERE request_id = ?');
+    $check->execute([$rollbackId]);
+    if ((int) $check->fetchColumn() !== 0) {
+      throw new RuntimeException('Intake was not rolled back after CRM write failure.');
+    }
+  }
+  finally {
+    $db->exec('DROP TRIGGER IF EXISTS reject_test_opportunity');
+    $db->prepare('DELETE FROM office_website_opportunity WHERE request_id = ?')->execute([$rollbackId]);
+    $db->prepare('DELETE FROM office_website_intake WHERE request_id = ?')->execute([$rollbackId]);
+  }
   echo "Database intake integration checks passed.\n";
 }
 finally {
