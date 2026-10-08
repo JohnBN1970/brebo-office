@@ -26,6 +26,7 @@ jobs:
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
       DOCUMENT_EXTRACTION_TOKEN: ${{ secrets.DOCUMENT_EXTRACTION_TOKEN }}
+      BREBO_SHARED_SECRET: ${{ secrets.BREBO_SHARED_SECRET }}
       DOCUMENT_EXTRACTION_ENDPOINT: https://brebo-integration-api.john-boon.workers.dev/v1/internal/document-extraction
       BREBO_INTEGRATION_API_URL: https://brebo-integration-api.john-boon.workers.dev
       EXPECTED_DEPLOY_SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || '' }}
@@ -35,7 +36,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DOCUMENT_EXTRACTION_TOKEN DOCUMENT_EXTRACTION_ENDPOINT BREBO_INTEGRATION_API_URL; do
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY DOCUMENT_EXTRACTION_TOKEN BREBO_SHARED_SECRET DOCUMENT_EXTRACTION_ENDPOINT BREBO_INTEGRATION_API_URL; do
             if [[ -z "${!name}" ]]; then
               echo "::error::Required runtime value $name is missing."
               exit 1
@@ -55,21 +56,40 @@ jobs:
             -o UserKnownHostsFile="$HOME/.ssh/known_hosts" \
             -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'true'
 
-      - name: Configure and verify Drupal runtime settings
+      - name: Configure and verify Office runtime settings
         shell: bash
         run: |
           set -euo pipefail
-          endpoint_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_ENDPOINT" | base64 -w0)"
-          token_b64="$(printf '%s' "$DOCUMENT_EXTRACTION_TOKEN" | base64 -w0)"
-          integration_url_b64="$(printf '%s' "$BREBO_INTEGRATION_API_URL" | base64 -w0)"
+          umask 077
+          payload="$(mktemp)"
+          remote_script="$(mktemp)"
+          trap 'rm -f "$payload" "$remote_script"' EXIT
 
-          # Runtime secrets and non-secret runtime endpoints are written only
-          # outside the deploy tree. Production owns the settings.php include.
-          ssh -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3 \
-            -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "EXPECTED_DEPLOY_SHA='$EXPECTED_DEPLOY_SHA' ENDPOINT_B64='$endpoint_b64' TOKEN_B64='$token_b64' INTEGRATION_URL_B64='$integration_url_b64' bash -se" <<'REMOTE'
+          python3 - "$payload" <<'PY'
+          import base64
+          import json
+          import os
+          import sys
+
+          names = {
+              "expected_sha": "EXPECTED_DEPLOY_SHA",
+              "endpoint": "DOCUMENT_EXTRACTION_ENDPOINT",
+              "token": "DOCUMENT_EXTRACTION_TOKEN",
+              "integration_url": "BREBO_INTEGRATION_API_URL",
+              "shared_secret": "BREBO_SHARED_SECRET",
+          }
+          values = {
+              key: base64.b64encode(os.environ[name].encode()).decode()
+              for key, name in names.items()
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as handle:
+              json.dump(values, handle)
+          PY
+
+          cat > "$remote_script" <<'REMOTE'
           set -euo pipefail
           export NO_COLOR=1 TERM=dumb
+          umask 077
 
           app="$HOME/domains/brebobv.nl/public_html/sboffice"
           marker="$app/.brebo-deployed-sha"
@@ -77,37 +97,55 @@ jobs:
           runtime_settings="$runtime_dir/document-extraction.settings.php"
           remote_php="/opt/alt/php83/usr/bin/php"
 
+          [[ -n "${RUNTIME_PAYLOAD_B64:-}" ]] || { echo 'RUNTIME_PAYLOAD_MISSING=1'; exit 19; }
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_MISSING=1'; exit 20; }
           deployed_sha="$(tr -d '\r\n' < "$marker")"
           echo "PRODUCTION_DEPLOY_SHA=$deployed_sha"
-          if [[ -n "$EXPECTED_DEPLOY_SHA" && "$deployed_sha" != "$EXPECTED_DEPLOY_SHA" ]]; then
+
+          # Validate the deployment marker before touching existing settings.
+          payload_expected_sha="$(printf '%s' "$RUNTIME_PAYLOAD_B64" | base64 -d | "$remote_php" -r '
+            $data = json_decode(stream_get_contents(STDIN), true);
+            $sha = is_array($data) ? base64_decode((string) ($data["expected_sha"] ?? ""), true) : false;
+            if (!is_string($sha)) { exit(2); }
+            echo $sha;
+          ')"
+          if [[ -n "$payload_expected_sha" && "$deployed_sha" != "$payload_expected_sha" ]]; then
             echo 'SUPERSEDED_DEPLOYMENT=1'
-            echo "EXPECTED_DEPLOY_SHA=$EXPECTED_DEPLOY_SHA"
             exit 0
           fi
 
           install -d -m 700 "$runtime_dir"
           tmp_settings="$(mktemp "$runtime_dir/.document-extraction.settings.php.XXXXXX")"
           trap 'rm -f "$tmp_settings" >/dev/null 2>&1 || true' EXIT
-          umask 077
-          ENDPOINT_B64="$ENDPOINT_B64" TOKEN_B64="$TOKEN_B64" INTEGRATION_URL_B64="$INTEGRATION_URL_B64" "$remote_php" > "$tmp_settings" <<'PHP'
-          <?php
-          declare(strict_types=1);
 
-          $endpoint = base64_decode((string) getenv('ENDPOINT_B64'), true);
-          $token = base64_decode((string) getenv('TOKEN_B64'), true);
-          $integrationUrl = base64_decode((string) getenv('INTEGRATION_URL_B64'), true);
-          if (!is_string($endpoint) || $endpoint === '' || !is_string($token) || $token === '' || !is_string($integrationUrl) || $integrationUrl === '') {
-            exit(2);
-          }
+          printf '%s' "$RUNTIME_PAYLOAD_B64" | base64 -d | "$remote_php" -r '
+            $data = json_decode(stream_get_contents(STDIN), true);
+            if (!is_array($data)) { exit(2); }
+            $values = [];
+            foreach (["endpoint", "token", "integration_url", "shared_secret"] as $key) {
+              $value = base64_decode((string) ($data[$key] ?? ""), true);
+              if (!is_string($value) || $value === "") { exit(2); }
+              $values[$key] = $value;
+            }
+            echo "<?php\ndeclare(strict_types=1);\n";
+            foreach ([
+              "brebo_document_extraction_endpoint" => "endpoint",
+              "brebo_document_extraction_token" => "token",
+              "brebo_integration_api_url" => "integration_url",
+              "brebo_shared_secret" => "shared_secret",
+            ] as $setting => $key) {
+              echo "\$settings[" . var_export($setting, true) . "] = " . var_export($values[$key], true) . ";\n";
+            }
+          ' > "$tmp_settings"
 
-          echo "<?php\ndeclare(strict_types=1);\n";
-          echo '$settings["brebo_document_extraction_endpoint"] = ' . var_export($endpoint, true) . ";\n";
-          echo '$settings["brebo_document_extraction_token"] = ' . var_export($token, true) . ";\n";
-          echo '$settings["brebo_integration_api_url"] = ' . var_export($integrationUrl, true) . ";\n";
-          PHP
           chmod 600 "$tmp_settings"
           "$remote_php" -l "$tmp_settings"
+
+          # Refuse to overwrite settings if deployment changed while preparing.
+          [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_CONFIG=1'; exit 24; }
+          current_sha="$(tr -d '\r\n' < "$marker")"
+          [[ "$current_sha" == "$deployed_sha" ]] || { echo 'DEPLOYMENT_CHANGED_BEFORE_RUNTIME_WRITE=1'; exit 25; }
+
           mv -f "$tmp_settings" "$runtime_settings"
           chmod 440 "$runtime_settings"
           trap - EXIT
@@ -119,15 +157,29 @@ jobs:
             $pdf = $provider->supports("application/pdf");
             $png = $provider->supports("image/png");
             $integrationUrl = (string) \Drupal\Core\Site\Settings::get("brebo_integration_api_url", "");
+            $sharedSecret = (string) \Drupal\Core\Site\Settings::get("brebo_shared_secret", "");
             echo "MANAGED_EXTRACTION_PDF_CONFIGURED=" . ($pdf ? "1" : "0") . "\n";
             echo "MANAGED_EXTRACTION_PNG_CONFIGURED=" . ($png ? "1" : "0") . "\n";
             echo "BREBO_INTEGRATION_API_URL_CONFIGURED=" . ($integrationUrl !== "" ? "1" : "0") . "\n";
-            if (!$pdf || !$png || $integrationUrl === "") { exit(23); }
+            echo "BREBO_SHARED_SECRET_CONFIGURED=" . ($sharedSecret !== "" ? "1" : "0") . "\n";
+            if (!$pdf || !$png || $integrationUrl === "" || $sharedSecret === "") { exit(23); }
           '
 
           [[ -f "$marker" ]] || { echo 'DEPLOYMENT_MARKER_LOST_DURING_CONFIG=1'; exit 24; }
           final_sha="$(tr -d '\r\n' < "$marker")"
-          [[ "$final_sha" == "$deployed_sha" ]] || { echo "DEPLOYMENT_CHANGED_DURING_CONFIG=$final_sha"; exit 25; }
+          [[ "$final_sha" == "$deployed_sha" ]] || { echo 'DEPLOYMENT_CHANGED_DURING_CONFIG=1'; exit 25; }
           echo 'DOCUMENT_EXTRACTION_RUNTIME_CONFIGURED=1'
           echo 'FINANCE_INTEGRATION_RUNTIME_CONFIGURED=1'
+          echo 'OFFICE_SHARED_SECRET_RUNTIME_CONFIGURED=1'
           REMOTE
+
+          # First line is a base64 payload; remaining stdin is the shell script.
+          # No secret appears in the SSH command-line arguments.
+          {
+            base64 -w0 < "$payload"
+            printf '\n'
+            cat "$remote_script"
+          } | ssh -T -o ConnectTimeout=15 -o ServerAliveInterval=10 \
+            -o ServerAliveCountMax=3 -i ~/.ssh/deploy_key -p "$DEPLOY_PORT" \
+            "$DEPLOY_USER@$DEPLOY_HOST" \
+            'bash -c '\''IFS= read -r RUNTIME_PAYLOAD_B64; export RUNTIME_PAYLOAD_B64; exec bash -se'\'''
