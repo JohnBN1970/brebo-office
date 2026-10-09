@@ -1,5 +1,6 @@
 import { fixedTimeEqual, hmacSha256Hex, sha256Hex } from "./crypto";
 import { parseCalcPublication } from "./calc-publication";
+import { OfficeCalculationAccess } from "./calc-publication-access";
 
 const PATH = /^\/api\/workbench\/v2\/calculations\/([1-9][0-9]*)\/calc-results$/;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -31,7 +32,9 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
 
   const calculationId = Number(match[1]);
   if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
-  const access = (env as Env & { CALC_PUBLICATION_ACCESS?: { canRead(calculationId: number, actorId: number): Promise<boolean>; canPublish(calculationId: number, actorId: number): Promise<boolean> } }).CALC_PUBLICATION_ACCESS;
+  const access = env.CALC_ACCESS_REGISTRY
+    ? new OfficeCalculationAccess({ find: (id) => env.CALC_ACCESS_REGISTRY.getByName(String(id)).find(id) })
+    : null;
   if (request.method === "GET") {
     const actorId = Number(actorHeader);
     if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");

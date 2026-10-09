@@ -44,7 +44,7 @@ describe("standalone Calc publication security contract", () => {
   });
   it("denies reads when the access provider rejects the calculation", async () => {
     const latest = vi.fn();
-    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead: async () => false }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
+    const env = { BREBO_SHARED_SECRET: secret, CALC_ACCESS_REGISTRY: { getByName: () => ({ find: async () => null }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
     const response = await calcPublication(await signedRequest("GET"), env);
     expect(response.status).toBe(403);
     expect(latest).not.toHaveBeenCalled();
@@ -52,7 +52,7 @@ describe("standalone Calc publication security contract", () => {
   it("denies publications before consuming replay state or writing snapshots", async () => {
     const publish = vi.fn();
     const useOnce = vi.fn();
-    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canPublish: async () => false }, REPLAY_GUARD: { getByName: () => ({ useOnce }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ publish }) } } as unknown as Env;
+    const env = { BREBO_SHARED_SECRET: secret, CALC_ACCESS_REGISTRY: { getByName: () => ({ find: async () => null }) }, REPLAY_GUARD: { getByName: () => ({ useOnce }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ publish }) } } as unknown as Env;
     const response = await calcPublication(await signedRequest("POST"), env);
     expect(response.status).toBe(403);
     expect(useOnce).not.toHaveBeenCalled();
@@ -65,17 +65,17 @@ describe("standalone Calc publication security contract", () => {
     expect(response.status).toBe(401);
   });
   it("passes the signed GET actor to the calculation authorization provider", async () => {
-    const canRead = vi.fn().mockResolvedValue(false);
+    const find = vi.fn().mockResolvedValue({ calculation_id: 41, active: true, readers: [7], publishers: [] });
     const latest = vi.fn();
-    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
+    const env = { BREBO_SHARED_SECRET: secret, CALC_ACCESS_REGISTRY: { getByName: () => ({ find }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
     const response = await calcPublication(await signedRequest("GET"), env);
     expect(response.status).toBe(403);
-    expect(canRead).toHaveBeenCalledWith(41, 5);
+    expect(find).toHaveBeenCalledWith(41);
     expect(latest).not.toHaveBeenCalled();
   });
   it("authenticates and reads the latest snapshot", async () => {
     const latest = vi.fn().mockResolvedValue({ snapshot_id: 2, content_hash: "a".repeat(64), published_by: 5, published_at: 123, payload: { office_version: "office-1", calc_version: "calc-1", commercial_summary: { sales: 150 } } });
-    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead: async () => true, canPublish: async () => true }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
+    const env = { BREBO_SHARED_SECRET: secret, CALC_ACCESS_REGISTRY: { getByName: () => ({ find: async () => ({ calculation_id: 41, active: true, readers: [], publishers: [5] }) }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
     const response = await calcPublication(await signedRequest("GET"), env);
     expect(response.status).toBe(200);
     expect(latest).toHaveBeenCalledOnce();
