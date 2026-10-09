@@ -71,5 +71,8 @@ jobs:
       - name: Verify BREBO Mail runtime end-to-end
         run: php packages/brebo-mail-gateway/tests/runtime_e2e_smoke.php
 
+      - name: Verify BREBO Mail raw inbound normalization
+        run: php packages/brebo-mail-gateway/tests/raw_mail_normalizer_smoke.php
+
       - name: Verify PDOK building scope contract
         run: php scripts/test-pdok-building-scope.php
