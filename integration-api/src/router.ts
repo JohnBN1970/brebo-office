@@ -12,7 +12,12 @@ export default {
     const url = new URL(request.url);
 
     if (/^\/api\/workbench\/v2\/calculations\/[1-9][0-9]*\/calc-results$/.test(url.pathname)) {
-      return calcPublication(request, env);
+      try {
+        return await calcPublication(request, env);
+      } catch (error) {
+        console.error(JSON.stringify({ event: "calc_publication_failed", category: error instanceof Error ? error.constructor.name : "UnknownError" }));
+        return Response.json({ ok: false, error: { code: "internal_error" } }, { status: 500, headers: { "Cache-Control": "no-store" } });
+      }
     }
 
     if (url.pathname === "/v1/internal/document-extraction") {
