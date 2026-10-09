@@ -30,7 +30,10 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
 
   const calculationId = Number(match[1]);
   if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
+  const access = (env as Env & { CALC_PUBLICATION_ACCESS?: { canRead(calculationId: number): Promise<boolean>; canPublish(calculationId: number, actorId: number): Promise<boolean> } }).CALC_PUBLICATION_ACCESS;
   if (request.method === "GET") {
+    if (!access) return error(503, "publication_access_not_configured");
+    if (!(await access.canRead(calculationId))) return error(403, "access_denied");
     const latest = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest() as { snapshot_id: number; content_hash: string; published_by: number; published_at: number; payload: unknown } | null;
     if (!latest) return error(404, "snapshot_not_found");
     const payload = latest.payload as { office_version: string; calc_version: string; commercial_summary: unknown };
@@ -43,6 +46,8 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   try { publication = parseCalcPublication(raw); } catch { return error(400, "invalid_publication"); }
   const actorId = raw && typeof raw === "object" && "actor_id" in raw ? Number(raw.actor_id) : NaN;
   if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");
+  if (!access) return error(503, "publication_access_not_configured");
+  if (!(await access.canPublish(calculationId, actorId))) return error(403, "access_denied");
   const replayHash = await sha256Hex(requestId);
   const replay = env.REPLAY_GUARD.getByName(replayHash.slice(0, 2));
   const now = Math.floor(Date.now() / 1000);
