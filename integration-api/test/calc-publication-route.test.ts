@@ -37,6 +37,27 @@ describe("standalone Calc publication security contract", () => {
     const response = await calcPublication(request, { BREBO_SHARED_SECRET: secret } as Env);
     expect(response.status).toBe(413);
   });
+  it("fails closed without an authorization binding even with valid HMAC", async () => {
+    const response = await calcPublication(await signedRequest("GET"), { BREBO_SHARED_SECRET: secret } as Env);
+    expect(response.status).toBe(503);
+    expect((await response.json() as { error: { code: string } }).error.code).toBe("publication_access_not_configured");
+  });
+  it("denies reads when the access provider rejects the calculation", async () => {
+    const latest = vi.fn();
+    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead: async () => false }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
+    const response = await calcPublication(await signedRequest("GET"), env);
+    expect(response.status).toBe(403);
+    expect(latest).not.toHaveBeenCalled();
+  });
+  it("denies publications before consuming replay state or writing snapshots", async () => {
+    const publish = vi.fn();
+    const useOnce = vi.fn();
+    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canPublish: async () => false }, REPLAY_GUARD: { getByName: () => ({ useOnce }) }, CALC_PUBLICATION_STORE: { getByName: () => ({ publish }) } } as unknown as Env;
+    const response = await calcPublication(await signedRequest("POST"), env);
+    expect(response.status).toBe(403);
+    expect(useOnce).not.toHaveBeenCalled();
+    expect(publish).not.toHaveBeenCalled();
+  });
   it("authenticates and reads the latest snapshot", async () => {
     const latest = vi.fn().mockResolvedValue({ snapshot_id: 2, content_hash: "a".repeat(64), published_by: 5, published_at: 123, payload: { office_version: "office-1", calc_version: "calc-1", commercial_summary: { sales: 150 } } });
     const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead: async () => true, canPublish: async () => true }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
