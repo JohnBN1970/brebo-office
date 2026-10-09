@@ -64,6 +64,15 @@ describe("standalone Calc publication security contract", () => {
     const response = await calcPublication(request, { BREBO_SHARED_SECRET: secret } as Env);
     expect(response.status).toBe(401);
   });
+  it("passes the signed GET actor to the calculation authorization provider", async () => {
+    const canRead = vi.fn().mockResolvedValue(false);
+    const latest = vi.fn();
+    const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
+    const response = await calcPublication(await signedRequest("GET"), env);
+    expect(response.status).toBe(403);
+    expect(canRead).toHaveBeenCalledWith(41, 5);
+    expect(latest).not.toHaveBeenCalled();
+  });
   it("authenticates and reads the latest snapshot", async () => {
     const latest = vi.fn().mockResolvedValue({ snapshot_id: 2, content_hash: "a".repeat(64), published_by: 5, published_at: 123, payload: { office_version: "office-1", calc_version: "calc-1", commercial_summary: { sales: 150 } } });
     const env = { BREBO_SHARED_SECRET: secret, CALC_PUBLICATION_ACCESS: { canRead: async () => true, canPublish: async () => true }, CALC_PUBLICATION_STORE: { getByName: () => ({ latest }) } } as unknown as Env;
