@@ -57,7 +57,7 @@ $badPayload = json_encode([
   'observed' => ['building' => [], 'rooms' => [], 'frames' => []],
   'detected' => [], 'calculated' => [], 'selected' => [],
 ], JSON_THROW_ON_ERROR);
-$badCanonical = implode("\\n", ['POST', $path, hash('sha256', $badPayload), (string) $now, $id]);
+$badCanonical = implode("\n", ['POST', $path, hash('sha256', $badPayload), (string) $now, $id]);
 $badHeaders = array_replace($headers, [
   'X-BREBO-Signature' => 'v1=' . hash_hmac('sha256', $badCanonical, 'test-secret'),
 ]);
