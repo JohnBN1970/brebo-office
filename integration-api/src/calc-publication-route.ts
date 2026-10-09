@@ -30,10 +30,12 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
 
   const calculationId = Number(match[1]);
   if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
-  const access = (env as Env & { CALC_PUBLICATION_ACCESS?: { canRead(calculationId: number): Promise<boolean>; canPublish(calculationId: number, actorId: number): Promise<boolean> } }).CALC_PUBLICATION_ACCESS;
+  const access = (env as Env & { CALC_PUBLICATION_ACCESS?: { canRead(calculationId: number, actorId: number): Promise<boolean>; canPublish(calculationId: number, actorId: number): Promise<boolean> } }).CALC_PUBLICATION_ACCESS;
   if (request.method === "GET") {
+    const actorId = Number(request.headers.get("X-BREBO-Actor-Id"));
+    if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");
     if (!access) return error(503, "publication_access_not_configured");
-    if (!(await access.canRead(calculationId))) return error(403, "access_denied");
+    if (!(await access.canRead(calculationId, actorId))) return error(403, "access_denied");
     const latest = await env.CALC_PUBLICATION_STORE.getByName(String(calculationId)).latest() as { snapshot_id: number; content_hash: string; published_by: number; published_at: number; payload: unknown } | null;
     if (!latest) return error(404, "snapshot_not_found");
     const payload = latest.payload as { office_version: string; calc_version: string; commercial_summary: unknown };
