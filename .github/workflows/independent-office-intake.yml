@@ -44,6 +44,8 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/WebsiteIntakeSchemaMigrationTest.php
+      - name: Verify CRM import CLI dry run
+        run: php office-independent/tests/WebsiteCrmLegacyImportCommandTest.php
       - name: Verify legacy CRM export identity
         run: php office-independent/tests/WebsiteCrmLegacyExportValidatorTest.php
       - name: Verify cross-CRM full UUID audit
