@@ -22,6 +22,9 @@ final class WebsiteIntakeSchemaMigrator {
     }
     $columns = $this->db->query('SHOW COLUMNS FROM office_website_opportunity')->fetchAll(PDO::FETCH_COLUMN);
     $additions = [
+      'probability' => 'TINYINT UNSIGNED NOT NULL DEFAULT 10',
+      'active' => 'TINYINT(1) NOT NULL DEFAULT 1',
+      'next_action' => "VARCHAR(255) NOT NULL DEFAULT 'Projectstukken en automatisch herkende gegevens beoordelen.'",
       'lead_source' => "VARCHAR(80) NOT NULL DEFAULT 'Website - Europakozijn'",
       'acquisition_channel' => "VARCHAR(80) NOT NULL DEFAULT 'Portaal'",
       'requirement_text' => "TEXT NULL",
@@ -37,7 +40,7 @@ final class WebsiteIntakeSchemaMigrator {
     foreach (['requirement_text' => 'TEXT', 'preliminary_scope_json' => 'LONGTEXT'] as $name => $type) {
       $this->db->exec("ALTER TABLE office_website_opportunity MODIFY COLUMN `$name` $type NOT NULL");
     }
-    $required = ['request_id', 'title', 'stage', 'lead_source', 'acquisition_channel', 'requirement_text', 'preliminary_scope_json', 'requires_review'];
+    $required = ['request_id', 'title', 'stage', 'probability', 'active', 'next_action', 'lead_source', 'acquisition_channel', 'requirement_text', 'preliminary_scope_json', 'requires_review'];
     $actual = $this->db->query('SHOW COLUMNS FROM office_website_opportunity')->fetchAll(PDO::FETCH_COLUMN);
     if (array_diff($required, $actual) !== []) {
       throw new RuntimeException('Independent intake schema migration incomplete.');
