@@ -7,11 +7,12 @@ namespace Drupal\brebo_mail_intake\Controller;
 use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\Mail\Domain\NormalizedMailMessage;
 use Brebo\Mail\Service\MailIntakeAdmissionService;
+use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 
-final class CoreGatewayMailIntakeController {
+final class CoreGatewayMailIntakeController implements ContainerInjectionInterface {
 
   public function __construct(private readonly MailIntakeAdmissionService $admission) {}
 
