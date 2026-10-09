@@ -10,7 +10,33 @@ use Brebo\Mail\Domain\GatewayRequestSignature;
 use Brebo\Mail\Domain\NormalizedMailMessage;
 use Brebo\Mail\Service\MailIntakeAdmissionService;
 use Brebo\Mail\Service\MailIntakeBridge;
+use Brebo\MailGateway\Contract\MailboxStoreInterface;
+use Brebo\MailGateway\Contract\OfficeIntakeClientInterface;
+use Brebo\MailGateway\Service\InboundDeliveryService;
+use Brebo\MailGateway\Service\OfficeIntakeDeliveryService;
 use Brebo\MailGateway\Service\OfficeIntakeRequestFactory;
+
+final class SmokeMailboxStore implements MailboxStoreInterface {
+  public array $messages = [];
+  public function append(string $mailboxAddress, string $folder, array $message): string {
+    $this->messages[] = [$mailboxAddress, $folder, $message];
+    return 'mailbox:test';
+  }
+  public function recent(string $mailboxAddress, string $folder = 'INBOX', int $limit = 50): array {
+    return [];
+  }
+  public function health(): array {
+    return ['available' => TRUE, 'message' => 'ok'];
+  }
+}
+
+final class SmokeOfficeClient implements OfficeIntakeClientInterface {
+  public ?NormalizedMailMessage $message = NULL;
+  public function deliver(NormalizedMailMessage $message): array {
+    $this->message = $message;
+    return ['status' => 'ok', 'result' => ['state' => 'created', 'node_id' => 123]];
+  }
+}
 
 final class SmokeDirectory implements MailboxDirectoryInterface {
   public function activeAddresses(): array {
@@ -82,6 +108,28 @@ catch (RuntimeException $e) {
   if (!str_contains($e->getMessage(), 'geen actieve Office-mailbox')) {
     throw $e;
   }
+}
+
+$mailboxStore = new SmokeMailboxStore();
+$officeClient = new SmokeOfficeClient();
+$inbound = new InboundDeliveryService(
+  $mailboxStore,
+  new OfficeIntakeDeliveryService($officeClient),
+);
+$delivery = $inbound->deliver('john@mail-test.example.nl', [
+  'from' => 'outside@example.com',
+  'subject' => 'Echte inbound route',
+  'text' => 'Gateway delivery',
+  'received_at' => '2026-10-06T01:00:00Z',
+]);
+if (($delivery['mailbox_reference'] ?? '') !== 'mailbox:test') {
+  throw new RuntimeException('Inbound mailbox delivery failed.');
+}
+if ($officeClient->message?->to !== 'john@mail-test.example.nl') {
+  throw new RuntimeException('Inbound delivery did not invoke Office intake.');
+}
+if (($mailboxStore->messages[0][1] ?? '') !== 'INBOX') {
+  throw new RuntimeException('Inbound delivery did not append to INBOX.');
 }
 
 echo "BREBO_MAIL_OFFICE_INTAKE_BRIDGE=PASS\n";
