@@ -12,7 +12,7 @@ const body = JSON.stringify({
 
 async function signedRequest(method: "GET" | "POST", text = method === "GET" ? "" : body) {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const canonical = [method, path, await sha256Hex(text), timestamp, requestId].join("\\n");
+  const canonical = [method, path, await sha256Hex(text), timestamp, requestId].join("\n");
   return new Request("https://office.example" + path, {
     method, headers: { "X-BREBO-Request-Id": requestId, "X-BREBO-Timestamp": timestamp, "X-BREBO-Signature": "v1=" + await hmacSha256Hex(secret, canonical), ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
     ...(method === "POST" ? { body: text } : {}),
