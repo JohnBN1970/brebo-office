@@ -52,6 +52,32 @@ final class IntakeReviewDecisionForm extends FormBase {
     $envelope = is_array($stored['envelope'] ?? NULL) ? $stored['envelope'] : [];
     $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
 
+    // Show the immutable website request context before the reviewer decides.
+    // These values are evidence, not editable approval or trusted product data.
+    if (($envelope['classification'] ?? '') === 'website_project_request') {
+      $website = is_array($envelope['payload']['website_request'] ?? NULL) ? $envelope['payload']['website_request'] : [];
+      $selected = is_array($website['selected'] ?? NULL) ? $website['selected'] : [];
+      $requestId = (string) ($envelope['source_record_id'] ?? '');
+      $form['website_context'] = [
+        '#type' => 'details',
+        '#title' => $this->t('Websiteaanvraag en productcontext'),
+        '#open' => TRUE,
+      ];
+      $form['website_context']['request_id'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Aanvraag-ID'),
+        '#plain_text' => $requestId,
+      ];
+      $form['website_context']['product'] = [
+        '#type' => 'item',
+        '#title' => $this->t('Productkeuze (door klant aangeleverd; niet goedgekeurd)'),
+        '#plain_text' => json_encode($selected['product_selection'] ?? $selected['material'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'Niet opgegeven',
+      ];
+      $form['website_context']['notice'] = [
+        '#markup' => '<p>' . $this->t('Intake accepteren is geen product- of prijsgoedkeuring. Die vereist een afzonderlijke beslissing in Office.') . '</p>',
+      ];
+    }
+
     $form['record_id'] = ['#type' => 'hidden', '#value' => $record];
     $form['revision'] = ['#type' => 'hidden', '#value' => (string) $snapshot['revision']];
     $form['classification'] = [
