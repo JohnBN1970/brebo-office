@@ -44,6 +44,8 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/WebsiteIntakeSchemaMigrationTest.php
+      - name: Verify cross-CRM full UUID audit
+        run: php office-independent/tests/WebsiteCrmCutoverAuditTest.php
       - name: Verify staging CRM reconciliation
         env:
           OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
