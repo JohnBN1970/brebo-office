@@ -13,9 +13,11 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   if (request.method !== "POST" && request.method !== "GET") return error(405, "method_not_allowed");
   if (request.method === "POST" && request.headers.get("Content-Type")?.split(";")[0]?.trim().toLowerCase() !== "application/json") return error(415, "unsupported_media_type");
   const maxBytes = 32768;
-  const buffer = request.method === "GET" ? new ArrayBuffer(0) : await request.arrayBuffer();
-  if (buffer.byteLength > maxBytes) return error(413, "payload_too_large");
-  const body = new TextDecoder().decode(buffer);
+  const declaredLength = request.headers.get("Content-Length");
+  if (declaredLength !== null && Number(declaredLength) > maxBytes) return error(413, "payload_too_large");
+  const bodyResult = request.method === "GET" ? { body: "" } : await readBoundedBody(request, maxBytes);
+  if (bodyResult === null) return error(413, "payload_too_large");
+  const body = bodyResult.body;
   const requestId = request.headers.get("X-BREBO-Request-Id") ?? "";
   const timestampText = request.headers.get("X-BREBO-Timestamp") ?? "";
   const signature = SIGNATURE.exec(request.headers.get("X-BREBO-Signature") ?? "")?.[1];
@@ -55,4 +57,30 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
 
 function error(status: number, code: string): Response {
   return Response.json({ ok: false, error: { code } }, { status, headers: { "Cache-Control": "no-store" } });
+}
+
+/** Enforce the payload limit while streaming, before buffering untrusted input. */
+async function readBoundedBody(request: Request, maxBytes: number): Promise<{ body: string } | null> {
+  if (!request.body) return { body: "" };
+  const reader = request.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+  return { body: new TextDecoder("utf-8", { fatal: true }).decode(bytes) };
 }
