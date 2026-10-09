@@ -31,6 +31,9 @@ final class WebsiteIntakeStore implements WebsiteLeadRepositoryInterface {
         request_id CHAR(36) NOT NULL UNIQUE,
         title VARCHAR(255) NOT NULL,
         stage VARCHAR(40) NOT NULL,
+        probability TINYINT UNSIGNED NOT NULL DEFAULT 10,
+        active TINYINT(1) NOT NULL DEFAULT 1,
+        next_action VARCHAR(255) NOT NULL DEFAULT 'Projectstukken en automatisch herkende gegevens beoordelen.',
         lead_source VARCHAR(80) NOT NULL,
         acquisition_channel VARCHAR(80) NOT NULL,
         requirement_text TEXT NOT NULL,
@@ -90,10 +93,10 @@ final class WebsiteIntakeStore implements WebsiteLeadRepositoryInterface {
       $scopeJson = json_encode($lead['preliminary_scope'], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
       $create = $this->db->prepare(
         "INSERT INTO office_website_opportunity
-          (request_id, title, stage, lead_source, acquisition_channel, requirement_text, preliminary_scope_json, requires_review)
-         VALUES (:id, :title, 'Lead', 'Website - Europakozijn', 'Portaal', :requirement, :scope, 1)"
+          (request_id, title, stage, probability, active, next_action, lead_source, acquisition_channel, requirement_text, preliminary_scope_json, requires_review)
+         VALUES (:id, :title, :stage, :probability, :active, :next_action, :lead_source, :channel, :requirement, :scope, :review)"
       );
-      $create->execute(['id' => $requestId, 'title' => $lead['title'], 'requirement' => $lead['requirement_text'], 'scope' => $scopeJson]);
+      $create->execute(['id' => $requestId, 'title' => $lead['title'], 'stage' => $lead['stage'], 'probability' => $lead['probability'], 'active' => (int) $lead['active'], 'next_action' => $lead['next_action'], 'lead_source' => $lead['lead_source'], 'channel' => $lead['acquisition_channel'], 'requirement' => $lead['requirement_text'], 'scope' => $scopeJson, 'review' => (int) $lead['requires_review']]);
       $opportunityId = (int) $this->db->lastInsertId();
       $this->db->commit();
       return ['opportunity_id' => $opportunityId, 'duplicate' => false, 'state' => 'review_required'];
