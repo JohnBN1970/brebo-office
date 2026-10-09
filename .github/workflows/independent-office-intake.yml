@@ -30,6 +30,8 @@ jobs:
           find office-independent -type f -name '*.php' -print0 | xargs -0 -n1 php -l
       - name: Run standalone intake validator tests
         run: php office-independent/tests/WebsiteIntakeValidatorTest.php
+      - name: Verify signed Worker handoff
+        run: php office-independent/tests/WebsiteIntakeSignatureVerifierTest.php
       - name: Verify canonical CRM scope mapping
         run: php office-independent/tests/WebsiteOpportunityMapperTest.php
       - name: Verify handler CRM contract
