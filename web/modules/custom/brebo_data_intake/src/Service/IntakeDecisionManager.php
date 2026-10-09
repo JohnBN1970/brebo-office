@@ -73,6 +73,40 @@ final class IntakeDecisionManager {
     });
   }
 
+  /** Records a reviewed product proposal without authorizing public pricing. */
+  public function recordProductProposal(int $recordId, string $expectedRevision, string $system, int $actorUid, string $note = ''): array {
+    return $this->withRecordLock($recordId, function () use ($recordId, $expectedRevision, $system, $actorUid, $note): array {
+      $current = $this->loadCurrent($recordId, $expectedRevision);
+      $stored = $this->decodePayload($current['payload']);
+      $envelope = is_array($stored['envelope'] ?? NULL) ? $stored['envelope'] : [];
+      if (($envelope['classification'] ?? NULL) !== 'website_project_request') {
+        throw new RuntimeException('Productkeuze is alleen beschikbaar voor websiteprojectaanvragen.');
+      }
+      if (!in_array($system, ['ideal4000', 'ideal7000_nl'], TRUE)) {
+        throw new RuntimeException('Ongeldige profielcode.');
+      }
+      if ($actorUid <= 0) {
+        throw new RuntimeException('Een aangemelde beoordelaar is verplicht.');
+      }
+      $envelope['product_review'] = [
+        'system' => $system,
+        'status' => 'proposed',
+        'actor_uid' => $actorUid,
+        'recorded_at' => time(),
+      ];
+      $stored['envelope'] = $envelope;
+      $encoded = json_encode($stored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+      $canonical = is_array($envelope['canonical'] ?? NULL) ? $envelope['canonical'] : [];
+      $this->repository->transactional(function () use ($recordId, $current, $encoded, $actorUid, $canonical, $note): void {
+        if (!$this->repository->updateReviewPayload($recordId, $current['payload'], $encoded)) {
+          throw new RuntimeException('Dit intake-item is inmiddels gewijzigd. Vernieuw de pagina.');
+        }
+        $this->repository->audit($recordId, 'product_proposal', 'review_required', 'review_required', $actorUid, 'website_project_request', $canonical, $note);
+      });
+      return ['state' => 'review_required', 'record_id' => $recordId, 'revision' => $this->revision('review_required', $encoded)];
+    });
+  }
+
   /** Routes a reviewed item through the owning destination contract. */
   public function accept(int $recordId, string $expectedRevision, int $actorUid, string $note = ''): array {
     return $this->withRecordLock($recordId, function () use ($recordId, $expectedRevision, $actorUid, $note): array {
