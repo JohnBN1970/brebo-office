@@ -27,7 +27,8 @@ export class OfficeCalculationAccess {
   private async load(calculationId: number, actorId: number): Promise<CalculationAccessRecord | null> {
     if (!Number.isSafeInteger(calculationId) || calculationId <= 0 || !Number.isSafeInteger(actorId) || actorId <= 0) return null;
     const record = await this.source.find(calculationId);
-    if (!record || record.calculation_id !== calculationId || record.active !== true || !Array.isArray(record.readers) || !Array.isArray(record.publishers)) return null;
+    if (!record || record.calculation_id !== calculationId || record.active !== true || !validActors(record.readers) || !validActors(record.publishers)) return null;
     return record;
   }
 }
+\nfunction validActors(value: unknown): value is number[] {\n  return Array.isArray(value) && value.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0);\n}\n
