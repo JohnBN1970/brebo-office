@@ -27,9 +27,10 @@ interface __BaseEnv_Env {
 	USAGE_GUARD: DurableObjectNamespace<import("./src/index").UsageGuard>;
 	SALES_INVOICE_DISPATCH_GUARD: DurableObjectNamespace<import("./src/index").SalesInvoiceDispatchGuard>;
 	CALC_PUBLICATION_STORE: DurableObjectNamespace<import("./src/calc-publication-store").CalcPublicationStore>;
+	CALC_ACCESS_REGISTRY: DurableObjectNamespace<import("./src/calc-access-registry").CalcAccessRegistry>;
 }
 declare namespace Cloudflare {
-	interface GlobalProps { mainModule: typeof import("./src/router"); durableNamespaces: "ReplayGuard" | "UsageGuard" | "SalesInvoiceDispatchGuard" | "CalcPublicationStore"; }
+	interface GlobalProps { mainModule: typeof import("./src/router"); durableNamespaces: "ReplayGuard" | "UsageGuard" | "SalesInvoiceDispatchGuard" | "CalcPublicationStore" | "CalcAccessRegistry"; }
 	interface Env extends __BaseEnv_Env {}
 }
 interface Env extends __BaseEnv_Env {}

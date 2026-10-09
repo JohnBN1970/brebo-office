@@ -12,14 +12,16 @@
       { "name": "REPLAY_GUARD", "class_name": "ReplayGuard" },
       { "name": "USAGE_GUARD", "class_name": "UsageGuard" },
       { "name": "SALES_INVOICE_DISPATCH_GUARD", "class_name": "SalesInvoiceDispatchGuard" },
-      { "name": "CALC_PUBLICATION_STORE", "class_name": "CalcPublicationStore" }
+      { "name": "CALC_PUBLICATION_STORE", "class_name": "CalcPublicationStore" },
+      { "name": "CALC_ACCESS_REGISTRY", "class_name": "CalcAccessRegistry" }
     ]
   },
   "migrations": [
     { "tag": "v1", "new_sqlite_classes": ["ReplayGuard"] },
     { "tag": "v2", "new_sqlite_classes": ["UsageGuard"] },
     { "tag": "v3", "new_sqlite_classes": ["SalesInvoiceDispatchGuard"] },
-    { "tag": "v4", "new_sqlite_classes": ["CalcPublicationStore"] }
+    { "tag": "v4", "new_sqlite_classes": ["CalcPublicationStore"] },
+    { "tag": "v5", "new_sqlite_classes": ["CalcAccessRegistry"] }
   ],
   "vars": {
     "API_VERSION": "1.2.0-draft",
