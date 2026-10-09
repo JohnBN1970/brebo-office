@@ -42,13 +42,16 @@ try {
   if ((int) $count->fetchColumn() !== 1) {
     throw new RuntimeException('Expected exactly one opportunity.');
   }
-  $scopeQuery = $db->prepare('SELECT preliminary_scope_json, lead_source, acquisition_channel, requirement_text FROM office_website_opportunity WHERE request_id = ?');
+  $scopeQuery = $db->prepare('SELECT preliminary_scope_json, lead_source, acquisition_channel, requirement_text, probability, active, next_action FROM office_website_opportunity WHERE request_id = ?');
   $scopeQuery->execute([$id]);
   $stored = $scopeQuery->fetch(PDO::FETCH_ASSOC);
   $scope = json_decode($stored['preliminary_scope_json'], true, 512, JSON_THROW_ON_ERROR);
   if (($scope['items'][0]['reference'] ?? null) !== 'K1'
     || $stored['lead_source'] !== 'Website - Europakozijn'
     || $stored['acquisition_channel'] !== 'Portaal'
+    || (int) $stored['probability'] !== 10
+    || (int) $stored['active'] !== 1
+    || $stored['next_action'] !== 'Projectstukken en automatisch herkende gegevens beoordelen.'
     || !str_contains($stored['requirement_text'], 'VOORLOPIGE MACHINESCOPE')
     || !str_contains($stored['requirement_text'], 'K1')) {
     throw new RuntimeException('CRM context or preliminary scope was not retained.');
