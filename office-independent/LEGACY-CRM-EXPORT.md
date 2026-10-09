@@ -10,13 +10,13 @@ values and may contain personal or commercially confidential information.
 Do not commit exports to Git, put them under the public webroot or publish
 them as CI artifacts.
 
-Each exported record includes its Drupal node ID, title, stage, owner UID,
+Each exported record includes its Drupal node ID, title, stage, node author UID, separately assigned commercial owner UID,
 publication state, timestamps and raw fields. A website request UUID is
 intentionally `null` until recovered from a trusted original intake record:
 the Drupal title only carries an eight-character prefix and cannot safely
 reconstruct a full UUID.
 
-Review the inventory and resolve unknown stages, missing owners, references,
+Review the inventory and resolve blank stages, missing owners, differences between node author and commercial owner, references,
 attachments and website request UUIDs before importing. The existing
 `import-legacy-crm.php` command defaults to dry-run and requires
 `OFFICE_CRM_IMPORT_CONFIRM=YES` for writes.
