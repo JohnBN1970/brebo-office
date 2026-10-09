@@ -21,6 +21,20 @@ attachments and website request UUIDs before importing. The existing
 `import-legacy-crm.php` command defaults to dry-run and requires
 `OFFICE_CRM_IMPORT_CONFIRM=YES` for writes.
 
-**Not yet implemented:** a privileged export command, the complete mapping
+A CLI-only Drush export script is now available at
+`web/modules/custom/brebo_data_intake/scripts/export-legacy-crm.php`.
+From the trusted Drupal runtime, run:
+
+```sh
+drush scr web/modules/custom/brebo_data_intake/scripts/export-legacy-crm.php -- /secure/crm-export.json
+php office-independent/bin/import-legacy-crm.php /secure/crm-export.json
+```
+
+The first command creates a new protected file outside the webroot and
+refuses to overwrite an existing export. The second command defaults to
+validation-only; it does not import until explicitly confirmed.
+The export script has not been executed against a real Drupal runtime.
+
+**Not yet implemented:** the complete mapping
 of related CRM entity types, and production Office CRM UI reads from the
 independent store. Do not switch production intake or retire Drupal CRM.
