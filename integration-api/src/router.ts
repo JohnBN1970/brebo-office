@@ -49,4 +49,5 @@ export default {
 export { ReplayGuard, UsageGuard, SalesInvoiceDispatchGuard } from "./index";
 
 export { CalcPublicationStore } from "./calc-publication-store";
-\nexport { CalcAccessRegistry } from "./calc-access-registry";\n
+
+export { CalcAccessRegistry } from "./calc-access-registry";
