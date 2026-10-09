@@ -23,7 +23,8 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   const signature = SIGNATURE.exec(request.headers.get("X-BREBO-Signature") ?? "")?.[1];
   const timestamp = Number(timestampText);
   if (!UUID.test(requestId) || !signature || !Number.isSafeInteger(timestamp) || timestamp <= 0 || Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 300) return error(401, "invalid_signature");
-  const canonical = [request.method, path, await sha256Hex(body), timestampText, requestId].join("\n");
+  const actorHeader = request.method === "GET" ? request.headers.get("X-BREBO-Actor-Id") ?? "" : "";
+  const canonical = [request.method, path, await sha256Hex(body), timestampText, requestId, ...(request.method === "GET" ? [actorHeader] : [])].join("\n");
   if (!env.BREBO_SHARED_SECRET || env.BREBO_SHARED_SECRET.trim().length < 32) return error(503, "publication_auth_not_configured");
   const expected = await hmacSha256Hex(env.BREBO_SHARED_SECRET, canonical);
   if (!(await fixedTimeEqual(signature, expected))) return error(401, "invalid_signature");
@@ -32,7 +33,7 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   if (!Number.isSafeInteger(calculationId)) return error(400, "invalid_calculation");
   const access = (env as Env & { CALC_PUBLICATION_ACCESS?: { canRead(calculationId: number, actorId: number): Promise<boolean>; canPublish(calculationId: number, actorId: number): Promise<boolean> } }).CALC_PUBLICATION_ACCESS;
   if (request.method === "GET") {
-    const actorId = Number(request.headers.get("X-BREBO-Actor-Id"));
+    const actorId = Number(actorHeader);
     if (!Number.isSafeInteger(actorId) || actorId <= 0) return error(400, "invalid_actor");
     if (!access) return error(503, "publication_access_not_configured");
     if (!(await access.canRead(calculationId, actorId))) return error(403, "access_denied");
