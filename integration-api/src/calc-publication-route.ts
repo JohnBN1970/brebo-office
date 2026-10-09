@@ -24,6 +24,7 @@ export async function calcPublication(request: Request, env: Env): Promise<Respo
   const timestamp = Number(timestampText);
   if (!UUID.test(requestId) || !signature || !Number.isSafeInteger(timestamp) || timestamp <= 0 || Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 300) return error(401, "invalid_signature");
   const canonical = [request.method, path, await sha256Hex(body), timestampText, requestId].join("\n");
+  if (!env.BREBO_SHARED_SECRET || env.BREBO_SHARED_SECRET.trim().length < 32) return error(503, "publication_auth_not_configured");
   const expected = await hmacSha256Hex(env.BREBO_SHARED_SECRET, canonical);
   if (!(await fixedTimeEqual(signature, expected))) return error(401, "invalid_signature");
 
