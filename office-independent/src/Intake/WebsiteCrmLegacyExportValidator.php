@@ -28,6 +28,17 @@ final class WebsiteCrmLegacyExportValidator {
         || !is_int($row['owner_uid'] ?? null) || $row['owner_uid'] < 1) {
         throw new \InvalidArgumentException('Incomplete legacy CRM opportunity.');
       }
+      // The node author and the assigned commercial owner are distinct.
+      // Require explicit review when the assignment exists but is malformed.
+      if (array_key_exists('assigned_owner_uid', $row)
+        && $row['assigned_owner_uid'] !== null
+        && (!is_int($row['assigned_owner_uid']) || $row['assigned_owner_uid'] < 1)) {
+        throw new \InvalidArgumentException('Invalid assigned commercial owner UID.');
+      }
+      $fields = $row['fields'] ?? null;
+      if ($fields !== null && !is_array($fields)) {
+        throw new \InvalidArgumentException('Malformed CRM field inventory.');
+      }
       $requestId = $row['website_request_id'] ?? null;
       if ($requestId !== null) {
         if (!is_string($requestId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $requestId)) {
