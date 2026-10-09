@@ -31,4 +31,7 @@ export class OfficeCalculationAccess {
     return record;
   }
 }
-\nfunction validActors(value: unknown): value is number[] {\n  return Array.isArray(value) && value.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0);\n}\n
+
+function validActors(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0);
+}
