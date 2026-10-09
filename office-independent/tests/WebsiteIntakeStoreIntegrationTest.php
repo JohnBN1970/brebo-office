@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Brebo\Office\Intake\WebsiteIntakeStore;
 
 require_once __DIR__ . '/../src/Intake/WebsiteLeadRepositoryInterface.php';
+require_once __DIR__ . '/../src/Intake/WebsiteOpportunityMapper.php';
 require_once __DIR__ . '/../src/Intake/WebsiteIntakeStore.php';
 
 $dsn = getenv('OFFICE_INTAKE_TEST_DSN');
@@ -41,13 +42,15 @@ try {
   if ((int) $count->fetchColumn() !== 1) {
     throw new RuntimeException('Expected exactly one opportunity.');
   }
-  $scopeQuery = $db->prepare('SELECT preliminary_scope_json, lead_source, acquisition_channel FROM office_website_opportunity WHERE request_id = ?');
+  $scopeQuery = $db->prepare('SELECT preliminary_scope_json, lead_source, acquisition_channel, requirement_text FROM office_website_opportunity WHERE request_id = ?');
   $scopeQuery->execute([$id]);
   $stored = $scopeQuery->fetch(PDO::FETCH_ASSOC);
   $scope = json_decode($stored['preliminary_scope_json'], true, 512, JSON_THROW_ON_ERROR);
   if (($scope['items'][0]['reference'] ?? null) !== 'K1'
     || $stored['lead_source'] !== 'Website - Europakozijn'
-    || $stored['acquisition_channel'] !== 'Portaal') {
+    || $stored['acquisition_channel'] !== 'Portaal'
+    || !str_contains($stored['requirement_text'], 'VOORLOPIGE MACHINESCOPE')
+    || !str_contains($stored['requirement_text'], 'K1')) {
     throw new RuntimeException('CRM context or preliminary scope was not retained.');
   }
   // Force a database rejection after the intake insert and verify atomic rollback.
