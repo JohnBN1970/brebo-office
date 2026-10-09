@@ -25,7 +25,7 @@ $valid = [
   'schema_version' => '1',
   'request_id' => 'aaaaaaaa-1111-4111-8111-111111111111',
   'source' => 'website',
-  'observed' => ['building' => []],
+  'observed' => ['building' => [], 'rooms' => [['id' => 'room-1']], 'frames' => [['id' => 'frame-1']]],
   'detected' => [],
   'calculated' => [],
   'selected' => [],
