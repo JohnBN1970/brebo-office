@@ -122,7 +122,29 @@ final class IntakeReviewDecisionForm extends FormBase {
       '#description' => $this->t('Verplicht bij afwijzen; bij andere acties optioneel en opgenomen in de audittrail.'),
     ];
 
+    if (($envelope['classification'] ?? '') === 'website_project_request') {
+      $proposal = is_array($envelope['product_review'] ?? NULL) ? $envelope['product_review'] : [];
+      $form['product_system'] = [
+        '#type' => 'select',
+        '#title' => $this->t('Voorgesteld profielsysteem'),
+        '#options' => [
+          '' => $this->t('- Nog geen profiel voorgesteld -'),
+          'ideal4000' => 'Aluplast Ideal 4000',
+          'ideal7000_nl' => 'Aluplast Ideal 7000 NL',
+        ],
+        '#default_value' => (string) ($proposal['system'] ?? ''),
+        '#description' => $this->t('Een voorstel is geen productgoedkeuring en geeft geen publieke prijs vrij.'),
+      ];
+    }
+
     $form['actions'] = ['#type' => 'actions'];
+    if (($envelope['classification'] ?? '') === 'website_project_request') {
+      $form['actions']['propose_product'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('Profielvoorstel vastleggen'),
+        '#submit' => ['::submitProductProposal'],
+      ];
+    }
     $form['actions']['correct'] = [
       '#type' => 'submit',
       '#value' => $this->t('Correctie opslaan'),
@@ -141,6 +163,24 @@ final class IntakeReviewDecisionForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  public function submitProductProposal(array &$form, FormStateInterface $form_state): void {
+    try {
+      $this->decisions->recordProductProposal(
+        (int) $form_state->getValue('record_id'),
+        (string) $form_state->getValue('revision'),
+        (string) $form_state->getValue('product_system'),
+        (int) $this->currentUserAccount->id(),
+        (string) $form_state->getValue('note'),
+      );
+      $this->messengerService->addStatus($this->t('Profielvoorstel vastgelegd. Het product is nog niet goedgekeurd.'));
+      $form_state->setRedirect('brebo_data_intake.review');
+    }
+    catch (\\RuntimeException $e) {
+      $this->messengerService->addError($e->getMessage());
+      $form_state->setRebuild();
+    }
   }
 
   public function submitForm(array &$form, FormStateInterface $form_state): void {}
