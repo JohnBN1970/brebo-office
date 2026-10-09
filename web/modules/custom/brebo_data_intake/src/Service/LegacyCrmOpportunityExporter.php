@@ -44,8 +44,11 @@ final class LegacyCrmOpportunityExporter {
       $rows[] = [
         'legacy_node_id' => (int) $node->id(),
         'title' => (string) $node->label(),
-        'stage' => $this->fieldValue($node, 'field_brebo_opp_stage', 'Unknown'),
+        'stage' => $this->fieldValue($node, 'field_brebo_opp_stage'),
         'owner_uid' => (int) $node->getOwnerId(),
+        'assigned_owner_uid' => $node->hasField('field_brebo_opp_owner') && !$node->get('field_brebo_opp_owner')->isEmpty()
+          ? (int) $node->get('field_brebo_opp_owner')->target_id
+          : null,
         'website_request_id' => null,
         'status' => (int) $node->isPublished(),
         'created' => (int) $node->getCreatedTime(),
@@ -56,10 +59,10 @@ final class LegacyCrmOpportunityExporter {
     return $rows;
   }
 
-  private function fieldValue(NodeInterface $node, string $name, string $fallback): string {
+  private function fieldValue(NodeInterface $node, string $name): string {
     if (!$node->hasField($name) || $node->get($name)->isEmpty()) {
-      return $fallback;
+      return '';
     }
-    return (string) ($node->get($name)->value ?? $fallback);
+    return (string) ($node->get($name)->value ?? '');
   }
 }
