@@ -177,7 +177,7 @@ final class IntakeReviewDecisionForm extends FormBase {
       $this->messengerService->addStatus($this->t('Profielvoorstel vastgelegd. Het product is nog niet goedgekeurd.'));
       $form_state->setRedirect('brebo_data_intake.review');
     }
-    catch (\\RuntimeException $e) {
+    catch (\RuntimeException $e) {
       $this->messengerService->addError($e->getMessage());
       $form_state->setRebuild();
     }
