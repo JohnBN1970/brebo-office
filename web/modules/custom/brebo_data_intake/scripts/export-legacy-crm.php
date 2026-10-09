@@ -45,6 +45,11 @@ for ($offset = 0; ; $offset += 100) {
   }
 }
 $encoded = json_encode($rows, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+// The independent import rejects payloads over 20 MB. Fail here rather than
+// producing a protected export that the receiving command cannot accept.
+if (strlen($encoded) > 20_000_000) {
+  throw new RuntimeException('CRM export exceeds the 20 MB import limit; split the migration into reviewed batches.');
+}
 $oldUmask = umask(0077);
 try {
   $handle = fopen($destination, 'x');
