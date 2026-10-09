@@ -12,9 +12,9 @@ const body = JSON.stringify({
 
 async function signedRequest(method: "GET" | "POST", text = method === "GET" ? "" : body) {
   const timestamp = String(Math.floor(Date.now() / 1000));
-  const canonical = [method, path, await sha256Hex(text), timestamp, requestId].join("\n");
+  const canonical = [method, path, await sha256Hex(text), timestamp, requestId, ...(method === "GET" ? ["5"] : [])].join("\n");
   return new Request("https://office.example" + path, {
-    method, headers: { "X-BREBO-Request-Id": requestId, "X-BREBO-Timestamp": timestamp, "X-BREBO-Signature": "v1=" + await hmacSha256Hex(secret, canonical), ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
+    method, headers: { "X-BREBO-Request-Id": requestId, "X-BREBO-Timestamp": timestamp, ...(method === "GET" ? { "X-BREBO-Actor-Id": "5" } : {}), "X-BREBO-Signature": "v1=" + await hmacSha256Hex(secret, canonical), ...(method === "POST" ? { "Content-Type": "application/json" } : {}) },
     ...(method === "POST" ? { body: text } : {}),
   });
 }
@@ -57,6 +57,12 @@ describe("standalone Calc publication security contract", () => {
     expect(response.status).toBe(403);
     expect(useOnce).not.toHaveBeenCalled();
     expect(publish).not.toHaveBeenCalled();
+  });
+  it("rejects tampered GET actor identity", async () => {
+    const request = await signedRequest("GET");
+    request.headers.set("X-BREBO-Actor-Id", "7");
+    const response = await calcPublication(request, { BREBO_SHARED_SECRET: secret } as Env);
+    expect(response.status).toBe(401);
   });
   it("authenticates and reads the latest snapshot", async () => {
     const latest = vi.fn().mockResolvedValue({ snapshot_id: 2, content_hash: "a".repeat(64), published_by: 5, published_at: 123, payload: { office_version: "office-1", calc_version: "calc-1", commercial_summary: { sales: 150 } } });
