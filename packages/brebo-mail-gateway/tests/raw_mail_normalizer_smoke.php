@@ -31,4 +31,21 @@ if (!str_contains((string) ($message['text'] ?? ''), 'echt inbound testbericht')
   throw new RuntimeException('Body normalization failed.');
 }
 
+$encoded = "From: outside@example.com\r\n"
+  . "To: john@mail-test.example.nl\r\n"
+  . "Subject: Encoded\r\n"
+  . "Content-Type: text/plain; charset=UTF-8\r\n"
+  . "Content-Transfer-Encoding: base64\r\n\r\n"
+  . base64_encode('Leesbare inhoud');
+$decoded = (new RawMailNormalizer())->normalize($encoded, 'john@mail-test.example.nl');
+if (($decoded['text'] ?? '') !== 'Leesbare inhoud') {
+  throw new RuntimeException('Base64 text decoding failed.');
+}
+
+$empty = "From: outside@example.com\r\nTo: john@mail-test.example.nl\r\n\r\n";
+$validEmpty = (new RawMailNormalizer())->normalize($empty, 'john@mail-test.example.nl');
+if (($validEmpty['subject'] ?? NULL) !== '' || ($validEmpty['text'] ?? NULL) !== '') {
+  throw new RuntimeException('Valid empty subject/body mail must be accepted.');
+}
+
 echo "BREBO_MAIL_RAW_NORMALIZER=PASS\n";
