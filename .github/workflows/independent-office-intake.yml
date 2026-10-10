@@ -48,6 +48,8 @@ jobs:
         run: php office-independent/tests/WebsiteCrmLegacyImportCommandTest.php
       - name: Verify legacy CRM export identity
         run: php office-independent/tests/WebsiteCrmLegacyExportValidatorTest.php
+      - name: Verify legacy CRM reference inventory
+        run: php office-independent/tests/WebsiteCrmLegacyReferenceInventoryTest.php
       - name: Verify cross-CRM full UUID audit
         run: php office-independent/tests/WebsiteCrmCutoverAuditTest.php
       - name: Verify legacy CRM import staging
