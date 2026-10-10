@@ -22,9 +22,13 @@ final class RawMailNormalizer {
     $headers = $this->headers($headerBlock);
     $from = $this->firstAddress((string) ($headers['from'] ?? ''));
     $subject = trim((string) ($headers['subject'] ?? ''));
-    if ($from === '' || $subject === '' || trim($body) === '') {
-      throw new InvalidArgumentException('From, Subject en body zijn verplicht voor inbound mail.');
+    if ($from === '') {
+      throw new InvalidArgumentException('From header bevat geen geldig adres.');
     }
+
+    $contentType = mb_strtolower((string) ($headers['content-type'] ?? 'text/plain'));
+    $transferEncoding = mb_strtolower(trim((string) ($headers['content-transfer-encoding'] ?? '')));
+    $text = $this->decodeReadableBody($body, $contentType, $transferEncoding);
 
     $messageId = trim((string) ($headers['message-id'] ?? ''), " <>\t\r\n");
     $receivedAt = trim((string) ($headers['date'] ?? ''));
@@ -37,7 +41,7 @@ final class RawMailNormalizer {
       'from' => $from,
       'to' => $envelopeRecipient,
       'subject' => $subject,
-      'text' => trim($body),
+      'text' => $text,
       'received_at' => $receivedAt,
       'raw' => $raw,
     ];
@@ -58,6 +62,30 @@ final class RawMailNormalizer {
       }
     }
     return $headers;
+  }
+
+  private function decodeReadableBody(string $body, string $contentType, string $encoding): string {
+    if (str_contains($contentType, 'multipart/')) {
+      return '';
+    }
+
+    $decoded = match ($encoding) {
+      'base64' => base64_decode(preg_replace('/\s+/', '', $body) ?: '', TRUE),
+      'quoted-printable' => quoted_printable_decode($body),
+      default => $body,
+    };
+    if ($decoded === FALSE) {
+      return '';
+    }
+
+    if (str_contains($contentType, 'text/html')) {
+      return trim(html_entity_decode(strip_tags($decoded), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    }
+    if (!str_contains($contentType, 'text/plain') && !str_contains($contentType, 'text/html')) {
+      return '';
+    }
+
+    return trim($decoded);
   }
 
   private function firstAddress(string $value): string {
