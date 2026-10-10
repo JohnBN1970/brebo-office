@@ -1,0 +1,82 @@
+name: Independent Office intake validation
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - '.github/workflows/independent-office-intake.yml'
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: testpassword
+          MYSQL_DATABASE: office_intake_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptestpassword"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        run: |
+          find office-independent -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Run standalone intake validator tests
+        run: php office-independent/tests/WebsiteIntakeValidatorTest.php
+      - name: Verify independent HTTP endpoint
+        run: php office-independent/tests/WebsiteIntakeHttpEndpointTest.php
+      - name: Verify signed Worker handoff
+        run: php office-independent/tests/WebsiteIntakeSignatureVerifierTest.php
+      - name: Verify canonical CRM scope mapping
+        run: php office-independent/tests/WebsiteOpportunityMapperTest.php
+      - name: Verify handler CRM contract
+        run: php office-independent/tests/WebsiteIntakeHandlerTest.php
+      - name: Test upgrade from legacy intake schema
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteIntakeSchemaMigrationTest.php
+      - name: Verify CRM import CLI dry run
+        run: php office-independent/tests/WebsiteCrmLegacyImportCommandTest.php
+      - name: Verify legacy CRM export identity
+        run: php office-independent/tests/WebsiteCrmLegacyExportValidatorTest.php
+      - name: Verify legacy CRM reference inventory
+        run: php office-independent/tests/WebsiteCrmLegacyReferenceInventoryTest.php
+      - name: Verify reviewed CRM reference ID mappings
+        run: php office-independent/tests/WebsiteCrmLegacyReferenceResolverTest.php
+      - name: Reject ambiguous CRM ID mappings
+        run: php office-independent/tests/WebsiteCrmLegacyMappingValidatorTest.php
+      - name: Verify cross-CRM full UUID audit
+        run: php office-independent/tests/WebsiteCrmCutoverAuditTest.php
+      - name: Verify legacy CRM import staging
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteCrmLegacyImportRepositoryTest.php
+      - name: Verify independent CRM relation persistence
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteCrmLegacyRelationStoreTest.php
+      - name: Verify staging CRM reconciliation
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteIntakeReconciliationTest.php
+      - name: Run MySQL intake integration tests
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteIntakeStoreIntegrationTest.php
