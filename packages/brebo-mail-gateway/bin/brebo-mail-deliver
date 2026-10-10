@@ -1,0 +1,43 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+require dirname(__DIR__, 3) . '/vendor/autoload.php';
+
+use Brebo\MailGateway\Infrastructure\MaildirMailboxStore;
+use Brebo\MailGateway\Infrastructure\NativeOfficeIntakeClient;
+use Brebo\MailGateway\Service\InboundDeliveryService;
+use Brebo\MailGateway\Service\OfficeIntakeDeliveryService;
+use Brebo\MailGateway\Service\RawMailNormalizer;
+
+$recipient = trim((string) ($argv[1] ?? ''));
+$raw = stream_get_contents(STDIN);
+if ($raw === FALSE) {
+  fwrite(STDERR, "BREBO Mail: stdin kon niet worden gelezen.\n");
+  exit(75);
+}
+
+try {
+  $message = (new RawMailNormalizer())->normalize($raw, $recipient);
+  $store = new MaildirMailboxStore(
+    (string) getenv('BREBO_MAIL_MAILDIR_ROOT'),
+    filter_var(getenv('BREBO_MAIL_MAILDIR_ENABLED') ?: '0', FILTER_VALIDATE_BOOL),
+  );
+  $client = new NativeOfficeIntakeClient(
+    (string) getenv('BREBO_MAIL_OFFICE_URL'),
+    (string) getenv('BREBO_MAIL_INTAKE_CALLBACK_KEY_ID'),
+    (string) getenv('BREBO_MAIL_INTAKE_CALLBACK_SECRET'),
+  );
+  $delivery = new InboundDeliveryService(
+    $store,
+    new OfficeIntakeDeliveryService($client),
+  );
+  $result = $delivery->deliver($recipient, $message);
+  fwrite(STDOUT, (string) ($result['mailbox_reference'] ?? '') . "\n");
+  exit(0);
+}
+catch (Throwable $e) {
+  fwrite(STDERR, "BREBO Mail delivery failed: " . $e->getMessage() . "\n");
+  exit(75);
+}
