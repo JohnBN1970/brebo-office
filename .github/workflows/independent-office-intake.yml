@@ -62,6 +62,12 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/WebsiteCrmLegacyImportRepositoryTest.php
+      - name: Verify independent CRM relation persistence
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteCrmLegacyRelationStoreTest.php
       - name: Verify staging CRM reconciliation
         env:
           OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
