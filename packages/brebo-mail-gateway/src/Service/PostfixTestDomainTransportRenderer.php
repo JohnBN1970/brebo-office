@@ -31,9 +31,12 @@ brebo_inbound unix  -       n       n       -       -       pipe
   flags=Rq user=brebomail argv=/opt/brebo-office/packages/brebo-mail-gateway/bin/brebo-mail-deliver ${recipient}
 CONF;
 
+    $main = "transport_maps = hash:/etc/brebo-mail-stack/generated/transport_map\n";
+
     return [
       'transport_map' => implode("\n", $lines) . ($lines !== [] ? "\n" : ''),
       'master_cf_fragment' => $master . "\n",
+      'main_cf_fragment' => $main,
     ];
   }
 }
