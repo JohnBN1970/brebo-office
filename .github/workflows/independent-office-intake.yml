@@ -136,6 +136,12 @@ jobs:
         run: php office-independent/tests/WebsiteCrmDraftRouteDispatcherTest.php
       - name: Verify related CRM import dry-run validation
         run: php office-independent/tests/WebsiteCrmLegacyRelatedImportCommandTest.php
+      - name: Verify CRM staging relation integrity audit
+        env:
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: testpassword
+        run: php office-independent/tests/WebsiteCrmLegacyIntegrityAuditTest.php
       - name: Verify staging CRM reconciliation
         env:
           OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_intake_test;charset=utf8mb4
