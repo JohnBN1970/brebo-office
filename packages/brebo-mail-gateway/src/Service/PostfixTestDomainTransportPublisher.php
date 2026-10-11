@@ -15,7 +15,7 @@ final class PostfixTestDomainTransportPublisher {
     private readonly string $outputDirectory,
   ) {}
 
-  /** @return array{transport_map:string,master_cf_fragment:string} */
+  /** @return array{transport_map:string,master_cf_fragment:string,main_cf_fragment:string} */
   public function publish(): array {
     $bundle = $this->renderer->render($this->state->domains());
 
