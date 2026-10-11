@@ -48,6 +48,17 @@ final class WebsiteCrmLegacyReadRepository {
     return $statement->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /** @return array<string,mixed>|null */
+  public function opportunity(int $legacyOpportunityId): ?array {
+    if ($legacyOpportunityId < 1) {
+      throw new \InvalidArgumentException('Invalid CRM opportunity ID.');
+    }
+    $statement = $this->db->prepare('SELECT legacy_node_id,title,stage,owner_uid,website_request_id FROM office_crm_legacy_opportunity WHERE legacy_node_id=:id');
+    $statement->execute(['id' => $legacyOpportunityId]);
+    $row = $statement->fetch(PDO::FETCH_ASSOC);
+    return $row === false ? null : $row;
+  }
+
   /** @return list<array<string,mixed>> */
   public function relations(int $legacyOpportunityId): array {
     if ($legacyOpportunityId < 1) {
