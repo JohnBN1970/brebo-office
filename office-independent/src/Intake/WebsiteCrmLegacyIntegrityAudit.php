@@ -17,6 +17,7 @@ final class WebsiteCrmLegacyIntegrityAudit {
       'opportunities' => 'SELECT COUNT(*) FROM office_crm_legacy_opportunity',
       'contacts' => "SELECT COUNT(*) FROM office_crm_legacy_party WHERE party_type='brebo_contact'",
       'organizations' => "SELECT COUNT(*) FROM office_crm_legacy_party WHERE party_type='brebo_organization'",
+      'opportunities_missing_legacy_owner' => 'SELECT COUNT(*) FROM office_crm_legacy_opportunity WHERE owner_uid IS NULL OR owner_uid < 1',
       'stage_events' => 'SELECT COUNT(*) FROM office_crm_legacy_stage_event',
       'orphan_stage_events' => 'SELECT COUNT(*) FROM office_crm_legacy_stage_event e LEFT JOIN office_crm_legacy_opportunity o ON o.legacy_node_id=e.legacy_opportunity_node_id WHERE o.legacy_node_id IS NULL',
       'relations' => 'SELECT COUNT(*) FROM office_crm_legacy_relation',
@@ -34,7 +35,7 @@ final class WebsiteCrmLegacyIntegrityAudit {
     }
     // The current staging contains no canonical Office user/offer registry to verify against.
     // Keep these references blocked until their independent destination adapters exist.
-    $counts['blocking_issues'] = $counts['orphan_stage_events'] + $counts['orphan_relation_sources'] + $counts['missing_contact_targets'] + $counts['missing_organization_targets'] + $counts['unverified_target_types'];
+    $counts['blocking_issues'] = $counts['opportunities_missing_legacy_owner'] + $counts['orphan_stage_events'] + $counts['orphan_relation_sources'] + $counts['missing_contact_targets'] + $counts['missing_organization_targets'] + $counts['unverified_target_types'];
     return $counts;
   }
 }
