@@ -18,7 +18,7 @@ try {
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_missing_contact','brebo_contact',987654,'office-test')");
   $audit = new WebsiteCrmLegacyIntegrityAudit($db);
   if ($audit->report()['opportunities_missing_legacy_owner'] !== 0 || $audit->report()['opportunity_owners_pending_mapping'] !== 1) {
-    throw new RuntimeException('Valid opportunity owner unexpectedly rejected.');
+    throw new RuntimeException('Legacy owner should remain pending Office mapping.');
   }
   $missing = $audit->report();
   if ($missing['missing_contact_targets'] < 1 || $missing['blocking_issues'] < 1) {
