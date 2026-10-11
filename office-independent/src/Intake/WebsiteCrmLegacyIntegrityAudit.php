@@ -29,6 +29,8 @@ final class WebsiteCrmLegacyIntegrityAudit {
     foreach ($queries as $key => $sql) {
       $counts[$key] = (int) $this->db->query($sql)->fetchColumn();
     }
+    // The current staging contains no canonical Office user/offer registry to verify against.
+    // Keep these references blocked until their independent destination adapters exist.
     $counts['blocking_issues'] = $counts['orphan_stage_events'] + $counts['orphan_relation_sources'] + $counts['missing_contact_targets'] + $counts['missing_organization_targets'] + $counts['unverified_target_types'];
     return $counts;
   }
