@@ -21,9 +21,12 @@ final class MailIntakeIngestor {
     $sourceId = trim((string) ($mail['source_id'] ?? ''));
     $subject = trim((string) ($mail['subject'] ?? ''));
     $body = trim((string) ($mail['body'] ?? ''));
-    if ($sourceId === '' || $subject === '' || $body === '') {
-      throw new \InvalidArgumentException('source_id, subject en body zijn verplicht voor Mail Intake.');
+    if ($sourceId === '') {
+      throw new \InvalidArgumentException('source_id is verplicht voor Mail Intake.');
     }
+
+    $displaySubject = $subject !== '' ? $subject : '(geen onderwerp)';
+    $displayBody = $body !== '' ? $body : '(leeg bericht)';
 
     $sourceHash = trim((string) ($mail['source_hash'] ?? ''));
     if ($sourceHash === '') {
@@ -56,15 +59,15 @@ final class MailIntakeIngestor {
     $htmlBody = trim((string) ($mail['body_html'] ?? ''));
     $values = [
       'type' => 'brebo_communication',
-      'title' => $subject,
+      'title' => $displaySubject,
       'uid' => $ownerUid,
       'status' => 1,
       'field_brebo_source_id' => $sourceId,
       'field_brebo_source_hash' => $sourceHash,
       'field_brebo_comm_channel' => 'E-mail',
       'field_brebo_comm_direction' => $direction,
-      'field_brebo_comm_subject' => $subject,
-      'field_brebo_transcript' => $body,
+      'field_brebo_comm_subject' => $displaySubject,
+      'field_brebo_transcript' => $displayBody,
       'field_brebo_comm_status' => 'Nieuw',
       'field_brebo_formal_status' => 'Bron geregistreerd',
       'field_brebo_ai_status' => 'Niet verwerkt',
