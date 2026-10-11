@@ -6,7 +6,7 @@ require dirname(__DIR__, 3) . '/vendor/autoload.php';
 
 use Brebo\MailGateway\Service\PostfixTestDomainTransportRenderer;
 
-$bundle = (new PostfixTestDomainTransportRenderer())->render([
+$bundle = (new PostfixTestDomainTransportRenderer(['mail-test.example.nl']))->render([
   [
     'domain' => 'mail-test.example.nl',
     'test_domain' => TRUE,
@@ -14,8 +14,8 @@ $bundle = (new PostfixTestDomainTransportRenderer())->render([
   ],
   [
     'domain' => 'brebobv.nl',
-    'test_domain' => FALSE,
-    'cutover_allowed' => FALSE,
+    'test_domain' => TRUE,
+    'cutover_allowed' => TRUE,
   ],
   [
     'domain' => 'blocked-test.example.nl',
