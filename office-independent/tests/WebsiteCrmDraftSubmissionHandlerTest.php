@@ -23,12 +23,19 @@ try {
 catch (DomainException) {
   $denied = true;
 }
-if (!$denied || $handler->submit($post, 'operator-1', 100001) !== 1) {
+$permissionDenied = false;
+try {
+  $handler->submit($post, 'operator-1', 100001);
+}
+catch (DomainException) {
+  $permissionDenied = true;
+}
+if (!$denied || !$permissionDenied || $handler->submit($post, 'operator-1', 100001, true) !== 1) {
   throw new RuntimeException('CRM draft submission authorization or write failed.');
 }
 $stale = false;
 try {
-  $handler->submit($post, 'operator-1', 100001);
+  $handler->submit($post, 'operator-1', 100001, true);
 }
 catch (RuntimeException) {
   $stale = true;
