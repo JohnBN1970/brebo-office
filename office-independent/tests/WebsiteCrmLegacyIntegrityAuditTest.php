@@ -17,6 +17,9 @@ try {
   $db->exec("INSERT INTO office_crm_legacy_opportunity (legacy_node_id,title,stage,owner_uid,website_request_id,source_json) VALUES (987659,'Audit test','lead',1,NULL,'{}')");
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_missing_contact','brebo_contact',987654,'office-test')");
   $audit = new WebsiteCrmLegacyIntegrityAudit($db);
+  if ($audit->report()['opportunities_missing_legacy_owner'] !== 0) {
+    throw new RuntimeException('Valid opportunity owner unexpectedly rejected.');
+  }
   $missing = $audit->report();
   if ($missing['missing_contact_targets'] < 1 || $missing['blocking_issues'] < 1) {
     throw new RuntimeException('Missing CRM contact target did not block cutover.');
