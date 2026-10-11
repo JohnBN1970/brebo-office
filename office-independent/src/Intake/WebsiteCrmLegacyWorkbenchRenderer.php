@@ -17,7 +17,7 @@ final class WebsiteCrmLegacyWorkbenchRenderer {
       . '<title>BREBO Office · CRM migratiecontrole</title><style>body{font:15px system-ui,sans-serif;margin:3rem auto;max-width:1100px;padding:0 1rem;color:#182435;background:#f7f9fc}'
       . 'h1{font-size:1.8rem}section{background:white;padding:1.4rem;margin:1.2rem 0;border-radius:12px;box-shadow:0 2px 10px #dbe2eb}'
       . 'table{border-collapse:collapse;width:100%}td,th{text-align:left;border-bottom:1px solid #e2e8f0;padding:.65rem}th{color:#42546b}'
-      . 'p{color:#52657b}</style></head><body><h1>CRM · migratiecontrole</h1>'
+      . 'p{color:#52657b}a{color:#124b84}</style></head><body><h1>CRM · migratiecontrole</h1>'
       . '<p>Alleen-lezen. Gegevens uit de zelfstandige Office-migratiedatabase; geen Drupal-verbinding. Maximaal 50 records per onderdeel.</p>';
     foreach ($sections as $label => $rows) {
       $html .= '<section><h2>' . $this->escape($label) . '</h2>';
@@ -34,7 +34,11 @@ final class WebsiteCrmLegacyWorkbenchRenderer {
       foreach ($rows as $row) {
         $html .= '<tr>';
         foreach ($columns as $column) {
-          $html .= '<td>' . $this->escape((string) ($row[$column] ?? '')) . '</td>';
+          $value = $this->escape((string) ($row[$column] ?? ''));
+          if ($label === 'Verkoopkansen' && $column === 'title' && isset($row['legacy_node_id']) && ctype_digit((string) $row['legacy_node_id'])) {
+            $value = '<a href="/brebo-internal/crm/migration/detail?id=' . rawurlencode((string) $row['legacy_node_id']) . '">' . $value . '</a>';
+          }
+          $html .= '<td>' . $value . '</td>';
         }
         $html .= '</tr>';
       }
