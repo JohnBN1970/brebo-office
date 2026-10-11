@@ -15,8 +15,8 @@ final class WebsiteCrmLegacyDetailRenderer {
     $html = '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       . '<title>BREBO Office · CRM kans</title><style>body{font:15px system-ui,sans-serif;margin:3rem auto;max-width:960px;padding:0 1rem;color:#182435;background:#f7f9fc}'
       . 'section{background:#fff;border-radius:12px;padding:1.5rem;margin:1rem 0}table{border-collapse:collapse;width:100%}'
-      . 'td,th{text-align:left;padding:.65rem;border-bottom:1px solid #e2e8f0}</style></head><body>'
-      . '<h1>' . $this->escape((string) $opportunity['title']) . '</h1><p>CRM migratiecontrole · alleen-lezen</p>';
+      . 'td,th{text-align:left;padding:.65rem;border-bottom:1px solid #e2e8f0}a{color:#124b84}</style></head><body>'
+      . '<nav><a href="/brebo-internal/crm/migration">← Terug naar CRM-overzicht</a></nav><h1>' . $this->escape((string) $opportunity['title']) . '</h1><p>CRM migratiecontrole · alleen-lezen</p>';
     foreach ([
       'Kans' => [$opportunity],
       'Relaties' => $repository->relations($legacyId),
