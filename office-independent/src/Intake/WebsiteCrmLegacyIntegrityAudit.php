@@ -21,6 +21,8 @@ final class WebsiteCrmLegacyIntegrityAudit {
       'orphan_stage_events' => 'SELECT COUNT(*) FROM office_crm_legacy_stage_event e LEFT JOIN office_crm_legacy_opportunity o ON o.legacy_node_id=e.legacy_opportunity_node_id WHERE o.legacy_node_id IS NULL',
       'relations' => 'SELECT COUNT(*) FROM office_crm_legacy_relation',
       'orphan_relation_sources' => 'SELECT COUNT(*) FROM office_crm_legacy_relation r LEFT JOIN office_crm_legacy_opportunity o ON o.legacy_node_id=r.legacy_opportunity_node_id WHERE o.legacy_node_id IS NULL',
+      'missing_contact_targets' => "SELECT COUNT(*) FROM office_crm_legacy_relation r LEFT JOIN office_crm_legacy_party p ON p.party_type='brebo_contact' AND p.legacy_node_id=r.legacy_target_id WHERE r.legacy_target_type='brebo_contact' AND p.legacy_node_id IS NULL",
+      'missing_organization_targets' => "SELECT COUNT(*) FROM office_crm_legacy_relation r LEFT JOIN office_crm_legacy_party p ON p.party_type='brebo_organization' AND p.legacy_node_id=r.legacy_target_id WHERE r.legacy_target_type='brebo_organization' AND p.legacy_node_id IS NULL",
     ];
     $counts = [];
     foreach ($queries as $key => $sql) {
