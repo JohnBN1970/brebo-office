@@ -37,6 +37,10 @@ try {
   fwrite(STDOUT, (string) ($result['mailbox_reference'] ?? '') . "\n");
   exit(0);
 }
+catch (InvalidArgumentException $e) {
+  fwrite(STDERR, "BREBO Mail invalid message: " . $e->getMessage() . "\n");
+  exit(65);
+}
 catch (Throwable $e) {
   fwrite(STDERR, "BREBO Mail delivery failed: " . $e->getMessage() . "\n");
   exit(75);
