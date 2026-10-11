@@ -2,7 +2,11 @@
 
 declare(strict_types=1);
 
-require dirname(__DIR__, 5) . '/vendor/autoload.php';
+$root = dirname(__DIR__, 5);
+require $root . '/vendor/autoload.php';
+require_once $root . '/web/modules/custom/brebo_mail_intake/src/Contract/MailCommunicationRepositoryInterface.php';
+require_once $root . '/web/modules/custom/brebo_mail_intake/src/Contract/MailboxStorageRepositoryInterface.php';
+require_once $root . '/web/modules/custom/brebo_mail_intake/src/Service/MailIntakeIngestor.php';
 
 use Drupal\brebo_mail_intake\Contract\MailCommunicationRepositoryInterface;
 use Drupal\brebo_mail_intake\Contract\MailboxStorageRepositoryInterface;
