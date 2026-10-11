@@ -59,6 +59,49 @@ final class LegacyCrmOpportunityExporter {
     return $rows;
   }
 
+  /**
+   * Read-only export of CRM parties and opportunity stage history.
+   * Raw fields are preserved for reviewed mapping, not auto-imported.
+   *
+   * @return list<array<string,mixed>>
+   */
+  public function exportRelatedPage(string $bundle, int $offset = 0, int $limit = 100): array {
+    if (!in_array($bundle, ['brebo_contact', 'brebo_organization', 'brebo_opportunity_event'], true)) {
+      throw new \InvalidArgumentException('Unsupported CRM export bundle.');
+    }
+    if ($offset < 0 || $limit < 1 || $limit > 500) {
+      throw new \InvalidArgumentException('Invalid CRM export pagination.');
+    }
+    $storage = $this->entities->getStorage('node');
+    $ids = $storage->getQuery()
+      ->accessCheck(FALSE)
+      ->condition('type', $bundle)
+      ->sort('nid', 'ASC')
+      ->range($offset, $limit)
+      ->execute();
+    $rows = [];
+    foreach ($storage->loadMultiple($ids) as $node) {
+      if (!$node instanceof NodeInterface || $node->bundle() !== $bundle) {
+        continue;
+      }
+      $fields = [];
+      foreach ($node->getFields() as $name => $field) {
+        $fields[$name] = $field->getValue();
+      }
+      $rows[] = [
+        'legacy_node_id' => (int) $node->id(),
+        'bundle' => $bundle,
+        'title' => (string) $node->label(),
+        'owner_uid' => (int) $node->getOwnerId(),
+        'status' => (int) $node->isPublished(),
+        'created' => (int) $node->getCreatedTime(),
+        'changed' => (int) $node->getChangedTime(),
+        'fields' => $fields,
+      ];
+    }
+    return $rows;
+  }
+
   private function fieldValue(NodeInterface $node, string $name): string {
     if (!$node->hasField($name) || $node->get($name)->isEmpty()) {
       return '';
