@@ -36,9 +36,15 @@ if ($webroot === false || $targetDirectory === false
 }
 
 $exporter = new LegacyCrmOpportunityExporter(\Drupal::entityTypeManager());
+$bundle = getenv('BREBO_CRM_EXPORT_BUNDLE') ?: 'brebo_opportunity';
+if (!in_array($bundle, ['brebo_opportunity', 'brebo_contact', 'brebo_organization', 'brebo_opportunity_event'], true)) {
+  throw new RuntimeException('Unsupported CRM export bundle.');
+}
 $rows = [];
 for ($offset = 0; ; $offset += 100) {
-  $page = $exporter->exportPage($offset, 100);
+  $page = $bundle === 'brebo_opportunity'
+    ? $exporter->exportPage($offset, 100)
+    : $exporter->exportRelatedPage($bundle, $offset, 100);
   array_push($rows, ...$page);
   if (count($page) < 100) {
     break;
