@@ -27,9 +27,6 @@ final readonly class NormalizedMailMessage {
     if (trim($to) === '') {
       throw new InvalidArgumentException('Mail ontvanger ontbreekt.');
     }
-    if (trim($subject) === '' || trim($body) === '') {
-      throw new InvalidArgumentException('Onderwerp en body zijn verplicht.');
-    }
   }
 
   /** @return array<string,mixed> */

@@ -29,7 +29,9 @@ final class MaildirMailboxStore implements MailboxStoreInterface {
       throw new RuntimeException('Maildir map kan niet worden aangemaakt.');
     }
 
-    $raw = $this->renderMessage($message);
+    $raw = isset($message['raw']) && is_string($message['raw']) && $message['raw'] !== ''
+      ? $message['raw']
+      : $this->renderMessage($message);
     $name = sprintf('%d.%s.brebo', hrtime(TRUE), bin2hex(random_bytes(6)));
     $file = $path . DIRECTORY_SEPARATOR . $name;
     if (file_put_contents($file, $raw, LOCK_EX) === FALSE) {
