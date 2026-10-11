@@ -7,9 +7,16 @@ Requires=brebo-mail-gateway.service
 Type=oneshot
 User=brebomail
 Group=brebomail
+SupplementaryGroups=postfix
 EnvironmentFile=/etc/brebo-mail-gateway.env
 WorkingDirectory=/opt/brebo-office
 ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/render-mailstack-config.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/render-test-domain-transport.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/compile-test-domain-transport.php
+# Deployment prerequisite: provision generated directory owned by brebomail:postfix (0750).
+# Group ownership is inherited by new transport files when directory setgid is enabled (2750).
+ExecStart=/usr/bin/chmod 2750 /etc/brebo-mail-stack/generated
+ExecStart=/usr/bin/chmod 0640 /etc/brebo-mail-stack/generated/transport_map /etc/brebo-mail-stack/generated/transport_map.db
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict

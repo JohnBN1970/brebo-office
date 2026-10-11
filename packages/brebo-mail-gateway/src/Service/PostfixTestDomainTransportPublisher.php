@@ -33,7 +33,7 @@ final class PostfixTestDomainTransportPublisher {
       if (file_put_contents($temp, $content, LOCK_EX) === FALSE) {
         throw new RuntimeException('Postfix test-transport config kon niet worden geschreven: ' . $name);
       }
-      chmod($temp, 0600);
+      chmod($temp, $name === 'transport_map' ? 0640 : 0600);
       if (!rename($temp, $path)) {
         @unlink($temp);
         throw new RuntimeException('Postfix test-transport config kon niet atomair worden gepubliceerd: ' . $name);
