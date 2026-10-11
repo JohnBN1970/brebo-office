@@ -19,7 +19,12 @@ $pdo = new PDO('sqlite:' . $dataDir . DIRECTORY_SEPARATOR . 'gateway.sqlite');
 $state = new SqliteGatewayProvisioningRepository($pdo);
 $publisher = new PostfixTestDomainTransportPublisher(
   $state,
-  new PostfixTestDomainTransportRenderer(),
+  new PostfixTestDomainTransportRenderer(
+    array_values(array_filter(array_map(
+      static fn(string $domain): string => trim($domain),
+      explode(',', (string) getenv('BREBO_MAIL_TEST_DOMAINS')),
+    ))),
+  ),
   $outputDir,
 );
 $bundle = $publisher->publish();
