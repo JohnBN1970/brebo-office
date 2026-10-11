@@ -26,7 +26,7 @@ final class WebsiteCrmLegacyIntegrityAudit {
     foreach ($queries as $key => $sql) {
       $counts[$key] = (int) $this->db->query($sql)->fetchColumn();
     }
-    $counts['blocking_issues'] = $counts['orphan_stage_events'] + $counts['orphan_relation_sources'];
+    $counts['blocking_issues'] = $counts['orphan_stage_events'] + $counts['orphan_relation_sources'] + $counts['missing_contact_targets'] + $counts['missing_organization_targets'];
     return $counts;
   }
 }
