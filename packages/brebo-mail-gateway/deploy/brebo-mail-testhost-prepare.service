@@ -1,0 +1,22 @@
+[Unit]
+Description=Prepare BREBO Mail testhost configuration
+After=network.target brebo-mail-gateway.service
+Requires=brebo-mail-gateway.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+EnvironmentFile=/etc/brebo-mail-gateway.env
+WorkingDirectory=/opt/brebo-office
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/testhost-readiness.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/render-mailstack-config.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/render-test-domain-transport.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/compile-test-domain-transport.php
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/validate-mailstack.php
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectHome=true
+ProtectSystem=strict
+ReadWritePaths=/var/lib/brebo-mail-gateway /etc/brebo-mail-stack/generated
+UMask=0077
