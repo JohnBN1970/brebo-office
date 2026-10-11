@@ -16,7 +16,7 @@ final class WebsiteCrmDraftSubmissionHandler {
   /** @param array<string,mixed> $post */
   public function submit(array $post, string $operatorSession, int $now, bool $canEdit = false): int {
     if (!$canEdit || $operatorSession === '') {
-      throw new \\DomainException('CRM edit permission required.');
+      throw new \DomainException('CRM edit permission required.');
     }
     $input = $this->validator->validate($post);
     $token = $post['csrf_token'] ?? null;
