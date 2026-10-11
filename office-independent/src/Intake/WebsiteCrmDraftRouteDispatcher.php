@@ -23,14 +23,20 @@ final class WebsiteCrmDraftRouteDispatcher {
     if (!$this->writeEnabled) {
       return ['status' => 404, 'body' => 'CRM bewerken is niet ingeschakeld.'];
     }
-    if ($path === '/brebo-internal/crm/migration/draft' && $method === 'GET') {
+    if ($path !== '/brebo-internal/crm/migration/draft') {
+      return ['status' => 404, 'body' => 'CRM-route niet gevonden.'];
+    }
+    if ($method !== 'GET' && $method !== 'POST') {
+      return ['status' => 405, 'body' => 'HTTP-methode niet toegestaan.'];
+    }
+    if ($method === 'GET') {
       $id = $query['id'] ?? null;
       if (!is_string($id) || !ctype_digit($id) || strlen($id) > 18 || (int) $id < 1) {
         return ['status' => 400, 'body' => 'Ongeldig kansnummer.'];
       }
       return $this->controller->form((int) $id, $now);
     }
-    if ($path === '/brebo-internal/crm/migration/draft' && $method === 'POST') {
+    if ($method === 'POST') {
       return $this->controller->submit($post, $now);
     }
     return ['status' => 404, 'body' => 'CRM-route niet gevonden.'];
