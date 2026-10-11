@@ -16,6 +16,7 @@ $db->prepare('INSERT INTO office_crm_legacy_opportunity (legacy_node_id,title,st
 $html = (new WebsiteCrmLegacyWorkbenchRenderer())->render(new WebsiteCrmLegacyReadRepository($db));
 if (!str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;')
   || str_contains($html, '<script>alert(1)</script>')
+  || !str_contains($html, '/brebo-internal/crm/migration/detail?id=987654')
   || !str_contains($html, 'Contactpersonen') || !str_contains($html, 'Organisaties')) {
   throw new RuntimeException('Standalone CRM workbench HTML is incomplete or unsafe.');
 }
