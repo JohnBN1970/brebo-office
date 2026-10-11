@@ -65,6 +65,9 @@ jobs:
       - name: Verify BREBO Mail test-domain cutover guard
         run: php packages/brebo-mail-gateway/tests/cutover_smoke.php
 
+      - name: Verify BREBO Postfix test-domain transport guard
+        run: php packages/brebo-mail-gateway/tests/postfix_test_transport_smoke.php
+
       - name: Verify BREBO Mail test-domain E2E
         run: php packages/brebo-mail-gateway/tests/test_domain_e2e_smoke.php
 
