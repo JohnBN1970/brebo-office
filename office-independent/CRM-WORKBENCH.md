@@ -12,3 +12,7 @@ The read-only PHP front controller is `public/crm-migration.php` and accepts **G
 6. Run an authorized smoke test with reviewed staging data. Reconcile counts, owners, relationships and stage history with the Drupal source before enabling any write path.
 
 This workbench is a migration review tool. It currently displays only the first 50 rows per entity type; it is not a full CRM, not a reconciliation proof, and not a production cutover.
+
+## Read-only opportunity details
+
+The same authenticated front controller also handles `GET /brebo-internal/crm/migration/detail?id=<legacy_opportunity_id>`. The reverse proxy must restrict **both** paths and inject the token only after operator authentication. Unknown opportunities return 404 and invalid IDs return 400. The detail view shows source opportunity metadata, approved staged relations and staged stage history. This is still a migration review screen, not a production CRM editor.
