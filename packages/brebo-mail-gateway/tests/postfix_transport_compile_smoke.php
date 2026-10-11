@@ -25,6 +25,9 @@ $runner = new CompileRunner();
   ['mail-test.example.nl'],
 );
 
+if (($runner->calls[0][1][0] ?? '') !== 'hash:/etc/brebo-mail-stack/generated/transport_map') {
+  throw new RuntimeException('Compile must use the same explicit hash map backend as queries.');
+}
 if (count($runner->calls) !== 2) {
   throw new RuntimeException('Expected postmap compile plus one verification query.');
 }
