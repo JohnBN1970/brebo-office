@@ -36,9 +36,14 @@ try {
   if ($resolvedOrg['missing_organization_targets'] !== 0 || $resolvedOrg['blocking_issues'] !== 0) {
     throw new RuntimeException('Resolved CRM organization target still blocks cutover.');
   }
+  $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_unknown_type','brebo_unknown',987656,'office-unknown')");
+  $unknown = $audit->report();
+  if ($unknown['unverified_target_types'] !== 1 || $unknown['blocking_issues'] !== 1) {
+    throw new RuntimeException('Unverified CRM relation target type did not block cutover.');
+  }
 }
 finally {
-  $db->exec("DELETE FROM office_crm_legacy_relation WHERE legacy_opportunity_id=987659 AND source_field IN ('test_missing_contact','test_missing_org')");
+  $db->exec("DELETE FROM office_crm_legacy_relation WHERE legacy_opportunity_id=987659 AND source_field IN ('test_missing_contact','test_missing_org','test_unknown_type')");
   $db->exec("DELETE FROM office_crm_legacy_party WHERE legacy_node_id IN (987654,987655) AND party_type IN ('brebo_contact','brebo_organization')");
   $db->exec("DELETE FROM office_crm_legacy_opportunity WHERE legacy_node_id=987659");
 }
