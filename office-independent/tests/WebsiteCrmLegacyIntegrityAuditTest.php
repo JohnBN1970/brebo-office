@@ -17,7 +17,7 @@ try {
   $db->exec("INSERT INTO office_crm_legacy_opportunity (legacy_node_id,title,stage,owner_uid,website_request_id,source_json) VALUES (987659,'Audit test','lead',1,NULL,'{}')");
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_missing_contact','brebo_contact',987654,'office-test')");
   $audit = new WebsiteCrmLegacyIntegrityAudit($db);
-  if ($audit->report()['opportunities_missing_legacy_owner'] !== 0) {
+  if ($audit->report()['opportunities_missing_legacy_owner'] !== 0 || $audit->report()['opportunity_owners_pending_mapping'] !== 1) {
     throw new RuntimeException('Valid opportunity owner unexpectedly rejected.');
   }
   $missing = $audit->report();
@@ -26,24 +26,24 @@ try {
   }
   $db->exec("INSERT INTO office_crm_legacy_party (legacy_node_id,party_type,title,source_json) VALUES (987654,'brebo_contact','Audit contact','{}')");
   $resolved = $audit->report();
-  if ($resolved['missing_contact_targets'] !== 0 || $resolved['blocking_issues'] !== 0) {
+  if ($resolved['missing_contact_targets'] !== 0 || $resolved['blocking_issues'] !== 1) {
     throw new RuntimeException('Resolved CRM contact target still blocks cutover.');
   }
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_missing_org','brebo_organization',987655,'office-org')");
   $missingOrg = $audit->report();
-  if ($missingOrg['missing_organization_targets'] !== 1 || $missingOrg['blocking_issues'] !== 1) {
+  if ($missingOrg['missing_organization_targets'] !== 1 || $missingOrg['blocking_issues'] !== 2) {
     throw new RuntimeException('Missing CRM organization target did not block cutover.');
   }
   $db->exec("INSERT INTO office_crm_legacy_party (legacy_node_id,party_type,title,source_json) VALUES (987655,'brebo_organization','Audit organization','{}')");
   $resolvedOrg = $audit->report();
-  if ($resolvedOrg['missing_organization_targets'] !== 0 || $resolvedOrg['blocking_issues'] !== 0) {
+  if ($resolvedOrg['missing_organization_targets'] !== 0 || $resolvedOrg['blocking_issues'] !== 1) {
     throw new RuntimeException('Resolved CRM organization target still blocks cutover.');
   }
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_unknown_type','brebo_unknown',987656,'office-unknown')");
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_user','user',987657,'office-user')");
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_offer','offer',987658,'office-offer')");
   $unknown = $audit->report();
-  if ($unknown['unknown_target_types'] !== 1 || $unknown['user_references_pending'] !== 1 || $unknown['offer_references_pending'] !== 1 || $unknown['unverified_target_types'] !== 3 || $unknown['blocking_issues'] !== 3) {
+  if ($unknown['unknown_target_types'] !== 1 || $unknown['user_references_pending'] !== 1 || $unknown['offer_references_pending'] !== 1 || $unknown['unverified_target_types'] !== 3 || $unknown['blocking_issues'] !== 4) {
     throw new RuntimeException('Unverified CRM relation target type did not block cutover.');
   }
 }
