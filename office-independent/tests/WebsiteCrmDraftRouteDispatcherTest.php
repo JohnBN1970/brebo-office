@@ -21,7 +21,7 @@ foreach ([
 }
 $enabled = new WebsiteCrmDraftRouteDispatcher($controller, true);
 if ($enabled->dispatch('GET','/brebo-internal/crm/migration/draft',['id'=>'-1'],[],100000)['status'] !== 400
-  || $enabled->dispatch('DELETE','/brebo-internal/crm/migration/draft',[],[],100000)['status'] !== 404
+  || $enabled->dispatch('DELETE','/brebo-internal/crm/migration/draft',[],[],100000)['status'] !== 405
   || $enabled->dispatch('POST','/brebo-internal/crm/migration/other',[],[],100000)['status'] !== 404) {
   throw new RuntimeException('CRM draft route validation failed.');
 }
