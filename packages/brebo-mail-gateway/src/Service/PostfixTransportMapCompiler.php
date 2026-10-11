@@ -18,7 +18,7 @@ final class PostfixTransportMapCompiler {
       throw new RuntimeException('Postfix transport map path ontbreekt.');
     }
 
-    $compile = $this->runner->run('postmap', [$mapPath]);
+    $compile = $this->runner->run('postmap', ['hash:' . $mapPath]);
     if ($compile['exit_code'] !== 0) {
       throw new RuntimeException('postmap compilatie mislukt: ' . trim($compile['stderr']));
     }
