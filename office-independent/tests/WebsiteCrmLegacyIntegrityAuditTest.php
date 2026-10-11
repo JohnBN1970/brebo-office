@@ -37,13 +37,15 @@ try {
     throw new RuntimeException('Resolved CRM organization target still blocks cutover.');
   }
   $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_unknown_type','brebo_unknown',987656,'office-unknown')");
+  $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_user','user',987657,'office-user')");
+  $db->exec("INSERT INTO office_crm_legacy_relation (legacy_opportunity_id,source_field,legacy_target_type,legacy_target_id,office_target_id) VALUES (987659,'test_offer','offer',987658,'office-offer')");
   $unknown = $audit->report();
-  if ($unknown['unverified_target_types'] !== 1 || $unknown['blocking_issues'] !== 1) {
+  if ($unknown['unknown_target_types'] !== 1 || $unknown['user_references_pending'] !== 1 || $unknown['offer_references_pending'] !== 1 || $unknown['unverified_target_types'] !== 3 || $unknown['blocking_issues'] !== 3) {
     throw new RuntimeException('Unverified CRM relation target type did not block cutover.');
   }
 }
 finally {
-  $db->exec("DELETE FROM office_crm_legacy_relation WHERE legacy_opportunity_id=987659 AND source_field IN ('test_missing_contact','test_missing_org','test_unknown_type')");
+  $db->exec("DELETE FROM office_crm_legacy_relation WHERE legacy_opportunity_id=987659 AND source_field IN ('test_missing_contact','test_missing_org','test_unknown_type','test_user','test_offer')");
   $db->exec("DELETE FROM office_crm_legacy_party WHERE legacy_node_id IN (987654,987655) AND party_type IN ('brebo_contact','brebo_organization')");
   $db->exec("DELETE FROM office_crm_legacy_opportunity WHERE legacy_node_id=987659");
 }
