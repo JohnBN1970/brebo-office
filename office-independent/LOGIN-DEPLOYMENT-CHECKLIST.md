@@ -11,8 +11,8 @@ Status: ontwikkelbranch. Geen productie-uitrol zonder expliciete goedkeuring.
 ## Verplicht voor inschakeling
 1. Laat alle GitHub-CI-jobs groen worden en test echte HTTP GET/POST/cookies.
 2. Installeer account- en sessieschema expliciet met beheerde migraties.
-3. Maak eerste beheerder aan via een beveiligde beheerprocedure buiten de webroot; nooit een standaardwachtwoord in code.
-4. Implementeer server-side login throttling en account-/IP-limieten, ook bij meerdere webservers. Zonder throttling geen productie.
+3. CLI-only bootstrap staat in `office-independent/bin/create-office-operator.php`; voer deze uitsluitend handmatig uit op een vertrouwde server met een interactieve terminal. Nooit een standaardwachtwoord in code.
+4. Centrale MySQL login-throttling en account-/IP-limieten zijn aangesloten en in CI getest; controleer de database-installatie, vertrouwde REMOTE_ADDR en gedrag achter de productieproxy vóór inschakeling.
 5. Gebruik een betrouwbare HTTPS reverse proxy die client-supplied X-Office-Crm-Workbench-Token verwijdert en alleen na autorisatie injecteert.
 6. Publiceer expliciete routes /office/inloggen en /office/uitloggen; voorkom toegang tot PHP-bestanden buiten de public-root.
 7. Configureer OFFICE_LOGIN_ENABLED=enabled en OFFICE_CRM_SESSION_MODE=enabled pas na acceptatietest.
@@ -21,7 +21,8 @@ Status: ontwikkelbranch. Geen productie-uitrol zonder expliciete goedkeuring.
 10. Bevestig dat de bestaande website-intake en Drupal-website ongewijzigd blijven.
 
 ## Nog niet af
-- Centrale login-throttling/rate limiting.
-- Veilig beheerpad voor eerste beheerder en accountwijzigingen.
-- Productie-routebinding en volledige browseracceptatietest.
-- Session revocation bij accountdisable/rechtenwijziging.
+- Productie-installatie van de MySQL-tabellen `office_login_attempts`, `office_operator_accounts` en `office_operator_sessions`; de webroute maakt deze niet automatisch aan.
+- Accountbeheer na de eerste CLI-bootstrap (wijzigen, blokkeren en wachtwoordherstel).
+- Productie-routebinding, betrouwbare reverse-proxyconfiguratie en volledige browseracceptatietest.
+- Sessies controleren per verzoek actuele accountstatus en CRM-rechten; expliciete sessie-intrekking bij wijzigingen en integratietests voor het volledige beheerproces ontbreken nog.
+- Controleer origin/host-bescherming van de login-POST en test gelijktijdige mislukte aanmeldingen.
