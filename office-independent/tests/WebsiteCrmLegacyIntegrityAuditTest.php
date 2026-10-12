@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 use Brebo\Office\Intake\WebsiteCrmLegacyIntegrityAudit;
 use Brebo\Office\Intake\WebsiteCrmLegacyOwnerMappingStore;
+use Brebo\Office\Intake\WebsiteCrmOfficeUserDirectoryInterface;
 
 require_once __DIR__ . '/../src/Intake/WebsiteCrmLegacyIntegrityAudit.php';
+require_once __DIR__ . '/../src/Intake/WebsiteCrmOfficeUserDirectoryInterface.php';
 require_once __DIR__ . '/../src/Intake/WebsiteCrmLegacyOwnerMappingStore.php';
 
 $dsn = getenv('OFFICE_INTAKE_TEST_DSN');
@@ -23,7 +25,7 @@ try {
   if ($audit->report()['opportunities_missing_legacy_owner'] !== 0 || $audit->report()['opportunity_owners_pending_mapping'] < 1) {
     throw new RuntimeException('Legacy owner should remain pending Office mapping.');
   }
-  $ownerStore = new WebsiteCrmLegacyOwnerMappingStore($db);
+  $ownerStore = new WebsiteCrmLegacyOwnerMappingStore($db, new class implements WebsiteCrmOfficeUserDirectoryInterface { public function isActiveOfficeUser(string $id): bool { return str_starts_with($id, 'audit-'); } });
   $ownerStore->persist([['legacy_uid' => 1, 'office_user_id' => 'audit-office-user-1', 'approved_by' => 'audit-fixture']]);
   if ($audit->report()['opportunity_owners_pending_mapping'] !== 0) {
     throw new RuntimeException('Approved CRM owner mapping should resolve pending owner.');
