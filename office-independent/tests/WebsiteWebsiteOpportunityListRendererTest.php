@@ -26,4 +26,8 @@ if (!str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;')
   || !str_contains($html, 'Documenten beoordelen')) {
   throw new RuntimeException('CRM overview escaping or accessibility check failed.');
 }
+$paged = $renderer->render(array_fill(0, 50, ['id' => 3, 'title' => 'Aanvraag']), 2);
+if (!str_contains($paged, 'page=1') || !str_contains($paged, 'page=3') || !str_contains($paged, 'Pagina 2')) {
+  throw new RuntimeException('CRM pagination navigation is missing.');
+}
 echo "Independent CRM overview rendering checks passed.\n";
