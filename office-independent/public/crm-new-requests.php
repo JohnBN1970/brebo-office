@@ -25,10 +25,30 @@ if ($route !== '/office/crm/aanvragen' && $route !== '/office/crm/aanvragen/deta
   http_response_code(404);
   exit;
 }
-$expected = getenv('OFFICE_CRM_WORKBENCH_TOKEN');
-$provided = $_SERVER['HTTP_X_OFFICE_CRM_WORKBENCH_TOKEN'] ?? null;
-if (!is_string($expected) || strlen($expected) < 32 || !is_string($provided) || !hash_equals($expected, $provided)) {
-  http_response_code(403);
+// On shared hosting, the independent Office login and DB-backed operator
+// session can be the only gate when explicitly configured for that mode.
+// Never infer this mode from missing proxy headers or missing tokens.
+$authMode = getenv('OFFICE_CRM_AUTH_MODE');
+if ($authMode === 'session_only') {
+  $host = $_SERVER['HTTP_HOST'] ?? null;
+  $allowedHost = getenv('OFFICE_PUBLIC_HOST');
+  if (!is_string($host) || !is_string($allowedHost) || $allowedHost === ''
+    || !hash_equals($allowedHost, $host)
+    || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off') {
+    http_response_code(403);
+    exit;
+  }
+}
+elseif ($authMode === false || $authMode === '' || $authMode === 'proxy_and_session') {
+  $expected = getenv('OFFICE_CRM_WORKBENCH_TOKEN');
+  $provided = $_SERVER['HTTP_X_OFFICE_CRM_WORKBENCH_TOKEN'] ?? null;
+  if (!is_string($expected) || strlen($expected) < 32 || !is_string($provided) || !hash_equals($expected, $provided)) {
+    http_response_code(403);
+    exit;
+  }
+}
+else {
+  http_response_code(503);
   exit;
 }
 // An Office-owned session is mandatory in addition to the trusted proxy gate.
