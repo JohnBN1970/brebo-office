@@ -28,6 +28,15 @@ foreach ([0, 101] as $invalidLimit) {
     // Expected.
   }
 }
+foreach ([-1, 1000001] as $invalidOffset) {
+  try {
+    $read->recent(50, $invalidOffset);
+    throw new RuntimeException('Invalid CRM offset was accepted.');
+  }
+  catch (InvalidArgumentException) {
+    // Expected.
+  }
+}
 $id = '8c3b5f21-71a1-4dcb-bc61-f8c1d00c9881';
 try {
   $db->prepare("INSERT INTO office_website_intake (request_id,source,payload_json,status) VALUES (:id,'europakozijn','{}','review_required')")->execute(['id' => $id]);
@@ -41,6 +50,10 @@ try {
   }
   if ($read->find(2147483647) !== null) {
     throw new RuntimeException('Unknown CRM opportunity did not return null.');
+  }
+  $firstPage = $read->recent(1, 0);
+  if (count($firstPage) !== 1) {
+    throw new RuntimeException('CRM pagination limit was ignored.');
   }
   $rows = $read->recent(100);
   $matches = array_values(array_filter($rows, static fn(array $row): bool => $row['request_id'] === $id));
