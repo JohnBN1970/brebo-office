@@ -142,6 +142,8 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/WebsiteCrmLegacyOwnerMappingStoreTest.php
+      - name: Verify independent Office login CSRF protection
+        run: php office-independent/tests/WebsiteOfficeLoginCsrfTest.php
       - name: Verify independent Office login screen
         run: php office-independent/tests/WebsiteOfficeLoginFormRendererTest.php
       - name: Verify independent Office login and logout integration
