@@ -28,6 +28,8 @@ jobs:
       - name: Validate PHP syntax
         run: |
           find office-independent -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Verify Hostinger Office deployment routing contract
+        run: php office-independent/tests/HostingerOfficeDeploymentContractTest.php
       - name: Run standalone intake validator tests
         run: php office-independent/tests/WebsiteIntakeValidatorTest.php
       - name: Verify independent HTTP endpoint
