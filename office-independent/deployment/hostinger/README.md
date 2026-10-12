@@ -35,3 +35,15 @@ Kopieer geen `tests`, Git-metadata, credentials, sandboxdatabase of bestaande Dr
 ## Vrijgave
 
 Eerst pakketcontrole en test op sandbox; daarna expliciet productie-akkoord voor de concrete release, herstelpunt, plaatsing en HTTP-/browsertest. Bij falen geen vrijgave. Dit document geeft geen opdracht om bestanden op de server te verwijderen.
+
+## Eerste inlogscherm — uitvoerbare volgorde
+
+1. **Hostinger File Manager:** verifieer dat `office.brebobv.nl` nog steeds `public_html/office` gebruikt. Maak buiten `public_html` de private map `office_private` aan; gebruik geen symlink.
+2. **Release opbouwen en controleren:** voer het versiegebonden buildscript uit in een vertrouwde shell met de uitgecheckte revisie. Upload `public/` naar `public_html/office` en `private/` naar `office_private`; maak vooraf een backup van bestaande bestanden. Geen hele sandbox kopiëren.
+3. **Configuratie veilig instellen:** zet `OFFICE_PRIVATE_ROOT`, `OFFICE_PUBLIC_HOST=office.brebobv.nl`, aparte productiedatabasevariabelen, `OFFICE_LOGIN_ENABLED=enabled`, `OFFICE_CRM_SESSION_MODE=enabled` en pas na geteste authenticatie `OFFICE_CRM_AUTH_MODE=session_only`. Geheimen uitsluitend server-side en buiten alle documentroots; als Hostinger deze omgeving niet veilig kan aanbieden, installatie niet activeren.
+4. **CLI-controle:** draai `php office-independent/deployment/hostinger/preflight.php` via SSH/terminal, vanaf een private locatie; dit bestand niet publiek uploaden. Zonder SSH eerst een veilige alternatieve provisioningroute ontwerpen, niet een publiek bootstrapformulier toevoegen.
+5. **Operatoraccount:** maak de eerste beheerder aan met `bin/create-office-operator.php` vanuit de private map via een vertrouwde CLI met TTY. Deel het wachtwoord nooit in de chat, GitHub of webroot.
+6. **Routecontrole:** bevestig de Apache-rewrites en dat `https://office.brebobv.nl/office/inloggen` een aanmeldformulier toont; controleer dat niet-geautoriseerde CRM-verzoeken geweigerd worden en dat login/logout correct werken.
+7. **Vrijgave:** voer pas na test en expliciet akkoord de daadwerkelijke productievrijgave uit. Tot die tijd blijft de Hostinger-placeholder ongewijzigd.
+
+**Let op:** de URL bevat voorlopig `/office/inloggen` achter het Office-subdomein. Dit is de huidige routeconventie; verkorten kan na werkende eerste login.
