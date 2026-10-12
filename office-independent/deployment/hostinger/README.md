@@ -29,7 +29,7 @@ Kopieer geen `tests`, Git-metadata, credentials, sandboxdatabase of bestaande Dr
 5. Stel voor productie afzonderlijke MySQL-inloggegevens en een eigen database in; sandboxgegevens blijven gescheiden.
 6. Leg HTTPS, `REQUEST_URI`, `HTTPS` en `HTTP_ORIGIN` gedrag van de hosting vast.
 7. Configureer een geteste rewrite zodat de vier toegestane paden via `index.php` lopen. Zonder rewrite zijn `/office/inloggen` en `/office/crm/aanvragen` niet bereikbaar. Publiceer geen ongeteste `.htaccess`.
-8. De CRM-route heeft momenteel naast Office-sessie nog een trusted-proxy-token nodig. Op shared hosting is niet aangetoond dat die veilig kan worden geïnjecteerd. **CRM niet activeren voordat dit contract veilig is opgelost en getest.**
+8. De CRM-route ondersteunt nu expliciet `OFFICE_CRM_AUTH_MODE=session_only` op shared hosting: vereist HTTPS, exacte `OFFICE_PUBLIC_HOST=office.brebobv.nl`, `OFFICE_CRM_SESSION_MODE=enabled` en een geldige geautoriseerde database-sessie. De oude proxy-plus-sessie-modus blijft standaard. **Niet activeren voordat de Hostinger-inlogflow en negatieve toegangstests geslaagd zijn.**
 9. Controleer dat `office.brebobv.nl` werkelijk deze documentroot gebruikt en dat geen `index.html` de PHP-router overschrijft.
 
 ## Vrijgave
