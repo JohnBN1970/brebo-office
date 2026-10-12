@@ -5,12 +5,14 @@ declare(strict_types=1);
 use Brebo\Office\Intake\WebsiteOfficeLoginController;
 use Brebo\Office\Intake\WebsiteOfficeLoginCsrf;
 use Brebo\Office\Intake\WebsiteOfficeLoginFormRenderer;
+use Brebo\Office\Intake\WebsiteOfficeLoginThrottle;
 use Brebo\Office\Intake\WebsiteOfficeOperatorAuthenticator;
 use Brebo\Office\Intake\WebsiteOfficeCrmSessionIssuer;
 
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginController.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginCsrf.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginFormRenderer.php';
+require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginThrottle.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeOperatorAuthenticator.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmSessionIssuer.php';
 
@@ -53,8 +55,25 @@ if (!$dsn) {
 }
 try {
   $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+  $throttle = new WebsiteOfficeLoginThrottle($db);
+  $username = $_POST['username'];
+  $clientIp = $_SERVER['REMOTE_ADDR'] ?? '';
+  $identity = 'account:' . strtolower(trim($username));
+  $ipIdentity = 'ip:' . (is_string($clientIp) ? $clientIp : 'unknown');
+  if (!$throttle->allowed($identity, $now) || !$throttle->allowed($ipIdentity, $now)) {
+    http_response_code(429);
+    header('Retry-After: 900');
+    exit('Te veel aanmeldpogingen. Probeer het later opnieuw.');
+  }
   $controller = new WebsiteOfficeLoginController(new WebsiteOfficeOperatorAuthenticator($db), new WebsiteOfficeCrmSessionIssuer($db));
-  $token = $controller->login($_POST['username'], $_POST['password'], $now);
+  $token = $controller->login($username, $_POST['password'], $now);
+  if ($token === null) {
+    $throttle->failed($identity, $now);
+    $throttle->failed($ipIdentity, $now);
+  }
+  else {
+    $throttle->reset($identity);
+  }
 }
 catch (Throwable $exception) {
   error_log('Office login unavailable: ' . get_class($exception));
