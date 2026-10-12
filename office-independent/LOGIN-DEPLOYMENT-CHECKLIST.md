@@ -38,7 +38,7 @@ Status: ontwikkelbranch. Gebruiker heeft ingestemd met voorbereiding van ingebru
 ## Bevestigde domeinindeling
 - `brebobv.nl`: bestaande Drupal-website, ongewijzigd.
 - `office.brebobv.nl`: gewenste HTTPS-ingang voor zelfstandige BREBO Office op **hetzelfde Hostinger Business-pakket**.
-- `sboffice@brebobv.nl`: door gebruiker genoemde bestaande sandbox-identificatie; niet aannemen dat dit een URL of DNS-record is.
+- `sboffice.brebobv.nl`: bevestigd bestaand sandbox-subdomein en uitgangspunt voor de nieuwe Office-ingang.
 - Maak subdomein en eigen documentroot pas na verificatie van de bestaande Hostinger-mappenstructuur; voorkom overschrijven van de Drupal-webroot.
 - Verifieer SSL-certificaat, subdomein-DNS, route-rewrites en isolatie van private PHP-bestanden; test eerst zonder productieverkeer om te leiden.
 - Bestaande sandbox blijft beschikbaar totdat de nieuwe Office-ingang aantoonbaar werkt.
