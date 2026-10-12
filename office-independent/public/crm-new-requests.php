@@ -31,6 +31,13 @@ if (!is_string($expected) || strlen($expected) < 32 || !is_string($provided) || 
   http_response_code(403);
   exit;
 }
+// An Office-owned session is mandatory in addition to the trusted proxy gate.
+// Do not activate this mode until Office manages the session table and login.
+$sessionMode = getenv('OFFICE_CRM_SESSION_MODE');
+if ($sessionMode !== 'enabled') {
+  http_response_code(503);
+  exit;
+}
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 $user = getenv('OFFICE_INTAKE_DB_USER');
 $password = getenv('OFFICE_INTAKE_DB_PASSWORD');
@@ -46,6 +53,23 @@ try {
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES => false,
   ]);
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteCrmOperatorContext.php';
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php';
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmSessionRepository.php';
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php';
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteOfficeCrmAccessPolicy.php';
+  $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
+    new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db),
+    $_COOKIE,
+    time(),
+  );
+  try {
+    (new \Brebo\Office\Intake\WebsiteOfficeCrmAccessPolicy($provider))->requireReader();
+  }
+  catch (DomainException) {
+    http_response_code(403);
+    exit;
+  }
   $repository = new \Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository($db);
   if ($route === '/office/crm/aanvragen/detail') {
     $rawId = $_GET['id'] ?? null;
