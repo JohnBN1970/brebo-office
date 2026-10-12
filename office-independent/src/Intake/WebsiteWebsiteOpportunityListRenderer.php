@@ -25,7 +25,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
       if ($page > 1) {
         $html .= '<nav aria-label="Paginanavigatie"><a href="/office/crm/aanvragen?page=' . ($page - 1) . '">← Vorige pagina</a></nav>';
       }
-      return $html . '</main></body></html>';
+      return $html . $this->logoutForm() . '</main></body></html>';
     }
     $html .= '<div class="table-scroll" role="region" aria-label="Overzicht nieuwe aanvragen" tabindex="0"><table><thead><tr>'
       . '<th scope="col">Aanvraag</th><th scope="col">Ontvangen</th><th scope="col">Bron</th><th scope="col">Fase</th><th scope="col">Volgende actie</th><th scope="col">Controle</th>'
@@ -49,7 +49,12 @@ final class WebsiteWebsiteOpportunityListRenderer {
     if ($hasNextPage && $page < 20001) {
       $html .= '<a href="/office/crm/aanvragen?page=' . ($page + 1) . '">Volgende →</a>';
     }
-    return $html . '</nav></main></body></html>';
+    return $html . '</nav>' . $this->logoutForm() . '</main></body></html>';
+  }
+
+  private function logoutForm(): string {
+    return '<form action="/office/uitloggen" method="post" style="margin-top:1.5rem;text-align:right">'
+      . '<button type="submit" style="padding:.65rem 1rem;border:1px solid #b9c8d8;border-radius:7px;background:#fff;color:#1d2939;cursor:pointer">Uitloggen</button></form>';
   }
 
   private function escape(string $value): string {
