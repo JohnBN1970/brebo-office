@@ -17,9 +17,12 @@ if (!$dsn) {
 }
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_TEST_USER') ?: '', getenv('OFFICE_INTAKE_TEST_PASSWORD') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $db->exec('CREATE TABLE IF NOT EXISTS office_operator_sessions (token_hash CHAR(64) PRIMARY KEY, operator_id VARCHAR(128) NOT NULL, can_edit_crm TINYINT NOT NULL, expires_at DATETIME NOT NULL, revoked_at DATETIME NULL)');
+$db->exec('CREATE TABLE IF NOT EXISTS office_operator_accounts (id VARCHAR(128) PRIMARY KEY, username VARCHAR(190) UNIQUE, password_hash VARCHAR(255), can_edit_crm TINYINT, active TINYINT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)');
 $issuer = new WebsiteOfficeCrmSessionIssuer($db);
 $reader = new WebsiteOfficeCrmSessionRepository($db);
 $operator = 'office-test-' . bin2hex(random_bytes(6));
+$add = $db->prepare('INSERT INTO office_operator_accounts (id, username, password_hash, can_edit_crm, active) VALUES (?, ?, ?, 1, 1)');
+$add->execute([$operator, $operator, password_hash(bin2hex(random_bytes(24)), PASSWORD_DEFAULT)]);
 $now = time();
 $token = $issuer->issue($operator, true, $now);
 if (strlen($token) !== 64 || $reader->findActive($token, $now)?->operatorId !== $operator) {
