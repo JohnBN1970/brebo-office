@@ -14,7 +14,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
       . '*{box-sizing:border-box}body{margin:0 auto;max-width:1200px;padding:clamp(1rem,3vw,2.5rem);line-height:1.5}h1{font-size:clamp(1.5rem,3vw,2rem);margin:.25rem 0}p{color:#475467}'
       . 'main{background:#fff;border:1px solid #d9e1e8;border-radius:12px;padding:clamp(1rem,3vw,1.5rem)}.table-scroll{overflow-x:auto}table{width:100%;border-collapse:collapse;min-width:720px}'
       . 'th,td{text-align:left;padding:.8rem;border-bottom:1px solid #e4e8ef;vertical-align:top}th{background:#f2f5f9;color:#344054;font-weight:700}td:first-child{font-weight:650}'
-      . '.status{display:inline-block;border-radius:6px;background:#edf2f8;padding:.2rem .55rem;color:#344054}tr:hover td{background:#f9fbfd}'
+      . '.status{display:inline-block;border-radius:6px;background:#edf2f8;padding:.2rem .55rem;color:#344054}tr:hover td{background:#f9fbfd}a{color:#14518b;text-underline-offset:3px}a:focus-visible{outline:3px solid #327ec5;outline-offset:3px}'
       . '@media(max-width:700px){body{padding:1rem}main{padding:1rem}}</style></head><body><main><h1>Nieuwe aanvragen</h1>'
       . '<p>Nieuwe verkoopkansen uit de website. Controleer de gegevens en bepaal de volgende actie.</p>';
     if ($rows === []) {
@@ -24,7 +24,10 @@ final class WebsiteWebsiteOpportunityListRenderer {
       . '<th scope="col">Aanvraag</th><th scope="col">Ontvangen</th><th scope="col">Bron</th><th scope="col">Fase</th><th scope="col">Volgende actie</th><th scope="col">Controle</th>'
       . '</tr></thead><tbody>';
     foreach ($rows as $row) {
-      $html .= '<tr><td>' . $this->escape((string) ($row['title'] ?? ''))
+      $id = (int) ($row['id'] ?? 0);
+      $title = $this->escape((string) ($row['title'] ?? ''));
+      $titleCell = $id > 0 ? '<a href="/office/crm/aanvragen/detail?id=' . $id . '">' . $title . '</a>' : $title;
+      $html .= '<tr><td>' . $titleCell
         . '</td><td>' . $this->escape((string) ($row['created_at'] ?? ''))
         . '</td><td>' . $this->escape((string) ($row['source'] ?? ''))
         . '</td><td><span class="status">' . $this->escape((string) ($row['stage'] ?? ''))
