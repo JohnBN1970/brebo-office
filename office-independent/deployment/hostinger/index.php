@@ -18,7 +18,9 @@ if ($private === false || $documentRoot === false
   || !is_dir($private . '/public')
   || str_starts_with($private . '/', $documentRoot . '/')
   || $private === $documentRoot
-  || str_starts_with($documentRoot . '/', $private . '/')) {
+  || str_starts_with($documentRoot . '/', $private . '/')
+  || str_contains($private, '/public_html/')
+  || str_ends_with($private, '/public_html')) {
   http_response_code(503);
   exit('Office is nog niet beschikbaar.');
 }
