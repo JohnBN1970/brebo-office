@@ -27,8 +27,8 @@ try {
   $maps = postfixRead('postconf', ['-h', 'transport_maps']);
   $services = postfixRead('postconf', ['-M']);
   $expected = 'hash:' . $dir . '/transport_map';
-  $activeMap = in_array($expected, array_map('trim', explode(',', $maps)), TRUE);
-  $activePipe = (bool) preg_match('/^brebo_inbound\\/unix\\s+.*\\bpipe\\s*$/m', $services);
+  $activeMap = in_array($expected, array_map('trim', preg_split('/[\\s,]+/', $maps) ?: []), TRUE);
+  $activePipe = (bool) preg_match('/^brebo_inbound\\s+unix\\s+.*\\bpipe\\s*$/m', $services);
   echo 'BREBO_POSTFIX_TEST_MAP_ACTIVE=' . ($activeMap ? 'YES' : 'NO') . PHP_EOL;
   echo 'BREBO_POSTFIX_TEST_PIPE_ACTIVE=' . ($activePipe ? 'YES' : 'NO') . PHP_EOL;
   if (!$activeMap || !$activePipe) {
