@@ -34,3 +34,11 @@ Status: ontwikkelbranch. Gebruiker heeft ingestemd met voorbereiding van ingebru
 - Houd `office-independent/src`, `bin` en secrets buiten publiek bereik; alleen expliciet toegestane entrypoints publiceren.
 - De huidige Drupal-website en bestaande intake blijven ongewijzigd; schakel nieuwe routes pas in na HTTP/cookie-acceptatietests.
 - De bestaande Hostinger Business-omgeving is nog niet vanuit deze branch op serverinstellingen gecontroleerd.
+
+## Bevestigde domeinindeling
+- `brebobv.nl`: bestaande Drupal-website, ongewijzigd.
+- `office.brebobv.nl`: gewenste HTTPS-ingang voor zelfstandige BREBO Office op **hetzelfde Hostinger Business-pakket**.
+- `sboffice@brebobv.nl`: door gebruiker genoemde bestaande sandbox-identificatie; niet aannemen dat dit een URL of DNS-record is.
+- Maak subdomein en eigen documentroot pas na verificatie van de bestaande Hostinger-mappenstructuur; voorkom overschrijven van de Drupal-webroot.
+- Verifieer SSL-certificaat, subdomein-DNS, route-rewrites en isolatie van private PHP-bestanden; test eerst zonder productieverkeer om te leiden.
+- Bestaande sandbox blijft beschikbaar totdat de nieuwe Office-ingang aantoonbaar werkt.
