@@ -63,7 +63,14 @@ try {
     echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity);
   }
   else {
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($repository->recent(50));
+    $pageRaw = $_GET['page'] ?? '1';
+    if (!is_string($pageRaw) || !ctype_digit($pageRaw) || strlen($pageRaw) > 5 || (int) $pageRaw < 1 || (int) $pageRaw > 20001) {
+      http_response_code(400);
+      echo 'Ongeldig paginanummer.';
+      exit;
+    }
+    $page = (int) $pageRaw;
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($repository->recent(50, ($page - 1) * 50));
   }
 }
 catch (Throwable) {
