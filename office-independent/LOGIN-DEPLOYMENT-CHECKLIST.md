@@ -1,6 +1,6 @@
 # Zelfstandige BREBO Office-login — uitrolblokkades
 
-Status: ontwikkelbranch. Geen productie-uitrol zonder expliciete goedkeuring.
+Status: ontwikkelbranch. Gebruiker heeft ingestemd met voorbereiding van ingebruikname op bestaande Hostinger Business-hosting; nog geen livegang of serverwijziging uitgevoerd.
 
 ## Beschikbaar in de branch
 - Office-eigen operatoraccounts met PHP password_hash/password_verify.
@@ -26,3 +26,11 @@ Status: ontwikkelbranch. Geen productie-uitrol zonder expliciete goedkeuring.
 - Productie-routebinding, betrouwbare reverse-proxyconfiguratie en volledige browseracceptatietest.
 - Sessies controleren per verzoek actuele accountstatus en CRM-rechten; expliciete sessie-intrekking bij wijzigingen en integratietests voor het volledige beheerproces ontbreken nog.
 - Controleer origin/host-bescherming van de login-POST en test gelijktijdige mislukte aanmeldingen.
+
+## Hostingkeuze: bestaande Hostinger Business
+- Geen VPS of hostingupgrade. Gebruik ondersteunde PHP/MySQL-mogelijkheden van de bestaande hosting.
+- Controleer eerst PHP-versie, PDO MySQL, MySQL-toegang, HTTPS en de beschikbare webroot-/rewrite-instellingen.
+- Controleer of de huidige Hostinger-configuratie een betrouwbare afgeschermde route voor de extra `X-Office-Crm-Workbench-Token`-gate kan realiseren. **Niet** omzeilen of een secret in browser-JavaScript opnemen. Zonder veilige oplossing blijft CRM dicht.
+- Houd `office-independent/src`, `bin` en secrets buiten publiek bereik; alleen expliciet toegestane entrypoints publiceren.
+- De huidige Drupal-website en bestaande intake blijven ongewijzigd; schakel nieuwe routes pas in na HTTP/cookie-acceptatietests.
+- De bestaande Hostinger Business-omgeving is nog niet vanuit deze branch op serverinstellingen gecontroleerd.
