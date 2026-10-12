@@ -13,6 +13,8 @@ require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmSessionRepository.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmCookieSessionProvider.php';
 
 $db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$db->exec('CREATE TABLE office_operator_accounts (id TEXT PRIMARY KEY, active INTEGER NOT NULL, can_edit_crm INTEGER NOT NULL)');
+$db->exec("INSERT INTO office_operator_accounts VALUES ('operator-42', 1, 1)");
 $db->exec('CREATE TABLE office_operator_sessions (token_hash TEXT PRIMARY KEY, operator_id TEXT NOT NULL, can_edit_crm INTEGER NOT NULL, expires_at TEXT NOT NULL, revoked_at TEXT NULL)');
 $now = 1791763200;
 $token = str_repeat('a', 64);
@@ -30,6 +32,15 @@ if ((new WebsiteOfficeCrmCookieSessionProvider($repository, [], $now))->currentO
   || $repository->findActive($token, $now + 3601) !== null) {
   throw new RuntimeException('Invalid or expired Office session was accepted.');
 }
+$db->exec('UPDATE office_operator_accounts SET can_edit_crm = 0');
+if ($repository->findActive($token, $now)?->canEditCrm !== false) {
+  throw new RuntimeException('CRM permission change was not applied immediately.');
+}
+$db->exec('UPDATE office_operator_accounts SET active = 0');
+if ($repository->findActive($token, $now) !== null) {
+  throw new RuntimeException('Disabled operator retained Office access.');
+}
+$db->exec('UPDATE office_operator_accounts SET active = 1');
 $db->exec("UPDATE office_operator_sessions SET revoked_at = '2026-10-12 00:00:00'");
 if ($repository->findActive($token, $now) !== null) {
   throw new RuntimeException('Revoked Office session was accepted.');
