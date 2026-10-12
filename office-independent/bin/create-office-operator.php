@@ -12,6 +12,7 @@ if (PHP_SAPI !== 'cli') {
 }
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeOperatorAccountSchema.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmSessionSchema.php';
+require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginThrottle.php';
 
 $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
 if (!$dsn) {
@@ -50,6 +51,7 @@ if (strlen($password) < 14 || strlen($password) > 4096) {
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 \Brebo\Office\Intake\WebsiteOfficeOperatorAccountSchema::install($db);
 \Brebo\Office\Intake\WebsiteOfficeCrmSessionSchema::install($db);
+\Brebo\Office\Intake\WebsiteOfficeLoginThrottle::install($db);
 $insert = $db->prepare('INSERT INTO office_operator_accounts (id, username, password_hash, can_edit_crm, active) VALUES (?, ?, ?, 1, 1)');
 $insert->execute([$operatorId, $username, password_hash($password, PASSWORD_DEFAULT)]);
 unset($password);
