@@ -40,6 +40,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
   echo (new WebsiteOfficeLoginFormRenderer())->render($csrf);
   exit;
 }
+// Require a same-origin browser POST; the reverse proxy must validate Host.
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$host = $_SERVER['HTTP_HOST'] ?? '';
+if (!is_string($origin) || !is_string($host)
+  || !preg_match('/^[a-z0-9.-]+(?::[0-9]{1,5})?$/iD', $host)
+  || !hash_equals('https://' . $host, $origin)) {
+  http_response_code(403);
+  exit('Aanmelding geweigerd: ongeldige herkomst.');
+}
 if (!WebsiteOfficeLoginCsrf::verify($_POST['csrf_token'] ?? null, $csrf)) {
   http_response_code(403);
   exit('Ongeldig aanmeldformulier. Vernieuw de pagina.');
