@@ -34,8 +34,8 @@ final class WebsiteCrmDraftFormRenderer {
       . '<input type="hidden" name="id" value="' . $id . '">'
       . '<input type="hidden" name="version" value="' . $version . '">'
       . '<input type="hidden" name="csrf_token" value="' . $this->escape($csrfToken) . '">'
-      . '<label for="crm-title">Titel</label><input id="crm-title" name="title" autocomplete="off" maxlength="255" required value="' . $title . '"></label>'
-      . '<label for="crm-stage">Verkoopfase</label><input id="crm-stage" name="stage" autocomplete="off" maxlength="80" required value="' . $stage . '"></label>'
+      . '<label for="crm-title">Titel</label><input id="crm-title" name="title" autocomplete="off" maxlength="255" required value="' . $title . '">'
+      . '<label for="crm-stage">Verkoopfase</label><input id="crm-stage" name="stage" autocomplete="off" maxlength="80" required value="' . $stage . '">'
       . '<button type="submit">Concept opslaan</button></form></main></body></html>';
   }
 
