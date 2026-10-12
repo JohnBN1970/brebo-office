@@ -3,7 +3,9 @@
 declare(strict_types=1);
 
 use Brebo\Office\Intake\WebsiteCrmLegacyOwnerMappingStore;
+use Brebo\Office\Intake\WebsiteCrmOfficeUserDirectoryInterface;
 
+require_once __DIR__ . '/../src/Intake/WebsiteCrmOfficeUserDirectoryInterface.php';
 require_once __DIR__ . '/../src/Intake/WebsiteCrmLegacyOwnerMappingStore.php';
 
 $dsn = getenv('OFFICE_INTAKE_TEST_DSN');
@@ -12,7 +14,7 @@ if (!$dsn) {
 }
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_TEST_USER') ?: '', getenv('OFFICE_INTAKE_TEST_PASSWORD') ?: '', [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
 $db->exec(WebsiteCrmLegacyOwnerMappingStore::schema());
-$store = new WebsiteCrmLegacyOwnerMappingStore($db);
+$store = new WebsiteCrmLegacyOwnerMappingStore($db, new class implements WebsiteCrmOfficeUserDirectoryInterface { public function isActiveOfficeUser(string $id): bool { return str_starts_with($id, 'audit-'); } });
 $first = ['legacy_uid' => 987661, 'office_user_id' => 'audit-owner-987661', 'approved_by' => 'audit-reviewer'];
 $second = ['legacy_uid' => 987662, 'office_user_id' => 'audit-owner-987662', 'approved_by' => 'audit-reviewer'];
 try {
