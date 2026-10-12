@@ -6,9 +6,9 @@ use Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository;
 use Brebo\Office\Intake\WebsiteIntakeStore;
 
 require_once __DIR__ . '/../src/Intake/WebsiteWebsiteOpportunityReadRepository.php';
-require_once __DIR__ . '/../src/Intake/WebsiteIntakeStore.php';
 require_once __DIR__ . '/../src/Intake/WebsiteLeadRepositoryInterface.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOpportunityMapper.php';
+require_once __DIR__ . '/../src/Intake/WebsiteIntakeStore.php';
 
 $dsn = getenv('OFFICE_INTAKE_TEST_DSN');
 if (!$dsn) {
