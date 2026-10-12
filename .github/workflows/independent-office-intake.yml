@@ -142,6 +142,8 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/WebsiteCrmLegacyOwnerMappingStoreTest.php
+      - name: Verify independent CRM reader access policy
+        run: php office-independent/tests/WebsiteOfficeCrmAccessPolicyTest.php
       - name: Verify independent CRM detail rendering
         run: php office-independent/tests/WebsiteWebsiteOpportunityDetailRendererTest.php
       - name: Verify readable CRM overview rendering
