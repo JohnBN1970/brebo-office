@@ -18,6 +18,27 @@ $store = new WebsiteCrmLegacyOwnerMappingStore($db, new class implements Website
 $first = ['legacy_uid' => 987661, 'office_user_id' => 'audit-owner-987661', 'approved_by' => 'audit-reviewer'];
 $second = ['legacy_uid' => 987662, 'office_user_id' => 'audit-owner-987662', 'approved_by' => 'audit-reviewer'];
 try {
+  $withoutDirectory = new WebsiteCrmLegacyOwnerMappingStore($db);
+  $missingDirectoryRejected = false;
+  try {
+    $withoutDirectory->persist([$first]);
+  }
+  catch (RuntimeException) {
+    $missingDirectoryRejected = true;
+  }
+  if (!$missingDirectoryRejected) {
+    throw new RuntimeException('Missing Office directory must reject owner mappings.');
+  }
+  $inactiveRejected = false;
+  try {
+    $store->persist([array_replace($first, ['office_user_id' => 'inactive-office-user'])]);
+  }
+  catch (RuntimeException) {
+    $inactiveRejected = true;
+  }
+  if (!$inactiveRejected) {
+    throw new RuntimeException('Inactive Office account must reject owner mappings.');
+  }
   if ($store->persist([$first]) !== 1 || $store->persist([$first]) !== 0) {
     throw new RuntimeException('Approved owner mapping must be idempotent.');
   }
