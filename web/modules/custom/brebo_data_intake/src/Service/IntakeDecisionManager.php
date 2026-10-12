@@ -59,6 +59,13 @@ final class IntakeDecisionManager {
       $encoded = json_encode($stored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
       $classificationChanged = $previousClassification !== $classification;
       $canonicalChanged = $previousCanonical != $canonical;
+      if (($classificationChanged || $canonicalChanged) && is_array($envelope['product_review'] ?? NULL)) {
+        // A product decision must not survive changes to the reviewed intake context.
+        $envelope['product_review']['status'] = 'proposed';
+        unset($envelope['product_review']['approved_by'], $envelope['product_review']['approved_at']);
+        $stored['envelope'] = $envelope;
+        $encoded = json_encode($stored, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+      }
       if (!$classificationChanged && !$canonicalChanged) {
         return ['state' => 'unchanged', 'record_id' => $recordId, 'revision' => $expectedRevision];
       }
