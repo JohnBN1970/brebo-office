@@ -11,6 +11,7 @@ on:
       - 'web/modules/custom/**/*.php'
       - 'packages/brebo-mail-core/**/*.php'
       - 'packages/brebo-mail-gateway/**/*.php'
+      - 'packages/brebo-mail-gateway/deploy/*.service'
       - '.github/workflows/php-quality.yml'
   workflow_dispatch:
 

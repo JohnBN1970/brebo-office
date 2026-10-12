@@ -9,6 +9,7 @@ User=root
 Group=root
 EnvironmentFile=/etc/brebo-mail-gateway.env
 WorkingDirectory=/opt/brebo-office
+ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/preflight-test-transport-activation.php
 ExecStart=/usr/bin/php packages/brebo-mail-gateway/bin/validate-mailstack.php
 NoNewPrivileges=true
 PrivateTmp=true
