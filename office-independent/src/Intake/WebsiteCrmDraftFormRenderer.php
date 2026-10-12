@@ -21,6 +21,9 @@ final class WebsiteCrmDraftFormRenderer {
     $title = $this->escape((string) ($draft['title'] ?? $opportunity['title'] ?? ''));
     $stage = $this->escape((string) ($draft['stage'] ?? $opportunity['stage'] ?? ''));
     $version = (int) ($draft['version'] ?? 0);
+    if ($version < 0) {
+      throw new \InvalidArgumentException('Invalid CRM draft version.');
+    }
     return '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       . '<title>BREBO Office · CRM concept</title><style>:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#1d2939;background:#f5f7fa;color-scheme:light}' 
       . '*{box-sizing:border-box}body{margin:0 auto;max-width:800px;padding:clamp(1rem,4vw,3rem);line-height:1.55}main{background:#fff;border:1px solid #d9e1e8;border-radius:12px;padding:clamp(1rem,4vw,2rem)}'
@@ -34,8 +37,8 @@ final class WebsiteCrmDraftFormRenderer {
       . '<input type="hidden" name="id" value="' . $id . '">'
       . '<input type="hidden" name="version" value="' . $version . '">'
       . '<input type="hidden" name="csrf_token" value="' . $this->escape($csrfToken) . '">'
-      . '<label for="crm-title">Titel</label><input id="crm-title" name="title" autocomplete="off" maxlength="255" required value="' . $title . '">'
-      . '<label for="crm-stage">Verkoopfase</label><input id="crm-stage" name="stage" autocomplete="off" maxlength="80" required value="' . $stage . '">'
+      . '<label for="crm-title">Titel</label><input id="crm-title" name="title" autocomplete="off" maxlength="255" aria-describedby="crm-title-hint" required value="' . $title . '">'
+      . '<label for="crm-stage">Verkoopfase</label><input id="crm-stage" name="stage" autocomplete="off" maxlength="80" aria-describedby="crm-stage-hint" required value="' . $stage . '">'
       . '<button type="submit">Concept opslaan</button></form></main></body></html>';
   }
 
