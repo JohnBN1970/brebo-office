@@ -19,9 +19,13 @@ $now = time();
 if (!$throttle->allowed($key, $now)) {
   throw new RuntimeException('Fresh account unexpectedly blocked.');
 }
-for ($i = 0; $i < 5; $i++) {
+for ($i = 0; $i < 4; $i++) {
   $throttle->failed($key, $now);
+  if (!$throttle->allowed($key, $now + 1)) {
+    throw new RuntimeException('Login blocked before the fifth failed attempt.');
+  }
 }
+$throttle->failed($key, $now);
 if ($throttle->allowed($key, $now + 1)) {
   throw new RuntimeException('Five failed attempts did not block login.');
 }
