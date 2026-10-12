@@ -1,0 +1,22 @@
+# BREBO Office — Hostinger Business
+# Place only in the documentroot of office.brebobv.nl.
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Never expose dotfiles or implementation artifacts.
+  RewriteRule (^|/)\. - [F,L]
+  RewriteRule ^(?:src|bin|tests|vendor|config|\.git)(?:/|$) - [F,L,NC]
+
+  # Only these explicit application paths may reach the private PHP router.
+  RewriteRule ^office/inloggen/?$ index.php [END,QSA]
+  RewriteRule ^office/uitloggen/?$ index.php [END,QSA]
+  RewriteRule ^office/crm/aanvragen/?$ index.php [END,QSA]
+  RewriteRule ^office/crm/aanvragen/detail/?$ index.php [END,QSA]
+</IfModule>
+
+<FilesMatch "^(?!index\.php$).+\.php$">
+  Require all denied
+</FilesMatch>
