@@ -70,7 +70,7 @@ try {
       exit;
     }
     $page = (int) $pageRaw;
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($repository->recent(50, ($page - 1) * 50));
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($repository->recent(50, ($page - 1) * 50), $page);
   }
 }
 catch (Throwable) {
