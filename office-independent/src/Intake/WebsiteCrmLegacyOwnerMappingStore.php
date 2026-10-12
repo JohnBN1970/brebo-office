@@ -12,7 +12,10 @@ use PDO;
  */
 final class WebsiteCrmLegacyOwnerMappingStore {
 
-  public function __construct(private readonly PDO $db) {}
+  public function __construct(
+    private readonly PDO $db,
+    private readonly ?WebsiteCrmOfficeUserDirectoryInterface $officeUsers = null,
+  ) {}
 
   public static function schema(): string {
     return "CREATE TABLE IF NOT EXISTS office_crm_legacy_owner_mapping (
@@ -39,6 +42,9 @@ final class WebsiteCrmLegacyOwnerMappingStore {
           || strlen($office) > 128 || !is_string($approver) || trim($approver) === ''
           || strlen($approver) > 128 || isset($seen[$uid])) {
           throw new \InvalidArgumentException('Invalid or duplicate approved CRM owner mapping.');
+        }
+        if ($this->officeUsers === null || !$this->officeUsers->isActiveOfficeUser($office)) {
+          throw new \RuntimeException('Office user not verified; refusing CRM owner mapping.');
         }
         $seen[$uid] = true;
         $lookup->execute(['uid' => $uid]);
