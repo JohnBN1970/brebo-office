@@ -33,8 +33,8 @@ final class WebsiteOfficeLoginThrottle {
     $stmt = $this->db->prepare('INSERT INTO office_login_attempts (identity_hash, attempts, window_start, blocked_until)
       VALUES (?, 1, ?, NULL)
       ON DUPLICATE KEY UPDATE
+      blocked_until = IF(window_start < DATE_SUB(VALUES(window_start), INTERVAL 15 MINUTE), NULL, IF(attempts >= 4, DATE_ADD(VALUES(window_start), INTERVAL 15 MINUTE), blocked_until)),
       attempts = IF(window_start < DATE_SUB(VALUES(window_start), INTERVAL 15 MINUTE), 1, attempts + 1),
-      blocked_until = IF(window_start >= DATE_SUB(VALUES(window_start), INTERVAL 15 MINUTE) AND attempts >= 5, DATE_ADD(VALUES(window_start), INTERVAL 15 MINUTE), NULL),
       window_start = IF(window_start < DATE_SUB(VALUES(window_start), INTERVAL 15 MINUTE), VALUES(window_start), window_start)');
     $stmt->execute([$hash, $date]);
   }
