@@ -38,6 +38,37 @@ final class WebsiteKozijnPriceIndicationController extends ControllerBase {
       return $this->error(422, 'invalid_payload');
     }
 
+    // A website request ID alone is not an authorization. Resolve approval
+    // against the server-owned intake record, never caller-supplied approval data.
+    $requestId = $payload['request_id'] ?? NULL;
+    if (!is_string($requestId) || !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $requestId)) {
+      return $this->indicationUnavailable('request_approval_required');
+    }
+    $database = \Drupal::database();
+    $query = $database->select('brebo_data_record', 'r')
+      ->fields('r', ['payload'])
+      ->condition('r.status', ['review_required', 'accepted'], 'IN')
+      ->orderBy('r.id', 'DESC')
+      ->range(0, 1000);
+    $approved = FALSE;
+    foreach ($query->execute() as $record) {
+      try {
+        $recordPayload = json_decode((string) $record->payload, TRUE, 64, JSON_THROW_ON_ERROR);
+      }
+      catch (\JsonException) {
+        continue;
+      }
+      $envelope = is_array($recordPayload['envelope'] ?? NULL) ? $recordPayload['envelope'] : [];
+      $review = is_array($envelope['product_review'] ?? NULL) ? $envelope['product_review'] : [];
+      if (($envelope['source_record_id'] ?? NULL) === $requestId && ($envelope['classification'] ?? NULL) === 'website_project_request' && ($review['status'] ?? NULL) === 'approved' && ($review['system'] ?? NULL) === ($payload['configuration']['system'] ?? NULL)) {
+        $approved = TRUE;
+        break;
+      }
+    }
+    if (!$approved) {
+      return $this->indicationUnavailable('request_approval_required');
+    }
+
     // A public caller may propose a profile, but cannot authorize its use.
     // The approved product scope is held in Office runtime configuration.
     $configuration = $payload['configuration'];
