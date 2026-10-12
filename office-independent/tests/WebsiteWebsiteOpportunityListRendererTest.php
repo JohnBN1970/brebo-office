@@ -8,7 +8,7 @@ require_once __DIR__ . '/../src/Intake/WebsiteWebsiteOpportunityListRenderer.php
 
 $renderer = new WebsiteWebsiteOpportunityListRenderer();
 $empty = $renderer->render([]);
-if (!str_contains($empty, 'Er zijn nog geen aanvragen ontvangen.') || !str_contains($empty, 'lang="nl"')) {
+if (!str_contains($empty, 'Er zijn geen aanvragen op deze pagina.') || !str_contains($empty, 'lang="nl"')) {
   throw new RuntimeException('CRM empty state missing.');
 }
 $html = $renderer->render([[
@@ -29,5 +29,9 @@ if (!str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;')
 $paged = $renderer->render(array_fill(0, 50, ['id' => 3, 'title' => 'Aanvraag']), 2);
 if (!str_contains($paged, 'page=1') || !str_contains($paged, 'page=3') || !str_contains($paged, 'Pagina 2')) {
   throw new RuntimeException('CRM pagination navigation is missing.');
+}
+$emptySecondPage = $renderer->render([], 2);
+if (!str_contains($emptySecondPage, 'page=1') || !str_contains($emptySecondPage, 'Vorige pagina')) {
+  throw new RuntimeException('Empty CRM results page has no way back.');
 }
 echo "Independent CRM overview rendering checks passed.\n";
