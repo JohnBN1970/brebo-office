@@ -21,7 +21,11 @@ final class WebsiteWebsiteOpportunityListRenderer {
       . '@media(max-width:700px){body{padding:1rem}main{padding:1rem}}</style></head><body><main><h1>Nieuwe aanvragen</h1>'
       . '<p>Nieuwe verkoopkansen uit de website. Controleer de gegevens en bepaal de volgende actie.</p>';
     if ($rows === []) {
-      return $html . '<p role="status">Er zijn nog geen aanvragen ontvangen.</p></main></body></html>';
+      $html .= '<p role="status">Er zijn geen aanvragen op deze pagina.</p>';
+      if ($page > 1) {
+        $html .= '<nav aria-label="Paginanavigatie"><a href="/office/crm/aanvragen?page=' . ($page - 1) . '">← Vorige pagina</a></nav>';
+      }
+      return $html . '</main></body></html>';
     }
     $html .= '<div class="table-scroll" role="region" aria-label="Overzicht nieuwe aanvragen" tabindex="0"><table><thead><tr>'
       . '<th scope="col">Aanvraag</th><th scope="col">Ontvangen</th><th scope="col">Bron</th><th scope="col">Fase</th><th scope="col">Volgende actie</th><th scope="col">Controle</th>'
