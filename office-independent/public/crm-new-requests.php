@@ -20,7 +20,8 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   http_response_code(405);
   exit;
 }
-if (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) !== '/office/crm/aanvragen') {
+$route = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+if ($route !== '/office/crm/aanvragen' && $route !== '/office/crm/aanvragen/detail') {
   http_response_code(404);
   exit;
 }
@@ -40,12 +41,30 @@ if (!is_string($dsn) || $dsn === '' || !is_string($user) || !is_string($password
 try {
   require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityReadRepository.php';
   require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityListRenderer.php';
+  require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityDetailRenderer.php';
   $db = new PDO($dsn, $user, $password, [
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES => false,
   ]);
-  $rows = (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository($db))->recent(50);
-  echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($rows);
+  $repository = new \Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository($db);
+  if ($route === '/office/crm/aanvragen/detail') {
+    $rawId = $_GET['id'] ?? null;
+    if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int) $rawId < 1) {
+      http_response_code(400);
+      echo 'Ongeldig verkoopkansnummer.';
+      exit;
+    }
+    $opportunity = $repository->find((int) $rawId);
+    if ($opportunity === null) {
+      http_response_code(404);
+      echo 'Verkoopkans niet gevonden.';
+      exit;
+    }
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity);
+  }
+  else {
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render($repository->recent(50));
+  }
 }
 catch (Throwable) {
   http_response_code(503);
