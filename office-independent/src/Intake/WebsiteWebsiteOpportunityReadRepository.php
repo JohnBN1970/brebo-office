@@ -16,9 +16,6 @@ final class WebsiteWebsiteOpportunityReadRepository {
     if ($id < 1) {
       throw new \InvalidArgumentException('Invalid opportunity ID.');
     }
-    if ($offset < 0 || $offset > 1000000) {
-      throw new \InvalidArgumentException('Invalid CRM list offset.');
-    }
     $statement = $this->db->prepare(
       'SELECT o.id, o.title, o.stage, o.probability, o.active, o.next_action,
               o.lead_source, o.acquisition_channel, o.requirement_text,
@@ -37,6 +34,9 @@ final class WebsiteWebsiteOpportunityReadRepository {
   public function recent(int $limit = 50, int $offset = 0): array {
     if ($limit < 1 || $limit > 100) {
       throw new \InvalidArgumentException('CRM list limit must be between 1 and 100.');
+    }
+    if ($offset < 0 || $offset > 1000000) {
+      throw new \InvalidArgumentException('Invalid CRM list offset.');
     }
     $statement = $this->db->prepare(
       'SELECT o.id, o.title, o.stage, o.next_action, o.requires_review, o.created_at, i.source, i.request_id
