@@ -37,6 +37,15 @@ $controller->logout($token);
 if ((new WebsiteOfficeCrmSessionRepository($db))->findActive($token, $now) !== null) {
   throw new RuntimeException('Office logout did not revoke session.');
 }
+// A revoked cookie must not regain access, even if the account remains active.
+if ((new WebsiteOfficeCrmSessionRepository($db))->findActive($token, $now + 1) !== null) {
+  throw new RuntimeException('Logged-out cookie regained CRM access.');
+}
+$secondToken = $controller->login($operator, 'Secure-test-password-2026', $now);
+if ($secondToken === null || $secondToken === $token || (new WebsiteOfficeCrmSessionRepository($db))->findActive($secondToken, $now) === null) {
+  throw new RuntimeException('New login after logout did not create an independent session.');
+}
+$controller->logout($secondToken);
 $options = WebsiteOfficeLoginController::cookie($token, $now + 3600);
 if (!$options['secure'] || !$options['httponly'] || $options['samesite'] !== 'Strict') {
   throw new RuntimeException('Office session cookie is not hardened.');
