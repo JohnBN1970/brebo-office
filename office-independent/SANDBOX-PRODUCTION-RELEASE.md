@@ -43,3 +43,11 @@ De publieke Drupal-website op brebobv.nl blijft ongewijzigd. De verouderde map s
 - Is de bestaande office/default.php alleen een Hostinger-placeholder? Niet verwijderen zonder verificatie.
 
 Dit document beschrijft het afgesproken proces; het is geen bewijs dat een serverdeployment heeft plaatsgevonden.
+
+## Hostinger-documentroots en verbod op symlinks (bevestigd)
+- Productie: `office.brebobv.nl` wijst naar `public_html/office`.
+- Sandbox: `sboffice.brebobv.nl` wijst naar `public_html/sboffice/web`.
+- **Geen symbolische links**, ook niet tijdelijk, en geen bestaande subdomeinen verwijderen of opnieuw aanmaken.
+- Laat de productie-documentroot ongewijzigd. Plaats uitsluitend publieke entrypoints/assets in `public_html/office`; plaats PHP-broncode, CLI-scripts en secrets buiten deze map, bijvoorbeeld in een afzonderlijke niet-publieke directory binnen het hostingaccount.
+- Gebruik expliciete absolute paden/configuratie om publieke entrypoints met private broncode te verbinden, zonder symlinks. Test deze paden op Hostinger vóór activering.
+- Verifieer dat de gekozen private directory niet via een ander domein of bestaande documentroot bereikbaar is.
