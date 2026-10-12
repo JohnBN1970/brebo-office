@@ -28,6 +28,23 @@ jobs:
       - name: Validate PHP syntax
         run: |
           find office-independent -type f -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Build and verify symlink-free Hostinger release
+        run: |
+          release_dir="$(mktemp -d)"
+          rmdir "$release_dir"
+          bash office-independent/deployment/hostinger/build-release.sh "$release_dir"
+          test -f "$release_dir/public/index.php"
+          test -f "$release_dir/public/.htaccess"
+          test -f "$release_dir/private/public/office-login.php"
+          test -f "$release_dir/private/src/Intake/WebsiteOfficeLoginController.php"
+          test -f "$release_dir/GIT-REVISION"
+          test "$(cat "$release_dir/GIT-REVISION")" = "$GITHUB_SHA"
+          if find "$release_dir" -type l -print -quit | grep -q .; then
+            echo "Symlink found in Office release" >&2
+            exit 1
+          fi
+          (cd "$release_dir" && sha256sum -c SHA256SUMS)
+          rm -rf "$release_dir"
       - name: Verify Hostinger Office deployment routing contract
         run: php office-independent/tests/HostingerOfficeDeploymentContractTest.php
       - name: Run standalone intake validator tests
