@@ -11,6 +11,9 @@ $empty = $renderer->render([]);
 if (!str_contains($empty, 'Er zijn geen aanvragen op deze pagina.') || !str_contains($empty, 'lang="nl"')) {
   throw new RuntimeException('CRM empty state missing.');
 }
+if (!str_contains($empty, 'action="/office/uitloggen"') || !str_contains($empty, 'method="post"')) {
+  throw new RuntimeException('CRM empty state must offer a POST logout button.');
+}
 $html = $renderer->render([[
   'title' => '<script>alert(1)</script>',
   'created_at' => '2026-10-12 09:00:00',
@@ -23,7 +26,8 @@ if (!str_contains($html, '&lt;script&gt;alert(1)&lt;/script&gt;')
   || str_contains($html, '<script>alert(1)</script>')
   || !str_contains($html, 'Te beoordelen')
   || !str_contains($html, 'aria-label="Overzicht nieuwe aanvragen"')
-  || !str_contains($html, 'Documenten beoordelen')) {
+  || !str_contains($html, 'Documenten beoordelen')
+  || !str_contains($html, 'action="/office/uitloggen"')) {
   throw new RuntimeException('CRM overview escaping or accessibility check failed.');
 }
 $paged = $renderer->render(array_fill(0, 50, ['id' => 3, 'title' => 'Aanvraag']), 2, true);
