@@ -23,9 +23,10 @@ final class WebsiteOfficeCrmSessionRepository {
       return null;
     }
     $stmt = $this->db->prepare(
-      'SELECT operator_id, can_edit_crm FROM office_operator_sessions
-       WHERE token_hash = :hash AND revoked_at IS NULL
-       AND expires_at > :now LIMIT 1'
+      'SELECT s.operator_id, a.can_edit_crm FROM office_operator_sessions s
+       INNER JOIN office_operator_accounts a ON a.id = s.operator_id
+       WHERE s.token_hash = :hash AND s.revoked_at IS NULL
+       AND s.expires_at > :now AND a.active = 1 LIMIT 1'
     );
     $stmt->execute([
       ':hash' => hash('sha256', $sessionToken),
