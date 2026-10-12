@@ -29,13 +29,14 @@ try {
   $expected = 'hash:' . $dir . '/transport_map';
   $activeMap = in_array($expected, array_map('trim', preg_split('/[\\s,]+/', $maps) ?: []), TRUE);
   $activePipe = (bool) preg_match('/^brebo_inbound\\s+unix\\s+.*\\bpipe\\s*$/m', $services);
-  echo 'BREBO_POSTFIX_TEST_MAP_ACTIVE=' . ($activeMap ? 'YES' : 'NO') . PHP_EOL;
-  echo 'BREBO_POSTFIX_TEST_PIPE_ACTIVE=' . ($activePipe ? 'YES' : 'NO') . PHP_EOL;
+  echo 'BREBO_POSTFIX_TEST_MAP_CONFIGURED=' . ($activeMap ? 'YES' : 'NO') . PHP_EOL;
+  echo 'BREBO_POSTFIX_TEST_PIPE_CONFIGURED=' . ($activePipe ? 'YES' : 'NO') . PHP_EOL;
   if (!$activeMap || !$activePipe) {
-    fwrite(STDERR, "Generated fragments are not fully active in Postfix.\n");
+    fwrite(STDERR, "Generated fragments are not fully configured in Postfix.\n");
     exit(1);
   }
-  echo "BREBO_POSTFIX_TEST_ACTIVATION=PASS\n";
+  echo "BREBO_POSTFIX_TEST_CONFIG=PASS\n";
+  echo "BREBO_POSTFIX_TEST_RUNTIME=NOT_VERIFIED\n";
 }
 catch (Throwable $error) {
   fwrite(STDERR, $error->getMessage() . PHP_EOL);
