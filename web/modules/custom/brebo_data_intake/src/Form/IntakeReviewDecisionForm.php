@@ -145,6 +145,13 @@ final class IntakeReviewDecisionForm extends FormBase {
         '#submit' => ['::submitProductProposal'],
       ];
     }
+    if (($envelope['classification'] ?? '') === 'website_project_request' && ($proposal['status'] ?? NULL) === 'proposed') {
+      $form['actions']['approve_product'] = [
+        '#type' => 'submit',
+        '#value' => $this->t('Product goedkeuren'),
+        '#submit' => ['::submitProductApproval'],
+      ];
+    }
     $form['actions']['correct'] = [
       '#type' => 'submit',
       '#value' => $this->t('Correctie opslaan'),
@@ -163,6 +170,23 @@ final class IntakeReviewDecisionForm extends FormBase {
     ];
 
     return $form;
+  }
+
+  public function submitProductApproval(array &$form, FormStateInterface $form_state): void {
+    try {
+      $this->decisions->approveProductProposal(
+        (int) $form_state->getValue('record_id'),
+        (string) $form_state->getValue('revision'),
+        (int) $this->currentUserAccount->id(),
+        (string) $form_state->getValue('note'),
+      );
+      $this->messengerService->addStatus($this->t('Product goedgekeurd in Office. Dit geeft nog geen publieke prijs vrij.'));
+      $form_state->setRedirect('brebo_data_intake.review');
+    }
+    catch (\RuntimeException $e) {
+      $this->messengerService->addError($e->getMessage());
+      $form_state->setRebuild();
+    }
   }
 
   public function submitProductProposal(array &$form, FormStateInterface $form_state): void {
