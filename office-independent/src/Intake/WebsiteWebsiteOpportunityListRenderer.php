@@ -8,7 +8,7 @@ namespace Brebo\Office\Intake;
 final class WebsiteWebsiteOpportunityListRenderer {
 
   /** @param list<array<string,mixed>> $rows */
-  public function render(array $rows, int $page = 1): string {
+  public function render(array $rows, int $page = 1, bool $hasNextPage = false): string {
     if ($page < 1 || $page > 20001) {
       throw new \InvalidArgumentException('Invalid CRM page number.');
     }
@@ -46,7 +46,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
       $html .= '<a href="/office/crm/aanvragen?page=' . ($page - 1) . '">← Vorige</a>';
     }
     $html .= '<span>Pagina ' . $page . '</span>';
-    if (count($rows) === 50 && $page < 20001) {
+    if ($hasNextPage && $page < 20001) {
       $html .= '<a href="/office/crm/aanvragen?page=' . ($page + 1) . '">Volgende →</a>';
     }
     return $html . '</nav></main></body></html>';
