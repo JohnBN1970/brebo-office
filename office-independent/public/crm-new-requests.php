@@ -4,8 +4,9 @@ declare(strict_types=1);
 
 /**
  * Independent, read-only Office CRM route.
- * Deployment prerequisite: a trusted reverse proxy MUST authenticate the Office
- * operator, strip inbound token headers and inject the server-side token.
+ * Deployment: proxy-plus-session remains the default. Explicit shared-hosting
+ * session_only mode requires HTTPS, the configured Office host and a current
+ * Office-owned database session with CRM permission.
  * Not enabled by any existing production router.
  */
 header('Content-Type: text/html; charset=utf-8');
@@ -30,6 +31,10 @@ if ($route !== '/office/crm/aanvragen' && $route !== '/office/crm/aanvragen/deta
 // Never infer this mode from missing proxy headers or missing tokens.
 $authMode = getenv('OFFICE_CRM_AUTH_MODE');
 if ($authMode === 'session_only') {
+  if (getenv('OFFICE_LOGIN_ENABLED') !== 'enabled') {
+    http_response_code(503);
+    exit;
+  }
   $host = $_SERVER['HTTP_HOST'] ?? null;
   $allowedHost = getenv('OFFICE_PUBLIC_HOST');
   if (!is_string($host) || !is_string($allowedHost) || $allowedHost === ''
