@@ -44,6 +44,17 @@ jobs:
             exit 1
           fi
           (cd "$release_dir" && sha256sum -c SHA256SUMS)
+          # A release must be immutable: rebuilding to the same path must fail.
+          if bash office-independent/deployment/hostinger/build-release.sh "$release_dir"; then
+            echo "Release builder unexpectedly overwrote an existing release" >&2
+            exit 1
+          fi
+          # Verify checksums actually detect a modified public entrypoint.
+          printf '\\n# tampered\\n' >> "$release_dir/public/index.php"
+          if (cd "$release_dir" && sha256sum -c SHA256SUMS >/dev/null 2>&1); then
+            echo "Release checksum did not detect a modified public file" >&2
+            exit 1
+          fi
           rm -rf "$release_dir"
       - name: Verify Hostinger Office deployment routing contract
         run: php office-independent/tests/HostingerOfficeDeploymentContractTest.php
