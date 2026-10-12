@@ -17,7 +17,8 @@ $documentRoot = realpath(__DIR__);
 if ($private === false || $documentRoot === false
   || !is_dir($private . '/public')
   || str_starts_with($private . '/', $documentRoot . '/')
-  || $private === $documentRoot) {
+  || $private === $documentRoot
+  || str_starts_with($documentRoot . '/', $private . '/')) {
   http_response_code(503);
   exit('Office is nog niet beschikbaar.');
 }
