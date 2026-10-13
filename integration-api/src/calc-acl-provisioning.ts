@@ -23,6 +23,7 @@ export async function syncCalculationAccess(
   writer: CalculationAccessWriter,
 ): Promise<number> {
   if (!Number.isSafeInteger(calculationId) || calculationId <= 0) throw new TypeError("Invalid calculation ID");
+  if (expectedRevision !== null && (!Number.isSafeInteger(expectedRevision) || expectedRevision <= 0)) throw new TypeError("Invalid expected ACL revision");
   const record = await authority.resolve(calculationId);
   if (!record || record.calculation_id !== calculationId) throw new Error("Office calculation authority unavailable");
   const validIds = (value: unknown): value is number[] => Array.isArray(value) && value.every((id: unknown) => typeof id === "number" && Number.isSafeInteger(id) && id > 0) && new Set(value).size === value.length;
