@@ -38,3 +38,15 @@ Status: **niet live geactiveerd**. Calc PR #290 en #291 zijn gemerged. Dit docum
 4. Na omschakeling Office-tegels en calculatielinks naar het interne pad laten wijzen; oude routes gecontroleerd afbouwen.
 
 **Niet doen:** de Office-URL in documentatie gelijkstellen aan een al gerealiseerde productieproxy, of Calc als ingelogd beschouwen uitsluitend op basis van een oude Calc-cookie.
+
+## Route-inventarisatie in Office-code (13 oktober 2026)
+
+In `web/modules/custom/brebo_office_core/brebo_office_core.routing.yml` zijn al vastgelegd:
+
+- `/calculaties` — Office-calculatieoverzicht;
+- `/calculaties/{node}` — bestaande calculatieroute;
+- `/calculaties/{calculation}/open-in-calc` — Office-launch naar Calc.
+
+Daarom is `/calculaties` **niet** beschikbaar als volledige Calc-proxyprefix. Voor de werkbank is `/calc-werkbank` een **voorstel**, geen vastgestelde live-route. Eerst op de werkelijke Office-router controleren of dit pad vrij is. Als het vrij is, moeten `CALC_BASE_PATH=/calc-werkbank`, `VITE_CALC_BASE_PATH=/calc-werkbank` en de Office-launchbasis naar hetzelfde pad verwijzen.
+
+De route-inventarisatie bewijst niet dat de zelfstandige Office-host deze Drupal-router gebruikt. De feitelijke Hostinger-router, TLS/proxyconfiguratie en actieve login moeten vóór implementatie apart worden vastgesteld.
