@@ -2,11 +2,9 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../src/Calculation/OfficeCalcProjectScopeSchema.php';
 require_once __DIR__ . '/../src/Calculation/OfficeCalcProjectContextSchema.php';
 require_once __DIR__ . '/../src/Calculation/OfficeCalcRequestReplaySchema.php';
 
-use Brebo\Office\Calculation\OfficeCalcProjectScopeSchema;
 use Brebo\Office\Calculation\OfficeCalcProjectContextSchema;
 use Brebo\Office\Calculation\OfficeCalcRequestReplaySchema;
 
@@ -17,7 +15,7 @@ if (!$dsn || $user === false || $password === false) {
   throw new RuntimeException('Signed HTTP integration test requires MySQL test credentials.');
 }
 $db = new PDO($dsn, $user, $password, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-OfficeCalcProjectScopeSchema::install($db);
+$db->exec('CREATE TABLE IF NOT EXISTS office_calc_projects (project_id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4');
 OfficeCalcProjectContextSchema::install($db);
 $db->exec(OfficeCalcRequestReplaySchema::MYSQL);
 $db->exec("INSERT INTO office_calc_projects (project_id) VALUES (424242)");
