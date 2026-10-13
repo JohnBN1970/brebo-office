@@ -26,6 +26,11 @@ describe("Office-native calculation access policy", () => {
     expect(await service({ ...record, readers: [7, 7] }).canRead(41, 7)).toBe(false);
     expect(await service({ ...record, publishers: [5, 5] }).canPublish(41, 5)).toBe(false);
   });
+  it("fails closed when the authoritative ACL registry is unavailable", async () => {
+    const access = new OfficeCalculationAccess({ find: async () => { throw new Error("registry unavailable"); } });
+    await expect(access.canRead(41, 7)).resolves.toBe(false);
+    await expect(access.canPublish(41, 5)).resolves.toBe(false);
+  });
   it("denies inactive records and invalid identities", async () => {
     expect(await service({ ...record, active: false }).canRead(41, 5)).toBe(false);
     expect(await service(record).canRead(41, 0)).toBe(false);

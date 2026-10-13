@@ -26,7 +26,13 @@ export class OfficeCalculationAccess {
 
   private async load(calculationId: number, actorId: number): Promise<CalculationAccessRecord | null> {
     if (!Number.isSafeInteger(calculationId) || calculationId <= 0 || !Number.isSafeInteger(actorId) || actorId <= 0) return null;
-    const record = await this.source.find(calculationId);
+    let record: CalculationAccessRecord | null;
+    try {
+      record = await this.source.find(calculationId);
+    } catch {
+      // Never grant access when the authoritative ACL registry is unavailable.
+      return null;
+    }
     if (!record || record.calculation_id !== calculationId || record.active !== true || !validActors(record.readers) || !validActors(record.publishers)) return null;
     return record;
   }
