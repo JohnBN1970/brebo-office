@@ -34,6 +34,11 @@ $routes = [
   '/office/crm/aanvragen' => 'crm-new-requests.php',
   '/office/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if (is_string($path) && preg_match('#^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$#D', $path)) {
+  // Signed server-to-server endpoint, independently disabled by default.
+  require $private . '/public/calc-project-context.php';
+  exit;
+}
 if (!is_string($path) || !isset($routes[$path])) {
   http_response_code(404);
   exit('Pagina niet gevonden.');

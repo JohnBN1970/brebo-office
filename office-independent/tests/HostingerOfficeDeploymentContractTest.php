@@ -18,12 +18,12 @@ foreach ([
     throw new RuntimeException('Missing approved Office route: ' . $route);
   }
 }
-foreach (['OFFICE_PRIVATE_ROOT', 'realpath(', 'http_response_code(404)', 'http_response_code(503)'] as $required) {
+foreach (['calc-project-context.php', 'calculation-context$#D', 'OFFICE_PRIVATE_ROOT', 'realpath(', 'http_response_code(404)', 'http_response_code(503)'] as $required) {
   if (!str_contains($router, $required)) {
     throw new RuntimeException('Router safety requirement missing: ' . $required);
   }
 }
-foreach (['RewriteEngine On', 'DirectoryIndex index.php', 'Require all denied', 'RewriteRule ^office/inloggen/', 'RewriteRule ^office/uitloggen/', 'RewriteRule ^office/crm/aanvragen/'] as $required) {
+foreach (['RewriteEngine On', 'DirectoryIndex index.php', 'Require all denied', 'RewriteRule ^api/workbench/v1/projects/[1-9][0-9]*/calculation-context$', 'RewriteRule ^office/inloggen/', 'RewriteRule ^office/uitloggen/', 'RewriteRule ^office/crm/aanvragen/'] as $required) {
   if (!str_contains($rules, $required)) {
     throw new RuntimeException('Hostinger rewrite protection missing: ' . $required);
   }
@@ -31,4 +31,4 @@ foreach (['RewriteEngine On', 'DirectoryIndex index.php', 'Require all denied', 
 if (str_contains($router, 'eval(') || str_contains($router, '$_GET[')) {
   throw new RuntimeException('Dynamic router execution or user-selected file paths are forbidden.');
 }
-echo "Hostinger Office release routing contract passed.\n";
+echo "Hostinger Office release routing contract passed.\\n";
