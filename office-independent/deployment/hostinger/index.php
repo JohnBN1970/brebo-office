@@ -34,6 +34,11 @@ $routes = [
   '/office/crm/aanvragen' => 'crm-new-requests.php',
   '/office/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if ($path === '/calc/start') {
+  // Same-origin Office session and permissions are checked by this disabled-by-default endpoint.
+  require $private . '/public/calc-start.php';
+  exit;
+}
 if (is_string($path) && preg_match('#^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$#D', $path)) {
   // Signed server-to-server endpoint, independently disabled by default.
   require $private . '/public/calc-project-context.php';
