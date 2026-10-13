@@ -56,6 +56,8 @@ jobs:
             exit 1
           fi
           rm -rf "$release_dir"
+      - name: Verify independent Calc project context read model
+        run: php office-independent/tests/OfficeCalcProjectContextRepositoryTest.php
       - name: Verify Calc authenticated context gate and replay protection
         run: |
           php office-independent/tests/OfficeCalcTransportVerifierTest.php
