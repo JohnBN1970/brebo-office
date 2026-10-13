@@ -56,6 +56,11 @@ jobs:
             exit 1
           fi
           rm -rf "$release_dir"
+      - name: Verify Calc authenticated context gate and replay protection
+        run: |
+          php office-independent/tests/OfficeCalcTransportVerifierTest.php
+          php office-independent/tests/OfficeCalcRequestReplayGuardTest.php
+          php office-independent/tests/OfficeCalcAuthenticatedContextGateTest.php
       - name: Verify Hostinger Office deployment routing contract
         run: php office-independent/tests/HostingerOfficeDeploymentContractTest.php
       - name: Run standalone intake validator tests
