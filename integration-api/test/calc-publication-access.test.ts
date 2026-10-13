@@ -22,6 +22,10 @@ describe("Office-native calculation access policy", () => {
     expect(await service({ ...record, publishers: ["5"] as unknown as number[] }).canPublish(41, 5)).toBe(false);
     expect(await service({ ...record, readers: [0] }).canRead(41, 7)).toBe(false);
   });
+  it("rejects duplicate actor grants in a malformed ACL record", async () => {
+    expect(await service({ ...record, readers: [7, 7] }).canRead(41, 7)).toBe(false);
+    expect(await service({ ...record, publishers: [5, 5] }).canPublish(41, 5)).toBe(false);
+  });
   it("denies inactive records and invalid identities", async () => {
     expect(await service({ ...record, active: false }).canRead(41, 5)).toBe(false);
     expect(await service(record).canRead(41, 0)).toBe(false);
