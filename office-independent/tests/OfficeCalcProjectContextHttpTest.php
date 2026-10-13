@@ -10,9 +10,10 @@ $endpoint = realpath(__DIR__ . '/../public/calc-project-context.php');
 if ($endpoint === false) {
   throw new RuntimeException('Missing Calc context endpoint.');
 }
-function requestEndpoint(string $endpoint, string $method, string $path, array $env = []): string {
+function requestEndpoint(string $endpoint, string $method, string $path, array $env = []): array {
   $bootstrap = '$_SERVER["REQUEST_METHOD"] = ' . var_export($method, true) . ';'
     . '$_SERVER["REQUEST_URI"] = ' . var_export($path, true) . ';'
+    . 'register_shutdown_function(static function (): void { fwrite(STDERR, "HTTP_STATUS=" . http_response_code()); });'
     . 'require ' . var_export($endpoint, true) . ';';
   $command = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($bootstrap);
   $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
@@ -30,22 +31,22 @@ function requestEndpoint(string $endpoint, string $method, string $path, array $
   fclose($pipes[1]);
   fclose($pipes[2]);
   $code = proc_close($process);
-  if ($code !== 0 || $errors !== '') {
+  if ($code !== 0 || !preg_match('/^HTTP_STATUS=([0-9]{3})$/', $errors, $match)) {
     throw new RuntimeException('Endpoint process failed: ' . $errors);
   }
-  return $output;
+  return ['status' => (int) $match[1], 'body' => $output];
 }
 $path = '/api/workbench/v1/projects/42/calculation-context';
-$disabled = json_decode(requestEndpoint($endpoint, 'GET', $path), true, 512, JSON_THROW_ON_ERROR);
-if ($disabled['error'] !== 'Projectcontext niet beschikbaar.') {
+$disabled = requestEndpoint($endpoint, 'GET', $path);
+if ($disabled['status'] !== 503 || json_decode($disabled['body'], true, 512, JSON_THROW_ON_ERROR)['error'] !== 'Projectcontext niet beschikbaar.') {
   throw new RuntimeException('Feature-disabled endpoint was not denied.');
 }
-$method = json_decode(requestEndpoint($endpoint, 'POST', $path), true, 512, JSON_THROW_ON_ERROR);
-if ($method['error'] !== 'Methode niet toegestaan.') {
+$method = requestEndpoint($endpoint, 'POST', $path);
+if ($method['status'] !== 405 || json_decode($method['body'], true, 512, JSON_THROW_ON_ERROR)['error'] !== 'Methode niet toegestaan.') {
   throw new RuntimeException('Wrong HTTP method was not rejected.');
 }
-$notFound = json_decode(requestEndpoint($endpoint, 'GET', '/api/workbench/v1/projects/0/calculation-context'), true, 512, JSON_THROW_ON_ERROR);
-if ($notFound['error'] !== 'Niet gevonden.') {
+$notFound = requestEndpoint($endpoint, 'GET', '/api/workbench/v1/projects/0/calculation-context');
+if ($notFound['status'] !== 404 || json_decode($notFound['body'], true, 512, JSON_THROW_ON_ERROR)['error'] !== 'Niet gevonden.') {
   throw new RuntimeException('Invalid project path was not rejected.');
 }
 echo "Office Calc context HTTP denial checks passed.\n";
