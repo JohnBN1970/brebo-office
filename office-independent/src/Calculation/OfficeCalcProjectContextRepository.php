@@ -35,7 +35,7 @@ final class OfficeCalcProjectContextRepository {
     }
     try {
       $disciplines = json_decode((string) $row['disciplines_json'], true, 512, JSON_THROW_ON_ERROR);
-    } catch (\\JsonException $e) {
+    } catch (\JsonException $e) {
       return null;
     }
     if (!is_array($disciplines) || !array_is_list($disciplines)) {
