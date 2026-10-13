@@ -50,3 +50,22 @@ In `web/modules/custom/brebo_office_core/brebo_office_core.routing.yml` zijn al 
 Daarom is `/calculaties` **niet** beschikbaar als volledige Calc-proxyprefix. Voor de werkbank is `/calc-werkbank` een **voorstel**, geen vastgestelde live-route. Eerst op de werkelijke Office-router controleren of dit pad vrij is. Als het vrij is, moeten `CALC_BASE_PATH=/calc-werkbank`, `VITE_CALC_BASE_PATH=/calc-werkbank` en de Office-launchbasis naar hetzelfde pad verwijzen.
 
 De route-inventarisatie bewijst niet dat de zelfstandige Office-host deze Drupal-router gebruikt. De feitelijke Hostinger-router, TLS/proxyconfiguratie en actieve login moeten vóór implementatie apart worden vastgesteld.
+
+## Hostinger-preflight (uitvoeren vóór de eerste proxywijziging)
+
+De actieve Office-router is nog niet uit deze repository vastgesteld. Vraag uitsluitend **niet-geheime** output op van de live Office-host:
+
+```sh
+pwd
+ls -la
+find . -maxdepth 2 -type f \( -name '.htaccess' -o -name 'startup.js' -o -name 'package.json' -o -name 'index.php' -o -name 'composer.json' \) -print
+```
+
+Beoordeel op basis daarvan of Office via Apache/PHP, Passenger/Node of een andere router draait. **Geen** tokens, `.env`-inhoud, wachtwoorden, cookieheaders of privéconfiguratie delen.
+
+### Go/no-go
+
+- **Go voor implementatie:** actieve Office-router bekend; `/calc-werkbank` vrij; reverse-proxycapaciteit van het hostingpakket bevestigd; Node-app bereikbaar via interne of toegestane upstream; Office-login en rechtencontrole aantoonbaar.
+- **No-go:** alleen repositoryroutes bekend, onbekende hosting-router, geen proxyrechten, onduidelijk sessiegedrag of onvoldoende rollbackmogelijkheid.
+
+Op gedeelde Hostinger Cloud Hosting is een configureerbare reverse proxy **niet vanzelfsprekend beschikbaar**. Als het pakket de vereiste proxy niet toestaat, ontwerp dan eerst een ondersteunde hostingsoplossing; voeg geen onbeveiligde PHP-doorstuurproxy toe als noodgreep.
