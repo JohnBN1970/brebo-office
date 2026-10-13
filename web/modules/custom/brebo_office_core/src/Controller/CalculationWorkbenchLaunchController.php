@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Drupal\brebo_office_core\Controller;
 
+use Drupal\brebo_calculation\Contract\CalculationAccessGatewayInterface;
 use Drupal\brebo_calculation\Service\CalculationContextService;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Routing\TrustedRedirectResponse;
@@ -24,12 +25,14 @@ final class CalculationWorkbenchLaunchController implements ContainerInjectionIn
   public function __construct(
     private readonly CalculationContextService $calculationContext,
     private readonly AccountProxyInterface $currentUser,
+    private readonly CalculationAccessGatewayInterface $calculationAccess,
   ) {}
 
   public static function create(ContainerInterface $container): static {
     return new static(
       $container->get('brebo_calculation.context'),
       $container->get('current_user'),
+      $container->get('brebo_calculation.access_gateway'),
     );
   }
 
@@ -40,6 +43,18 @@ final class CalculationWorkbenchLaunchController implements ContainerInjectionIn
   public function launch(int $calculation): TrustedRedirectResponse {
     if ($calculation <= 0) {
       throw new NotFoundHttpException('Calculatie niet gevonden.');
+    }
+
+    $actorId = (int) $this->currentUser->id();
+    if ($actorId <= 0) {
+      throw new AccessDeniedHttpException('Office login vereist.');
+    }
+
+    try {
+      $this->calculationAccess->assertCanEditWorkbench($calculation, $actorId);
+    }
+    catch (\RuntimeException $exception) {
+      throw new AccessDeniedHttpException('Geen toegang tot deze calculatie.', $exception);
     }
 
     $context = $this->calculationContext->get($calculation);
@@ -62,7 +77,7 @@ final class CalculationWorkbenchLaunchController implements ContainerInjectionIn
       'v' => 1,
       'calculation_id' => $calculation,
       'project_id' => $projectId,
-      'actor_id' => (int) $this->currentUser->id(),
+      'actor_id' => $actorId,
       'exp' => time() + 90,
       'nonce' => bin2hex(random_bytes(16)),
     ];
