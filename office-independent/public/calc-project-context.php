@@ -56,15 +56,15 @@ try {
       $headers[str_replace('_', '-', substr($key, 5))] = $value;
     }
   }
-  $gate = new \Brebo\\Office\Calculation\\OfficeCalcAuthenticatedContextGate(
-    new \Brebo\\Office\Calculation\\OfficeCalcRequestReplayGuard($db),
+  $gate = new \Brebo\Office\Calculation\OfficeCalcAuthenticatedContextGate(
+    new \Brebo\Office\Calculation\OfficeCalcRequestReplayGuard($db),
     $secret,
   );
   if (!$gate->allow('GET', $path, '', $headers)) {
     http_response_code(403);
     exit(json_encode(['error' => 'Geen toegang.']));
   }
-  $context = (new \Brebo\\Office\Calculation\\OfficeCalcProjectContextRepository($db))->find((int) $matches[1]);
+  $context = (new \Brebo\Office\Calculation\OfficeCalcProjectContextRepository($db))->find((int) $matches[1]);
   if ($context === null) {
     http_response_code(404);
     exit(json_encode(['error' => 'Project niet gevonden.']));
