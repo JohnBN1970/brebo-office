@@ -41,7 +41,7 @@ function signedRequest(string $endpoint, string $path, string $secret, string $d
     . '$_SERVER["HTTP_X_BREBO_TIMESTAMP"]=' . var_export($timestamp, true) . ';'
     . '$_SERVER["HTTP_X_BREBO_REQUEST_ID"]=' . var_export($requestId, true) . ';'
     . '$_SERVER["HTTP_X_BREBO_SIGNATURE"]=' . var_export('v1=' . $signature, true) . ';'
-    . 'register_shutdown_function(static function (): void { fwrite(STDERR, "HTTP_STATUS=" . http_response_code()); });'
+    . 'register_shutdown_function(static function (): void { fwrite(STDERR, "HTTP_STATUS=" . (http_response_code() ?: 200)); });'
     . 'require ' . var_export($endpoint, true) . ';';
   $command = escapeshellarg(PHP_BINARY) . ' -r ' . escapeshellarg($bootstrap);
   $pipes = [];
