@@ -846,3 +846,15 @@ Uitvoeringsvolgorde:
 6. Rond tests, CI, deployment en continuiteit per module af, daarna pas aanvullende functionaliteit en visuele afwerking.
 
 Randvoorwaarden: bestaande Office-login en CRM behouden; publieke Drupal-website niet wijzigen; geen nieuwe symlinks, hostingupgrade of secrets in de repo; serverhotfixes synchroniseren met GitHub. Deze documentupdate is een architectuurbesluit en prioritering, geen bewijs van geïmplementeerde dashboard- of Calc-koppeling.
+
+
+## Besluit: Calc uitsluitend binnen Office presenteren — 13 oktober 2026
+
+- **Gebruikersroute:** Office `/calculaties` en `/calculaties/{id}`; geen zichtbaar Calc-subdomein, tweede login of zelfstandig Calc-dashboard. De exacte publieke host volgt de bestaande zelfstandige Office-host; niet zonder verificatie naar `brebobv.nl` verplaatsen.
+- **Technische grens:** behoud de bestaande Node/React Calc-rekenmotor en database. Office levert sessie, autorisatie, projectcontext en navigatie. Een same-origin reverse proxy of interne routering biedt de Calc-werkbank onder een Office-pad aan; het bestaande Calc-subdomein blijft alleen tijdelijk als rollbackroute, niet als gebruikersbestemming.
+- **Launch:** de bestaande Drupal `CalculationWorkbenchLaunchController` gebruikt nog een externe `brebo_calc_base_url` en geeft een redirect naar `/launch?token=...`. Dat is overgangscode, **geen bewijs** dat de zelfstandige Office-PHP-login dezelfde launch heeft. In de nieuwe Office-runtime moet een server-side launch vanuit de echte Office-sessie plaatsvinden, met calculatie- en projectrechten en kortlevende HMAC-token. Geen tokens in browseropslag of logs.
+- **Routering:** verifieer de bestaande Office-webserver en PHP-login voordat een reverse proxy wordt toegevoegd. Reserveer `/calculaties` voor de Office-lijst, `/calculaties/{id}` voor geautoriseerde opening en een niet-conflicterend intern werkbankpad voor Calc-assets/API/launch. Behoud querystrings, websocket-upgrades indien nodig en veilige cookie-scope; blokkeer directe ongeautoriseerde toegang tot de achterliggende Node-service.
+- **Acceptatie:** anoniem → Office-login → oorspronkelijke calculatie; bevoegd → werkbank onder Office-host; onbevoegd → 403; verlopen token/sessie → geen toegang; Calc-assets en API werken onder padprefix; publicatie gebruikt de bestaande fail-closed ACL; terugnavigatie naar project/offerte werkt. Test daarnaast refresh, diepe links, meerdere rollen en mobiele weergave.
+- **Uitfasering:** pas na groen CI, staging/prod-smoke, controle van redirects, assets, cookies en rollback het publieke Calc-subdomein buiten gebruik stellen. Geen DNS-, hosting-, productie- of secretwijziging via dit document.
+
+**Huidige status:** architectuurbesluit vastgelegd; standalone Office-loginbron, routering en productieproxy nog te verifiëren. Niet als gerealiseerde integratie rapporteren.
