@@ -823,3 +823,26 @@ Keten:
 `brebo-platform` → signed website request → Office Data Intake → deduplicatie → review → `WebsiteProjectRequestIntakeDestination` → CRM-kans.
 
 Het bestaande documentpad blijft apart voor binaire bestanden, maar gebruikt dezelfde `request_id` als correlatie-id. BREBO Office blijft de bron van waarheid; Platform bewaart alleen presentatie-/klantreiscontext en tijdelijke intakeweergave.
+
+
+## Besluit 13 oktober 2026: Office-shell, dashboard en Calc-integratie
+
+BREBO Office wordt een gebruikersomgeving met een Office-login, vast hoofdmenu, persoonlijke startpagina en moduletegels. Bestaande modules worden aangesloten, niet opnieuw gebouwd. Calc blijft technisch een zelfstandige React/Node-werkbank maar verschijnt als Office-module; de bestaande domeinlogica en gegevens mogen niet worden gedupliceerd.
+
+Dashboardprofielen: Directeur, Bedrijfsleider, Projectleider, Calculator, Finance, Werkvoorbereider, Uitvoerder en Werkvloer. Meerdere rollen per gebruiker mogelijk. Rechten en datatoegang worden server-side afgedwongen. Bedrijfsleider krijgt operationele bedrijfssturing; Werkvloer een mobiele taakgerichte presentatie. Een persoonlijke widgetindeling mag nooit rechten uitbreiden.
+
+Dashboardvolgorde: (1) geautoriseerde financiële KPI's met bron, peildatum en btw-definitie; (2) kritieke punten met urgentie, eigenaar, termijn en bron; (3) Mijn werk met taken, beoordelingen en open calculaties; (4) moduletegels en favorieten. Alle onderdelen waar mogelijk doorklikbaar naar bestaande bronobjecten. Hergebruik bestaande cockpit-, finance- en controlemotorbouwstenen.
+
+Calc-openen: geen Office-sessie betekent browserredirect naar Office-login, met veilig bewaarde bestemming. Na inloggen controleert Office de project- en calculatierechten en verstrekt een kortlevende ondertekende Calc-launch. Geen aparte Calc-login en geen bypass van de API-authenticatie. Bij verlopen sessie opnieuw aanmelden en terug naar het werk waar mogelijk.
+
+Geverifieerde basis: de zelfstandige Office-PHP-login en CRM-intake zijn op Hostinger in gebruik; Calc Node-health meldde API/database verbonden; de beschermde Calc-receptenroute verlangt een Office-launch. In de oudere Office-repo bestaat een Calc-launchroute via brebo_office_core; dit betekent niet dat de zelfstandige Office-runtime die route al heeft. De Calc-config bevat een verouderde automatische omzetting van office.brebobv.nl naar sboffice.brebobv.nl. De oudere roadmap (29 september) en continuiteit (7 oktober) beschrijven nog een Drupal/sboffice-centrische runtime; herijk dit op de actuele zelfstandige Office-installatie.
+
+Uitvoeringsvolgorde:
+1. Inventariseer bestaande modules, dashboardwidgets, KPI's, control-services, contracten, autorisatie, branches en acceptatiebewijs. Status per keten: gereed / aansluiten / aanpassen / ontbreekt. Geen ongefundeerde percentages.
+2. Bepaal Office-shellcontract: login/sessie, rollen/rechten, navigatie, modulemanifest, widgetregistratie, KPI- en signaalprojecties, gebruikersvoorkeuren. Hergebruik de bestaande bouwstenen.
+3. Sluit Calc end-to-end aan: projectcontext-API, rechten, signed launch, return-to-login, verlopen sessies, tests.
+4. Lever rolgestuurd dashboard met echte geautoriseerde gegevens, doorklikken en mobiele Werkvloerweergave.
+5. Sluit Projecten, Finance, Inkoop, Planning, Inzet, Gebouwen, Documenten en overige modules gefaseerd aan.
+6. Rond tests, CI, deployment en continuiteit per module af, daarna pas aanvullende functionaliteit en visuele afwerking.
+
+Randvoorwaarden: bestaande Office-login en CRM behouden; publieke Drupal-website niet wijzigen; geen nieuwe symlinks, hostingupgrade of secrets in de repo; serverhotfixes synchroniseren met GitHub. Deze documentupdate is een architectuurbesluit en prioritering, geen bewijs van geïmplementeerde dashboard- of Calc-koppeling.
