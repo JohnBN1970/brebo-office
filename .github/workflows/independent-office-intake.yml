@@ -62,6 +62,8 @@ jobs:
           OFFICE_INTAKE_TEST_USER: root
           OFFICE_INTAKE_TEST_PASSWORD: testpassword
         run: php office-independent/tests/OfficeCalcSignedHttpIntegrationTest.php
+      - name: Verify Calc launch HTTP denial behavior
+        run: php office-independent/tests/OfficeCalcLaunchHttpTest.php
       - name: Verify Calc context HTTP denial behavior
         run: php office-independent/tests/OfficeCalcProjectContextHttpTest.php
       - name: Verify independent Calc project context read model
