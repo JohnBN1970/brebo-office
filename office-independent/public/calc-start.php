@@ -74,7 +74,7 @@ try {
     new \Brebo\Office\Calculation\OfficeCalcProjectScopeRepository($db),
     $secret,
     getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled'
-      ? new \\Brebo\\Office\\Calculation\\OfficeCalcSessionGrantRepository($db)
+      ? new \Brebo\Office\Calculation\OfficeCalcSessionGrantRepository($db)
       : null,
   );
   $token = $service->issue($projectId, $calculationId);
