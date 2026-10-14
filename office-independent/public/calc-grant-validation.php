@@ -69,8 +69,10 @@ try {
     exit(json_encode(['active' => false]));
   }
   $data = json_decode($body, true, 8, JSON_THROW_ON_ERROR);
-  if (!is_array($data) || array_keys($data) !== ['reference', 'actor_id', 'project_id', 'calculation_id']
-    || !is_string($data['reference']) || !preg_match('/^[a-f0-9]{64}$/D', $data['reference'])) {
+  if (!is_array($data) || count($data) !== 4
+    || array_diff(array_keys($data), ['reference', 'actor_id', 'project_id', 'calculation_id']) !== []
+    || !isset($data['reference']) || !is_string($data['reference'])
+    || !preg_match('/^[a-f0-9]{64}$/D', $data['reference'])) {
     http_response_code(400);
     exit(json_encode(['active' => false]));
   }
