@@ -65,4 +65,28 @@ catch (Throwable $e) {
   exit('Calculatie tijdelijk niet beschikbaar.');
 }
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>BREBO Calculatie</title><h1>Calculatie</h1><p>Toegang bevestigd. De Calc-werkbank wordt hier gekoppeld.</p></html>';
+echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BREBO Calculatie</title><h1>Calculatie</h1><p>Toegang bevestigd. Selecteer een project en calculatie om de Office-startcontrole uit te voeren.</p><form id="calc-start-form"><label>Projectnummer <input name="project_id" type="number" min="1" step="1" required></label> <label>Calculatienummer <input name="calculation_id" type="number" min="1" step="1" required></label> <button type="submit">Start controleren</button></form><p id="calc-start-status" role="status" aria-live="polite"></p><script>
+document.getElementById("calc-start-form").addEventListener("submit", async function(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const status = document.getElementById("calc-start-status");
+  const button = form.querySelector("button");
+  button.disabled = true;
+  status.textContent = "Toegang controleren...";
+  try {
+    const data = new FormData(form);
+    const response = await fetch("/calc/start", {method:"POST", credentials:"same-origin", body:data, headers:{"Accept":"application/json"}});
+    if (!response.ok) {
+      const result = await response.json().catch(() => ({}));
+      throw new Error(result.error || "Calculatie kan niet worden gestart.");
+    }
+    // Never display, log, persist, or put the one-time token in a URL.
+    // The browser handoff remains disabled until the same-origin Calc proxy is verified.
+    status.textContent = "Toegang bevestigd. De beveiligde Calc-overdracht wordt nog aangesloten.";
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "Controle mislukt.";
+  } finally {
+    button.disabled = false;
+  }
+});
+</script></html>';
