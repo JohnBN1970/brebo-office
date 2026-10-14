@@ -29,6 +29,9 @@ if ($private === false || $documentRoot === false
 // Never route arbitrary filenames or accept a caller-controlled PHP path.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $routes = [
+  '/office' => 'office-home.php',
+  '/office/' => 'office-home.php',
+  '/office/home' => 'office-home.php',
   '/office/inloggen' => 'office-login.php',
   '/office/uitloggen' => 'office-logout.php',
   '/office/crm/aanvragen' => 'crm-new-requests.php',
