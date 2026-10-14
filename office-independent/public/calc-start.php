@@ -42,7 +42,7 @@ if (!is_string($dsn) || $dsn === '' || !is_string($user) || !is_string($password
 }
 $projectId = filter_var($_POST['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $calculationId = filter_var($_POST['calculation_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-if ($projectId === false || $calculationId === false) {
+if (!is_int($projectId) || !is_int($calculationId)) {
   http_response_code(400);
   exit(json_encode(['error' => 'Ongeldige calculatie.']));
 }
