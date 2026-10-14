@@ -101,7 +101,5 @@ setcookie('office_login_csrf', '', WebsiteOfficeLoginCsrf::cookieOptions($now - 
 setcookie('office_session', $token, WebsiteOfficeLoginController::cookie($token, $now + 28800));
 // Respect the active router namespace; the public /office/ mount uses short routes.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-$crmDestination = is_string($path) && str_starts_with($path, '/office/')
-  ? '/office/crm/aanvragen'
-  : '/crm/aanvragen';
-header('Location: ' . $crmDestination, true, 303);
+// Successful login enters the shared Office home, not a single CRM module.
+header('Location: /office/home', true, 303);
