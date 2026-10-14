@@ -74,6 +74,8 @@ jobs:
         run: php office-independent/tests/OfficeCalcProjectContextHttpTest.php
       - name: Verify independent Calc project context read model
         run: php office-independent/tests/OfficeCalcProjectContextRepositoryTest.php
+      - name: Verify independent Calc project context contract
+        run: php office-independent/tests/OfficeCalcProjectContextTest.php
       - name: Verify Calc authenticated context gate and replay protection
         run: |
           php office-independent/tests/OfficeCalcTransportVerifierTest.php
