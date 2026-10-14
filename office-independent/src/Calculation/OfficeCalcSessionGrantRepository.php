@@ -37,6 +37,24 @@ final class OfficeCalcSessionGrantRepository {
       || $expiresAt <= time() || $expiresAt > time() + 28800) {
       throw new \InvalidArgumentException('Invalid Calc session grant.');
     }
+    return $this->issueForSessionHash(
+      hash('sha256', $officeSessionToken), $actorId, $projectId, $calculationId, $expiresAt
+    );
+  }
+
+  /** Verified Office operator contexts expose a session hash, not a raw cookie. */
+  public function issueForSessionHash(
+    string $officeSessionHash,
+    int $actorId,
+    int $projectId,
+    int $calculationId,
+    int $expiresAt,
+  ): string {
+    if (!preg_match('/^[a-f0-9]{64}$/D', $officeSessionHash)
+      || $actorId < 1 || $projectId < 1 || $calculationId < 1
+      || $expiresAt <= time() || $expiresAt > time() + 28800) {
+      throw new \InvalidArgumentException('Invalid Calc session grant.');
+    }
     $reference = bin2hex(random_bytes(32));
     $stmt = $this->db->prepare(
       'INSERT INTO office_calc_session_grants
@@ -45,7 +63,7 @@ final class OfficeCalcSessionGrantRepository {
     );
     $stmt->execute([
       ':reference_hash' => hash('sha256', $reference),
-      ':office_session_hash' => hash('sha256', $officeSessionToken),
+      ':office_session_hash' => $officeSessionHash,
       ':actor_id' => $actorId,
       ':project_id' => $projectId,
       ':calculation_id' => $calculationId,
