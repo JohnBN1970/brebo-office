@@ -40,7 +40,8 @@ $routes = [
   '/crm/aanvragen' => 'crm-new-requests.php',
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
-if ($path === '/calc-werkbank') {
+if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
+  $_SERVER['REQUEST_URI'] = '/calc-werkbank';
   // Office-owned entry gate; authentication and permissions are checked by the endpoint.
   // This does not proxy or expose Calc itself.
   require $private . '/public/calc-workbench.php';
