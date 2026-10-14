@@ -17,6 +17,7 @@ DirectoryIndex index.php
   RewriteRule ^api/workbench/v1/calculation-grants/validate/?$ index.php [END,QSA]
   RewriteRule ^api/workbench/v1/projects/[1-9][0-9]*/calculation-context$ index.php [END,QSA]
   # This file is deployed inside public_html/office: Apache matches relative paths.
+  RewriteRule ^home/?$ index.php [END,QSA]
   RewriteRule ^inloggen/?$ index.php [END,QSA]
   RewriteRule ^uitloggen/?$ index.php [END,QSA]
   RewriteRule ^crm/aanvragen/?$ index.php [END,QSA]
