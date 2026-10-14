@@ -18,6 +18,7 @@ final class OfficeCalcLaunchService {
     private readonly OfficeCalcActorIdRepository $actors,
     private readonly OfficeCalcProjectScopeRepository $projects,
     private readonly string $sharedSecret,
+    private readonly ?OfficeCalcSessionGrantRepository $grants = null,
   ) {}
 
   public function issue(int $projectId, int $calculationId): string {
@@ -33,8 +34,11 @@ final class OfficeCalcLaunchService {
     $verifiedActor = OfficeCalcLaunchAuthorization::requireAuthorized(
       $operator, $actorId, $projectId, $calculationId, $scopeAllowed, $scopeAllowed
     );
+    $grantReference = $this->grants?->issue(
+      $operator->sessionId, $verifiedActor, $projectId, $calculationId, time() + 28800
+    );
     return OfficeCalcLaunchToken::issue(
-      $calculationId, $projectId, $verifiedActor, $this->sharedSecret
+      $calculationId, $projectId, $verifiedActor, $this->sharedSecret, null, $grantReference
     );
   }
 }
