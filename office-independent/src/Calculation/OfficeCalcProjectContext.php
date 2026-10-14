@@ -18,7 +18,7 @@ final class OfficeCalcProjectContext {
         throw new \DomainException('Project context incomplete.');
       }
     }
-    if (trim($record['code']) === '' || trim($record['title']) === '' || trim($record['status']) === '') {
+    if (trim($record['code']) === '' || trim($record['title']) === '' || trim($record['status']) === '' || trim($record['client_name']) === '' || trim($record['project_kind']) === '') {
       throw new \DomainException('Project context incomplete.');
     }
     if (!isset($record['disciplines'], $record['buildings'])
@@ -52,11 +52,11 @@ final class OfficeCalcProjectContext {
         'title' => $record['title'],
         'status' => $record['status'],
         'client_name' => $record['client_name'],
-        'client_organization' => $client,
+        'client_organization' => $client === null ? null : ['id' => $client['id'], 'title' => $client['title']],
         'project_kind' => $record['project_kind'],
         'disciplines' => $record['disciplines'],
         'description' => $record['description'],
-        'buildings' => $record['buildings'],
+        'buildings' => array_map(static fn(array $building): array => ['id' => $building['id'], 'title' => $building['title']], $record['buildings']),
       ],
     ];
   }
