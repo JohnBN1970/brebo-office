@@ -33,6 +33,12 @@ $routes = [
   '/office/uitloggen' => 'office-logout.php',
   '/office/crm/aanvragen' => 'crm-new-requests.php',
   '/office/crm/aanvragen/detail' => 'crm-new-requests.php',
+  // Existing live /office/ entrypoint strips the /office prefix before routing.
+  // Preserve these deployed route names when the independent router is adopted.
+  '/inloggen' => 'office-login.php',
+  '/uitloggen' => 'office-logout.php',
+  '/crm/aanvragen' => 'crm-new-requests.php',
+  '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
 if ($path === '/calc-werkbank') {
   // Office-owned entry gate; authentication and permissions are checked by the endpoint.
