@@ -39,6 +39,7 @@ foreach ([
   'OfficeCalcRequestReplayGuard.php',
   'OfficeCalcAuthenticatedContextGate.php',
   'OfficeCalcProjectContextRepository.php',
+  'OfficeCalcProjectContext.php',
 ] as $file) {
   require_once dirname(__DIR__) . '/src/Calculation/' . $file;
 }
@@ -69,7 +70,11 @@ try {
     http_response_code(404);
     exit(json_encode(['error' => 'Project niet gevonden.']));
   }
-  echo json_encode($context, JSON_THROW_ON_ERROR);
+  $validated = \Brebo\Office\Calculation\OfficeCalcProjectContext::fromRecord(
+    (int) $matches[1],
+    $context['project'],
+  );
+  echo json_encode($validated, JSON_THROW_ON_ERROR);
 } catch (Throwable $e) {
   http_response_code(503);
   echo json_encode(['error' => 'Projectcontext tijdelijk niet beschikbaar.']);
