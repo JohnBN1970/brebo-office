@@ -36,4 +36,20 @@ foreach ([
   }
   throw new RuntimeException('Invalid context accepted.');
 }
-echo "Office Calc project context validation passed.\n";
+$withMetadata = $record;
+$withMetadata['client_organization']['private_note'] = 'do-not-expose';
+$withMetadata['buildings'][0]['internal_token'] = 'do-not-expose';
+$safe = OfficeCalcProjectContext::fromRecord(42, $withMetadata);
+if (array_key_exists('private_note', $safe['project']['client_organization'])
+  || array_key_exists('internal_token', $safe['project']['buildings'][0])) {
+  throw new RuntimeException('Internal metadata leaked.');
+}
+foreach (['client_name', 'project_kind'] as $required) {
+  try {
+    OfficeCalcProjectContext::fromRecord(42, array_merge($record, [$required => '  ']));
+  } catch (DomainException) {
+    continue;
+  }
+  throw new RuntimeException('Empty required field accepted: ' . $required);
+}
+echo "Office Calc project context validation passed.\\n";
