@@ -28,7 +28,7 @@ final class OfficeCalcLaunchToken {
     ];
     if ($grantReference !== null) {
       if (!preg_match('/^[a-f0-9]{64}$/D', $grantReference)) {
-        throw new \\InvalidArgumentException('Invalid Calc grant reference.');
+        throw new \InvalidArgumentException('Invalid Calc grant reference.');
       }
       $payload['grant_ref'] = $grantReference;
     }
