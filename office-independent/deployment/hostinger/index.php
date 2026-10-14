@@ -34,6 +34,12 @@ $routes = [
   '/office/crm/aanvragen' => 'crm-new-requests.php',
   '/office/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if ($path === '/calc-werkbank') {
+  // Office-owned entry gate; authentication and permissions are checked by the endpoint.
+  // This does not proxy or expose Calc itself.
+  require $private . '/public/calc-workbench.php';
+  exit;
+}
 if ($path === '/calc/start') {
   // Same-origin Office session and permissions are checked by this disabled-by-default endpoint.
   require $private . '/public/calc-start.php';
