@@ -56,6 +56,11 @@ if (is_string($path) && preg_match('#^/api/workbench/v1/projects/[1-9][0-9]*/cal
   require $private . '/public/calc-project-context.php';
   exit;
 }
+if ($path === '/api/workbench/v1/calculation-grants/validate') {
+  // HMAC-signed server-to-server validation, disabled unless explicitly enabled.
+  require $private . '/public/calc-grant-validation.php';
+  exit;
+}
 if (!is_string($path) || !isset($routes[$path])) {
   http_response_code(404);
   exit('Pagina niet gevonden.');
