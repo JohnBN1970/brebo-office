@@ -34,7 +34,7 @@ final class OfficeCalcLaunchService {
     $verifiedActor = OfficeCalcLaunchAuthorization::requireAuthorized(
       $operator, $actorId, $projectId, $calculationId, $scopeAllowed, $scopeAllowed
     );
-    $grantReference = $this->grants?->issue(
+    $grantReference = $this->grants?->issueForSessionHash(
       $operator->sessionId, $verifiedActor, $projectId, $calculationId, time() + 28800
     );
     return OfficeCalcLaunchToken::issue(
