@@ -92,9 +92,21 @@ document.getElementById("calc-start-form").addEventListener("submit", async func
       const result = await response.json().catch(() => ({}));
       throw new Error(result.error || "Calculatie kan niet worden gestart.");
     }
-    // Never display, log, persist, or put the one-time token in a URL.
-    // The browser handoff remains disabled until the same-origin Calc proxy is verified.
-    status.textContent = "Toegang bevestigd. De beveiligde Calc-overdracht wordt nog aangesloten.";
+    const issued = await response.json();
+    if (typeof issued.token !== "string" || !issued.token) throw new Error("Geen geldig starttoken ontvangen.");
+    // Same-origin POST only. No token in URLs, browser storage or diagnostic logs.
+    const consumed = await fetch("/calc-app/api/launch/consume", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {"Content-Type":"application/json","Accept":"application/json"},
+      body: JSON.stringify({token:issued.token})
+    });
+    if (!consumed.ok) {
+      const result = await consumed.json().catch(() => ({}));
+      throw new Error(result.error || "Calc kon de Office-aanmelding niet verwerken.");
+    }
+    status.textContent = "Calculatie openen...";
+    window.location.assign("/calc-app/");
   } catch (error) {
     status.textContent = error instanceof Error ? error.message : "Controle mislukt.";
   } finally {
