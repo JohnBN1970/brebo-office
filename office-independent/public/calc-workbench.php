@@ -64,8 +64,13 @@ catch (Throwable $e) {
   http_response_code(503);
   exit('Calculatie tijdelijk niet beschikbaar.');
 }
+// Navigation context only; authorization remains in /calc/start.
+$projectPrefill = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$calculationPrefill = filter_var($_GET['calculation_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+$projectPrefill = is_int($projectPrefill) ? (string) $projectPrefill : '';
+$calculationPrefill = is_int($calculationPrefill) ? (string) $calculationPrefill : '';
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BREBO Calculatie</title><h1>Calculatie</h1><p>Toegang bevestigd. Selecteer een project en calculatie om de Office-startcontrole uit te voeren.</p><form id="calc-start-form"><label>Projectnummer <input name="project_id" type="number" min="1" step="1" required></label> <label>Calculatienummer <input name="calculation_id" type="number" min="1" step="1" required></label> <button type="submit">Start controleren</button></form><p id="calc-start-status" role="status" aria-live="polite"></p><script>
+echo '<!doctype html><html lang="nl"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>BREBO Calculatie</title><h1>Calculatie</h1><p>Toegang bevestigd. Selecteer een project en calculatie om de Office-startcontrole uit te voeren.</p><form id="calc-start-form"><label>Projectnummer <input name="project_id" type="number" min="1" step="1" value="' . $projectPrefill . '" required></label> <label>Calculatienummer <input name="calculation_id" type="number" min="1" step="1" value="' . $calculationPrefill . '" required></label> <button type="submit">Start controleren</button></form><p id="calc-start-status" role="status" aria-live="polite"></p><script>
 document.getElementById("calc-start-form").addEventListener("submit", async function(event) {
   event.preventDefault();
   const form = event.currentTarget;
