@@ -66,6 +66,11 @@ catch (Throwable $e) {
   http_response_code(503);
   exit('Calculatie tijdelijk niet beschikbaar.');
 }
+// A browser handoff is not implemented: do not issue disposable launch tokens.
+if (getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') !== 'enabled') {
+  http_response_code(503);
+  exit('Calculatieoverdracht is nog niet beschikbaar.');
+}
 // Navigation context only; authorization remains in /calc/start.
 $projectPrefill = filter_var($_GET['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
 $calculationPrefill = filter_var($_GET['calculation_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
