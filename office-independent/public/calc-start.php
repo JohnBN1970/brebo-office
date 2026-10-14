@@ -59,6 +59,7 @@ try {
     'Calculation/OfficeCalcLaunchAuthorization.php',
     'Calculation/OfficeCalcLaunchToken.php',
     'Calculation/OfficeCalcLaunchService.php',
+    'Calculation/OfficeCalcSessionGrantRepository.php',
   ] as $file) {
     require_once dirname(__DIR__) . '/src/' . $file;
   }
@@ -72,6 +73,9 @@ try {
     new \Brebo\Office\Calculation\OfficeCalcActorIdRepository($db),
     new \Brebo\Office\Calculation\OfficeCalcProjectScopeRepository($db),
     $secret,
+    getenv('OFFICE_CALC_SESSION_GRANTS_ENABLED') === 'enabled'
+      ? new \\Brebo\\Office\\Calculation\\OfficeCalcSessionGrantRepository($db)
+      : null,
   );
   $token = $service->issue($projectId, $calculationId);
   echo json_encode(['token' => $token], JSON_THROW_ON_ERROR);
