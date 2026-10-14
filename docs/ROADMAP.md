@@ -6,7 +6,7 @@ BREBO Office gefaseerd ontwikkelen tot een betrouwbaar digitaal bedrijfs- en geb
 
 ## Peildatum
 
-29 september 2026.
+**Actuele statusherijking: 14 oktober 2026.** De oorspronkelijke fasestatussen en indicatieve percentages hieronder hebben als historische baseline **29 september 2026** en zijn niet opnieuw gemeten. De sectie 'Statusherijking 14 oktober 2026 — Office-integratie' is leidend voor actuele integratieprioriteiten en acceptatiepoorten.
 
 ## Leidende bronnen
 
