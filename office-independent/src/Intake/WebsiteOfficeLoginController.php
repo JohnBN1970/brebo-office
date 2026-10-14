@@ -30,7 +30,7 @@ final class WebsiteOfficeLoginController {
   public static function cookie(string $token, int $expiresAt): array {
     return [
       'expires' => $expiresAt,
-      'path' => '/office',
+      'path' => '/',
       'secure' => true,
       'httponly' => true,
       'samesite' => 'Strict',

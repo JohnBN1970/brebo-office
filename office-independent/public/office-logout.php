@@ -44,7 +44,7 @@ if (is_string($token) && strlen($token) >= 32 && strlen($token) <= 256) {
     exit('Afmelden is tijdelijk niet beschikbaar.');
   }
 }
-setcookie('office_session', '', ['expires' => time() - 3600, 'path' => '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+setcookie('office_session', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
 // Match the login route to the namespace used by the active public router.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 $loginDestination = is_string($path) && str_starts_with($path, '/office/')

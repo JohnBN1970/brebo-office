@@ -51,7 +51,7 @@ try {
     new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time()
   );
   if ($sessions->currentOperator() === null) {
-    header('Location: /office/inloggen', true, 302);
+    header('Location: /inloggen', true, 302);
     exit;
   }
   (new \Brebo\Office\Calculation\OfficeCalculationSessionAccess(
