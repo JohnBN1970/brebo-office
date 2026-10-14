@@ -11,7 +11,10 @@ DirectoryIndex index.php
   RewriteRule ^(?:src|bin|tests|vendor|config|\.git)(?:/|$) - [F,L,NC]
 
   # Only these explicit application paths may reach the private PHP router.
+  # Office Calc entry and signed handoff routes; feature flags remain default-off.
+  RewriteRule ^calc-werkbank/?$ index.php [END,QSA]
   RewriteRule ^calc/start$ index.php [END,QSA]
+  RewriteRule ^api/workbench/v1/calculation-grants/validate/?$ index.php [END,QSA]
   RewriteRule ^api/workbench/v1/projects/[1-9][0-9]*/calculation-context$ index.php [END,QSA]
   RewriteRule ^office/inloggen/?$ index.php [END,QSA]
   RewriteRule ^office/uitloggen/?$ index.php [END,QSA]
