@@ -69,3 +69,30 @@ Beoordeel op basis daarvan of Office via Apache/PHP, Passenger/Node of een ander
 - **No-go:** alleen repositoryroutes bekend, onbekende hosting-router, geen proxyrechten, onduidelijk sessiegedrag of onvoldoende rollbackmogelijkheid.
 
 Op gedeelde Hostinger Cloud Hosting is een configureerbare reverse proxy **niet vanzelfsprekend beschikbaar**. Als het pakket de vereiste proxy niet toestaat, ontwerp dan eerst een ondersteunde hostingsoplossing; voeg geen onbeveiligde PHP-doorstuurproxy toe als noodgreep.
+
+
+## Besluit 14 oktober 2026 — eerste integratie via twee origins
+
+De werkelijke Hostinger-inventarisatie bevestigt dat zelfstandige Office via Apache/PHP werkt (publieke router onder `domains/brebobv.nl/public_html/office/index.php`, private handlers onder `office_private`) en dat Calc via Node/Passenger op de bestaande Hostinger-app bereikbaar is (`/api/health` geeft HTTP 200). Er is geen Passenger-koppeling onder de Office-webroot aangetroffen; configureerbare same-origin reverse proxy is niet bewezen.
+
+**Besluit:** maak de eerste werkende integratie via de bestaande afzonderlijke HTTPS-origins, zonder proxy, extra hosting, of nieuwe login. Het eerdere same-origin ontwerp hierboven blijft een mogelijke latere fase en is **geen** blocker voor deze eerste koppeling. Dit besluit is een ontwerpkeuze; geen bewijs dat de koppeling al live is.
+
+### Implementatiecontract (zelfstandige PHP Office → Node Calc)
+
+1. Voeg aan de zelfstandige Office-router een expliciet toegestane, beveiligde launchroute toe; hergebruik de bestaande Office-databasesessie en controleer opnieuw de operator, `can_calculate`, projecttoegang en de geselecteerde calculatie. Geen toegang op basis van alleen een zichtbare tegel.
+2. Laat Office server-side een kort geldige, eenmalig te consumeren, ondertekende launch-assertie uitgeven met expliciete issuer, audience, operator, project, calculatie, nonce/jti, iat en exp. Behoud de bestaande 90-secondenlimiet waar het bestaande Calc-contract dit voorschrijft. Deel geen HMAC-secret met de browser.
+3. Gebruik voor overdracht bij voorkeur een browser-POST naar de Calc-consume-ingang met een kort geldige opaque code die Calc server-to-server bij Office inwisselt, of een aantoonbaar passend bestaand POST-contract. **Geen launch-token in URL, querystring, referer of logs**. Bevestig eerst de daadwerkelijke requestvorm van `POST /api/launch/consume`; een HMAC-assertie is niet automatisch compatibel met de bestaande Calc-API.
+4. Calc valideert handtekening/audience/tijdvenster en consumeert nonce/jti atomair (replay = geweigerd). Daarna maakt Calc uitsluitend een eigen `Secure`, `HttpOnly`, passend `SameSite` sessiecookie op zijn eigen origin. Office-cookie wordt niet over domeinen gedeeld.
+5. Hercontroleer autorisatie voor gevoelige Calc-acties; leg een expliciet intrekkings- en logoutcontract vast zodat een oude Calc-sessie niet geldig blijft na Office-uitloggen of ingetrokken projectrechten. CORS mag geen generieke wildcard voor credentialed requests zijn; CSRF-controles blijven vereist.
+6. Maak de Office-dashboardtegel en de route pas zichtbaar/bruikbaar na autorisatie. De gebruiker ervaart één login, maar de adresbalk kan naar de Calc-origin wisselen; communiceer dit als bewuste tussenfase.
+
+### Veilig opleveren
+
+- **Eerst codeonderzoek:** vergelijk de zelfstandige Office-authenticator en sessieprovider met de huidige Calc `/api/launch/consume`-implementatie. De Drupal-`CalculationWorkbenchLaunchController` is niet automatisch bruikbaar in de zelfstandige PHP-router.
+- **Dan een geïsoleerde PR:** contract, Office-handler, Calc-consume-aanpassing indien nodig en negatieve tests voor anoniem, ontbrekende rechten, verlopen/replay-token, onjuist project, logout/intrekking, CSRF en niet-beschikbare database.
+- **Dan sandbox:** test de volledige browseroverdracht op beide HTTPS-origins. Bestaande Office-login, CRM en Calc-rootdeployment blijven ongemoeid tot groen bewijs en een afzonderlijke productie-go/no-go.
+- **Rollback:** schakel de nieuwe Office-launchroute/featureflag uit; wijzig geen DNS, Passenger-app-root of bestaande Calc-healthroute.
+
+### Nog open
+
+De daadwerkelijke inhoud van de zelfstandige Office-release en de Calc-consume-handler moet tegen de actuele broncode worden geverifieerd voordat implementatie kan worden geclaimd. De live-host heeft wel een `office_calc_test`-sandbox, maar de aanwezigheid van die map is geen geslaagde launchtest.
