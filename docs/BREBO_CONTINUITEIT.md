@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele peildatum: 7 oktober 2026.**
+**Actuele statusherijking: 14 oktober 2026.** Historische detailstand hieronder bevat onderdelen met peildatum 7 oktober 2026.
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -858,3 +858,25 @@ Randvoorwaarden: bestaande Office-login en CRM behouden; publieke Drupal-website
 - **Uitfasering:** pas na groen CI, staging/prod-smoke, controle van redirects, assets, cookies en rollback het publieke Calc-subdomein buiten gebruik stellen. Geen DNS-, hosting-, productie- of secretwijziging via dit document.
 
 **Huidige status:** architectuurbesluit vastgelegd; standalone Office-loginbron, routering en productieproxy nog te verifiëren. Niet als gerealiseerde integratie rapporteren.
+
+
+## Statusherijking 14 oktober 2026 — Office-integratie
+
+Bron: actuele `develop`-commits tot en met #1333 (13 oktober 2026) en het Office-shellbesluit van 13 oktober. Dit is een documentatiestatus, geen nieuwe productieacceptatie of CI-verklaring.
+
+- **Bevestigd in GitHub:** #1324–#1329 versterken Calc-toegangscontrole, ACL-synchronisatie en fail-closed gedrag; #1330 legt Calc als Office-module op dezelfde origin vast; #1331–#1333 documenteren activatievoorwaarden, bestaande routes en veilige Hostinger-routerdiscovery.
+- **Bestaande runtime:** zelfstandige Office-login/CRM en Calc API/database-health zijn eerder vastgesteld; de beveiligde Calc-route verlangt een Office-launch. De volledige Office-login -> signed Calc-launch -> Calc -> terugkeerketen is nog niet end-to-end productiegeaccepteerd.
+- **Niet als gereed rapporteren:** rolgebaseerd dashboard met echte KPI's, volledige module-integratie, nieuwe mailruntime/Postfix-activering, MJOP en generieke outputgenerator zolang actueel acceptatiebewijs ontbreekt.
+- **Architectuur:** de oudere Drupal/sboffice-beschrijvingen zijn historische implementatiecontext, niet automatisch de huidige zelfstandige Office-runtime. Behoud de canonieke softwarekern en vervangbare adapters; publieke Drupal-website blijft ongemoeid.
+- **Voortgang:** geen totaalpercentage zonder module-inventaris, CI, actuele deploymentmarker en productie-smokes. Eerdere percentages zijn historische indicaties, geen actuele meting.
+
+### Uitvoeringsvolgorde en acceptatiepoorten
+
+1. **P0 — Inventaris en blokkades:** leg per module vast: gereed / aansluiten / aanpassen / ontbreekt, inclusief eigenaar, testbewijs, actuele runtime, Drupal-afhankelijkheden en open CI/PR's.
+2. **P0 — Calc same-origin:** voer eerst read-only Hostinger-routerdiscovery en route-collisioncheck uit. Pas na expliciete go/no-go: Office-sessie, rol- en projectrechten, kortlevende signed launch, veilige loginredirect/return-to, verlopen sessie en foutpaden testen. Geen bypass van Calc API-auth.
+3. **P1 — Office-shell/dashboard:** vaste navigatie, rolgestuurde tegels, financiële KPI's (excl./incl. btw, bron en peildatum), kritieke punten en Mijn werk op bestaande canonieke services; autorisatie server-side.
+4. **P1 — Moduleketens:** Projecten, Finance, Inkoop, Planning, Inzet, Gebouwen, Documenten en Intake end-to-end verbinden; centrale bron-/dossierwaarheid bewaken.
+5. **P2 — Functionele afbouw:** mailgateway/readiness en eventuele historie, MJOP, outputgenerator en rapporten volgens eigen acceptancecriteria sluiten.
+6. **Productiepoort:** pas gereed na groene CI, review-schoon PR, gecontroleerde deploy, release-SHA, echte gebruikers-/projectsmokes, back-up en herstelcontrole.
+
+**Planning:** 20 november 2026 is uitsluitend een voorlopige streefdatum voor integrale acceptatie, geen toezegging of vastgestelde livegang. Herplan na de P0-inventaris. Geen nieuwe hostingupgrade, symlinks of secrets in de repository; bestaande login/CRM en publieke website behouden.
