@@ -10,10 +10,11 @@ use PDO;
  * Independent Office Calc authorization. Never use CRM edit permission as a
  * substitute for Calc permission. All checks are DB-backed and fail closed.
  *
- * Provision tables separately after reviewing the live Office data model:
+ * Required additive schema (not present in the verified live Office DB):
  * office_calculation_permissions(operator_id, can_calculate)
  * office_calculation_project_access(operator_id, project_id, can_calculate)
  * office_calculation_registry(id, project_id)
+ * This class is inactive until migration and integration tests are approved.
  */
 final class WebsiteOfficeCalculationAccessPolicy {
 
