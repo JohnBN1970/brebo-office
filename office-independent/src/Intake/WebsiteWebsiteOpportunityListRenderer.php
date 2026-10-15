@@ -49,7 +49,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
     if ($hasNextPage && $page < 20001) {
       $html .= '<a href="' . $basePath . '/crm/aanvragen?page=' . ($page + 1) . '">Volgende →</a>';
     }
-    return $html . '</nav>' . $this->logoutForm() . '</main></body></html>';
+    return $html . '</nav>' . $this->logoutForm($basePath) . '</main></body></html>';
   }
 
   private function logoutForm(string $basePath): string {
