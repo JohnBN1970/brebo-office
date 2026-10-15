@@ -47,7 +47,7 @@ if (is_string($token) && strlen($token) >= 32 && strlen($token) <= 256) {
 setcookie('office_session', '', ['expires' => time() - 3600, 'path' => '/', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
 // Match the login route to the namespace used by the active public router.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-$loginDestination = is_string($path) && str_starts_with($path, '/office/')
-  ? '/office/inloggen'
-  : '/inloggen';
+$loginDestination = $path === '/index.php'
+  ? '/index.php?office_route=inloggen'
+  : (is_string($path) && str_starts_with($path, '/office/') ? '/office/inloggen' : '/inloggen');
 header('Location: ' . $loginDestination, true, 303);

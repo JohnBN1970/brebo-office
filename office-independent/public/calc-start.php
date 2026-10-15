@@ -78,6 +78,32 @@ try {
       : null,
   );
   $token = $service->issue($projectId, $calculationId);
+  // Best-effort recent-work registration only after the launch authorization
+  // succeeds. This optional feature must never prevent an authorized launch.
+  if (getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled'
+    && getenv('OFFICE_RECENT_WORK_ACL_VERIFIED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkEvent.php';
+      require_once dirname(__DIR__) . '/src/RecentWork/PdoRecentWorkRepository.php';
+      require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkAccess.php';
+      require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkRecorder.php';
+      require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkCalculationAccess.php';
+      $operator = $sessions->currentOperator();
+      if ($operator !== null) {
+        $access = new \Brebo\Office\RecentWork\RecentWorkAccess([
+          'calculation' => [new \Brebo\Office\RecentWork\RecentWorkCalculationAccess($db), 'canAccess'],
+        ]);
+        (new \Brebo\Office\RecentWork\RecentWorkRecorder(
+          $access, new \Brebo\Office\RecentWork\PdoRecentWorkRepository($db)
+        ))->record(
+          $operator->operatorId,
+          new \Brebo\Office\RecentWork\RecentWorkEvent('calculation', 'calculation', $calculationId, 'overview')
+        );
+      }
+    } catch (Throwable $ignored) {
+      // The Calc launch remains available if the optional history store fails.
+    }
+  }
   echo json_encode(['token' => $token], JSON_THROW_ON_ERROR);
 }
 catch (DomainException $e) {

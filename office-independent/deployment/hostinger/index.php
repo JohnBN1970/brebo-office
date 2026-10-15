@@ -11,6 +11,24 @@ declare(strict_types=1);
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, private');
 
+// Match the already deployed Hostinger bootstrap: configuration stays private.
+$configFile = '/home/u213420663/domains/brebobv.nl/office_private/config.php';
+if (!is_file($configFile)) {
+  http_response_code(503);
+  exit('Office-configuratie ontbreekt.');
+}
+$config = require $configFile;
+if (!is_array($config)) {
+  http_response_code(503);
+  exit('Ongeldige Office-configuratie.');
+}
+foreach ($config as $key => $value) {
+  if (!is_string($key) || !is_string($value)) {
+    http_response_code(503);
+    exit('Ongeldige Office-instelling.');
+  }
+  putenv($key . '=' . $value);
+}
 $root = getenv('OFFICE_PRIVATE_ROOT');
 $private = is_string($root) && $root !== '' ? realpath($root) : false;
 $documentRoot = realpath(__DIR__);
@@ -28,7 +46,28 @@ if ($private === false || $documentRoot === false
 // This public entrypoint exposes only explicitly reviewed routes.
 // Never route arbitrary filenames or accept a caller-controlled PHP path.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+// Legacy Hostinger installation uses index.php?office_route=... rather than rewrites.
+// Allow only exact route names; never use the parameter as a file path.
+$requestedRoute = filter_input(INPUT_GET, 'office_route', FILTER_UNSAFE_RAW);
+if ($path === '/index.php' && $requestedRoute === null) {
+  $path = '/inloggen';
+}
+if ($path === '/index.php' && $requestedRoute !== null) {
+  $legacyRoutes = [
+    'home' => '/home',
+    'inloggen' => '/inloggen',
+    'uitloggen' => '/uitloggen',
+    'crm/aanvragen' => '/crm/aanvragen',
+    'crm/aanvragen/detail' => '/crm/aanvragen/detail',
+    'calc-werkbank' => '/calc-werkbank',
+  ];
+  $requested = $requestedRoute;
+  if (is_string($requested) && isset($legacyRoutes[$requested])) {
+    $path = $legacyRoutes[$requested];
+  }
+}
 $routes = [
+  '/home' => 'office-home.php',
   '/office' => 'office-home.php',
   '/office/' => 'office-home.php',
   '/office/home' => 'office-home.php',
@@ -44,6 +83,7 @@ $routes = [
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
 if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
+  $_SERVER['OFFICE_QUERY_ROUTER'] = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php' ? '1' : '0';
   $_SERVER['REQUEST_URI'] = '/calc-werkbank';
   // Office-owned entry gate; authentication and permissions are checked by the endpoint.
   // This does not proxy or expose Calc itself.
@@ -70,4 +110,9 @@ if (!is_string($path) || !isset($routes[$path])) {
   exit('Pagina niet gevonden.');
 }
 
+// CRM handler validates the canonical Office path itself. Normalize only
+// approved CRM routes, without altering query parameters (id/page).
+if ($path === '/crm/aanvragen' || $path === '/crm/aanvragen/detail') {
+  $_SERVER['REQUEST_URI'] = '/office' . $path;
+}
 require $private . '/public/' . $routes[$path];
