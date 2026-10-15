@@ -52,3 +52,8 @@ CREATE TABLE office_user_recent_work (
 ```
 
 **Voorwaarden vóór inschakeling:** gecontroleerde migratie in testdatabase, module-autorisatie vóór `record()`, server-side gebeurtenisregistratie, autorisatie vóór tonen en hervatten, bewaartermijn en wisfunctie. De huidige dashboardcode toont uitsluitend een algemene melding en geen objectgegevens of links.
+
+## Geïsoleerde database-preflight
+Er is een optionele, **alleen-lezen** preflight: `office-independent/tests/RecentWorkDatabaseSmoke.php`. Deze draait niet automatisch in CI. Hij weigert uitvoering zonder `OFFICE_RECENT_WORK_TEST_ACK=isolated-test`, een aparte `OFFICE_RECENT_WORK_TEST_DSN` en een databasenaam met `test` of `staging`. Hij controleert alleen verbinding, tabelbeschikbaarheid en gebruikersisolatie voor twee willekeurige nieuwe testidentiteiten. Hij maakt **geen** tabel aan en schrijft geen data. Een naamcontrole is geen vervanging voor een geïsoleerde databasegebruiker met alleen SELECT-rechten.
+
+Voor volledige schrijf-, update-, trim- en wisproeven is later een aparte disposable fixture nodig. Die tests mogen niet worden uitgevoerd op de lopende Office-database of met productiecredentials.
