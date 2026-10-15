@@ -59,6 +59,7 @@ if ($path === '/index.php' && $requestedRoute !== null) {
     'uitloggen' => '/uitloggen',
     'crm/aanvragen' => '/crm/aanvragen',
     'crm/aanvragen/detail' => '/crm/aanvragen/detail',
+    'calc-werkbank' => '/calc-werkbank',
   ];
   $requested = $requestedRoute;
   if (is_string($requested) && isset($legacyRoutes[$requested])) {
