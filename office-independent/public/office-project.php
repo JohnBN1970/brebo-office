@@ -203,17 +203,50 @@ if ($buildings === []) {
   }
   $buildingHtml .= '</ul>';
 }
-$housingHtml = '<h2>Woningtypen</h2>';
+$housingHtml = '<h2>Woningtypen en deelcalculaties</h2>';
+$canPrepareScopes = $canManage && $housingTypes !== null && $calculationScopes !== null
+  && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
+  && \Brebo\Office\Intake\OfficeMount::isTest();
+$scopeHousingIds = [];
+if ($calculationScopes !== null) {
+  $scopeIdsQuery = $db->prepare(
+    "SELECT housing_type_id, calc_calculation_id FROM office_project_calculation_scopes
+     WHERE project_id = :project AND scope_kind = 'housing_type' AND housing_type_id IS NOT NULL"
+  );
+  $scopeIdsQuery->execute([':project' => $projectId]);
+  foreach ($scopeIdsQuery->fetchAll(PDO::FETCH_ASSOC) as $existingScope) {
+    $scopeHousingIds[(int) $existingScope['housing_type_id']] = $existingScope['calc_calculation_id'];
+  }
+}
 if ($housingTypes === null) {
   $housingHtml .= '<p>Woningtypen worden beschikbaar na installatie van het gegevensmodel.</p>';
 } elseif ($housingTypes === []) {
   $housingHtml .= '<p>Nog geen woningtypen aan dit project toegewezen.</p>';
 } else {
-  $housingHtml .= '<table><thead><tr><th>Gebouw</th><th>Woningtype</th><th>Aantal woningen</th></tr></thead><tbody>';
+  if ($canPrepareScopes) {
+    $housingHtml .= '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken ?? '') . '">'
+      . '<input type="hidden" name="action" value="bulk_create_housing_scopes">';
+  }
+  $housingHtml .= '<table><thead><tr>';
+  if ($canPrepareScopes) $housingHtml .= '<th>Selecteer</th>';
+  $housingHtml .= '<th>Gebouw</th><th>Woningtype</th><th>Woningen</th><th>Calculatiestatus</th></tr></thead><tbody>';
   foreach ($housingTypes as $type) {
-    $housingHtml .= '<tr><td>' . $escape((string) $type['building_name']) . '</td><td>' . $escape((string) $type['name']) . ' (' . $escape((string) $type['code']) . ')</td><td>' . (int) $type['dwelling_count'] . '</td></tr>';
+    $id = (int) $type['housing_type_id'];
+    $exists = array_key_exists($id, $scopeHousingIds);
+    $linked = $exists && $scopeHousingIds[$id] !== null;
+    $housingHtml .= '<tr>';
+    if ($canPrepareScopes) {
+      $housingHtml .= '<td><input type="checkbox" name="housing_type_ids[]" value="' . $id . '"' . ($exists ? ' disabled' : '') . '></td>';
+    }
+    $housingHtml .= '<td>' . $escape((string) $type['building_name']) . '</td>'
+      . '<td>' . $escape((string) $type['name']) . ' (' . $escape((string) $type['code']) . ')</td>'
+      . '<td>' . (int) $type['dwelling_count'] . '</td>'
+      . '<td>' . ($linked ? 'Gekoppeld; openen nog niet beschikbaar' : ($exists ? 'Voorbereid' : 'Nog voorbereiden')) . '</td></tr>';
   }
   $housingHtml .= '</tbody></table>';
+  if ($canPrepareScopes) {
+    $housingHtml .= '<button type="submit">Geselecteerde deelcalculaties voorbereiden</button></form>';
+  }
 }
 $allocatedDwellings = $housingTypes === null ? null : array_sum(array_map(static fn(array $row): int => (int) $row['dwelling_count'], $housingTypes));
 $totalsHtml = '<h2>Woningenverdeling</h2>';
@@ -229,16 +262,17 @@ if ($allocatedDwellings === null) {
     $totalsHtml .= '<p>' . ($difference > 0 ? 'Nog niet toegewezen: ' . $difference : ($difference < 0 ? 'Te veel toegewezen: ' . abs($difference) : 'Verdeling compleet: alle woningen toegewezen.')) . '</p>';
   }
 }
-$scopeHtml = '<h2>Deelcalculaties</h2>';
+$scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
-} elseif ($calculationScopes === []) {
-  $scopeHtml .= '<p>Nog geen deelcalculaties aan dit project gekoppeld.</p>';
+} elseif (array_filter($calculationScopes, static fn(array $scope): bool => $scope['scope_kind'] !== 'housing_type') === []) {
+  $scopeHtml = '';
 } else {
   $scopeNames = ['project' => 'Project', 'building' => 'Gebouw', 'facade' => 'Gevel', 'housing_type' => 'Woningtype'];
   $scopeHtml .= '<table><thead><tr><th>Onderdeel</th><th>Scope</th><th>Calculatiekoppeling</th></tr></thead><tbody>';
   foreach ($calculationScopes as $scope) {
     $kind = (string) $scope['scope_kind'];
+    if ($kind === 'housing_type') continue;
     $scopeHtml .= '<tr><td>' . $escape((string) $scope['scope_label']) . '</td><td>' . $escape($scopeNames[$kind] ?? $kind) . '</td><td>' . ($scope['calc_calculation_id'] === null ? 'Nog niet gekoppeld' : 'Koppeling geregistreerd; openen nog niet beschikbaar') . '</td></tr>';
   }
   $scopeHtml .= '</tbody></table>';
@@ -259,29 +293,6 @@ if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_EN
   $formHtml .= '</select></label><label>Code <input name="code" maxlength="128" required></label><label>Naam <input name="name" maxlength="255" required></label><label>Aantal woningen <input type="number" name="dwelling_count" min="1" max="100000" required></label><button type="submit">Opslaan</button></form>';
 }
 $scopeCreateHtml = '';
-if ($canManage && $housingTypes !== null && $calculationScopes !== null
-  && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
-  && \Brebo\Office\Intake\OfficeMount::isTest()) {
-  $scopeCreateHtml = '<h3>Deelcalculaties voorbereiden</h3><p>Selecteer woningtypen. Bestaande scopes blijven behouden.</p>'
-    . '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
-    . '<input type="hidden" name="action" value="bulk_create_housing_scopes">'
-    . '<table><thead><tr><th>Selecteer</th><th>Woningtype</th><th>Woningen</th><th>Status</th></tr></thead><tbody>';
-  $scopeHousingIds = [];
-  $scopeIdsQuery = $db->prepare(
-    "SELECT housing_type_id FROM office_project_calculation_scopes
-     WHERE project_id = :project AND scope_kind = 'housing_type' AND housing_type_id IS NOT NULL"
-  );
-  $scopeIdsQuery->execute([':project' => $projectId]);
-  foreach ($scopeIdsQuery->fetchAll(PDO::FETCH_COLUMN) as $existingId) $scopeHousingIds[(int) $existingId] = true;
-  foreach ($housingTypes as $type) {
-    $id = (int) $type['housing_type_id'];
-    $exists = isset($scopeHousingIds[$id]);
-    $scopeCreateHtml .= '<tr><td><input type="checkbox" name="housing_type_ids[]" value="' . $id . '"' . ($exists ? ' disabled' : '') . '></td>'
-      . '<td>' . $escape((string) $type['name']) . ' (' . $escape((string) $type['code']) . ')</td>'
-      . '<td>' . (int) $type['dwelling_count'] . '</td><td>' . ($exists ? 'Voorbereid' : 'Nog voorbereiden') . '</td></tr>';
-  }
-  $scopeCreateHtml .= '</tbody></table><button type="submit">Geselecteerde deelcalculaties voorbereiden</button></form>';
-}
 $statusLabels = ['concept' => 'Concept', 'preparation' => 'Voorbereiding', 'execution' => 'Uitvoering', 'closeout' => 'Oplevering', 'closed' => 'Afgesloten'];
 $statusLabel = $statusLabels[$project->status] ?? $project->status;
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
@@ -289,4 +300,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $scopeCreateHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
