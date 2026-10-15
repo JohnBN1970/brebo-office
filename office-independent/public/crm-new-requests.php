@@ -112,7 +112,7 @@ try {
       echo 'Verkoopkans niet gevonden.';
       exit;
     }
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity);
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityDetailRenderer())->render($opportunity, $base);
   }
   else {
     $pageRaw = $_GET['page'] ?? '1';
@@ -124,7 +124,7 @@ try {
     $page = (int) $pageRaw;
     $rows = $repository->recent(51, ($page - 1) * 50);
     $hasNextPage = count($rows) > 50;
-    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render(array_slice($rows, 0, 50), $page, $hasNextPage);
+    echo (new \Brebo\Office\Intake\WebsiteWebsiteOpportunityListRenderer())->render(array_slice($rows, 0, 50), $page, $hasNextPage, $base);
   }
 }
 catch (Throwable) {
