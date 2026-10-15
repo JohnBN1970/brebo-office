@@ -18,7 +18,7 @@ final class OfficeCanonicalProjectContextClient {
     if ($projectId < 1) {
       throw new RuntimeException('Invalid project ID.');
     }
-    $path = '/brebo-office/calc/context/project/' . $projectId;
+    $path = '/api/workbench/v1/projects/' . $projectId . '/calculation-context';
     $timestamp = (string) time();
     $requestId = sprintf('%s-%s-%s-%s-%s', bin2hex(random_bytes(4)), bin2hex(random_bytes(2)), bin2hex(random_bytes(2)), bin2hex(random_bytes(2)), bin2hex(random_bytes(6)));
     $canonical = "GET\n{$path}\n" . hash('sha256', '') . "\n{$timestamp}\n{$requestId}";
