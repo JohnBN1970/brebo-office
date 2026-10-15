@@ -14,6 +14,18 @@ final class OfficeCanonicalProjectContextClient {
     }
   }
 
+  /** Matches the existing Drupal CalculationWorkbenchContextController signature. */
+  public static function signGet(string $path, string $timestamp, string $requestId, string $secret): string {
+    if (!preg_match('~^/api/workbench/v1/projects/[1-9][0-9]*/calculation-context$~D', $path)
+      || !ctype_digit($timestamp)
+      || !preg_match('/^[0-9a-fA-F-]{36}$/D', $requestId)
+      || strlen($secret) < 32) {
+      throw new RuntimeException('Invalid canonical signing input.');
+    }
+    $canonical = "GET\n{$path}\n" . hash('sha256', '') . "\n{$timestamp}\n{$requestId}";
+    return 'v1=' . hash_hmac('sha256', $canonical, $secret);
+  }
+
   public function get(int $projectId): OfficeCanonicalProjectContext {
     if ($projectId < 1) {
       throw new RuntimeException('Invalid project ID.');
@@ -21,8 +33,7 @@ final class OfficeCanonicalProjectContextClient {
     $path = '/api/workbench/v1/projects/' . $projectId . '/calculation-context';
     $timestamp = (string) time();
     $requestId = sprintf('%s-%s-%s-%s-%s', bin2hex(random_bytes(4)), bin2hex(random_bytes(2)), bin2hex(random_bytes(2)), bin2hex(random_bytes(2)), bin2hex(random_bytes(6)));
-    $canonical = "GET\n{$path}\n" . hash('sha256', '') . "\n{$timestamp}\n{$requestId}";
-    $signature = 'v1=' . hash_hmac('sha256', $canonical, $this->sharedSecret);
+    $signature = self::signGet($path, $timestamp, $requestId, $this->sharedSecret);
     $context = stream_context_create(['http' => [
       'method' => 'GET', 'timeout' => 5, 'ignore_errors' => true,
       'follow_location' => 0,
