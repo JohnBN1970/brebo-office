@@ -30,8 +30,11 @@ final class RecentWorkVisibleItems {
         if (!is_array($position)) {
           continue;
         }
+        if (array_diff(array_keys($position), ['chapter_id']) !== []) {
+          continue;
+        }
         $chapter = $position['chapter_id'] ?? null;
-        if ($chapter !== null && !filter_var($chapter, FILTER_VALIDATE_INT)) {
+        if ($chapter !== null && (!is_int($chapter) || $chapter < 1)) {
           continue;
         }
         $event = new RecentWorkEvent(
