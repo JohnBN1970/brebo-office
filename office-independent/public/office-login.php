@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Brebo\Office\Intake\OfficeMount;
 use Brebo\Office\Intake\WebsiteOfficeLoginController;
 use Brebo\Office\Intake\WebsiteOfficeLoginCsrf;
 use Brebo\Office\Intake\WebsiteOfficeLoginFormRenderer;
@@ -9,6 +10,7 @@ use Brebo\Office\Intake\WebsiteOfficeLoginThrottle;
 use Brebo\Office\Intake\WebsiteOfficeOperatorAuthenticator;
 use Brebo\Office\Intake\WebsiteOfficeCrmSessionIssuer;
 
+require_once __DIR__ . '/../src/Intake/OfficeMount.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginController.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginCsrf.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginFormRenderer.php';
@@ -32,10 +34,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' && ($_SERVER['REQUEST_METHOD'] 
   exit('Methode niet toegestaan.');
 }
 $now = time();
-$csrf = $_COOKIE['office_login_csrf'] ?? null;
+$csrf = $_COOKIE[OfficeMount::cookieName('login_csrf')] ?? null;
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
   $csrf = WebsiteOfficeLoginCsrf::issue();
-  setcookie('office_login_csrf', $csrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
+  setcookie(OfficeMount::cookieName('login_csrf'), $csrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
   header('Content-Type: text/html; charset=utf-8');
   echo (new WebsiteOfficeLoginFormRenderer())->render($csrf);
   exit;
@@ -92,15 +94,15 @@ catch (Throwable $exception) {
 if ($token === null) {
   http_response_code(401);
   $newCsrf = WebsiteOfficeLoginCsrf::issue();
-  setcookie('office_login_csrf', $newCsrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
+  setcookie(OfficeMount::cookieName('login_csrf'), $newCsrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
   header('Content-Type: text/html; charset=utf-8');
   echo (new WebsiteOfficeLoginFormRenderer())->render($newCsrf, true);
   exit;
 }
-setcookie('office_login_csrf', '', WebsiteOfficeLoginCsrf::cookieOptions($now - 3600));
-setcookie('office_session', $token, WebsiteOfficeLoginController::cookie($token, $now + 28800));
+setcookie(OfficeMount::cookieName('login_csrf'), '', WebsiteOfficeLoginCsrf::cookieOptions($now - 3600));
+setcookie(OfficeMount::cookieName('session'), $token, WebsiteOfficeLoginController::cookie($token, $now + 28800));
 // Respect the active router namespace; the public /office/ mount uses short routes.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 // Successful login enters the shared Office home, not a single CRM module.
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-header('Location: ' . ($queryRouter ? '/index.php?office_route=home' : '/office/home'), true, 303);
+header('Location: ' . (OfficeMount::isTest() ? OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home')), true, 303);
