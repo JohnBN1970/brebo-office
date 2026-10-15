@@ -203,6 +203,11 @@ if ($buildings === []) {
   }
   $buildingHtml .= '</ul>';
 }
+$csrfToken = $_COOKIE['office_project_csrf'] ?? null;
+if (!is_string($csrfToken) || strlen($csrfToken) !== 64 || !ctype_xdigit($csrfToken)) {
+  $csrfToken = bin2hex(random_bytes(32));
+  setcookie('office_project_csrf', $csrfToken, ['path' => \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test' : '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+}
 $housingHtml = '<h2>Woningtypen en deelcalculaties</h2>';
 $canPrepareScopes = $canManage && $housingTypes !== null && $calculationScopes !== null
   && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
@@ -276,11 +281,6 @@ if ($calculationScopes === null) {
     $scopeHtml .= '<tr><td>' . $escape((string) $scope['scope_label']) . '</td><td>' . $escape($scopeNames[$kind] ?? $kind) . '</td><td>' . ($scope['calc_calculation_id'] === null ? 'Nog niet gekoppeld' : 'Koppeling geregistreerd; openen nog niet beschikbaar') . '</td></tr>';
   }
   $scopeHtml .= '</tbody></table>';
-}
-$csrfToken = $_COOKIE['office_project_csrf'] ?? null;
-if (!is_string($csrfToken) || strlen($csrfToken) !== 64 || !ctype_xdigit($csrfToken)) {
-  $csrfToken = bin2hex(random_bytes(32));
-  setcookie('office_project_csrf', $csrfToken, ['path' => \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test' : '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
 }
 $formHtml = '';
 if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled') {
