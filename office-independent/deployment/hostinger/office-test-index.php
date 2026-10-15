@@ -42,7 +42,7 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || !is_string($host) || !hash_equals($allowedHost, $host)
   || in_array(strtolower($host), ['office.brebobv.nl', 'www.office.brebobv.nl'], true)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
-  || getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
+  || (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled')
   || getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled') {
   http_response_code(503);
   exit('Testomgeving niet beschikbaar.');
