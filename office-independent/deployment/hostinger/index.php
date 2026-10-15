@@ -60,6 +60,7 @@ if ($path === '/index.php' && $requestedRoute !== null) {
     'crm/aanvragen' => '/crm/aanvragen',
     'crm/aanvragen/detail' => '/crm/aanvragen/detail',
     'calc-werkbank' => '/calc-werkbank',
+    'projecten/detail' => '/projecten/detail',
   ];
   $requested = $requestedRoute;
   if (is_string($requested) && isset($legacyRoutes[$requested])) {
@@ -88,6 +89,10 @@ if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
   // Office-owned entry gate; authentication and permissions are checked by the endpoint.
   // This does not proxy or expose Calc itself.
   require $private . '/public/calc-workbench.php';
+  exit;
+}
+if ($path === '/office/projecten/detail' || $path === '/projecten/detail') {
+  require $private . '/public/office-project.php';
   exit;
 }
 if ($path === '/calc/start') {
