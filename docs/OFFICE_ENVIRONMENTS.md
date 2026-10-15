@@ -25,3 +25,16 @@
 - De exacte productie- en sandboxdatabase, publieke domeinroutering en deployworkflow-targets moeten nog expliciet worden geverifieerd.
 
 **Leidende afspraak: sboffice = sandbox; office = productie.**
+
+## Deployment-audit — 15 oktober 2026
+
+Gecontroleerd in `.github/workflows/sboffice-deploy-develop.yml`:
+
+- Workflow heet `Deploy BREBO Office Production`, triggert automatisch op push naar `develop` (behalve uitsluitend `config/sync/**`) en kan handmatig worden gestart.
+- De feitelijke SSH-doelmap is `$HOME/domains/brebobv.nl/public_html/sboffice`; Drush gebruikt `--uri=https://sboffice.brebobv.nl`.
+- De workflow voert `rsync --delete`, module-enablement, `drush updb` en `drush cr` uit. Dit is een **muterende** workflow, niet slechts een codekopie.
+- **Afwijking:** de workflowbenaming en oude architectuurdocumentatie zeggen 'production', maar de projecteigenaar definieert `sboffice` als sandbox en `office` als productie.
+- **Beveiligingsregel:** merge naar `develop` of handmatige dispatch kan de `sboffice`-omgeving direct veranderen. Geen wijziging van deploytarget naar `office` zonder afzonderlijk getest releaseproces.
+- Nog te verifiëren: werkelijke databaseverbinding achter `sboffice/web/sites/default/settings.php`, sandbox-backups/rollback, exacte DNS/webroot en de productiedeployroute naar `office`. Deel geen credentials.
+
+Dit is een repository-audit; er is geen workflow uitgevoerd en geen Hostinger-omgeving aangepast.
