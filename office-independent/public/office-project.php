@@ -337,7 +337,13 @@ if ($projectQuantityTotals === null) {
 } elseif ($projectQuantityTotals === []) {
   $projectQuantitiesHtml .= '<p>Nog geen projecthoeveelheden beschikbaar.</p>';
 } else {
-  $projectQuantitiesHtml .= '<p>Som van vastgelegde deelcalculatieregels. Dit is geen volledige projectbegroting zolang scopes of regels ontbreken.</p>'
+  $scopedTypeCount = count($scopeHousingIds);
+  $housingTypeCount = $housingTypes === null ? 0 : count($housingTypes);
+  $pricedTypeIds = [];
+  foreach ($quantityLines ?? [] as $line) $pricedTypeIds[(int) $line['scope_id']] = true;
+  $projectQuantitiesHtml .= '<p>Deelcalculaties voorbereid: <strong>' . $scopedTypeCount . ' van ' . $housingTypeCount
+    . '</strong> woningtypen. Met hoeveelheidsregels: <strong>' . count($pricedTypeIds)
+    . '</strong>. Dit zijn uitsluitend vastgelegde hoeveelheden, geen volledige projectbegroting.</p>'
     . '<table><thead><tr><th>Regelcode</th><th>Omschrijving</th><th>Woningtypen</th><th>Totaal</th><th>Eenheid</th></tr></thead><tbody>';
   foreach ($projectQuantityTotals as $total) {
     $projectQuantitiesHtml .= '<tr><td>' . $escape((string) $total['line_code']) . '</td>'
