@@ -72,6 +72,16 @@ try {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
+  // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
+  $buildingQuery = $db->prepare(
+    'SELECT b.code, b.name, b.address_line, b.postal_code, b.city
+     FROM office_project_buildings pb
+     INNER JOIN office_buildings b ON b.id = pb.building_id
+     WHERE pb.project_id = :project_id
+     ORDER BY b.name, b.id LIMIT 100'
+  );
+  $buildingQuery->execute([':project_id' => $projectId]);
+  $buildings = $buildingQuery->fetchAll(PDO::FETCH_ASSOC);
 } catch (Throwable $exception) {
   http_response_code(503);
   exit('Projectgegevens tijdelijk niet beschikbaar.');
@@ -80,4 +90,15 @@ $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTE
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $homeUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home');
 header('Content-Type: text/html; charset=utf-8');
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($project->status) . '</dd></dl><p>Gebouwen en calculaties worden na verificatie van hun koppelingen toegevoegd.</p></section></main></body></html>';
+$buildingHtml = '<h2>Gekoppelde gebouwen</h2>';
+if ($buildings === []) {
+  $buildingHtml .= '<p>Er zijn nog geen gebouwen gekoppeld.</p>';
+} else {
+  $buildingHtml .= '<ul>';
+  foreach ($buildings as $building) {
+    $address = trim(implode(' ', array_filter([$building['address_line'] ?? '', $building['postal_code'] ?? '', $building['city'] ?? ''], static fn($part): bool => is_string($part) && $part !== '')));
+    $buildingHtml .= '<li><strong>' . $escape((string) $building['name']) . '</strong> (' . $escape((string) $building['code']) . ')' . ($address !== '' ? ' — ' . $escape($address) : '') . '</li>';
+  }
+  $buildingHtml .= '</ul>';
+}
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($project->status) . '</dd></dl><p>' . $buildingHtml . '<p>Woningtypen en calculaties worden na verificatie van hun koppelingen toegevoegd.</p></section></main></body></html>';
