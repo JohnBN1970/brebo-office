@@ -92,3 +92,5 @@ echo "Hostinger Office release routing contract passed.\\n";
 require_once __DIR__ . '/RecentWorkEventTest.php';
 
 require_once __DIR__ . '/RecentWorkAccessTest.php';
+
+require_once __DIR__ . '/RecentWorkVisibleItemsTest.php';
