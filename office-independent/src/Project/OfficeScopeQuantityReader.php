@@ -41,6 +41,31 @@ final class OfficeScopeQuantityReader {
     return $lines;
   }
 
+  /**
+   * Project roll-up by exact code, description and unit. Identical codes with
+   * different descriptions or units stay separate to prevent false aggregation.
+   * Monetary totals deliberately excluded until Calc pricing is integrated.
+   */
+  public function projectTotals(int $projectId): array {
+    if ($projectId < 1) throw new RuntimeException('Ongeldig project.');
+    $query = $this->db->prepare(
+      "SELECT q.line_code, q.description, q.unit,
+              CAST(SUM(q.quantity_per_dwelling * pht.dwelling_count) AS DECIMAL(38,4)) AS total_quantity,
+              COUNT(DISTINCT s.housing_type_id) AS housing_type_count
+       FROM office_project_calculation_scopes s
+       INNER JOIN office_project_housing_types pht
+         ON pht.project_id = s.project_id AND pht.housing_type_id = s.housing_type_id
+       INNER JOIN office_housing_types ht
+         ON ht.id = pht.housing_type_id AND ht.building_id = pht.building_id
+       INNER JOIN office_scope_quantity_lines q ON q.scope_id = s.id
+       WHERE s.project_id = :project AND s.scope_kind = 'housing_type'
+       GROUP BY q.line_code, q.description, q.unit
+       ORDER BY q.line_code, q.description, q.unit"
+    );
+    $query->execute([':project' => $projectId]);
+    return $query->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   private static function multiplyDecimal(string $value, int $multiplier): string {
     if (!preg_match('/^([0-9]+)(?:\.([0-9]{1,4}))?$/D', $value) || $multiplier < 0) {
       throw new RuntimeException('Ongeldige hoeveelheid.');
