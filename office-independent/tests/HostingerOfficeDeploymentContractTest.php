@@ -37,6 +37,7 @@ foreach ([
   "'inloggen' => '/inloggen'",
   "'uitloggen' => '/uitloggen'",
   "'crm/aanvragen' => '/crm/aanvragen'",
+  "'calc-werkbank' => '/calc-werkbank'",
   "'/home' => 'office-home.php'",
   "filter_input(INPUT_GET, 'office_route'",
   "office_private/config.php",
@@ -58,6 +59,9 @@ foreach ([
   [$home, '/index.php?office_route=crm/aanvragen'],
   [$home, 'method="post"'],
   [$home, '/index.php?office_route=uitloggen'],
+  [$home, '/index.php?office_route=calc-werkbank'],
+  [$home, "['Calculatie', \$calcUrl, \$calcEnabled]"],
+  [$home, 'Referrer-Policy: same-origin'],
   [$logout, '/index.php?office_route=inloggen'],
   [$form, '/index.php?office_route=inloggen'],
 ] as [$content, $required]) {
