@@ -22,7 +22,7 @@ final class WebsiteOfficeLoginCsrf {
   public static function cookieOptions(int $expiresAt): array {
     return [
       'expires' => $expiresAt,
-      'path' => '/office',
+      'path' => OfficeMount::cookiePath('login_csrf'),
       'secure' => true,
       'httponly' => true,
       'samesite' => 'Strict',
