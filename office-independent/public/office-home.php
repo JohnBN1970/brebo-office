@@ -51,7 +51,7 @@ $recentWork = [];
 if (getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled') {
   try {
     require_once dirname(__DIR__) . '/src/RecentWork/PdoRecentWorkRepository.php';
-    $recentWork = (new \\Brebo\\Office\\RecentWork\\PdoRecentWorkRepository($db))
+    $recentWork = (new \Brebo\Office\RecentWork\PdoRecentWorkRepository($db))
       ->listForOperator($operator->operatorId);
     // Do not display object names or links before resource-level ACL resolution.
   } catch (Throwable $e) {
