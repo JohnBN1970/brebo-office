@@ -42,13 +42,17 @@ foreach ([0, -1] as $invalidId) {
     (new WebsiteOfficeCalculationAccessPolicy(new FakeCalculationPdo(true)))
       ->requireCalculationAccess($operator, $invalidId);
     throw new \RuntimeException('Invalid calculation ID was allowed.');
-  } catch (\DomainException) {}
+  } catch (\DomainException $expected) {
+    check($expected->getMessage() === 'Valid calculation required.', 'Unexpected invalid-ID rejection.');
+  }
 }
 $denied = new FakeCalculationPdo(false);
 try {
   (new WebsiteOfficeCalculationAccessPolicy($denied))->requireCalculationAccess($operator, 42);
   throw new \RuntimeException('Missing authorization was allowed.');
-} catch (\DomainException) {}
+} catch (\DomainException $expected) {
+  check($expected->getMessage() === 'Calculation access denied.', 'Unexpected denial reason.');
+}
 $allowed = new FakeCalculationPdo(true);
 (new WebsiteOfficeCalculationAccessPolicy($allowed))->requireCalculationAccess($operator, 42);
 check($allowed->last?->params === [':operator_id' => 'operator-a', ':calculation_id' => 42], 'Identity or calculation parameters incorrect.');
