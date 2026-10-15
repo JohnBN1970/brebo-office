@@ -90,14 +90,14 @@ try {
       require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkCalculationAccess.php';
       $operator = $sessions->currentOperator();
       if ($operator !== null) {
-        $access = new \\Brebo\\Office\\RecentWork\\RecentWorkAccess([
-          'calculation' => [new \\Brebo\\Office\\RecentWork\\RecentWorkCalculationAccess($db), 'canAccess'],
+        $access = new \Brebo\Office\RecentWork\RecentWorkAccess([
+          'calculation' => [new \Brebo\Office\RecentWork\RecentWorkCalculationAccess($db), 'canAccess'],
         ]);
-        (new \\Brebo\\Office\\RecentWork\\RecentWorkRecorder(
-          $access, new \\Brebo\\Office\\RecentWork\\PdoRecentWorkRepository($db)
+        (new \Brebo\Office\RecentWork\RecentWorkRecorder(
+          $access, new \Brebo\Office\RecentWork\\PdoRecentWorkRepository($db)
         ))->record(
           $operator->operatorId,
-          new \\Brebo\\Office\\RecentWork\\RecentWorkEvent('calculation', 'calculation', $calculationId, 'overview')
+          new \Brebo\Office\RecentWork\RecentWorkEvent('calculation', 'calculation', $calculationId, 'overview')
         );
       }
     } catch (Throwable $ignored) {
