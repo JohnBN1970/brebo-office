@@ -8,7 +8,7 @@ namespace Brebo\Office\Intake;
 final class WebsiteWebsiteOpportunityListRenderer {
 
   /** @param list<array<string,mixed>> $rows */
-  public function render(array $rows, int $page = 1, bool $hasNextPage = false): string {
+  public function render(array $rows, int $page = 1, bool $hasNextPage = false, string $basePath = '/office'): string {
     if ($page < 1 || $page > 20001) {
       throw new \InvalidArgumentException('Invalid CRM page number.');
     }
@@ -23,9 +23,9 @@ final class WebsiteWebsiteOpportunityListRenderer {
     if ($rows === []) {
       $html .= '<p role="status">Er zijn geen aanvragen op deze pagina.</p>';
       if ($page > 1) {
-        $html .= '<nav aria-label="Paginanavigatie"><a href="/office/crm/aanvragen?page=' . ($page - 1) . '">← Vorige pagina</a></nav>';
+        $html .= '<nav aria-label="Paginanavigatie"><a href="' . $basePath . '/crm/aanvragen?page=' . ($page - 1) . '">← Vorige pagina</a></nav>';
       }
-      return $html . $this->logoutForm() . '</main></body></html>';
+      return $html . $this->logoutForm($basePath) . '</main></body></html>';
     }
     $html .= '<div class="table-scroll" role="region" aria-label="Overzicht nieuwe aanvragen" tabindex="0"><table><thead><tr>'
       . '<th scope="col">Aanvraag</th><th scope="col">Ontvangen</th><th scope="col">Bron</th><th scope="col">Fase</th><th scope="col">Volgende actie</th><th scope="col">Controle</th>'
@@ -33,7 +33,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
     foreach ($rows as $row) {
       $id = (int) ($row['id'] ?? 0);
       $title = $this->escape((string) ($row['title'] ?? ''));
-      $titleCell = $id > 0 ? '<a href="/office/crm/aanvragen/detail?id=' . $id . '">' . $title . '</a>' : $title;
+      $titleCell = $id > 0 ? '<a href="' . $basePath . '/crm/aanvragen/detail?id=' . $id . '">' . $title . '</a>' : $title;
       $html .= '<tr><td>' . $titleCell
         . '</td><td>' . $this->escape((string) ($row['created_at'] ?? ''))
         . '</td><td>' . $this->escape((string) ($row['source'] ?? ''))
@@ -43,17 +43,17 @@ final class WebsiteWebsiteOpportunityListRenderer {
     }
     $html .= '</tbody></table></div><nav aria-label="Paginanavigatie" class="pagination">';
     if ($page > 1) {
-      $html .= '<a href="/office/crm/aanvragen?page=' . ($page - 1) . '">← Vorige</a>';
+      $html .= '<a href="' . $basePath . '/crm/aanvragen?page=' . ($page - 1) . '">← Vorige</a>';
     }
     $html .= '<span>Pagina ' . $page . '</span>';
     if ($hasNextPage && $page < 20001) {
-      $html .= '<a href="/office/crm/aanvragen?page=' . ($page + 1) . '">Volgende →</a>';
+      $html .= '<a href="' . $basePath . '/crm/aanvragen?page=' . ($page + 1) . '">Volgende →</a>';
     }
     return $html . '</nav>' . $this->logoutForm() . '</main></body></html>';
   }
 
-  private function logoutForm(): string {
-    return '<form action="/office/uitloggen" method="post" style="margin-top:1.5rem;text-align:right">'
+  private function logoutForm(string $basePath): string {
+    return '<form action="' . $basePath . '/uitloggen method="post" style="margin-top:1.5rem;text-align:right">'
       . '<button type="submit" style="padding:.65rem 1rem;border:1px solid #b9c8d8;border-radius:7px;background:#fff;color:#1d2939;cursor:pointer">Uitloggen</button></form>';
   }
 
