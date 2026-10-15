@@ -48,10 +48,11 @@ if ($private === false || $documentRoot === false
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 // Legacy Hostinger installation uses index.php?office_route=... rather than rewrites.
 // Allow only exact route names; never use the parameter as a file path.
-if ($path === '/index.php' && !isset($_GET['office_route'])) {
+$requestedRoute = filter_input(INPUT_GET, 'office_route', FILTER_UNSAFE_RAW);
+if ($path === '/index.php' && $requestedRoute === null) {
   $path = '/inloggen';
 }
-if ($path === '/index.php' && isset($_GET['office_route'])) {
+if ($path === '/index.php' && $requestedRoute !== null) {
   $legacyRoutes = [
     'home' => '/home',
     'inloggen' => '/inloggen',
@@ -59,7 +60,7 @@ if ($path === '/index.php' && isset($_GET['office_route'])) {
     'crm/aanvragen' => '/crm/aanvragen',
     'crm/aanvragen/detail' => '/crm/aanvragen/detail',
   ];
-  $requested = $_GET['office_route'];
+  $requested = $requestedRoute;
   if (is_string($requested) && isset($legacyRoutes[$requested])) {
     $path = $legacyRoutes[$requested];
   }
