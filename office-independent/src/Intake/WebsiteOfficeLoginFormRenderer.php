@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/OfficeMount.php';
+
 /** Server-rendered, accessible Office sign-in form. */
 final class WebsiteOfficeLoginFormRenderer {
 
