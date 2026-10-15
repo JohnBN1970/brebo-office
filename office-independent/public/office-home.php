@@ -48,12 +48,20 @@ try {
 }
 // Read-only recent-work panel: disabled until the test-database schema and ACL checks are verified.
 $recentWork = [];
-if (getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled') {
+if (getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled'
+  && getenv('OFFICE_RECENT_WORK_ACL_VERIFIED') === 'enabled') {
   try {
     require_once dirname(__DIR__) . '/src/RecentWork/PdoRecentWorkRepository.php';
-    $recentWork = (new \Brebo\Office\RecentWork\PdoRecentWorkRepository($db))
+    // No live module resolvers have been registered yet: fail closed, even if
+    // flags are accidentally enabled. Never expose raw persisted work rows.
+    require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkEvent.php';
+    require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkAccess.php';
+    require_once dirname(__DIR__) . '/src/RecentWork/RecentWorkVisibleItems.php';
+    $rows = (new \Brebo\Office\RecentWork\PdoRecentWorkRepository($db))
       ->listForOperator($operator->operatorId);
-    // Do not display object names or links before resource-level ACL resolution.
+    $recentWork = (new \Brebo\Office\RecentWork\RecentWorkVisibleItems(
+      new \Brebo\Office\RecentWork\RecentWorkAccess()
+    ))->filter($operator->operatorId, $rows);
   } catch (Throwable $e) {
     // Optional dashboard panel must never break Office login or navigation.
     $recentWork = [];
