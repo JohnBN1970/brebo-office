@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/../src/Intake/WebsiteCrmOperatorContext.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeCalculationAccessPolicy.php';
 
 // Contract smoke test: no production DB connection and no migration execution.
