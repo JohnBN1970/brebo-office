@@ -56,6 +56,8 @@ $routes = [
   '/office-test/uitloggen' => 'office-logout.php',
   '/office-test/crm/aanvragen' => 'crm-new-requests.php',
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
+  '/office-test/projecten' => 'office-projects.php',
+  '/office-test/projecten/detail' => 'office-project.php',
 ];
 if (!is_string($path) || !isset($routes[$path])) {
   http_response_code(404);
