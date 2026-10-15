@@ -49,8 +49,22 @@ foreach (['id', 'operator_id', 'module', 'resource_type', 'resource_id', 'view_k
     throw new RuntimeException('Missing recent-work column: ' . $required);
   }
 }
-if (!str_contains(strtolower((string) $columns['position_json']['Type']), 'json')) {
-  throw new RuntimeException('Recent-work position_json must be a JSON column.');
+$positionType = strtolower((string) $columns['position_json']['Type']);
+if ($positionType !== 'json') {
+  // MariaDB represents JSON as LONGTEXT with a JSON_VALID check constraint.
+  // A plain LONGTEXT column must never pass this schema check.
+  if ($positionType !== 'longtext') {
+    throw new RuntimeException('Recent-work position_json must enforce JSON validity.');
+  }
+  $check = $db->prepare(
+    'SELECT CHECK_CLAUSE FROM information_schema.CHECK_CONSTRAINTS '
+    . 'WHERE CONSTRAINT_SCHEMA = :schema AND CONSTRAINT_NAME = :constraint'
+  );
+  $check->execute(['schema' => $dbName, 'constraint' => 'position_json']);
+  $clause = (string) ($check->fetchColumn() ?: '');
+  if (!preg_match('/json_valid\\s*\\(\\s*[`"]?position_json[`"]?\\s*\\)/i', $clause)) {
+    throw new RuntimeException('Recent-work position_json requires a JSON_VALID check constraint.');
+  }
 }
 $indexes = [];
 foreach ($db->query('SHOW INDEX FROM office_user_recent_work')->fetchAll(PDO::FETCH_ASSOC) as $index) {
