@@ -106,3 +106,4 @@ require_once __DIR__ . '/OfficeCanonicalProjectContextTest.php';
 require_once __DIR__ . '/OfficeCanonicalProjectContextClientTest.php';
 require_once __DIR__ . '/OfficeAuthorizedProjectContextTest.php';
 require_once __DIR__ . '/OfficeNativeProjectRepositoryTest.php';
+require_once __DIR__ . '/OfficeNativeProjectAccessTest.php';
