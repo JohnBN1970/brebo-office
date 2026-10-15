@@ -26,4 +26,5 @@ if (!$options['secure'] || !$options['httponly'] || $options['samesite'] !== 'St
   throw new RuntimeException('Pre-login cookie is not hardened.');
 }
 require __DIR__ . '/OfficeMountIsolationTest.php';
+require __DIR__ . '/OfficeTestRouterContractTest.php';
 echo "Independent Office login CSRF checks passed.\n";
