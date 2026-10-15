@@ -28,7 +28,23 @@ if ($private === false || $documentRoot === false
 // This public entrypoint exposes only explicitly reviewed routes.
 // Never route arbitrary filenames or accept a caller-controlled PHP path.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
+// Legacy Hostinger installation uses index.php?office_route=... rather than rewrites.
+// Allow only exact route names; never use the parameter as a file path.
+if ($path === '/index.php' && isset($_GET['office_route'])) {
+  $legacyRoutes = [
+    'home' => '/home',
+    'inloggen' => '/inloggen',
+    'uitloggen' => '/uitloggen',
+    'crm/aanvragen' => '/crm/aanvragen',
+    'crm/aanvragen/detail' => '/crm/aanvragen/detail',
+  ];
+  $requested = $_GET['office_route'];
+  if (is_string($requested) && isset($legacyRoutes[$requested])) {
+    $path = $legacyRoutes[$requested];
+  }
+}
 $routes = [
+  '/home' => 'office-home.php',
   '/office' => 'office-home.php',
   '/office/' => 'office-home.php',
   '/office/home' => 'office-home.php',
