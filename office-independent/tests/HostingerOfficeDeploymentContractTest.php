@@ -65,4 +65,9 @@ foreach ([
     throw new RuntimeException('Office query-router navigation contract missing: ' . $required);
   }
 }
+// CRM validates the canonical path itself: query-route forwarding must normalize it.
+if (!str_contains($router, "if ($path === '/crm/aanvragen' || $path === '/crm/aanvragen/detail')") ||
+  !str_contains($router, "\$_SERVER['REQUEST_URI'] = '/office' . $path;")) {
+  throw new RuntimeException('Legacy CRM query route does not normalize the canonical handler path.');
+}
 echo "Hostinger Office release routing contract passed.\\n";
