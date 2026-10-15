@@ -39,6 +39,33 @@ if ($table === false) {
   fwrite(STDERR, "Test schema not migrated: office_user_recent_work is missing.\n");
   exit(2);
 }
+// Verify the exact contract, not merely that a similarly named table exists.
+$columns = [];
+foreach ($db->query('SHOW COLUMNS FROM office_user_recent_work')->fetchAll(PDO::FETCH_ASSOC) as $column) {
+  $columns[$column['Field']] = $column;
+}
+foreach (['id', 'operator_id', 'module', 'resource_type', 'resource_id', 'view_key', 'position_json', 'updated_at'] as $required) {
+  if (!isset($columns[$required])) {
+    throw new RuntimeException('Missing recent-work column: ' . $required);
+  }
+}
+if (!str_contains(strtolower((string) $columns['position_json']['Type']), 'json')) {
+  throw new RuntimeException('Recent-work position_json must be a JSON column.');
+}
+$indexes = [];
+foreach ($db->query('SHOW INDEX FROM office_user_recent_work')->fetchAll(PDO::FETCH_ASSOC) as $index) {
+  $indexes[$index['Key_name']][(int) $index['Seq_in_index']] = $index['Column_name'];
+}
+$hasUnique = false;
+foreach ($indexes as $name => $parts) {
+  ksort($parts);
+  if (array_values($parts) === ['operator_id', 'module', 'resource_type', 'resource_id', 'view_key']) {
+    $hasUnique = true;
+  }
+}
+if (!$hasUnique) {
+  throw new RuntimeException('Recent-work deduplication index missing.');
+}
 $operator = 'smoke-' . bin2hex(random_bytes(12));
 $other = 'smoke-' . bin2hex(random_bytes(12));
 $repo = new Brebo\Office\RecentWork\PdoRecentWorkRepository($db);
@@ -49,5 +76,5 @@ $repo = new Brebo\Office\RecentWork\PdoRecentWorkRepository($db);
 if ($repo->listForOperator($operator) !== [] || $repo->listForOperator($other) !== []) {
   throw new RuntimeException('Unexpected test-operator data.');
 }
-echo "Recent-work database connectivity, schema and operator isolation: OK\n";
+echo "Recent-work database connectivity, schema and empty test-operator reads: OK\n";
 echo "No database changes performed.\n";
