@@ -80,7 +80,7 @@ $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/inde
 $crmUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('crm/aanvragen') : ($queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen');
 $calcUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('calc-werkbank') : ($queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank');
 $modules = [
-  ['CRM', $crmUrl, !\\Brebo\\Office\\Intake\\OfficeMount::isTest()],
+  ['CRM', $crmUrl, !\Brebo\Office\Intake\OfficeMount::isTest()],
   ['Calculatie', $calcUrl, $calcEnabled],
   ['Finance', null, false],
   ['Inkoop', null, false],
@@ -91,7 +91,7 @@ $modules = [
   ['Mail', null, false],
 ];
 header('Content-Type: text/html; charset=utf-8');
-$isTestEnvironment = \\Brebo\\Office\\Intake\\OfficeMount::isTest();
+$isTestEnvironment = \Brebo\Office\Intake\OfficeMount::isTest();
 $environmentBanner = $isTestEnvironment
   ? '<div role="status" style="background:#fff0b3;color:#473500;padding:14px 24px;text-align:center;font-weight:800;border-bottom:3px solid #b8860b">TESTOMGEVING — geen productiegegevens</div>'
   : '';
