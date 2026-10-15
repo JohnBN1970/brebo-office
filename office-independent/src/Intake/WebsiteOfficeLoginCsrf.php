@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/OfficeMount.php';
+
 /** Double-submit CSRF bound to a separate pre-auth cookie, not the Office session. */
 final class WebsiteOfficeLoginCsrf {
 
