@@ -22,7 +22,7 @@ final class PdoRecentWorkRepository {
    */
   public function listForOperator(string $operatorId): array {
     if ($operatorId === '' || strlen($operatorId) > 128) {
-      throw new \\InvalidArgumentException('Authenticated operator required.');
+      throw new \InvalidArgumentException('Authenticated operator required.');
     }
     $stmt = $this->db->prepare(
       'SELECT module, resource_type, resource_id, view_key, position_json, updated_at
@@ -35,7 +35,7 @@ final class PdoRecentWorkRepository {
 
   public function clearForOperator(string $operatorId): void {
     if ($operatorId === '' || strlen($operatorId) > 128) {
-      throw new \\InvalidArgumentException('Authenticated operator required.');
+      throw new \InvalidArgumentException('Authenticated operator required.');
     }
     $stmt = $this->db->prepare(
       'DELETE FROM office_user_recent_work WHERE operator_id = :operator_id'
