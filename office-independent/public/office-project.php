@@ -8,8 +8,8 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -72,9 +72,36 @@ try {
     http_response_code(404);
     exit('Project niet gevonden.');
   }
+  $canManage = (new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage($operator->operatorId, $projectId);
+  $writeMessage = null;
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (!$canManage || getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') !== 'enabled') {
+      http_response_code(403);
+      exit('Bewerken niet toegestaan.');
+    }
+    $csrf = $_POST['csrf'] ?? null;
+    $csrfCookie = $_COOKIE['office_project_csrf'] ?? null;
+    if (!is_string($csrf) || !is_string($csrfCookie) || strlen($csrf) !== 64
+      || !ctype_xdigit($csrf) || !hash_equals($csrfCookie, $csrf)) {
+      http_response_code(403);
+      exit('Ongeldige formulierbeveiliging.');
+    }
+    $buildingId = filter_var($_POST['building_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+    $count = filter_var($_POST['dwelling_count'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100000]]);
+    $code = $_POST['code'] ?? null;
+    $name = $_POST['name'] ?? null;
+    if (!is_int($buildingId) || !is_int($count) || !is_string($code) || !is_string($name)) {
+      http_response_code(400);
+      exit('Ongeldige invoer.');
+    }
+    require_once dirname(__DIR__) . '/src/Project/OfficeHousingTypeWriter.php';
+    (new \Brebo\Office\Project\OfficeHousingTypeWriter($db))->assign($projectId, $buildingId, $code, $name, $count);
+    header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test/projecten/detail?id=' : '/office/projecten/detail?id=') . $projectId, true, 303);
+    exit;
+  }
   // Buildings are scoped to the already authorized project, never to a user-supplied building ID.
   $buildingQuery = $db->prepare(
-    'SELECT b.code, b.name, b.address_line, b.postal_code, b.city
+    'SELECT b.id, b.code, b.name, b.address_line, b.postal_code, b.city
      FROM office_project_buildings pb
      INNER JOIN office_buildings b ON b.id = pb.building_id
      WHERE pb.project_id = :project_id
@@ -153,6 +180,21 @@ if ($calculationScopes === null) {
   }
   $scopeHtml .= '</tbody></table>';
 }
+$csrfToken = $_COOKIE['office_project_csrf'] ?? null;
+if (!is_string($csrfToken) || strlen($csrfToken) !== 64 || !ctype_xdigit($csrfToken)) {
+  $csrfToken = bin2hex(random_bytes(32));
+  setcookie('office_project_csrf', $csrfToken, ['path' => \Brebo\Office\Intake\OfficeMount::isTest() ? '/office-test' : '/office', 'secure' => true, 'httponly' => true, 'samesite' => 'Strict']);
+}
+$formHtml = '';
+if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled') {
+  $formHtml = '<h2>Woningtype vastleggen</h2><form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '"><label>Gebouw <select name="building_id" required>';
+  foreach ($buildings as $building) {
+    if (isset($building['id'])) {
+      $formHtml .= '<option value="' . (int) $building['id'] . '">' . $escape((string) $building['name']) . '</option>';
+    }
+  }
+  $formHtml .= '</select></label><label>Code <input name="code" maxlength="128" required></label><label>Naam <input name="name" maxlength="255" required></label><label>Aantal woningen <input type="number" name="dwelling_count" min="1" max="100000" required></label><button type="submit">Opslaan</button></form>';
+}
 $statusLabels = ['concept' => 'Concept', 'preparation' => 'Voorbereiding', 'execution' => 'Uitvoering', 'closeout' => 'Oplevering', 'closed' => 'Afgesloten'];
 $statusLabel = $statusLabels[$project->status] ?? $project->status;
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
@@ -160,4 +202,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
