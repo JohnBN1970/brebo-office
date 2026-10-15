@@ -11,10 +11,10 @@ require_once __DIR__ . '/../src/Intake/WebsiteOfficeCalculationAccessPolicy.php'
 // This tests fail-closed behavior at the policy boundary, not SQL integration.
 final class FakeCalculationStatement extends \PDOStatement {
   public array $params = [];
-  public function __construct(private readonly bool $allowed) {}
+  public function __construct(private readonly bool $allowed, private readonly bool $executeOk = true) {}
   public function execute(?array $params = null): bool {
     $this->params = $params ?? [];
-    return true;
+    return $this->executeOk;
   }
   public function fetchColumn(int $column = 0): mixed {
     return $this->allowed ? 1 : false;
@@ -23,9 +23,9 @@ final class FakeCalculationStatement extends \PDOStatement {
 
 final class FakeCalculationPdo extends \PDO {
   public ?FakeCalculationStatement $last = null;
-  public function __construct(private readonly bool $allowed) {}
+  public function __construct(private readonly bool $allowed, private readonly bool $executeOk = true) {}
   public function prepare(string $query, array $options = []): \PDOStatement|false {
-    $this->last = new FakeCalculationStatement($this->allowed);
+    $this->last = new FakeCalculationStatement($this->allowed, $this->executeOk);
     return $this->last;
   }
 }
@@ -56,4 +56,11 @@ try {
 $allowed = new FakeCalculationPdo(true);
 (new WebsiteOfficeCalculationAccessPolicy($allowed))->requireCalculationAccess($operator, 42);
 check($allowed->last?->params === [':operator_id' => 'operator-a', ':calculation_id' => 42], 'Identity or calculation parameters incorrect.');
+$failed = new FakeCalculationPdo(true, false);
+try {
+  (new WebsiteOfficeCalculationAccessPolicy($failed))->requireCalculationAccess($operator, 42);
+  throw new \RuntimeException('Failed query execution was allowed.');
+} catch (\DomainException $expected) {
+  check($expected->getMessage() === 'Calculation access unavailable.', 'Unexpected database failure handling.');
+}
 echo "Calc authorization policy boundary: OK\n";
