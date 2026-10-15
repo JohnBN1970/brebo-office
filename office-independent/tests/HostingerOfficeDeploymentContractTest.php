@@ -68,6 +68,9 @@ foreach ([
   [$workbench, 'name="start_mode" value="project_context"'],
   [$workbench, 'name="start_mode" value="standalone"'],
   [$workbench, 'project.value = ""; calc.value = "";'],
+  [$workbench, 'project.required = !standalone; calc.required = !standalone;'],
+  [$workbench, 'disabled = standalone'],
+  [$workbench, 'if (form.elements.namedItem("start_mode").value === "standalone") return;'],
   [$logout, '/index.php?office_route=inloggen'],
   [$form, '/index.php?office_route=inloggen'],
 ] as [$content, $required]) {
