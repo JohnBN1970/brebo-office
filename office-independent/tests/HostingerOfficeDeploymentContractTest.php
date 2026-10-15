@@ -88,3 +88,5 @@ if (!str_contains($router, "if (\$path === '/crm/aanvragen' || \$path === '/crm/
   throw new RuntimeException('Legacy CRM query route does not normalize the canonical handler path.');
 }
 echo "Hostinger Office release routing contract passed.\\n";
+
+require_once __DIR__ . '/RecentWorkEventTest.php';
