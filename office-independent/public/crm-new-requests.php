@@ -22,7 +22,9 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
   exit;
 }
 $route = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
-if ($route !== '/office/crm/aanvragen' && $route !== '/office/crm/aanvragen/detail') {
+$isTest = getenv('OFFICE_BASE_PATH') === '/office-test';
+$base = $isTest ? '/office-test' : '/office';
+if ($route !== $base . '/crm/aanvragen' && $route !== $base . '/crm/aanvragen/detail') {
   http_response_code(404);
   exit;
 }
@@ -71,6 +73,7 @@ if (!is_string($dsn) || $dsn === '' || !is_string($user) || !is_string($password
   exit;
 }
 try {
+  require_once dirname(__DIR__) . '/src/Intake/OfficeMount.php';
   require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityReadRepository.php';
   require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityListRenderer.php';
   require_once dirname(__DIR__) . '/src/Intake/WebsiteWebsiteOpportunityDetailRenderer.php';
@@ -96,7 +99,7 @@ try {
     exit;
   }
   $repository = new \Brebo\Office\Intake\WebsiteWebsiteOpportunityReadRepository($db);
-  if ($route === '/office/crm/aanvragen/detail') {
+  if ($route === $base . '/crm/aanvragen/detail') {
     $rawId = $_GET['id'] ?? null;
     if (!is_string($rawId) || !ctype_digit($rawId) || strlen($rawId) > 18 || (int) $rawId < 1) {
       http_response_code(400);
