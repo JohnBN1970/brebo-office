@@ -51,7 +51,8 @@ try {
     new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time()
   );
   if ($sessions->currentOperator() === null) {
-    header('Location: /office/inloggen', true, 302);
+    $queryRouter = isset($_SERVER['OFFICE_QUERY_ROUTER']) && $_SERVER['OFFICE_QUERY_ROUTER'] === '1';
+    header('Location: ' . ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen'), true, 302);
     exit;
   }
   (new \Brebo\Office\Calculation\OfficeCalculationSessionAccess(
