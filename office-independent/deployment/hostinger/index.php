@@ -108,4 +108,9 @@ if (!is_string($path) || !isset($routes[$path])) {
   exit('Pagina niet gevonden.');
 }
 
+// CRM handler validates the canonical Office path itself. Normalize only
+// approved CRM routes, without altering query parameters (id/page).
+if ($path === '/crm/aanvragen' || $path === '/crm/aanvragen/detail') {
+  $_SERVER['REQUEST_URI'] = '/office' . $path;
+}
 require $private . '/public/' . $routes[$path];
