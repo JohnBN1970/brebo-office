@@ -97,3 +97,7 @@ require_once __DIR__ . '/RecentWorkEventTest.php';
 require_once __DIR__ . '/RecentWorkAccessTest.php';
 
 require_once __DIR__ . '/RecentWorkVisibleItemsTest.php';
+
+// Canonical project identity and fail-closed Calc-scoped project grants.
+require_once __DIR__ . '/OfficeProjectIdentityTest.php';
+require_once __DIR__ . '/OfficeProjectAccessTest.php';
