@@ -52,7 +52,7 @@ try {
   );
   if ($sessions->currentOperator() === null) {
     $queryRouter = isset($_SERVER['OFFICE_QUERY_ROUTER']) && $_SERVER['OFFICE_QUERY_ROUTER'] === '1';
-    header('Location: ' . ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen'), true, 302);
+    header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('inloggen') : ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen')), true, 302);
     exit;
   }
   (new \Brebo\Office\Calculation\OfficeCalculationSessionAccess(
