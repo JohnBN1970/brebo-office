@@ -66,7 +66,7 @@ foreach ([
   [$home, "getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled'"],
   [$home, "getenv('OFFICE_RECENT_WORK_ACL_VERIFIED') === 'enabled'"],
   [$home, 'RecentWorkVisibleItems.php'],
-  [$home, 'new \\Brebo\\Office\\RecentWork\\RecentWorkAccess()'],
+  [$home, 'new \\Brebo\\Office\\RecentWork\\RecentWorkAccess(['],
   [$home, 'PdoRecentWorkRepository.php'],
   [$home, 'listForOperator($operator->operatorId)'],
   [$home, "getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled'"],
