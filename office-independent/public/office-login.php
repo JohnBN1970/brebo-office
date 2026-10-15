@@ -20,7 +20,7 @@ require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmSessionIssuer.php';
 
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
@@ -39,7 +39,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
   $csrf = WebsiteOfficeLoginCsrf::issue();
   setcookie(OfficeMount::cookieName('login_csrf'), $csrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
   header('Content-Type: text/html; charset=utf-8');
-  echo (new WebsiteOfficeLoginFormRenderer())->render($csrf);
+  echo (new WebsiteOfficeLoginFormRenderer())->render($csrf, ($_GET['login_error'] ?? null) === 'credentials');
   exit;
 }
 // Require a same-origin browser POST; the reverse proxy must validate Host.
@@ -92,11 +92,9 @@ catch (Throwable $exception) {
   exit('Office-aanmelding is tijdelijk niet beschikbaar.');
 }
 if ($token === null) {
-  http_response_code(401);
-  $newCsrf = WebsiteOfficeLoginCsrf::issue();
-  setcookie(OfficeMount::cookieName('login_csrf'), $newCsrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
-  header('Content-Type: text/html; charset=utf-8');
-  echo (new WebsiteOfficeLoginFormRenderer())->render($newCsrf, true);
+  // PRG prevents a failed Office login from triggering the upstream Basic Auth prompt.
+  // The GET issues a fresh CSRF token and displays a generic error message.
+  header('Location: ' . OfficeMount::route('inloggen', ['login_error' => 'credentials']), true, 303);
   exit;
 }
 setcookie(OfficeMount::cookieName('login_csrf'), '', WebsiteOfficeLoginCsrf::cookieOptions($now - 3600));
