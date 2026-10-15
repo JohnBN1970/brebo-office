@@ -9,7 +9,10 @@ use RuntimeException;
 /** Server-to-server client. Caller must authorize operator before calling. */
 final class OfficeCanonicalProjectContextClient {
   public function __construct(private readonly string $baseUrl, private readonly string $sharedSecret) {
-    if (!preg_match('~^https://[a-z0-9.-]+(?::443)?$~iD', $baseUrl) || strlen($sharedSecret) < 32) {
+    if (!preg_match('~^https://[a-z0-9.-]+(?::443)?$~iD', $baseUrl)
+      || filter_var(parse_url($baseUrl, PHP_URL_HOST), FILTER_VALIDATE_IP) !== false
+      || str_contains($baseUrl, '..')
+      || strlen($sharedSecret) < 32) {
       throw new RuntimeException('Canonical project endpoint is not securely configured.');
     }
   }
@@ -37,6 +40,8 @@ final class OfficeCanonicalProjectContextClient {
     $context = stream_context_create(['http' => [
       'method' => 'GET', 'timeout' => 5, 'ignore_errors' => true,
       'follow_location' => 0,
+      'max_redirects' => 0,
+      'protocol_version' => 1.1,
       'header' => "Accept: application/json\r\nX-BREBO-Timestamp: {$timestamp}\r\nX-BREBO-Request-Id: {$requestId}\r\nX-BREBO-Signature: {$signature}\r\n",
     ]]);
     $body = @file_get_contents($this->baseUrl . $path, false, $context);

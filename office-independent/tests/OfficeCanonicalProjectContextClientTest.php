@@ -8,7 +8,7 @@ require_once dirname(__DIR__) . '/src/Project/OfficeCanonicalProjectContextClien
 
 use Brebo\Office\Project\OfficeCanonicalProjectContextClient;
 
-foreach (['http://example.com', 'https://example.com/path', 'https://user@example.com'] as $url) {
+foreach (['http://example.com', 'https://example.com/path', 'https://user@example.com', 'https://127.0.0.1', 'https://169.254.169.254', 'https://example..com'] as $url) {
   try {
     new OfficeCanonicalProjectContextClient($url, str_repeat('s', 32));
     throw new RuntimeException('Insecure endpoint accepted.');
