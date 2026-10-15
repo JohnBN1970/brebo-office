@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/OfficeMount.php';
+
 /**
  * Independent Office login flow. Mount only behind HTTPS with rate limiting.
  * CSRF tokens are tied to a separate, secure, HttpOnly pre-auth cookie.
