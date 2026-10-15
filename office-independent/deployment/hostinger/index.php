@@ -11,6 +11,24 @@ declare(strict_types=1);
 header('X-Content-Type-Options: nosniff');
 header('Cache-Control: no-store, private');
 
+// Match the already deployed Hostinger bootstrap: configuration stays private.
+$configFile = '/home/u213420663/domains/brebobv.nl/office_private/config.php';
+if (!is_file($configFile)) {
+  http_response_code(503);
+  exit('Office-configuratie ontbreekt.');
+}
+$config = require $configFile;
+if (!is_array($config)) {
+  http_response_code(503);
+  exit('Ongeldige Office-configuratie.');
+}
+foreach ($config as $key => $value) {
+  if (!is_string($key) || !is_string($value)) {
+    http_response_code(503);
+    exit('Ongeldige Office-instelling.');
+  }
+  putenv($key . '=' . $value);
+}
 $root = getenv('OFFICE_PRIVATE_ROOT');
 $private = is_string($root) && $root !== '' ? realpath($root) : false;
 $documentRoot = realpath(__DIR__);
