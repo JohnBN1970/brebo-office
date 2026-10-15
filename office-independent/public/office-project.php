@@ -339,10 +339,10 @@ if ($projectQuantityTotals === null) {
 } else {
   $scopedTypeCount = count($scopeHousingIds);
   $housingTypeCount = $housingTypes === null ? 0 : count($housingTypes);
-  $pricedTypeIds = [];
-  foreach ($quantityLines ?? [] as $line) $pricedTypeIds[(int) $line['scope_id']] = true;
+  $scopesWithLines = [];
+  foreach ($quantityLines ?? [] as $line) $scopesWithLines[(int) $line['scope_id']] = true;
   $projectQuantitiesHtml .= '<p>Deelcalculaties voorbereid: <strong>' . $scopedTypeCount . ' van ' . $housingTypeCount
-    . '</strong> woningtypen. Met hoeveelheidsregels: <strong>' . count($pricedTypeIds)
+    . '</strong> woningtypen. Met hoeveelheidsregels: <strong>' . count($scopesWithLines)
     . '</strong>. Dit zijn uitsluitend vastgelegde hoeveelheden, geen volledige projectbegroting.</p>'
     . '<table><thead><tr><th>Regelcode</th><th>Omschrijving</th><th>Woningtypen</th><th>Totaal</th><th>Eenheid</th></tr></thead><tbody>';
   foreach ($projectQuantityTotals as $total) {
