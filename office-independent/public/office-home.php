@@ -49,10 +49,10 @@ $calcEnabled = getenv('OFFICE_CALC_ENABLED') === 'enabled'
   && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled';
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $crmUrl = $queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen';
-$calcUrl = $queryRouter ? null : '/office/calc-werkbank';
+$calcUrl = $queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank';
 $modules = [
   ['CRM', $crmUrl, true],
-  ['Calculatie', $calcUrl, $calcEnabled && !$queryRouter],
+  ['Calculatie', $calcUrl, $calcEnabled],
   ['Finance', null, false],
   ['Inkoop', null, false],
   ['Projecten', null, false],
