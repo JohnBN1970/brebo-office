@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/OfficeMount.php';
+
 /**
  * Bridges an Office-owned, HttpOnly Secure session cookie to the independent
  * CRM access policy. Never creates or authenticates sessions itself.
