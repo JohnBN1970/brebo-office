@@ -14,6 +14,35 @@ use PDO;
 final class PdoRecentWorkRepository {
   public function __construct(private readonly PDO $db) {}
 
+  /**
+   * Read only the current operator's recent positions. The caller must still
+   * authorize each resource before displaying it or constructing a resume link.
+   *
+   * @return array<int,array<string,mixed>>
+   */
+  public function listForOperator(string $operatorId): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) {
+      throw new \\InvalidArgumentException('Authenticated operator required.');
+    }
+    $stmt = $this->db->prepare(
+      'SELECT module, resource_type, resource_id, view_key, position_json, updated_at
+       FROM office_user_recent_work WHERE operator_id = :operator_id
+       ORDER BY updated_at DESC, id DESC LIMIT 5'
+    );
+    $stmt->execute([':operator_id' => $operatorId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  public function clearForOperator(string $operatorId): void {
+    if ($operatorId === '' || strlen($operatorId) > 128) {
+      throw new \\InvalidArgumentException('Authenticated operator required.');
+    }
+    $stmt = $this->db->prepare(
+      'DELETE FROM office_user_recent_work WHERE operator_id = :operator_id'
+    );
+    $stmt->execute([':operator_id' => $operatorId]);
+  }
+
   public function record(string $operatorId, RecentWorkEvent $event): void {
     if ($operatorId === '' || strlen($operatorId) > 128) {
       throw new \InvalidArgumentException('Authenticated operator required.');
