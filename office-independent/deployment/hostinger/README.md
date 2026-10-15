@@ -1,6 +1,20 @@
 # Hostinger Business — releasebestanden zonder symlinks
 
-**Nog niet op Hostinger geplaatst.** Deze map bevat het publieke entrypoint, geen volledige release.
+**Bestaande Hostinger-installatie aanwezig; PR #1394 nog niet geplaatst.** Deze map bevat het publieke entrypoint, geen volledige release.
+
+## Bestaande live installatie - veilige testrelease (oktober 2026)
+
+De bovenstaande stappen beschrijven een nieuwe installatie en zijn niet rechtstreeks toepasbaar op office.brebobv.nl. Login en CRM werken al op de bestaande Hostinger-installatie. PR #1394 is niet gedeployed.
+
+1. Laat de afzonderlijke databaseproef ongemoeid; geen migraties of schemaveranderingen.
+2. Maak een herstelbare backup van het huidige publieke index.php, private public-bestanden en private configuratie, buiten de webroot.
+3. Vergelijk de live router en CRM-handler met de PR-versies. De huidige live router herschrijft REQUEST_URI voor CRM; de PR-router doet dat niet. Bewijs dat CRM zonder die herschrijving blijft werken.
+4. Test op een afgeschermde aparte testlocatie met testgegevens, zonder de productie- of lopende testdatabase te gebruiken.
+5. Test: ongeautoriseerd dashboard naar login; aanmelden naar dashboard; CRM-overzicht en detail; POST-logout; opnieuw aanmelden vereist; onbekende office_route geeft 404; GET-logout wijzigt de sessie niet.
+6. Controleer de werkelijke URL-mapping en Location-headers. Live gebruikt /index.php?office_route=...; de oudere /office/...-instructies zijn hiervoor geen bewijs.
+7. Geen productieplaatsing of merge van de conceptbasis zonder geslaagde browsertest, terugrolplan en expliciete vrijgave.
+
+De PR-router bevat een installatiegebonden absoluut pad naar office_private/config.php. Gebruik dat pad niet op een andere testhost. Geen geheimen in GitHub.
 
 ## Definitieve paden
 
