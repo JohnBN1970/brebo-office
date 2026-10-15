@@ -50,20 +50,10 @@ try {
 $recentWork = [];
 if (getenv('OFFICE_RECENT_WORK_ENABLED') === 'enabled') {
   try {
-    $stmt = $db->prepare(
-      "SELECT module, resource_type, resource_id, view_key, updated_at
-       FROM office_user_recent_work
-       WHERE operator_id = :operator_id
-       ORDER BY updated_at DESC LIMIT 5"
-    );
-    $stmt->execute([':operator_id' => $operator->operatorId]);
-    // Do not display resource links until each module supplies a verified authorization resolver.
-    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $entry) {
-      if (!is_array($entry) || !in_array($entry['module'] ?? null, ['projects', 'calculation', 'procurement', 'finance'], true)) {
-        continue;
-      }
-      $recentWork[] = $entry;
-    }
+    require_once dirname(__DIR__) . '/src/RecentWork/PdoRecentWorkRepository.php';
+    $recentWork = (new \\Brebo\\Office\\RecentWork\\PdoRecentWorkRepository($db))
+      ->listForOperator($operator->operatorId);
+    // Do not display object names or links before resource-level ACL resolution.
   } catch (Throwable $e) {
     // Optional dashboard panel must never break Office login or navigation.
     $recentWork = [];
