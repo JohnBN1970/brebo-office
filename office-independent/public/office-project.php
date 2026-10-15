@@ -27,6 +27,7 @@ if (!is_string($allowedHost) || $allowedHost === '' || !hash_equals($allowedHost
 }
 try {
   foreach ([
+    'OfficeMount.php',
     'WebsiteCrmOperatorContext.php',
     'WebsiteCrmOperatorSessionProviderInterface.php',
     'WebsiteOfficeCrmSessionRepository.php',
@@ -54,7 +55,7 @@ try {
   $operator = $sessions->currentOperator();
   if ($operator === null) {
     $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-    header('Location: ' . ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen'), true, 302);
+    header('Location: ' . (\Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('inloggen') : ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen')), true, 302);
     exit;
   }
   $projectId = filter_var($_GET['id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
@@ -77,6 +78,6 @@ try {
 }
 $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-$homeUrl = $queryRouter ? '/index.php?office_route=home' : '/office/home';
+$homeUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home');
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($project->status) . '</dd></dl><p>Gebouwen en calculaties worden na verificatie van hun koppelingen toegevoegd.</p></section></main></body></html>';
