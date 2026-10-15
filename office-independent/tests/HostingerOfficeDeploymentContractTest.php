@@ -90,3 +90,5 @@ if (!str_contains($router, "if (\$path === '/crm/aanvragen' || \$path === '/crm/
 echo "Hostinger Office release routing contract passed.\\n";
 
 require_once __DIR__ . '/RecentWorkEventTest.php';
+
+require_once __DIR__ . '/RecentWorkAccessTest.php';
