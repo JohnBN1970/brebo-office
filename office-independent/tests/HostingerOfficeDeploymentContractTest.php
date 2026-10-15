@@ -63,6 +63,7 @@ foreach ([
   [$home, '/index.php?office_route=calc-werkbank'],
   [$home, "['Calculatie', \$calcUrl, \$calcEnabled]"],
   [$home, 'Referrer-Policy: same-origin'],
+  [$home, "getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled'"],
   [$router, "\$_SERVER['OFFICE_QUERY_ROUTER']"],
   [$workbench, '/index.php?office_route=inloggen'],
   [$workbench, 'name="start_mode" value="project_context"'],
