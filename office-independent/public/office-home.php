@@ -80,7 +80,7 @@ $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/inde
 $crmUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('crm/aanvragen') : ($queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen');
 $calcUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('calc-werkbank') : ($queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank');
 $modules = [
-  ['CRM', $crmUrl, !\Brebo\Office\Intake\OfficeMount::isTest()],
+  ['CRM', $crmUrl, !\Brebo\Office\Intake\OfficeMount::isTest() || (getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled' && getenv('OFFICE_CRM_AUTH_MODE') === 'session_only')],
   ['Calculatie', $calcUrl, $calcEnabled],
   ['Finance', null, false],
   ['Inkoop', null, false],
