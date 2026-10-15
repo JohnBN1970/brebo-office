@@ -39,6 +39,9 @@ final class WebsiteOfficeCalculationAccessPolicy {
          )
        LIMIT 1'
     );
+    if ($statement === false) {
+      throw new \DomainException('Calculation access unavailable.');
+    }
     $statement->execute([
       ':operator_id' => $operator->operatorId,
       ':calculation_id' => $calculationId,
