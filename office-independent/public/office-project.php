@@ -125,6 +125,14 @@ try {
     $housingQuery->execute([':project_id' => $projectId]);
     $housingTypes = $housingQuery->fetchAll(PDO::FETCH_ASSOC);
   }
+  $dwellingTarget = null;
+  $targetSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_project_dwelling_targets'");
+  if ((int) $targetSchema->fetchColumn() === 1) {
+    $targetQuery = $db->prepare('SELECT expected_dwelling_count FROM office_project_dwelling_targets WHERE project_id = :project_id');
+    $targetQuery->execute([':project_id' => $projectId]);
+    $targetValue = $targetQuery->fetchColumn();
+    if ($targetValue !== false) $dwellingTarget = (int) $targetValue;
+  }
   $scopeSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_project_calculation_scopes'");
   if ((int) $scopeSchema->fetchColumn() === 1) {
     $scopeQuery = $db->prepare(
@@ -166,6 +174,20 @@ if ($housingTypes === null) {
   }
   $housingHtml .= '</tbody></table>';
 }
+$allocatedDwellings = $housingTypes === null ? null : array_sum(array_map(static fn(array $row): int => (int) $row['dwelling_count'], $housingTypes));
+$totalsHtml = '<h2>Woningenverdeling</h2>';
+if ($allocatedDwellings === null) {
+  $totalsHtml .= '<p>Woningtypen zijn nog niet beschikbaar.</p>';
+} else {
+  $totalsHtml .= '<p>Toegewezen aan woningtypen: <strong>' . $allocatedDwellings . '</strong> woningen.</p>';
+  if ($dwellingTarget === null) {
+    $totalsHtml .= '<p>Projecttotaal nog niet vastgelegd. Er wordt niets uit de projectnaam afgeleid.</p>';
+  } else {
+    $difference = $dwellingTarget - $allocatedDwellings;
+    $totalsHtml .= '<p>Vastgelegd projecttotaal: <strong>' . $dwellingTarget . '</strong> woningen.</p>';
+    $totalsHtml .= '<p>' . ($difference > 0 ? 'Nog niet toegewezen: ' . $difference : ($difference < 0 ? 'Te veel toegewezen: ' . abs($difference) : 'Verdeling compleet: alle woningen toegewezen.')) . '</p>';
+  }
+}
 $scopeHtml = '<h2>Deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
@@ -202,4 +224,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
