@@ -36,9 +36,11 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || getenv('OFFICE_PRIVATE_ROOT') !== $root
   || $private === false || !is_dir($private . '/public')
   || !is_dir($private . '/src')
-  || !is_string($dsn) || !str_contains($dsn, 'dbname=u213420663_office_test;')
+  || !is_string($dsn) || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', $dsn)
+  || getenv('OFFICE_INTAKE_DB_USER') !== 'u213420663_office_test'
   || !is_string($allowedHost) || $allowedHost === ''
   || !is_string($host) || !hash_equals($allowedHost, $host)
+  || in_array(strtolower($host), ['office.brebobv.nl', 'www.office.brebobv.nl'], true)
   || empty($_SERVER['HTTPS']) || $_SERVER['HTTPS'] === 'off'
   || getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
   || getenv('OFFICE_CALC_LAUNCH_ENABLED') === 'enabled') {
