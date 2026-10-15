@@ -1,7 +1,7 @@
 -- Additive, not applied automatically. Review against production backup first.
 -- Verified: office_operator_accounts.id is VARCHAR(128), utf8mb4_uca1400_ai_ci.
--- PRECONDITION: verify the parent table uses InnoDB before applying.
--- Do not apply until exact compatibility is established with SHOW CREATE TABLE.
+-- Verified: office_operator_accounts uses InnoDB with utf8mb4_uca1400_ai_ci.
+-- Still requires a sandbox migration and explicit project-ID contract review.
 CREATE TABLE IF NOT EXISTS office_calculation_permissions (
   operator_id VARCHAR(128) CHARACTER SET utf8mb4 COLLATE utf8mb4_uca1400_ai_ci NOT NULL PRIMARY KEY,
   can_calculate TINYINT(1) NOT NULL DEFAULT 0,
