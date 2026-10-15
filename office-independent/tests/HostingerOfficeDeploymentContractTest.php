@@ -103,3 +103,4 @@ require_once __DIR__ . '/OfficeProjectIdentityTest.php';
 require_once __DIR__ . '/OfficeProjectAccessTest.php';
 require_once __DIR__ . '/OfficeCalcScopedProjectListTest.php';
 require_once __DIR__ . '/OfficeCanonicalProjectContextTest.php';
+require_once __DIR__ . '/OfficeCanonicalProjectContextClientTest.php';
