@@ -94,7 +94,7 @@ try {
           'calculation' => [new \Brebo\Office\RecentWork\RecentWorkCalculationAccess($db), 'canAccess'],
         ]);
         (new \Brebo\Office\RecentWork\RecentWorkRecorder(
-          $access, new \Brebo\Office\RecentWork\\PdoRecentWorkRepository($db)
+          $access, new \Brebo\Office\RecentWork\PdoRecentWorkRepository($db)
         ))->record(
           $operator->operatorId,
           new \Brebo\Office\RecentWork\RecentWorkEvent('calculation', 'calculation', $calculationId, 'overview')
