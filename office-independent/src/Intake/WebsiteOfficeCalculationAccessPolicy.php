@@ -42,10 +42,17 @@ final class WebsiteOfficeCalculationAccessPolicy {
     if ($statement === false) {
       throw new \DomainException('Calculation access unavailable.');
     }
-    $statement->execute([
-      ':operator_id' => $operator->operatorId,
-      ':calculation_id' => $calculationId,
-    ]);
+    try {
+      $executed = $statement->execute([
+        ':operator_id' => $operator->operatorId,
+        ':calculation_id' => $calculationId,
+      ]);
+    } catch (\PDOException $error) {
+      throw new \DomainException('Calculation access unavailable.', 0, $error);
+    }
+    if (!$executed) {
+      throw new \DomainException('Calculation access unavailable.');
+    }
     if ($statement->fetchColumn() === false) {
       throw new \DomainException('Calculation access denied.');
     }
