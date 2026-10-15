@@ -50,8 +50,9 @@ $public = dirname(__DIR__) . '/public';
 $login = file_get_contents($public . '/office-login.php');
 $home = file_get_contents($public . '/office-home.php');
 $logout = file_get_contents($public . '/office-logout.php');
+$workbench = file_get_contents($public . '/calc-workbench.php');
 $form = file_get_contents(dirname(__DIR__) . '/src/Intake/WebsiteOfficeLoginFormRenderer.php');
-if ($login === false || $home === false || $logout === false || $form === false) {
+if ($login === false || $home === false || $logout === false || $form === false || $workbench === false) {
   throw new RuntimeException('Office navigation endpoint missing.');
 }
 foreach ([
@@ -62,6 +63,8 @@ foreach ([
   [$home, '/index.php?office_route=calc-werkbank'],
   [$home, "['Calculatie', \$calcUrl, \$calcEnabled]"],
   [$home, 'Referrer-Policy: same-origin'],
+  [$router, "\$_SERVER['OFFICE_QUERY_ROUTER']"],
+  [$workbench, '/index.php?office_route=inloggen'],
   [$logout, '/index.php?office_route=inloggen'],
   [$form, '/index.php?office_route=inloggen'],
 ] as [$content, $required]) {
