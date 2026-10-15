@@ -87,6 +87,31 @@ try {
       exit('Ongeldige formulierbeveiliging.');
     }
     $action = $_POST['action'] ?? 'housing_type';
+    if ($action === 'bulk_create_housing_scopes') {
+      if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
+        http_response_code(403);
+        exit('Alleen beschikbaar in de testomgeving.');
+      }
+      $ids = $_POST['housing_type_ids'] ?? null;
+      if (!is_array($ids) || count($ids) < 1 || count($ids) > 100) {
+        http_response_code(400);
+        exit('Selecteer maximaal 100 woningtypen.');
+      }
+      $unique = [];
+      foreach ($ids as $rawId) {
+        $id = filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        if (!is_int($id)) {
+          http_response_code(400);
+          exit('Ongeldig woningtype.');
+        }
+        $unique[$id] = $id;
+      }
+      require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationScopeWriter.php';
+      $writer = new \Brebo\Office\Project\OfficeHousingCalculationScopeWriter($db);
+      foreach ($unique as $id) $writer->create($projectId, $id);
+      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      exit;
+    }
     if ($action === 'create_housing_scope') {
       $housingTypeId = filter_var($_POST['housing_type_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
       if (!is_int($housingTypeId)) {
@@ -237,13 +262,25 @@ $scopeCreateHtml = '';
 if ($canManage && $housingTypes !== null && $calculationScopes !== null
   && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
   && \Brebo\Office\Intake\OfficeMount::isTest()) {
-  $scopeCreateHtml = '<h3>Deelcalculatie per woningtype voorbereiden</h3><p>Maakt alleen een projectscope aan; de calculatiemodule blijft afgeschermd.</p>';
+  $scopeCreateHtml = '<h3>Deelcalculaties voorbereiden</h3><p>Selecteer woningtypen. Bestaande scopes blijven behouden.</p>'
+    . '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
+    . '<input type="hidden" name="action" value="bulk_create_housing_scopes">'
+    . '<table><thead><tr><th>Selecteer</th><th>Woningtype</th><th>Woningen</th><th>Status</th></tr></thead><tbody>';
+  $scopeHousingIds = [];
+  $scopeIdsQuery = $db->prepare(
+    "SELECT housing_type_id FROM office_project_calculation_scopes
+     WHERE project_id = :project AND scope_kind = 'housing_type' AND housing_type_id IS NOT NULL"
+  );
+  $scopeIdsQuery->execute([':project' => $projectId]);
+  foreach ($scopeIdsQuery->fetchAll(PDO::FETCH_COLUMN) as $existingId) $scopeHousingIds[(int) $existingId] = true;
   foreach ($housingTypes as $type) {
-    $scopeCreateHtml .= '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
-      . '<input type="hidden" name="action" value="create_housing_scope">'
-      . '<input type="hidden" name="housing_type_id" value="' . (int) $type['housing_type_id'] . '">'
-      . '<button type="submit">Deelcalculatie voorbereiden: ' . $escape((string) $type['name']) . '</button></form>';
+    $id = (int) $type['housing_type_id'];
+    $exists = isset($scopeHousingIds[$id]);
+    $scopeCreateHtml .= '<tr><td><input type="checkbox" name="housing_type_ids[]" value="' . $id . '"' . ($exists ? ' disabled' : '') . '></td>'
+      . '<td>' . $escape((string) $type['name']) . ' (' . $escape((string) $type['code']) . ')</td>'
+      . '<td>' . (int) $type['dwelling_count'] . '</td><td>' . ($exists ? 'Voorbereid' : 'Nog voorbereiden') . '</td></tr>';
   }
+  $scopeCreateHtml .= '</tbody></table><button type="submit">Geselecteerde deelcalculaties voorbereiden</button></form>';
 }
 $statusLabels = ['concept' => 'Concept', 'preparation' => 'Voorbereiding', 'execution' => 'Uitvoering', 'closeout' => 'Oplevering', 'closed' => 'Afgesloten'];
 $statusLabel = $statusLabels[$project->status] ?? $project->status;
