@@ -65,6 +65,9 @@ foreach ([
   [$home, 'Referrer-Policy: same-origin'],
   [$router, "\$_SERVER['OFFICE_QUERY_ROUTER']"],
   [$workbench, '/index.php?office_route=inloggen'],
+  [$workbench, 'name="start_mode" value="project_context"'],
+  [$workbench, 'name="start_mode" value="standalone"'],
+  [$workbench, 'project.value = ""; calc.value = "";'],
   [$logout, '/index.php?office_route=inloggen'],
   [$form, '/index.php?office_route=inloggen'],
 ] as [$content, $required]) {
