@@ -32,3 +32,23 @@ Iedere ingelogde Office-gebruiker ziet op Mijn werkplek de laatste vijf betekeni
 - Tests: anonieme toegang, gebruikersisolatie, intrekking rechten, verwijderd object, manipulatie resource-ID, ongeldige view_key, XSS in label, dubbele events, opslagstoring, en maximaal vijf.
 - Featureflag standaard uit; dashboard toont de sectie alleen wanneer repository en toegangscontrole gereed zijn.
 - Geen afhankelijkheid van een proxy of van de Calc-Node-database.
+
+## Repositorycontract (voorbereid, niet aangesloten)
+De implementatie in `office-independent/src/RecentWork/` vereist onderstaande MySQL-tabel. **Dit is alleen een referentie; niet op productie uitvoeren.**
+
+```sql
+CREATE TABLE office_user_recent_work (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  operator_id VARCHAR(128) NOT NULL,
+  module VARCHAR(32) NOT NULL,
+  resource_type VARCHAR(32) NOT NULL,
+  resource_id BIGINT UNSIGNED NOT NULL,
+  view_key VARCHAR(32) NOT NULL,
+  position_json JSON NOT NULL,
+  updated_at DATETIME NOT NULL,
+  UNIQUE KEY uq_recent_work (operator_id, module, resource_type, resource_id, view_key),
+  KEY ix_recent_operator_time (operator_id, updated_at, id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+
+**Voorwaarden vóór inschakeling:** gecontroleerde migratie in testdatabase, module-autorisatie vóór `record()`, server-side gebeurtenisregistratie, autorisatie vóór tonen en hervatten, bewaartermijn en wisfunctie. De huidige dashboardcode toont uitsluitend een algemene melding en geen objectgegevens of links.
