@@ -23,4 +23,20 @@ try {
 } catch (RuntimeException $expected) {
   if ($expected->getMessage() === 'Invalid project ID accepted.') throw $expected;
 }
+$path = '/api/workbench/v1/projects/42/calculation-context';
+$timestamp = '1792080000';
+$requestId = '12345678-1234-1234-1234-123456789abc';
+$secret = str_repeat('s', 32);
+$expected = 'v1=' . hash_hmac('sha256', "GET\n{$path}\n" . hash('sha256', '') . "\n{$timestamp}\n{$requestId}", $secret);
+if (OfficeCanonicalProjectContextClient::signGet($path, $timestamp, $requestId, $secret) !== $expected) {
+  throw new RuntimeException('Drupal HMAC contract mismatch.');
+}
+foreach (['/wrong/42', '/api/workbench/v1/projects/0/calculation-context'] as $invalidPath) {
+  try {
+    OfficeCanonicalProjectContextClient::signGet($invalidPath, $timestamp, $requestId, $secret);
+    throw new RuntimeException('Invalid signed route accepted.');
+  } catch (RuntimeException $expectedError) {
+    if ($expectedError->getMessage() === 'Invalid signed route accepted.') throw $expectedError;
+  }
+}
 echo "Canonical project context client guards passed.\n";
