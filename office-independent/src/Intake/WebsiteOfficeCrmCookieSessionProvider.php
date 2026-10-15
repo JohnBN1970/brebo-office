@@ -17,7 +17,7 @@ final class WebsiteOfficeCrmCookieSessionProvider implements WebsiteCrmOperatorS
   ) {}
 
   public function currentOperator(): ?WebsiteCrmOperatorContext {
-    $token = $this->cookies['office_session'] ?? null;
+    $token = $this->cookies[OfficeMount::cookieName('session')] ?? null;
     if (!is_string($token)) {
       return null;
     }
