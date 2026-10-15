@@ -53,7 +53,7 @@ final class WebsiteWebsiteOpportunityListRenderer {
   }
 
   private function logoutForm(string $basePath): string {
-    return '<form action="' . $basePath . '/uitloggen method="post" style="margin-top:1.5rem;text-align:right">'
+    return '<form action="' . $basePath . '/uitloggen" method="post" style="margin-top:1.5rem;text-align:right">'
       . '<button type="submit" style="padding:.65rem 1rem;border:1px solid #b9c8d8;border-radius:7px;background:#fff;color:#1d2939;cursor:pointer">Uitloggen</button></form>';
   }
 
