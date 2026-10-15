@@ -38,3 +38,17 @@ Gecontroleerd in `.github/workflows/sboffice-deploy-develop.yml`:
 - Nog te verifiëren: werkelijke databaseverbinding achter `sboffice/web/sites/default/settings.php`, sandbox-backups/rollback, exacte DNS/webroot en de productiedeployroute naar `office`. Deel geen credentials.
 
 Dit is een repository-audit; er is geen workflow uitgevoerd en geen Hostinger-omgeving aangepast.
+
+## Database-identiteit bevestigd — 15 oktober 2026
+
+De projecteigenaar heeft via read-only Hostinger-controle de volgende **database-namen** bevestigd:
+
+| Omgeving | Database | Verificatiebron |
+| --- | --- | --- |
+| SBOFFICE (sandbox) | `u213420663_sboffice` | Actieve database-instelling in `public_html/sboffice/web/sites/default/settings.php` (regel 907) |
+| OFFICE (productie) | `u213420663_office_prod` | DSN uit `office_private/config.php` |
+| OFFICE geïsoleerde testdatabase | `u213420663_office_test` | Eerder uitgevoerde technische testpreflight; niet opnieuw geverifieerd in deze controle |
+
+De sandbox en productie hebben dus verschillende databasenamen. Dit bewijst **niet** automatisch dat alle modules, jobs, integraties of deploymentworkflows uitsluitend de bedoelde database benaderen. Voor iedere gegevensmigratie of release blijven een connectie-/schrijfgrensaudit, back-up, rollbackplan en expliciete vrijgave vereist.
+
+**Geen productie- of sandboxdata gewijzigd door deze verificatie.**
