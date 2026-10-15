@@ -83,6 +83,7 @@ $routes = [
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
 if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
+  $_SERVER['OFFICE_QUERY_ROUTER'] = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php' ? '1' : '0';
   $_SERVER['REQUEST_URI'] = '/calc-werkbank';
   // Office-owned entry gate; authentication and permissions are checked by the endpoint.
   // This does not proxy or expose Calc itself.
