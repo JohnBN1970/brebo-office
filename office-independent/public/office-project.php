@@ -86,6 +86,22 @@ try {
       http_response_code(403);
       exit('Ongeldige formulierbeveiliging.');
     }
+    $action = $_POST['action'] ?? 'housing_type';
+    if ($action === 'create_housing_scope') {
+      $housingTypeId = filter_var($_POST['housing_type_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+      if (!is_int($housingTypeId)) {
+        http_response_code(400);
+        exit('Ongeldig woningtype.');
+      }
+      require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationScopeWriter.php';
+      (new \Brebo\Office\Project\OfficeHousingCalculationScopeWriter($db))->create($projectId, $housingTypeId);
+      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      exit;
+    }
+    if ($action !== 'housing_type') {
+      http_response_code(400);
+      exit('Onbekende bewerking.');
+    }
     $buildingId = filter_var($_POST['building_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
     $count = filter_var($_POST['dwelling_count'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 100000]]);
     $code = $_POST['code'] ?? null;
@@ -115,7 +131,7 @@ try {
   $schemaCheck = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_housing_types', 'office_project_housing_types')");
   if ((int) $schemaCheck->fetchColumn() === 2) {
     $housingQuery = $db->prepare(
-      'SELECT b.name AS building_name, ht.code, ht.name, pht.dwelling_count
+      'SELECT b.name AS building_name, ht.id AS housing_type_id, ht.code, ht.name, pht.dwelling_count
        FROM office_project_housing_types pht
        INNER JOIN office_housing_types ht ON ht.id = pht.housing_type_id AND ht.building_id = pht.building_id
        INNER JOIN office_project_buildings pb ON pb.project_id = pht.project_id AND pb.building_id = pht.building_id
@@ -217,6 +233,18 @@ if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_EN
   }
   $formHtml .= '</select></label><label>Code <input name="code" maxlength="128" required></label><label>Naam <input name="name" maxlength="255" required></label><label>Aantal woningen <input type="number" name="dwelling_count" min="1" max="100000" required></label><button type="submit">Opslaan</button></form>';
 }
+$scopeCreateHtml = '';
+if ($canManage && $housingTypes !== null && $calculationScopes !== null
+  && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled'
+  && \Brebo\Office\Intake\OfficeMount::isTest()) {
+  $scopeCreateHtml = '<h3>Deelcalculatie per woningtype voorbereiden</h3><p>Maakt alleen een projectscope aan; de calculatiemodule blijft afgeschermd.</p>';
+  foreach ($housingTypes as $type) {
+    $scopeCreateHtml .= '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
+      . '<input type="hidden" name="action" value="create_housing_scope">'
+      . '<input type="hidden" name="housing_type_id" value="' . (int) $type['housing_type_id'] . '">'
+      . '<button type="submit">Deelcalculatie voorbereiden: ' . $escape((string) $type['name']) . '</button></form>';
+  }
+}
 $statusLabels = ['concept' => 'Concept', 'preparation' => 'Voorbereiding', 'execution' => 'Uitvoering', 'closeout' => 'Oplevering', 'closed' => 'Afgesloten'];
 $statusLabel = $statusLabels[$project->status] ?? $project->status;
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
@@ -224,4 +252,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $scopeCreateHtml . $moduleHtml . '</section></main></body></html>';
