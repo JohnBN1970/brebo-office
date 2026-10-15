@@ -46,7 +46,8 @@ try {
   exit('Office is tijdelijk niet beschikbaar.');
 }
 $calcEnabled = getenv('OFFICE_CALC_ENABLED') === 'enabled'
-  && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled';
+  && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled'
+  && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled';
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
 $crmUrl = $queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen';
 $calcUrl = $queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank';
