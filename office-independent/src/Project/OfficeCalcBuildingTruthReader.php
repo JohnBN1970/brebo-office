@@ -44,6 +44,9 @@ final class OfficeCalcBuildingTruthReader {
     );
     $typesQuery->execute([':project' => $projectId]);
     foreach ($typesQuery->fetchAll(PDO::FETCH_ASSOC) as $type) {
+      if (!ctype_digit((string) $type['dwelling_count']) || (int) $type['dwelling_count'] < 1) {
+        throw new RuntimeException('Ongeldig aantal woningen in Gebouwwaarheid.');
+      }
       $buildingId = (int) $type['building_id'];
       if (!isset($buildings[$buildingId])) throw new RuntimeException('Woningtype zonder gekoppeld gebouw.');
       $buildings[$buildingId]['housing_types'][] = [
