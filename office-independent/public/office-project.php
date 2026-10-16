@@ -175,7 +175,7 @@ try {
   $calcBuildingTruth = null;
   if ($housingTypes !== null) {
     require_once dirname(__DIR__) . '/src/Project/OfficeCalcBuildingTruthReader.php';
-    $calcBuildingTruth = (new \\Brebo\\Office\\Project\\OfficeCalcBuildingTruthReader($db))->forProject($projectId);
+    $calcBuildingTruth = (new \Brebo\Office\Project\OfficeCalcBuildingTruthReader($db))->forProject($projectId);
   }
   $dwellingTarget = null;
   $targetSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_project_dwelling_targets'");
