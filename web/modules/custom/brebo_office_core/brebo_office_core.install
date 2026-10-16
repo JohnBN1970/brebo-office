@@ -5407,3 +5407,46 @@ function brebo_office_core_update_11045(): string {
 
   return 'Begeleide funnelworkflow, fasehistorie en communicatiekoppeling ingericht.';
 }
+
+/**
+ * Creates the auditable Project Scope Truth decision ledger.
+ */
+function brebo_office_core_update_11046(): string {
+  $schema = \Drupal::database()->schema();
+  if (!$schema->tableExists('brebo_project_scope_decision')) {
+    $schema->createTable('brebo_project_scope_decision', [
+      'description' => 'Human-confirmed, source-backed project scope decisions with immutable supersession history.',
+      'fields' => [
+        'id' => ['type' => 'serial', 'not null' => TRUE],
+        'project_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'subject_key' => ['type' => 'varchar', 'length' => 191, 'not null' => TRUE],
+        'statement_type' => ['type' => 'varchar', 'length' => 24, 'not null' => TRUE],
+        'disposition' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'summary' => ['type' => 'text', 'not null' => TRUE],
+        'source_type' => ['type' => 'varchar', 'length' => 32, 'not null' => TRUE],
+        'source_ref' => ['type' => 'varchar', 'length' => 512, 'not null' => TRUE],
+        'source_occurred_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'source_excerpt' => ['type' => 'text', 'not null' => FALSE],
+        'element_ref' => ['type' => 'varchar', 'length' => 191, 'not null' => FALSE],
+        'calculation_fact_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'supersedes_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'superseded_by_id' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => FALSE],
+        'status' => ['type' => 'varchar', 'length' => 16, 'not null' => TRUE, 'default' => 'active'],
+        'confirmed_by' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'confirmed_at' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+        'created' => ['type' => 'int', 'unsigned' => TRUE, 'not null' => TRUE],
+      ],
+      'primary key' => ['id'],
+      'indexes' => [
+        'project_status' => ['project_id', 'status'],
+        'project_subject' => ['project_id', 'subject_key'],
+        'source_ref' => ['source_type', 'source_ref'],
+        'calculation_fact' => ['calculation_fact_id'],
+        'supersedes' => ['supersedes_id'],
+      ],
+    ]);
+  }
+
+  return 'Auditeerbare Project Scope Truth-besluiten ingericht.';
+}
+
