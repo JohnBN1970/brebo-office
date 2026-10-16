@@ -88,26 +88,9 @@ try {
     }
     $action = $_POST['action'] ?? 'housing_type';
     if ($action === 'save_scope_quantity') {
-      if (!\Brebo\Office\Intake\OfficeMount::isTest()
-        || getenv('OFFICE_SCOPE_QUANTITY_WRITE_ENABLED') !== 'enabled') {
-        http_response_code(403);
-        exit('Hoeveelheden invoeren is niet ingeschakeld.');
-      }
-      $scopeId = filter_var($_POST['scope_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
-      $lineCode = $_POST['line_code'] ?? null;
-      $description = $_POST['description'] ?? null;
-      $unit = $_POST['unit'] ?? null;
-      $quantity = $_POST['quantity_per_dwelling'] ?? null;
-      if (!is_int($scopeId) || !is_string($lineCode) || !is_string($description)
-        || !is_string($unit) || !is_string($quantity)) {
-        http_response_code(400);
-        exit('Ongeldige hoeveelheidsregel.');
-      }
-      require_once dirname(__DIR__) . '/src/Project/OfficeScopeQuantityWriter.php';
-      (new \Brebo\Office\Project\OfficeScopeQuantityWriter($db))
-        ->save($projectId, $scopeId, $lineCode, $description, $unit, $quantity);
-      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
-      exit;
+      // Legacy experimental input is disabled: building truth owns counts.
+      http_response_code(403);
+      exit('Handmatige hoeveelhedeninvoer is uitgeschakeld.');
     }
     if ($action === 'bulk_create_housing_scopes') {
       if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
@@ -354,28 +337,7 @@ if ($projectQuantityTotals === null) {
   }
   $projectQuantitiesHtml .= '</tbody></table>';
 }
-$quantityFormHtml = '';
-if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
-  && getenv('OFFICE_SCOPE_QUANTITY_WRITE_ENABLED') === 'enabled'
-  && $quantityLines !== null && $calculationScopes !== null) {
-  $quantityFormHtml = '<h3>Hoeveelheid per woning invoeren</h3><form method="post">'
-    . '<input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
-    . '<input type="hidden" name="action" value="save_scope_quantity">'
-    . '<label>Deelcalculatie <select name="scope_id" required>';
-  $housingScopeCount = 0;
-  foreach ($calculationScopes as $scope) {
-    if ($scope['scope_kind'] !== 'housing_type') continue;
-    $housingScopeCount++;
-    $quantityFormHtml .= '<option value="' . (int) $scope['id'] . '">' . $escape((string) $scope['scope_label']) . '</option>';
-  }
-  $quantityFormHtml .= '</select></label>'
-    . '<label>Regelcode <input name="line_code" maxlength="128" required></label>'
-    . '<label>Omschrijving <input name="description" maxlength="255" required></label>'
-    . '<label>Eenheid <input name="unit" maxlength="16" required></label>'
-    . '<label>Hoeveelheid per woning <input name="quantity_per_dwelling" inputmode="decimal" placeholder="4.5000" required></label>'
-    . '<button type="submit">Hoeveelheidsregel opslaan</button></form>';
-  if ($housingScopeCount === 0) $quantityFormHtml = '<p>Bereid eerst een deelcalculatie voor.</p>';
-}
+$quantityFormHtml = ''; // Quantities are sourced from building truth and Calc, not manually entered here.
 $formHtml = '';
 if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled') {
   $formHtml = '<h2>Woningtype vastleggen</h2><form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '"><label>Gebouw <select name="building_id" required>';
@@ -394,4 +356,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $quantityFormHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $moduleHtml . '</section></main></body></html>';
