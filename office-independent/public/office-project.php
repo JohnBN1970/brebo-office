@@ -328,6 +328,27 @@ if ($calcBuildingTruth === null) {
   }
   $calcBuildingTruthHtml .= '</tbody></table><p>De technische Calc-koppeling wordt pas geactiveerd na controle van de autorisaties.</p>';
 }
+$calcLinkHtml = '';
+if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_CALC_HOUSING_LINK_ENABLED') === 'enabled'
+  && $housingTypes !== null && $calculationScopes !== null) {
+  $calcLinkHtml = '<h3>Bestaande Calc-calculatie koppelen</h3>'
+    . '<p>De woningaantallen blijven afkomstig uit Gebouwwaarheid.</p>'
+    . '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
+    . '<input type="hidden" name="action" value="link_housing_calculation">'
+    . '<label>Woningtype <select name="housing_type_id" required>';
+  $linkable = 0;
+  foreach ($housingTypes as $type) {
+    $housingId = (int) $type['housing_type_id'];
+    if (!array_key_exists($housingId, $scopeHousingIds) || $scopeHousingIds[$housingId] !== null) continue;
+    $linkable++;
+    $calcLinkHtml .= '<option value="' . $housingId . '">' . $escape((string) $type['name']) . '</option>';
+  }
+  $calcLinkHtml .= '</select></label><label>Bestaand Calc-nummer <input type="number" name="calculation_id" min="1" required></label>';
+  $calcLinkHtml .= $linkable > 0
+    ? '<button type="submit">Calculatie koppelen</button></form>'
+    : '</form><p>Geen voorbereide woningtypen beschikbaar voor koppeling.</p>';
+}
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
@@ -403,4 +424,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $calcBuildingTruthHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $calcBuildingTruthHtml . $calcLinkHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $moduleHtml . '</section></main></body></html>';
