@@ -25,11 +25,15 @@ final class OfficeHousingCalculationLink {
          ON c.project_id = s.project_id AND c.calculation_id = :calculation
        SET s.calc_calculation_id = :linked
        WHERE s.project_id = :project AND s.housing_type_id = :housing
-         AND s.scope_kind = 'housing_type' AND s.calc_calculation_id IS NULL"
+         AND s.scope_kind = 'housing_type' AND s.calc_calculation_id IS NULL
+         AND NOT EXISTS (SELECT 1 FROM office_project_calculation_scopes other_scope
+           WHERE other_scope.project_id = s.project_id
+             AND other_scope.calc_calculation_id = :existing_calculation)"
     );
     $stmt->execute([
       ':calculation' => $calculationId,
       ':linked' => $calculationId,
+      ':existing_calculation' => $calculationId,
       ':project' => $projectId,
       ':housing' => $housingTypeId,
     ]);
