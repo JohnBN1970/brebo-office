@@ -6,6 +6,7 @@ namespace Brebo\Office\Project;
 
 use PDO;
 use DomainException;
+use Throwable;
 
 /** Associate an existing authorized calculation with a project housing type. */
 final class OfficeHousingCalculationLink {
@@ -15,6 +16,9 @@ final class OfficeHousingCalculationLink {
     if ($projectId < 1 || $housingTypeId < 1 || $calculationId < 1) {
       throw new DomainException('Ongeldige koppeling.');
     }
+    if ($this->db->inTransaction()) throw new DomainException('Transactie reeds actief.');
+    $this->db->beginTransaction();
+    try {
     $stmt = $this->db->prepare(
       "UPDATE office_project_calculation_scopes s
        INNER JOIN office_project_housing_types pht
@@ -39,6 +43,11 @@ final class OfficeHousingCalculationLink {
     ]);
     if ($stmt->rowCount() !== 1) {
       throw new DomainException('Geen geldige ongekoppelde deelcalculatie gevonden.');
+    }
+    $this->db->commit();
+    } catch (Throwable $e) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $e;
     }
   }
 }
