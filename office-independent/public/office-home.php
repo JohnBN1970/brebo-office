@@ -87,7 +87,7 @@ $modules = [
   ['Projecten', \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null, \Brebo\Office\Intake\OfficeMount::isTest() && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled'],
   ['Gebouwen', null, false],
   ['Documenten', null, false],
-  ['Inzet', null, false],
+  ['Inzet', \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten?view=inzet' : null, \Brebo\Office\Intake\OfficeMount::isTest() && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled' && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled'],
   ['Mail', null, false],
 ];
 header('Content-Type: text/html; charset=utf-8');
