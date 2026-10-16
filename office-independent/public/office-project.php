@@ -226,15 +226,6 @@ try {
     $scopeQuery->execute([':project_id' => $projectId]);
     $calculationScopes = $scopeQuery->fetchAll(PDO::FETCH_ASSOC);
   }
-  $quantityLines = null;
-  $projectQuantityTotals = null;
-  $quantitySchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_scope_quantity_lines'");
-  if ((int) $quantitySchema->fetchColumn() === 1) {
-    require_once dirname(__DIR__) . '/src/Project/OfficeScopeQuantityReader.php';
-    $quantityReader = new \Brebo\Office\Project\OfficeScopeQuantityReader($db);
-    $quantityLines = $quantityReader->forProject($projectId);
-    $projectQuantityTotals = $quantityReader->projectTotals($projectId);
-  }
 } catch (Throwable $exception) {
   http_response_code(503);
   exit('Projectgegevens tijdelijk niet beschikbaar.');
@@ -381,61 +372,6 @@ if ($calculationScopes === null) {
   }
   $scopeHtml .= '</tbody></table>';
 }
-$quantitiesHtml = '<h2>Hoeveelheden deelcalculaties</h2>';
-if ($quantityLines === null) {
-  $quantitiesHtml .= '<p>Hoeveelheden worden beschikbaar na installatie van het gegevensmodel.</p>';
-} elseif ($quantityLines === []) {
-  $quantitiesHtml .= '<p>Nog geen hoeveelheidsregels vastgelegd. Er zijn geen hoeveelheden of prijzen aangenomen.</p>';
-} else {
-  $quantitiesHtml .= '<table><thead><tr><th>Woningtype</th><th>Regel</th><th>Per woning</th><th>Woningen</th><th>Totaal</th><th>Eenheid</th><th>Prijsstatus</th></tr></thead><tbody>';
-  foreach ($quantityLines as $line) {
-    $quantitiesHtml .= '<tr><td>' . $escape((string) $line['housing_name']) . ' (' . $escape((string) $line['housing_code']) . ')</td>'
-      . '<td>' . $escape((string) $line['description']) . '</td>'
-      . '<td>' . $escape((string) $line['quantity_per_dwelling']) . '</td>'
-      . '<td>' . (int) $line['dwelling_count'] . '</td>'
-      . '<td>' . $escape((string) $line['total_quantity']) . '</td>'
-      . '<td>' . $escape((string) $line['unit']) . '</td>'
-      . '<td>' . ($line['unit_price_ex_vat'] === null ? 'Nog niet geprijsd' : 'Eenheidsprijs vastgelegd') . '</td></tr>';
-  }
-  $quantitiesHtml .= '</tbody></table>';
-}
-$projectQuantitiesHtml = '<h2>Projecthoeveelheden</h2>';
-if ($projectQuantityTotals === null) {
-  $projectQuantitiesHtml .= '<p>Projecttotalen worden beschikbaar na installatie van het gegevensmodel.</p>';
-} elseif ($projectQuantityTotals === []) {
-  $projectQuantitiesHtml .= '<p>Nog geen projecthoeveelheden beschikbaar.</p>';
-} else {
-  $scopedTypeCount = count($scopeHousingIds);
-  $housingTypeCount = $housingTypes === null ? 0 : count($housingTypes);
-  $scopesWithLines = [];
-  foreach ($quantityLines ?? [] as $line) $scopesWithLines[(int) $line['scope_id']] = true;
-  $projectQuantitiesHtml .= '<p>Deelcalculaties voorbereid: <strong>' . $scopedTypeCount . ' van ' . $housingTypeCount
-    . '</strong> woningtypen. Met hoeveelheidsregels: <strong>' . count($scopesWithLines)
-    . '</strong>. Dit zijn uitsluitend vastgelegde hoeveelheden, geen volledige projectbegroting.</p>'
-    . '<table><thead><tr><th>Regelcode</th><th>Omschrijving</th><th>Woningtypen</th><th>Totaal</th><th>Eenheid</th></tr></thead><tbody>';
-  foreach ($projectQuantityTotals as $total) {
-    $projectQuantitiesHtml .= '<tr><td>' . $escape((string) $total['line_code']) . '</td>'
-      . '<td>' . $escape((string) $total['description']) . '</td>'
-      . '<td>' . (int) $total['housing_type_count'] . '</td>'
-      . '<td>' . $escape((string) $total['total_quantity']) . '</td>'
-      . '<td>' . $escape((string) $total['unit']) . '</td></tr>';
-  }
-  $projectQuantitiesHtml .= '</tbody></table>';
-}
-$quantityFormHtml = ''; // Quantities are sourced from building truth and Calc, not manually entered here.
-$formHtml = '';
-if ($canManage && $housingTypes !== null && getenv('OFFICE_HOUSING_TYPE_WRITE_ENABLED') === 'enabled') {
-  $formHtml = '<h2>Woningtype vastleggen</h2><form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '"><label>Gebouw <select name="building_id" required>';
-  foreach ($buildings as $building) {
-    if (isset($building['id'])) {
-      $formHtml .= '<option value="' . (int) $building['id'] . '">' . $escape((string) $building['name']) . '</option>';
-    }
-  }
-  $formHtml .= '</select></label><label>Code <input name="code" maxlength="128" required></label><label>Naam <input name="name" maxlength="255" required></label><label>Aantal woningen <input type="number" name="dwelling_count" min="1" max="100000" required></label><button type="submit">Opslaan</button></form>';
-}
-$scopeCreateHtml = '';
-$statusLabels = ['concept' => 'Concept', 'preparation' => 'Voorbereiding', 'execution' => 'Uitvoering', 'closeout' => 'Oplevering', 'closed' => 'Afgesloten'];
-$statusLabel = $statusLabels[$project->status] ?? $project->status;
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
 foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie' => 'Projectscope en calculatierechten nog te koppelen', 'Planning' => 'Nog niet aangesloten', 'Uitvoering' => 'Nog niet aangesloten', 'Inkoop' => 'Nog niet aangesloten', 'Financiën' => 'Nog niet aangesloten'] as $module => $detail) {
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
