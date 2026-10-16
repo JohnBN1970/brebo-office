@@ -329,7 +329,16 @@ if ($calcBuildingTruth === null) {
   $calcBuildingTruthHtml .= '</tbody></table><p>De technische Calc-koppeling wordt pas geactiveerd na controle van de autorisaties.</p>';
 }
 $calcLinkHtml = '';
-if ($canManage && \Brebo\Office\Intake\OfficeMount::isTest()
+$calcLinkSchemaReady = false;
+if (\Brebo\Office\Intake\OfficeMount::isTest()
+  && getenv('OFFICE_CALC_HOUSING_LINK_ENABLED') === 'enabled') {
+  $requiredCalcTables = $db->query(
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()
+     AND table_name IN ('office_calc_calculations', 'office_calc_project_access', 'office_operator_accounts')"
+  );
+  $calcLinkSchemaReady = (int) $requiredCalcTables->fetchColumn() === 3;
+}
+if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_CALC_HOUSING_LINK_ENABLED') === 'enabled'
   && $housingTypes !== null && $calculationScopes !== null) {
   $calcLinkHtml = '<h3>Bestaande Calc-calculatie koppelen</h3>'
