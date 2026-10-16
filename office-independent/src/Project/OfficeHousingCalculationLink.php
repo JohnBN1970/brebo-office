@@ -19,31 +19,46 @@ final class OfficeHousingCalculationLink {
     if ($this->db->inTransaction()) throw new DomainException('Transactie reeds actief.');
     $this->db->beginTransaction();
     try {
-    $stmt = $this->db->prepare(
-      "UPDATE office_project_calculation_scopes s
-       INNER JOIN office_project_housing_types pht
-         ON pht.project_id = s.project_id
-         AND pht.building_id = s.building_id
-         AND pht.housing_type_id = s.housing_type_id
-       INNER JOIN office_calc_calculations c
-         ON c.project_id = s.project_id AND c.calculation_id = :calculation
-       SET s.calc_calculation_id = :linked
-       WHERE s.project_id = :project AND s.housing_type_id = :housing
-         AND s.scope_kind = 'housing_type' AND s.calc_calculation_id IS NULL
-         AND NOT EXISTS (SELECT 1 FROM office_project_calculation_scopes other_scope
-           WHERE other_scope.project_id = s.project_id
-             AND other_scope.calc_calculation_id = :existing_calculation)"
-    );
-    $stmt->execute([
-      ':calculation' => $calculationId,
-      ':linked' => $calculationId,
-      ':existing_calculation' => $calculationId,
-      ':project' => $projectId,
-      ':housing' => $housingTypeId,
-    ]);
-    if ($stmt->rowCount() !== 1) {
-      throw new DomainException('Geen geldige ongekoppelde deelcalculatie gevonden.');
-    }
+      // Lock the project calculation and scope rows before changing any link.
+      $calculation = $this->db->prepare(
+        'SELECT calculation_id FROM office_calc_calculations
+         WHERE project_id = :project AND calculation_id = :calculation FOR UPDATE'
+      );
+      $calculation->execute([':project' => $projectId, ':calculation' => $calculationId]);
+      if ($calculation->fetchColumn() === false) {
+        throw new DomainException('Calculatie hoort niet bij dit project.');
+      }
+      $scopes = $this->db->prepare(
+        'SELECT id, housing_type_id, building_id, calc_calculation_id
+         FROM office_project_calculation_scopes
+         WHERE project_id = :project ORDER BY id FOR UPDATE'
+      );
+      $scopes->execute([':project' => $projectId]);
+      $targetId = null;
+      foreach ($scopes->fetchAll(PDO::FETCH_ASSOC) as $scope) {
+        if ($scope['calc_calculation_id'] !== null
+          && (int) $scope['calc_calculation_id'] === $calculationId) {
+          throw new DomainException('Calculatie is al gekoppeld.');
+        }
+        if ($scope['housing_type_id'] !== null
+          && (int) $scope['housing_type_id'] === $housingTypeId
+          && $scope['calc_calculation_id'] === null) {
+          $targetId = (int) $scope['id'];
+        }
+      }
+      if ($targetId === null) throw new DomainException('Woningtype heeft geen vrije deelcalculatie.');
+      $update = $this->db->prepare(
+        "UPDATE office_project_calculation_scopes s
+         INNER JOIN office_project_housing_types pht
+           ON pht.project_id = s.project_id
+           AND pht.building_id = s.building_id
+           AND pht.housing_type_id = s.housing_type_id
+         SET s.calc_calculation_id = :calculation
+         WHERE s.id = :scope AND s.project_id = :project
+           AND s.scope_kind = 'housing_type' AND s.calc_calculation_id IS NULL"
+      );
+      $update->execute([':calculation' => $calculationId, ':scope' => $targetId, ':project' => $projectId]);
+      if ($update->rowCount() !== 1) throw new DomainException('Koppeling niet uitgevoerd.');
     $this->db->commit();
     } catch (Throwable $e) {
       if ($this->db->inTransaction()) $this->db->rollBack();
