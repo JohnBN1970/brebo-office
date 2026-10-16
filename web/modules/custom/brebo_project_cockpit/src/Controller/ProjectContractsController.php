@@ -11,7 +11,7 @@ use Drupal\node\NodeInterface;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
-/** Shows the project contract and its obligations. */
+/** Shows project contracts and contract-specific agreements. */
 final class ProjectContractsController extends ControllerBase {
 
   public function __construct(
@@ -93,9 +93,9 @@ final class ProjectContractsController extends ControllerBase {
         '#type' => 'container',
         '#attributes' => ['class' => ['brebo-procurement-kpis']],
         'sum' => ['#markup' => $this->kpi('Contractsom', $contract['amount_ex_vat'] ?? NULL, 'excl. btw')],
-        'open' => ['#markup' => $this->countKpi(count($active), 'openstaande contractverplichtingen')],
+        'open' => ['#markup' => $this->countKpi(count($active), 'openstaande contractafspraken')],
         'upcoming' => ['#markup' => $this->countKpi(count($upcoming), 'termijnen binnen 30 dagen')],
-        'risk' => ['#markup' => $this->kpi('Financieel risico', $financialRisk, 'openstaande verplichtingen')],
+        'risk' => ['#markup' => $this->kpi('Contractueel risico', $financialRisk, 'openstaande afspraken')],
       ],
       'contract' => [
         '#type' => 'details',
@@ -110,20 +110,20 @@ final class ProjectContractsController extends ControllerBase {
       ],
       'obligations' => [
         '#type' => 'details',
-        '#title' => $this->t('Contractverplichtingen (@count)', ['@count' => count($obligationRows)]),
+        '#title' => $this->t('Contractafspraken (@count)', ['@count' => count($obligationRows)]),
         '#open' => TRUE,
         'table' => [
           '#type' => 'table',
-          '#header' => [$this->t('Nr.'), $this->t('Verplichting'), $this->t('Type'), $this->t('Verantwoordelijke partij'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Financieel risico excl. btw')],
+          '#header' => [$this->t('Nr.'), $this->t('Afspraak'), $this->t('Type'), $this->t('Verantwoordelijke partij'), $this->t('Vervaldatum'), $this->t('Status'), $this->t('Financieel risico excl. btw')],
           '#rows' => $obligationRows,
-          '#empty' => $this->t('Voor dit project zijn nog geen contractverplichtingen geregistreerd.'),
+          '#empty' => $this->t('Voor dit project zijn nog geen contractafspraken geregistreerd.'),
         ],
       ],
       'explanation' => [
         '#type' => 'details',
         '#title' => $this->t('Toelichting'),
         '#open' => FALSE,
-        'text' => ['#markup' => '<p>' . $this->t('Hier staan het projectcontract en de contractuele verplichtingen die voor dit project bewaakt worden. Uitgebreid financieel beheer blijft in Finance.') . '</p>'],
+        'text' => ['#markup' => '<p>' . $this->t('Hier staan het projectcontract en de contractspecifieke afspraken, termijnen, garanties en voorwaarden die voor dit project bewaakt worden. Deze contractafspraken zijn niet hetzelfde als een betaalverplichting. Facturen kunnen in Finance ook zonder projectorder of projectcontract via de losse-factuurroute worden geclassificeerd en gefiatteerd.') . '</p>'],
       ],
       '#cache' => [
         'contexts' => ['user.permissions'],
