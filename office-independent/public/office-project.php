@@ -92,6 +92,29 @@ try {
       http_response_code(403);
       exit('Handmatige hoeveelhedeninvoer is uitgeschakeld.');
     }
+    if ($action === 'link_housing_calculation') {
+      if (!\Brebo\Office\Intake\OfficeMount::isTest()
+        || getenv('OFFICE_CALC_HOUSING_LINK_ENABLED') !== 'enabled') {
+        http_response_code(403);
+        exit('Calculatiekoppeling niet beschikbaar.');
+      }
+      $housingId = filter_var($_POST['housing_type_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+      $calcId = filter_var($_POST['calculation_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+      if (!is_int($housingId) || !is_int($calcId)) {
+        http_response_code(400);
+        exit('Ongeldige koppeling.');
+      }
+      require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcProjectScopeRepository.php';
+      $grant = new \Brebo\Office\Calculation\OfficeCalcProjectScopeRepository($db);
+      if (!$grant->canLaunch($operator->operatorId, $projectId, $calcId)) {
+        http_response_code(403);
+        exit('Geen toegang tot deze calculatie.');
+      }
+      require_once dirname(__DIR__) . '/src/Project/OfficeHousingCalculationLink.php';
+      (new \Brebo\Office\Project\OfficeHousingCalculationLink($db))->link($projectId, $housingId, $calcId);
+      header('Location: /office-test/projecten/detail?id=' . $projectId, true, 303);
+      exit;
+    }
     if ($action === 'bulk_create_housing_scopes') {
       if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
         http_response_code(403);
