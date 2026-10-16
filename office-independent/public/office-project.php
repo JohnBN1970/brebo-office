@@ -161,7 +161,7 @@ try {
   $schemaCheck = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name IN ('office_housing_types', 'office_project_housing_types')");
   if ((int) $schemaCheck->fetchColumn() === 2) {
     $housingQuery = $db->prepare(
-      'SELECT b.name AS building_name, ht.id AS housing_type_id, ht.code, ht.name, pht.dwelling_count
+      'SELECT b.id AS building_id, b.name AS building_name, ht.id AS housing_type_id, ht.code, ht.name, pht.dwelling_count
        FROM office_project_housing_types pht
        INNER JOIN office_housing_types ht ON ht.id = pht.housing_type_id AND ht.building_id = pht.building_id
        INNER JOIN office_project_buildings pb ON pb.project_id = pht.project_id AND pb.building_id = pht.building_id
@@ -292,6 +292,7 @@ if ($calcBuildingTruth === null) {
   $calcBuildingTruthHtml .= '<p>Gebouw- en woningtypegegevens zijn nog niet beschikbaar.</p>';
 } else {
   $calcBuildingTruthHtml .= '<p>Bron: Gebouwwaarheid. Aantallen worden niet in Calc ingevoerd.</p>';
+  $calcBuildingTruthHtml .= '<p>Calculaties kunnen uitsluitend worden gekoppeld aan woningtypen van een gebouw dat aan dit project is toegewezen.</p>';
   $calcBuildingTruthHtml .= '<table><thead><tr><th>Gebouw</th><th>Woningtype</th><th>Aantal woningen</th></tr></thead><tbody>';
   foreach ($calcBuildingTruth['buildings'] as $calcBuilding) {
     if ($calcBuilding['housing_types'] === []) {
