@@ -340,6 +340,17 @@ if (\Brebo\Office\Intake\OfficeMount::isTest()
 if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_CALC_HOUSING_LINK_ENABLED') === 'enabled'
   && $housingTypes !== null && $calculationScopes !== null) {
+  $authorizedCalcQuery = $db->prepare(
+    'SELECT c.calculation_id FROM office_calc_calculations c
+     INNER JOIN office_calc_project_access g ON g.project_id = c.project_id
+     INNER JOIN office_operator_accounts a ON a.id = g.operator_id
+     WHERE c.project_id = :project AND g.operator_id = :operator AND a.active = 1
+       AND NOT EXISTS (SELECT 1 FROM office_project_calculation_scopes s
+         WHERE s.project_id = c.project_id AND s.calc_calculation_id = c.calculation_id)
+     ORDER BY c.calculation_id LIMIT 200'
+  );
+  $authorizedCalcQuery->execute([':project' => $projectId, ':operator' => $operator->operatorId]);
+  $authorizedCalcIds = $authorizedCalcQuery->fetchAll(PDO::FETCH_COLUMN);
   $calcLinkHtml = '<h3>Bestaande Calc-calculatie koppelen</h3>'
     . '<p>De woningaantallen blijven afkomstig uit Gebouwwaarheid.</p>'
     . '<form method="post"><input type="hidden" name="csrf" value="' . $escape($csrfToken) . '">'
@@ -352,8 +363,12 @@ if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTe
     $linkable++;
     $calcLinkHtml .= '<option value="' . $housingId . '">' . $escape((string) $type['name']) . '</option>';
   }
-  $calcLinkHtml .= '</select></label><label>Bestaand Calc-nummer <input type="number" name="calculation_id" min="1" required></label>';
-  $calcLinkHtml .= $linkable > 0
+  $calcLinkHtml .= '</select></label><label>Bestaande Calc-calculatie <select name="calculation_id" required>';
+  foreach ($authorizedCalcIds as $authorizedCalcId) {
+    $calcLinkHtml .= '<option value="' . (int) $authorizedCalcId . '">Calculatie ' . (int) $authorizedCalcId . '</option>';
+  }
+  $calcLinkHtml .= '</select></label>';
+  $calcLinkHtml .= $linkable > 0 && $authorizedCalcIds !== []
     ? '<button type="submit">Calculatie koppelen</button></form>'
     : '</form><p>Geen voorbereide woningtypen beschikbaar voor koppeling.</p>';
 }
