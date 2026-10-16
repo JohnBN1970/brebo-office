@@ -370,7 +370,7 @@ if ($calcLinkSchemaReady && $canManage && \Brebo\Office\Intake\OfficeMount::isTe
   $calcLinkHtml .= '</select></label>';
   $calcLinkHtml .= $linkable > 0 && $authorizedCalcIds !== []
     ? '<button type="submit">Calculatie koppelen</button></form>'
-    : '</form><p>Geen voorbereide woningtypen beschikbaar voor koppeling.</p>';
+    : '</form><p>Geen voorbereid woningtype of toegankelijke ongekoppelde Calc-calculatie beschikbaar.</p>';
 }
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
