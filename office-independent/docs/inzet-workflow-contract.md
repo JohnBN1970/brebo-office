@@ -19,6 +19,18 @@ Status: ontwerp op de geisoleerde office-test branch. Geen automatische migratie
 7. Urencontrole: geplande versus werkelijke uren, goedkeuring door bevoegde projectbeheerder.
 8. Financiele verwerking: pas na gecontroleerde koppeling aan de projectkosten en arbeidsbudgetten.
 
+## BREBO OnSite - mobiele app en bestaande webapp
+
+- De bestaande Inzet-webapp blijft als bewezen functionaliteit beschikbaar tijdens de overgang.
+- BREBO OnSite (iOS eerst, Android later) gebruikt dezelfde Office-projecten, projectteams, planning, klokzones en registraties als Office Inzet; geen tweede klokadministratie.
+- App-projectselectie volgt toegewezen projectteam en/of geldige daginzet, nooit uitsluitend een vrij opgegeven project-ID.
+- Bestaande OnSite device-/OTP-koppeling moet als identiteitsworkflow behouden en opnieuw beveiligd worden voor zelfstandige Office API's.
+- De app legt feitelijke aanwezigheid vast: project-ID, tijdstip, IN/UIT, technische bron, optionele locatie/accuracy/zone en auditspoor.
+- Registratie is een waarneming; uren ontstaan pas na beoordeling en goedkeuring in Office. Geen automatische boeking op basis van locatie.
+- Geen continue GPS-tracking, geen routehistorie. Locatie uitsluitend op relevante klok-/herkenningsmomenten en volgens vast te leggen AVG-bewaarbeleid.
+- Offline registratie, retries en dubbele app-verzoeken vereisen idempotente gebeurtenis-ID's en server-side reconciliatie.
+- De bestaande Inzet-clocksession en geofence-logica dienen als functionele referentie; geen rechtstreekse Drupal API-afhankelijkheid in de uiteindelijke Office/OnSite-koppeling.
+
 ## Scheiding van bevoegdheden
 
 - Alleen ingelogde operators met `office_project_memberships.permission IN ('read','manage')` mogen projectinzet bekijken.
