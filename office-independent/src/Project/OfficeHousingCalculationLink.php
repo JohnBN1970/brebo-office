@@ -42,6 +42,11 @@ final class OfficeHousingCalculationLink {
         }
         if ($scope['housing_type_id'] !== null
           && (int) $scope['housing_type_id'] === $housingTypeId
+          && $scope['calc_calculation_id'] !== null) {
+          throw new DomainException('Woningtype heeft al een calculatie.');
+        }
+        if ($scope['housing_type_id'] !== null
+          && (int) $scope['housing_type_id'] === $housingTypeId
           && $scope['calc_calculation_id'] === null) {
           $targetId = (int) $scope['id'];
         }
