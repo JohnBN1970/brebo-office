@@ -6,7 +6,8 @@ namespace Brebo\Office\Inzet;
 
 /**
  * Proposed isolated Office Inzet schema. Never runs DDL automatically.
- * Apply only after explicit test-database review and migration approval.\n * Project foreign keys deliberately await verification of office_projects.id type.
+ * Apply only after explicit test-database review and migration approval.
+ * Project foreign keys deliberately await verification of office_projects.id type.
  */
 final class OfficeInzetSchema {
   /** @return list<string> */
