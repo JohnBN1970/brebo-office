@@ -388,7 +388,7 @@ if ($calculationScopes === null) {
   $scopeHtml .= '</tbody></table>';
 }
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
-foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie' => 'Projectscope en calculatierechten nog te koppelen', 'Inzet' => 'Projectgebonden personeelsinzet en urenregistratie nog aan te sluiten', 'Planning' => 'Nog niet aangesloten', 'Uitvoering' => 'Nog niet aangesloten', 'Inkoop' => 'Nog niet aangesloten', 'Financiën' => 'Nog niet aangesloten'] as $module => $detail) {
+foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie' => 'Projectscope en calculatierechten nog te koppelen', 'Inzet' => 'Projectteam, planning, beschikbaarheid, urencontrole en kloklocaties: bestaande inzetfuncties, gegevenskoppeling nog te realiseren', 'Planning' => 'Nog niet aangesloten', 'Uitvoering' => 'Nog niet aangesloten', 'Inkoop' => 'Nog niet aangesloten', 'Financiën' => 'Nog niet aangesloten'] as $module => $detail) {
   $moduleHtml .= '<div class="module"' . ($module === 'Inzet' ? ' id="inzet"' : '') . '><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
