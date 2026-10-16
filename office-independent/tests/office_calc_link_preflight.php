@@ -13,6 +13,17 @@ if (!is_string($dsn) || $dsn === '') {
   fwrite(STDERR, "Missing test database DSN.\n");
   exit(2);
 }
+// The preflight is intentionally restricted to the isolated test database.
+if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') !== 'enabled'
+  || getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled') {
+  fwrite(STDERR, "Office test project flags are not enabled.\n");
+  exit(2);
+}
+if (!preg_match('/(?:^|;)dbname=([^;]+)/i', $dsn, $matches)
+  || $matches[1] !== 'u213420663_office_test') {
+  fwrite(STDERR, "Refusing non-test database.\n");
+  exit(2);
+}
 $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [
   PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
   PDO::ATTR_EMULATE_PREPARES => false,
