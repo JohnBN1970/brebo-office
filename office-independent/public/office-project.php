@@ -104,6 +104,14 @@ try {
         http_response_code(400);
         exit('Ongeldige koppeling.');
       }
+      $schema = $db->query(
+        "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()
+         AND table_name IN ('office_calc_calculations', 'office_calc_project_access', 'office_operator_accounts')"
+      );
+      if ((int) $schema->fetchColumn() !== 3) {
+        http_response_code(503);
+        exit('Calc-koppeling nog niet ingericht.');
+      }
       require_once dirname(__DIR__) . '/src/Calculation/OfficeCalcProjectScopeRepository.php';
       $grant = new \Brebo\Office\Calculation\OfficeCalcProjectScopeRepository($db);
       if (!$grant->canLaunch($operator->operatorId, $projectId, $calcId)) {
