@@ -171,6 +171,12 @@ try {
     $housingQuery->execute([':project_id' => $projectId]);
     $housingTypes = $housingQuery->fetchAll(PDO::FETCH_ASSOC);
   }
+  // Read the canonical building/housing snapshot; no duplicate Calc quantities.
+  $calcBuildingTruth = null;
+  if ($housingTypes !== null) {
+    require_once dirname(__DIR__) . '/src/Project/OfficeCalcBuildingTruthReader.php';
+    $calcBuildingTruth = (new \\Brebo\\Office\\Project\\OfficeCalcBuildingTruthReader($db))->forProject($projectId);
+  }
   $dwellingTarget = null;
   $targetSchema = $db->query("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'office_project_dwelling_targets'");
   if ((int) $targetSchema->fetchColumn() === 1) {
@@ -281,6 +287,23 @@ if ($allocatedDwellings === null) {
     $totalsHtml .= '<p>' . ($difference > 0 ? 'Nog niet toegewezen: ' . $difference : ($difference < 0 ? 'Te veel toegewezen: ' . abs($difference) : 'Verdeling compleet: alle woningen toegewezen.')) . '</p>';
   }
 }
+$calcBuildingTruthHtml = '<h2>Gebouwgegevens voor Calc</h2>';
+if ($calcBuildingTruth === null) {
+  $calcBuildingTruthHtml .= '<p>Gebouw- en woningtypegegevens zijn nog niet beschikbaar.</p>';
+} else {
+  $calcBuildingTruthHtml .= '<p>Bron: Gebouwwaarheid. Aantallen worden niet in Calc ingevoerd.</p>';
+  $calcBuildingTruthHtml .= '<table><thead><tr><th>Gebouw</th><th>Woningtype</th><th>Aantal woningen</th></tr></thead><tbody>';
+  foreach ($calcBuildingTruth['buildings'] as $calcBuilding) {
+    if ($calcBuilding['housing_types'] === []) {
+      $calcBuildingTruthHtml .= '<tr><td>' . $escape($calcBuilding['name']) . '</td><td>Nog niet gekoppeld</td><td>—</td></tr>';
+    }
+    foreach ($calcBuilding['housing_types'] as $calcType) {
+      $calcBuildingTruthHtml .= '<tr><td>' . $escape($calcBuilding['name']) . '</td><td>' . $escape($calcType['name'])
+        . ' (' . $escape($calcType['code']) . ')</td><td>' . $calcType['dwelling_count'] . '</td></tr>';
+    }
+  }
+  $calcBuildingTruthHtml .= '</tbody></table><p>De technische Calc-koppeling wordt pas geactiveerd na controle van de autorisaties.</p>';
+}
 $scopeHtml = '<h2>Overige deelcalculaties</h2>';
 if ($calculationScopes === null) {
   $scopeHtml .= '<p>Deelcalculaties worden beschikbaar na installatie van het gegevensmodel.</p>';
@@ -356,4 +379,4 @@ foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie
   $moduleHtml .= '<div class="module"><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $calcBuildingTruthHtml . $totalsHtml . $formHtml . $scopeHtml . $quantitiesHtml . $projectQuantitiesHtml . $moduleHtml . '</section></main></body></html>';
