@@ -388,13 +388,13 @@ if ($calculationScopes === null) {
   $scopeHtml .= '</tbody></table>';
 }
 $inzetHtml = '<section id="inzet-uren"><h2>Inzet · urencontrole</h2>';
-if (!\\Brebo\\Office\\Intake\\OfficeMount::isTest()) {
+if (!\Brebo\Office\Intake\OfficeMount::isTest()) {
   $inzetHtml .= '<p>Urencontrole wordt voorbereid in de testomgeving.</p>';
 } else {
   try {
     require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
     require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
-    $inzetOverview = (new \\Brebo\\Office\\Inzet\\OfficeInzetHoursOverview($db))->forProject($operator->operatorId, $projectId);
+    $inzetOverview = (new \Brebo\Office\Inzet\OfficeInzetHoursOverview($db))->forProject($operator->operatorId, $projectId);
     if (!$inzetOverview['available']) {
       $inzetHtml .= '<p>OnSite-registraties zijn nog niet aangesloten. De testdatabase bevat nog geen klokregistratietabel.</p>';
     } else {
