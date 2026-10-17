@@ -77,6 +77,17 @@ try {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetImportReviewReadRepository.php';
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSourceReviewWorkbench.php';
   $report = (new \Brebo\Office\Inzet\OfficeInzetImportReviewReadRepository($db))->summary();
+  // A review session belongs to one authenticated operator only.
+  if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_name('BREBO_INZET_REVIEW');
+    session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/']);
+    session_start();
+  }
+  if (isset($_SESSION['inzet_reviewer_id']) && $_SESSION['inzet_reviewer_id'] !== (int)$operator->operatorId) {
+    $_SESSION = [];
+    session_regenerate_id(true);
+  }
+  $_SESSION['inzet_reviewer_id'] = (int)$operator->operatorId;
   $filters = [];
   foreach (['person', 'project', 'sheet'] as $field) {
     $value = $_GET[$field] ?? '';
@@ -100,7 +111,6 @@ try {
     ]);
     require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
     $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
-    $decisionRepo->install();
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       if (($_SERVER['CONTENT_TYPE'] ?? '') !== 'application/x-www-form-urlencoded'
         || (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 4096) {
