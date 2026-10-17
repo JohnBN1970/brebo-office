@@ -74,7 +74,25 @@ final class OnSiteXlsxCellReader {
           }
         }
       }
-      return ['cells'=>$cells,'comments'=>$comments];
+      // Resolve comments through each worksheet's relationship file; a comment
+      // part number does not imply the same worksheet number.
+      $bySheet = [];
+      foreach ($cells as $sheet => $_) {
+        $relPath = 'xl/worksheets/_rels/' . $sheet . '.xml.rels';
+        if (!isset($parts[$relPath])) continue;
+        $rels = $this->xml($parts[$relPath]);
+        foreach ($rels->Relationship as $rel) {
+          if (!str_ends_with((string)$rel['Type'], '/comments')) continue;
+          $target = (string)$rel['Target'];
+          $base = basename($target);
+          if (!preg_match('/^comments[0-9]+\\.xml$/D', $base)) continue;
+          $commentPath = 'xl/' . $base;
+          if (isset($comments[$commentPath])) {
+            $bySheet[$sheet] = array_merge($bySheet[$sheet] ?? [], $comments[$commentPath]);
+          }
+        }
+      }
+      return ['cells'=>$cells,'comments'=>$bySheet];
     } finally {
       $zip->close();
     }
