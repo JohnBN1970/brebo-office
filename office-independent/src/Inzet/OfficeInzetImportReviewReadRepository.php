@@ -20,8 +20,8 @@ final class OfficeInzetImportReviewReadRepository {
 
   /** @return array<string,mixed> */
   public function summary(): array {
-    $personLabels = $this->labels('inzet_person_candidates', 'raw_label');
-    $projectLabels = $this->labels('inzet_project_candidates', 'raw_label');
+    $personLabels = $this->sourceLabels('person_label');
+    $projectLabels = $this->sourceLabels('project_label');
     $rowCount = (int)$this->db->query('SELECT COUNT(*) FROM inzet_source_workbench')->fetchColumn();
     $issueCount = (int)$this->db->query('SELECT COUNT(*) FROM review_issues')->fetchColumn();
     $issues = $this->db->query('SELECT w.sheet_name AS sheet, i.details AS cell, i.issue_code AS reason
@@ -43,9 +43,16 @@ final class OfficeInzetImportReviewReadRepository {
   }
 
   /** @return list<string> */
-  private function labels(string $table, string $column): array {
-    // Identifiers are fixed internally; no user-controlled SQL identifiers.
-    $stmt = $this->db->query('SELECT ' . $column . ' FROM ' . $table . ' ORDER BY ' . $column . ' ASC LIMIT 500');
+  private function sourceLabels(string $column): array {
+    if (!in_array($column, ['person_label', 'project_label'], true)) {
+      throw new \InvalidArgumentException('Unsupported source label.');
+    }
+    // Read from immutable imported source rows, not optional empty candidate tables.
+    // No truncation: the UI can decide how many labels to display.
+    $stmt = $this->db->query('SELECT DISTINCT TRIM(' . $column . ') AS label
+      FROM inzet_source_workbench
+      WHERE ' . $column . " IS NOT NULL AND TRIM(" . $column . ") <> ''
+      ORDER BY label COLLATE NOCASE ASC");
     return array_values(array_map('strval', $stmt->fetchAll(PDO::FETCH_COLUMN)));
   }
 }
