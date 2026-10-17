@@ -24,8 +24,10 @@ final class OfficeInzetImportReviewReadRepository {
     $projectLabels = $this->sourceLabels('project_label');
     $rowCount = (int)$this->db->query('SELECT COUNT(*) FROM inzet_source_workbench')->fetchColumn();
     $issueCount = (int)$this->db->query('SELECT COUNT(*) FROM review_issues')->fetchColumn();
-    $issues = $this->db->query('SELECT w.sheet_name AS sheet, i.details AS cell, i.issue_code AS reason
+    $issues = $this->db->query('SELECT i.id AS issue_id, w.sheet_name AS sheet, i.details AS cell, i.issue_code AS reason,
+             s.person_label AS person, s.project_label AS project, s.row_number AS source_row
       FROM review_issues i LEFT JOIN worksheets w ON w.id = i.sheet_id
+      LEFT JOIN inzet_source_workbench s ON s.source_row_id = i.source_row_id
       ORDER BY i.id ASC LIMIT 200')->fetchAll(PDO::FETCH_ASSOC);
     return [
       'row_count'=>$rowCount,
