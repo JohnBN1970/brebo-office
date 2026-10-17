@@ -34,4 +34,17 @@ checkReview(!str_contains($html, '<td>Anna &amp; Co</td>'), 'other week excluded
 $html = OfficeInzetSourceReviewWorkbench::render($report, [], [10=>['action'=>'propose_person']]);
 checkReview(str_contains($html, '<td>propose_person</td>'), 'decision shown');
 checkReview(str_contains($html, '<td>Open</td>'), 'unreviewed issue open');
+$html = OfficeInzetSourceReviewWorkbench::render($report, [], [], 'test-csrf-token');
+checkReview(substr_count($html, 'method="post"') === 2, 'one form per issue');
+checkReview(str_contains($html, 'name="csrf" value="test-csrf-token"'), 'CSRF included');
+checkReview(str_contains($html, 'name="issue_id" value="10"'), 'issue id included');
+checkReview(str_contains($html, 'name="revision" value="0"'), 'new decision revision');
+checkReview(str_contains($html, 'value="propose_person"'), 'propose person option');
+checkReview(str_contains($html, 'value="propose_project"'), 'propose project option');
+checkReview(str_contains($html, 'value="exclude"'), 'exclude option');
+checkReview(!str_contains($html, 'value="link_person"'), 'no unverified person linking');
+$html = OfficeInzetSourceReviewWorkbench::render($report, [], [10=>['action'=>'exclude','revision'=>3]], 'test-csrf-token');
+checkReview(str_contains($html, 'name="revision" value="3"'), 'existing decision revision');
+$html = OfficeInzetSourceReviewWorkbench::render($report, [], [], null);
+checkReview(!str_contains($html, 'method="post"'), 'no forms without configured review store');
 echo "Inzet review filters smoke: OK\n";
