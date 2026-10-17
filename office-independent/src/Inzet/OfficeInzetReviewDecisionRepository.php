@@ -14,8 +14,9 @@ use RuntimeException;
 final class OfficeInzetReviewDecisionRepository {
   private const ACTIONS = ['link_person', 'link_project', 'propose_person', 'propose_project', 'exclude'];
 
-  public function __construct(private PDO $db) {
-    if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
+  public function __construct(private PDO $db, private PDO $sourceDb) {
+    if ($db->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite'
+      || $sourceDb->getAttribute(PDO::ATTR_DRIVER_NAME) !== 'sqlite') {
       throw new \InvalidArgumentException('Only a private SQLite review store is supported.');
     }
     $this->db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -68,6 +69,17 @@ final class OfficeInzetReviewDecisionRepository {
     $note = trim($note);
     if (strlen($note) > 2000 || ($action === 'exclude' && $note === '')) {
       throw new \InvalidArgumentException('Invalid decision note.');
+    }
+
+    // Only real source issues can receive decisions.
+    $sourceIssue = $this->sourceDb->prepare('SELECT 1 FROM review_issues WHERE id = ?');
+    $sourceIssue->execute([$issueId]);
+    if ($sourceIssue->fetchColumn() === false) {
+      throw new \InvalidArgumentException('Unknown source issue.');
+    }
+    // Never accept an unchecked Office identity reference.
+    if (in_array($action, ['link_person', 'link_project'], true)) {
+      throw new \LogicException('Office target verification is not connected.');
     }
 
     $this->db->exec('BEGIN IMMEDIATE TRANSACTION');
