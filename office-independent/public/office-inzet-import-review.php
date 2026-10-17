@@ -77,9 +77,6 @@ try {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetImportReviewReadRepository.php';
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSourceReviewWorkbench.php';
   $report = (new \Brebo\Office\Inzet\OfficeInzetImportReviewReadRepository($db))->summary();
-  header('Content-Type: text/html; charset=utf-8');
-  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}</style></head><body><main>';
-  echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
   $filters = [];
   foreach (['person', 'project', 'sheet'] as $field) {
     $value = $_GET[$field] ?? '';
@@ -149,6 +146,9 @@ try {
     session_start();
   }
   if (!isset($_SESSION['inzet_csrf'])) $_SESSION['inzet_csrf'] = bin2hex(random_bytes(32));
+  header('Content-Type: text/html; charset=utf-8');
+  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}</style></head><body><main>';
+  echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
   echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters, $decisionIndex, $decisionPath ? $_SESSION['inzet_csrf'] : null);
   echo '</main></body></html>';
 } catch (Throwable $exception) {
