@@ -77,6 +77,22 @@ if ($inzetView) {
   echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
   echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base);
+  // Read-only weekly planning is gated independently from the projects module.
+  if (getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekShiftReadRepository.php';
+      $year = (int)gmdate('o');
+      $week = (int)gmdate('W');
+      $ids = array_map(static fn(array $p): int => (int)$p['id'], $projects);
+      $shifts = (new \Brebo\Office\Inzet\OfficeInzetWeekShiftReadRepository($db))
+        ->listWeek((int)$operator->operatorId, $ids, $year, $week);
+      echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week);
+    } catch (Throwable $exception) {
+      echo '<p>Weekplanning tijdelijk niet beschikbaar.</p>';
+    }
+  }
+
 }
 if ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
