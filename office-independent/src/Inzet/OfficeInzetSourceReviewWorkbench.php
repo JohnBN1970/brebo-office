@@ -10,7 +10,7 @@ namespace Brebo\Office\Inzet;
  */
 final class OfficeInzetSourceReviewWorkbench {
   /** @param array<string,mixed> $report */
-  public static function render(array $report, array $filters = []): string {
+  public static function render(array $report, array $filters = [], array $decisions = []): string {
     $escape = static fn(mixed $v): string =>
       htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-review" aria-labelledby="inzet-review-heading">'
@@ -83,13 +83,14 @@ final class OfficeInzetSourceReviewWorkbench {
     }
     if ($issues === []) $html .= '<p>Geen afwijkingen gemeld door deze preflight.</p>';
     else {
-      $html .= '<table><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th></tr></thead><tbody>';
+      $html .= '<table><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th><th>Beoordeling</th></tr></thead><tbody>';
       foreach (array_slice($issues, 0, 200) as $issue) {
         if (!is_array($issue)) continue;
         $html .= '<tr><td>'.$escape($issue['issue_id'] ?? '').'</td><td>'
           .$escape($issue['sheet'] ?? '').'</td><td>'.$escape($issue['source_row'] ?? '').'</td><td>'
           .$escape($issue['person'] ?? '').'</td><td>'.$escape($issue['project'] ?? '').'</td><td>'
-          .$escape($issue['cell'] ?? '').'</td><td>'.$escape($issue['reason'] ?? '').'</td></tr>';
+           .$escape($issue['cell'] ?? '').'</td><td>'.$escape($issue['reason'] ?? '').'</td><td>'
+          .$escape($decisions[(int)($issue['issue_id'] ?? 0)]['action'] ?? 'Open').'</td></tr>';
       }
       $html .= '</tbody></table>';
     }
