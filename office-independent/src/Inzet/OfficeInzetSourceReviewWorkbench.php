@@ -43,6 +43,28 @@ final class OfficeInzetSourceReviewWorkbench {
     if (($report['warnings_complete'] ?? true) !== true) {
       $html .= '<p>Alleen de eerste controlepunten worden getoond; de volledige lijst is groter.</p>';
     }
+    // Summarize only the currently loaded issues. Never present a partial
+    // group count as the total when the source list was truncated.
+    $groups = [];
+    foreach ($issues as $issue) {
+      if (!is_array($issue)) continue;
+      $sheet = (string)($issue['sheet'] ?? 'Onbekend blad');
+      $reason = (string)($issue['reason'] ?? 'Onbekend');
+      $key = $sheet . "\\0" . $reason;
+      if (!isset($groups[$key])) $groups[$key] = ['sheet'=>$sheet, 'reason'=>$reason, 'count'=>0];
+      $groups[$key]['count']++;
+    }
+    uasort($groups, static fn(array $a, array $b): int => $b['count'] <=> $a['count']);
+    if ($groups !== []) {
+      $html .= '<h3>Afwijkingen per werkblad en reden</h3>';
+      $html .= '<p>Groepering van de getoonde controlepunten, niet noodzakelijk alle bronafwijkingen.</p>';
+      $html .= '<table><thead><tr><th>Werkblad</th><th>Reden</th><th>Aantal getoond</th></tr></thead><tbody>';
+      foreach ($groups as $group) {
+        $html .= '<tr><td>'.$escape($group['sheet']).'</td><td>'.$escape($group['reason'])
+          .'</td><td>'.(int)$group['count'].'</td></tr>';
+      }
+      $html .= '</tbody></table>';
+    }
     if ($issues === []) $html .= '<p>Geen afwijkingen gemeld door deze preflight.</p>';
     else {
       $html .= '<table><thead><tr><th>Blad</th><th>Cel</th><th>Reden</th></tr></thead><tbody>';
