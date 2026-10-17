@@ -75,6 +75,8 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
+  require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
+  echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base);
 }
 if ($projects === []) {
   echo '<p>Er zijn nog geen toegankelijke projecten.</p>';
