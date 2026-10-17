@@ -15,7 +15,7 @@ final class OnSitePresenceProjector {
    */
   public function project(array $events): array {
     usort($events, static fn(array $a, array $b): int =>
-      strcmp((string)$a['occurred_at'], (string)$b['occurred_at'])
+      (new \DateTimeImmutable((string)$a['occurred_at']))->getTimestamp() <=> (new \DateTimeImmutable((string)$b['occurred_at']))->getTimestamp()
       ?: strcmp((string)$a['event_id'], (string)$b['event_id']));
     $open = [];
     $sessions = [];
