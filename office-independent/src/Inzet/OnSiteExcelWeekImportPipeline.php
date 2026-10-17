@@ -6,18 +6,19 @@ namespace Brebo\Office\Inzet;
 
 /**
  * Composes XLSX extraction, weekday detection, day rows and review flags.
- * Requires explicit header positions; does not guess supplier, calendar year or project IDs.
+ * Requires explicit header positions and ISO reporting year; never guesses supplier or project IDs.
  */
 final class OnSiteExcelWeekImportPipeline {
   /**
    * @param array<string,mixed> $layout sheet_name => header_row, first_data_row, person_column, project_column
    * @return array{rows:list<array<string,mixed>>,issues:list<array<string,mixed>>}
    */
-  public function import(string $filename, array $layout): array {
+  public function import(string $filename, array $layout, ?int $isoYear = null): array {
     $reader = new OnSiteXlsxCellReader();
     $detector = new OnSiteExcelWeekSheetDetector();
     $extractor = new OnSiteExcelWeekRowExtractor();
     $normalizer = new OnSiteWeeklyTimesheetImport();
+    $dateResolver = new OnSiteWeekDateResolver();
     $book = $reader->read($filename);
     $rows = [];
     $issues = [];
@@ -49,7 +50,15 @@ final class OnSiteExcelWeekImportPipeline {
       }
       $extracted = $extractor->extract($name,$cells,$book['comments'][$sheetId] ?? [],$days,$person,$project,$firstRow);
       $normalized = $normalizer->normalize($extracted['entries']);
-      array_push($rows,...$normalized['rows']);
+      if ($isoYear === null) {
+        foreach ($normalized['rows'] as $row) {
+          $issues[] = ['sheet'=>(string)$row['sheet'],'cell'=>(string)$row['cell'],'reason'=>'reporting_year_required'];
+        }
+      } else {
+        $dated = $dateResolver->attachDates($normalized['rows'], $isoYear);
+        array_push($rows,...$dated['rows']);
+        array_push($issues,...$dated['issues']);
+      }
       array_push($issues,...$extracted['issues'],...$normalized['issues']);
     }
     return ['rows'=>$rows,'issues'=>$issues];
