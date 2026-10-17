@@ -129,7 +129,21 @@ try {
         session_start();
       }
       $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
-      if (is_string($origin) && $origin !== 'https://'.$expectedHost) {
+      // Browsers and privacy gateways may omit Origin on a same-origin form POST.
+      // When supplied, Origin must match the exact HTTPS host; otherwise verify
+      // Referer if available, without ever accepting a different host.
+      $expectedOrigin = 'https://' . $expectedHost;
+      $referer = $_SERVER['HTTP_REFERER'] ?? null;
+      $sameOrigin = static function (string $url) use ($expectedHost): bool {
+        $parts = parse_url($url);
+        return is_array($parts)
+          && ($parts['scheme'] ?? null) === 'https'
+          && ($parts['host'] ?? null) === $expectedHost
+          && (!isset($parts['port']) || $parts['port'] === 443)
+          && !isset($parts['user']) && !isset($parts['pass']);
+      };
+      if ((is_string($origin) && !$sameOrigin($origin))
+        || (!is_string($origin) && is_string($referer) && !$sameOrigin($referer))) {
         http_response_code(403); exit('Ongeldige herkomst.');
       }
       $csrf = $_POST['csrf'] ?? null;
