@@ -105,13 +105,13 @@ final class OfficeInzetReviewDecisionRepository {
         (issue_id, action, target_id, note, reviewer_id, revision, recorded_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)');
       $stmt->execute([$issueId, $action, $targetId, $note, $reviewerId, $next, $now]);
-      $this->db->commit();
+      $this->db->exec('COMMIT');
       return [
         'issue_id'=>$issueId, 'action'=>$action, 'target_id'=>$targetId,
         'note'=>$note, 'reviewer_id'=>$reviewerId, 'revision'=>$next,
       ];
     } catch (\Throwable $e) {
-      if ($this->db->inTransaction()) $this->db->rollBack();
+      try { $this->db->exec('ROLLBACK'); } catch (\PDOException $rollbackFailure) { /* Transaction already ended. */ }
       throw $e;
     }
   }
