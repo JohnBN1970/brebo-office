@@ -13,6 +13,8 @@ if (!class_exists(ZipArchive::class) || !function_exists('simplexml_load_string'
 $tmp = tempnam(sys_get_temp_dir(),'onsite-xlsx-');
 $zip = new ZipArchive();
 if ($zip->open($tmp,ZipArchive::OVERWRITE) !== true) throw new RuntimeException('Fixture ZIP failed.');
+$zip->addFromString('xl/workbook.xml','<?xml version="1.0"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="wk35" sheetId="1" r:id="rId1"/></sheets></workbook>');
+$zip->addFromString('xl/_rels/workbook.xml.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>');
 $zip->addFromString('xl/sharedStrings.xml','<?xml version="1.0"?><sst xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><si><t>maandag</t></si></sst>');
 $zip->addFromString('xl/worksheets/sheet1.xml','<?xml version="1.0"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData><row r="1"><c r="C1" t="s"><v>0</v></c></row><row r="2"><c r="C2"><v>8</v></c></row></sheetData></worksheet>');
 $zip->addFromString('xl/worksheets/_rels/sheet1.xml.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/comments" Target="../comments1.xml"/></Relationships>');
@@ -22,7 +24,8 @@ try {
   $result = (new OnSiteXlsxCellReader())->read($tmp);
   if (($result['cells']['sheet1']['C1'] ?? null) !== 'maandag'
     || ($result['cells']['sheet1']['C2'] ?? null) !== '8'
-    || ($result['comments']['sheet1']['C2'] ?? null) !== '3 uur project B') {
+    || ($result['comments']['sheet1']['C2'] ?? null) !== '3 uur project B'
+    || ($result['sheet_names']['sheet1'] ?? null) !== 'wk35') {
     throw new RuntimeException('XLSX values or notes not extracted.');
   }
 } finally {
