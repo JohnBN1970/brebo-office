@@ -50,7 +50,7 @@ foreach ($names as $name) {
     exit(2);
   }
 }
-foreach ($statements as $index => $sql) {
+// DDL is not transactional on MySQL: verify privileges and schema on test first.\nforeach ($statements as $index => $sql) {
   $db->exec($sql);
   echo "Created: " . $names[$index] . PHP_EOL;
 }
