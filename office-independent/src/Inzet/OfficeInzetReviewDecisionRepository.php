@@ -116,6 +116,25 @@ final class OfficeInzetReviewDecisionRepository {
     }
   }
 
+  /** @return list<array<string,mixed>> */
+  public function audit(int $issueId, int $limit = 100): array {
+    if ($issueId < 1 || $limit < 1 || $limit > 500) {
+      throw new \InvalidArgumentException('Invalid audit request.');
+    }
+    $stmt = $this->db->prepare('SELECT id, issue_id, action, target_id, note, reviewer_id, revision, recorded_at
+      FROM inzet_review_decision_audit WHERE issue_id = ? ORDER BY revision DESC LIMIT ?');
+    $stmt->bindValue(1, $issueId, PDO::PARAM_INT);
+    $stmt->bindValue(2, $limit, PDO::PARAM_INT);
+    $stmt->execute();
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
+  /** @return list<array<string,mixed>> */
+  public function allDecisions(): array {
+    return $this->db->query('SELECT issue_id, action, target_id, note, reviewer_id, revision, updated_at
+      FROM inzet_review_decisions ORDER BY issue_id ASC')->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   /** @return array<string,mixed>|null */
   public function find(int $issueId): ?array {
     if ($issueId < 1) throw new \InvalidArgumentException('Invalid issue ID.');
