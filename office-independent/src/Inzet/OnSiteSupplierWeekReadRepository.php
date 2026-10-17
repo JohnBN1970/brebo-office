@@ -38,7 +38,8 @@ final class OnSiteSupplierWeekReadRepository {
     $sql = 'SELECT DISTINCT i.id, i.supplier_id, i.iso_year, i.iso_week,
                    i.source_sha256, i.source_filename, i.created_at
             FROM office_inzet_supplier_week_imports i
-            INNER JOIN office_inzet_project_suppliers ps ON ps.supplier_id = i.supplier_id
+            INNER JOIN office_inzet_supplier_week_import_projects ip ON ip.import_id = i.id
+            INNER JOIN office_inzet_project_suppliers ps ON ps.supplier_id = i.supplier_id AND ps.project_id = ip.project_id
             INNER JOIN office_project_memberships m ON m.project_id = ps.project_id
             INNER JOIN office_operator_accounts a ON a.id = m.operator_id
             WHERE m.operator_id = :operator AND a.active = 1
