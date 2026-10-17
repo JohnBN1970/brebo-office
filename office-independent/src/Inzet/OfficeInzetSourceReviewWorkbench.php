@@ -10,7 +10,7 @@ namespace Brebo\Office\Inzet;
  */
 final class OfficeInzetSourceReviewWorkbench {
   /** @param array<string,mixed> $report */
-  public static function render(array $report, array $filters = [], array $decisions = []): string {
+  public static function render(array $report, array $filters = [], array $decisions = [], ?string $csrf = null): string {
     $escape = static fn(mixed $v): string =>
       htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-review" aria-labelledby="inzet-review-heading">'
@@ -83,14 +83,28 @@ final class OfficeInzetSourceReviewWorkbench {
     }
     if ($issues === []) $html .= '<p>Geen afwijkingen gemeld door deze preflight.</p>';
     else {
-      $html .= '<table><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th><th>Beoordeling</th></tr></thead><tbody>';
+      $html .= '<table><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th><th>Beoordeling</th><th>Actie</th></tr></thead><tbody>';
       foreach (array_slice($issues, 0, 200) as $issue) {
         if (!is_array($issue)) continue;
         $html .= '<tr><td>'.$escape($issue['issue_id'] ?? '').'</td><td>'
           .$escape($issue['sheet'] ?? '').'</td><td>'.$escape($issue['source_row'] ?? '').'</td><td>'
           .$escape($issue['person'] ?? '').'</td><td>'.$escape($issue['project'] ?? '').'</td><td>'
            .$escape($issue['cell'] ?? '').'</td><td>'.$escape($issue['reason'] ?? '').'</td><td>'
-          .$escape($decisions[(int)($issue['issue_id'] ?? 0)]['action'] ?? 'Open').'</td></tr>';
+           .$escape($decisions[(int)($issue['issue_id'] ?? 0)]['action'] ?? 'Open').'</td><td>';
+        $issueId = (int)($issue['issue_id'] ?? 0);
+        if ($csrf !== null && $issueId > 0) {
+          $revision = (int)($decisions[$issueId]['revision'] ?? 0);
+          $html .= '<form method="post" action=""><input type="hidden" name="csrf" value="'.$escape($csrf).'">'
+            .'<input type="hidden" name="issue_id" value="'.$issueId.'">'
+            .'<input type="hidden" name="revision" value="'.$revision.'">'
+            .'<select name="action" aria-label="Beoordeling voor afwijking '.$issueId.'">'
+            .'<option value="propose_person">Medewerker onderzoeken</option>'
+            .'<option value="propose_project">Project onderzoeken</option>'
+            .'<option value="exclude">Uitsluiten</option></select>'
+            .'<input name="note" maxlength="2000" placeholder="Toelichting" aria-label="Toelichting" required>'
+            .'<button type="submit">Opslaan</button></form>';
+        }
+        $html .= '</td></tr>';
       }
       $html .= '</tbody></table>';
     }
