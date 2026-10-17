@@ -9,7 +9,7 @@ namespace Brebo\Office\Inzet;
  * Never evaluates formulas or runs macros. Caller maps sheets/rows to projects.
  */
 final class OnSiteXlsxCellReader {
-  /** @return array{cells:array<string,array<string,string>>,comments:array<string,array<string,string>>} */
+  /** @return array{cells:array<string,array<string,string>>,comments:array<string,array<string,string>>,sheet_names:array<string,string>} */
   public function read(string $filename, int $maxEntries = 2000, int $maxBytes = 30000000): array {
     if (!class_exists(\ZipArchive::class)) {
       throw new \RuntimeException('PHP ZipArchive is vereist voor XLSX-import.');
@@ -92,7 +92,25 @@ final class OnSiteXlsxCellReader {
           }
         }
       }
-      return ['cells'=>$cells,'comments'=>$bySheet];
+      $sheetNames = [];
+      if (isset($parts['xl/workbook.xml'], $parts['xl/_rels/workbook.xml.rels'])) {
+        $book = $this->xml($parts['xl/workbook.xml']);
+        $rels = $this->xml($parts['xl/_rels/workbook.xml.rels']);
+        $targets = [];
+        foreach ($rels->Relationship as $rel) {
+          $target = (string)$rel['Target'];
+          if (!preg_match('~(?:^|/)sheet[0-9]+\\.xml$~', $target)) continue;
+          $targets[(string)$rel['Id']] = pathinfo($target, PATHINFO_FILENAME);
+        }
+        foreach ($book->sheets->sheet as $sheet) {
+          $attrs = $sheet->attributes('http://schemas.openxmlformats.org/officeDocument/2006/relationships');
+          $relationId = (string)($attrs['id'] ?? '');
+          if (isset($targets[$relationId])) {
+            $sheetNames[$targets[$relationId]] = (string)$sheet['name'];
+          }
+        }
+      }
+      return ['cells'=>$cells,'comments'=>$bySheet,'sheet_names'=>$sheetNames];
     } finally {
       $zip->close();
     }
