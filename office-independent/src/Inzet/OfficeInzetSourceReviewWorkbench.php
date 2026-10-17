@@ -39,7 +39,7 @@ final class OfficeInzetSourceReviewWorkbench {
     }
     $issues = $report['warnings'] ?? [];
     if (!is_array($issues)) $issues = [];
-    $html .= '<details open><summary>Bronafwijkingen ('.(int)($report['warning_count'] ?? count($issues)).')</summary>';
+    $html .= '<details id="afwijkingen" open><summary>Bronafwijkingen ('.(int)($report['warning_count'] ?? count($issues)).')</summary>';
     if (($report['warnings_complete'] ?? true) !== true) {
       $html .= '<p>Alleen de eerste controlepunten worden getoond; de volledige lijst is groter.</p>';
     }
