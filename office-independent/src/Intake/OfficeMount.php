@@ -51,6 +51,7 @@ final class OfficeMount {
       'crm/aanvragen/detail' => '/crm/aanvragen/detail',
       'calc-werkbank' => '/calc-werkbank',
       'projecten/detail' => '/projecten/detail',
+      'inzet/importcontrole' => '/inzet/importcontrole',
     ];
     if (!isset($paths[$name])) {
       throw new \InvalidArgumentException('Unknown Office route.');
