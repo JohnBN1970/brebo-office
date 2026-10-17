@@ -56,7 +56,7 @@ final class OfficeInzetSourceReviewWorkbench {
       if (!is_array($issue)) return false;
       foreach (['person', 'project', 'sheet'] as $field) {
         $needle = trim((string)($filters[$field] ?? ''));
-        if ($needle !== '' && mb_stripos((string)($issue[$field] ?? ''), $needle, 0, 'UTF-8') === false) return false;
+        if ($needle !== '' && stripos((string)($issue[$field] ?? ''), $needle) === false) return false;
       }
       return true;
     }));
