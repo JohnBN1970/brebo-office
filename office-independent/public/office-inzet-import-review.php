@@ -149,7 +149,7 @@ try {
       } catch (RuntimeException $conflict) {
         http_response_code(409); exit('Beoordeling gewijzigd; ververs de pagina.');
       }
-      header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole').'#afwijkingen', true, 303);
+      header('Location: ?#afwijkingen', true, 303);
       exit;
     }
     foreach ($decisionRepo->allDecisions() as $decision) {
