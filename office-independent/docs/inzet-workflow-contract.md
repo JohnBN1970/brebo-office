@@ -51,3 +51,28 @@ Status: ontwerp op de geisoleerde office-test branch. Geen automatische migratie
 ## Implementatiestatus
 
 De onafhankelijke geofence-, zone-, rooster-, pauze- en kloktijdlogica en de read-only project-ACL zijn aanwezig. De Inzet-databasetabellen zijn alleen voorgesteld; de daadwerkelijke schermgegevens, planningwrites, clockwrites en financiele synchronisatie zijn nog niet aangesloten.
+
+
+## Vastgestelde financiele scope - oktober 2026
+
+- BREBO neemt projecten aan tegen een **vaste aanneemsom**; de opbrengst volgt het klantcontract, niet de ingeklokte uren.
+- BREBO huurt uitvoering op **regiebasis in via samenwerkende bedrijven**. Het bedrijf is leverancier en factuurpartij; individuele ingezette personen zijn urenbewijs, niet automatisch een rechtstreekse BREBO-contractpartij.
+- OnSite registreert automatisch IN/UIT op toegewezen projectgeofences, zonder medewerkerbevestiging. Bij ontbrekende locatie, OS-vertraging of onbetrouwbare meting ontstaat een te beoordelen uitzondering; nooit automatisch 'niet gewerkt' of loon-/betalingsinhouding.
+- Leveranciers leveren **wekelijks een Excel-urenstaat** aan, via upload of latere koppeling. Dagregels, originele celcoordinaten, celopmerkingen, projectverdelingen en oorspronkelijke bestandsversie moeten herleidbaar blijven.
+- Vergelijk per **leverancier + persoon + project + datum** met gecontroleerde OnSite-uren. Afwijkingen die elkaar op weekniveau opheffen moeten zichtbaar blijven.
+- Excel-notities kunnen een projectverdeling of afwijking verklaren, maar zijn geen automatische goedkeuring. Niet eenduidige persoons- of projectmapping vraagt review.
+- Na goedkeuring van de weekstaat vergelijkt Finance de leveranciersfactuur met de goedgekeurde uren en overeengekomen regietarieven. Verschillen gaan naar handmatige beoordeling, niet automatische betaling.
+- Projectresultaat: vaste aanneemsom tegenover begrote en werkelijke inhuur-, materiaal- en overige kosten; signaleer verwachte overschrijdingen tijdens uitvoering.
+- Reeds toegevoegde directe persoonsfactuurvergelijking en persoonsopdrachtcontrole zijn **niet de beoogde financiele hoofdroute** en mogen niet zonder leverancierskoppeling in productie worden aangesloten.
+
+## Nog te realiseren voordat Inzet compleet is
+
+1. XLSX parser robuust afronden: workbook/sheet-namen, relationships, commentaren, datumherkenning, formules en test met het aangeleverde praktijkbestand.
+2. Beveiligde Office-upload of e-mail/koppeling, leveranciersidentiteit, versiebeheer en audit van originele bestanden.
+3. Herkenning en review van leverancierssjablonen, persoonsnamen, projecten, dagverdeling en toelichtingen.
+4. OnSite-app achtergrondgeofence en idempotente API koppelen; offline gebeurtenissen, AVG-retentie, uitzonderingen en correcties.
+5. Planning, projectteam, klokgebeurtenissen en urenbeoordeling aansluiten op uitsluitend de testdatabase na expliciete schema-goedkeuring.
+6. Weekstaat-workbench met per-regel afwijking, notitie, correctie, besluit en reviewrechten.
+7. Leveranciersinkoopafspraken, regietarieven, factuurregels en goedgekeurde weekstaten koppelen aan Finance.
+8. Projectbegroting/aanneemsom en werkelijke kosten koppelen voor voortgang, prognose en rendement.
+9. Integratie-, autorisatie-, beveiligings- en acceptatietests; testdeployment en productie uitsluitend na expliciet akkoord.
