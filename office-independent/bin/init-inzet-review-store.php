@@ -20,7 +20,8 @@ $source = realpath($sourcePath);
 $targetDir = realpath(dirname($decisionPath));
 if ($source === false || $targetDir === false || !is_writable($targetDir)
   || !str_starts_with($decisionPath, DIRECTORY_SEPARATOR)
-  || is_link($decisionPath) || $source === $decisionPath) {
+  || is_link($decisionPath) || $source === $decisionPath
+  || (file_exists($decisionPath) && !is_file($decisionPath))) {
   fwrite(STDERR, "Unsafe decision store path.\n");
   exit(1);
 }
@@ -36,7 +37,9 @@ try {
   $decisionDb = new PDO('sqlite:'.$target);
   $decisionDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
   (new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $sourceDb))->install();
-  @chmod($target, 0600);
+  if (!chmod($target, 0600)) {
+    throw new RuntimeException('Could not restrict private decision store permissions.');
+  }
   echo "Private Inzet decision schema ready. No source changes.\n";
 } catch (Throwable $e) {
   fwrite(STDERR, "Private Inzet decision initialization failed.\n");
