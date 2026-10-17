@@ -24,6 +24,9 @@ final class OfficeInzetWeekShiftReadRepository {
       $authorizedProjectIds, static fn(mixed $id): bool => is_int($id) && $id > 0
     )));
     if ($projects === []) return [];
+    if ($isoYear < 2020 || $isoYear > 2100 || $isoWeek < 1 || $isoWeek > 53) {
+      throw new \InvalidArgumentException('Invalid ISO week');
+    }
     $utc = new DateTimeZone('UTC');
     $monday = (new DateTimeImmutable('now', $utc))->setISODate($isoYear, $isoWeek, 1)->setTime(0, 0);
     if ($isoYear < 2020 || $isoYear > 2100 || $isoWeek < 1 || $isoWeek > 53
