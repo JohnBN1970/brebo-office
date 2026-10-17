@@ -92,7 +92,7 @@ if ($inzetView) {
       $authorizedProjectIds = array_map(
         static fn(array $project): int => (int)$project['id'], $projects
       );
-      $weeks = (new \\Brebo\\Office\\Inzet\\OnSiteSupplierWeekReadRepository($db))
+      $weeks = (new \Brebo\Office\Inzet\OnSiteSupplierWeekReadRepository($db))
         ->listVisible((int)$operator->operatorId, $authorizedProjectIds);
       echo '<section style="margin-top:20px"><h2>Leveranciersweekstaten</h2>';
       if ($weeks === []) {
