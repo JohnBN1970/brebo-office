@@ -9,6 +9,13 @@ final class OnSiteSupplierWeekReviewSchema {
   /** @return list<string> */
   public static function statements(): array {
     return [
+      "CREATE TABLE IF NOT EXISTS office_inzet_project_suppliers (
+        project_id BIGINT UNSIGNED NOT NULL,
+        supplier_id BIGINT UNSIGNED NOT NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (project_id, supplier_id),
+        INDEX idx_onsite_project_suppliers_supplier (supplier_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
       "CREATE TABLE IF NOT EXISTS office_inzet_supplier_week_imports (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         supplier_id BIGINT UNSIGNED NOT NULL,
