@@ -20,3 +20,6 @@ Presenter en businesslogica zijn geïsoleerd aanwezig. Er is nog geen geautorise
 - `tests/office_onsite_supplier_week_read_repository_test.php` bevat synthetische integratiecases met dezelfde leverancier op twee projecten, ontoegankelijke projecten en inactieve operator.
 - Nieuwe import-project-koppelingen mogen alleen worden aangemaakt na controle van de inhoud van de weekstaat. Een hele workbook aan alle projecten van een leverancier koppelen is verboden.
 - Dit is een geïsoleerde ontwerp-/testwijziging; testdatabase, navigatie en productie zijn nog niet aangepast.
+
+## Inzet-pagina: implementatie (2026-10-17)
+De bestaande `public/office-projects.php` toont op `office-test/projecten?view=inzet` een alleen-lezen leveranciersweekstaatregister. Vereist bestaande Office-projectflags plus `OFFICE_TEST_SUPPLIER_WEEKS_ENABLED=enabled` en `OFFICE_TEST_SUPPLIER_WEEKS_SCHEMA_VERIFIED=enabled`. Zonder beide flags wordt geen register geladen. De pagina gebruikt de ingelogde operator en uitsluitend server-side geselecteerde projecten; de repository verifieert actieve operator, projectlidmaatschap, project-leverancierskoppeling en import-projectkoppeling. Geen detailweergave, importupload of besluit-POST aangesloten. Flags niet inschakelen voordat de nieuwe tabellen en ACL-isolatie op `office-test` zijn gevalideerd.
