@@ -20,8 +20,8 @@ final class OfficeInzetImportReviewReadRepository {
 
   /** @return array<string,mixed> */
   public function summary(): array {
-    $personLabels = $this->labels('inzet_person_candidates', 'person_label');
-    $projectLabels = $this->labels('inzet_project_candidates', 'project_label');
+    $personLabels = $this->labels('inzet_person_candidates', 'raw_label');
+    $projectLabels = $this->labels('inzet_project_candidates', 'raw_label');
     $rowCount = (int)$this->db->query('SELECT COUNT(*) FROM inzet_source_workbench')->fetchColumn();
     return [
       'row_count'=>$rowCount,
