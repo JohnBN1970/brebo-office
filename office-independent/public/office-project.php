@@ -387,9 +387,47 @@ if ($calculationScopes === null) {
   }
   $scopeHtml .= '</tbody></table>';
 }
+$inzetHtml = '<section id="inzet-uren"><h2>Inzet · urencontrole</h2>';
+if (!\\Brebo\\Office\\Intake\\OfficeMount::isTest()) {
+  $inzetHtml .= '<p>Urencontrole wordt voorbereid in de testomgeving.</p>';
+} else {
+  try {
+    require_once dirname(__DIR__) . '/src/Inzet/OnSitePresenceProjector.php';
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetHoursOverview.php';
+    $inzetOverview = (new \\Brebo\\Office\\Inzet\\OfficeInzetHoursOverview($db))->forProject($operator->operatorId, $projectId);
+    if (!$inzetOverview['available']) {
+      $inzetHtml .= '<p>OnSite-registraties zijn nog niet aangesloten. De testdatabase bevat nog geen klokregistratietabel.</p>';
+    } else {
+      $inzetHtml .= '<p>Alle registraties zijn ter controle; hier worden nog geen uren goedgekeurd.</p>';
+      $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>In</th><th>Uit</th><th>Uren</th><th>Status</th></tr></thead><tbody>';
+      foreach ($inzetOverview['sessions'] as $session) {
+        $inzetHtml .= '<tr><td>' . (int)$session['person_id'] . '</td><td>' . $escape((string)$session['started_at'])
+          . '</td><td>' . $escape((string)$session['ended_at']) . '</td><td>'
+          . number_format(((int)$session['duration_seconds']) / 3600, 2, ',', '.')
+          . '</td><td>Te controleren</td></tr>';
+      }
+      if ($inzetOverview['sessions'] === []) $inzetHtml .= '<tr><td colspan="5">Nog geen complete aanwezigheidssessies.</td></tr>';
+      $inzetHtml .= '</tbody></table><h3>Afwijkingen</h3>';
+      if ($inzetOverview['exceptions'] === []) {
+        $inzetHtml .= '<p>Geen afwijkingen geregistreerd.</p>';
+      } else {
+        $inzetHtml .= '<table><thead><tr><th>Medewerker</th><th>Gebeurtenis</th><th>Afwijking</th></tr></thead><tbody>';
+        foreach ($inzetOverview['exceptions'] as $exception) {
+          $inzetHtml .= '<tr><td>' . (int)$exception['person_id'] . '</td><td>'
+            . $escape((string)$exception['event_id']) . '</td><td>'
+            . $escape((string)$exception['reason']) . '</td></tr>';
+        }
+        $inzetHtml .= '</tbody></table>';
+      }
+    }
+  } catch (Throwable $inzetException) {
+    $inzetHtml .= '<p>Urenoverzicht tijdelijk niet beschikbaar; overige projectgegevens blijven toegankelijk.</p>';
+  }
+}
+$inzetHtml .= '</section>';
 $moduleHtml = '<h2>Projectwerkbank</h2><div class="modules">';
-foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie' => 'Projectscope en calculatierechten nog te koppelen', 'Inzet' => 'Projectteam, planning, beschikbaarheid, urencontrole en kloklocaties: bestaande inzetfuncties, gegevenskoppeling nog te realiseren', 'Planning' => 'Nog niet aangesloten', 'Uitvoering' => 'Nog niet aangesloten', 'Inkoop' => 'Nog niet aangesloten', 'Financiën' => 'Nog niet aangesloten'] as $module => $detail) {
+foreach (['Gebouwen en woningtypen' => 'Gebouwstructuur uitbreiden', 'Calculatie' => 'Projectscope en calculatierechten nog te koppelen', 'Inzet' => 'Projectteam, planning en urencontrole: bekijk het urenoverzicht hieronder', 'Planning' => 'Nog niet aangesloten', 'Uitvoering' => 'Nog niet aangesloten', 'Inkoop' => 'Nog niet aangesloten', 'Financiën' => 'Nog niet aangesloten'] as $module => $detail) {
   $moduleHtml .= '<div class="module"' . ($module === 'Inzet' ? ' id="inzet"' : '') . '><strong>' . $escape($module) . '</strong><small>' . $escape($detail) . '</small></div>';
 }
 $moduleHtml .= '</div>';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $calcBuildingTruthHtml . $calcLinkHtml . $totalsHtml . $formHtml . $scopeHtml . $moduleHtml . '</section></main></body></html>';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Project - BREBO Office</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#1b2634;margin:0}main{max-width:1000px;margin:40px auto;padding:24px}section{background:white;padding:28px;border:1px solid #dbe1e8;border-radius:12px}dt{font-weight:700;margin-top:16px}dd{margin:4px 0}.modules{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.module{border:1px solid #dbe1e8;border-radius:10px;padding:18px;background:#f8fafc}.module strong,.module small{display:block}.module small{color:#58697c;margin-top:8px}form{display:grid;gap:12px;max-width:460px}label{display:grid;gap:5px}input,select,button{padding:10px;font:inherit}table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:10px;border-bottom:1px solid #dbe1e8}</style></head><body><main><p><a href="' . $escape($homeUrl) . '">← Mijn werkplek</a></p><section><h1>' . $escape($project->title) . '</h1><p>Projectgegevens uit BREBO Office</p><dl><dt>Projectnummer</dt><dd>' . $project->identity->projectId . '</dd><dt>Code</dt><dd>' . $escape($project->identity->projectCode) . '</dd><dt>Status</dt><dd>' . $escape($statusLabel) . '</dd></dl>' . $buildingHtml . $housingHtml . $calcBuildingTruthHtml . $calcLinkHtml . $totalsHtml . $formHtml . $scopeHtml . $moduleHtml . $inzetHtml . '</section></main></body></html>';
