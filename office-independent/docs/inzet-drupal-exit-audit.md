@@ -35,3 +35,10 @@ De bestaande `OnSitePresenceController::record()` accepteert uitsluitend `trigge
 ## Stopcondities
 
 Geen claim '100% Drupal-loos' zolang planning, mobiele API, auth, goedkeuring en gegevensopslag niet end-to-end op Office draaien. Geen productiedeploy, migratie, oude-moduleverwijdering of wijziging van iOS API-base-url tijdens deze audit.
+
+## Definitief UX-besluit (2026-10-17)
+**Nieuwe Inzet-schermen worden volledig opnieuw ontworpen en gebouwd als native BREBO Office-schermen.** Geen Drupal-forms, -controllers, templates of schermnavigatie migreren. SBOFFICE blijft alleen functionele referentie en bron van aantoonbaar herbruikbare domeinlogica; elke hergebruikte regel vereist een zelfstandige test en expliciete Office-contractgrens.
+
+**Één modulaire werkplek:** (1) Inzet-dashboard met rollen/KPI/afwijkingen, (2) projectteams en planning met gebouwen en klokzones, (3) dag- en weekurencontrole OnSite versus leveranciers-Excel, (4) leveranciersweekstaatbeoordeling en audit, (5) leveranciersfactuurcontrole en projectkosten via Finance. Alle schermen gebruiken Office-login, Office-projectrechten, gedeelde identiteit en uniforme componenten. Geen nieuwe module-eigen gebruikersdatabase of afzonderlijke navigatiesilo.
+
+**Bouwvolgorde en kwaliteitshek:** begin met native read-only dashboard en projectcontext, daarna bewerkbare planning met server-side ACL en CSRF, dan controle-/reviewwerkbank met immutable bron en audit, pas daarna Finance- en mobiele API-integratie. Bij elke stap: synthetische tests, rechtenproef inclusief meerdere projecten per leverancier, geen fictieve data als echte productiegegevens tonen. Geen schema-activatie, productie-deploy of OnSite endpoint-cutover zonder aparte bevestiging.
