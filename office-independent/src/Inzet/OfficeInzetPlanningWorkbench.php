@@ -14,6 +14,7 @@ final class OfficeInzetPlanningWorkbench {
    * @param list<int> $authorizedProjectIds
    */
   public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week): string {
+    require_once __DIR__ . '/OfficeInzetWeekPlanning.php';
     $rows = OfficeInzetWeekPlanning::rows($shifts, $authorizedProjectIds, $year, $week);
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-week"><h2>Weekplanning ' . $year . '-W'
