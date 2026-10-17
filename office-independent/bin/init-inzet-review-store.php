@@ -26,7 +26,9 @@ if ($source === false || $targetDir === false || !is_writable($targetDir)
   exit(1);
 }
 $target = $targetDir . DIRECTORY_SEPARATOR . basename($decisionPath);
-if ($source === $target || (is_file($target) && realpath($target) === $source)) {
+if ($source === $target || (is_file($target) && realpath($target) === $source)
+  || (is_file($target) && fileinode($target) === fileinode($source)
+    && stat($target)['dev'] === stat($source)['dev'])) {
   fwrite(STDERR, "Source and decision store must differ.\n");
   exit(1);
 }
