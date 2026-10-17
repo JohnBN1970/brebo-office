@@ -36,7 +36,8 @@ final class OnSiteSupplierWeekReviewStore {
     $this->db->beginTransaction();
     try {
       $lookup = $this->db->prepare(
-        'SELECT supplier_id, source_sha256 FROM office_inzet_supplier_week_imports WHERE id = :id FOR UPDATE'
+        'SELECT supplier_id, source_sha256 FROM office_inzet_supplier_week_imports WHERE id = :id'
+        . ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? ' FOR UPDATE' : '')
       );
       $lookup->execute(['id'=>$importId]);
       $source = $lookup->fetch(PDO::FETCH_ASSOC);
