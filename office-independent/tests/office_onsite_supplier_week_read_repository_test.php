@@ -25,13 +25,17 @@ $db->exec("INSERT INTO office_inzet_project_suppliers VALUES (101,3),(102,3)");
 $db->exec("INSERT INTO office_inzet_supplier_week_imports VALUES
   (1,3,2026,35,'aaa','project-a.xlsx','2026-09-01'),
   (2,3,2026,35,'bbb','project-b.xlsx','2026-09-02'),
-  (3,4,2026,35,'ccc','unassigned.xlsx','2026-09-03')");
-$db->exec('INSERT INTO office_inzet_supplier_week_import_projects VALUES (1,101),(2,102),(3,101)');
+  (3,4,2026,35,'ccc','unassigned.xlsx','2026-09-03'),
+  (4,3,2026,35,'ddd','mixed-projects.xlsx','2026-09-04'),
+  (5,3,2026,35,'eee','no-projects.xlsx','2026-09-05')");
+$db->exec('INSERT INTO office_inzet_supplier_week_import_projects VALUES (1,101),(2,102),(3,101),(4,101),(4,102)');
 $repo = new OnSiteSupplierWeekReadRepository($db);
 $visible = $repo->listVisible(7,[101,102]);
 if (count($visible) !== 1 || (int)$visible[0]['id'] !== 1) {
   throw new RuntimeException('Cross-project supplier week disclosure.');
 }
+// Multi-project workbook 4 must not leak to operator 7, even via project 101.
+// Import 5 with no linked projects must also remain invisible.
 if ($repo->listVisible(7,[102]) !== [] || $repo->listVisible(8,[102]) !== []
   || $repo->listVisible(7,[]) !== []) {
   throw new RuntimeException('Inactive operator or unauthorized project received supplier data.');
