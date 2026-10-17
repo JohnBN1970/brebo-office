@@ -28,6 +28,14 @@ final class OnSiteSupplierWeekReviewSchema {
         UNIQUE KEY uq_supplier_week_source (supplier_id, iso_year, iso_week, source_sha256),
         INDEX idx_supplier_week (supplier_id, iso_year, iso_week)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+      "CREATE TABLE IF NOT EXISTS office_inzet_supplier_week_import_projects (
+        import_id BIGINT UNSIGNED NOT NULL,
+        project_id BIGINT UNSIGNED NOT NULL,
+        PRIMARY KEY (import_id, project_id),
+        INDEX idx_onsite_import_project (project_id),
+        CONSTRAINT fk_onsite_import_project_import FOREIGN KEY (import_id)
+          REFERENCES office_inzet_supplier_week_imports(id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
       "CREATE TABLE IF NOT EXISTS office_inzet_supplier_week_decisions (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
         import_id BIGINT UNSIGNED NOT NULL,
