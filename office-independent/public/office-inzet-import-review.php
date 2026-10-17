@@ -89,7 +89,25 @@ try {
     }
     $filters[$field] = trim($value);
   }
-  echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters);
+  $decisionIndex = [];
+  $decisionPath = getenv('OFFICE_TEST_INZET_REVIEW_DECISIONS_SQLITE_PATH');
+  if (is_string($decisionPath) && $decisionPath !== '') {
+    $decisionRealPath = realpath($decisionPath);
+    if ($decisionRealPath === false || !is_file($decisionRealPath) || !is_readable($decisionRealPath)
+      || str_starts_with($decisionRealPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+      || $decisionRealPath === $realPath) {
+      throw new RuntimeException('Private decision store unavailable');
+    }
+    $decisionDb = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($decisionRealPath)).'?mode=ro', null, null, [
+      PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>2,
+    ]);
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
+    $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
+    foreach ($decisionRepo->allDecisions() as $decision) {
+      $decisionIndex[(int)$decision['issue_id']] = $decision;
+    }
+  }
+  echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters, $decisionIndex);
   echo '</main></body></html>';
 } catch (Throwable $exception) {
   http_response_code(503);
