@@ -20,7 +20,7 @@ final class OfficeInzetShiftAssignmentControl {
   public static function validate(array $request, array $managedProjectIds, array $eligiblePersonIds): array {
     $project = filter_var($request['project_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
     $person = filter_var($request['person_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-    if ($project === false || $person === false
+    if (!is_int($project) || !is_int($person)
       || !in_array((int)$project, $managedProjectIds, true)
       || !in_array((int)$person, $eligiblePersonIds, true)) {
       throw new InvalidArgumentException('Project or worker not authorized for assignment.');
