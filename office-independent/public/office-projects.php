@@ -82,4 +82,37 @@ if ($projects === []) {
   }
   echo '</tbody></table>';
 }
+if ($inzetView) {
+  // Test-only, read-only supplier-week register. Never expose the register when
+  // the schema, supplier/project links or operator permissions are unverified.
+  if (getenv('OFFICE_TEST_SUPPLIER_WEEKS_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_SUPPLIER_WEEKS_SCHEMA_VERIFIED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__) . '/src/Inzet/OnSiteSupplierWeekReadRepository.php';
+      $authorizedProjectIds = array_map(
+        static fn(array $project): int => (int)$project['id'], $projects
+      );
+      $weeks = (new \\Brebo\\Office\\Inzet\\OnSiteSupplierWeekReadRepository($db))
+        ->listVisible((int)$operator->operatorId, $authorizedProjectIds);
+      echo '<section style="margin-top:20px"><h2>Leveranciersweekstaten</h2>';
+      if ($weeks === []) {
+        echo '<p>Geen toegankelijke leveranciersweekstaten gevonden.</p>';
+      } else {
+        echo '<table><thead><tr><th>Leverancier</th><th>ISO-week</th><th>Bestand</th><th>Ontvangen</th></tr></thead><tbody>';
+        foreach ($weeks as $week) {
+          echo '<tr><td>' . (int)$week['supplier_id'] . '</td><td>'
+            . (int)$week['iso_year'] . '-W' . str_pad((string)(int)$week['iso_week'], 2, '0', STR_PAD_LEFT)
+            . '</td><td>' . $escape($week['source_filename']) . '</td><td>'
+            . $escape($week['created_at']) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+      }
+      echo '<p>Alleen ter inzage. Beoordeling en factuurvrijgave zijn nog niet beschikbaar.</p></section>';
+    } catch (Throwable $exception) {
+      // Do not reveal SQL errors, source files or unverified supplier data.
+      echo '<section style="margin-top:20px"><h2>Leveranciersweekstaten</h2>'
+        . '<p>Het overzicht is tijdelijk niet beschikbaar.</p></section>';
+    }
+  }
+}
 echo '</section></main></body></html>';
