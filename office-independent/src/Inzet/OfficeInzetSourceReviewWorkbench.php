@@ -39,7 +39,10 @@ final class OfficeInzetSourceReviewWorkbench {
     }
     $issues = $report['warnings'] ?? [];
     if (!is_array($issues)) $issues = [];
-    $html .= '<details open><summary>Bronafwijkingen ('.count($issues).')</summary>';
+    $html .= '<details open><summary>Bronafwijkingen ('.(int)($report['warning_count'] ?? count($issues)).')</summary>';
+    if (($report['warnings_complete'] ?? true) !== true) {
+      $html .= '<p>Alleen de eerste controlepunten worden getoond; de volledige lijst is groter.</p>';
+    }
     if ($issues === []) $html .= '<p>Geen afwijkingen gemeld door deze preflight.</p>';
     else {
       $html .= '<table><thead><tr><th>Blad</th><th>Cel</th><th>Reden</th></tr></thead><tbody>';
