@@ -19,6 +19,7 @@ final class OnSiteSupplierImportPreflight {
     $projects = [];
     $warnings = [];
     $minutes = 0;
+    $validRows = 0;
     foreach ($rows as $row) {
       $sheet = (string)($row['sheet'] ?? '');
       $cell = (string)($row['cell'] ?? '');
@@ -32,6 +33,7 @@ final class OnSiteSupplierImportPreflight {
         continue;
       }
       $minutes += $value;
+      $validRows++;
       if ($person === '') $warnings[] = ['sheet'=>$sheet,'cell'=>$cell,'reason'=>'person_unresolved'];
       if ($project === '') $warnings[] = ['sheet'=>$sheet,'cell'=>$cell,'reason'=>'project_unresolved'];
       if (($row['review_required'] ?? false) === true || trim((string)($row['comment'] ?? '')) !== '') {
@@ -51,6 +53,7 @@ final class OnSiteSupplierImportPreflight {
     sort($projectLabels, SORT_STRING);
     return [
       'row_count'=>count($rows),
+      'valid_minute_row_count'=>$validRows,
       'person_label_count'=>count($personLabels),
       'project_label_count'=>count($projectLabels),
       'person_labels'=>$personLabels,
