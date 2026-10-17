@@ -106,13 +106,18 @@ try {
       || $decisionRealPath === $realPath) {
       throw new RuntimeException('Private decision store unavailable');
     }
-    $decisionDb = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($decisionRealPath)).'?mode=rw', null, null, [
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !is_writable($decisionRealPath)) {
+      throw new RuntimeException('Private decision store is not writable');
+    }
+    $decisionMode = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' ? 'rw' : 'ro';
+    $decisionDb = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($decisionRealPath)).'?mode='.$decisionMode, null, null, [
       PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>2,
     ]);
     require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
     $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
-      if (($_SERVER['CONTENT_TYPE'] ?? '') !== 'application/x-www-form-urlencoded'
+      $contentType = strtolower(trim(explode(';', (string)($_SERVER['CONTENT_TYPE'] ?? ''))[0]));
+      if ($contentType !== 'application/x-www-form-urlencoded'
         || (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 4096) {
         http_response_code(400); exit('Ongeldig verzoek.');
       }
@@ -120,6 +125,10 @@ try {
         session_name('BREBO_INZET_REVIEW');
         session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/']);
         session_start();
+      }
+      $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+      if (is_string($origin) && $origin !== 'https://'.$expectedHost) {
+        http_response_code(403); exit('Ongeldige herkomst.');
       }
       $csrf = $_POST['csrf'] ?? null;
       if (!is_string($csrf) || !is_string($_SESSION['inzet_csrf'] ?? null)
@@ -140,7 +149,7 @@ try {
       } catch (RuntimeException $conflict) {
         http_response_code(409); exit('Beoordeling gewijzigd; ververs de pagina.');
       }
-      header('Location: ?#afwijkingen', true, 303);
+      header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole').'#afwijkingen', true, 303);
       exit;
     }
     foreach ($decisionRepo->allDecisions() as $decision) {
