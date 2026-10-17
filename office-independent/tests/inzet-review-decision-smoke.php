@@ -26,6 +26,9 @@ check($repo->counts(1) === ['open'=>0, 'reviewed'=>1], 'reviewed count');
 $second = $repo->save(10, 'exclude', null, 'Geen urenregel', 1, 1);
 check($second['revision'] === 2, 'second revision');
 check((int)$decisions->query('SELECT COUNT(*) FROM inzet_review_decision_audit')->fetchColumn() === 2, 'audit count');
+check(count($repo->audit(10)) === 2, 'audit history');
+check((int)$repo->audit(10)[0]['revision'] === 2, 'latest audit first');
+check(count($repo->allDecisions()) === 1, 'one current decision');
 
 foreach ([
   fn()=>$repo->save(10, 'exclude', null, 'Conflict', 1, 1),
