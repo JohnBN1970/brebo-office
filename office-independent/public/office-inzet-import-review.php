@@ -70,7 +70,7 @@ try {
     || str_starts_with($realPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
     throw new RuntimeException('Private test source required');
   }
-  $db = new PDO('sqlite:file:'.rawurlencode($realPath).'?mode=ro', null, null, [
+  $db = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($realPath)).'?mode=ro', null, null, [
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_TIMEOUT=>2,
   ]);
