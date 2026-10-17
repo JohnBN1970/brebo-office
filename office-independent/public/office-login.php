@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Brebo\Office\Intake\OfficeMount;
 use Brebo\Office\Intake\WebsiteOfficeLoginController;
 use Brebo\Office\Intake\WebsiteOfficeLoginCsrf;
 use Brebo\Office\Intake\WebsiteOfficeLoginFormRenderer;
@@ -9,6 +10,7 @@ use Brebo\Office\Intake\WebsiteOfficeLoginThrottle;
 use Brebo\Office\Intake\WebsiteOfficeOperatorAuthenticator;
 use Brebo\Office\Intake\WebsiteOfficeCrmSessionIssuer;
 
+require_once __DIR__ . '/../src/Intake/OfficeMount.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginController.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginCsrf.php';
 require_once __DIR__ . '/../src/Intake/WebsiteOfficeLoginFormRenderer.php';
@@ -18,7 +20,7 @@ require_once __DIR__ . '/../src/Intake/WebsiteOfficeCrmSessionIssuer.php';
 
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 header('X-Frame-Options: DENY');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 
@@ -32,12 +34,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET' && ($_SERVER['REQUEST_METHOD'] 
   exit('Methode niet toegestaan.');
 }
 $now = time();
-$csrf = $_COOKIE['office_login_csrf'] ?? null;
+$csrf = $_COOKIE[OfficeMount::cookieName('login_csrf')] ?? null;
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET') {
   $csrf = WebsiteOfficeLoginCsrf::issue();
-  setcookie('office_login_csrf', $csrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
+  setcookie(OfficeMount::cookieName('login_csrf'), $csrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
   header('Content-Type: text/html; charset=utf-8');
-  echo (new WebsiteOfficeLoginFormRenderer())->render($csrf);
+  echo (new WebsiteOfficeLoginFormRenderer())->render($csrf, ($_GET['login_error'] ?? null) === 'credentials');
   exit;
 }
 // Require a same-origin browser POST; the reverse proxy must validate Host.
@@ -90,17 +92,15 @@ catch (Throwable $exception) {
   exit('Office-aanmelding is tijdelijk niet beschikbaar.');
 }
 if ($token === null) {
-  http_response_code(401);
-  $newCsrf = WebsiteOfficeLoginCsrf::issue();
-  setcookie('office_login_csrf', $newCsrf, WebsiteOfficeLoginCsrf::cookieOptions($now + 900));
-  header('Content-Type: text/html; charset=utf-8');
-  echo (new WebsiteOfficeLoginFormRenderer())->render($newCsrf, true);
+  // PRG prevents a failed Office login from triggering the upstream Basic Auth prompt.
+  // The GET issues a fresh CSRF token and displays a generic error message.
+  header('Location: ' . OfficeMount::route('inloggen', ['login_error' => 'credentials']), true, 303);
   exit;
 }
-setcookie('office_login_csrf', '', WebsiteOfficeLoginCsrf::cookieOptions($now - 3600));
-setcookie('office_session', $token, WebsiteOfficeLoginController::cookie($token, $now + 28800));
+setcookie(OfficeMount::cookieName('login_csrf'), '', WebsiteOfficeLoginCsrf::cookieOptions($now - 3600));
+setcookie(OfficeMount::cookieName('session'), $token, WebsiteOfficeLoginController::cookie($token, $now + 28800));
 // Respect the active router namespace; the public /office/ mount uses short routes.
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH);
 // Successful login enters the shared Office home, not a single CRM module.
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-header('Location: ' . ($queryRouter ? '/index.php?office_route=home' : '/office/home'), true, 303);
+header('Location: ' . (OfficeMount::isTest() ? OfficeMount::route('home') : ($queryRouter ? '/index.php?office_route=home' : '/office/home')), true, 303);

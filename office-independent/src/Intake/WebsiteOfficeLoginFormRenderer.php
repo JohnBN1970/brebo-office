@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Brebo\Office\Intake;
 
+require_once __DIR__ . '/OfficeMount.php';
+
 /** Server-rendered, accessible Office sign-in form. */
 final class WebsiteOfficeLoginFormRenderer {
 
@@ -15,7 +17,7 @@ final class WebsiteOfficeLoginFormRenderer {
       ? '<p role="alert" class="error">Aanmelden is niet gelukt. Controleer je gegevens en probeer opnieuw.</p>'
       : '';
     $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-    $action = $queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen';
+    $action = OfficeMount::isTest() ? OfficeMount::route('inloggen') : ($queryRouter ? '/index.php?office_route=inloggen' : '/office/inloggen');
     return '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
       . '<title>Aanmelden · BREBO Office</title><style>:root{font-family:system-ui,-apple-system,Segoe UI,sans-serif;color:#182638;background:#f4f6fa}'
       . '*{box-sizing:border-box}body{min-height:100vh;display:grid;place-items:center;margin:0;padding:1rem}main{width:min(100%,440px);background:white;border:1px solid #dce2ea;border-radius:14px;padding:clamp(1.5rem,4vw,2.5rem);box-shadow:0 10px 30px #18263812}'
