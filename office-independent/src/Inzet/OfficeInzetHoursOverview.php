@@ -28,7 +28,9 @@ final class OfficeInzetHoursOverview {
     $query = $this->db->prepare(
       'SELECT event_id, person_id, project_id, action, occurred_at
        FROM office_inzet_clock_events
-       WHERE project_id = :project_id
+       WHERE person_id IN (
+         SELECT DISTINCT person_id FROM office_inzet_clock_events WHERE project_id = :project_id
+       )
        ORDER BY occurred_at, event_id LIMIT 10000'
     );
     $query->execute([':project_id'=>$projectId]);
