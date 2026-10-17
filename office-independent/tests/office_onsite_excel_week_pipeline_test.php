@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 foreach (['OnSiteXlsxCellReader','OnSiteExcelWeekSheetDetector','OnSiteExcelWeekRowExtractor',
-  'OnSiteWeeklyTimesheetImport','OnSiteExcelWeekImportPipeline'] as $name) {
+  'OnSiteWeeklyTimesheetImport','OnSiteWeekDateResolver','OnSiteExcelWeekImportPipeline'] as $name) {
   require_once dirname(__DIR__).'/src/Inzet/'.$name.'.php';
 }
 use Brebo\Office\Inzet\OnSiteExcelWeekImportPipeline;
@@ -29,10 +29,11 @@ $zip->close();
 try {
   $result = (new OnSiteExcelWeekImportPipeline())->import($tmp,[
     'wk35'=>['header_row'=>1,'first_data_row'=>2,'person_column'=>'B','project_column'=>'C']
-  ]);
+  ], 2026);
   if (count($result['rows']) !== 1 || count($result['issues']) !== 0
     || $result['rows'][0]['minutes'] !== 480 || !$result['rows'][0]['review_required']
-    || $result['rows'][0]['comment'] !== '4 uur ander project') {
+    || $result['rows'][0]['comment'] !== '4 uur ander project'
+    || $result['rows'][0]['date'] !== '2026-08-24') {
     throw new RuntimeException('XLSX pipeline lost hours or notes.');
   }
 } finally {
