@@ -31,4 +31,7 @@ checkReview(str_contains($html, '<td>10</td>'), 'issue id displayed');
 $html = OfficeInzetSourceReviewWorkbench::render($report, ['sheet'=>'week 03']);
 checkReview(str_contains($html, '<td>Bram</td>'), 'week filter');
 checkReview(!str_contains($html, '<td>Anna &amp; Co</td>'), 'other week excluded');
+$html = OfficeInzetSourceReviewWorkbench::render($report, [], [10=>['action'=>'propose_person']]);
+checkReview(str_contains($html, '<td>propose_person</td>'), 'decision shown');
+checkReview(str_contains($html, '<td>Open</td>'), 'unreviewed issue open');
 echo "Inzet review filters smoke: OK\n";
