@@ -19,6 +19,8 @@ final class OnSiteSupplierWeekReviewPresenter {
     $html = '<section class="office-inzet-week" aria-label="Leveranciersurenstaat">'
       .'<h2>Leverancier '.$escape($supplier).' — urencontrole</h2>'
       .'<p>Status: '.$escape($workbench['status'] ?? 'requires_review').'</p>'
+      .'<p>Afwijkende dagregels: '.$escape($workbench['difference_count'] ?? 0)
+      .'; openstaande controlepunten: '.$escape($workbench['issue_count'] ?? 0).'</p>'
       .'<p>OnSite: '.$escape($workbench['onsite_total_minutes'] ?? 0).' minuten; '
       .'leverancier: '.$escape($workbench['supplier_total_minutes'] ?? 0).' minuten</p>'
       .'<table><thead><tr><th>Datum</th><th>Medewerker</th><th>Project</th>'
