@@ -64,7 +64,13 @@ try {
     || !is_readable($path) || str_contains($path, "\0")) {
     throw new RuntimeException('Test source unavailable');
   }
-  $db = new PDO('sqlite:file:'.$path.'?mode=ro', null, null, [
+  $realPath = realpath($path);
+  $documentRoot = realpath((string)($_SERVER['DOCUMENT_ROOT'] ?? ''));
+  if ($realPath === false || $documentRoot === false
+    || str_starts_with($realPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)) {
+    throw new RuntimeException('Private test source required');
+  }
+  $db = new PDO('sqlite:file:'.rawurlencode($realPath).'?mode=ro', null, null, [
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_TIMEOUT=>2,
   ]);
