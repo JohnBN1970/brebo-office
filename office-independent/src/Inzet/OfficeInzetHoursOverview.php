@@ -33,7 +33,7 @@ final class OfficeInzetHoursOverview {
     );
     $query->execute([':project_id'=>$projectId]);
     $events = $query->fetchAll(PDO::FETCH_ASSOC);
-    $projected = (new OnSitePresenceProjector())->project($events);
+    // A project-only event stream cannot reliably pair sessions when a worker\n    // changes projects. Keep these projections explicitly provisional.\n    $projected = (new OnSitePresenceProjector())->project($events);
     return ['available'=>true,'sessions'=>$projected['sessions'],'exceptions'=>$projected['exceptions']];
   }
 }
