@@ -13,7 +13,8 @@ final class OnSiteZoneAuthorization {
         continue;
       }
       foreach (($project['zones'] ?? []) as $zone) {
-        if (is_array($zone) && (string)($zone['id'] ?? '') === $zoneId) {
+        if (is_array($zone) && (string)($zone['id'] ?? '') === $zoneId
+          && ($zone['active'] ?? true) === true) {
           return true;
         }
       }
