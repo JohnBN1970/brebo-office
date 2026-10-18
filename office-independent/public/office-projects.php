@@ -98,7 +98,24 @@ if ($inzetView) {
         ->listWeek($operator->operatorId, $ids, $year, $week);
       $projectNames = [];
       foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
-      echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week, $projectNames);
+      $cancelManageIds = [];
+      $cancelToken = null;
+      if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
+        && getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled') {
+        $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+        if (is_string($secret) && strlen($secret) >= 32) {
+          require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
+          $cancelToken = \Brebo\Office\Inzet\OfficeInzetSessionCsrf::token($operator->sessionId,$secret);
+          $cancelStmt = $db->prepare("SELECT m.project_id FROM office_project_memberships m
+            INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+            WHERE m.operator_id = ? AND m.permission = 'manage' AND a.active = 1");
+          $cancelStmt->execute([$operator->operatorId]);
+          $cancelManageIds = array_map('intval',$cancelStmt->fetchAll(PDO::FETCH_COLUMN));
+        }
+      }
+      echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
+        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken
+      );
       $savedShift = filter_var($_GET['shift_saved'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
         && $savedShift !== false && is_int($savedShift)) {
