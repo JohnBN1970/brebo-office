@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-foreach (['OnSitePlanningProjection','OnSiteProjectionWriter','OnSitePlanningSynchronizer','OnSiteBootstrapRepository'] as $name) {
+foreach (['OnSitePlanningProjection','OnSiteProjectionWriter','OnSitePlanningSynchronizer','OnSitePlanningImport','OnSiteBootstrapRepository'] as $name) {
   require_once __DIR__ . '/../src/Inzet/' . $name . '.php';
 }
 if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) throw new RuntimeException('pdo_sqlite required');
@@ -15,6 +15,17 @@ $db->exec("INSERT INTO onsite_zones VALUES ('z','37','Zone',51.3,4.4,100,1)");
 $writer = new Brebo\Office\Inzet\OnSiteProjectionWriter($db);
 $sync = new Brebo\Office\Inzet\OnSitePlanningSynchronizer(new Brebo\Office\Inzet\OnSitePlanningProjection(), $writer);
 $row = ['project_id'=>37,'user_id'=>12,'assignment_status'=>'planned','plan_date'=>'2026-10-18','start'=>'07:00','end'=>'16:00'];
+$import = new Brebo\Office\Inzet\OnSitePlanningImport($sync);
+$employeeResolver = static fn(int $uid): ?string => $uid === 12 ? 'e' : null;
+$zoneResolver = static fn(int $pid): ?string => $pid === 37 ? 'z' : null;
+if ($import->import($row,$employeeResolver,$zoneResolver)) throw new RuntimeException('Unconfirmed import accepted');
+$row['assignment_status'] = 'confirmed';
+try {
+  $import->import($row,static fn(int $uid): ?string => null,$zoneResolver);
+  throw new RuntimeException('Missing verified identity mapping accepted');
+} catch (InvalidArgumentException $expected) {}
+if (!$import->import($row,$employeeResolver,$zoneResolver)) throw new RuntimeException('Verified canonical import failed');
+$row['assignment_status'] = 'planned';
 if ($sync->stage($row,'e','z')) throw new RuntimeException('Unconfirmed planning staged');
 $row['assignment_status'] = 'confirmed';
 if (!$sync->stage($row,'e','z')) throw new RuntimeException('Confirmed planning not staged');
