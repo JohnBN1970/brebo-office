@@ -14,7 +14,7 @@ use PDO;
 final class OnSiteOfficeShiftRevisionProjection {
   public function __construct(private PDO $db) {}
 
-  public function revise(int $shiftId, string $verifiedEmployeeId, string $verifiedZoneId, string $expectedOldStartUtc): bool {
+  public function revise(int $shiftId, string $verifiedEmployeeId, string $verifiedZoneId, string $expectedOldStartUtc, ?string $expectedOldEndUtc = null): bool {
     if ($shiftId < 1 || trim($verifiedEmployeeId) === '' || trim($verifiedZoneId) === ''
       || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/D',$expectedOldStartUtc)) {
       throw new \InvalidArgumentException('Verified revision identity required');
@@ -33,6 +33,12 @@ final class OnSiteOfficeShiftRevisionProjection {
       || $old->format('Y-m-d H:i:s') !== $expectedOldStartUtc) {
       throw new \InvalidArgumentException('Invalid canonical revision times');
     }
+    if ($expectedOldEndUtc !== null) {
+      $previousEnd = DateTimeImmutable::createFromFormat('!Y-m-d H:i:s',$expectedOldEndUtc,$utc);
+      if (!$previousEnd || $previousEnd->format('Y-m-d H:i:s') !== $expectedOldEndUtc) {
+        throw new \InvalidArgumentException('Invalid expected previous end');
+      }
+    }
     $projectId = (string)(int)$shift['project_id'];
     $this->db->beginTransaction();
     try {
@@ -42,6 +48,11 @@ final class OnSiteOfficeShiftRevisionProjection {
       $select->execute($oldIdentity);
       $previous = $select->fetch(PDO::FETCH_ASSOC);
       if (!$previous) { $this->db->rollBack(); return false; }
+      if ($expectedOldEndUtc !== null && $previous
+        && $previous['valid_until'] !== $previousEnd->format('c')) {
+        throw new \DomainException('Stale OnSite assignment revision');
+      }
+
       if ($old->format('c') === $from->format('c') && $previous['valid_until'] === $until->format('c')) {
         $this->db->commit(); return false;
       }
