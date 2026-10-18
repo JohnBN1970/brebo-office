@@ -1,0 +1,24 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../src/Inzet/OnSiteProjectionWriter.php';
+require_once __DIR__ . '/../src/Inzet/OnSiteBootstrapRepository.php';
+if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) throw new RuntimeException('pdo_sqlite required');
+$db = new PDO('sqlite::memory:', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+$db->exec('CREATE TABLE onsite_employees (employee_id TEXT PRIMARY KEY,display_name TEXT,language TEXT,active INTEGER)');
+$db->exec('CREATE TABLE onsite_projects (project_id TEXT PRIMARY KEY,name TEXT,active INTEGER)');
+$db->exec('CREATE TABLE onsite_zones (zone_id TEXT,project_id TEXT,name TEXT,latitude REAL,longitude REAL,radius_metres REAL,active INTEGER)');
+$db->exec('CREATE TABLE onsite_project_zone_assignments (employee_id TEXT,project_id TEXT,zone_id TEXT,valid_from TEXT,valid_until TEXT,active INTEGER,PRIMARY KEY(employee_id,project_id,zone_id,valid_from))');
+$db->exec("INSERT INTO onsite_employees VALUES ('e','Medewerker','nl',1)");
+$db->exec("INSERT INTO onsite_projects VALUES ('p','Project',1)");
+$db->exec("INSERT INTO onsite_zones VALUES ('z','p','Zone',51.3,4.4,100,0)");
+$writer = new Brebo\Office\Inzet\OnSiteProjectionWriter($db);
+$bootstrap = new Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
+$from = new DateTimeImmutable('2026-10-01T00:00:00+00:00');
+$writer->assign('e','p','z',$from);
+if ($writer->activate('e','p','z',$from)) throw new RuntimeException('Inactive zone activated');
+$db->exec("UPDATE onsite_zones SET active = 1 WHERE zone_id = 'z'");
+if (!$writer->activate('e','p','z',$from)) throw new RuntimeException('Valid assignment not activated');
+if (count($bootstrap->forEmployee('e',new DateTimeImmutable('2026-10-18T09:00:00+00:00'))['projects']) !== 1) throw new RuntimeException('Activated assignment not visible');
+$writer->deactivate('e','p','z');
+if ($bootstrap->forEmployee('e',new DateTimeImmutable('2026-10-18T09:00:00+00:00'))['projects'] !== []) throw new RuntimeException('Deactivated assignment visible');
+echo "OnSiteProjectionWriterTest OK\n";
