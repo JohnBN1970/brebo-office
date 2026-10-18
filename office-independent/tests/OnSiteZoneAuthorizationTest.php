@@ -17,4 +17,7 @@ foreach ([['12','8'],['13','5'],['14','5'],['12','0']] as [$project,$zone]) {
     throw new RuntimeException('Unassigned project-zone pair accepted');
   }
 }
+$assignments[] = ['id'=>'20','zones'=>[['id'=>'1','active'=>true],['id'=>'2','active'=>false]]];
+if (!OnSiteZoneAuthorization::allows($assignments,'20','1')) throw new RuntimeException('Active zone rejected');
+if (OnSiteZoneAuthorization::allows($assignments,'20','2')) throw new RuntimeException('Inactive zone accepted');
 echo "OnSiteZoneAuthorizationTest OK\n";
