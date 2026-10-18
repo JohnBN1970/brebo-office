@@ -84,6 +84,15 @@ if ($inzetView) {
       require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetWeekShiftReadRepository.php';
       $year = (int)gmdate('o');
       $week = (int)gmdate('W');
+      $requestedYear = filter_var($_GET['year'] ?? null, FILTER_VALIDATE_INT);
+      $requestedWeek = filter_var($_GET['week'] ?? null, FILTER_VALIDATE_INT);
+      if ($requestedYear !== false && $requestedWeek !== false && $requestedYear >= 2020 && $requestedYear <= 2100 && $requestedWeek >= 1 && $requestedWeek <= 53) {
+        $date = (new DateTimeImmutable('now',new DateTimeZone('UTC')))->setISODate($requestedYear,$requestedWeek,1);
+        if ((int)$date->format('o') === $requestedYear && (int)$date->format('W') === $requestedWeek) {
+          $year = $requestedYear;
+          $week = $requestedWeek;
+        }
+      }
       $ids = array_map(static fn(array $p): int => (int)$p['id'], $projects);
       $shifts = (new \Brebo\Office\Inzet\OfficeInzetWeekShiftReadRepository($db))
         ->listWeek((int)$operator->operatorId, $ids, $year, $week);
