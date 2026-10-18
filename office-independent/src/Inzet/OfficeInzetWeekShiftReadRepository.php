@@ -45,8 +45,9 @@ final class OfficeInzetWeekShiftReadRepository {
       $holders[] = $key;
       $params[$key] = $id;
     }
-    $sql = 'SELECT s.id, s.project_id, s.person_id, s.starts_at, s.ends_at, s.status
+    $sql = 'SELECT s.id, s.project_id, s.person_id, p.display_name AS person_name, s.starts_at, s.ends_at, s.status
       FROM office_inzet_shifts s
+      LEFT JOIN office_inzet_people p ON p.id = s.person_id
       WHERE s.project_id IN (' . implode(',', $holders) . ')
         AND s.starts_at < :week_end AND s.ends_at > :week_start
         AND EXISTS (
