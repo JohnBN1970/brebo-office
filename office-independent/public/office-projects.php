@@ -159,7 +159,8 @@ if ($inzetView) {
       }
       // Test-only disabled preview. The manager's selectable employees are
       // obtained from Office ACL, not a browser-supplied project or user list.
-      if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled') {
+      if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled'
+        || getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
         require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
         require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetShiftForm.php';
         $manageStmt = $db->prepare("SELECT p.id, p.title FROM office_projects p
@@ -193,7 +194,9 @@ if ($inzetView) {
           echo '</select><button type="submit">Project kiezen</button></form>';
           $manageablePeople = (new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db))
             ->listForOperator($operator->operatorId, (int)$selectedProject['id']);
-          if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
+          if ($manageablePeople === []) {
+            echo '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld. Koppel eerst medewerkers aan het project.</p>';
+          } elseif (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
             require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
             require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetAuthenticatedShiftAction.php';
             $csrfSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
