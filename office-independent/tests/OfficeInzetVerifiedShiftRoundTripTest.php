@@ -32,6 +32,7 @@ foreach ([
     'OfficeInzetShiftCommand.php',
     'OfficeInzetVerifiedShiftCommand.php',
     'OfficeInzetWeekShiftReadRepository.php',
+    'OfficeInzetPlanningWorkbench.php',
 ] as $file) require_once $base . $file;
 
 $db = new OfficeInzetSqliteTestPdo('sqlite::memory:');
@@ -69,6 +70,11 @@ $reader = new OfficeInzetWeekShiftReadRepository($db);
 $week = $reader->listWeek('manager',[17],2026,43);
 if (count($week) !== 1 || (int)$week[0]['id'] !== $id || $week[0]['person_name'] !== 'Test medewerker') {
     throw new RuntimeException('Persisted shift missing from authorized week view');
+}
+$html = OfficeInzetPlanningWorkbench::renderWeek($week,[17],2026,43,[17=>'Testproject']);
+if (!str_contains($html, 'Test medewerker') || !str_contains($html, 'Testproject')
+    || !str_contains($html, '08:00') || !str_contains($html, 'Weekplanning 2026-W43')) {
+    throw new RuntimeException('Persisted shift not rendered in native weekly UI');
 }
 if ($reader->listWeek('intruder',[17],2026,43) !== []) {
     throw new RuntimeException('Unauthorized operator read weekly roster');
