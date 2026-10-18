@@ -89,6 +89,7 @@ jobs:
           php office-independent/tests/OnSitePresenceApiHandlerTest.php
           php office-independent/tests/OnSitePresenceRequestServiceTest.php
           php office-independent/tests/OnSitePresenceHttpBoundaryTest.php
+          php office-independent/tests/OnSitePresenceHttpRuntimeTest.php
           php office-independent/tests/OnSiteZoneAuthorizationTest.php
           php office-independent/tests/OnSiteAssignmentRepositoryTest.php
           php office-independent/tests/OnSitePresenceApplicationTest.php
