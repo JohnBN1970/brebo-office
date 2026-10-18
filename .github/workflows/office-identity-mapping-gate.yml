@@ -39,6 +39,21 @@ on:
       - 'office-independent/src/Inzet/OfficeInzetShiftCsrf.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftPostHandler.php'
       - 'office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Inzet/OfficeInzetDashboard.php'
+      - 'office-independent/src/Intake/WebsiteCrmOperatorContext.php'
+      - 'office-independent/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmSessionRepository.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/public/office-login.php'
+      - 'office-independent/public/office-logout.php'
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/public/onsite-devices.php'
+      - 'office-independent/public/onsite-activate.php'
+      - 'office-independent/public/onsite-bootstrap.php'
+      - 'office-independent/public/onsite-presence.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -88,6 +103,21 @@ jobs:
           php -l office-independent/src/Inzet/OfficeInzetShiftCsrf.php
           php -l office-independent/src/Inzet/OfficeInzetShiftPostHandler.php
           php -l office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php
+          php -l office-independent/src/Intake/OfficeMount.php
+          php -l office-independent/src/Inzet/OfficeInzetDashboard.php
+          php -l office-independent/src/Intake/WebsiteCrmOperatorContext.php
+          php -l office-independent/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php
+          php -l office-independent/src/Intake/WebsiteOfficeCrmSessionRepository.php
+          php -l office-independent/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php
+          php -l office-independent/public/office-home.php
+          php -l office-independent/public/office-login.php
+          php -l office-independent/public/office-logout.php
+          php -l office-independent/public/office-project.php
+          php -l office-independent/public/crm-new-requests.php
+          php -l office-independent/public/onsite-devices.php
+          php -l office-independent/public/onsite-activate.php
+          php -l office-independent/public/onsite-bootstrap.php
+          php -l office-independent/public/onsite-presence.php
       - name: Fail-closed mapping regression
         run: |
           php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
