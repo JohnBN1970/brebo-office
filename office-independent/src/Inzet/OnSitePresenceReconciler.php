@@ -18,7 +18,7 @@ final class OnSitePresenceReconciler {
    */
   public static function reconcile(array $events): array {
     usort($events, static fn(array $a, array $b): int =>
-      strcmp((string)($a['occurred_at'] ?? ''), (string)($b['occurred_at'] ?? '')));
+      (strtotime((string)($a['occurred_at'] ?? '')) ?: 0) <=> (strtotime((string)($b['occurred_at'] ?? '')) ?: 0));
     $seen = [];
     $open = [];
     $sessions = [];
