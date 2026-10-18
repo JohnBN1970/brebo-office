@@ -10,6 +10,16 @@ final class OnSiteEventInbox {
   }
 
   public function migrate(): void {
+    if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+      $this->db->exec("CREATE TABLE IF NOT EXISTS onsite_event_inbox (
+        event_id VARCHAR(36) PRIMARY KEY, employee_id VARCHAR(64) NOT NULL,
+        project_id VARCHAR(64) NOT NULL, zone_id VARCHAR(64) NOT NULL,
+        kind VARCHAR(8) NOT NULL, occurred_at VARCHAR(40) NOT NULL,
+        received_at VARCHAR(40) NOT NULL,
+        INDEX onsite_event_employee_time (employee_id,occurred_at)
+      )");
+      return;
+    }
     $this->db->exec("CREATE TABLE IF NOT EXISTS onsite_event_inbox (
       event_id TEXT PRIMARY KEY, employee_id TEXT NOT NULL,
       project_id TEXT NOT NULL, zone_id TEXT NOT NULL,
