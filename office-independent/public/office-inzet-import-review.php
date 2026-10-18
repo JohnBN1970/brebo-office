@@ -6,7 +6,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
   header('Allow: GET, POST');
@@ -142,8 +142,14 @@ try {
           && (!isset($parts['port']) || $parts['port'] === 443)
           && !isset($parts['user']) && !isset($parts['pass']);
       };
-      if ((is_string($origin) && !$sameOrigin($origin))
-        || (!is_string($origin) && is_string($referer) && !$sameOrigin($referer))) {
+      // A sandboxed browser context may send literal Origin: null.
+      // Accept it only with an explicit, same-origin HTTPS Referer.
+      // Missing Origin remains acceptable for legacy same-origin form POSTs,
+      // but a supplied Referer must always be validated.
+      $opaqueOrigin = $origin === 'null';
+      if (($opaqueOrigin && (!is_string($referer) || !$sameOrigin($referer)))
+        || (is_string($origin) && !$opaqueOrigin && !$sameOrigin($origin))
+        || (is_string($referer) && !$sameOrigin($referer))) {
         http_response_code(403); exit('Ongeldige herkomst.');
       }
       $csrf = $_POST['csrf'] ?? null;
