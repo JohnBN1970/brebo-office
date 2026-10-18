@@ -19,10 +19,10 @@ final class OfficeInzetShiftForm {
       throw new \InvalidArgumentException('Only test Office action allowed');
     }
     if (!preg_match('/^[a-f0-9]{64}$/D', $csrfToken)) {
-      throw new \\InvalidArgumentException('Invalid session CSRF token');
+      throw new \InvalidArgumentException('Invalid session CSRF token');
     }
     $projectId = filter_var($project['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-    if (!is_int($projectId)) throw new \\InvalidArgumentException('Invalid project');
+    if (!is_int($projectId)) throw new \InvalidArgumentException('Invalid project');
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-new-shift"><h2>Nieuwe dienst</h2>'
       . '<form method="post" action="' . $escape($action) . '">'
