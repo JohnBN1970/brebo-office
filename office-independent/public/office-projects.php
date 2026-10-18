@@ -112,7 +112,27 @@ if ($inzetView) {
         $manageStmt->execute([$operator->operatorId]);
         $manageableProjects = $manageStmt->fetchAll(PDO::FETCH_ASSOC);
         if ($manageableProjects !== []) {
+          $requestedProject = filter_var($_GET['shift_project'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
           $selectedProject = $manageableProjects[0];
+          foreach ($manageableProjects as $manageableProject) {
+            if ($requestedProject !== false && (int)$manageableProject['id'] === $requestedProject) {
+              $selectedProject = $manageableProject;
+              break;
+            }
+          }
+          echo '<form method="get" action="/office-test/projecten" aria-label="Project voor dienst kiezen">'
+            . '<input type="hidden" name="view" value="inzet">'
+            . '<input type="hidden" name="year" value="' . (int)$year . '">'
+            . '<input type="hidden" name="week" value="' . (int)$week . '">'
+            . '<label for="shift-project-choice">Project voor nieuwe dienst</label>'
+            . '<select id="shift-project-choice" name="shift_project">';
+          foreach ($manageableProjects as $manageableProject) {
+            $projectId = (int)$manageableProject['id'];
+            echo '<option value="' . $projectId . '"' . ($projectId === (int)$selectedProject['id'] ? ' selected' : '') . '>'
+              . htmlspecialchars((string)$manageableProject['title'], ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8')
+              . '</option>';
+          }
+          echo '</select><button type="submit">Project kiezen</button></form>';
           $manageablePeople = (new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db))
             ->listForOperator($operator->operatorId, (int)$selectedProject['id']);
           echo \Brebo\Office\Inzet\OfficeInzetShiftForm::render([$selectedProject], $manageablePeople);
