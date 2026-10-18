@@ -92,6 +92,7 @@ jobs:
           php office-independent/tests/OnSitePresenceHttpRuntimeTest.php
           php office-independent/tests/OnSiteZoneAuthorizationTest.php
           php office-independent/tests/OnSiteAssignmentRepositoryTest.php
+          php office-independent/tests/OnSiteProjectionWriterTest.php
           php office-independent/tests/OnSitePresenceApplicationTest.php
           php office-independent/tests/OnSiteBootstrapServiceTest.php
           php office-independent/tests/OnSiteBootstrapHttpBoundaryTest.php
