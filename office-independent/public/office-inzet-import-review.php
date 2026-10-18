@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-// Isolated, read-only test review endpoint. No Drupal and no public import.
+// Isolated test review endpoint. Source remains read-only; decisions use a private store.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET', 'POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -77,10 +77,120 @@ try {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetImportReviewReadRepository.php';
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSourceReviewWorkbench.php';
   $report = (new \Brebo\Office\Inzet\OfficeInzetImportReviewReadRepository($db))->summary();
+  // A review session belongs to one authenticated operator only.
+  if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_name('BREBO_INZET_REVIEW');
+    session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/']);
+    session_start();
+  }
+  if (isset($_SESSION['inzet_reviewer_id']) && $_SESSION['inzet_reviewer_id'] !== (int)$operator->operatorId) {
+    $_SESSION = [];
+    session_regenerate_id(true);
+  }
+  $_SESSION['inzet_reviewer_id'] = (int)$operator->operatorId;
+  $filters = [];
+  foreach (['person', 'project', 'sheet'] as $field) {
+    $value = $_GET[$field] ?? '';
+    if (!is_string($value) || strlen($value) > 120) {
+      http_response_code(400);
+      exit('Ongeldig filter.');
+    }
+    $filters[$field] = trim($value);
+  }
+  $decisionIndex = [];
+  $decisionPath = getenv('OFFICE_TEST_INZET_REVIEW_DECISIONS_SQLITE_PATH');
+  $decisionStoreReady = false;
+  if (is_string($decisionPath) && $decisionPath !== '') {
+    $decisionRealPath = realpath($decisionPath);
+    if ($decisionRealPath === false || !is_file($decisionRealPath) || !is_readable($decisionRealPath)
+      || str_starts_with($decisionRealPath, rtrim($documentRoot, DIRECTORY_SEPARATOR).DIRECTORY_SEPARATOR)
+      || $decisionRealPath === $realPath) {
+      throw new RuntimeException('Private decision store unavailable');
+    }
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && !is_writable($decisionRealPath)) {
+      throw new RuntimeException('Private decision store is not writable');
+    }
+    $decisionMode = ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' ? 'rw' : 'ro';
+    $decisionDb = new PDO('sqlite:file:'.str_replace('%2F', '/', rawurlencode($decisionRealPath)).'?mode='.$decisionMode, null, null, [
+      PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION, PDO::ATTR_TIMEOUT=>2,
+    ]);
+    require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
+    $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
+    $decisionStoreReady = true;
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      $contentType = strtolower(trim(explode(';', (string)($_SERVER['CONTENT_TYPE'] ?? ''))[0]));
+      if ($contentType !== 'application/x-www-form-urlencoded'
+        || (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 4096) {
+        http_response_code(400); exit('Ongeldig verzoek.');
+      }
+      if (session_status() !== PHP_SESSION_ACTIVE) {
+        session_name('BREBO_INZET_REVIEW');
+        session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/']);
+        session_start();
+      }
+      $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+      // Browsers and privacy gateways may omit Origin on a same-origin form POST.
+      // When supplied, Origin must match the exact HTTPS host; otherwise verify
+      // Referer if available, without ever accepting a different host.
+      $expectedOrigin = 'https://' . $expectedHost;
+      $referer = $_SERVER['HTTP_REFERER'] ?? null;
+      $sameOrigin = static function (string $url) use ($expectedHost): bool {
+        $parts = parse_url($url);
+        return is_array($parts)
+          && ($parts['scheme'] ?? null) === 'https'
+          && ($parts['host'] ?? null) === $expectedHost
+          && (!isset($parts['port']) || $parts['port'] === 443)
+          && !isset($parts['user']) && !isset($parts['pass']);
+      };
+      // A sandboxed browser context may send literal Origin: null.
+      // Accept it only with an explicit, same-origin HTTPS Referer.
+      // Missing Origin remains acceptable for legacy same-origin form POSTs,
+      // but a supplied Referer must always be validated.
+      $opaqueOrigin = $origin === 'null';
+      if (($opaqueOrigin && (!is_string($referer) || !$sameOrigin($referer)))
+        || (is_string($origin) && !$opaqueOrigin && !$sameOrigin($origin))
+        || (is_string($referer) && !$sameOrigin($referer))) {
+        http_response_code(403); exit('Ongeldige herkomst.');
+      }
+      $csrf = $_POST['csrf'] ?? null;
+      if (!is_string($csrf) || !is_string($_SESSION['inzet_csrf'] ?? null)
+        || !hash_equals($_SESSION['inzet_csrf'], $csrf)) {
+        http_response_code(403); exit('Ongeldige sessiecontrole.');
+      }
+      $issue = filter_var($_POST['issue_id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      $revision = filter_var($_POST['revision'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
+      $action = $_POST['action'] ?? null;
+      $note = $_POST['note'] ?? null;
+      if (!is_int($issue) || !is_int($revision) || !is_string($action) || !is_string($note)) {
+        http_response_code(400); exit('Ongeldige beoordeling.');
+      }
+      try {
+        $decisionRepo->save($issue, $action, null, $note, (int)$operator->operatorId, $revision);
+      } catch (InvalidArgumentException|LogicException $invalid) {
+        http_response_code(422); exit('Beoordeling niet toegestaan.');
+      } catch (RuntimeException $conflict) {
+        http_response_code(409); exit('Beoordeling gewijzigd; ververs de pagina.');
+      }
+      header('Location: '.\Brebo\Office\Intake\OfficeMount::route('inzet/importcontrole').'#afwijkingen', true, 303);
+      exit;
+    }
+    foreach ($decisionRepo->allDecisions() as $decision) {
+      $decisionIndex[(int)$decision['issue_id']] = $decision;
+    }
+  }
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    http_response_code(503); exit('Beslissingenopslag niet geconfigureerd.');
+  }
+  if (session_status() !== PHP_SESSION_ACTIVE) {
+    session_name('BREBO_INZET_REVIEW');
+    session_set_cookie_params(['secure'=>true, 'httponly'=>true, 'samesite'=>'Strict', 'path'=>'/']);
+    session_start();
+  }
+  if (!isset($_SESSION['inzet_csrf'])) $_SESSION['inzet_csrf'] = bin2hex(random_bytes(32));
   header('Content-Type: text/html; charset=utf-8');
   echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px system-ui,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}</style></head><body><main>';
   echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
-  echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report);
+  echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters, $decisionIndex, $decisionStoreReady ? $_SESSION['inzet_csrf'] : null);
   echo '</main></body></html>';
 } catch (Throwable $exception) {
   http_response_code(503);

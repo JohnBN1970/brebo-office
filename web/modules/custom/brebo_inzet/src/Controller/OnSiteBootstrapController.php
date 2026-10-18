@@ -62,9 +62,9 @@ final class OnSiteBootstrapController extends ControllerBase {
       'projects' => $this->assignmentProvider->currentForUser((int) $user->id()),
       'clock_locations' => $this->assignmentProvider->clockLocations(),
       'location_policy' => [
-        'mode' => 'clock_action_only',
+        'mode' => 'automatic_geofence_evidence',
         'background_tracking' => FALSE,
-        'automatic_presence_events' => FALSE,
+        'automatic_presence_events' => TRUE,
         'store_coordinates' => FALSE,
       ],
     ]);

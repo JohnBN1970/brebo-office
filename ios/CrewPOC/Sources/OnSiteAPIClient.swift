@@ -132,6 +132,8 @@ struct OnSiteAPIClient {
     func recordPresence(event: CrewPresenceEvent, deviceToken: String) async throws {
         let formatter = ISO8601DateFormatter()
         let body: [String: String] = [
+            "event_id": event.id.uuidString.lowercased(),
+            "trigger": "automatic_geofence",
             "project_id": event.projectId,
             "zone_id": event.zoneId,
             "kind": event.kind == .enteredProject ? "in" : "out",
@@ -204,9 +206,12 @@ struct OnSiteAPIClient {
 enum OnSiteConfiguration {
     static var apiBaseURL: URL {
         if let configured = Bundle.main.object(forInfoDictionaryKey: "OnSiteAPIBaseURL") as? String,
-           let url = URL(string: configured) {
+           !configured.contains("$("),
+           let url = URL(string: configured),
+           url.scheme == "https",
+           url.host != nil {
             return url
         }
-        return URL(string: "https://sboffice.brebobv.nl")!
+        return URL(string: "https://office.brebobv.nl")!
     }
 }

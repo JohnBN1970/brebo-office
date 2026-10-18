@@ -59,6 +59,23 @@ $routes = [
   '/office-test/projecten' => 'office-projects.php',
   '/office-test/projecten/detail' => 'office-project.php',
 ];
+if ($path === '/office-test/inzet/apparaten') {
+  require $private . '/public/onsite-devices.php';
+  exit;
+}
+if ($path === '/office-test/api/onsite/v1/activate') {
+  require $private . '/public/onsite-activate.php';
+  exit;
+}
+if ($path === '/office-test/api/onsite/v1/bootstrap') {
+  require $private . '/public/onsite-bootstrap.php';
+  exit;
+}
+if ($path === '/office-test/api/onsite/v1/presence') {
+  // Isolated test environment: no production token or assignment fallback.
+  require $private . '/public/onsite-presence.php';
+  exit;
+}
 if (!is_string($path) || !isset($routes[$path])) {
   http_response_code(404);
   exit('Testpagina niet gevonden.');

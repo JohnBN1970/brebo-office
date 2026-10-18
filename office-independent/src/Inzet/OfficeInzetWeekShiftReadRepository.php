@@ -18,8 +18,8 @@ final class OfficeInzetWeekShiftReadRepository {
   /** @param list<int> $authorizedProjectIds
    * @return list<array<string,mixed>>
    */
-  public function listWeek(int $operatorId, array $authorizedProjectIds, int $isoYear, int $isoWeek): array {
-    if ($operatorId < 1) throw new \InvalidArgumentException('Invalid operator');
+  public function listWeek(string $operatorId, array $authorizedProjectIds, int $isoYear, int $isoWeek): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new \InvalidArgumentException('Invalid operator');
     $projects = array_values(array_unique(array_filter(
       $authorizedProjectIds, static fn(mixed $id): bool => is_int($id) && $id > 0
     )));
@@ -45,8 +45,9 @@ final class OfficeInzetWeekShiftReadRepository {
       $holders[] = $key;
       $params[$key] = $id;
     }
-    $sql = 'SELECT s.id, s.project_id, s.person_id, s.starts_at, s.ends_at, s.status
+    $sql = 'SELECT s.id, s.project_id, s.person_id, p.display_name AS person_name, p.personnel_number AS personnel_number, s.starts_at, s.ends_at, s.status
       FROM office_inzet_shifts s
+      LEFT JOIN office_inzet_people p ON p.id = s.person_id
       WHERE s.project_id IN (' . implode(',', $holders) . ')
         AND s.starts_at < :week_end AND s.ends_at > :week_start
         AND EXISTS (

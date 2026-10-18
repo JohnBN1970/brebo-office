@@ -25,7 +25,7 @@ enum CrewPresenceEventKind: String, Codable {
     case leftProject
 }
 
-struct CrewPresenceEvent: Identifiable, Equatable {
+struct CrewPresenceEvent: Identifiable, Equatable, Codable {
     let id: UUID
     let projectId: String
     let zoneId: String

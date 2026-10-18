@@ -83,6 +83,19 @@ $routes = [
   '/crm/aanvragen' => 'crm-new-requests.php',
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if ($path === '/office-test/inzet/dienst/wijzigen') {
+  require $private . '/public/office-inzet-shift-reschedule.php';
+  exit;
+}
+if ($path === '/office-test/inzet/dienst/annuleren') {
+  require $private . '/public/office-inzet-shift-cancel.php';
+  exit;
+}
+if ($path === '/office-test/inzet/dienst/nieuw') {
+  // Explicit test-only write route. Endpoint independently checks all write gates.
+  require $private . '/public/office-inzet-shift-create.php';
+  exit;
+}
 if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
   $_SERVER['OFFICE_QUERY_ROUTER'] = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php' ? '1' : '0';
   $_SERVER['REQUEST_URI'] = '/calc-werkbank';
@@ -93,6 +106,24 @@ if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
 }
 if ($path === '/office/projecten/detail' || $path === '/projecten/detail') {
   require $private . '/public/office-project.php';
+  exit;
+}
+if ($path === '/office/inzet/apparaten' || $path === '/inzet/apparaten') {
+  require $private . '/public/onsite-devices.php';
+  exit;
+}
+if ($path === '/api/onsite/v1/activate' || $path === '/office/api/onsite/v1/activate') {
+  require $private . '/public/onsite-activate.php';
+  exit;
+}
+if ($path === '/api/onsite/v1/bootstrap' || $path === '/office/api/onsite/v1/bootstrap') {
+  require $private . '/public/onsite-bootstrap.php';
+  exit;
+}
+if ($path === '/api/onsite/v1/presence' || $path === '/office/api/onsite/v1/presence') {
+  // Office-native OnSite API; endpoint stays disabled until identity and
+  // project/zone assignment integration are explicitly configured.
+  require $private . '/public/onsite-presence.php';
   exit;
 }
 if ($path === '/calc/start') {

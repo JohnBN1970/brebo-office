@@ -14,6 +14,9 @@ DirectoryIndex index.php
   # Office Calc entry and signed handoff routes; feature flags remain default-off.
   RewriteRule ^calc-werkbank/?$ index.php [END,QSA]
   RewriteRule ^calc/start$ index.php [END,QSA]
+  RewriteRule ^api/onsite/v1/presence/?$ index.php [END,QSA]
+  RewriteRule ^api/onsite/v1/bootstrap/?$ index.php [END,QSA]
+  RewriteRule ^api/onsite/v1/activate/?$ index.php [END,QSA]
   RewriteRule ^api/workbench/v1/calculation-grants/validate/?$ index.php [END,QSA]
   RewriteRule ^api/workbench/v1/projects/[1-9][0-9]*/calculation-context$ index.php [END,QSA]
   # This file is deployed inside public_html/office: Apache matches relative paths.
