@@ -15,11 +15,11 @@ final class OfficeInzetShiftPostHandler {
   public function __construct(private OfficeInzetShiftSubmission $submission) {}
 
   /** @param array<string,mixed> $post */
-  public function handle(string $method, int $operatorId, array $post, ?string $sessionCsrfToken): int {
+  public function handle(string $method, string $operatorId, array $post, ?string $sessionCsrfToken): int {
     if ($method !== 'POST') {
       throw new RuntimeException('Shift changes require POST.');
     }
-    if ($operatorId < 1) {
+    if ($operatorId === '' || strlen($operatorId) > 128) {
       throw new RuntimeException('Authenticated Office operator required.');
     }
     if (!OfficeInzetShiftCsrf::verify($post['csrf_token'] ?? null, $sessionCsrfToken)) {
