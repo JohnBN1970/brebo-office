@@ -95,6 +95,10 @@ if ($path === '/office/projecten/detail' || $path === '/projecten/detail') {
   require $private . '/public/office-project.php';
   exit;
 }
+if ($path === '/office/inzet/apparaten' || $path === '/inzet/apparaten') {
+  require $private . '/public/onsite-devices.php';
+  exit;
+}
 if ($path === '/api/onsite/v1/activate' || $path === '/office/api/onsite/v1/activate') {
   require $private . '/public/onsite-activate.php';
   exit;
