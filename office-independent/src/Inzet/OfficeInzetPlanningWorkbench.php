@@ -31,15 +31,22 @@ final class OfficeInzetPlanningWorkbench {
     $days = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
     $monday = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($year,$week,1)->setTime(0,0);
     $people = [];
+    $personLabels = [];
     foreach ($rows as $row) {
       $name = trim((string)($row['person_name'] ?? ''));
-      $person = $row['person_id'] === null ? 'Niet toegewezen' : ($name !== '' ? $name . ' (#' . (int)$row['person_id'] . ')' : 'Medewerker #' . (int)$row['person_id']);
+      $personId = $row['person_id'];
+      $number = trim((string)($row['personnel_number'] ?? ''));
+      $person = $personId === null ? 'Niet toegewezen' : ($name !== '' ? $name : 'Medewerker')
+        . ($number !== '' ? ' · ' . $number : '') . ' (#' . (int)$personId . ')';
+      // Stable employee ID is the row key, not the displayed name.
+      $personKey = $personId === null ? 'unassigned' : 'person:' . (int)$personId;
+      $personLabels[$personKey] = $person;
       $start = new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC'));
       $finish = new \DateTimeImmutable($row['ends_at'],new \DateTimeZone('UTC'));
       $weekEnd = $monday->modify('+7 days');
       for ($day = $start->setTime(0,0); $day < $finish && $day < $weekEnd; $day = $day->modify('+1 day')) {
         if ($day < $monday) continue;
-        $people[$person][$day->format('Y-m-d')][] = $row;
+        $people[$personKey][$day->format('Y-m-d')][] = $row;
       }
     }
     ksort($people,SORT_NATURAL);
@@ -49,7 +56,8 @@ final class OfficeInzetPlanningWorkbench {
       $html .= '<th scope="col">' . $label . '<small style="display:block">' . $date->format('d-m') . '</small></th>';
     }
     $html .= '</tr></thead><tbody>';
-    foreach ($people as $person => $shiftsByDay) {
+    foreach ($people as $personKey => $shiftsByDay) {
+      $person = $personLabels[$personKey];
       $html .= '<tr><th scope="row" style="text-align:left;white-space:nowrap">' . $escape($person) . '</th>';
       foreach ($days as $offset => $label) {
         $date = $monday->modify('+' . $offset . ' days')->format('Y-m-d');
