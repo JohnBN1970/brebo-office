@@ -17,4 +17,13 @@ if ($s->revise(1,'employee-101','zone-a','2026-10-19 09:00:00')) throw new Runti
 $rows=$db->query('SELECT employee_id,valid_from,valid_until,active FROM onsite_project_zone_assignments ORDER BY employee_id')->fetchAll(PDO::FETCH_ASSOC);
 if (count($rows)!==2 || $rows[0]!==['employee_id'=>'employee-101','valid_from'=>'2026-10-19T09:00:00+00:00','valid_until'=>'2026-10-19T13:00:00+00:00','active'=>0]
   || $rows[1]['active']!=1 || $rows[1]['valid_from']!=='2026-10-19T08:00:00+00:00') throw new RuntimeException('Revision isolation or deactivation failed');
+// End-time-only corrections must update the existing identity, not collide with it.
+$db->exec("UPDATE office_inzet_shifts SET ends_at = '2026-10-19 14:00:00' WHERE id = 1");
+if (!$s->revise(1,'employee-101','zone-a','2026-10-19 09:00:00')) {
+  throw new RuntimeException('End-only revision was rejected');
+}
+$corrected = $db->query("SELECT valid_from,valid_until,active FROM onsite_project_zone_assignments WHERE employee_id='employee-101'")->fetch(PDO::FETCH_ASSOC);
+if ($corrected !== ['valid_from'=>'2026-10-19T09:00:00+00:00','valid_until'=>'2026-10-19T14:00:00+00:00','active'=>0]) {
+  throw new RuntimeException('End-only revision must preserve identity and inactive state');
+}
 echo "OnSite Office revision MySQL OK\n";
