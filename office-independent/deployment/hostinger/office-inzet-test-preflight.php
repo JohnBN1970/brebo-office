@@ -15,6 +15,7 @@ $check = static function (string $label, bool $result) use (&$ok): void {
     $ok = $ok && $result;
 };
 $check('test configuration exists', is_file($configFile));
+$check('CLI execution only', PHP_SAPI === 'cli');
 if (!is_file($configFile)) exit(1);
 $config = require $configFile;
 $check('test configuration is an array', is_array($config));
@@ -32,6 +33,7 @@ $check('shift read enabled and verified', getenv('OFFICE_TEST_INZET_SHIFTS_ENABL
 $check('shift write enabled', getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled');
 $check('session CSRF secret configured', is_string(getenv('OFFICE_TEST_INZET_CSRF_SECRET')) && strlen(getenv('OFFICE_TEST_INZET_CSRF_SECRET')) >= 32);
 $check('Calc launch remains disabled', getenv('OFFICE_CALC_LAUNCH_ENABLED') !== 'enabled');
+$check('test-only router is deployed', is_file('/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php'));
 $required = [
     'public/office-projects.php', 'public/office-inzet-shift-create.php',
     'src/Inzet/OfficeInzetSchema.php', 'src/Inzet/OfficeInzetShiftWriter.php',
