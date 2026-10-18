@@ -15,7 +15,7 @@ final class OfficeInzetShiftSubmission {
   public function __construct(private OfficeInzetShiftCommand $command) {}
 
   /** @param array<string,mixed> $form */
-  public function createForOperator(int $operatorId, array $form): int {
+  public function createForOperator(string $operatorId, array $form): int {
     $start = $form['starts_at_local'] ?? null;
     $end = $form['ends_at_local'] ?? null;
     if (!is_string($start) || !is_string($end)) {
