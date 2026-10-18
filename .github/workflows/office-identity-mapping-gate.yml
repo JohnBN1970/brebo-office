@@ -5,6 +5,8 @@ on:
     paths:
       - 'office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php'
       - 'office-independent/tests/OfficeInzetIdentityMappingGuardTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetProjectIdentityGuard.php'
+      - 'office-independent/tests/OfficeInzetProjectIdentityGuardTest.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -20,5 +22,9 @@ jobs:
         run: |
           php -l office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php
           php -l office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+          php -l office-independent/src/Inzet/OfficeInzetProjectIdentityGuard.php
+          php -l office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
       - name: Fail-closed mapping regression
-        run: php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+        run: |
+          php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+          php office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
