@@ -40,7 +40,7 @@ final class OnSiteOfficeShiftProjection {
       }
       $from = new DateTimeImmutable($starts,$utc);
       $until = new DateTimeImmutable($ends,$utc);
-      if ($until <= $from) continue;
+      if ($from->format('Y-m-d H:i:s') !== $starts || $until->format('Y-m-d H:i:s') !== $ends || $until <= $from) continue;
       if ($this->bridge->stageConfirmed($verifiedEmployees[$personId],(string)$projectId,
         $verifiedZones[$projectId],(string)$shift['status'],$from,$until)) {
         $staged++;
