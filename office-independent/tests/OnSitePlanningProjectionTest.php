@@ -15,4 +15,9 @@ foreach (['25:00','16:00'] as $start) {
   $row['start'] = $start;
   if ($projection->map($row,'verified-employee','verified-zone') !== null) throw new RuntimeException('Invalid planning window published');
 }
+$row['start'] = '07:00';
+$row['end'] = '16:00';
+$row['plan_date'] = '2026-10-25';
+if ($projection->map($row,'verified-employee','verified-zone') !== null)
+  throw new RuntimeException('DST transition day must require manual planning review');
 echo "OnSitePlanningProjectionTest OK\n";
