@@ -2,7 +2,7 @@
 declare(strict_types=1);
 $source = file_get_contents(__DIR__.'/../public/onsite-devices.php');
 if ($source === false) throw new RuntimeException('Device console missing');
-foreach (['OFFICE_ONSITE_ADMIN_ENABLED','OFFICE_ONSITE_SCHEMA_VERIFIED','OFFICE_CRM_SESSION_MODE','currentOperator()','onsite_enrollment_operator_grants','g'] as $needle) {
+foreach (['OFFICE_ONSITE_ADMIN_ENABLED','OFFICE_ONSITE_SCHEMA_VERIFIED','OFFICE_CRM_SESSION_MODE','currentOperator()','onsite_enrollment_operator_grants','OFFICE_ONSITE_ADMIN_ISSUE_ENABLED','onsite_issue_csrf','hash_equals($cookie,$csrf)','HTTP_ORIGIN',"$confirmation !== 'ISSUE'",'OnSiteOperatorActivationService'] as $needle) {
   if (!str_contains($source,$needle)) throw new RuntimeException('Missing device console boundary: '.$needle);
 }
 foreach ([
