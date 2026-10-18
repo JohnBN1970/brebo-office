@@ -31,7 +31,8 @@ final class OnSiteEventInbox {
     }
     try { new \DateTimeImmutable($event['occurred_at']); }
     catch (\Throwable) { throw new InvalidArgumentException('Invalid timestamp'); }
-    $q = $this->db->prepare("INSERT OR IGNORE INTO onsite_event_inbox
+    $insertVerb = $this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql' ? 'INSERT IGNORE' : 'INSERT OR IGNORE';
+    $q = $this->db->prepare("$insertVerb INTO onsite_event_inbox
       (event_id,employee_id,project_id,zone_id,kind,occurred_at,received_at)
       VALUES (?,?,?,?,?,?,?)");
     $q->execute([$event['event_id'],$event['employee_id'],$event['project_id'],
@@ -51,7 +52,7 @@ final class OnSiteEventInbox {
 
   public function eventsForEmployee(string $employeeId): array {
     $q = $this->db->prepare("SELECT event_id,employee_id,project_id,zone_id,kind,occurred_at
-      FROM onsite_event_inbox WHERE employee_id=? ORDER BY strftime('%s', occurred_at),event_id");
+      FROM onsite_event_inbox WHERE employee_id=? ORDER BY occurred_at,event_id");
     $q->execute([$employeeId]);
     return $q->fetchAll(PDO::FETCH_ASSOC);
   }
