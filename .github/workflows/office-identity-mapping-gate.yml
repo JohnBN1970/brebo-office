@@ -55,6 +55,7 @@ on:
       - 'office-independent/public/onsite-bootstrap.php'
       - 'office-independent/public/onsite-presence.php'
       - 'office-independent/tests/OfficeInzetHttpWiringTest.php'
+      - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -120,6 +121,7 @@ jobs:
           php -l office-independent/public/onsite-bootstrap.php
           php -l office-independent/public/onsite-presence.php
           php -l office-independent/tests/OfficeInzetHttpWiringTest.php
+          php -l office-independent/deployment/hostinger/office-inzet-test-preflight.php
       - name: Fail-closed mapping regression
         run: |
           php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
