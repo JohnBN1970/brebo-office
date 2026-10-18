@@ -27,6 +27,25 @@ final class OnSiteOperatorActivationService {
       WHERE g.operator_id = ? AND g.active = 1 LIMIT 1');
     $check->execute([$operator->sessionId, $operator->operatorId]);
     if ($check->fetchColumn() === false) throw new RuntimeException('Device enrollment permission required');
-    return $this->issuer->issue($employeeId, true);
+    // Persist the audit and token in one transaction: never issue an
+    // untraceable activation secret if the audit insert fails.
+    $this->db->beginTransaction();
+    try {
+      $issued = $this->issuer->issue($employeeId, true);
+      $audit = $this->db->prepare('INSERT INTO onsite_activation_issue_audit
+        (operator_id,employee_id,token_hash,issued_at,expires_at) VALUES (?,?,?,?,?)');
+      $audit->execute([
+        $operator->operatorId,
+        $employeeId,
+        hash('sha256', $issued['activation_token']),
+        (new \\DateTimeImmutable('now', new \\DateTimeZone('UTC')))->format('c'),
+        $issued['expires_at'],
+      ]);
+      $this->db->commit();
+      return $issued;
+    } catch (\\Throwable $error) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $error;
+    }
   }
 }
