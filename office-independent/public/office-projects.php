@@ -99,6 +99,19 @@ if ($inzetView) {
       $projectNames = [];
       foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week, $projectNames);
+      $savedShift = filter_var($_GET['shift_saved'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
+        && $savedShift !== false && is_int($savedShift)) {
+        // Confirm only a shift visible to this operator; never trust the query ID.
+        $savedStmt = $db->prepare("SELECT s.id FROM office_inzet_shifts s
+          INNER JOIN office_project_memberships m ON m.project_id = s.project_id
+          INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+          WHERE s.id = ? AND m.operator_id = ? AND m.permission IN ('read','manage') AND a.active = 1 LIMIT 1");
+        $savedStmt->execute([$savedShift, $operator->operatorId]);
+        if ($savedStmt->fetchColumn()) {
+          echo '<p role="status">Dienst #' . $savedShift . ' is opgeslagen.</p>';
+        }
+      }
       // Test-only disabled preview. The manager's selectable employees are
       // obtained from Office ACL, not a browser-supplied project or user list.
       if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled') {
