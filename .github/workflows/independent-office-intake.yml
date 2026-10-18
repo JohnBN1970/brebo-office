@@ -105,6 +105,7 @@ jobs:
           php office-independent/tests/OfficeInzetShiftFormTest.php
           php office-independent/tests/OfficeInzetLocalTimeTest.php
           php office-independent/tests/OfficeInzetShiftSubmissionTest.php
+          php office-independent/tests/OfficeInzetShiftCsrfTest.php
           php office-independent/tests/OnSitePresenceApplicationTest.php
           php office-independent/tests/OnSiteBootstrapServiceTest.php
           php office-independent/tests/OnSiteBootstrapHttpBoundaryTest.php
