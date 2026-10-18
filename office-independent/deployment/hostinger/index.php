@@ -95,6 +95,10 @@ if ($path === '/office/projecten/detail' || $path === '/projecten/detail') {
   require $private . '/public/office-project.php';
   exit;
 }
+if ($path === '/api/onsite/v1/bootstrap' || $path === '/office/api/onsite/v1/bootstrap') {
+  require $private . '/public/onsite-bootstrap.php';
+  exit;
+}
 if ($path === '/api/onsite/v1/presence' || $path === '/office/api/onsite/v1/presence') {
   // Office-native OnSite API; endpoint stays disabled until identity and
   // project/zone assignment integration are explicitly configured.
