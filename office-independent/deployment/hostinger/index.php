@@ -95,6 +95,12 @@ if ($path === '/office/projecten/detail' || $path === '/projecten/detail') {
   require $private . '/public/office-project.php';
   exit;
 }
+if ($path === '/api/onsite/v1/presence' || $path === '/office/api/onsite/v1/presence') {
+  // Office-native OnSite API; endpoint stays disabled until identity and
+  // project/zone assignment integration are explicitly configured.
+  require $private . '/public/onsite-presence.php';
+  exit;
+}
 if ($path === '/calc/start') {
   // Same-origin Office session and permissions are checked by this disabled-by-default endpoint.
   require $private . '/public/calc-start.php';
