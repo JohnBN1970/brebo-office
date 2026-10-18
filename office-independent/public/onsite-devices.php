@@ -89,6 +89,14 @@ try {
   http_response_code(503);
   exit('OnSite-beheer is tijdelijk niet beschikbaar.');
 }
+$csrf = null;
+if (getenv('OFFICE_ONSITE_ADMIN_ISSUE_ENABLED') === 'enabled') {
+  $csrf = bin2hex(random_bytes(32));
+  setcookie('onsite_issue_csrf',$csrf,[
+    'expires'=>time()+600,'path'=>\\Brebo\\Office\\Intake\\OfficeMount::basePath(),
+    'secure'=>true,'httponly'=>true,'samesite'=>'Strict',
+  ]);
+}
 header('Content-Type: text/html; charset=utf-8');
 $h = static fn(string $s): string => htmlspecialchars($s,ENT_QUOTES | ENT_SUBSTITUTE,'UTF-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1><title>Apparaatbeheer · BREBO Office</title><style>body{font:16px system-ui;background:#f4f6fa;color:#172b42;margin:0;padding:2rem}main{max-width:900px;margin:auto;background:white;border-radius:14px;padding:2rem}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:12px;border-bottom:1px solid #ddd}p{color:#536174}</style></head><body><main><h1>OnSite · Apparaatbeheer</h1><p>Alleen bevoegde Office-gebruikers. Apparaten worden niet automatisch gekoppeld.</p><table><thead><tr><th>Medewerker</th><th>Medewerker-ID</th><th>Actieve apparaten</th></tr></thead><tbody>';
@@ -100,11 +108,6 @@ if ($issueResult !== null) {
   echo '<section><h2>Eenmalige activatiecode</h2><p>Deze code wordt slechts eenmaal getoond. Deel deze alleen via een gecontroleerd kanaal met de bedoelde medewerker.</p><p><code>'.$h($issueResult['activation_token']).'</code></p><p>Geldig tot: '.$h($issueResult['expires_at']).'</p></section>';
 }
 if (getenv('OFFICE_ONSITE_ADMIN_ISSUE_ENABLED') === 'enabled') {
-  $csrf = bin2hex(random_bytes(32));
-  setcookie('onsite_issue_csrf',$csrf,[
-    'expires'=>time()+600,'path'=>\\Brebo\\Office\\Intake\\OfficeMount::basePath(),
-    'secure'=>true,'httponly'=>true,'samesite'=>'Strict',
-  ]);
   echo '<section><h2>Apparaat koppelen</h2><p>Controleer eerst de identiteit van de medewerker. Uitgifte wordt geregistreerd.</p><form method="post"><label>Medewerker <select name="employee_id" required>';
   foreach ($employees as $employee) {
     echo '<option value="'.$h((string)$employee['employee_id']).'">'.$h((string)$employee['display_name']).'</option>';
