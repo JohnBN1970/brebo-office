@@ -11,7 +11,7 @@ use InvalidArgumentException;
  * command. Authentication and project/person authorization remain the
  * responsibility of OfficeInzetShiftCommand; never trust client-side IDs.
  */
-final class OfficeInzetShiftSubmission {
+class OfficeInzetShiftSubmission {
   public function __construct(private OfficeInzetShiftCommand $command) {}
 
   /** @param array<string,mixed> $form */
