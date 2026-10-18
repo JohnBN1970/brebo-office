@@ -18,6 +18,17 @@ $row = ['project_id'=>37,'user_id'=>12,'assignment_status'=>'planned','plan_date
 if ($sync->stage($row,'e','z')) throw new RuntimeException('Unconfirmed planning staged');
 $row['assignment_status'] = 'confirmed';
 if (!$sync->stage($row,'e','z')) throw new RuntimeException('Confirmed planning not staged');
+if (!$sync->stage($row,'e','z')) throw new RuntimeException('Repeated identical planning should be idempotent');
+if ((int)$db->query('SELECT COUNT(*) FROM onsite_project_zone_assignments')->fetchColumn() !== 1)
+ throw new RuntimeException('Repeated planning created duplicate assignment');
+$row['end'] = '15:00';
+try {
+  $sync->stage($row,'e','z');
+  throw new RuntimeException('Conflicting planning revision was silently accepted');
+} catch (DomainException $expected) {
+  // Explicit revision workflow required.
+}
+$row['end'] = '16:00';
 $bootstrap = new Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
 if ($bootstrap->forEmployee('e',new DateTimeImmutable('2026-10-18T09:00:00+02:00'))['projects'] !== [])
  throw new RuntimeException('Staged planning became active without review');
