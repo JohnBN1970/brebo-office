@@ -23,10 +23,24 @@ final class OnSiteProjectionWriter {
     if ($employeeId === '' || $projectId === '' || $zoneId === '' || ($until !== null && $until <= $from)) {
       throw new \InvalidArgumentException('Invalid verified Office assignment');
     }
+    // Idempotent staging: repeated canonical planning exports must not
+    // duplicate assignments or silently reactivate a revoked assignment.
+    $query = $this->db->prepare('SELECT valid_until FROM onsite_project_zone_assignments
+      WHERE employee_id = ? AND project_id = ? AND zone_id = ? AND valid_from = ?');
+    $identity = [$employeeId,$projectId,$zoneId,$from->format('c')];
+    $query->execute($identity);
+    $existing = $query->fetchColumn();
+    $end = $until?->format('c');
+    if ($existing !== false) {
+      if ($existing !== $end) {
+        throw new \DomainException('Existing assignment window differs; explicit revision required');
+      }
+      return;
+    }
     $query = $this->db->prepare('INSERT INTO onsite_project_zone_assignments
       (employee_id,project_id,zone_id,valid_from,valid_until,active)
       VALUES (?,?,?,?,?,0)');
-    $query->execute([$employeeId,$projectId,$zoneId,$from->format('c'),$until?->format('c')]);
+    $query->execute([...$identity,$end]);
   }
 
   /**
