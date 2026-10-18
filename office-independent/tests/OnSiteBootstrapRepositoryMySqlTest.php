@@ -34,6 +34,12 @@ $disabled = $repository->forEmployee('bootstrap-test-employee', new DateTimeImmu
 if ($disabled['projects'] !== []) throw new RuntimeException('Inactive assignment exposed');
 $db->prepare('UPDATE onsite_project_zone_assignments SET active = 1 WHERE employee_id = ?')
   ->execute(['bootstrap-test-employee']);
+$db->prepare('UPDATE onsite_projects SET active = 0 WHERE project_id = ?')
+  ->execute(['83721']);
+$inactiveProject = $repository->forEmployee('bootstrap-test-employee', new DateTimeImmutable('2026-10-18T09:00:00+00:00'));
+if ($inactiveProject['projects'] !== []) throw new RuntimeException('Inactive project exposed');
+$db->prepare('UPDATE onsite_projects SET active = 1 WHERE project_id = ?')
+  ->execute(['83721']);
 $db->exec("UPDATE onsite_zones SET active = 0 WHERE zone_id = '83911'");
 if ($repository->forEmployee('bootstrap-test-employee')['projects'] !== []) throw new RuntimeException('Inactive zone exposed');
 echo "OnSiteBootstrapRepositoryMySqlTest OK\n";
