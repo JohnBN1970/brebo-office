@@ -17,6 +17,22 @@ final class OnSiteDeviceTokenRepository {
     )');
   }
 
+
+  public function register(string $token, string $employeeId): void {
+    if (strlen($token) < 32 || trim($employeeId) === '') {
+      throw new \InvalidArgumentException('Invalid device registration');
+    }
+    $query = $this->db->prepare('INSERT INTO onsite_device_tokens (token_hash, employee_id, revoked_at)
+      VALUES (?, ?, NULL)');
+    $query->execute([hash('sha256', $token), $employeeId]);
+  }
+
+  public function revoke(string $token): void {
+    $query = $this->db->prepare('UPDATE onsite_device_tokens SET revoked_at = ?
+      WHERE token_hash = ? AND revoked_at IS NULL');
+    $query->execute([gmdate('c'), hash('sha256', $token)]);
+  }
+
   public function resolve(string $token): ?string {
     if (strlen($token) < 32) return null;
     $query = $this->db->prepare('SELECT employee_id FROM onsite_device_tokens WHERE token_hash = ? AND revoked_at IS NULL');
