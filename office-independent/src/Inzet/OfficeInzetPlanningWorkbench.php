@@ -13,7 +13,7 @@ final class OfficeInzetPlanningWorkbench {
    * @param list<array<string,mixed>> $shifts Pre-filtered by server-side project access
    * @param list<int> $authorizedProjectIds
    */
-  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week, array $projectNames = []): string {
+  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week, array $projectNames = [], array $manageableProjectIds = [], ?string $cancelCsrfToken = null): string {
     require_once __DIR__ . '/OfficeInzetWeekPlanning.php';
     $rows = OfficeInzetWeekPlanning::rows($shifts, $authorizedProjectIds, $year, $week);
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -66,7 +66,17 @@ final class OfficeInzetPlanningWorkbench {
           $html .= '<div style="padding:8px;margin:3px 0;border:1px solid #cddceb;border-radius:8px;background:#f3f7fc">'
             . '<strong>' . $escape($projectNames[(int)$shift['project_id']] ?? ('Project #' . (int)$shift['project_id'])) . '</strong><small style="display:block">'
             . $escape(substr($shift['starts_at'],11,5)) . '–' . $escape(substr($shift['ends_at'],11,5))
-            . '</small><small>' . $escape($shift['status']) . '</small></div>';
+            . '</small><small>' . $escape($shift['status']) . '</small>';
+          if ($cancelCsrfToken !== null && preg_match('/^[a-f0-9]{64}$/D', $cancelCsrfToken)
+            && in_array((int)$shift['project_id'], $manageableProjectIds, true)
+            && in_array($shift['status'], ['planned','confirmed'], true)
+            && (int)($shift['id'] ?? 0) > 0) {
+            $html .= '<form method="post" action="/office-test/inzet/dienst/annuleren">'
+              . '<input type="hidden" name="csrf_token" value="' . $escape($cancelCsrfToken) . '">'
+              . '<input type="hidden" name="shift_id" value="' . (int)$shift['id'] . '">'
+              . '<button type="submit">Annuleren</button></form>';
+          }
+          $html .= '</div>';
         }
         $html .= '</td>';
       }
