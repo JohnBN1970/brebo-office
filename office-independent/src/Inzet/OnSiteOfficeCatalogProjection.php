@@ -32,6 +32,15 @@ final class OnSiteOfficeCatalogProjection {
     $query->execute([$id,$name]);
   }
 
+  public function deactivateProject(string $projectId): int {
+    if (trim($projectId) === '') {
+      throw new InvalidArgumentException('Missing Office project');
+    }
+    $query = $this->db->prepare('UPDATE onsite_projects SET active = 0 WHERE project_id = ?');
+    $query->execute([$projectId]);
+    return $query->rowCount();
+  }
+
   public function zone(string $id, string $projectId, string $name, float $latitude, float $longitude, float $radiusMetres): void {
     if (trim($id) === '' || strlen($id) > 32 || trim($projectId) === '' || strlen($projectId) > 32
       || trim($name) === '' || !is_finite($latitude) || !is_finite($longitude)
