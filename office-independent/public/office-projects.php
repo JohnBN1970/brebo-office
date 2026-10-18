@@ -135,7 +135,20 @@ if ($inzetView) {
           echo '</select><button type="submit">Project kiezen</button></form>';
           $manageablePeople = (new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db))
             ->listForOperator($operator->operatorId, (int)$selectedProject['id']);
-          echo \Brebo\Office\Inzet\OfficeInzetShiftForm::render([$selectedProject], $manageablePeople);
+          if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
+            require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
+            require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetAuthenticatedShiftAction.php';
+            $csrfSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+            if (!is_string($csrfSecret) || strlen($csrfSecret) < 32) {
+              throw new RuntimeException('Shift form security configuration missing');
+            }
+            $csrfToken = \Brebo\Office\Inzet\OfficeInzetSessionCsrf::token($operator->sessionId, $csrfSecret);
+            echo \Brebo\Office\Inzet\OfficeInzetShiftForm::renderEditable(
+              $selectedProject, $manageablePeople, '/office-test/inzet/dienst/nieuw', $csrfToken
+            );
+          } else {
+            echo \Brebo\Office\Inzet\OfficeInzetShiftForm::render([$selectedProject], $manageablePeople);
+          }
         }
       }
     } catch (Throwable $exception) {
