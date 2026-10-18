@@ -19,6 +19,8 @@ on:
       - 'office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php'
       - 'office-independent/tests/OfficeInzetShiftCommandTest.php'
       - 'office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetWeekShiftReadRepository.php'
+      - 'office-independent/tests/OfficeInzetWeekShiftOperatorTest.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftWriter.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftCommand.php'
@@ -51,6 +53,8 @@ jobs:
           php -l office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
           php -l office-independent/tests/OfficeInzetShiftCommandTest.php
           php -l office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php
+          php -l office-independent/src/Inzet/OfficeInzetWeekShiftReadRepository.php
+          php -l office-independent/tests/OfficeInzetWeekShiftOperatorTest.php
           php -l office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php
           php -l office-independent/src/Inzet/OfficeInzetShiftWriter.php
           php -l office-independent/src/Inzet/OfficeInzetShiftCommand.php
@@ -65,3 +69,4 @@ jobs:
           php office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
           php office-independent/tests/OfficeInzetShiftCommandTest.php
           php office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php
+          php office-independent/tests/OfficeInzetWeekShiftOperatorTest.php
