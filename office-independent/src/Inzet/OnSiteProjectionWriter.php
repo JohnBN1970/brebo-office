@@ -29,6 +29,24 @@ final class OnSiteProjectionWriter {
     $query->execute([$employeeId,$projectId,$zoneId,$from->format('c'),$until?->format('c')]);
   }
 
+  /**
+   * Activate only a previously staged assignment after independent Office
+   * verification of employee, project, zone and planning authorization.
+   */
+  public function activate(string $employeeId, string $projectId, string $zoneId, DateTimeImmutable $from): bool {
+    if ($employeeId === '' || $projectId === '' || $zoneId === '') {
+      throw new \InvalidArgumentException('Missing verified assignment identity');
+    }
+    $query = $this->db->prepare('UPDATE onsite_project_zone_assignments SET active = 1
+      WHERE employee_id = ? AND project_id = ? AND zone_id = ? AND valid_from = ?
+      AND EXISTS (SELECT 1 FROM onsite_employees e WHERE e.employee_id = ? AND e.active = 1)
+      AND EXISTS (SELECT 1 FROM onsite_projects p WHERE p.project_id = ? AND p.active = 1)
+      AND EXISTS (SELECT 1 FROM onsite_zones z
+        WHERE z.project_id = ? AND z.zone_id = ? AND z.active = 1)');
+    $query->execute([$employeeId,$projectId,$zoneId,$from->format('c'),$employeeId,$projectId,$projectId,$zoneId]);
+    return $query->rowCount() > 0;
+  }
+
   public function deactivate(string $employeeId, string $projectId, string $zoneId): int {
     if ($employeeId === '' || $projectId === '' || $zoneId === '') {
       throw new \InvalidArgumentException('Missing assignment identity');
