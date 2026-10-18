@@ -16,7 +16,7 @@ final class OnSiteAutomaticIngest {
   ) {}
 
   /**
-   * @param callable(string,string,string):bool $authorized
+   * @param callable(string,string,string,string):bool $authorized
    *   Checks employee/project/zone assignment at the event time.
    * @return array{accepted:bool,event_id:string}
    */
@@ -33,7 +33,7 @@ final class OnSiteAutomaticIngest {
       $payload,
       $receivedAt ?? new DateTimeImmutable('now'),
     );
-    if (!$authorized($verifiedEmployeeId, $event['project_id'], $event['zone_id'])) {
+    if (!$authorized($verifiedEmployeeId, $event['project_id'], $event['zone_id'], $event['occurred_at'])) {
       throw new InvalidArgumentException('Project zone not assigned');
     }
     $event['employee_id'] = $verifiedEmployeeId;
