@@ -32,7 +32,8 @@ final class OfficeInzetPlanningWorkbench {
     $monday = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($year,$week,1)->setTime(0,0);
     $people = [];
     foreach ($rows as $row) {
-      $person = $row['person_id'] === null ? 'Niet toegewezen' : 'Medewerker #' . (int)$row['person_id'];
+      $name = trim((string)($row['person_name'] ?? ''));
+      $person = $row['person_id'] === null ? 'Niet toegewezen' : ($name !== '' ? $name . ' (#' . (int)$row['person_id'] . ')' : 'Medewerker #' . (int)$row['person_id']);
       $day = (new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC')))->format('Y-m-d');
       $people[$person][$day][] = $row;
     }
@@ -58,7 +59,7 @@ final class OfficeInzetPlanningWorkbench {
       }
       $html .= '</tr>';
     }
-    return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Medewerkernamen zijn nog niet gekoppeld; ontbrekende projectnamen tonen een projectnummer.</small></p></section>';
+    return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Ontbrekende medewerker- of projectnamen tonen een nummer.</small></p></section>';
   }
 
   /** @param list<array<string,mixed>> $projects */
