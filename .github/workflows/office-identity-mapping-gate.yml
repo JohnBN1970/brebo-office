@@ -15,6 +15,8 @@ on:
       - 'office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php'
       - 'office-independent/src/Inzet/OfficeInzetVerifiedAssignmentPreflight.php'
       - 'office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetVerifiedShiftCommand.php'
+      - 'office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -40,6 +42,8 @@ jobs:
           php -l office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php
           php -l office-independent/src/Inzet/OfficeInzetVerifiedAssignmentPreflight.php
           php -l office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php
+          php -l office-independent/src/Inzet/OfficeInzetVerifiedShiftCommand.php
+          php -l office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
       - name: Fail-closed mapping regression
         run: |
           php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
@@ -48,3 +52,4 @@ jobs:
           php office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php
           php office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php
           php office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php
+          php office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
