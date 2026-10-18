@@ -13,7 +13,7 @@ final class OfficeInzetPlanningWorkbench {
    * @param list<array<string,mixed>> $shifts Pre-filtered by server-side project access
    * @param list<int> $authorizedProjectIds
    */
-  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week): string {
+  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week, array $projectNames = []): string {
     require_once __DIR__ . '/OfficeInzetWeekPlanning.php';
     $rows = OfficeInzetWeekPlanning::rows($shifts, $authorizedProjectIds, $year, $week);
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -50,7 +50,7 @@ final class OfficeInzetPlanningWorkbench {
         $html .= '<td style="vertical-align:top;min-width:105px">';
         foreach ($shiftsByDay[$date] ?? [] as $shift) {
           $html .= '<div style="padding:8px;margin:3px 0;border:1px solid #cddceb;border-radius:8px;background:#f3f7fc">'
-            . '<strong>Project #' . (int)$shift['project_id'] . '</strong><small style="display:block">'
+            . '<strong>' . $escape($projectNames[(int)$shift['project_id']] ?? ('Project #' . (int)$shift['project_id'])) . '</strong><small style="display:block">'
             . $escape(substr($shift['starts_at'],11,5)) . '–' . $escape(substr($shift['ends_at'],11,5))
             . '</small><small>' . $escape($shift['status']) . '</small></div>';
         }
@@ -58,7 +58,7 @@ final class OfficeInzetPlanningWorkbench {
       }
       $html .= '</tr>';
     }
-    return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Medewerker- en projectnamen worden nog niet opgehaald.</small></p></section>';
+    return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Medewerkernamen zijn nog niet gekoppeld; ontbrekende projectnamen tonen een projectnummer.</small></p></section>';
   }
 
   /** @param list<array<string,mixed>> $projects */
