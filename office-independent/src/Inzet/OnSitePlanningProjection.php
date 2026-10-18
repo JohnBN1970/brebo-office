@@ -27,6 +27,11 @@ final class OnSitePlanningProjection {
       || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D', $end)
       || $end <= $start) return null;
     $tz = $timezone ?? new DateTimeZone('Europe/Brussels');
+    // A daylight-saving transition may make a wall-clock time ambiguous.
+    // Reject transitions instead of silently granting an unintended window.
+    $midnight = new DateTimeImmutable($day . ' 00:00:00', $tz);
+    $nextMidnight = $midnight->modify('+1 day');
+    if ($tz->getOffset($midnight) !== $tz->getOffset($nextMidnight)) return null;
     $from = DateTimeImmutable::createFromFormat('!Y-m-d H:i', "$day $start", $tz);
     $until = DateTimeImmutable::createFromFormat('!Y-m-d H:i', "$day $end", $tz);
     if (!$from || !$until || $from->format('Y-m-d H:i') !== "$day $start"
