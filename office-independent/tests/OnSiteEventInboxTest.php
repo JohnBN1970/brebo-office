@@ -17,9 +17,9 @@ $event = [
   'kind' => 'in',
   'occurred_at' => '2026-10-18T07:00:00+02:00',
 ];
-assert($inbox->receive($event) === true);
-assert($inbox->receive($event) === false);
-assert(count($inbox->eventsForEmployee('employee-1')) === 1);
+if ($inbox->receive($event) !== true) throw new RuntimeException('First event not stored');
+if ($inbox->receive($event) !== false) throw new RuntimeException('Duplicate event stored');
+if (count($inbox->eventsForEmployee('employee-1')) !== 1) throw new RuntimeException('Unexpected event count');
 $conflict = $event;
 $conflict['kind'] = 'out';
 $rejected = false;
