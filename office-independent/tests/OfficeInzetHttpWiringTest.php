@@ -27,6 +27,12 @@ foreach ([
 ] as $gate) {
     if (!str_contains($post,$gate)) throw new RuntimeException('Missing shift POST gate: '.$gate);
 }
+if (!str_contains($page, "|| getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'")) {
+    throw new RuntimeException('Shift form incorrectly requires independent preview flag');
+}
+if (!str_contains($page, 'if ($manageablePeople === [])')) {
+    throw new RuntimeException('Empty project team must not offer a write form');
+}
 foreach ([
     "OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW",
     "OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED",
