@@ -16,4 +16,10 @@ foreach ([
   try { $invalid(); throw new RuntimeException('Invalid projection accepted'); }
   catch (InvalidArgumentException $expected) {}
 }
+if (!str_contains($source,'UPDATE onsite_projects SET active = 0 WHERE project_id = ?'))
+  throw new RuntimeException('Missing explicit Office project revocation');
+try {
+  $projection->deactivateProject('');
+  throw new RuntimeException('Empty Office project revocation accepted');
+} catch (InvalidArgumentException $expected) {}
 echo "OnSiteOfficeCatalogProjectionTest OK\n";
