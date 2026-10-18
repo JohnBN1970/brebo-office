@@ -15,6 +15,7 @@ final class OfficeInzetShiftWriter {
   public function __construct(private PDO $db) {}
 
   public function create(array $request, array $managedProjects, array $eligiblePeople, ?string $operatorId = null): int {
+    require_once __DIR__ . '/OfficeInzetShiftAssignmentControl.php';
     $shift = OfficeInzetShiftAssignmentControl::validate($request,$managedProjects,$eligiblePeople);
     $personId = $shift['person_id'];
     $this->db->beginTransaction();
