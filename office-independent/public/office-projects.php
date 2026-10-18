@@ -116,6 +116,20 @@ if ($inzetView) {
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
         $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
       );
+      $updatedShift = filter_var($_GET['shift_updated'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+      if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
+        && getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
+        && is_int($updatedShift)) {
+        $updatedStmt = $db->prepare("SELECT s.id FROM office_inzet_shifts s
+          INNER JOIN office_project_memberships m ON m.project_id = s.project_id
+          INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+          WHERE s.id = ? AND s.status IN ('planned','confirmed') AND m.operator_id = ?
+            AND m.permission IN ('read','manage') AND a.active = 1 LIMIT 1");
+        $updatedStmt->execute([$updatedShift,$operator->operatorId]);
+        if ($updatedStmt->fetchColumn()) {
+          echo '<p role="status">Dienst #' . $updatedShift . ' is gewijzigd.</p>';
+        }
+      }
       $cancelledShift = filter_var($_GET['shift_cancelled'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
         && getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled'
