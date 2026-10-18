@@ -103,6 +103,7 @@ jobs:
           php office-independent/tests/OfficeInzetShiftCommandTest.php
           php office-independent/tests/OfficeInzetPlanningWorkbenchTest.php
           php office-independent/tests/OfficeInzetShiftFormTest.php
+          php office-independent/tests/OfficeInzetManageablePeopleRepositoryTest.php
           php office-independent/tests/OfficeInzetLocalTimeTest.php
           php office-independent/tests/OfficeInzetShiftSubmissionTest.php
           php office-independent/tests/OfficeInzetShiftCsrfTest.php
