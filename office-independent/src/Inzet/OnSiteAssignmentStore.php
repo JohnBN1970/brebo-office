@@ -10,6 +10,23 @@ final class OnSiteAssignmentStore {
   }
 
   public function migrate(): void {
+    if ($this->db->getAttribute(PDO::ATTR_DRIVER_NAME) === 'mysql') {
+      $this->db->exec('CREATE TABLE IF NOT EXISTS onsite_projects (
+        id VARCHAR(64) PRIMARY KEY, name VARCHAR(255) NOT NULL
+      )');
+      $this->db->exec('CREATE TABLE IF NOT EXISTS onsite_zones (
+        id VARCHAR(64) PRIMARY KEY, project_id VARCHAR(64) NOT NULL,
+        name VARCHAR(255) NOT NULL, latitude DOUBLE NOT NULL,
+        longitude DOUBLE NOT NULL, radius_metres DOUBLE NOT NULL,
+        active TINYINT NOT NULL DEFAULT 1
+      )');
+      $this->db->exec('CREATE TABLE IF NOT EXISTS onsite_assignments (
+        employee_id VARCHAR(64) NOT NULL, project_id VARCHAR(64) NOT NULL,
+        starts_on DATE NOT NULL, ends_on DATE NOT NULL,
+        PRIMARY KEY(employee_id,project_id,starts_on)
+      )');
+      return;
+    }
     $this->db->exec('CREATE TABLE IF NOT EXISTS onsite_projects (
       id TEXT PRIMARY KEY, name TEXT NOT NULL
     )');
