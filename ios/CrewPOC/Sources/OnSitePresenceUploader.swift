@@ -19,8 +19,10 @@ final class OnSitePresenceUploader: ObservableObject {
     }
 
     func uploadNewEvents(_ events: [CrewPresenceEvent]) async {
-        let existing = Set(pending.map(\.id))
-        pending.append(contentsOf: events.filter { !existing.contains($0.id) })
+        var existing = Set(pending.map(\.id))
+        for event in events where existing.insert(event.id).inserted {
+            pending.append(event)
+        }
         persist()
         await flushPending()
     }
