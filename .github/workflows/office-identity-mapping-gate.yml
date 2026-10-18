@@ -9,6 +9,8 @@ on:
       - 'office-independent/tests/OfficeInzetProjectIdentityGuardTest.php'
       - 'office-independent/src/Inzet/OfficeInzetVerifiedAssignmentResolver.php'
       - 'office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetIdentityTargetVerifier.php'
+      - 'office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -28,8 +30,11 @@ jobs:
           php -l office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
           php -l office-independent/src/Inzet/OfficeInzetVerifiedAssignmentResolver.php
           php -l office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php
+          php -l office-independent/src/Inzet/OfficeInzetIdentityTargetVerifier.php
+          php -l office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php
       - name: Fail-closed mapping regression
         run: |
           php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
           php office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
           php office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php
+          php office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php
