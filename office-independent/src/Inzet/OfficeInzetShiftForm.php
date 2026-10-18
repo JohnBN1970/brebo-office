@@ -24,7 +24,7 @@ final class OfficeInzetShiftForm {
     foreach ($people as $person) {
       $id = filter_var($person['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if ($id === false) continue;
-      $html .= '<option value="' . (int)$id . '">' . $escape($person['display_name'] ?? '') . '</option>';
+      $html .= '<option value="' . (int)$id . '">' . $escape(trim((string)($person['display_name'] ?? '')) . ((string)($person['personnel_number'] ?? '') !== '' ? ' · ' . (string)$person['personnel_number'] : '') . ' (#' . (int)$id . ')') . '</option>';
     }
     return $html . '</select><label for="shift-start">Begin (lokale tijd)</label><input id="shift-start" type="datetime-local" disabled>'
       . '<label for="shift-end">Einde (lokale tijd)</label><input id="shift-end" type="datetime-local" disabled>'
