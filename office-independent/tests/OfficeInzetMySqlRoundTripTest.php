@@ -29,6 +29,7 @@ foreach ([
     'OfficeInzetVerifiedShiftCommand.php',
     'OfficeInzetWeekShiftReadRepository.php',
     'OfficeInzetSchema.php',
+    'OfficeInzetPlanningWorkbench.php',
 ] as $file) require_once $base . $file;
 
 $db->exec('CREATE TABLE office_projects (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB');
@@ -53,6 +54,11 @@ $week = (new OfficeInzetWeekShiftReadRepository($db))->listWeek('manager',[17],2
 if (count($week) !== 1 || (int)$week[0]['id'] !== $id || (int)$week[0]['person_id'] !== 101
     || $week[0]['person_name'] !== 'Test medewerker') {
     throw new RuntimeException('MySQL shift not returned in authorized week');
+}
+$html = \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($week,[17],2026,43,[17=>'Testproject']);
+if (!str_contains($html,'Test medewerker') || !str_contains($html,'Testproject')
+    || !str_contains($html,'Weekplanning 2026-W43') || !str_contains($html,'08:00')) {
+    throw new RuntimeException('MySQL persisted shift missing from native week UI');
 }
 if ((new OfficeInzetWeekShiftReadRepository($db))->listWeek('intruder',[17],2026,43) !== []) {
     throw new RuntimeException('Unauthorized MySQL week read');
