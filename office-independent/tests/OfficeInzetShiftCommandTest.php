@@ -23,7 +23,7 @@ $command = new OfficeInzetShiftCommand($db,$writer);
 $base = ['project_id'=>17,'person_id'=>8,'starts_at'=>'2026-10-19 08:00:00','ends_at'=>'2026-10-19 16:00:00'];
 foreach ([[2,$base],[1,array_replace($base,['person_id'=>9])],[1,array_replace($base,['project_id'=>18])]] as [$operator,$request]) {
   $rejected = false;
-  try { $command->createForOperator($operator,$request); } catch (RuntimeException $e) { $rejected = true; }
+  try { $command->createForOperator((string)$operator,$request); } catch (RuntimeException $e) { $rejected = true; }
   if (!$rejected) throw new RuntimeException('Unauthorized shift accepted');
 }
 echo "Office shift authorization checks OK\n";
