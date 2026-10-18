@@ -16,6 +16,8 @@ foreach ([
  array_merge($event,['occurred_at'=>'2026-10-01T10:00:00+00:00']),
  array_merge($event,['latitude'=>51.0]),
  array_merge($event,['zone_id'=>'0']),
+ array_merge($event,['event_id'=>'123e4567-e89b-12d3-a456-42661417400x']),
+ array_merge($event,['occurred_at'=>'2026-10-18T11:59:00']),
 ] as $bad) {
  $rejected = false;
  try { OnSiteAutomaticEventValidator::validate($bad,$now); }
