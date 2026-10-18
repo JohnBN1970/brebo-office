@@ -1,26 +1,48 @@
 import Foundation
 
+/// Durable at-least-once upload queue for geofence evidence.
+/// Acknowledged event IDs are removed only after the server accepts them.
 @MainActor
 final class OnSitePresenceUploader: ObservableObject {
     @Published private(set) var lastError: String?
     @Published private(set) var lastUploadedEventId: UUID?
 
     private let apiClient = OnSiteAPIClient()
-    private var uploaded: Set<UUID> = []
+    private let queueKey = "onsite.pending-presence-events.v1"
+    private var pending: [CrewPresenceEvent] = []
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: queueKey),
+           let restored = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) {
+            pending = restored
+        }
+    }
 
     func uploadNewEvents(_ events: [CrewPresenceEvent]) async {
-        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        let existing = Set(pending.map(\.id))
+        pending.append(contentsOf: events.filter { !existing.contains($0.id) })
+        persist()
+        await flushPending()
+    }
 
-        for event in events where !uploaded.contains(event.id) {
+    func flushPending() async {
+        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        while let event = pending.first {
             do {
                 try await apiClient.recordPresence(event: event, deviceToken: token)
-                uploaded.insert(event.id)
+                pending.removeFirst()
+                persist()
                 lastUploadedEventId = event.id
                 lastError = nil
             } catch {
                 lastError = error.localizedDescription
-                break
+                return
             }
         }
+    }
+
+    private func persist() {
+        guard let data = try? JSONEncoder().encode(pending) else { return }
+        UserDefaults.standard.set(data, forKey: queueKey)
     }
 }
