@@ -46,4 +46,14 @@ final class OnSiteAssignmentStore {
     return $projects;
   }
 
+  public function isAssigned(string $employeeId, string $projectId, string $zoneId, string $occurredAt): bool {
+    $date = (new \DateTimeImmutable($occurredAt))->format('Y-m-d');
+    $q = $this->db->prepare('SELECT 1 FROM onsite_assignments a
+      JOIN onsite_zones z ON z.project_id=a.project_id AND z.active=1
+      WHERE a.employee_id=? AND a.project_id=? AND z.id=?
+        AND a.starts_on<=? AND a.ends_on>=? LIMIT 1');
+    $q->execute([$employeeId,$projectId,$zoneId,$date,$date]);
+    return (bool) $q->fetchColumn();
+  }
+
 }
