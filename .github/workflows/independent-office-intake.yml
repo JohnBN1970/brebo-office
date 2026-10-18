@@ -83,6 +83,11 @@ jobs:
           php office-independent/tests/OfficeCalcAuthenticatedContextGateTest.php
       - name: Verify Hostinger Office deployment routing contract
         run: php office-independent/tests/HostingerOfficeDeploymentContractTest.php
+      - name: Verify Office OnSite device and automatic presence integration
+        run: |
+          php office-independent/tests/OnSiteDeviceTokenRepositoryTest.php
+          php office-independent/tests/OnSitePresenceApiHandlerTest.php
+          php office-independent/tests/OnSitePresenceRequestServiceTest.php
       - name: Run standalone intake validator tests
         run: php office-independent/tests/WebsiteIntakeValidatorTest.php
       - name: Verify independent HTTP endpoint
