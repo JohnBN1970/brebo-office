@@ -1,0 +1,37 @@
+name: Office Inzet MySQL integration
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/**'
+      - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
+      - '.github/workflows/office-inzet-mysql-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql-inzet:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_inzet_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: MySQL transactional Inzet round trip
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: php office-independent/tests/OfficeInzetMySqlRoundTripTest.php
