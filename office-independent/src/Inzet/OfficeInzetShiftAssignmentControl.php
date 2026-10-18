@@ -14,6 +14,30 @@ use InvalidArgumentException;
  * against trusted Office repositories before persisting.
  */
 final class OfficeInzetShiftAssignmentControl {
+  /**
+   * Reject overlapping shifts for the same employee, across all projects.
+   * Existing shifts must be fetched by the trusted Office service, not the browser.
+   * @param list<array<string,mixed>> $existing
+   */
+  public static function assertNoOverlap(array $candidate, array $existing, ?int $excludeShiftId = null): void {
+    $person = (int)($candidate['person_id'] ?? 0);
+    $start = (string)($candidate['starts_at'] ?? '');
+    $end = (string)($candidate['ends_at'] ?? '');
+    if ($person < 1 || $start === '' || $end === '' || $end <= $start) {
+      throw new InvalidArgumentException('Invalid shift for overlap validation.');
+    }
+    foreach ($existing as $shift) {
+      if ($excludeShiftId !== null && (int)($shift['id'] ?? 0) === $excludeShiftId) continue;
+      if ((int)($shift['person_id'] ?? 0) !== $person) continue;
+      if (in_array((string)($shift['status'] ?? ''), ['cancelled','canceled'], true)) continue;
+      $otherStart = (string)($shift['starts_at'] ?? '');
+      $otherEnd = (string)($shift['ends_at'] ?? '');
+      if ($otherStart !== '' && $otherEnd !== '' && $start < $otherEnd && $end > $otherStart) {
+        throw new InvalidArgumentException('Employee has an overlapping shift.');
+      }
+    }
+  }
+
   /** @param array<string,mixed> $request
    * @return array{project_id:int,person_id:int,starts_at:string,ends_at:string,status:string}
    */
