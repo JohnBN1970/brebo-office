@@ -36,9 +36,21 @@ final class OnSiteOfficeCatalogProjection {
     if (trim($projectId) === '') {
       throw new InvalidArgumentException('Missing Office project');
     }
-    $query = $this->db->prepare('UPDATE onsite_projects SET active = 0 WHERE project_id = ?');
-    $query->execute([$projectId]);
-    return $query->rowCount();
+    $this->db->beginTransaction();
+    try {
+      $query = $this->db->prepare('UPDATE onsite_project_zone_assignments SET active = 0 WHERE project_id = ?');
+      $query->execute([$projectId]);
+      $query = $this->db->prepare('UPDATE onsite_zones SET active = 0 WHERE project_id = ?');
+      $query->execute([$projectId]);
+      $query = $this->db->prepare('UPDATE onsite_projects SET active = 0 WHERE project_id = ?');
+      $query->execute([$projectId]);
+      $affected = $query->rowCount();
+      $this->db->commit();
+      return $affected;
+    } catch (\Throwable $error) {
+      $this->db->rollBack();
+      throw $error;
+    }
   }
 
   public function zone(string $id, string $projectId, string $name, float $latitude, float $longitude, float $radiusMetres): void {
