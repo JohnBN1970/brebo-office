@@ -38,12 +38,12 @@ final class OnSiteOperatorActivationService {
         $operator->operatorId,
         $employeeId,
         hash('sha256', $issued['activation_token']),
-        (new \\DateTimeImmutable('now', new \\DateTimeZone('UTC')))->format('c'),
+        (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->format('c'),
         $issued['expires_at'],
       ]);
       $this->db->commit();
       return $issued;
-    } catch (\\Throwable $error) {
+    } catch (\Throwable $error) {
       if ($this->db->inTransaction()) $this->db->rollBack();
       throw $error;
     }
