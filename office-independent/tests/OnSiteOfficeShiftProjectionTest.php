@@ -1,0 +1,17 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../src/Inzet/OnSiteProjectionWriter.php';
+require_once __DIR__ . '/../src/Inzet/OnSiteOfficePlanningBridge.php';
+require_once __DIR__ . '/../src/Inzet/OnSiteOfficeShiftProjection.php';
+if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) throw new RuntimeException('SQLite required');
+$db = new PDO('sqlite::memory:');
+$db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+$db->exec('CREATE TABLE office_inzet_shifts (id INTEGER, project_id INTEGER, person_id INTEGER, starts_at TEXT, ends_at TEXT, status TEXT)');
+$db->exec('CREATE TABLE onsite_project_zone_assignments (employee_id TEXT, project_id TEXT, zone_id TEXT, valid_from TEXT, valid_until TEXT, active INTEGER, PRIMARY KEY(employee_id,project_id,zone_id,valid_from))');
+$db->prepare('INSERT INTO office_inzet_shifts VALUES (1,17,8,?,?,?)')->execute(['2026-10-19 07:00:00','2026-10-19 16:00:00','confirmed']);
+$bridge = new Brebo\Office\Inzet\OnSiteOfficePlanningBridge(new Brebo\Office\Inzet\OnSiteProjectionWriter($db));
+$projection = new Brebo\Office\Inzet\OnSiteOfficeShiftProjection($db,$bridge);
+if ($projection->stageProject(17,[8=>'employee-8'],[17=>'zone-17']) !== 1) throw new RuntimeException('Shift not staged');
+if ($projection->stageProject(17,[8=>'employee-8'],[17=>'zone-17']) !== 1) throw new RuntimeException('Retry not idempotent');
+if ((int)$db->query('SELECT COUNT(*) FROM onsite_project_zone_assignments WHERE active = 0')->fetchColumn() !== 1) throw new RuntimeException('Unsafe staging');
+echo "OnSiteOfficeShiftProjectionTest OK\n";
