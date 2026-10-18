@@ -74,8 +74,8 @@ try {
     foreach (['OnSiteActivationIssuer.php','OnSiteOperatorActivationService.php'] as $file) {
       require_once dirname(__DIR__).'/src/Inzet/'.$file;
     }
-    $issuer = new \\Brebo\\Office\\Inzet\\OnSiteOperatorActivationService(
-      $db,new \\Brebo\\Office\\Inzet\\OnSiteActivationIssuer($db)
+    $issuer = new \Brebo\Office\\Inzet\\OnSiteOperatorActivationService(
+      $db,new \Brebo\Office\\Inzet\\OnSiteActivationIssuer($db)
     );
     $issueResult = $issuer->issue($operator,$employeeId);
   }
@@ -93,7 +93,7 @@ $csrf = null;
 if (getenv('OFFICE_ONSITE_ADMIN_ISSUE_ENABLED') === 'enabled') {
   $csrf = bin2hex(random_bytes(32));
   setcookie('onsite_issue_csrf',$csrf,[
-    'expires'=>time()+600,'path'=>\\Brebo\\Office\\Intake\\OfficeMount::basePath(),
+    'expires'=>time()+600,'path'=>\Brebo\Office\\Intake\\OfficeMount::basePath(),
     'secure'=>true,'httponly'=>true,'samesite'=>'Strict',
   ]);
 }
