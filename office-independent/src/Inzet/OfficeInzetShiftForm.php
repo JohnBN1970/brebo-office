@@ -12,7 +12,7 @@ final class OfficeInzetShiftForm {
   public static function render(array $projects, array $people): string {
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-new-shift"><h2>Nieuwe dienst</h2>'
-      . '<p>Voorbereiding: opslaan is nog niet ingeschakeld.</p>'
+      . '<p>Voorbeeld voor één project: alleen medewerkers van dit project. Opslaan is nog niet ingeschakeld.</p>'
       . '<form aria-label="Nieuwe dienst voorbereiden" onsubmit="return false">'
       . '<label for="shift-project">Project</label><select id="shift-project" disabled>';
     foreach ($projects as $project) {
