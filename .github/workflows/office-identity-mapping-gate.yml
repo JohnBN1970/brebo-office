@@ -1,0 +1,24 @@
+name: Office identity mapping gate
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php'
+      - 'office-independent/tests/OfficeInzetIdentityMappingGuardTest.php'
+      - '.github/workflows/office-identity-mapping-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity-mapping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php
+          php -l office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+      - name: Fail-closed mapping regression
+        run: php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
