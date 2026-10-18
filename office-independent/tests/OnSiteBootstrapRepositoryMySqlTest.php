@@ -26,6 +26,14 @@ $db->prepare('UPDATE onsite_project_zone_assignments SET valid_until = ? WHERE e
   ->execute(['2026-10-18T10:00:00+00:00','bootstrap-test-employee']);
 $expired = $repository->forEmployee('bootstrap-test-employee', new DateTimeImmutable('2026-10-18T10:00:00+00:00'));
 if ($expired['projects'] !== []) throw new RuntimeException('Assignment exposed at valid_until');
+$db->prepare('UPDATE onsite_project_zone_assignments SET valid_until = NULL WHERE employee_id = ?')
+  ->execute(['bootstrap-test-employee']);
+$db->prepare('UPDATE onsite_project_zone_assignments SET active = 0 WHERE employee_id = ?')
+  ->execute(['bootstrap-test-employee']);
+$disabled = $repository->forEmployee('bootstrap-test-employee', new DateTimeImmutable('2026-10-18T09:00:00+00:00'));
+if ($disabled['projects'] !== []) throw new RuntimeException('Inactive assignment exposed');
+$db->prepare('UPDATE onsite_project_zone_assignments SET active = 1 WHERE employee_id = ?')
+  ->execute(['bootstrap-test-employee']);
 $db->exec("UPDATE onsite_zones SET active = 0 WHERE zone_id = '83911'");
 if ($repository->forEmployee('bootstrap-test-employee')['projects'] !== []) throw new RuntimeException('Inactive zone exposed');
 echo "OnSiteBootstrapRepositoryMySqlTest OK\n";
