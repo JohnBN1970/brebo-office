@@ -14,4 +14,7 @@ $projection = new Brebo\Office\Inzet\OnSiteOfficeShiftProjection($db,$bridge);
 if ($projection->stageProject(17,[8=>'employee-8'],[17=>'zone-17']) !== 1) throw new RuntimeException('Shift not staged');
 if ($projection->stageProject(17,[8=>'employee-8'],[17=>'zone-17']) !== 1) throw new RuntimeException('Retry not idempotent');
 if ((int)$db->query('SELECT COUNT(*) FROM onsite_project_zone_assignments WHERE active = 0')->fetchColumn() !== 1) throw new RuntimeException('Unsafe staging');
+$db->prepare('INSERT INTO office_inzet_shifts VALUES (2,17,8,?,?,?)')->execute(['2026-02-30 07:00:00','2026-03-01 16:00:00','confirmed']);
+if ($projection->stageProject(17,[8=>'employee-8'],[17=>'zone-17']) !== 1) throw new RuntimeException('Invalid normalized date staged');
+if ((int)$db->query('SELECT COUNT(*) FROM onsite_project_zone_assignments')->fetchColumn() !== 1) throw new RuntimeException('Invalid shift persisted');
 echo "OnSiteOfficeShiftProjectionTest OK\n";
