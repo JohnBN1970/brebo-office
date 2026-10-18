@@ -112,9 +112,10 @@ if ($inzetView) {
         $manageStmt->execute([$operator->operatorId]);
         $manageableProjects = $manageStmt->fetchAll(PDO::FETCH_ASSOC);
         if ($manageableProjects !== []) {
+          $selectedProject = $manageableProjects[0];
           $manageablePeople = (new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db))
-            ->listForOperator($operator->operatorId);
-          echo \Brebo\Office\Inzet\OfficeInzetShiftForm::render($manageableProjects, $manageablePeople);
+            ->listForOperator($operator->operatorId, (int)$selectedProject['id']);
+          echo \Brebo\Office\Inzet\OfficeInzetShiftForm::render([$selectedProject], $manageablePeople);
         }
       }
     } catch (Throwable $exception) {
