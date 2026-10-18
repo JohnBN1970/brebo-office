@@ -30,6 +30,10 @@ foreach ([
     'OfficeInzetWeekShiftReadRepository.php',
     'OfficeInzetSchema.php',
     'OfficeInzetPlanningWorkbench.php',
+    'OfficeInzetLocalTime.php',
+    'OfficeInzetShiftCsrf.php',
+    'OfficeInzetShiftSubmission.php',
+    'OfficeInzetShiftPostHandler.php',
 ] as $file) require_once $base . $file;
 
 $db->exec('CREATE TABLE office_projects (id BIGINT UNSIGNED NOT NULL PRIMARY KEY) ENGINE=InnoDB');
@@ -74,4 +78,34 @@ foreach ([
 if ((int)$db->query('SELECT COUNT(*) FROM office_inzet_shifts')->fetchColumn() !== 1) {
     throw new RuntimeException('MySQL failed-write transaction altered shift count');
 }
+// Exercise the real browser form boundary against MySQL, not just the native command.
+$handler = new \\Brebo\\Office\\Inzet\\OfficeInzetShiftPostHandler(
+    new \\Brebo\\Office\\Inzet\\OfficeInzetShiftSubmission(
+        new \\Brebo\\Office\\Inzet\\OfficeInzetShiftCommand($db, new \\Brebo\\Office\\Inzet\\OfficeInzetShiftWriter($db))
+    )
+);
+$form = [
+    'project_id'=>17,'person_id'=>101,
+    'starts_at_local'=>'2026-10-20T08:00',
+    'ends_at_local'=>'2026-10-20T16:00',
+    'csrf_token'=>str_repeat('a',64),
+];
+foreach ([
+    ['GET','manager',$form,str_repeat('a',64)],
+    ['POST','manager',$form,str_repeat('b',64)],
+    ['POST','intruder',$form,str_repeat('a',64)],
+] as $rejected) {
+    try { $handler->handle(...$rejected); }
+    catch (RuntimeException | InvalidArgumentException $expected) { continue; }
+    throw new RuntimeException('Untrusted HTTP form write accepted');
+}
+if ((int)$db->query('SELECT COUNT(*) FROM office_inzet_shifts')->fetchColumn() !== 1) {
+    throw new RuntimeException('Rejected form altered MySQL');
+}
+$formId = $handler->handle('POST','manager',$form,str_repeat('a',64));
+if ($formId < 1 || (int)$db->query('SELECT COUNT(*) FROM office_inzet_shifts')->fetchColumn() !== 2) {
+    throw new RuntimeException('Authorized HTTP form not persisted');
+}
+$afterForm = (new \\Brebo\\Office\\Inzet\\OfficeInzetWeekShiftReadRepository($db))->listWeek('manager',[17],2026,43);
+if (count($afterForm) !== 2) throw new RuntimeException('Form shift not visible in weekly read');
 echo "MySQL 8 native shift insert, lock, overlap and week read OK\n";
