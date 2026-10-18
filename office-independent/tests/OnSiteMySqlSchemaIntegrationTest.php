@@ -30,6 +30,17 @@ $devices->register($token, 'mysql-test-employee');
 if ($devices->resolve($token) !== 'mysql-test-employee') throw new RuntimeException('MySQL device resolution failed');
 $db->prepare('INSERT INTO onsite_project_zone_assignments (employee_id,project_id,zone_id,valid_from,valid_until,active) VALUES (?,?,?,?,?,?)')
  ->execute(['mysql-test-employee','37','100','2026-01-01T00:00:00+00:00',null,1]);
+$db->prepare('INSERT INTO onsite_employees (employee_id,display_name,language,active) VALUES (?,?,?,1)')
+ ->execute(['mysql-test-employee','Test medewerker','nl']);
+$db->prepare('INSERT INTO onsite_projects (project_id,name,active) VALUES (?,?,1)')
+ ->execute(['37','Testproject']);
+$db->prepare('INSERT INTO onsite_zones (zone_id,project_id,name,latitude,longitude,radius_metres,active) VALUES (?,?,?,?,?,?,1)')
+ ->execute(['100','37','Testzone',51.3,4.4,100]);
+require_once __DIR__ . '/../src/Inzet/OnSiteBootstrapRepository.php';
+$bootstrap = new Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
+$mobile = $bootstrap->forEmployee('mysql-test-employee', new DateTimeImmutable('2026-10-18T09:00:00+00:00'));
+if (count($mobile['projects']) !== 1 || count($mobile['projects'][0]['zones']) !== 1)
+ throw new RuntimeException('Assigned geofence missing from canonical bootstrap');
 if (!$assignments->allows('mysql-test-employee','37','100','2026-10-18T09:00:00+00:00')) throw new RuntimeException('MySQL assignment failed');
 $event = ['event_id'=>'bcd26651-9cc9-4c6e-a07d-501cdf4c2bb9','employee_id'=>'mysql-test-employee','project_id'=>'37','zone_id'=>'100','kind'=>'in','occurred_at'=>'2026-10-18T09:00:00+00:00'];
 if (!$inbox->receive($event) || $inbox->receive($event)) throw new RuntimeException('MySQL idempotency failed');
