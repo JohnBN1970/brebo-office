@@ -27,15 +27,26 @@ final class OnSitePlanningProjection {
       || !preg_match('/^(?:[01]\d|2[0-3]):[0-5]\d$/D', $end)
       || $end <= $start) return null;
     $tz = $timezone ?? new DateTimeZone('Europe/Brussels');
-    // A daylight-saving transition may make a wall-clock time ambiguous.
-    // Reject transitions instead of silently granting an unintended window.
-    $midnight = new DateTimeImmutable($day . ' 00:00:00', $tz);
-    $nextMidnight = $midnight->modify('+1 day');
-    if ($tz->getOffset($midnight) !== $tz->getOffset($nextMidnight)) return null;
     $from = DateTimeImmutable::createFromFormat('!Y-m-d H:i', "$day $start", $tz);
     $until = DateTimeImmutable::createFromFormat('!Y-m-d H:i', "$day $end", $tz);
     if (!$from || !$until || $from->format('Y-m-d H:i') !== "$day $start"
       || $until->format('Y-m-d H:i') !== "$day $end" || $until <= $from) return null;
+    // Reject ambiguous or nonexistent clock times only when the planned
+    // interval intersects the changed local-clock hour.
+    $transitions = $tz->getTransitions($from->getTimestamp() - 86400, $until->getTimestamp() + 86400);
+    if (is_array($transitions)) {
+      foreach (array_slice($transitions, 1) as $transition) {
+        $timestamp = (int) $transition['ts'];
+        $previousOffset = $tz->getOffset(new DateTimeImmutable('@' . ($timestamp - 1)));
+        $currentOffset = (int) $transition['offset'];
+        if ($previousOffset === $currentOffset) continue;
+        $low = min($timestamp + $previousOffset, $timestamp + $currentOffset);
+        $high = max($timestamp + $previousOffset, $timestamp + $currentOffset);
+        $startWall = strtotime($day . ' ' . $start . ' UTC');
+        $endWall = strtotime($day . ' ' . $end . ' UTC');
+        if ($startWall !== false && $endWall !== false && $startWall < $high && $endWall > $low) return null;
+      }
+    }
     return ['employee_id'=>$employeeId,'project_id'=>(string)$assignment['project_id'],
       'zone_id'=>$zoneId,'from'=>$from,'until'=>$until];
   }
