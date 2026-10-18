@@ -5,7 +5,10 @@ $source = file_get_contents($entry);
 if ($source === false) throw new RuntimeException('OnSite boundary missing');
 foreach ([
   "OFFICE_ONSITE_PRESENCE_ENABLED",
-  "onsite_integration_incomplete",
+  "OFFICE_ONSITE_SCHEMA_VERIFIED",
+  "OnSitePresenceApplication",
+  "HTTP_AUTHORIZATION",
+  "OFFICE_PUBLIC_HOST",
   "onsite_not_enabled",
   "REQUEST_METHOD",
 ] as $required) {
