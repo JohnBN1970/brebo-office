@@ -18,8 +18,8 @@ final class OfficeInzetWeekShiftReadRepository {
   /** @param list<int> $authorizedProjectIds
    * @return list<array<string,mixed>>
    */
-  public function listWeek(int $operatorId, array $authorizedProjectIds, int $isoYear, int $isoWeek): array {
-    if ($operatorId < 1) throw new \InvalidArgumentException('Invalid operator');
+  public function listWeek(string $operatorId, array $authorizedProjectIds, int $isoYear, int $isoWeek): array {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new \InvalidArgumentException('Invalid operator');
     $projects = array_values(array_unique(array_filter(
       $authorizedProjectIds, static fn(mixed $id): bool => is_int($id) && $id > 0
     )));
