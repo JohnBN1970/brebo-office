@@ -96,6 +96,7 @@ jobs:
           php office-independent/tests/OnSitePlanningProjectionTest.php
           php office-independent/tests/OnSitePlanningSynchronizerTest.php
           php office-independent/tests/OnSitePlanningImportTest.php
+          php office-independent/tests/OnSiteOfficePlanningBridgeTest.php
           php office-independent/tests/OnSitePresenceApplicationTest.php
           php office-independent/tests/OnSiteBootstrapServiceTest.php
           php office-independent/tests/OnSiteBootstrapHttpBoundaryTest.php
