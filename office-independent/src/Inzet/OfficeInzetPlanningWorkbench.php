@@ -34,8 +34,13 @@ final class OfficeInzetPlanningWorkbench {
     foreach ($rows as $row) {
       $name = trim((string)($row['person_name'] ?? ''));
       $person = $row['person_id'] === null ? 'Niet toegewezen' : ($name !== '' ? $name . ' (#' . (int)$row['person_id'] . ')' : 'Medewerker #' . (int)$row['person_id']);
-      $day = (new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC')))->format('Y-m-d');
-      $people[$person][$day][] = $row;
+      $start = new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC'));
+      $finish = new \DateTimeImmutable($row['ends_at'],new \DateTimeZone('UTC'));
+      $weekEnd = $monday->modify('+7 days');
+      for ($day = $start->setTime(0,0); $day < $finish && $day < $weekEnd; $day = $day->modify('+1 day')) {
+        if ($day < $monday) continue;
+        $people[$person][$day->format('Y-m-d')][] = $row;
+      }
     }
     ksort($people,SORT_NATURAL);
     $html .= '<div style="overflow-x:auto"><table aria-label="Weekrooster per medewerker" style="min-width:840px;width:100%;border-collapse:collapse"><thead><tr><th scope="col">Medewerker</th>';
