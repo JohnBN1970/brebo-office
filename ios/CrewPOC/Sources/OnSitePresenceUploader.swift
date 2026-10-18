@@ -8,7 +8,7 @@ final class OnSitePresenceUploader: ObservableObject {
     @Published private(set) var lastUploadedEventId: UUID?
 
     private let apiClient = OnSiteAPIClient()
-    private let queueKey = "onsite.pending-presence-events.v1"
+    private let queueKey = "onsite.pending-presence-events.office-v2"
     private var pending: [CrewPresenceEvent] = []
     private var isFlushing = false
 
