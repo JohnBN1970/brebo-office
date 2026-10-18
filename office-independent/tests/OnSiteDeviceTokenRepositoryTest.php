@@ -10,13 +10,13 @@ if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
 }
 $db = new PDO('sqlite::memory:');
 $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-$db->exec('CREATE TABLE onsite_device_tokens (token_hash TEXT PRIMARY KEY, employee_id TEXT NOT NULL, revoked_at TEXT)');
+$repository = new OnSiteDeviceTokenRepository($db);
+$repository->migrate();
 $validToken = str_repeat('a', 40);
 $revokedToken = str_repeat('b', 40);
-$insert = $db->prepare('INSERT INTO onsite_device_tokens (token_hash, employee_id, revoked_at) VALUES (?,?,?)');
-$insert->execute([hash('sha256', $validToken), 'john.boon', null]);
-$insert->execute([hash('sha256', $revokedToken), 'john.boon', '2026-10-18T12:00:00Z']);
-$repository = new OnSiteDeviceTokenRepository($db);
+$repository->register($validToken, 'john.boon');
+$repository->register($revokedToken, 'john.boon');
+$repository->revoke($revokedToken);
 if ($repository->resolve($validToken) !== 'john.boon') throw new RuntimeException('Valid device not resolved');
 if ($repository->resolve($revokedToken) !== null) throw new RuntimeException('Revoked device accepted');
 if ($repository->resolve(str_repeat('c', 40)) !== null) throw new RuntimeException('Unknown device accepted');
