@@ -13,8 +13,8 @@ use RuntimeException;
 final class OfficeInzetShiftCommand {
   public function __construct(private PDO $db, private OfficeInzetShiftWriter $writer) {}
 
-  public function createForOperator(int $operatorId, array $request): int {
-    if ($operatorId < 1) throw new RuntimeException('Operator not authenticated');
+  public function createForOperator(string $operatorId, array $request): int {
+    if ($operatorId === '' || strlen($operatorId) > 128) throw new RuntimeException('Operator not authenticated');
     $projectId = filter_var($request['project_id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
     $personId = filter_var($request['person_id'] ?? null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
     if (!is_int($projectId) || !is_int($personId)) throw new RuntimeException('Invalid planning selection');
