@@ -24,4 +24,26 @@ final class OnSiteAssignmentStore {
       PRIMARY KEY (employee_id, project_id, starts_on)
     )');
   }
+  public function projectsForEmployee(string $employeeId, string $date): array {
+    $q = $this->db->prepare('SELECT p.id,p.name FROM onsite_projects p
+      JOIN onsite_assignments a ON a.project_id=p.id
+      WHERE a.employee_id=? AND a.starts_on<=? AND a.ends_on>=?
+      ORDER BY p.name,p.id');
+    $q->execute([$employeeId,$date,$date]);
+    $zones = $this->db->prepare('SELECT id,name,latitude,longitude,radius_metres
+      FROM onsite_zones WHERE project_id=? AND active=1 ORDER BY id');
+    $projects = [];
+    foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $project) {
+      $zones->execute([$project['id']]);
+      $project['zones'] = array_map(static fn(array $zone): array => [
+        'id' => $zone['id'], 'name' => $zone['name'],
+        'latitude' => (float) $zone['latitude'],
+        'longitude' => (float) $zone['longitude'],
+        'radius_metres' => (float) $zone['radius_metres'],
+      ], $zones->fetchAll(PDO::FETCH_ASSOC));
+      $projects[] = $project;
+    }
+    return $projects;
+  }
+
 }
