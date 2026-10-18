@@ -55,3 +55,13 @@ CREATE TABLE IF NOT EXISTS onsite_zones (
   active TINYINT(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (zone_id, project_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Operator-issued one-time device activation credentials. Store SHA-256 only;
+-- issue via an authenticated Office workflow, never from an anonymous request.
+CREATE TABLE IF NOT EXISTS onsite_activation_tokens (
+  token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL PRIMARY KEY,
+  employee_id VARCHAR(191) NOT NULL,
+  expires_at VARCHAR(35) NOT NULL,
+  consumed_at VARCHAR(35) NULL,
+  INDEX onsite_activation_employee (employee_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
