@@ -90,6 +90,7 @@ jobs:
           php office-independent/tests/OnSitePresenceRequestServiceTest.php
           php office-independent/tests/OnSitePresenceHttpBoundaryTest.php
           php office-independent/tests/OnSiteZoneAuthorizationTest.php
+          php office-independent/tests/OnSiteAssignmentRepositoryTest.php
       - name: Run standalone intake validator tests
         run: php office-independent/tests/WebsiteIntakeValidatorTest.php
       - name: Verify independent HTTP endpoint
