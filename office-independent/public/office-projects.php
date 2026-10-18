@@ -99,6 +99,24 @@ if ($inzetView) {
       $projectNames = [];
       foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week, $projectNames);
+      // Test-only disabled preview. The manager's selectable employees are
+      // obtained from Office ACL, not a browser-supplied project or user list.
+      if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled') {
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetShiftForm.php';
+        $manageStmt = $db->prepare("SELECT p.id, p.title FROM office_projects p
+          INNER JOIN office_project_memberships m ON m.project_id = p.id
+          INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+          WHERE m.operator_id = ? AND m.permission = 'manage' AND a.active = 1
+          ORDER BY p.title, p.id LIMIT 100");
+        $manageStmt->execute([$operator->operatorId]);
+        $manageableProjects = $manageStmt->fetchAll(PDO::FETCH_ASSOC);
+        if ($manageableProjects !== []) {
+          $manageablePeople = (new \Brebo\\Office\Inzet\\OfficeInzetManageablePeopleRepository($db))
+            ->listForOperator($operator->operatorId);
+          echo \Brebo\\Office\Inzet\\OfficeInzetShiftForm::render($manageableProjects, $manageablePeople);
+        }
+      }
     } catch (Throwable $exception) {
       echo '<p>Weekplanning tijdelijk niet beschikbaar.</p>';
     }
