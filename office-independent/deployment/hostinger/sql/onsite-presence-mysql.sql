@@ -72,3 +72,16 @@ CREATE TABLE IF NOT EXISTS onsite_enrollment_operator_grants (
   operator_id VARCHAR(128) NOT NULL PRIMARY KEY,
   active TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Immutable record of each authorized device activation issue.
+-- Secrets are never written to audit rows.
+CREATE TABLE IF NOT EXISTS onsite_activation_issue_audit (
+  audit_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  operator_id VARCHAR(128) NOT NULL,
+  employee_id VARCHAR(191) NOT NULL,
+  token_hash CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NOT NULL,
+  issued_at VARCHAR(35) NOT NULL,
+  expires_at VARCHAR(35) NOT NULL,
+  INDEX onsite_issue_audit_employee (employee_id, issued_at),
+  UNIQUE KEY onsite_issue_audit_token (token_hash)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
