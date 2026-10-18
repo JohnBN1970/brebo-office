@@ -6,8 +6,8 @@ header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET');
+if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET','POST'], true)) {
+  header('Allow: GET, POST');
   http_response_code(405);
   exit;
 }
@@ -48,6 +48,37 @@ try {
     http_response_code(403);
     exit('Geen toegang tot apparaatbeheer.');
   }
+  $issueResult = null;
+  if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+    if (getenv('OFFICE_ONSITE_ADMIN_ISSUE_ENABLED') !== 'enabled') {
+      http_response_code(403);
+      exit('Uitgifte is nog niet beschikbaar.');
+    }
+    $csrf = $_POST['csrf'] ?? null;
+    $cookie = $_COOKIE['onsite_issue_csrf'] ?? null;
+    $employeeId = $_POST['employee_id'] ?? null;
+    $confirmation = $_POST['confirmation'] ?? null;
+    if (!is_string($csrf) || !is_string($cookie) || strlen($csrf) !== 64
+      || !ctype_xdigit($csrf) || !hash_equals($cookie,$csrf)
+      || !is_string($employeeId) || $employeeId === ''
+      || $confirmation !== 'ISSUE') {
+      http_response_code(403);
+      exit('Ongeldige aanvraag of bevestiging.');
+    }
+    // Require an actual same-origin browser request in addition to CSRF.
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+    if (!is_string($origin) || !hash_equals('https://'.$allowed,$origin)) {
+      http_response_code(403);
+      exit('Ongeldige herkomst.');
+    }
+    foreach (['OnSiteActivationIssuer.php','OnSiteOperatorActivationService.php'] as $file) {
+      require_once dirname(__DIR__).'/src/Inzet/'.$file;
+    }
+    $issuer = new \\Brebo\\Office\\Inzet\\OnSiteOperatorActivationService(
+      $db,new \\Brebo\\Office\\Inzet\\OnSiteActivationIssuer($db)
+    );
+    $issueResult = $issuer->issue($operator,$employeeId);
+  }
   $employees = $db->query('SELECT e.employee_id,e.display_name,COUNT(t.token_hash) AS device_count
     FROM onsite_employees e
     LEFT JOIN onsite_device_tokens t ON t.employee_id = e.employee_id AND t.revoked_at IS NULL
@@ -64,4 +95,22 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
 foreach ($employees as $employee) {
   echo '<tr><td>'.$h((string)$employee['display_name']).'</td><td>'.$h((string)$employee['employee_id']).'</td><td>'.(int)$employee['device_count'].'</td></tr>';
 }
-echo '</tbody></table><p>Uitgifte van activatiecodes wordt pas ingeschakeld na afzonderlijke beveiligingscontrole.</p></main></body></html>';
+echo '</tbody></table>';
+if ($issueResult !== null) {
+  echo '<section><h2>Eenmalige activatiecode</h2><p>Deze code wordt slechts eenmaal getoond. Deel deze alleen via een gecontroleerd kanaal met de bedoelde medewerker.</p><p><code>'.$h($issueResult['activation_token']).'</code></p><p>Geldig tot: '.$h($issueResult['expires_at']).'</p></section>';
+}
+if (getenv('OFFICE_ONSITE_ADMIN_ISSUE_ENABLED') === 'enabled') {
+  $csrf = bin2hex(random_bytes(32));
+  setcookie('onsite_issue_csrf',$csrf,[
+    'expires'=>time()+600,'path'=>\\Brebo\\Office\\Intake\\OfficeMount::basePath(),
+    'secure'=>true,'httponly'=>true,'samesite'=>'Strict',
+  ]);
+  echo '<section><h2>Apparaat koppelen</h2><p>Controleer eerst de identiteit van de medewerker. Uitgifte wordt geregistreerd.</p><form method="post"><label>Medewerker <select name="employee_id" required>';
+  foreach ($employees as $employee) {
+    echo '<option value="'.$h((string)$employee['employee_id']).'">'.$h((string)$employee['display_name']).'</option>';
+  }
+  echo '</select></label><input type="hidden" name="csrf" value="'.$h($csrf).'"><label><input type="checkbox" name="confirmation" value="ISSUE" required> Identiteit en koppeling gecontroleerd</label><button type="submit">Eenmalige code uitgeven</button></form></section>';
+} else {
+  echo '<p>Uitgifte van activatiecodes is nog niet ingeschakeld.</p>';
+}
+echo '</main></body></html>';
