@@ -26,7 +26,7 @@ final class OnSiteAutomaticEventValidator {
       || (int)$payload['project_id'] < 1 || (int)$payload['zone_id'] < 1) {
       throw new InvalidArgumentException('Invalid project or zone');
     }
-    if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/D', $payload['occurred_at'])) {
+    if (!preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:[.][0-9]+)?(?:Z|[+-][0-9]{2}:[0-9]{2})$/D', $payload['occurred_at'])) {
       throw new InvalidArgumentException('Event time must be ISO 8601 with timezone');
     }
     try { $occurred = new DateTimeImmutable($payload['occurred_at']); }
