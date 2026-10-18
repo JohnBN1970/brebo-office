@@ -29,6 +29,16 @@ on:
       - 'office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftWriter.php'
       - 'office-independent/src/Inzet/OfficeInzetShiftCommand.php'
+      - 'office-independent/public/office-inzet-shift-create.php'
+      - 'office-independent/public/office-projects.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Inzet/OfficeInzetSessionCsrf.php'
+      - 'office-independent/src/Inzet/OfficeInzetLocalTime.php'
+      - 'office-independent/src/Inzet/OfficeInzetAuthenticatedShiftAction.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftSubmission.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftCsrf.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftPostHandler.php'
+      - 'office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php'
       - '.github/workflows/office-identity-mapping-gate.yml'
   workflow_dispatch:
 
@@ -68,6 +78,16 @@ jobs:
           php -l office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php
           php -l office-independent/src/Inzet/OfficeInzetShiftWriter.php
           php -l office-independent/src/Inzet/OfficeInzetShiftCommand.php
+          php -l office-independent/public/office-inzet-shift-create.php
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Inzet/OfficeInzetSessionCsrf.php
+          php -l office-independent/src/Inzet/OfficeInzetLocalTime.php
+          php -l office-independent/src/Inzet/OfficeInzetAuthenticatedShiftAction.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftSubmission.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftCsrf.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftPostHandler.php
+          php -l office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php
       - name: Fail-closed mapping regression
         run: |
           php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
