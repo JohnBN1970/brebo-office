@@ -16,7 +16,7 @@ final class OnSiteAutomaticEventValidator {
         throw new InvalidArgumentException('Missing automatic event field');
       }
     }
-    if (!preg_match('/^[a-f0-9-]{36}$/iD', $payload['event_id'])) {
+    if (!preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iD', $payload['event_id'])) {
       throw new InvalidArgumentException('Invalid event identifier');
     }
     if (!in_array($payload['kind'], ['in','out'], true)) {
@@ -25,6 +25,9 @@ final class OnSiteAutomaticEventValidator {
     if (!ctype_digit($payload['project_id']) || !ctype_digit($payload['zone_id'])
       || (int)$payload['project_id'] < 1 || (int)$payload['zone_id'] < 1) {
       throw new InvalidArgumentException('Invalid project or zone');
+    }
+    if (!preg_match('/^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$/D', $payload['occurred_at'])) {
+      throw new InvalidArgumentException('Event time must be ISO 8601 with timezone');
     }
     try { $occurred = new DateTimeImmutable($payload['occurred_at']); }
     catch (\Throwable) { throw new InvalidArgumentException('Invalid event time'); }
