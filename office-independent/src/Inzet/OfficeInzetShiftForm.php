@@ -26,8 +26,8 @@ final class OfficeInzetShiftForm {
       if ($id === false) continue;
       $html .= '<option value="' . (int)$id . '">' . $escape($person['display_name'] ?? '') . '</option>';
     }
-    return $html . '</select><label for="shift-start">Begin (UTC)</label><input id="shift-start" type="datetime-local" disabled>'
-      . '<label for="shift-end">Einde (UTC)</label><input id="shift-end" type="datetime-local" disabled>'
+    return $html . '</select><label for="shift-start">Begin (lokale tijd)</label><input id="shift-start" type="datetime-local" disabled>'
+      . '<label for="shift-end">Einde (lokale tijd)</label><input id="shift-end" type="datetime-local" disabled>'
       . '<button type="button" disabled>Opslaan nog niet beschikbaar</button></form></section>';
   }
 }
