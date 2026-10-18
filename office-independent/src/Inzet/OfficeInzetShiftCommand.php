@@ -10,7 +10,7 @@ use RuntimeException;
  * Re-checks live Office permissions and project-team membership for each write.
  * The caller's supplied project/person arrays are never trusted as authorization.
  */
-final class OfficeInzetShiftCommand {
+class OfficeInzetShiftCommand {
   public function __construct(private PDO $db, private OfficeInzetShiftWriter $writer) {}
 
   public function createForOperator(string $operatorId, array $request): int {
