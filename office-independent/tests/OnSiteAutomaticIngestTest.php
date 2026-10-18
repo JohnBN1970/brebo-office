@@ -22,8 +22,8 @@ $event = [
   'occurred_at'=>'2026-10-18T11:59:00+00:00',
 ];
 $now = new DateTimeImmutable('2026-10-18T12:00:00+00:00');
-$allow = static fn(string $employee, string $project, string $zone): bool =>
-  $employee === 'employee-1' && $project === '42' && $zone === '7';
+$allow = static fn(string $employee, string $project, string $zone, string $occurredAt): bool =>
+  $employee === 'employee-1' && $project === '42' && $zone === '7' && $occurredAt === '2026-10-18T11:59:00+00:00';
 $first = $service->accept($event, 'employee-1', $allow, $now);
 $retry = $service->accept($event, 'employee-1', $allow, $now);
 if (!$first['accepted'] || $retry['accepted'] || count($inbox->eventsForEmployee('employee-1')) !== 1) {
