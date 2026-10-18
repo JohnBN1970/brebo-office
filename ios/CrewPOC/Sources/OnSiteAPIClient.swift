@@ -133,6 +133,7 @@ struct OnSiteAPIClient {
         let formatter = ISO8601DateFormatter()
         let body: [String: String] = [
             "event_id": event.id.uuidString.lowercased(),
+            "trigger": "automatic_geofence",
             "project_id": event.projectId,
             "zone_id": event.zoneId,
             "kind": event.kind == .enteredProject ? "in" : "out",
