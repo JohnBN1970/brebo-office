@@ -18,6 +18,10 @@ foreach (['25:00','16:00'] as $start) {
 $row['start'] = '07:00';
 $row['end'] = '16:00';
 $row['plan_date'] = '2026-10-25';
+if ($projection->map($row,'verified-employee','verified-zone') === null)
+  throw new RuntimeException('Normal daytime shift on DST transition day must remain valid');
+$row['start'] = '02:00';
+$row['end'] = '03:00';
 if ($projection->map($row,'verified-employee','verified-zone') !== null)
-  throw new RuntimeException('DST transition day must require manual planning review');
+  throw new RuntimeException('Ambiguous DST hour must require review');
 echo "OnSitePlanningProjectionTest OK\n";
