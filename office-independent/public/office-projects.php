@@ -114,7 +114,7 @@ if ($inzetView) {
         }
       }
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
-        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken
+        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
       );
       $cancelledShift = filter_var($_GET['shift_cancelled'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
