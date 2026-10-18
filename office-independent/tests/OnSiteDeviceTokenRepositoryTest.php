@@ -21,4 +21,11 @@ if ($repository->resolve($validToken) !== 'john.boon') throw new RuntimeExceptio
 if ($repository->resolve($revokedToken) !== null) throw new RuntimeException('Revoked device accepted');
 if ($repository->resolve(str_repeat('c', 40)) !== null) throw new RuntimeException('Unknown device accepted');
 if ($repository->resolve('short') !== null) throw new RuntimeException('Short credential accepted');
+if ($repository->resolve(str_repeat('x', 513)) !== null) throw new RuntimeException('Oversized credential accepted');
+try {
+  $repository->register('short', 'john.boon');
+  throw new RuntimeException('Short credential registered');
+} catch (InvalidArgumentException $expected) {
+  // Invalid device credentials must never be persisted.
+}
 echo "OnSiteDeviceTokenRepositoryTest OK\n";
