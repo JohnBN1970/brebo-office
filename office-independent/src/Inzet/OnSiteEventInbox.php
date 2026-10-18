@@ -51,7 +51,7 @@ final class OnSiteEventInbox {
 
   public function eventsForEmployee(string $employeeId): array {
     $q = $this->db->prepare("SELECT event_id,employee_id,project_id,zone_id,kind,occurred_at
-      FROM onsite_event_inbox WHERE employee_id=? ORDER BY occurred_at,event_id");
+      FROM onsite_event_inbox WHERE employee_id=? ORDER BY strftime('%s', occurred_at),event_id");
     $q->execute([$employeeId]);
     return $q->fetchAll(PDO::FETCH_ASSOC);
   }
