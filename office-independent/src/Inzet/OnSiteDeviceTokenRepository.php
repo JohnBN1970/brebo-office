@@ -19,7 +19,7 @@ final class OnSiteDeviceTokenRepository {
 
 
   public function register(string $token, string $employeeId): void {
-    if (strlen($token) < 32 || trim($employeeId) === '') {
+    if (strlen($token) < 32 || strlen($token) > 512 || trim($employeeId) === '') {
       throw new \InvalidArgumentException('Invalid device registration');
     }
     $query = $this->db->prepare('INSERT INTO onsite_device_tokens (token_hash, employee_id, revoked_at)
@@ -34,7 +34,7 @@ final class OnSiteDeviceTokenRepository {
   }
 
   public function resolve(string $token): ?string {
-    if (strlen($token) < 32) return null;
+    if (strlen($token) < 32 || strlen($token) > 512) return null;
     $query = $this->db->prepare('SELECT employee_id FROM onsite_device_tokens WHERE token_hash = ? AND revoked_at IS NULL');
     $query->execute([hash('sha256', $token)]);
     $employee = $query->fetchColumn();
