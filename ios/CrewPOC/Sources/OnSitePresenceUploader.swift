@@ -10,6 +10,7 @@ final class OnSitePresenceUploader: ObservableObject {
     private let apiClient = OnSiteAPIClient()
     private let queueKey = "onsite.pending-presence-events.v1"
     private var pending: [CrewPresenceEvent] = []
+    private var isFlushing = false
 
     init() {
         if let data = UserDefaults.standard.data(forKey: queueKey),
@@ -28,7 +29,9 @@ final class OnSitePresenceUploader: ObservableObject {
     }
 
     func flushPending() async {
-        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        guard !isFlushing, let token = OnSiteSecureStore.deviceToken() else { return }
+        isFlushing = true
+        defer { isFlushing = false }
         while let event = pending.first {
             do {
                 try await apiClient.recordPresence(event: event, deviceToken: token)
