@@ -45,10 +45,14 @@ final class OnSiteOfficeShiftRevisionProjection {
       if ($old->format('c') === $from->format('c') && $previous['valid_until'] === $until->format('c')) {
         $this->db->commit(); return false;
       }
-      $collision = $this->db->prepare('SELECT 1 FROM onsite_project_zone_assignments
-        WHERE employee_id = ? AND project_id = ? AND zone_id = ? AND valid_from = ? FOR UPDATE');
-      $collision->execute([$verifiedEmployeeId,$projectId,$verifiedZoneId,$from->format('c')]);
-      if ($collision->fetchColumn()) throw new \DomainException('New assignment identity already exists');
+      // A changed end time keeps the same assignment identity. Only check
+      // collisions when the canonical start time itself changes.
+      if ($old->format('c') !== $from->format('c')) {
+        $collision = $this->db->prepare('SELECT 1 FROM onsite_project_zone_assignments
+          WHERE employee_id = ? AND project_id = ? AND zone_id = ? AND valid_from = ? FOR UPDATE');
+        $collision->execute([$verifiedEmployeeId,$projectId,$verifiedZoneId,$from->format('c')]);
+        if ($collision->fetchColumn()) throw new \DomainException('New assignment identity already exists');
+      }
       $update = $this->db->prepare('UPDATE onsite_project_zone_assignments
         SET valid_from = ?, valid_until = ?, active = 0
         WHERE employee_id = ? AND project_id = ? AND zone_id = ? AND valid_from = ?');
