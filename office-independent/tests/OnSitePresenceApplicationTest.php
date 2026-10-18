@@ -19,11 +19,11 @@ $token = str_repeat('x', 40);
 $devices->register($token, 'employee-1');
 $db->prepare('INSERT INTO onsite_project_zone_assignments
  (employee_id,project_id,zone_id,valid_from,valid_until,active) VALUES (?,?,?,?,?,?)')
- ->execute(['employee-1','project-1','zone-1','2026-01-01T00:00:00+00:00',null,1]);
+ ->execute(['employee-1','37','100','2026-01-01T00:00:00+00:00',null,1]);
 $app = new OnSitePresenceApplication($db);
 $payload = [
  'event_id'=>'d26e6961-71f4-48cb-84bd-90b31cc22e39',
- 'trigger'=>'automatic_geofence', 'project_id'=>'project-1','zone_id'=>'zone-1',
+ 'trigger'=>'automatic_geofence', 'project_id'=>'37','zone_id'=>'100',
  'kind'=>'in','occurred_at'=>'2026-10-18T08:00:00+00:00'
 ];
 $now = new DateTimeImmutable('2026-10-18T08:01:00+00:00');
@@ -32,7 +32,7 @@ foreach ([
   [$payload, str_repeat('z',40), 401],
   [$payload, $token, 201],
   [$payload, $token, 200],
-  [array_replace($payload,['zone_id'=>'zone-2','event_id'=>'67f8b5f3-9957-42fd-8fb6-501c9621dcee']), $token, 400],
+  [array_replace($payload,['zone_id'=>'101','event_id'=>'67f8b5f3-9957-42fd-8fb6-501c9621dcee']), $token, 400],
 ] as [$event,$bearer,$status]) {
   $actual = $app->submit($event,$bearer,$now);
   if ($actual['status'] !== $status) throw new RuntimeException('Unexpected HTTP status: ' . json_encode($actual));
