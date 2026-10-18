@@ -3,7 +3,7 @@ import Security
 
 enum OnSiteSecureStore {
     private static let service = "nl.brebo.onsite"
-    private static let account = "device-token"
+    private static let account = "device-token-office-v2"
 
     static func saveDeviceToken(_ token: String) {
         let data = Data(token.utf8)
