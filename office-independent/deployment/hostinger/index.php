@@ -83,6 +83,10 @@ $routes = [
   '/crm/aanvragen' => 'crm-new-requests.php',
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if ($path === '/office-test/inzet/dienst/annuleren') {
+  require $private . '/public/office-inzet-shift-cancel.php';
+  exit;
+}
 if ($path === '/office-test/inzet/dienst/nieuw') {
   // Explicit test-only write route. Endpoint independently checks all write gates.
   require $private . '/public/office-inzet-shift-create.php';
