@@ -43,7 +43,7 @@ $db->exec('CREATE TABLE office_operator_accounts (id TEXT PRIMARY KEY, active IN
 $db->exec('CREATE TABLE office_project_memberships (operator_id TEXT, project_id INTEGER, permission TEXT)');
 $db->exec('CREATE TABLE office_inzet_shifts (id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER, person_id INTEGER, starts_at TEXT, ends_at TEXT, status TEXT)');
 $db->exec('INSERT INTO office_projects VALUES (17)');
-$db->exec('INSERT INTO office_inzet_people VALUES (101,1,'Test medewerker','BREBO-101')');
+$db->exec('INSERT INTO office_inzet_people VALUES (101,1,\'Test medewerker\',\'BREBO-101\')');
 $db->exec('INSERT INTO office_inzet_project_team VALUES (17,101)');
 $db->exec("INSERT INTO office_operator_accounts VALUES ('manager',1)");
 $db->exec("INSERT INTO office_project_memberships VALUES ('manager',17,'manage')");
