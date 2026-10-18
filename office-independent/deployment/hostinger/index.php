@@ -83,6 +83,11 @@ $routes = [
   '/crm/aanvragen' => 'crm-new-requests.php',
   '/crm/aanvragen/detail' => 'crm-new-requests.php',
 ];
+if ($path === '/office-test/inzet/dienst/nieuw') {
+  // Explicit test-only write route. Endpoint independently checks all write gates.
+  require $private . '/public/office-inzet-shift-create.php';
+  exit;
+}
 if ($path === '/office/calc-werkbank' || $path === '/calc-werkbank') {
   $_SERVER['OFFICE_QUERY_ROUTER'] = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php' ? '1' : '0';
   $_SERVER['REQUEST_URI'] = '/calc-werkbank';
