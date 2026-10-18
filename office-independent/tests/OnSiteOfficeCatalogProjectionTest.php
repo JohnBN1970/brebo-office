@@ -16,6 +16,11 @@ foreach ([
   try { $invalid(); throw new RuntimeException('Invalid projection accepted'); }
   catch (InvalidArgumentException $expected) {}
 }
+foreach (['UPDATE onsite_project_zone_assignments SET active = 0 WHERE project_id = ?',
+  'UPDATE onsite_zones SET active = 0 WHERE project_id = ?',
+  'beginTransaction()', 'commit()', 'rollBack()'] as $contract) {
+  if (!str_contains($source,$contract)) throw new RuntimeException('Missing transactional project revocation: ' . $contract);
+}
 if (!str_contains($source,'UPDATE onsite_projects SET active = 0 WHERE project_id = ?'))
   throw new RuntimeException('Missing explicit Office project revocation');
 try {
