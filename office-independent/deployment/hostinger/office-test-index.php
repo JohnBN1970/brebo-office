@@ -59,6 +59,10 @@ $routes = [
   '/office-test/projecten' => 'office-projects.php',
   '/office-test/projecten/detail' => 'office-project.php',
 ];
+if ($path === '/office-test/api/onsite/v1/bootstrap') {
+  require $private . '/public/onsite-bootstrap.php';
+  exit;
+}
 if ($path === '/office-test/api/onsite/v1/presence') {
   // Isolated test environment: no production token or assignment fallback.
   require $private . '/public/onsite-presence.php';
