@@ -110,6 +110,7 @@ jobs:
           php office-independent/tests/OfficeInzetShiftPostHandlerTest.php
           php office-independent/tests/OfficeInzetSessionCsrfTest.php
           php office-independent/tests/OfficeInzetAuthenticatedShiftActionTest.php
+          php office-independent/tests/OfficeInzetShiftHttpDenialTest.php
           php office-independent/tests/OfficeInzetWeekShiftOperatorTest.php
           php office-independent/tests/OnSitePresenceApplicationTest.php
           php office-independent/tests/OnSiteBootstrapServiceTest.php
