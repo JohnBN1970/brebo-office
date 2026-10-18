@@ -56,4 +56,65 @@ final class OnSiteAssignmentStore {
     return (bool) $q->fetchColumn();
   }
 
+  /**
+   * Refresh a single project projection from canonical Office Project/Inzet data.
+   * The caller must authorize the sync; this store is not a second project master.
+   */
+  public function replaceProject(
+    string $projectId,
+    string $name,
+    array $zones,
+    array $assignments,
+  ): void {
+    if (!ctype_digit($projectId) || (int) $projectId < 1 || trim($name) === '') {
+      throw new \InvalidArgumentException('Invalid project');
+    }
+    foreach ($zones as $zone) {
+      if (!is_array($zone) || !ctype_digit((string) ($zone['id'] ?? ''))
+        || (int) $zone['id'] < 1 || trim((string) ($zone['name'] ?? '')) === ''
+        || !is_numeric($zone['latitude'] ?? null)
+        || !is_numeric($zone['longitude'] ?? null)
+        || !is_numeric($zone['radius_metres'] ?? null)
+        || abs((float) $zone['latitude']) > 90
+        || abs((float) $zone['longitude']) > 180
+        || (float) $zone['radius_metres'] < 25
+        || (float) $zone['radius_metres'] > 1000) {
+        throw new \InvalidArgumentException('Invalid project zone');
+      }
+    }
+    foreach ($assignments as $assignment) {
+      if (!is_array($assignment)
+        || trim((string) ($assignment['employee_id'] ?? '')) === ''
+        || !preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ($assignment['starts_on'] ?? ''))
+        || !preg_match('/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/D', (string) ($assignment['ends_on'] ?? ''))
+        || $assignment['starts_on'] > $assignment['ends_on']) {
+        throw new \InvalidArgumentException('Invalid employee assignment');
+      }
+    }
+    $this->db->beginTransaction();
+    try {
+      $upsert = $this->db->prepare('DELETE FROM onsite_projects WHERE id=?');
+      $upsert->execute([$projectId]);
+      $insert = $this->db->prepare('INSERT INTO onsite_projects(id,name) VALUES (?,?)');
+      $insert->execute([$projectId,$name]);
+      $this->db->prepare('DELETE FROM onsite_zones WHERE project_id=?')->execute([$projectId]);
+      $this->db->prepare('DELETE FROM onsite_assignments WHERE project_id=?')->execute([$projectId]);
+      $zoneInsert = $this->db->prepare('INSERT INTO onsite_zones(id,project_id,name,latitude,longitude,radius_metres,active) VALUES (?,?,?,?,?,?,?)');
+      foreach ($zones as $zone) {
+        $zoneInsert->execute([(string) $zone['id'],$projectId,$zone['name'],
+          $zone['latitude'],$zone['longitude'],$zone['radius_metres'],
+          !empty($zone['active']) ? 1 : 0]);
+      }
+      $assignmentInsert = $this->db->prepare('INSERT INTO onsite_assignments(employee_id,project_id,starts_on,ends_on) VALUES (?,?,?,?)');
+      foreach ($assignments as $assignment) {
+        $assignmentInsert->execute([$assignment['employee_id'],$projectId,
+          $assignment['starts_on'],$assignment['ends_on']]);
+      }
+      $this->db->commit();
+    } catch (\Throwable $error) {
+      $this->db->rollBack();
+      throw $error;
+    }
+  }
+
 }
