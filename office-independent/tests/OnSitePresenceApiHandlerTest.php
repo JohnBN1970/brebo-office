@@ -37,4 +37,17 @@ if ($first['status'] !== 201 || $retry['status'] !== 200 || ($retry['body']['dup
   throw new RuntimeException('Idempotent API acknowledgment failed');
 }
 if (count($inbox->eventsForEmployee('employee-1')) !== 1) throw new RuntimeException('Duplicate event stored');
+$deny = static fn(string $employee, string $project, string $zone, string $occurred): bool => false;
+$unauthorized = $handler->handle([...$event, 'event_id' => '123e4567-e89b-12d3-a456-426614174002'], 'employee-1', $deny, $now);
+if ($unauthorized['status'] !== 400 || count($inbox->eventsForEmployee('employee-1')) !== 1) {
+  throw new RuntimeException('Unauthorized project zone stored');
+}
+$withCoordinates = $handler->handle([...$event, 'event_id' => '123e4567-e89b-12d3-a456-426614174003', 'latitude' => 51.0], 'employee-1', $allow, $now);
+if ($withCoordinates['status'] !== 400 || count($inbox->eventsForEmployee('employee-1')) !== 1) {
+  throw new RuntimeException('Coordinates accepted');
+}
+$conflict = $handler->handle([...$event, 'kind' => 'out'], 'employee-1', $allow, $now);
+if ($conflict['status'] !== 400 || count($inbox->eventsForEmployee('employee-1')) !== 1) {
+  throw new RuntimeException('Conflicting duplicate event accepted');
+}
 echo "OnSitePresenceApiHandlerTest OK\n";
