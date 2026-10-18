@@ -28,6 +28,6 @@ class OfficeInzetShiftCommand {
       WHERE t.project_id = ? AND t.person_id = ? AND p.active = 1 LIMIT 1');
     $team->execute([$projectId,$personId]);
     if (!$team->fetchColumn()) throw new RuntimeException('Employee not eligible for project');
-    return $this->writer->create($request,[$projectId],[$personId]);
+    return $this->writer->create($request,[$projectId],[$personId],$operatorId);
   }
 }
