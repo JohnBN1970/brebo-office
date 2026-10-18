@@ -32,7 +32,7 @@ foreach ([
   try {
     $command->createForOperator($operator,$shift);
     throw new RuntimeException('Invalid shift accepted');
-  } catch (RuntimeException $e) {
+  } catch (RuntimeException|InvalidArgumentException $e) {
     if ($e->getMessage() === 'Invalid shift accepted') throw $e;
   }
 }
