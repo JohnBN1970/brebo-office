@@ -19,6 +19,14 @@ final class OfficeInzetPlanningWorkbench {
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-week"><h2>Weekplanning ' . $year . '-W'
       . str_pad((string)$week, 2, '0', STR_PAD_LEFT) . '</h2>';
+    $mondayNav = (new \DateTimeImmutable('now',new \DateTimeZone('UTC')))->setISODate($year,$week,1);
+    $prev = $mondayNav->modify('-7 days');
+    $next = $mondayNav->modify('+7 days');
+    $path = '/office-test/projecten?view=inzet';
+    $html .= '<nav aria-label="Weeknavigatie" style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">'
+      . '<a href="' . $path . '&amp;year=' . $prev->format('o') . '&amp;week=' . $prev->format('W') . '">← Vorige week</a>'
+      . '<a href="' . $path . '">Huidige week</a>'
+      . '<a href="' . $path . '&amp;year=' . $next->format('o') . '&amp;week=' . $next->format('W') . '">Volgende week →</a></nav>';
     if ($rows === []) return $html . '<p>Geen geautoriseerde diensten in deze week.</p></section>';
     $days = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
     $monday = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($year,$week,1)->setTime(0,0);
