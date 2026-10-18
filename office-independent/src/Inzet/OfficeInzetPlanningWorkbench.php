@@ -20,14 +20,37 @@ final class OfficeInzetPlanningWorkbench {
     $html = '<section class="inzet-week"><h2>Weekplanning ' . $year . '-W'
       . str_pad((string)$week, 2, '0', STR_PAD_LEFT) . '</h2>';
     if ($rows === []) return $html . '<p>Geen geautoriseerde diensten in deze week.</p></section>';
-    $html .= '<table><thead><tr><th>Begin</th><th>Einde</th><th>Project-ID</th><th>Medewerker-ID</th><th>Status</th></tr></thead><tbody>';
+    $days = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
+    $monday = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($year,$week,1)->setTime(0,0);
+    $people = [];
     foreach ($rows as $row) {
-      $html .= '<tr><td>'.$escape($row['starts_at']).'</td><td>'.$escape($row['ends_at'])
-        .'</td><td>'.(int)$row['project_id'].'</td><td>'
-        .($row['person_id'] === null ? 'Nog niet toegewezen' : (int)$row['person_id'])
-        .'</td><td>'.$escape($row['status']).'</td></tr>';
+      $person = $row['person_id'] === null ? 'Niet toegewezen' : 'Medewerker #' . (int)$row['person_id'];
+      $day = (new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC')))->format('Y-m-d');
+      $people[$person][$day][] = $row;
     }
-    return $html . '</tbody></table></section>';
+    ksort($people,SORT_NATURAL);
+    $html .= '<div style="overflow-x:auto"><table aria-label="Weekrooster per medewerker" style="min-width:840px;width:100%;border-collapse:collapse"><thead><tr><th scope="col">Medewerker</th>';
+    foreach ($days as $offset => $label) {
+      $date = $monday->modify('+' . $offset . ' days');
+      $html .= '<th scope="col">' . $label . '<small style="display:block">' . $date->format('d-m') . '</small></th>';
+    }
+    $html .= '</tr></thead><tbody>';
+    foreach ($people as $person => $shiftsByDay) {
+      $html .= '<tr><th scope="row" style="text-align:left;white-space:nowrap">' . $escape($person) . '</th>';
+      foreach ($days as $offset => $label) {
+        $date = $monday->modify('+' . $offset . ' days')->format('Y-m-d');
+        $html .= '<td style="vertical-align:top;min-width:105px">';
+        foreach ($shiftsByDay[$date] ?? [] as $shift) {
+          $html .= '<div style="padding:8px;margin:3px 0;border:1px solid #cddceb;border-radius:8px;background:#f3f7fc">'
+            . '<strong>Project #' . (int)$shift['project_id'] . '</strong><small style="display:block">'
+            . $escape(substr($shift['starts_at'],11,5)) . '–' . $escape(substr($shift['ends_at'],11,5))
+            . '</small><small>' . $escape($shift['status']) . '</small></div>';
+        }
+        $html .= '</td>';
+      }
+      $html .= '</tr>';
+    }
+    return $html . '</tbody></table></div><p><small>Alleen-lezen weekrooster. Medewerker- en projectnamen worden nog niet opgehaald.</small></p></section>';
   }
 
   /** @param list<array<string,mixed>> $projects */
