@@ -44,6 +44,7 @@ final class OfficeInzetWeekPlanning {
         'project_id' => $project,
         'person_id' => isset($shift['person_id']) ? (int)$shift['person_id'] : null,
         'person_name' => isset($shift['person_name']) && is_string($shift['person_name']) ? $shift['person_name'] : '',
+        'personnel_number' => isset($shift['personnel_number']) && is_string($shift['personnel_number']) ? $shift['personnel_number'] : '',
         'starts_at' => $start->format('Y-m-d H:i'),
         'ends_at' => $finish->format('Y-m-d H:i'),
         'status' => (string)($shift['status'] ?? 'planned'),
