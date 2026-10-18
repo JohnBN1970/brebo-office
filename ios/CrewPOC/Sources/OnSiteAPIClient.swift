@@ -132,6 +132,7 @@ struct OnSiteAPIClient {
     func recordPresence(event: CrewPresenceEvent, deviceToken: String) async throws {
         let formatter = ISO8601DateFormatter()
         let body: [String: String] = [
+            "event_id": event.id.uuidString.lowercased(),
             "project_id": event.projectId,
             "zone_id": event.zoneId,
             "kind": event.kind == .enteredProject ? "in" : "out",
