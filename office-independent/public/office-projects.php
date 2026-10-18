@@ -96,7 +96,9 @@ if ($inzetView) {
       $ids = array_map(static fn(array $p): int => (int)$p['id'], $projects);
       $shifts = (new \Brebo\Office\Inzet\OfficeInzetWeekShiftReadRepository($db))
         ->listWeek((int)$operator->operatorId, $ids, $year, $week);
-      echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week);
+      $projectNames = [];
+      foreach ($projects as $project) $projectNames[(int)$project['id']] = (string)$project['title'];
+      echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek($shifts, $ids, $year, $week, $projectNames);
     } catch (Throwable $exception) {
       echo '<p>Weekplanning tijdelijk niet beschikbaar.</p>';
     }
