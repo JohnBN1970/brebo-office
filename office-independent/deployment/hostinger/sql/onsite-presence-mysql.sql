@@ -65,3 +65,10 @@ CREATE TABLE IF NOT EXISTS onsite_activation_tokens (
   consumed_at VARCHAR(35) NULL,
   INDEX onsite_activation_employee (employee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Dedicated enrollment permission, separate from CRM edit and project read.
+-- Default deny: no rows are created by the migration.
+CREATE TABLE IF NOT EXISTS onsite_enrollment_operator_grants (
+  operator_id VARCHAR(128) NOT NULL PRIMARY KEY,
+  active TINYINT(1) NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
