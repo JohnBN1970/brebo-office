@@ -21,7 +21,7 @@ final class OnSiteOfficeShiftReconciliation {
    * @param array<int,string> $verifiedZones
    * @return array{status:string,changed:bool}
    */
-  public function reconcile(int $shiftId, array $verifiedEmployees, array $verifiedZones, ?string $expectedOldStartUtc = null): array {
+  public function reconcile(int $shiftId, array $verifiedEmployees, array $verifiedZones, ?string $expectedOldStartUtc = null, ?string $expectedOldEndUtc = null): array {
     if ($shiftId < 1) throw new \InvalidArgumentException('Invalid shift id');
     $query = $this->db->prepare('SELECT project_id,person_id,status FROM office_inzet_shifts WHERE id = ?');
     $query->execute([$shiftId]);
@@ -47,7 +47,7 @@ final class OnSiteOfficeShiftReconciliation {
       return [
         'status'=>'confirmed',
         'changed'=>$this->revision->revise(
-          $shiftId,$verifiedEmployees[$person],$verifiedZones[$project],$expectedOldStartUtc
+          $shiftId,$verifiedEmployees[$person],$verifiedZones[$project],$expectedOldStartUtc,$expectedOldEndUtc
         )
       ];
     }
