@@ -1,23 +1,22 @@
 <?php
 declare(strict_types=1);
 
-require_once dirname(__DIR__) . '/src/Inzet/OnSiteDeviceTokenRepository.php';
-require_once dirname(__DIR__) . '/src/Inzet/OnSiteBootstrapService.php';
-
-use Brebo\Office\Inzet\OnSiteBootstrapService;
-use Brebo\Office\Inzet\OnSiteDeviceTokenRepository;
-
-function check(bool $ok, string $reason): void {
-  if (!$ok) throw new RuntimeException($reason);
+// Static cross-client contract gate. Runtime database behavior is verified separately.
+$root = dirname(__DIR__);
+$client = file_get_contents(dirname($root) . '/ios/CrewPOC/Sources/OnSiteAPIClient.swift');
+$service = file_get_contents($root . '/src/Inzet/OnSiteBootstrapService.php');
+$repository = file_get_contents($root . '/src/Inzet/OnSiteBootstrapRepository.php');
+if (!is_string($client) || !is_string($service) || !is_string($repository)) {
+  throw new RuntimeException('Missing bootstrap contract source');
 }
-
-$db = new PDO('sqlite::memory:');
-$db->exec('CREATE TABLE office_inzet_people (id INTEGER PRIMARY KEY, active INTEGER NOT NULL)');
-$db->exec('CREATE TABLE office_onsite_device_tokens (person_id INTEGER, token_hash TEXT, revoked_at TEXT, expires_at TEXT)');
-$db->exec('INSERT INTO office_inzet_people (id,active) VALUES (1,1)');
-$token = str_repeat('A', 40);
-$insert = $db->prepare('INSERT INTO office_onsite_device_tokens (person_id,token_hash) VALUES (?,?)');
-$insert->execute([1, hash('sha256', $token)]);
-// SQLite lacks UTC_TIMESTAMP(), so test the bootstrap formatting with an explicit
-// device repository test double once the MySQL integration test is available.
-echo "OnSite bootstrap contract test scaffold verified\n";
+foreach (['employee','projects','zones','radius_metres','latitude','longitude','display_name'] as $field) {
+  if (!str_contains($client, $field) || (!str_contains($service, $field) && !str_contains($repository, $field))) {
+    throw new RuntimeException('Bootstrap contract field mismatch: ' . $field);
+  }
+}
+foreach (['is_finite','abs($lat) > 90','abs($lon) > 180','$radius <= 0'] as $guard) {
+  if (!str_contains($service, $guard)) {
+    throw new RuntimeException('Missing bootstrap geometry validation: ' . $guard);
+  }
+}
+echo "OnSite static bootstrap contract checks passed\n";
