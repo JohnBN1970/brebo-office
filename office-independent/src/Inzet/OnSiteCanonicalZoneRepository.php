@@ -18,7 +18,7 @@ final class OnSiteCanonicalZoneRepository {
       || (int)$projectId < 1 || (int)$zoneId < 1) return false;
     $statement = $this->db->prepare(
       'SELECT 1 FROM office_onsite_canonical_zones
-       WHERE zone_id = ? AND project_id = ? AND active = 1 LIMIT 1'
+       WHERE zone_id = ? AND project_id = ? AND active = 1 AND synchronized_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR LIMIT 1'
     );
     $statement->execute([$zoneId,$projectId]);
     return $statement->fetchColumn() !== false;
