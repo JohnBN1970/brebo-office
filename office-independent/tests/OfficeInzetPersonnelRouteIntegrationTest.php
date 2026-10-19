@@ -16,4 +16,12 @@ if (!str_contains($form, "/inzet/medewerker/personeelsnummer")) {
 if (!str_contains($handler, "OfficeInzetPersonnelProfileAction")) {
   throw new RuntimeException('Personnel route lacks authenticated action');
 }
+$projects = file_get_contents(dirname(__DIR__) . '/public/office-projects.php');
+if (!is_string($projects)
+    || !str_contains($projects, "getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'")
+    || !str_contains($projects, "getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled'")
+    || !str_contains($projects, 'OfficeInzetManageablePeopleRepository')
+    || !str_contains($projects, 'OfficeInzetPersonnelNumberForm::render')) {
+  throw new RuntimeException('Personnel editor must load authorized project team independently');
+}
 echo "Personnel form to test router to POST handler chain OK\n";
