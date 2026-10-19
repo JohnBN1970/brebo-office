@@ -117,6 +117,9 @@ if ($inzetView) {
           foreach ($projectTeams[$requestedProjectId] as $person) {
             if ((int)($person['id'] ?? 0) !== $requestedPersonId) continue;
             $profileToken = \Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $profileSecret);
+            if (($_GET['profile_saved'] ?? '') === '1') {
+              echo '<p role="status">Personeelsnummer opgeslagen.</p>';
+            }
             echo \Brebo\Office\Inzet\OfficeInzetPersonnelNumberForm::render(
               $requestedProjectId, $requestedPersonId, (string)$person['display_name'],
               (string)($person['personnel_number'] ?? ''), $profileToken, $base
