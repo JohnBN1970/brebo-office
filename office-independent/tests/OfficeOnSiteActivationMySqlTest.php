@@ -37,8 +37,9 @@ if ($result['status'] !== 200 || !is_string($result['body']['device_token'] ?? n
 $device = $result['body']['device_token'];
 if (strlen($device) < 48 || $device === $token) throw new RuntimeException('Device token insufficient or reused invitation');
 if ($service->activate('short')['status'] !== 400) throw new RuntimeException('Malformed invitation accepted');
-$stored = $db->query('SELECT token_hash FROM office_onsite_device_tokens LIMIT 1')->fetchColumn();
-if ($stored !== hash('sha256', $device)) throw new RuntimeException('Device credential not hashed');
+$hashLookup = $db->prepare('SELECT COUNT(*) FROM office_onsite_device_tokens WHERE token_hash = ? AND person_id = ?');
+$hashLookup->execute([hash('sha256', $device), 201]);
+if ((int)$hashLookup->fetchColumn() !== 1) throw new RuntimeException('Device credential not hashed or linked to expected person');
 $lookup = new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db);
 if ($lookup->resolveEmployee($device) !== '201') throw new RuntimeException('Device not linked to active Office person');
 foreach ([$token,str_repeat('B',40),str_repeat('C',40)] as $rejected) {
