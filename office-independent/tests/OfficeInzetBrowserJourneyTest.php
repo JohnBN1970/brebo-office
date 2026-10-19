@@ -63,8 +63,8 @@ if (count($rows) !== 1 || (int)$rows[0]['id'] !== $id) {
     throw new RuntimeException('New shift missing from authorized week');
 }
 $weekHtml = OfficeInzetPlanningWorkbench::renderWeek($rows,[17],2026,43,[17=>'Testproject']);
-// Shift storage and roster currently use UTC; 08:00 Brussels in October is 06:00 UTC.
-foreach (['Test medewerker','Testproject','06:00','Weekplanning 2026-W43'] as $part) {
+// UTC remains the storage format; the roster must show Brussels local time.
+foreach (['Test medewerker','Testproject','08:00','Weekplanning 2026-W43'] as $part) {
     if (!str_contains($weekHtml,$part)) throw new RuntimeException('Week UI missing '.$part);
 }
 echo "Office Inzet form-to-POST-to-week HTML journey OK\n";
