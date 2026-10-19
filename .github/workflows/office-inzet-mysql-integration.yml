@@ -134,6 +134,16 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteCanonicalZoneMembership.php
           php -l office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
           php office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
+      - name: MySQL canonical Drupal zone read projection
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneSchema.php
+          php -l office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
+          php office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
