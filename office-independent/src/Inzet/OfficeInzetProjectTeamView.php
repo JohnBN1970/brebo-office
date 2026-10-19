@@ -45,6 +45,8 @@ final class OfficeInzetProjectTeamView {
         . (!$hasNumber ? '<small style="display:block;margin-top:6px;color:#915b00">Profiel aanvullen vereist</small>' : '')
         . '</article>';
     }
-    return $html . '</div></section>';
+    $html .= '</div>';
+    $html .= '<p><small>Profielgegevens kunnen pas worden gewijzigd na controle van de personeelsidentiteit en bewerkrechten.</small></p>';
+    return $html . '</section>';
   }
 }
