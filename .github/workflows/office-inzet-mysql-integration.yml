@@ -9,6 +9,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
+      - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
@@ -60,6 +61,12 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteAutomaticEventValidator.php
           php -l office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
           php office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
+      - name: OnSite verified identity and assignment gate
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAssignmentRepository.php
+          php -l office-independent/src/Inzet/OnSiteAssignmentGate.php
+          php -l office-independent/tests/OfficeOnSiteAssignmentGateTest.php
+          php office-independent/tests/OfficeOnSiteAssignmentGateTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
