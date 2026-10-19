@@ -24,4 +24,8 @@ if (!is_string($projects)
     || !str_contains($projects, 'OfficeInzetPersonnelNumberForm::render')) {
   throw new RuntimeException('Personnel editor must load authorized project team independently');
 }
+if (!str_contains($projects, 'Personeelsnummer opgeslagen.')
+    || !str_contains($handler, 'profile_saved=1')) {
+  throw new RuntimeException('Personnel save confirmation and profile redirect disconnected');
+}
 echo "Personnel form to test router to POST handler chain OK\n";
