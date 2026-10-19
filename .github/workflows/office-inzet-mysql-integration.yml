@@ -129,6 +129,11 @@ jobs:
           php -l office-independent/public/onsite-presence.php
           php -l office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
           php office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
+      - name: Canonical Drupal clock zone membership contract
+        run: |
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneMembership.php
+          php -l office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
+          php office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
