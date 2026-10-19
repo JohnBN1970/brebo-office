@@ -14,6 +14,9 @@ if (!str_contains($html, 'Project &amp; Gebouw')
   || !str_contains($html, 'BR-005')) {
   throw new RuntimeException('Office project team cards missing authorized data');
 }
+if (!str_contains($html, '2 medewerkers') || !str_contains($html, 'Personeelsnummers compleet')) {
+  throw new RuntimeException('Project team summary must count unique authorized employees');
+}
 if (substr_count($html, 'BR-004') !== 1 || str_contains($html, '<script>')) {
   throw new RuntimeException('Duplicate or unescaped employee data in project team');
 }
