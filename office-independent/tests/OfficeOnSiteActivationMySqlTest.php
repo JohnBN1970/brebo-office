@@ -38,7 +38,7 @@ foreach ([['onsite-test-reader',91001,201],['onsite-test-manager',91002,201],
 }
 $generated = $issuer->issue(201);
 if (strlen($generated['activation_token']) < 40) throw new RuntimeException('Issued invitation too short');
-if ((int)$db->query('SELECT COUNT(*) FROM office_onsite_activation_invitations')->fetchColumn() !== 1) throw new RuntimeException('Invitation not persisted');
+if ((int)$db->query('SELECT COUNT(*) FROM office_onsite_activation_invitations')->fetchColumn() !== 2) throw new RuntimeException('Invitations not persisted');
 try { $issuer->issue(202); throw new RuntimeException('Inactive person invitation issued'); }
 catch (RuntimeException $e) { if ($e->getMessage() === 'Inactive person invitation issued') throw $e; }
 $issue = $db->prepare('INSERT INTO office_onsite_activation_invitations(token_hash,person_id,expires_at) VALUES (?, ?, ?)');
