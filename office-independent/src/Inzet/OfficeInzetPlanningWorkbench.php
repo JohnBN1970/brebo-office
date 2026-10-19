@@ -105,7 +105,7 @@ final class OfficeInzetPlanningWorkbench {
   }
 
   /** @param list<array<string,mixed>> $projects */
-  public static function render(array $projects, string $basePath): string {
+  public static function render(array $projects, string $basePath, array $projectTeams = []): string {
     if (!in_array($basePath, ['/office', '/office-test'], true)) {
       throw new \InvalidArgumentException('Invalid Office mount');
     }
@@ -133,6 +133,10 @@ final class OfficeInzetPlanningWorkbench {
         . '<p style="margin:8px 0">Status: ' . $escape($status !== '' ? $status : 'Onbekend') . '</p>'
         . '<small>' . (is_int($buildings) ? $buildings : 0) . ' gekoppelde gebouwen</small>'
         . '</article>';
+      if (array_key_exists($id, $projectTeams)) {
+        require_once __DIR__ . '/OfficeInzetProjectTeamView.php';
+        $html .= OfficeInzetProjectTeamView::render($projectTeams[$id], $title);
+      }
     }
     return $html . '</div></section>';
   }
