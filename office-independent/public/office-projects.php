@@ -99,6 +99,35 @@ if ($inzetView) {
     }
   }
   echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base, $projectTeams);
+  // Test-only personnel editor: select exclusively from the server-authorized
+  // project team; never accept a client-supplied employee list.
+  if (getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled') {
+    $profileSecret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
+    if (is_string($profileSecret) && strlen($profileSecret) >= 32) {
+      try {
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPersonnelProfileCsrf.php';
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPersonnelNumberForm.php';
+        $requestedProjectId = filter_var($_GET['profile_project'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        $requestedPersonId = filter_var($_GET['profile_person'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
+        if (is_int($requestedProjectId) && is_int($requestedPersonId)
+          && isset($projectTeams[$requestedProjectId])) {
+          foreach ($projectTeams[$requestedProjectId] as $person) {
+            if ((int)($person['id'] ?? 0) !== $requestedPersonId) continue;
+            $profileToken = \\Brebo\\Office\\Inzet\\OfficeInzetPersonnelProfileCsrf::token($operator->sessionId, $profileSecret);
+            echo \\Brebo\\Office\\Inzet\\OfficeInzetPersonnelNumberForm::render(
+              $requestedProjectId, $requestedPersonId, (string)$person['display_name'],
+              (string)($person['personnel_number'] ?? ''), $profileToken, $base
+            );
+            break;
+          }
+        }
+      } catch (Throwable $exception) {
+        // Fail closed: an unavailable editor never exposes employee data.
+      }
+    }
+  }
+
   // Read-only weekly planning is gated independently from the projects module.
   if (getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
     && getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') === 'enabled') {
