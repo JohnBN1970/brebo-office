@@ -133,6 +133,11 @@ foreach ([
 if ($db->query('SELECT personnel_number FROM office_inzet_people WHERE id=101')->fetchColumn() !== 'BREBO-101') {
     throw new RuntimeException('Rejected personnel profile write changed MySQL data');
 }
+// A non-manager must not learn whether a personnel number is already taken.
+$duplicateProbe = array_merge($profileForm,['personnel_number'=>'BREBO-101']);
+if ($profile->update($duplicateProbe,'intruder',$profileSession,$profileSecret)) {
+    throw new RuntimeException('Unauthorized duplicate-number probe accepted');
+}
 if (!$profile->update($profileForm,'manager',$profileSession,$profileSecret)) {
     throw new RuntimeException('Authorized personnel profile update rejected');
 }
