@@ -36,8 +36,23 @@ final class OnSiteEventInbox {
       ]);
       return true;
     } catch (\PDOException $error) {
-      if ($error->getCode() !== '23000') throw $error;
-      // A duplicate event id must never overwrite or double-count time.
+      // Only MySQL duplicate-key (1062) is an idempotent retry.
+      // Foreign-key failures and other integrity errors must propagate.
+      if ($error->getCode() !== '23000' || (int)($error->errorInfo[1] ?? 0) !== 1062) throw $error;
+      $existing = $this->db->prepare(
+        'SELECT person_id, project_id, zone_id, event_kind, occurred_at_utc
+         FROM office_onsite_event_inbox WHERE event_id = ?'
+      );
+      $existing->execute([$eventId]);
+      $row = $existing->fetch(PDO::FETCH_ASSOC);
+      if (!is_array($row)
+        || (string)$row['person_id'] !== $verifiedEmployeeId
+        || (string)$row['project_id'] !== $event['project_id']
+        || (string)$row['zone_id'] !== $event['zone_id']
+        || (string)$row['event_kind'] !== $event['kind']
+        || (string)$row['occurred_at_utc'] !== $event['occurred_at']) {
+        throw new RuntimeException('Conflicting authenticated event replay');
+      }
       return false;
     }
   }
