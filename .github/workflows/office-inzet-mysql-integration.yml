@@ -78,6 +78,11 @@ jobs:
           OFFICE_INZET_TEST_USER: root
           OFFICE_INZET_TEST_PASSWORD: test-root-only
         run: php office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Reset isolated MySQL tables for OnSite authorization fixture
+        env:
+          MYSQL_PWD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root office_inzet_ci -e 'DROP TABLE IF EXISTS office_inzet_availability, office_inzet_shifts, office_inzet_project_team, office_inzet_people'
       - name: MySQL OnSite team and zone authorization
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
