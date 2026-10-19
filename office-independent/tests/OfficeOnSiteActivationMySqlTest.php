@@ -21,7 +21,7 @@ try { $action->issue('unknown-operator', 999, 201); throw new RuntimeException('
 catch (RuntimeException $e) { if ($e->getMessage() === 'Unauthorized invitation issued') throw $e; }
 // Authorization is enforced against real Office membership and project-team tables.
 $db->exec("INSERT INTO office_operator_accounts(id,active) VALUES ('onsite-test-manager',1),('onsite-test-reader',1)");
-$db->exec("INSERT INTO office_projects(id,code,title,status) VALUES (91001,'ONSITE-CI-1','OnSite test project','active')");
+$db->exec("INSERT INTO office_projects(id) VALUES (91001)");
 $db->exec("INSERT INTO office_project_memberships(project_id,operator_id,permission) VALUES
   (91001,'onsite-test-manager','manage'),(91001,'onsite-test-reader','read')");
 $db->exec("INSERT INTO office_inzet_project_team(project_id,person_id) VALUES (91001,201)");
