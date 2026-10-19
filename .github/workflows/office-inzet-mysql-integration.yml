@@ -7,6 +7,7 @@ on:
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
+      - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
@@ -164,6 +165,8 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteActivationInvitationIssuer.php
           php -l office-independent/public/office-onsite-invitation.php
           php -l office-independent/public/office-projects.php
+          php -l office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
+          php office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
           php -l office-independent/deployment/hostinger/office-test-index.php
 
       - name: MySQL Office-native OnSite activation
