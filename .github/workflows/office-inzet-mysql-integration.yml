@@ -68,10 +68,6 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteAssignmentGate.php
           php -l office-independent/tests/OfficeOnSiteAssignmentGateTest.php
           php office-independent/tests/OfficeOnSiteAssignmentGateTest.php
-      - name: OnSite runtime dependency release gate
-        run: |
-          php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
-          php office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
@@ -92,4 +88,7 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeTeamAssignmentRepository.php
           php -l office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
           php office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
-
+      - name: OnSite runtime dependency release gate
+        run: |
+          php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
+          php office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
