@@ -11,6 +11,13 @@ if (!in_array(($_SERVER['REQUEST_METHOD'] ?? ''), ['GET','POST'], true)) {
   http_response_code(405);
   exit;
 }
+// Legacy enrollment console uses a separate employee/token model. Keep it
+// unavailable until its authorization and persistence are migrated to the
+// Office-native OnSite invitation/device-token schema.
+if (getenv('OFFICE_ONSITE_LEGACY_DEVICE_CONSOLE_VERIFIED') !== 'enabled') {
+  http_response_code(503);
+  exit('Oud apparaatbeheer niet beschikbaar; gebruik Office Inzet.');
+}
 if (getenv('OFFICE_ONSITE_ADMIN_ENABLED') !== 'enabled'
   || getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') !== 'enabled'
   || getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled') {
