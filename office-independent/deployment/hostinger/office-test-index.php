@@ -59,6 +59,7 @@ $routes = [
   '/office-test/projecten' => 'office-projects.php',
   '/office-test/inzet/dienst/nieuw' => 'office-inzet-shift-create.php',
   '/office-test/inzet/medewerker/personeelsnummer' => 'office-inzet-personnel-number.php',
+  '/office-test/inzet/onsite/activatie-uitgeven' => 'office-onsite-invitation.php',
   '/office-test/projecten/detail' => 'office-project.php',
 ];
 if ($path === '/office-test/inzet/apparaten') {
