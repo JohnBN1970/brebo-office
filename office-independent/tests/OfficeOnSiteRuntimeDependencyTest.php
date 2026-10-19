@@ -30,11 +30,11 @@ if ($missing !== []) {
   fwrite(STDERR, "OnSite runtime release BLOCKED; missing files:\n" . implode("\n", array_unique($missing)) . "\n");
   exit(1);
 }
-// A present class is not sufficient: activation still requires a verified,
- // atomic bridge from Drupal invitations to Office personnel identities.
+// A present class is not sufficient: activation requires a verified,
+ // atomic Office-owned invitation linked to an existing active person.
 $activationSource = file_get_contents($root . '/src/Inzet/OnSiteActivationService.php');
 if (!is_string($activationSource) || str_contains($activationSource, 'activation_bridge_not_verified')) {
-  fwrite(STDERR, "OnSite runtime release BLOCKED; activation identity bridge not implemented\\n");
+  fwrite(STDERR, "OnSite runtime release BLOCKED; Office activation not implemented\\n");
   exit(1);
 }
-echo "OnSite public endpoint dependencies present and activation bridge reviewed\\n";
+echo "OnSite public endpoint dependencies present and Office activation source reviewed\\n";
