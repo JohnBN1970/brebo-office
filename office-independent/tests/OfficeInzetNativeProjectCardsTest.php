@@ -19,6 +19,17 @@ if (!str_contains($html, 'inzet-project-cards')
 if (str_contains($html, '<script>') || !str_contains($html, '&lt;script&gt;')) {
   throw new RuntimeException('Untrusted project title not escaped');
 }
+$withTeam = OfficeInzetPlanningWorkbench::render($projects, '/office-test', [
+  17 => [['id'=>7,'display_name'=>'Werkvoorbereider & team','personnel_number'=>'BR-007']],
+]);
+if (!str_contains($withTeam, 'Werkvoorbereider &amp; team')
+  || !str_contains($withTeam, 'BR-007')
+  || !str_contains($withTeam, 'Projectteam')) {
+  throw new RuntimeException('Verified project team not rendered in Office project cards');
+}
+if (str_contains($html, 'BR-007')) {
+  throw new RuntimeException('Project team leaked without verified project-team input');
+}
 if (str_contains($html, 'Niet aangesloten')) {
   throw new RuntimeException('Outdated Drupal-era project UI placeholder still rendered');
 }
