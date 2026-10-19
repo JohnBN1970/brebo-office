@@ -138,6 +138,17 @@ $duplicateProbe = array_merge($profileForm,['personnel_number'=>'BREBO-101']);
 if ($profile->update($duplicateProbe,'intruder',$profileSession,$profileSecret)) {
     throw new RuntimeException('Unauthorized duplicate-number probe accepted');
 }
+// Existing personnel numbers are unique across the Office personnel table.
+$db->exec("INSERT INTO office_inzet_people (id,display_name,personnel_number,active)
+    VALUES (102,'Tweede medewerker','BREBO-200',1)");
+$duplicateForm = array_merge($profileForm,['personnel_number'=>'BREBO-200']);
+try {
+    $profile->update($duplicateForm,'manager',$profileSession,$profileSecret);
+    throw new RuntimeException('Duplicate personnel number was accepted');
+} catch (InvalidArgumentException $expected) {}
+if ($db->query('SELECT personnel_number FROM office_inzet_people WHERE id=101')->fetchColumn() !== 'BREBO-101') {
+    throw new RuntimeException('Duplicate number attempt altered existing personnel record');
+}
 if (!$profile->update($profileForm,'manager',$profileSession,$profileSecret)) {
     throw new RuntimeException('Authorized personnel profile update rejected');
 }
