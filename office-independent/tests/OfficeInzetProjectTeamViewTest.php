@@ -20,4 +20,10 @@ if (substr_count($html, 'BR-004') !== 1 || str_contains($html, '<script>')) {
 if (!str_contains(\Brebo\Office\Inzet\OfficeInzetProjectTeamView::render([], 'Empty'), 'nog geen actieve medewerkers')) {
   throw new RuntimeException('Project team empty state missing');
 }
+$multi = \Brebo\Office\Inzet\OfficeInzetProjectTeamView::render($people, 'Project A')
+  . \Brebo\Office\Inzet\OfficeInzetProjectTeamView::render($people, 'Project B');
+if (str_contains($multi, 'id="inzet-team-title"')
+  || substr_count($multi, 'aria-label="Projectteam"') !== 2) {
+  throw new RuntimeException('Multiple project teams must not duplicate heading IDs');
+}
 echo "Office project team cards render and escaping OK\n";
