@@ -14,6 +14,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php'
       - 'office-independent/public/onsite-*.php'
+      - 'office-independent/public/office-onsite-invitation.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
@@ -155,6 +156,14 @@ jobs:
         run: |
           php -l office-independent/tests/OfficeOnSiteBootstrapContractTest.php
           php office-independent/tests/OfficeOnSiteBootstrapContractTest.php
+
+      - name: Office invitation endpoint and CSRF syntax
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeInvitationCsrf.php
+          php -l office-independent/src/Inzet/OnSiteOfficeInvitationAction.php
+          php -l office-independent/src/Inzet/OnSiteActivationInvitationIssuer.php
+          php -l office-independent/public/office-onsite-invitation.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
 
       - name: MySQL Office-native OnSite activation
         env:
