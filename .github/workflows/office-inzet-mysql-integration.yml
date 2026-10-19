@@ -6,6 +6,11 @@ on:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
+      - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
+      - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
+      - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
+      - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
+      - 'ios/CrewPOC/Sources/OnSiteAPIClient.swift'
       - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
       - 'office-independent/public/office-projects.php'
@@ -42,6 +47,11 @@ jobs:
           for file in office-independent/tests/OfficeInzetPersonnel*.php; do
             php "$file"
           done
+      - name: OnSite invitation and iOS contract regression
+        run: |
+          php -l web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php
+          php -l office-independent/tests/OfficeOnSiteInvitationContractTest.php
+          php office-independent/tests/OfficeOnSiteInvitationContractTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
