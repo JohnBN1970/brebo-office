@@ -38,6 +38,27 @@ $second = $ingest->ingest('101',$id,$event);
 if ($first !== ['accepted'=>true,'duplicate'=>false] || $second !== ['accepted'=>true,'duplicate'=>true]) {
   throw new RuntimeException('Idempotency failed');
 }
+// Replaying an event ID with changed data must never be treated as a retry.
+$inbox = new \\Brebo\\Office\\Inzet\\OnSiteEventInbox($db);
+foreach ([
+  ['101', array_replace($event, ['occurred_at'=>'2026-10-19T08:01:00+02:00'])],
+  ['101', array_replace($event, ['kind'=>'out'])],
+  ['103', $event],
+] as [$person, $changed]) {
+  try {
+    $inbox->store($person, $id, $changed);
+    throw new RuntimeException('Conflicting event replay accepted');
+  } catch (RuntimeException $expected) {
+    if ($expected->getMessage() === 'Conflicting event replay accepted') throw $expected;
+  }
+}
+// A foreign-key violation (SQLSTATE 23000) is NOT a duplicate retry.
+try {
+  $inbox->store('999', 'event_20261019_missing_person', $event);
+  throw new RuntimeException('Foreign-key violation accepted');
+} catch (PDOException $expected) {
+  if ((int)($expected->errorInfo[1] ?? 0) !== 1452) throw $expected;
+}
 if ((int)$db->query('SELECT COUNT(*) FROM office_onsite_event_inbox')->fetchColumn() !== 1) {
   throw new RuntimeException('Duplicate event was persisted');
 }
