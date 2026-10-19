@@ -10,6 +10,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
+      - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
       - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
@@ -71,6 +72,15 @@ jobs:
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
           php office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
+      - name: MySQL OnSite team and zone authorization
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeTeamAssignmentRepository.php
+          php -l office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
+          php office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
