@@ -122,6 +122,13 @@ jobs:
           php -l office-independent/src/Inzet/OnSitePresenceRequestService.php
           php -l office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
           php office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
+      - name: OnSite presence application fail-closed contract
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceApiHandler.php
+          php -l office-independent/src/Inzet/OnSitePresenceApplication.php
+          php -l office-independent/public/onsite-presence.php
+          php -l office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
+          php office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
