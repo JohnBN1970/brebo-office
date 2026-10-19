@@ -37,7 +37,7 @@ final class OnSiteBootstrapService {
       }
       $projectId = $zone['project_id'];
       if (!isset($projects[$projectId])) {
-        $projects[$projectId] = ['id'=>$projectId,'name'=>'Project ' . $projectId,'zones'=>[]];
+        $projects[$projectId] = ['id'=>$projectId,'name'=>$projectId,'zones'=>[]];
       }
       $projects[$projectId]['zones'][] = [
         'id'=>$zone['zone_id'],
@@ -49,7 +49,7 @@ final class OnSiteBootstrapService {
     }
     return ['status'=>200,'body'=>[
       'ok'=>true,
-      'employee'=>['id'=>$employeeId,'display_name'=>'Office gebruiker','language'=>'nl'],
+      'employee'=>['id'=>$employeeId,'display_name'=>$employeeId,'language'=>'nl'],
       'projects'=>array_values($projects),
     ]];
   }
