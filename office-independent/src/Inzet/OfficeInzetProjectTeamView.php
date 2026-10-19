@@ -14,7 +14,7 @@ final class OfficeInzetProjectTeamView {
   public static function render(array $people, string $projectTitle): string {
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-project-team" aria-label="Projectteam">'
-      . '<h2 >Projectteam</h2>'
+      . '<h2>Projectteam</h2>'
       . '<p>Medewerkers gekoppeld aan ' . $escape($projectTitle) . '.</p>';
     if ($people === []) {
       return $html . '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld.</p></section>';
@@ -23,7 +23,7 @@ final class OfficeInzetProjectTeamView {
     $seen = [];
     foreach ($people as $person) {
       $id = filter_var($person['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-      if ($id === false || isset($seen[$id])) continue;
+      if (!is_int($id) || isset($seen[$id])) continue;
       $seen[$id] = true;
       $name = trim((string)($person['display_name'] ?? ''));
       $number = trim((string)($person['personnel_number'] ?? ''));
