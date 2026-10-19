@@ -145,6 +145,12 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteCanonicalZoneSchema.php
           php -l office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
           php office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
+      - name: OnSite Drupal activation identity bridge contract
+        run: |
+          php -l office-independent/src/Inzet/OnSiteActivationIdentityBridge.php
+          php -l office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
+          php office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
+
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
