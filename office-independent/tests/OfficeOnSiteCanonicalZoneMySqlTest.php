@@ -25,4 +25,13 @@ $sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'
 if ($check('17','8')) throw new RuntimeException('Stale zone revision restored access');
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>7]);
 if (!$check('18','8') || $check('17','8')) throw new RuntimeException('Project zone reassignment not enforced');
+$conflictRejected = false;
+try {
+  $sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>7]);
+} catch (RuntimeException $exception) {
+  $conflictRejected = $exception->getMessage() === 'Conflicting zone revision';
+}
+if (!$conflictRejected || !$check('18','8')) {
+  throw new RuntimeException('Equal-revision conflicting zone was not rejected');
+}
 echo "Canonical Drupal zone MySQL sync and read projection OK\n";
