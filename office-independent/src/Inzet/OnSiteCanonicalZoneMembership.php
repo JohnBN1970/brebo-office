@@ -11,10 +11,10 @@ use InvalidArgumentException;
  * No GPS coordinates or raw location history are needed for authorization.
  */
 final class OnSiteCanonicalZoneMembership {
-  /** @param array<string,array{project_id:string,active:bool}> $verifiedZonesById */
+  /** @param array<int|string,array{project_id:string,active:bool}> $verifiedZonesById */
   public function __construct(private array $verifiedZonesById) {
     foreach ($verifiedZonesById as $zoneId => $zone) {
-      if (!is_string($zoneId) || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $zoneId)
+      if (!preg_match('/^[1-9][0-9]{0,18}$/D', (string)$zoneId)
         || !isset($zone['project_id'],$zone['active'])
         || !is_string($zone['project_id']) || !is_bool($zone['active'])) {
         throw new InvalidArgumentException('Invalid canonical zone snapshot');
