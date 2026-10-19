@@ -20,6 +20,7 @@ on:
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
       - 'ios/CrewPOC/Sources/OnSiteAPIClient.swift'
+      - 'office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php'
       - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
       - 'office-independent/public/office-projects.php'
@@ -152,6 +153,11 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteActivationIdentityBridge.php
           php -l office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
           php office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
+
+      - name: OnSite iPhone API URL routing contract
+        run: |
+          php -l office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
+          php office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
 
       - name: OnSite iPhone bootstrap contract
         run: |
