@@ -156,6 +156,17 @@ jobs:
           php -l office-independent/tests/OfficeOnSiteBootstrapContractTest.php
           php office-independent/tests/OfficeOnSiteBootstrapContractTest.php
 
+      - name: MySQL Office-native OnSite activation
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteActivationInvitationSchema.php
+          php -l office-independent/src/Inzet/OnSiteActivationService.php
+          php -l office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+          php office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
