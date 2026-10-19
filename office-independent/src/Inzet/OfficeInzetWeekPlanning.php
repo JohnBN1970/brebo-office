@@ -20,7 +20,8 @@ final class OfficeInzetWeekPlanning {
       throw new InvalidArgumentException('Invalid ISO week.');
     }
     $utc = new DateTimeZone('UTC');
-    $monday = (new DateTimeImmutable('now', $utc))->setISODate($isoYear, $isoWeek, 1)->setTime(0, 0);
+    $local = new DateTimeZone('Europe/Brussels');
+    $monday = (new DateTimeImmutable('now', $local))->setISODate($isoYear, $isoWeek, 1)->setTime(0, 0);
     if ((int)$monday->format('o') !== $isoYear || (int)$monday->format('W') !== $isoWeek) {
       throw new InvalidArgumentException('Nonexistent ISO week.');
     }
@@ -39,7 +40,7 @@ final class OfficeInzetWeekPlanning {
       } catch (\Exception $exception) {
         continue;
       }
-      if ($finish <= $start || $start >= $end || $finish <= $monday) continue;
+      if ($finish <= $start || $start >= $end->setTimezone($utc) || $finish <= $monday->setTimezone($utc)) continue;
       $rows[] = [
         'project_id' => $project,
         'person_id' => isset($shift['person_id']) ? (int)$shift['person_id'] : null,
