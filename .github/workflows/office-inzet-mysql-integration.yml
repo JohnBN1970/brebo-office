@@ -177,6 +177,8 @@ jobs:
         run: |
           php -l office-independent/src/Inzet/OnSiteActivationInvitationSchema.php
           php -l office-independent/src/Inzet/OnSiteActivationService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeDeviceRevocationAction.php
+          php -l office-independent/src/Inzet/OnSiteOfficeDeviceManagementRepository.php
           php -l office-independent/tests/OfficeOnSiteActivationMySqlTest.php
           php office-independent/tests/OfficeOnSiteActivationMySqlTest.php
 
