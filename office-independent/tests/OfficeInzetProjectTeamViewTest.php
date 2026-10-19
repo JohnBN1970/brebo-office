@@ -26,4 +26,13 @@ if (str_contains($multi, 'id="inzet-team-title"')
   || substr_count($multi, 'aria-label="Projectteam"') !== 2) {
   throw new RuntimeException('Multiple project teams must not duplicate heading IDs');
 }
+$invalid = \Brebo\Office\Inzet\OfficeInzetProjectTeamView::render([
+  ['id'=>0,'display_name'=>'Invalid zero'],
+  ['id'=>'invalid','display_name'=>'Invalid text'],
+  ['id'=>9,'display_name'=>'Valid colleague'],
+], 'Test');
+if (str_contains($invalid, 'Invalid zero') || str_contains($invalid, 'Invalid text')
+  || !str_contains($invalid, 'Valid colleague')) {
+  throw new RuntimeException('Invalid employee identifiers must be rejected');
+}
 echo "Office project team cards render and escaping OK\n";
