@@ -42,6 +42,18 @@ final class OnSiteCanonicalZoneSync {
          source_revision = GREATEST(source_revision, VALUES(source_revision))'
     );
     $query->execute([$zone['zone_id'],$zone['project_id'],(int)$zone['active'],$zone['source_revision']]);
-    return $query->rowCount() > 0;
+    $changed = $query->rowCount() > 0;
+    if (!$changed) {
+      $read = $this->db->prepare('SELECT project_id, active, source_revision FROM office_onsite_canonical_zones WHERE zone_id = ?');
+      $read->execute([$zone['zone_id']]);
+      $current = $read->fetch(PDO::FETCH_ASSOC);
+      if (!is_array($current)) throw new RuntimeException('Zone not found after upsert');
+      if ((int)$current['source_revision'] === $zone['source_revision']
+        && ((string)$current['project_id'] !== $zone['project_id']
+          || (int)$current['active'] !== (int)$zone['active'])) {
+        throw new RuntimeException('Conflicting zone revision');
+      }
+    }
+    return $changed;
   }
 }
