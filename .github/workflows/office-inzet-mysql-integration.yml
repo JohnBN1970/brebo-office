@@ -5,6 +5,8 @@ on:
     paths:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
+      - 'office-independent/tests/OfficeInzetPersonnel*.php'
+      - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -32,6 +34,14 @@ jobs:
       - uses: actions/checkout@v4
       - name: PHP syntax
         run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Personnel route and security regression tests
+        run: |
+          for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do
+            php -l "$file"
+          done
+          for file in office-independent/tests/OfficeInzetPersonnel*.php; do
+            php "$file"
+          done
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
