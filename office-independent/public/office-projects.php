@@ -133,6 +133,48 @@ if ($inzetView) {
     }
   }
 
+  // Office-native OnSite invitation form. Only show employees from the
+  // verified operator's manageable project team; POST rechecks authorization.
+  if (getenv('OFFICE_TEST_ONSITE_INVITATION_ISSUE_ENABLED') === 'enabled'
+    && getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') === 'enabled'
+    && getenv('OFFICE_CRM_SESSION_MODE') === 'enabled'
+    && \Brebo\Office\Intake\OfficeMount::isTest()) {
+    $invitationSecret = getenv('OFFICE_TEST_ONSITE_INVITATION_CSRF_SECRET');
+    if (is_string($invitationSecret) && strlen($invitationSecret) >= 32) {
+      try {
+        require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationCsrf.php';
+        require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
+        $invitationCsrf = \Brebo\Office\Inzet\OnSiteOfficeInvitationCsrf::token($operator->sessionId, $invitationSecret);
+        $teamRepository = new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db);
+        $manageQuery = $db->prepare("SELECT m.project_id FROM office_project_memberships m
+          INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+          WHERE m.operator_id = ? AND m.permission = 'manage' AND a.active = 1");
+        $manageQuery->execute([$operator->operatorId]);
+        $manageIds = array_map('intval', $manageQuery->fetchAll(PDO::FETCH_COLUMN));
+        foreach ($projects as $project) {
+          $projectId = (int)$project['id'];
+          if (!in_array($projectId, $manageIds, true)) continue;
+          $people = $teamRepository->listForOperator($operator->operatorId, $projectId);
+          if ($people === []) continue;
+          echo '<section><h2>OnSite · medewerker activeren</h2><p>Project: '
+            . $escape($project['title']) . '. Controleer de identiteit voordat je een code uitgeeft.</p>';
+          echo '<form method="post" action="' . $escape($base . '/inzet/onsite/activatie-uitgeven') . '">';
+          echo '<input type="hidden" name="csrf_token" value="' . $escape($invitationCsrf) . '">';
+          echo '<input type="hidden" name="project_id" value="' . $projectId . '">';
+          echo '<label>Medewerker <select name="person_id" required>';
+          foreach ($people as $person) {
+            echo '<option value="' . (int)$person['id'] . '">'
+              . $escape($person['display_name']) . '</option>';
+          }
+          echo '</select></label> <label><input type="checkbox" name="confirmation" value="ISSUE" required>'
+            . ' Identiteit gecontroleerd</label> <button type="submit">Activatiecode uitgeven</button></form></section>';
+        }
+      } catch (Throwable $exception) {
+        // Fail closed; never expose unauthorized personnel or issuance controls.
+      }
+    }
+  }
+
   // Read-only weekly planning is gated independently from the projects module.
   if (getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
     && getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') === 'enabled') {
