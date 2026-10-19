@@ -39,7 +39,7 @@ if ($first !== ['accepted'=>true,'duplicate'=>false] || $second !== ['accepted'=
   throw new RuntimeException('Idempotency failed');
 }
 // Replaying an event ID with changed data must never be treated as a retry.
-$inbox = new \\Brebo\\Office\\Inzet\\OnSiteEventInbox($db);
+$inbox = new \Brebo\Office\Inzet\OnSiteEventInbox($db);
 foreach ([
   ['101', array_replace($event, ['occurred_at'=>'2026-10-19T08:01:00+02:00'])],
   ['101', array_replace($event, ['kind'=>'out'])],
