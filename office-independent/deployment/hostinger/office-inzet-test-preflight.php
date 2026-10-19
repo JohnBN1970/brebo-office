@@ -40,6 +40,25 @@ $required = [
     'src/Inzet/OfficeInzetWeekShiftReadRepository.php', 'src/Inzet/OfficeInzetShiftForm.php',
 ];
 foreach ($required as $file) $check('release file '.$file, is_file($root.'/'.$file));
+
+$personnelWriteEnabled = getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled';
+if ($personnelWriteEnabled) {
+    $check('personnel schema explicitly verified', getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled');
+    foreach ([
+        'public/office-inzet-personnel-number.php',
+        'src/Inzet/OfficeInzetPersonnelProfileRepository.php',
+        'src/Inzet/OfficeInzetPersonnelProfileAction.php',
+        'src/Inzet/OfficeInzetPersonnelProfileCsrf.php',
+        'src/Inzet/OfficeInzetPersonnelNumberForm.php',
+    ] as $file) $check('personnel release file '.$file, is_file($root.'/'.$file));
+    $router = '/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php';
+    $routerSource = is_file($router) ? file_get_contents($router) : false;
+    $check('personnel POST route deployed',
+        is_string($routerSource)
+        && str_contains($routerSource, "'/office-test/inzet/medewerker/personeelsnummer'")
+        && str_contains($routerSource, "'office-inzet-personnel-number.php'"));
+}
+
 if (!$ok) exit(1);
 try {
     $db = new PDO(getenv('OFFICE_INTAKE_PDO_DSN'), getenv('OFFICE_INTAKE_DB_USER'), getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '', [
