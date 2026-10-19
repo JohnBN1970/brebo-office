@@ -143,6 +143,7 @@ if ($inzetView) {
     if (is_string($invitationSecret) && strlen($invitationSecret) >= 32) {
       try {
         require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationCsrf.php';
+        require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceManagementRepository.php';
         require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
         $invitationCsrf = \Brebo\Office\Inzet\OnSiteOfficeInvitationCsrf::token($operator->sessionId, $invitationSecret);
         $teamRepository = new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db);
@@ -156,6 +157,12 @@ if ($inzetView) {
           if (!in_array($projectId, $manageIds, true)) continue;
           $people = $teamRepository->listForOperator($operator->operatorId, $projectId);
           if ($people === []) continue;
+          $devices = (new \Brebo\Office\Inzet\OnSiteOfficeDeviceManagementRepository($db))->listForManager($operator->operatorId, $projectId);
+          echo '<section><h2>OnSite · apparaten per medewerker</h2><p>Actieve apparaatkoppelingen:</p><ul>';
+          foreach ($devices as $device) {
+            echo '<li>' . $escape($device['display_name']) . ': ' . (int)$device['active_device_count'] . '</li>';
+          }
+          echo '</ul></section>';
           echo '<section><h2>OnSite · medewerker activeren</h2><p>Project: '
             . $escape($project['title']) . '. Controleer de identiteit voordat je een code uitgeeft.</p>';
           echo '<form method="post" action="' . $escape($base . '/inzet/onsite/activatie-uitgeven') . '">';
