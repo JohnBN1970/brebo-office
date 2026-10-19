@@ -19,6 +19,23 @@ $issuer = new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db);
 $action = new \Brebo\Office\Inzet\OnSiteOfficeInvitationAction($db, $issuer);
 try { $action->issue('unknown-operator', 999, 201); throw new RuntimeException('Unauthorized invitation issued'); }
 catch (RuntimeException $e) { if ($e->getMessage() === 'Unauthorized invitation issued') throw $e; }
+// Authorization is enforced against real Office membership and project-team tables.
+$db->exec("INSERT INTO office_operator_accounts(id,active) VALUES ('onsite-test-manager',1),('onsite-test-reader',1)");
+$db->exec("INSERT INTO office_projects(id,code,title,status) VALUES (91001,'ONSITE-CI-1','OnSite test project','active')");
+$db->exec("INSERT INTO office_project_memberships(project_id,operator_id,permission) VALUES
+  (91001,'onsite-test-manager','manage'),(91001,'onsite-test-reader','read')");
+$db->exec("INSERT INTO office_inzet_project_team(project_id,person_id) VALUES (91001,201)");
+$authorized = $action->issue('onsite-test-manager', 91001, 201);
+if (strlen($authorized['activation_token']) < 40) throw new RuntimeException('Manager invitation not issued');
+foreach ([['onsite-test-reader',91001,201],['onsite-test-manager',91002,201],
+  ['onsite-test-manager',91001,202]] as [$operatorId,$projectId,$personId]) {
+  try {
+    $action->issue($operatorId, $projectId, $personId);
+    throw new RuntimeException('Unauthorized invitation issued for ' . $operatorId);
+  } catch (RuntimeException $e) {
+    if (str_starts_with($e->getMessage(), 'Unauthorized invitation issued for ')) throw $e;
+  }
+}
 $generated = $issuer->issue(201);
 if (strlen($generated['activation_token']) < 40) throw new RuntimeException('Issued invitation too short');
 if ((int)$db->query('SELECT COUNT(*) FROM office_onsite_activation_invitations')->fetchColumn() !== 1) throw new RuntimeException('Invitation not persisted');
