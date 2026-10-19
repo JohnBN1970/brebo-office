@@ -54,6 +54,7 @@ try {
     'OnSiteAssignmentGate', 'OnSiteOfficeTeamAssignmentRepository',
     'OnSiteAuthenticatedEventService', 'OnSitePresenceRequestService',
     'OnSitePresenceApiHandler', 'OnSitePresenceApplication',
+    'OnSiteCanonicalZoneRepository',
   ] as $name) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $name . '.php';
   }
@@ -65,7 +66,15 @@ try {
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES => false,
   ]);
-  $result = (new \Brebo\Office\Inzet\OnSitePresenceApplication($db))->submit($payload, $match[1]);
+  // Projection is only safe once a trusted Drupal sync and project identity mapping
+  // have been explicitly verified. Otherwise keep the endpoint fail-closed.
+  if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
+    || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
+    throw new RuntimeException('OnSite canonical zone source not verified');
+  }
+  $zones = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneRepository($db);
+  $result = (new \\Brebo\\Office\\Inzet\\OnSitePresenceApplication($db, $zones->callback()))
+    ->submit($payload, $match[1]);
   http_response_code($result['status']);
   echo json_encode($result['body']);
 } catch (Throwable $error) {
