@@ -32,7 +32,9 @@ final class OfficeInzetProjectTeamView {
         . '<strong>' . $escape($name !== '' ? $name : 'Medewerker #' . $id) . '</strong>'
         . '<small style="display:block;color:#57677b;margin-top:6px">'
         . $escape($hasNumber ? $number : 'Personeelsnummer niet ingevuld')
-        . '</small></article>';
+        . '</small>'
+        . (!$hasNumber ? '<small role="status" style="display:block;margin-top:6px;color:#915b00">Profiel aanvullen vereist</small>' : '')
+        . '</article>';
     }
     return $html . '</div></section>';
   }
