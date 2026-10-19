@@ -19,12 +19,21 @@ final class OfficeInzetProjectTeamView {
     if ($people === []) {
       return $html . '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld.</p></section>';
     }
-    $html .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">';
-    $seen = [];
+    $validPeople = [];
     foreach ($people as $person) {
       $id = filter_var($person['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
-      if (!is_int($id) || isset($seen[$id])) continue;
-      $seen[$id] = true;
+      if (!is_int($id) || isset($validPeople[$id])) continue;
+      $validPeople[$id] = $person;
+    }
+    $missingCount = 0;
+    foreach ($validPeople as $person) {
+      if (trim((string)($person['personnel_number'] ?? '')) === '') $missingCount++;
+    }
+    $html .= '<p><strong>' . count($validPeople) . ' medewerkers</strong>'
+      . ($missingCount > 0 ? ' · ' . $missingCount . ' profiel(en) aanvullen' : ' · Personeelsnummers compleet')
+      . '</p>';
+    $html .= '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px">';
+    foreach ($validPeople as $id => $person) {
       $name = trim((string)($person['display_name'] ?? ''));
       $number = trim((string)($person['personnel_number'] ?? ''));
       $hasNumber = $number !== '';
