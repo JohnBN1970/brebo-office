@@ -141,6 +141,7 @@ jobs:
           OFFICE_INZET_TEST_PASSWORD: test-root-only
         run: |
           php -l office-independent/src/Inzet/OnSiteCanonicalZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneSync.php
           php -l office-independent/src/Inzet/OnSiteCanonicalZoneSchema.php
           php -l office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
           php office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
