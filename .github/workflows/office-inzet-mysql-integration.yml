@@ -151,6 +151,11 @@ jobs:
           php -l office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
           php office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
 
+      - name: OnSite iPhone bootstrap contract
+        run: |
+          php -l office-independent/tests/OfficeOnSiteBootstrapContractTest.php
+          php office-independent/tests/OfficeOnSiteBootstrapContractTest.php
+
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
