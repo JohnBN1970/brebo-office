@@ -131,11 +131,16 @@ struct OnSiteAPIClient {
 
     func recordPresence(event: CrewPresenceEvent, deviceToken: String) async throws {
         let formatter = ISO8601DateFormatter()
-        let body: [String: String] = [
-            "project_id": event.projectId,
-            "zone_id": event.zoneId,
-            "kind": event.kind == .enteredProject ? "in" : "out",
-            "occurred_at": formatter.string(from: event.occurredAt),
+        // Reuse the event's stable UUID for idempotent retries.
+        // Office requires an envelope, not a flat presence payload.
+        let body: [String: Any] = [
+            "event_id": event.id.uuidString,
+            "event": [
+                "project_id": event.projectId,
+                "zone_id": event.zoneId,
+                "kind": event.kind == .enteredProject ? "in" : "out",
+                "occurred_at": formatter.string(from: event.occurredAt),
+            ],
         ]
         let _: OnSitePresenceResponse = try await authorizedPost(
             path: "/api/onsite/v1/presence",
@@ -155,7 +160,7 @@ struct OnSiteAPIClient {
     private func authorizedPost<T: Decodable>(
         path: String,
         deviceToken: String,
-        body: [String: String]
+        body: [String: Any]
     ) async throws -> T {
         let url = baseURL.appending(path: path)
         var request = URLRequest(url: url)
