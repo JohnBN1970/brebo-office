@@ -29,7 +29,7 @@ final class OfficeInzetPlanningWorkbench {
       . '<a href="' . $path . '&amp;year=' . $next->format('o') . '&amp;week=' . $next->format('W') . '">Volgende week →</a></nav>';
     if ($rows === []) return $html . '<p>Geen geautoriseerde diensten in deze week.</p></section>';
     $days = ['Ma','Di','Wo','Do','Vr','Za','Zo'];
-    $monday = (new \DateTimeImmutable('now', new \DateTimeZone('UTC')))->setISODate($year,$week,1)->setTime(0,0);
+    $monday = (new \DateTimeImmutable('now', new \DateTimeZone('Europe/Brussels')))->setISODate($year,$week,1)->setTime(0,0);
     $people = [];
     $personLabels = [];
     foreach ($rows as $row) {
@@ -41,8 +41,9 @@ final class OfficeInzetPlanningWorkbench {
       // Stable employee ID is the row key, not the displayed name.
       $personKey = $personId === null ? 'unassigned' : 'person:' . (int)$personId;
       $personLabels[$personKey] = $person;
-      $start = new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC'));
-      $finish = new \DateTimeImmutable($row['ends_at'],new \DateTimeZone('UTC'));
+      $localTz = new \DateTimeZone('Europe/Brussels');
+      $start = (new \DateTimeImmutable($row['starts_at'],new \DateTimeZone('UTC')))->setTimezone($localTz);
+      $finish = (new \DateTimeImmutable($row['ends_at'],new \DateTimeZone('UTC')))->setTimezone($localTz);
       $weekEnd = $monday->modify('+7 days');
       for ($day = $start->setTime(0,0); $day < $finish && $day < $weekEnd; $day = $day->modify('+1 day')) {
         if ($day < $monday) continue;
@@ -65,7 +66,8 @@ final class OfficeInzetPlanningWorkbench {
         foreach ($shiftsByDay[$date] ?? [] as $shift) {
           $html .= '<div style="padding:8px;margin:3px 0;border:1px solid #cddceb;border-radius:8px;background:#f3f7fc">'
             . '<strong>' . $escape($projectNames[(int)$shift['project_id']] ?? ('Project #' . (int)$shift['project_id'])) . '</strong><small style="display:block">'
-            . $escape(substr($shift['starts_at'],11,5)) . '–' . $escape(substr($shift['ends_at'],11,5))
+            . $escape((new \DateTimeImmutable($shift['starts_at'],new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('H:i'))
+            . '–' . $escape((new \DateTimeImmutable($shift['ends_at'],new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('H:i'))
             . '</small><small>' . $escape($shift['status']) . '</small>';
           if ($cancelCsrfToken !== null && preg_match('/^[a-f0-9]{64}$/D', $cancelCsrfToken)
             && in_array((int)$shift['project_id'], $manageableProjectIds, true)
