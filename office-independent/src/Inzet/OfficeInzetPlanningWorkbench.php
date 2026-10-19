@@ -133,7 +133,7 @@ final class OfficeInzetPlanningWorkbench {
         . '<p style="margin:8px 0">Status: ' . $escape($status !== '' ? $status : 'Onbekend') . '</p>'
         . '<small>' . (is_int($buildings) ? $buildings : 0) . ' gekoppelde gebouwen</small>'
         . '</article>';
-      if (array_key_exists($id, $projectTeams)) {
+      if (array_key_exists($id, $projectTeams) && is_array($projectTeams[$id])) {
         require_once __DIR__ . '/OfficeInzetProjectTeamView.php';
         $html .= OfficeInzetProjectTeamView::render($projectTeams[$id], $title);
       }
