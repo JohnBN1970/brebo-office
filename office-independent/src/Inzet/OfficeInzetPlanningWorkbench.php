@@ -135,7 +135,11 @@ final class OfficeInzetPlanningWorkbench {
         . '</article>';
       if (array_key_exists($id, $projectTeams) && is_array($projectTeams[$id])) {
         require_once __DIR__ . '/OfficeInzetProjectTeamView.php';
-        $html .= OfficeInzetProjectTeamView::render($projectTeams[$id], $title);
+        $editPrefix = getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'
+          && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled'
+          && $basePath === '/office-test'
+          ? $basePath . '/projecten?view=inzet&profile_project=' . $id . '&profile_person=' : null;
+        $html .= OfficeInzetProjectTeamView::render($projectTeams[$id], $title, $editPrefix);
       }
     }
     return $html . '</div></section>';
