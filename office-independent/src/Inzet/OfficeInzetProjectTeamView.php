@@ -27,10 +27,11 @@ final class OfficeInzetProjectTeamView {
       $seen[$id] = true;
       $name = trim((string)($person['display_name'] ?? ''));
       $number = trim((string)($person['personnel_number'] ?? ''));
+      $hasNumber = $number !== '';
       $html .= '<article aria-label="Medewerker" style="padding:16px;border:1px solid #dbe1e8;border-radius:12px;background:#f8fafc">'
         . '<strong>' . $escape($name !== '' ? $name : 'Medewerker #' . $id) . '</strong>'
         . '<small style="display:block;color:#57677b;margin-top:6px">'
-        . $escape($number !== '' ? $number : 'Personeelsnummer niet ingevuld')
+        . $escape($hasNumber ? $number : 'Personeelsnummer niet ingevuld')
         . '</small></article>';
     }
     return $html . '</div></section>';
