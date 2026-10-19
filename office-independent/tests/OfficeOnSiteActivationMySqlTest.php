@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationSchema.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationInvitationIssuer.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeInvitationAction.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeDeviceRevocationAction.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteActivationService.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteDeviceTokenRepository.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteDeviceTokenSchema.php';
@@ -64,4 +65,19 @@ foreach ([$token,str_repeat('B',40),str_repeat('C',40)] as $rejected) {
 }
 $count = (int)$db->query('SELECT COUNT(*) FROM office_onsite_device_tokens')->fetchColumn();
 if ($count !== 2) throw new RuntimeException('Unexpected additional device credentials');
+$revoker = new \Brebo\Office\Inzet\OnSiteOfficeDeviceRevocationAction($db);
+$hash = hash('sha256', $device);
+try {
+  $revoker->revoke('onsite-test-reader', 91001, 201, $hash);
+  throw new RuntimeException('Read-only operator revoked device');
+} catch (RuntimeException $e) {
+  if ($e->getMessage() === 'Read-only operator revoked device') throw $e;
+}
+if ($lookup->resolveEmployee($device) !== '201') throw new RuntimeException('Unauthorized revocation affected device');
+if (!$revoker->revoke('onsite-test-manager', 91001, 201, $hash)) throw new RuntimeException('Authorized revocation failed');
+if ($lookup->resolveEmployee($device) !== null) throw new RuntimeException('Revoked device still authorized');
+if ($revoker->revoke('onsite-test-manager', 91001, 201, $hash)) throw new RuntimeException('Revocation not idempotent');
+if ($lookup->resolveEmployee($issuedActivation['body']['device_token']) !== '201') {
+  throw new RuntimeException('Unrelated device incorrectly revoked');
+}
 echo "Office-native OnSite activation MySQL contract OK\n";
