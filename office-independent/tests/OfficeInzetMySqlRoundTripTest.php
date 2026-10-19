@@ -51,7 +51,7 @@ $preflight = new OfficeInzetVerifiedAssignmentPreflight($db,
     [['source_system'=>'legacy_drupal','source_project_id'=>'node-4538','office_project_id'=>17]]
 );
 $command = new OfficeInzetVerifiedShiftCommand($preflight, new OfficeInzetShiftCommand($db, new OfficeInzetShiftWriter($db)));
-$shift = ['starts_at'=>'2026-10-19 08:00:00','ends_at'=>'2026-10-19 16:00:00'];
+$shift = ['starts_at'=>'2026-10-19 06:00:00','ends_at'=>'2026-10-19 14:00:00'];
 $id = $command->createForOperator('manager','legacy_drupal','node-4538','uid-8',$shift);
 if ($id < 1) throw new RuntimeException('No shift ID returned');
 $week = (new OfficeInzetWeekShiftReadRepository($db))->listWeek('manager',[17],2026,43);
