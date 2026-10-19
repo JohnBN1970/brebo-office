@@ -1,0 +1,32 @@
+name: OnSite iOS simulator build
+
+on:
+  pull_request:
+    paths:
+      - 'ios/CrewPOC/**'
+      - '.github/workflows/onsite-ios-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ios-simulator:
+    runs-on: macos-15
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate iOS project
+        working-directory: ios/CrewPOC
+        run: xcodegen generate
+      - name: Compile iOS app for simulator without signing
+        working-directory: ios/CrewPOC
+        run: |
+          xcodebuild -project BreboCrewPOC.xcodeproj \
+            -scheme BreboCrewPOC \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
