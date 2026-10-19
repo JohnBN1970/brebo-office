@@ -72,8 +72,8 @@ try {
     || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
     throw new RuntimeException('OnSite canonical zone source not verified');
   }
-  $zones = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneRepository($db);
-  $result = (new \\Brebo\\Office\\Inzet\\OnSitePresenceApplication($db, $zones->callback()))
+  $zones = new \Brebo\Office\Inzet\OnSiteCanonicalZoneRepository($db);
+  $result = (new \Brebo\Office\Inzet\OnSitePresenceApplication($db, $zones->callback()))
     ->submit($payload, $match[1]);
   http_response_code($result['status']);
   echo json_encode($result['body']);
