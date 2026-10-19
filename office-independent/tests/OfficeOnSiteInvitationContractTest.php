@@ -15,6 +15,14 @@ $drupalActivation = $read('web/modules/custom/brebo_inzet/src/Service/OnSiteActi
 $officeActivation = $read('office-independent/public/onsite-activate.php');
 $swift = $read('ios/CrewPOC/Sources/OnSiteAPIClient.swift');
 $drupalPresence = $read('web/modules/custom/brebo_inzet/src/Controller/OnSitePresenceController.php');
+$inviteController = $read('web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php');
+if (str_contains($inviteController, "locatietoegang 'Altijd'")
+    || str_contains($inviteController, 'automatische aanwezigheid')) {
+    throw new RuntimeException('Invitation must not promise background location tracking');
+}
+if (!str_contains($inviteController, 'expliciete klokactie')) {
+    throw new RuntimeException('Invitation must describe the current explicit clock action policy');
+}
 foreach ([
     [$invite, '$this->activationManager->issue($uid)'],
     [$drupalActivation, '$this->store->set('],
