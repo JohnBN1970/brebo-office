@@ -5,6 +5,9 @@ on:
     paths:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
+      - 'office-independent/public/office-inzet-personnel-number.php'
+      - 'office-independent/public/office-projects.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
       - '.github/workflows/office-inzet-mysql-integration.yml'
   workflow_dispatch:
 
