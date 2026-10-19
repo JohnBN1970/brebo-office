@@ -18,12 +18,7 @@ foreach ([
   'verified Office session' => str_contains($route, 'currentOperator()'),
   'test-only router' => str_contains($router, "'/office-test/inzet/onsite/activatie-uitgeven'"),
   'separate CSRF purpose' => str_contains($csrf, 'onsite-office-invitation:v1:'),
-  'one-time secret not logged' => !str_contains($route,  'error_log(' + '),
-] as $label => $valid) {
-  if (!$valid) throw new RuntimeException('OnSite invitation UI contract failed: ' . $label);
-}
-echo "OnSite Office invitation UI static contract passed\n";
- + 'invitation'),
+  'one-time secret not logged' => !str_contains($route, 'error_log($invitation'),
 ] as $label => $valid) {
   if (!$valid) throw new RuntimeException('OnSite invitation UI contract failed: ' . $label);
 }
