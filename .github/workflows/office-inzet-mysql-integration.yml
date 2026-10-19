@@ -7,6 +7,8 @@ on:
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
+      - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
+      - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
@@ -52,6 +54,10 @@ jobs:
           php -l web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php
           php -l office-independent/tests/OfficeOnSiteInvitationContractTest.php
           php office-independent/tests/OfficeOnSiteInvitationContractTest.php
+      - name: OnSite runtime dependency release gate
+        run: |
+          php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
+          php office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
