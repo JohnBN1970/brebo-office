@@ -51,7 +51,9 @@ try {
   foreach ([
     'OnSiteAutomaticEventValidator', 'OnSiteEventInbox', 'OnSiteAutomaticIngest',
     'OnSiteDeviceTokenRepository', 'OnSiteAssignmentRepository',
-    'OnSitePresenceApiHandler', 'OnSitePresenceRequestService', 'OnSitePresenceApplication',
+    'OnSiteAssignmentGate', 'OnSiteOfficeTeamAssignmentRepository',
+    'OnSiteAuthenticatedEventService', 'OnSitePresenceRequestService',
+    'OnSitePresenceApiHandler', 'OnSitePresenceApplication',
   ] as $name) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $name . '.php';
   }
