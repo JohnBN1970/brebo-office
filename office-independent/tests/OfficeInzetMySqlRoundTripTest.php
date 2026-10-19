@@ -108,4 +108,36 @@ if ($formId < 1 || (int)$db->query('SELECT COUNT(*) FROM office_inzet_shifts')->
 }
 $afterForm = (new \Brebo\Office\Inzet\OfficeInzetWeekShiftReadRepository($db))->listWeek('manager',[17],2026,43);
 if (count($afterForm) !== 2) throw new RuntimeException('Form shift not visible in weekly read');
+
+// Exercise the personnel profile POST application boundary against real MySQL ACL.
+foreach (['OfficeInzetPersonnelProfileRepository.php','OfficeInzetPersonnelProfileCsrf.php',
+    'OfficeInzetPersonnelProfileAction.php'] as $file) require_once $base . $file;
+$profile = new \Brebo\Office\Inzet\OfficeInzetPersonnelProfileAction(
+    new \Brebo\Office\Inzet\OfficeInzetPersonnelProfileRepository($db));
+$profileSession = str_repeat('c',64);
+$profileSecret = str_repeat('d',48);
+$profileForm = [
+    'csrf_token'=>\Brebo\Office\Inzet\OfficeInzetPersonnelProfileCsrf::token($profileSession,$profileSecret),
+    'project_id'=>'17','person_id'=>'101','personnel_number'=>'BREBO-102',
+];
+foreach ([
+    ['intruder',$profileForm,$profileSession],
+    ['manager',array_merge($profileForm,['csrf_token'=>str_repeat('0',64)]),$profileSession],
+    ['manager',array_merge($profileForm,['person_id'=>'999']),$profileSession],
+] as [$actor,$payload,$session]) {
+    try {
+        $changed = $profile->update($payload,$actor,$session,$profileSecret);
+        if ($changed) throw new RuntimeException('Unauthorized personnel profile write succeeded');
+    } catch (DomainException|InvalidArgumentException $expected) {}
+}
+if ($db->query('SELECT personnel_number FROM office_inzet_people WHERE id=101')->fetchColumn() !== 'BREBO-101') {
+    throw new RuntimeException('Rejected personnel profile write changed MySQL data');
+}
+if (!$profile->update($profileForm,'manager',$profileSession,$profileSecret)) {
+    throw new RuntimeException('Authorized personnel profile update rejected');
+}
+if ($db->query('SELECT personnel_number FROM office_inzet_people WHERE id=101')->fetchColumn() !== 'BREBO-102') {
+    throw new RuntimeException('Personnel profile update not persisted');
+}
+echo "MySQL personnel profile authorized write and unauthorized rejection OK\n";
 echo "MySQL 8 native shift insert, lock, overlap and week read OK\n";
