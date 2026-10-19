@@ -149,8 +149,15 @@ struct OnSiteAPIClient {
         )
     }
 
+    private func endpointURL(_ path: String) -> URL {
+        // Preserve a configured /office-test prefix while keeping API paths stable.
+        let prefix = baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let suffix = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return baseURL.deletingLastPathComponent().appending(path: prefix.isEmpty ? suffix : prefix + "/" + suffix)
+    }
+
     private func authorizedGet<T: Decodable>(path: String, deviceToken: String) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
