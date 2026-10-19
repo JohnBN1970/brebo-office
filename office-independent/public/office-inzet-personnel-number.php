@@ -59,7 +59,11 @@ try {
     http_response_code(403);
     exit('Geen wijzigingsrechten of medewerker niet gevonden.');
   }
-  header('Location: /office-test/projecten?view=inzet', true, 303);
+  $projectId = filter_var($_POST['project_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+  $personId = filter_var($_POST['person_id'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+  if (!is_int($projectId) || !is_int($personId)) throw new InvalidArgumentException('Invalid profile context');
+  header('Location: /office-test/projecten?view=inzet&profile_project=' . $projectId
+    . '&profile_person=' . $personId . '&profile_saved=1', true, 303);
   exit;
 } catch (InvalidArgumentException|DomainException $exception) {
   http_response_code(422);
