@@ -8,6 +8,7 @@ on:
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
+      - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
       - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
@@ -54,6 +55,11 @@ jobs:
           php -l web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php
           php -l office-independent/tests/OfficeOnSiteInvitationContractTest.php
           php office-independent/tests/OfficeOnSiteInvitationContractTest.php
+      - name: OnSite automatic event validation
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAutomaticEventValidator.php
+          php -l office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
+          php office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
