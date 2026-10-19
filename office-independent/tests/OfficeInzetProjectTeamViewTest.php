@@ -41,6 +41,9 @@ if (str_contains($invalid, 'Invalid zero') || str_contains($invalid, 'Invalid te
 $missingNumber = \Brebo\Office\Inzet\OfficeInzetProjectTeamView::render([
   ['id'=>10,'display_name'=>'Nieuwe medewerker','personnel_number'=>''],
 ], 'Project');
+if (!str_contains($missingNumber, '1 medewerkers') || !str_contains($missingNumber, '1 profiel(en) aanvullen')) {
+  throw new RuntimeException('Missing personnel-number summary incorrect');
+}
 if (!str_contains($missingNumber, 'Profiel aanvullen vereist')
   || !str_contains($missingNumber, 'Personeelsnummer niet ingevuld')
   || str_contains($html, 'Profiel aanvullen vereist')) {
