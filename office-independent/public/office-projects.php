@@ -163,6 +163,22 @@ if ($inzetView) {
             echo '<li>' . $escape($device['display_name']) . ': ' . (int)$device['active_device_count'] . '</li>';
           }
           echo '</ul></section>';
+          if (getenv('OFFICE_TEST_ONSITE_DEVICE_REVOKE_ENABLED') === 'enabled') {
+            $deviceRecords = (new \Brebo\Office\Inzet\OnSiteOfficeDeviceManagementRepository($db))
+              ->listDeviceCredentialsForManager($operator->operatorId, $projectId);
+            echo '<section><h2>OnSite · apparaat intrekken</h2>';
+            foreach ($deviceRecords as $deviceRecord) {
+              echo '<form method="post" action="' . $escape($base . '/inzet/onsite/apparaat-intrekken') . '">';
+              echo '<input type="hidden" name="csrf_token" value="' . $escape($invitationCsrf) . '">';
+              echo '<input type="hidden" name="project_id" value="' . $projectId . '">';
+              echo '<input type="hidden" name="person_id" value="' . (int)$deviceRecord['person_id'] . '">';
+              echo '<input type="hidden" name="token_hash" value="' . $escape($deviceRecord['token_hash']) . '">';
+              echo '<span>' . $escape($deviceRecord['display_name']) . ' · apparaat ' . $escape(substr($deviceRecord['token_hash'], 0, 8)) . '</span> ';
+              echo '<label><input type="checkbox" name="confirmation" value="REVOKE" required> Intrekking bevestigen</label> ';
+              echo '<button type="submit">Apparaat intrekken</button></form>';
+            }
+            echo '</section>';
+          }
           echo '<section><h2>OnSite · medewerker activeren</h2><p>Project: '
             . $escape($project['title']) . '. Controleer de identiteit voordat je een code uitgeeft.</p>';
           echo '<form method="post" action="' . $escape($base . '/inzet/onsite/activatie-uitgeven') . '">';
