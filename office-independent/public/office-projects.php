@@ -76,7 +76,29 @@ if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
-  echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base);
+  $projectTeams = [];
+  if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled'
+    || getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
+      $teamRepository = new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db);
+      $teamProjects = $db->prepare("SELECT m.project_id FROM office_project_memberships m
+        INNER JOIN office_operator_accounts a ON a.id = m.operator_id
+        WHERE m.operator_id = ? AND m.permission = 'manage' AND a.active = 1");
+      $teamProjects->execute([$operator->operatorId]);
+      $manageableIds = array_map('intval', $teamProjects->fetchAll(PDO::FETCH_COLUMN));
+      foreach ($projects as $project) {
+        $projectId = (int)$project['id'];
+        if (in_array($projectId, $manageableIds, true)) {
+          $projectTeams[$projectId] = $teamRepository->listForOperator($operator->operatorId, $projectId);
+        }
+      }
+    } catch (Throwable $exception) {
+      // Fail closed: never show partial or unverified personnel data.
+      $projectTeams = [];
+    }
+  }
+  echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::render($projects, $base, $projectTeams);
   // Read-only weekly planning is gated independently from the projects module.
   if (getenv('OFFICE_TEST_INZET_SHIFTS_ENABLED') === 'enabled'
     && getenv('OFFICE_TEST_INZET_SHIFTS_SCHEMA_VERIFIED') === 'enabled') {
