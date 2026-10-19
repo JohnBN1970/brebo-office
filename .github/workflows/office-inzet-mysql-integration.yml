@@ -117,6 +117,11 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteDeviceTokenRepository.php
           php -l office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
           php office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
+      - name: OnSite presence transport contract
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceRequestService.php
+          php -l office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
+          php office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
