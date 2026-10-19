@@ -27,8 +27,8 @@ final class OfficeInzetWeekShiftReadRepository {
     if ($isoYear < 2020 || $isoYear > 2100 || $isoWeek < 1 || $isoWeek > 53) {
       throw new \InvalidArgumentException('Invalid ISO week');
     }
-    $utc = new DateTimeZone('UTC');
-    $monday = (new DateTimeImmutable('now', $utc))->setISODate($isoYear, $isoWeek, 1)->setTime(0, 0);
+    $local = new DateTimeZone('Europe/Brussels');
+    $monday = (new DateTimeImmutable('now', $local))->setISODate($isoYear, $isoWeek, 1)->setTime(0, 0);
     if ($isoYear < 2020 || $isoYear > 2100 || $isoWeek < 1 || $isoWeek > 53
       || (int)$monday->format('o') !== $isoYear || (int)$monday->format('W') !== $isoWeek) {
       throw new \InvalidArgumentException('Invalid ISO week');
@@ -36,8 +36,8 @@ final class OfficeInzetWeekShiftReadRepository {
     $until = $monday->modify('+7 days');
     $params = [
       ':operator' => $operatorId,
-      ':week_start' => $monday->format('Y-m-d H:i:s'),
-      ':week_end' => $until->format('Y-m-d H:i:s'),
+      ':week_start' => $monday->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
+      ':week_end' => $until->setTimezone(new DateTimeZone('UTC'))->format('Y-m-d H:i:s'),
     ];
     $holders = [];
     foreach ($projects as $index => $id) {
