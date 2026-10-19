@@ -78,7 +78,9 @@ if ($inzetView) {
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
   $projectTeams = [];
   if (getenv('OFFICE_TEST_INZET_SHIFT_FORM_PREVIEW') === 'enabled'
-    || getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled') {
+    || getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
+    || (getenv('OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED') === 'enabled'
+      && getenv('OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED') === 'enabled')) {
     try {
       require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetManageablePeopleRepository.php';
       $teamRepository = new \Brebo\Office\Inzet\OfficeInzetManageablePeopleRepository($db);
