@@ -6,7 +6,7 @@ foreach ([
   "REQUEST_METHOD", "OFFICE_BASE_PATH", "OFFICE_TEST_INZET_PERSONNEL_WRITE_ENABLED",
   "OFFICE_TEST_INZET_PERSONNEL_SCHEMA_VERIFIED", "OFFICE_PUBLIC_HOST",
   "HTTP_ORIGIN", "currentOperator()", "OfficeInzetPersonnelProfileAction",
-  "Location: /office-test/projecten?view=inzet", "303"
+  "Location: /office-test/projecten?view=inzet", "profile_project=", "profile_person=", "profile_saved=1", "303"
 ] as $required) {
   if (!str_contains($source, $required)) throw new RuntimeException('Missing personnel POST security boundary: ' . $required);
 }
