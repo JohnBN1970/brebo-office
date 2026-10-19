@@ -13,8 +13,8 @@ final class OfficeInzetProjectTeamView {
   /** @param list<array<string,mixed>> $people */
   public static function render(array $people, string $projectTitle): string {
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
-    $html = '<section class="inzet-project-team" aria-labelledby="inzet-team-title">'
-      . '<h2 id="inzet-team-title">Projectteam</h2>'
+    $html = '<section class="inzet-project-team" aria-label="Projectteam">'
+      . '<h2 >Projectteam</h2>'
       . '<p>Medewerkers gekoppeld aan ' . $escape($projectTitle) . '.</p>';
     if ($people === []) {
       return $html . '<p>Er zijn nog geen actieve medewerkers aan dit project gekoppeld.</p></section>';
