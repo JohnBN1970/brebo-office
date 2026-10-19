@@ -169,7 +169,7 @@ struct OnSiteAPIClient {
         deviceToken: String,
         body: [String: Any]
     ) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
@@ -192,7 +192,7 @@ struct OnSiteAPIClient {
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
