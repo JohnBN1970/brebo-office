@@ -18,11 +18,11 @@ if (!$check('17','8') || $check('17','9') || $check('17','10')
   || $check('18','8') || $check('17','11')) {
   throw new RuntimeException('Canonical zone projection authorized incorrectly');
 }
-$sync = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneSync($db);
+$sync = new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db);
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>false,'source_revision'=>6]);
 if ($check('17','8') || $check('18','8')) throw new RuntimeException('Newer inactive zone still authorized');
 $sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>5]);
 if ($check('17','8')) throw new RuntimeException('Stale zone revision restored access');
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>7]);
 if (!$check('18','8') || $check('17','8')) throw new RuntimeException('Project zone reassignment not enforced');
-echo "Canonical Drupal zone MySQL sync and read projection OK\\n";
+echo "Canonical Drupal zone MySQL sync and read projection OK\n";
