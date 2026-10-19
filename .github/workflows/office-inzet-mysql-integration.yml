@@ -12,6 +12,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php'
       - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
@@ -105,6 +106,17 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteAutomaticIngest.php
           php -l office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
           php office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
+      - name: MySQL authenticated device to automatic event inbox
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAuthenticatedEventService.php
+          php -l office-independent/src/Inzet/OnSiteDeviceTokenSchema.php
+          php -l office-independent/src/Inzet/OnSiteDeviceTokenRepository.php
+          php -l office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
+          php office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
