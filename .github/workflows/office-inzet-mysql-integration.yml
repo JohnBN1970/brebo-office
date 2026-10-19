@@ -164,6 +164,7 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeInvitationAction.php
           php -l office-independent/src/Inzet/OnSiteActivationInvitationIssuer.php
           php -l office-independent/public/office-onsite-invitation.php
+          php -l office-independent/public/office-onsite-device-revoke.php
           php -l office-independent/public/office-projects.php
           php -l office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
           php office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
