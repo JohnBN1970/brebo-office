@@ -57,7 +57,7 @@ $preflight = new OfficeInzetVerifiedAssignmentPreflight(
 $writer = new OfficeInzetShiftWriter($db);
 $native = new OfficeInzetShiftCommand($db, $writer);
 $adapter = new OfficeInzetVerifiedShiftCommand($preflight, $native);
-$request = ['starts_at'=>'2026-10-19 08:00:00','ends_at'=>'2026-10-19 16:00:00'];
+$request = ['starts_at'=>'2026-10-19 06:00:00','ends_at'=>'2026-10-19 14:00:00'];
 $id = $adapter->createForOperator('manager','legacy_drupal','node-4538','uid-8',$request);
 if ($id < 1) throw new RuntimeException('Shift insert did not return an ID');
 $stored = $db->query('SELECT project_id,person_id,starts_at,ends_at,status FROM office_inzet_shifts')->fetch(PDO::FETCH_ASSOC);
