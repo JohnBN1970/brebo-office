@@ -43,6 +43,10 @@ try {
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES=>false,
   ]);
+  if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
+    || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
+    throw new RuntimeException('OnSite project zones not verified');
+  }
   $service = new \Brebo\Office\Inzet\OnSiteBootstrapService(
     new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
   );
