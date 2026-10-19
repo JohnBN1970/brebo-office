@@ -24,6 +24,7 @@ final class OnSiteBootstrapRepository {
        FROM office_inzet_project_team t
        INNER JOIN office_inzet_people p ON p.id = t.person_id AND p.active = 1
        INNER JOIN office_onsite_canonical_zones z ON z.project_id = t.project_id AND z.active = 1
+         AND z.synchronized_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
        WHERE t.person_id = ?
        ORDER BY project_id, zone_id'
     );
