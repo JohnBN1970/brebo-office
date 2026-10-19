@@ -113,20 +113,27 @@ final class OfficeInzetPlanningWorkbench {
       htmlspecialchars((string)$value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-planning" aria-labelledby="inzet-planning-heading">'
       . '<h2 id="inzet-planning-heading">Projectteams en planning</h2>'
-      . '<p>Selecteer een toegankelijk project. Personeelsplanning, leveranciersbezetting en roosterwijzigingen zijn nog niet aangesloten.</p>';
+      . '<p>Kies een project om de bestaande project- en gebouwgegevens te bekijken. '
+      . 'Het weekrooster verschijnt hieronder zodra de Office-testkoppeling is vrijgegeven.</p>';
     if ($projects === []) {
       return $html . '<p>Geen projecten beschikbaar binnen jouw rechten.</p></section>';
     }
-    $html .= '<table><thead><tr><th>Project</th><th>Status</th><th>Planning</th></tr></thead><tbody>';
+    $html .= '<div class="inzet-project-cards" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin:18px 0">';
     foreach ($projects as $project) {
       $id = filter_var($project['id'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if ($id === false) continue;
       $url = $basePath . '/projecten/detail?id=' . $id . '#inzet';
-      $html .= '<tr><td><a href="' . $escape($url) . '">'
-        . $escape($project['code'] ?? '') . ' — ' . $escape($project['title'] ?? '')
-        . '</a></td><td>' . $escape($project['status'] ?? '') . '</td>'
-        . '<td>Niet aangesloten</td></tr>';
+      $code = trim((string)($project['code'] ?? ''));
+      $title = trim((string)($project['title'] ?? ''));
+      $status = trim((string)($project['status'] ?? ''));
+      $buildings = filter_var($project['building_count'] ?? 0, FILTER_VALIDATE_INT, ['options'=>['min_range'=>0]]);
+      $html .= '<article style="border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc">'
+        . '<small style="display:block;color:#57677b">' . $escape($code) . '</small>'
+        . '<h3 style="margin:8px 0"><a href="' . $escape($url) . '">' . $escape($title !== '' ? $title : 'Project #' . $id) . '</a></h3>'
+        . '<p style="margin:8px 0">Status: ' . $escape($status !== '' ? $status : 'Onbekend') . '</p>'
+        . '<small>' . (is_int($buildings) ? $buildings : 0) . ' gekoppelde gebouwen</small>'
+        . '</article>';
     }
-    return $html . '</tbody></table></section>';
+    return $html . '</div></section>';
   }
 }
