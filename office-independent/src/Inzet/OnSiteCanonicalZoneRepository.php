@@ -21,7 +21,7 @@ final class OnSiteCanonicalZoneRepository {
        WHERE zone_id = ? AND project_id = ? AND active = 1 AND synchronized_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
          AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180
          AND radius_metres > 0 AND radius_metres <= 1000
-         AND zone_name IS NOT NULL AND zone_name <> '' LIMIT 1'
+         AND zone_name IS NOT NULL AND CHAR_LENGTH(TRIM(zone_name)) > 0 LIMIT 1'
     );
     $statement->execute([$zoneId,$projectId]);
     return $statement->fetchColumn() !== false;
