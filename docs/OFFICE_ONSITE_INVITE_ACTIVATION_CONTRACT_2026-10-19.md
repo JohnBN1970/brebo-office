@@ -26,3 +26,9 @@ Peildatum: 19 oktober 2026. Integratiebranch; geen productieacceptatie.
 ## Implementatiegrens
 
 **Niet** zelfstandig nieuwe uitnodiging-, activatie- of medewerkers-write-routes maken zolang bovenstaande punten openstaan. Bestaande code hergebruiken na bron- en contractbesluit. Geen merge of deployment zonder aparte goedkeuring.
+
+## Productbesluit: automatische aanwezigheidsregistratie (19 oktober 2026)
+
+De opdrachtgever bevestigt expliciet: **automatisch in- en uitklokken op basis van projectzones** is de gewenste werking. De bestaande Drupal-route met verplichte `trigger=clock_action` is daarmee **legacy-gedrag, niet het doelcontract**. De eerder aangepaste uitnodigingstekst over expliciet inklokken is tijdelijk en moet vóór uitrol worden vervangen door juiste uitleg over automatische geofencing.
+
+Vóór implementatie: vastleggen van toestemming/informatieplicht en passende AVG-grondslag, achtergrondlocatiebeleid voor iOS en Android, project- en gebouwzones, GPS-hysterese/dwell-time, offline buffering, idempotente events, correcties met audittrail en de autorisatiegrenzen. Geen continue locatiehistorie opslaan als enkel in-/uit-event volstaat. Geen geautomatiseerde uren-goedkeuring zonder controles.
