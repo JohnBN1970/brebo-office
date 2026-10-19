@@ -11,7 +11,7 @@ namespace Brebo\Office\Inzet;
  */
 final class OfficeInzetProjectTeamView {
   /** @param list<array<string,mixed>> $people */
-  public static function render(array $people, string $projectTitle): string {
+  public static function render(array $people, string $projectTitle, ?string $editUrlPrefix = null): string {
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $html = '<section class="inzet-project-team" aria-label="Projectteam">'
       . '<h2>Projectteam</h2>'
@@ -43,6 +43,7 @@ final class OfficeInzetProjectTeamView {
         . $escape($hasNumber ? $number : 'Personeelsnummer niet ingevuld')
         . '</small>'
         . (!$hasNumber ? '<small style="display:block;margin-top:6px;color:#915b00">Profiel aanvullen vereist</small>' : '')
+        . ($editUrlPrefix !== null ? '<a style="display:block;margin-top:10px" href="' . $escape($editUrlPrefix . $id) . '">Personeelsnummer wijzigen</a>' : '')
         . '</article>';
     }
     $html .= '</div>';
