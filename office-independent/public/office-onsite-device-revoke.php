@@ -6,7 +6,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
   header('Allow: POST'); http_response_code(405); exit;
 }
@@ -14,7 +14,7 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || getenv('OFFICE_TEST_ONSITE_DEVICE_REVOKE_ENABLED') !== 'enabled'
   || getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') !== 'enabled'
   || getenv('OFFICE_CRM_SESSION_MODE') !== 'enabled') {
-  http_response_code(503); exit('Activatie-uitgifte niet beschikbaar.');
+  http_response_code(503); exit('Apparaatintrekking niet beschikbaar.');
 }
 $host = $_SERVER['HTTP_HOST'] ?? '';
 $allowed = getenv('OFFICE_PUBLIC_HOST');
@@ -63,8 +63,8 @@ try {
   echo '<p>Alle andere apparaten van deze medewerker blijven gekoppeld.</p>';
   echo '<p><a href="/office-test/projecten?view=inzet">Terug naar Inzet</a></p></body></html>';
 } catch (RuntimeException $error) {
-  http_response_code(403); exit('Activatie niet toegestaan of niet beschikbaar.');
+  http_response_code(403); exit('Apparaatintrekking niet toegestaan of niet beschikbaar.');
 } catch (Throwable $error) {
-  error_log('Office OnSite invitation issue failed: ' . get_class($error));
-  http_response_code(503); exit('Activatie tijdelijk niet beschikbaar.');
+  error_log('Office OnSite device revocation failed: ' . get_class($error));
+  http_response_code(503); exit('Apparaatintrekking tijdelijk niet beschikbaar.');
 }
