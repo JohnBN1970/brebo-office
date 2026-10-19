@@ -11,6 +11,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
       - 'office-independent/public/onsite-*.php'
       - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
@@ -88,6 +89,22 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeTeamAssignmentRepository.php
           php -l office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
           php office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
+      - name: Reset isolated MySQL tables for OnSite inbox fixture
+        env:
+          MYSQL_PWD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root office_inzet_ci -e 'DROP TABLE IF EXISTS office_inzet_project_team, office_inzet_people'
+      - name: MySQL OnSite automatic inbox idempotency
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteEventInbox.php
+          php -l office-independent/src/Inzet/OnSiteEventInboxSchema.php
+          php -l office-independent/src/Inzet/OnSiteAutomaticIngest.php
+          php -l office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
+          php office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
       - name: OnSite runtime dependency release gate
         run: |
           php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
