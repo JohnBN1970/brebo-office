@@ -35,4 +35,12 @@ if (str_contains($invalid, 'Invalid zero') || str_contains($invalid, 'Invalid te
   || !str_contains($invalid, 'Valid colleague')) {
   throw new RuntimeException('Invalid employee identifiers must be rejected');
 }
+$missingNumber = \Brebo\Office\Inzet\OfficeInzetProjectTeamView::render([
+  ['id'=>10,'display_name'=>'Nieuwe medewerker','personnel_number'=>''],
+], 'Project');
+if (!str_contains($missingNumber, 'Profiel aanvullen vereist')
+  || !str_contains($missingNumber, 'Personeelsnummer niet ingevuld')
+  || str_contains($html, 'Profiel aanvullen vereist')) {
+  throw new RuntimeException('Personnel-number completeness marker incorrect');
+}
 echo "Office project team cards render and escaping OK\n";
