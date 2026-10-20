@@ -18,6 +18,17 @@ foreach (['id','latitude','longitude'] as $field) {
   if (!array_key_exists($field,$debug)) throw new RuntimeException('Test project column missing: '.$field);
 }
 fwrite(STDOUT,'Map seed fixture types: '.get_debug_type($debug['id']).', '.get_debug_type($debug['latitude']).', '.get_debug_type($debug['longitude'])."\\n");
+$validations=[
+  'id_type'=>is_int($debug['id']) || is_string($debug['id']),
+  'id_pattern'=>preg_match('/^[1-9][0-9]{0,18}$/D',(string)$debug['id'])===1,
+  'lat_numeric'=>is_numeric($debug['latitude']),
+  'lon_numeric'=>is_numeric($debug['longitude']),
+  'lat_finite'=>is_finite((float)$debug['latitude']),
+  'lon_finite'=>is_finite((float)$debug['longitude']),
+  'lat_range'=>abs((float)$debug['latitude'])<=90,
+  'lon_range'=>abs((float)$debug['longitude'])<=180,
+];
+foreach($validations as $check=>$passed) if(!$passed) throw new RuntimeException('Invalid map seed fixture check: '.$check);
 $repo=new OnSiteOfficeProjectMapRepository($db);
 if ($repo->forManager(10,17)['project_id']!=='17') throw new RuntimeException('Authorized project missing');
 foreach ([[10,18],[11,17],[12,17],[12,19]] as [$operator,$project]) {
