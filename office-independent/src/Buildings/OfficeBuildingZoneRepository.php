@@ -63,6 +63,26 @@ final class OfficeBuildingZoneRepository {
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
+  /**
+   * Return one active zone only if it belongs to an active building
+   * associated with an authorized project.
+   */
+  public function forProjectZone(string $projectId,string $zoneId, \Closure $authorizedProject): ?array {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D',$projectId)
+      || !preg_match('/^[1-9][0-9]{0,18}$/D',$zoneId)
+      || $authorizedProject($projectId)!==true) throw new InvalidArgumentException('unauthorized_project_zone');
+    $stmt=$this->db->prepare(
+      'SELECT z.id,z.building_id,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.revision
+       FROM office_project_buildings pb
+       INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
+       INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+       WHERE pb.project_id=? AND z.id=? LIMIT 1'
+    );
+    $stmt->execute([$projectId,$zoneId]);
+    $zone=$stmt->fetch(PDO::FETCH_ASSOC);
+    return is_array($zone)?$zone:null;
+  }
+
   /** Only zones for the requested, already-authorized building. */
   public function forBuilding(string $buildingId, \Closure $authorizedBuilding): array {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
