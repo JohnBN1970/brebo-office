@@ -19,4 +19,18 @@ if (!str_contains($client, 'OnSiteAPIBaseURL')
   || !str_contains($client, 'prefix + "/" + suffix')) {
   throw new RuntimeException('Configured Office test prefix not preserved');
 }
-echo "OnSite iOS API routing static contract OK\n";
+$router = file_get_contents(dirname(__DIR__) . '/deployment/hostinger/office-test-index.php');
+if (!is_string($router)) throw new RuntimeException('Office test router missing');
+foreach (['activate', 'bootstrap', 'presence'] as $route) {
+  if (!str_contains($router, '/office-test/api/onsite/v1/' . $route)) {
+    throw new RuntimeException('Office test router missing app endpoint: ' . $route);
+  }
+}
+// SMS link endpoints remain present in the client but are not routed in Office test.
+// Keep this discrepancy visible until onboarding is explicitly migrated.
+foreach (['link/request', 'link/verify'] as $route) {
+  if (str_contains($router, '/office-test/api/onsite/v1/' . $route)) {
+    throw new RuntimeException('SMS onboarding unexpectedly enabled on Office test');
+  }
+}
+echo "OnSite iOS API routing static contract OK; SMS onboarding not exposed in Office test\\n";
