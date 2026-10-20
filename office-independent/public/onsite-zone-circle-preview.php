@@ -29,13 +29,15 @@ input[type=range]{width:100%}
 .output{white-space:pre-wrap;background:#f2f4f7;padding:1rem;border-radius:8px}
 </style></head><body><main>
 <h1>Personeelszone instellen</h1>
-<p class="note">Ontwerpvoorbeeld zonder echte kaarttegels of opslag. De ondergrond is schematisch, geen geografische kaart.</p>
+<p class="note">Geografische testweergave met echte WGS84-coördinaten en een straal in meters. Zonder kaarttegels of opslag; de achtergrond blijft schematisch.</p>
+<label for="lat">Breedtegraad (test)</label><input id="lat" type="number" min="-90" max="90" step="0.0000001" value="51.5000000">
+<label for="lon">Lengtegraad (test)</label><input id="lon" type="number" min="-180" max="180" step="0.0000001" value="4.3000000">
 <label for="project">Office-projectnummer (test)</label><input id="project" inputmode="numeric" placeholder="Bijvoorbeeld 17">
 <label for="name">Zonenaam</label><input id="name" maxlength="160" value="Werkgebied">
 <label for="radius">Straal: <output id="meters">150</output> meter</label><input id="radius" type="range" min="10" max="5000" step="10" value="150">
-<p class="note">Klik op het vlak om het middelpunt te verplaatsen. Pijltjestoetsen werken wanneer het vlak focus heeft.</p>
+<p class="note">Klik op het vlak om het middelpunt geografisch te verplaatsen (weergave ± 2 km rondom de oorspronkelijke positie). Pijltjestoetsen verplaatsen circa 10 meter per stap.</p>
 <div id="map" class="map" role="application" tabindex="0" aria-label="Schematische cirkelbediening"><div id="circle" class="circle"></div><div id="center" class="center"></div></div>
-<p class="note" id="position">Middelpunt: 50%, 50%</p>
+<p class="note" id="position">Middelpunt: 51.5000000, 4.3000000</p>
 <button id="preview" type="button">Toon voorbeeldgegevens</button>
 <pre class="output" id="result" aria-live="polite">Nog geen gegevens geselecteerd.</pre>
 <p class="note">Opslaan is bewust uitgeschakeld totdat projectautorisatie, CSRF en de Office-kaartkoppeling gereed zijn.</p>
@@ -43,25 +45,48 @@ input[type=range]{width:100%}
 (() => {
   const map=document.getElementById('map'),circle=document.getElementById('circle'),center=document.getElementById('center');
   const radius=document.getElementById('radius'),meters=document.getElementById('meters'),position=document.getElementById('position');
-  let x=50,y=50;
+  const latInput=document.getElementById('lat'),lonInput=document.getElementById('lon');
+  const spanMetres=4000;
+  let lat=51.5,lon=4.3,originLat=lat,originLon=lon;
+  const radians=Math.PI/180;
+  function metresPerDegreeLon(latitude){return 111320*Math.cos(latitude*radians)}
+  function valid(latitude,longitude){return Number.isFinite(latitude)&&Number.isFinite(longitude)&&Math.abs(latitude)<=90&&Math.abs(longitude)<=180}
   function render(){
-    const diameter=Math.min(map.clientWidth,map.clientHeight)*Number(radius.value)/5000;
+    const scale=Math.min(map.clientWidth,map.clientHeight)/spanMetres;
+    const diameter=2*Number(radius.value)*scale;
+    const x=50+100*(lon-originLon)*metresPerDegreeLon(originLat)/spanMetres;
+    const y=50-100*(lat-originLat)*111320/spanMetres;
     circle.style.width=diameter+'px';circle.style.height=diameter+'px';
     for(const el of [circle,center]){el.style.left=x+'%';el.style.top=y+'%'}
     meters.textContent=radius.value;
-    position.textContent='Middelpunt: '+x.toFixed(1)+'%, '+y.toFixed(1)+'% (schematisch)';
+    position.textContent='Middelpunt: '+lat.toFixed(7)+', '+lon.toFixed(7)+' (WGS84)';
+    latInput.value=lat.toFixed(7);lonInput.value=lon.toFixed(7);
   }
   map.addEventListener('click',event=>{
-    const rect=map.getBoundingClientRect();x=Math.max(0,Math.min(100,100*(event.clientX-rect.left)/rect.width));y=Math.max(0,Math.min(100,100*(event.clientY-rect.top)/rect.height));render();
+    const rect=map.getBoundingClientRect();
+    const east=((event.clientX-rect.left)/rect.width-.5)*spanMetres;
+    const north=(.5-(event.clientY-rect.top)/rect.height)*spanMetres;
+    const nextLat=originLat+north/111320;
+    const nextLon=originLon+east/metresPerDegreeLon(originLat);
+    if(valid(nextLat,nextLon)){lat=nextLat;lon=nextLon;render()}
   });
   map.addEventListener('keydown',event=>{
     if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(event.key))return;
-    event.preventDefault();x=Math.max(0,Math.min(100,x+(event.key==='ArrowRight'?1:event.key==='ArrowLeft'?-1:0)));
-    y=Math.max(0,Math.min(100,y+(event.key==='ArrowDown'?1:event.key==='ArrowUp'?-1:0)));render();
+    event.preventDefault();
+    const nextLat=lat+(event.key==='ArrowUp'?10:event.key==='ArrowDown'?-10:0)/111320;
+    const nextLon=lon+(event.key==='ArrowRight'?10:event.key==='ArrowLeft'?-10:0)/metresPerDegreeLon(lat);
+    if(valid(nextLat,nextLon)){lat=nextLat;lon=nextLon;render()}
   });
+  function coordinateChange(){
+    const nextLat=Number(latInput.value),nextLon=Number(lonInput.value);
+    if(!valid(nextLat,nextLon)||latInput.value===''||lonInput.value==='')return;
+    lat=nextLat;lon=nextLon;originLat=lat;originLon=lon;render();
+  }
+  latInput.addEventListener('change',coordinateChange);
+  lonInput.addEventListener('change',coordinateChange);
   radius.addEventListener('input',render);window.addEventListener('resize',render);
   document.getElementById('preview').addEventListener('click',()=>{
-    document.getElementById('result').textContent=JSON.stringify({project_id:document.getElementById('project').value,zone_name:document.getElementById('name').value,radius_metres:Number(radius.value),schematic_center_percent:{x,y},saved:false},null,2);
+    document.getElementById('result').textContent=JSON.stringify({project_id:document.getElementById('project').value,zone_name:document.getElementById('name').value,latitude:lat,longitude:lon,radius_metres:Number(radius.value),saved:false},null,2);
   });render();
 })();
 </script></body></html>
