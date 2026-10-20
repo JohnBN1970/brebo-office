@@ -135,6 +135,21 @@ if (!$check('17',$createdId) || in_array($createdId,['8','9','10','21'],true)) {
 $secondId = $creator->create(['project_id'=>'17','active'=>true,'zone_name'=>'Tweede Office',
   'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
 if ($secondId === $createdId || !$check('17',$secondId)) throw new RuntimeException('Office zone ID reused');
+// The allocator must skip numbers already used by legacy projected zones.
+$db->exec('ALTER TABLE office_onsite_zone_identity AUTO_INCREMENT = 21');
+$collisionSkippedId = $creator->create(['project_id'=>'17','active'=>true,'zone_name'=>'Na bezet ID',
+  'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+if ($collisionSkippedId === '21' || !$check('17',$collisionSkippedId)) {
+  throw new RuntimeException('Office zone allocator reused an existing zone ID');
+}
+$clientIdRejected = false;
+try {
+  $creator->create(['zone_id'=>'500','project_id'=>'17','active'=>true,'zone_name'=>'Client ID',
+    'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+} catch (InvalidArgumentException $exception) {
+  $clientIdRejected = $exception->getMessage() === 'invalid_office_zone_create';
+}
+if (!$clientIdRejected) throw new RuntimeException('Office zone creator accepted client zone ID');
 $unauthorizedCreate = false;
 try {
   $creator->create(['project_id'=>'18','active'=>true,'zone_name'=>'Denied',
