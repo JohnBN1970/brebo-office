@@ -119,7 +119,10 @@ try {
     ]);
     require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetReviewDecisionRepository.php';
     $decisionRepo = new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($decisionDb, $db);
-    $decisionStoreReady = true;
+    $decisionStoreReady = $decisionRepo->supportsExactReviewerIds();
+    if (!$decisionStoreReady && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
+      http_response_code(503); exit('Beslissingenopslag vereist schemacontrole.');
+    }
     if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
       $contentType = strtolower(trim(explode(';', (string)($_SERVER['CONTENT_TYPE'] ?? ''))[0]));
       if ($contentType !== 'application/x-www-form-urlencoded'
@@ -185,6 +188,9 @@ try {
   header('Content-Type: text/html; charset=utf-8');
   echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px Roboto,Arial,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}</style></head><body><main>';
   echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
+  if (isset($decisionRepo) && !$decisionStoreReady) {
+    echo '<p>Beoordelingen zijn alleen te lezen totdat de beslissingenopslag is gecontroleerd.</p>';
+  }
   echo \Brebo\Office\Inzet\OfficeInzetSourceReviewWorkbench::render($report, $filters, $decisionIndex, $decisionStoreReady ? $_SESSION['inzet_csrf'] : null);
   echo '</main></body></html>';
 } catch (Throwable $exception) {

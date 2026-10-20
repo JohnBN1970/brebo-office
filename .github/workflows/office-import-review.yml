@@ -22,7 +22,7 @@ jobs:
           coverage: none
       - name: Lint imported review slice
         run: |
-          for file in office-independent/src/Inzet/OfficeInzet*Review*.php office-independent/public/office-inzet-import-review.php office-independent/bin/init-inzet-review-store.php office-independent/deployment/hostinger/office-test-index.php office-independent/tests/inzet-*-smoke.php office-independent/tests/OfficeInzetReview*Test.php; do
+          for file in office-independent/src/Inzet/OfficeInzet*Review*.php office-independent/public/office-inzet-import-review.php office-independent/bin/*inzet-review*.php office-independent/deployment/hostinger/office-test-index.php office-independent/tests/inzet-*-smoke.php office-independent/tests/OfficeInzetReview*Test.php; do
             php -l "$file"
           done
       - name: Review source, filters, decisions and audit
@@ -33,4 +33,5 @@ jobs:
           php office-independent/tests/inzet-review-cycle-smoke.php
           php office-independent/tests/OfficeInzetReviewIdentityTest.php
           php office-independent/tests/OfficeInzetReviewEndpointTest.php
+          php office-independent/tests/OfficeInzetReviewPreflightTest.php
 

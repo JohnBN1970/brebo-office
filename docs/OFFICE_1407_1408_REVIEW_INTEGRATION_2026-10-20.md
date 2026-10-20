@@ -30,3 +30,17 @@ Dit is applicatiebewijs met een gesimuleerde HTTPS-servercontext, geen browser-,
 - Na CI en review: afzonderlijke goedgekeurde testdeploy, daarna browseracceptatie met werkelijk Office-account, bron- en auditcontrole en herstelplan.
 
 Geen merge naar develop, test-/productiedeploy, bestaande databasewijziging of iPhone-build uitgevoerd.
+
+## Vervolg: uitleescontrole voor de bestaande testopslag
+
+`office-independent/bin/preflight-inzet-review.php` is een zelfstandig CLI-bestand. Het leest de bestaande private testconfig en opent uitsluitend bestaande SQLite-bestanden read-only. Geen database-initialisatie, migratie, chmod, router-/configwijziging of activatie. De private bron en beslissingenopslag moeten binnen de expliciet opgegeven private root en buiten de documentroot liggen. Bron en beslissingen mogen ook niet via een hardlink hetzelfde bestand zijn.
+
+De uitvoer bevat uitsluitend gecontroleerde statuscodes, kolomtypen en aantallen: bronregels, issues, besluiten, auditregels, ontbrekende bronverwijzingen, afwijkend auditspoor, dubbele revisies en onverwachte triggers/views. Geen namen, notities, actor-ID's, credentials of absolute bestandspaden. WAL of een open journal vereist een afzonderlijke consistente snapshot; de controle probeert zelf niets te herstellen of te checkpointen.
+
+- `READY_FOR_REVIEW`: gelezen schema en gecontroleerde auditvoorwaarden passen; dit bewijst nog geen Office-login, serverrechten of browseracceptatie.
+- `REVIEW_REQUIRED`: bijvoorbeeld geen beslissingenpad, oude INTEGER-kolommen, afwijkend auditspoor of onbekende triggers. Eerst het rapport beoordelen; niet automatisch converteren.
+- `BLOCKED`: onveilige paden, ontbrekende bestanden/kolommen of geen bruikbare snapshot. Bestaande bestanden blijven ongewijzigd.
+
+De reviewpagina toont bestaande beoordelingen read-only bij oude reviewer-kolommen en biedt dan geen opslagformulieren aan; POST wordt met 503 geweigerd. Dit voorkomt een werkend ogend formulier dat pas bij opslaan vastloopt.
+
+Lokaal zijn nu zeven tests geslaagd, inclusief de zelfstandige CLI, behoud van bestandshashes en directory-inhoud, ontbrekende bestanden zonder aanmaak, bronalias/webrootweigering, oud schema zonder conversie, auditverschillen en WAL-weigering. De CI-matrix is uitgebreid met deze test. Werkelijke Hostinger-schemastatus blijft onbekend totdat deze uitleescontrole daar is uitgevoerd. Er is geen ingediende onafhankelijke GitHub-review op #1410; geen reviewthreads is geen bewijs van afgeronde review.

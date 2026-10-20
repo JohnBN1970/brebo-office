@@ -93,6 +93,15 @@ PHP;
   checkRoute($run($post)[0]===409,'Duplicate stale form rejected');
   checkRoute(count($repo->audit(7))===1,'One decision and one audit');
   checkRoute(hash_file('sha256',$root.'/source.sqlite')===$sourceHash,'Source file untouched');
+  $decisions->exec('ALTER TABLE inzet_review_decisions RENAME TO original');
+  $decisions->exec('CREATE TABLE inzet_review_decisions(issue_id INTEGER PRIMARY KEY,action TEXT,target_id INTEGER,note TEXT,reviewer_id INTEGER,revision INTEGER,updated_at TEXT)');
+  $decisions->exec('INSERT INTO inzet_review_decisions SELECT * FROM original');
+  $decisions->exec('DROP TABLE original');
+  [$oldStatus,$oldBody]=$run();
+  checkRoute($oldStatus===200 && !str_contains($oldBody,'name="csrf"') && str_contains($oldBody,'alleen te lezen'), 'Old schema remains readable without write controls');
+  $oldHash=hash_file('sha256',$root.'/decisions.sqlite');
+  checkRoute($run($post)[0]===503,'Old schema POST reports unavailable storage');
+  checkRoute(hash_file('sha256',$root.'/decisions.sqlite')===$oldHash,'Old schema denial has no writes');
   echo "Inzet real endpoint: authorization, login binding, CSRF, source immutability and replay OK\n";
 } finally {
   // Remove only disposable files created by this fixture.

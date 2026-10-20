@@ -119,6 +119,15 @@ final class OfficeInzetReviewDecisionRepository {
     }
   }
 
+  public function supportsExactReviewerIds(): bool {
+    try {
+      $this->assertReviewerSchema();
+      return true;
+    } catch (\LogicException) {
+      return false;
+    }
+  }
+
   private function assertReviewerSchema(): void {
     // Old INTEGER-affinity stores can silently coerce text IDs such as "01".
     // Require the reviewed TEXT schema; never migrate an existing store via HTTP.
