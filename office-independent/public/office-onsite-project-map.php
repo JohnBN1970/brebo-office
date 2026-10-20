@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
-// Read-only Office-native map entry; no writes, no Drupal and no third-party tiles.
+// Office-native building-zone map; writes require the separately verified test gate.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: no-referrer');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; script-src 'unsafe-inline' https://unpkg.com; img-src data: https://*.tile.openstreetmap.org; connect-src https://*.tile.openstreetmap.org; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; script-src 'unsafe-inline' https://unpkg.com; img-src data: https://unpkg.com https://*.tile.openstreetmap.org; connect-src https://*.tile.openstreetmap.org; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '')!=='GET') {http_response_code(405);header('Allow: GET');exit;}
 if (getenv('OFFICE_BASE_PATH')!=='/office-test' || getenv('OFFICE_NATIVE_PROJECTS_ENABLED')!=='enabled'
   || getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED')!=='enabled'
@@ -28,7 +28,9 @@ try {
     new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time());
   $operator=$provider->currentOperator();
   if ($operator===null) {header('Location: /office-test/inloggen',true,302);exit;}
-  $seed=(new \Brebo\Office\Inzet\OnSiteOfficeProjectMapRepository($db))->forManager($operator->operatorId,$id);
+  $operatorId=filter_var($operator->operatorId,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
+  if (!is_int($operatorId)) throw new RuntimeException('Invalid operator');
+  $seed=(new \Brebo\Office\Inzet\OnSiteOfficeProjectMapRepository($db))->forManager($operatorId,$id);
 } catch (InvalidArgumentException | RuntimeException $e) {
   http_response_code(404);exit('Projectlocatie niet beschikbaar.');
 } catch (Throwable $e) {
@@ -40,8 +42,14 @@ $buildings=[];
 $selectedBuilding=null;
 $createdId=filter_var($_GET['zone_created']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
 $buildingId=filter_var($_GET['building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
-if (getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled') {
+$zoneWriteEnabled=getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled'
+  && getenv('OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED')==='enabled'
+  && getenv('OFFICE_CRM_SESSION_MODE')==='enabled';
+if ($zoneWriteEnabled) {
   try {
+    require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneReadiness.php';
+    require_once dirname(__DIR__).'/src/Inzet/OnSiteOfficeZoneFormToken.php';
+    \Brebo\Office\Buildings\OfficeBuildingZoneReadiness::requireReady($db);
     $buildingRepo=new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
     $buildings=$buildingRepo->forProject((string)$id);
     if (count($buildings)===1 && !is_int($buildingId)) $buildingId=(int)$buildings[0]['id'];
@@ -65,10 +73,11 @@ $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOT
 header('Content-Type: text/html; charset=utf-8');
 $latitude=json_encode($selectedBuilding!==null && $selectedBuilding['latitude']!==null ? (float)$selectedBuilding['latitude'] : $seed['latitude'],JSON_THROW_ON_ERROR);
 $longitude=json_encode($selectedBuilding!==null && $selectedBuilding['longitude']!==null ? (float)$selectedBuilding['longitude'] : $seed['longitude'],JSON_THROW_ON_ERROR);
-$zoneWriteEnabled=getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled';
-if ($zoneWriteEnabled) {
-  $zoneCsrf=bin2hex(random_bytes(32));
-  setcookie('office_zone_csrf',$zoneCsrf,['expires'=>time()+1800,'path'=>'/office-test/inzet','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+if ($zoneWriteEnabled && $selectedBuilding!==null) {
+  try {
+    $zoneCsrf=\Brebo\Office\Inzet\OnSiteOfficeZoneFormToken::issue($operator,(string)$id,
+      (string)$selectedBuilding['id'],getenv('OFFICE_TEST_ZONE_CSRF_SECRET') ?: '',time());
+  } catch (Throwable $e) {http_response_code(503);exit('Zoneformulier niet beschikbaar.');}
 }
 $zoneList='<h2>Personeelszones van het gebouw</h2><ul>';
 foreach ($projectZones as $zoneRow) {
@@ -81,7 +90,7 @@ foreach ($buildings as $building) {
   $buildingOptions.='<option value="'.$escape($building['id']).'"'.($selectedBuilding!==null && (string)$selectedBuilding['id']===(string)$building['id']?' selected':'').'>'.$escape($building['building_name']).'</option>';
 }
 $buildingOptions.='</select></label>';
-$saveForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="csrf" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
+$saveForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Startpunt uit geautoriseerde Office-projectlocatie. Kaarttegels worden pas na toestemming geladen. Opslag uitsluitend op het geselecteerde gebouw.</p><button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="Werkgebied" required></label><label>Straal: <output id="metres">150</output> meter <input id="radius" type="range" min="10" max="5000" step="10" value="150"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneList.$saveForm.'<small>Alleen testomgeving. Projectlocatie blijft op de Office-server; bij inschakelen ontvangt de kaartprovider wel de opgevraagde kaartregio.</small></section></main><script>
 (()=>{
  const initial={lat:'.$latitude.',lng:'.$longitude.'};

@@ -31,6 +31,8 @@ on:
       - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
       - 'office-independent/public/office-onsite-project-map.php'
+      - 'office-independent/public/office-onsite-zone-create.php'
+      - 'office-independent/deployment/hostinger/office-building-zone-*'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -241,7 +243,11 @@ jobs:
           OFFICE_INZET_TEST_PASSWORD: test-root-only
         run: |
           php -l office-independent/src/Inzet/OnSiteOfficeCircleCreateService.php
-          php -l office-independent/src/Inzet/OnSiteOfficeZoneCreator.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneFormToken.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZonePostAction.php
+          php -l office-independent/src/Buildings/OfficeBuildingZoneReadiness.php
+          php -l office-independent/public/office-onsite-zone-create.php
+          php -l office-independent/deployment/hostinger/office-building-zone-preflight.php
           php -l office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
           php office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
 

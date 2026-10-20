@@ -5,45 +5,40 @@ declare(strict_types=1);
 namespace Brebo\Office\Inzet;
 
 use Brebo\Office\Intake\WebsiteCrmOperatorContext;
+use Brebo\Office\Buildings\OfficeBuildingZoneRepository;
 use InvalidArgumentException;
 use PDO;
-use RuntimeException;
 
 /**
- * Office-native circle creation; no HTTP route is enabled by this service.
- * Callers supply a verified session context and a server-resolved Office project.
- * The future POST adapter must enforce CSRF and duplicate-request protection.
+ * Building owns the zone; Office project membership only grants access.
  */
 final class OnSiteOfficeCircleCreateService {
   public function __construct(private PDO $db) {}
 
   /** @param array<string,mixed> $input */
-  public function create(WebsiteCrmOperatorContext $operator, string $projectId, array $input): string {
-    // Do not silently accept browser identities, revisions, activation or building bindings.
-    $allowed = ['project_id', 'zone_name', 'latitude', 'longitude', 'radius_metres'];
+  public function create(WebsiteCrmOperatorContext $operator, string $projectId, array $input, string $requestKey): string {
+    // Building selection is verified against Office membership before writing.
+    $allowed = ['building_id', 'zone_name', 'latitude', 'longitude', 'radius_metres'];
     if (array_diff(array_keys($input), $allowed) !== []) {
       throw new InvalidArgumentException('office_circle_unknown_fields');
     }
-    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $operator->operatorId)) {
-      throw new RuntimeException('office_project_map_access_denied');
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $operator->operatorId)
+      || !preg_match('/^[1-9][0-9]{0,18}$/D', $projectId)) {
+      throw new InvalidArgumentException('invalid_office_circle_context');
     }
-    $zone = OnSiteOfficeCircleInput::forAuthorizedProject($input, $projectId);
-    $authorize = function (string $selectedProject) use ($operator): bool {
-      // Lock the authoritative records in the allocator's transaction: account
+    $authorize = function (string $buildingId) use ($operator, $projectId): bool {
+      // Lock the authoritative records in the repository transaction: account
       // deactivation or membership revocation cannot race a successful insert.
-      $query = $this->db->prepare("SELECT p.id, p.latitude, p.longitude
-        FROM office_projects p
-        INNER JOIN office_project_memberships m ON m.project_id = p.id
-        INNER JOIN office_operator_accounts a ON a.id = m.operator_id
-        WHERE p.id = ? AND m.operator_id = ? AND m.permission = 'manage'
-          AND a.active = 1 LIMIT 1 FOR UPDATE");
-      $query->execute([$selectedProject, $operator->operatorId]);
-      $project = $query->fetch(PDO::FETCH_ASSOC);
-      if (!is_array($project)) return false;
-      OnSiteOfficeProjectMapSeed::fromAuthorizedProject($project);
-      return true;
+      $query = $this->db->prepare("SELECT b.id FROM office_operator_accounts a
+        INNER JOIN office_project_memberships m ON m.operator_id=a.id
+        INNER JOIN office_projects p ON p.id=m.project_id
+        INNER JOIN office_project_buildings pb ON pb.project_id=p.id
+        INNER JOIN office_buildings b ON b.id=pb.building_id
+        WHERE a.id=? AND a.active=1 AND m.permission='manage'
+          AND p.id=? AND b.id=? AND b.active=1 LIMIT 1 FOR UPDATE");
+      $query->execute([$operator->operatorId, $projectId, $buildingId]);
+      return $query->fetchColumn() !== false;
     };
-    $creator = new OnSiteOfficeZoneCreator($this->db, new OnSiteCanonicalZoneSync($this->db), $authorize);
-    return $creator->create($zone);
+    return (new OfficeBuildingZoneRepository($this->db))->create($input, $authorize, $requestKey);
   }
 }
