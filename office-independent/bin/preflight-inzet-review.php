@@ -34,8 +34,9 @@ final class OfficeInzetReviewPreflight {
       throw new RuntimeException('OFFLINE_SNAPSHOT_REQUIRED');
     }
     $uri = str_replace(['%2F','%3A','%5C'],['/',':','/'],rawurlencode($path));
-    $db = new PDO('sqlite:file:'.$uri.'?mode=ro&immutable=1',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+    $db = new PDO('sqlite:file:'.$uri.'?mode=ro',null,null,[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
     $db->exec('PRAGMA query_only=ON');
+    $db->beginTransaction();
     if ($db->query('PRAGMA quick_check')->fetchColumn()!=='ok') {
       throw new RuntimeException('DATABASE_INTEGRITY_FAILED');
     }
