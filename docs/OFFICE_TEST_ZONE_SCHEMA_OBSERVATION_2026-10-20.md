@@ -40,3 +40,6 @@ serverconstraints.
   office-building-zone-create-review.sql van toepassing, niet de ALTER-proposal.
   Beide zijn uitsluitend reviewbestanden en worden niet automatisch uitgevoerd.
 
+
+## Door gebruiker bevestigde aanmaak
+De gebruiker heeft het bewaakte fresh-installcommando in Moba uitgevoerd en meldde: CREATED office_building_zones in Office-test, aantal zones 0. Bestaande gebouwen/projecten bleven ongewijzigd en de schrijfroute bleef uit. Dit is bewijs van de schema-aanmaak via gebruikersuitvoer; de volledige post-create-preflight, actuele runtimebestanden, testdeploy en browsersmoke zijn nog niet bevestigd.
