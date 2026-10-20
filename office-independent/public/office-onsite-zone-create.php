@@ -54,23 +54,23 @@ try {
   if (!is_string($dsn) || $dsn === '') throw new RuntimeException('missing_test_database');
   $db = new PDO($dsn, getenv('OFFICE_INTAKE_DB_USER') ?: '', getenv('OFFICE_INTAKE_DB_PASSWORD') ?: '',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
-  $provider = new \\Brebo\\Office\\Intake\\WebsiteOfficeCrmCookieSessionProvider(
-    new \\Brebo\\Office\\Intake\\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time());
+  $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
+    new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time());
   $operator = $provider->currentOperator();
   if ($operator === null) {
     http_response_code(403);
     exit('Niet aangemeld.');
   }
-  $access = new \\Brebo\\Office\\Project\\OfficeNativeProjectAccess($db);
+  $access = new \Brebo\Office\Project\OfficeNativeProjectAccess($db);
   $authorized = static fn(string $id): bool => $id === (string) $projectId
     && $access->canManage($operator->operatorId, $projectId);
   if (!$authorized((string) $projectId)) {
     http_response_code(403);
     exit('Geen projectbeheerrechten.');
   }
-  $zone = \\Brebo\\Office\\Inzet\\OnSiteOfficeCircleInput::forAuthorizedProject($_POST, (string) $projectId);
-  $creator = new \\Brebo\\Office\\Inzet\\OnSiteOfficeZoneCreator(
-    $db, new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneSync($db), $authorized);
+  $zone = \Brebo\Office\Inzet\OnSiteOfficeCircleInput::forAuthorizedProject($_POST, (string) $projectId);
+  $creator = new \Brebo\Office\Inzet\OnSiteOfficeZoneCreator(
+    $db, new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db), $authorized);
   $zoneId = $creator->create($zone);
   header('Location: /office-test/inzet/projectkaart?id=' . $projectId . '&zone_created=' . rawurlencode($zoneId), true, 303);
   exit;
