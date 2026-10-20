@@ -12,6 +12,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteProjectMapSeedTest.php'
       - 'office-independent/tests/OfficeOnSiteCircleInputTest.php'
+      - 'office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
@@ -232,6 +233,17 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeCircleInput.php
           php -l office-independent/tests/OfficeOnSiteCircleInputTest.php
           php office-independent/tests/OfficeOnSiteCircleInputTest.php
+
+      - name: Office circle transactional create service
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleCreateService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeZoneCreator.php
+          php -l office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
+          php office-independent/tests/OfficeOnSiteCircleCreateServiceMySqlTest.php
 
       - name: OnSite runtime dependency release gate
         run: |

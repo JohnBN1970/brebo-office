@@ -23,24 +23,24 @@ final class OnSiteOfficeZoneCreator {
       || array_key_exists('expected_revision', $zone)) {
       throw new InvalidArgumentException('invalid_office_zone_create');
     }
-    if (($this->authorizedProject)($projectId) !== true) {
-      throw new InvalidArgumentException('unauthorized_office_project');
-    }
-    // Building binding is fail-closed: a client-supplied building cannot be accepted
-    // without a trusted server-side project/building membership resolver.
-    if (array_key_exists('building_id', $zone)) {
-      $buildingId = $zone['building_id'];
-      if (!is_string($buildingId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $buildingId)
-        || $this->authorizedBuilding === null
-        || ($this->authorizedBuilding)($projectId, $buildingId) !== true) {
-        throw new InvalidArgumentException('unauthorized_office_building');
-      }
-    }
     if ($this->db->inTransaction()) {
       throw new RuntimeException('office_zone_nested_transaction');
     }
     $this->db->beginTransaction();
     try {
+      // Resolvers may lock the current account/membership until creation commits.
+      if (($this->authorizedProject)($projectId) !== true) {
+        throw new InvalidArgumentException('unauthorized_office_project');
+      }
+      // Resolve building membership only after project access, in the same transaction.
+      if (array_key_exists('building_id', $zone)) {
+        $buildingId = $zone['building_id'];
+        if (!is_string($buildingId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $buildingId)
+          || $this->authorizedBuilding === null
+          || ($this->authorizedBuilding)($projectId, $buildingId) !== true) {
+          throw new InvalidArgumentException('unauthorized_office_building');
+        }
+      }
       // The unique canonical zone key prevents duplicate IDs. Retry any IDs
       // occupied by existing projections, without ever reusing them.
       for ($attempt = 0; $attempt < 100; $attempt++) {
