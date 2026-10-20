@@ -7,6 +7,7 @@ require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSync.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneImport.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteVerifiedProjectMapping.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeZoneWriter.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeZoneCreator.php';
 $dsn = getenv('OFFICE_INZET_TEST_DSN');
 if (!is_string($dsn) || !str_contains($dsn,'dbname=office_inzet_ci')) throw new RuntimeException('Dedicated MySQL CI database required');
 $db = new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFICE_INZET_TEST_PASSWORD'),[
@@ -125,4 +126,21 @@ if (!$newZoneRejected || $db->inTransaction() || $check('17','999999')) {
   throw new RuntimeException('Unallocated Office zone was not rejected safely');
 }
 
-echo "Canonical zone MySQL sync, Office edits and read projection OK\n";
+$creator = new \Brebo\Office\Inzet\OnSiteOfficeZoneCreator($db, $sync, static fn (string $id): bool => $id === '17');
+$createdId = $creator->create(['project_id'=>'17','active'=>true,'zone_name'=>'Nieuw Office',
+  'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+if (!$check('17',$createdId) || in_array($createdId,['8','9','10','21'],true)) {
+  throw new RuntimeException('Office autonumber zone not available');
+}
+$secondId = $creator->create(['project_id'=>'17','active'=>true,'zone_name'=>'Tweede Office',
+  'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+if ($secondId === $createdId || !$check('17',$secondId)) throw new RuntimeException('Office zone ID reused');
+$unauthorizedCreate = false;
+try {
+  $creator->create(['project_id'=>'18','active'=>true,'zone_name'=>'Denied',
+    'latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+} catch (InvalidArgumentException $exception) {
+  $unauthorizedCreate = $exception->getMessage() === 'unauthorized_office_project';
+}
+if (!$unauthorizedCreate) throw new RuntimeException('Unauthorized Office zone creation allowed');
+echo "Canonical zone MySQL sync, Office edits and autonumber creation OK\n";
