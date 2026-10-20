@@ -1,0 +1,49 @@
+<?php
+declare(strict_types=1);
+
+require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingSchema.php';
+require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneSchema.php';
+require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingRepository.php';
+require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneRepository.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteBuildingZoneAccess.php';
+
+$dsn = getenv('OFFICE_INZET_TEST_DSN');
+if (!is_string($dsn) || !str_contains($dsn, 'dbname=office_inzet_ci')) {
+  throw new RuntimeException('Dedicated MySQL CI database required');
+}
+$db = new PDO($dsn, (string)getenv('OFFICE_INZET_TEST_USER'), (string)getenv('OFFICE_INZET_TEST_PASSWORD'), [
+  PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+  PDO::ATTR_EMULATE_PREPARES => false
+]);
+foreach (['office_building_zones','office_project_buildings','office_buildings'] as $table) {
+  $db->exec('DROP TABLE IF EXISTS '.$table);
+}
+foreach (\Brebo\Office\Buildings\OfficeBuildingSchema::statements() as $sql) $db->exec($sql);
+foreach (\Brebo\Office\Buildings\OfficeBuildingZoneSchema::statements() as $sql) $db->exec($sql);
+$buildings = new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
+$zones = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
+$one = $buildings->create(['building_name'=>'Testgebouw A','city'=>'Breda']);
+$two = $buildings->create(['building_name'=>'Testgebouw B','city'=>'Breda']);
+$projectAccess = static fn(string $id): bool => in_array($id,['17','18'],true);
+$buildings->linkProject('17',$one,$projectAccess);
+$buildings->linkProject('18',$one,$projectAccess);
+$buildings->linkProject('18',$two,$projectAccess);
+$buildingAccess = static fn(string $id): bool => $id===$one;
+$zoneId = $zones->create(['building_id'=>$one,'zone_name'=>'Hoofdingang','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>150],$buildingAccess);
+if (count($zones->forBuilding($one,$buildingAccess))!==1) throw new RuntimeException('Building zone not found');
+if (count($zones->forProject('17',$projectAccess))!==1 || count($zones->forProject('18',$projectAccess))!==1) {
+  throw new RuntimeException('Zone not shared across linked projects');
+}
+$adapter = new \Brebo\Office\Inzet\OnSiteBuildingZoneAccess($zones,$projectAccess);
+if (!$adapter->callback()('17',$zoneId) || !$adapter->callback()('18',$zoneId)
+  || $adapter->callback()('19',$zoneId)) throw new RuntimeException('Project zone authorization incorrect');
+$db->exec('UPDATE office_project_buildings SET project_id=19 WHERE project_id=17');
+if ($adapter->callback()('17',$zoneId)) throw new RuntimeException('Removed project link retained zone access');
+$denied = false;
+try {
+  $zones->create(['building_id'=>$two,'zone_name'=>'Unauthorized','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>100],$buildingAccess);
+} catch (InvalidArgumentException $e) {
+  $denied = $e->getMessage()==='unauthorized_building_zone';
+}
+if (!$denied) throw new RuntimeException('Unauthorized building zone created');
+echo "Office building-owned zone MySQL checks passed\n";
