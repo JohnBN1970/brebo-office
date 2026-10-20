@@ -7,6 +7,9 @@ namespace Brebo\Office\Inzet;
  * Review-only Office-native zone schema. Drupal data is fictional and is not a production source.
  * Location fields remain nullable until verified coordinates are saved in Office.
  * Never serve incomplete zone geometry to the mobile geofence client.
+ * The allocator is review-only: legacy/imported zone IDs can overlap with
+ * AUTO_INCREMENT values. Do not enable creation until ID namespace isolation
+ * and a collision-safe allocation transaction have been tested.
  */
 final class OnSiteCanonicalZoneSchema {
   public static function statements(): array {
