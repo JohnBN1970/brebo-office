@@ -54,4 +54,11 @@ try {
 if (!$conflictRejected || !$check('18','8')) {
   throw new RuntimeException('Equal-revision conflicting zone was not rejected');
 }
+$geometryConflictRejected = false;
+try {
+  $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>7,'zone_name'=>'Nieuwe zone','latitude'=>51.7,'longitude'=>4.4,'radius_metres'=>150]);
+} catch (RuntimeException $exception) {
+  $geometryConflictRejected = $exception->getMessage() === 'Conflicting zone revision';
+}
+if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException('Equal-revision conflicting geometry not rejected');
 echo "Canonical Drupal zone MySQL sync and read projection OK\n";
