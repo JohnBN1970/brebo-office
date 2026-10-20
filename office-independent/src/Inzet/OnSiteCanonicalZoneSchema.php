@@ -18,6 +18,7 @@ final class OnSiteCanonicalZoneSchema {
       "CREATE TABLE office_onsite_canonical_zones (
         zone_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
         project_id BIGINT UNSIGNED NOT NULL,
+        building_id BIGINT UNSIGNED NULL,
         active TINYINT(1) NOT NULL,
         zone_name VARCHAR(160) NULL,
         latitude DECIMAL(10,7) NULL,
@@ -25,7 +26,8 @@ final class OnSiteCanonicalZoneSchema {
         radius_metres DECIMAL(9,2) NULL,
         source_revision BIGINT UNSIGNED NOT NULL,
         synchronized_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_onsite_zone_project_active (project_id, active)
+        INDEX idx_onsite_zone_project_active (project_id, active),
+        INDEX idx_onsite_zone_project_building (project_id, building_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
     ];
   }
