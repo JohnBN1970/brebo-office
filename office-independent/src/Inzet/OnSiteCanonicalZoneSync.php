@@ -31,17 +31,34 @@ final class OnSiteCanonicalZoneSync {
       || $zone['source_revision'] < 1) {
       throw new InvalidArgumentException('invalid_zone_revision');
     }
+    // Active zones must carry verified geometry; never reuse coordinates from a prior revision.
+    $geometry = [$zone['zone_name'] ?? null, $zone['latitude'] ?? null, $zone['longitude'] ?? null, $zone['radius_metres'] ?? null];
+    if ($zone['active']) {
+      if (!is_string($geometry[0]) || trim($geometry[0]) === '' || strlen($geometry[0]) > 160
+        || !is_numeric($geometry[1]) || !is_numeric($geometry[2]) || !is_numeric($geometry[3])
+        || !is_finite((float)$geometry[1]) || !is_finite((float)$geometry[2]) || !is_finite((float)$geometry[3])
+        || abs((float)$geometry[1]) > 90 || abs((float)$geometry[2]) > 180
+        || (float)$geometry[3] <= 0 || (float)$geometry[3] > 1000) {
+        throw new InvalidArgumentException('invalid_zone_geometry');
+      }
+    } else {
+      $geometry = [null, null, null, null];
+    }
     $query = $this->db->prepare(
       'INSERT INTO office_onsite_canonical_zones
-       (zone_id, project_id, active, source_revision)
-       VALUES (?, ?, ?, ?)
+       (zone_id, project_id, active, source_revision, zone_name, latitude, longitude, radius_metres)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON DUPLICATE KEY UPDATE
          project_id = IF(source_revision < VALUES(source_revision), VALUES(project_id), project_id),
          active = IF(source_revision < VALUES(source_revision), VALUES(active), active),
+         zone_name = IF(source_revision < VALUES(source_revision), VALUES(zone_name), zone_name),
+         latitude = IF(source_revision < VALUES(source_revision), VALUES(latitude), latitude),
+         longitude = IF(source_revision < VALUES(source_revision), VALUES(longitude), longitude),
+         radius_metres = IF(source_revision < VALUES(source_revision), VALUES(radius_metres), radius_metres),
          synchronized_at = IF(source_revision < VALUES(source_revision), UTC_TIMESTAMP(), synchronized_at),
          source_revision = GREATEST(source_revision, VALUES(source_revision))'
     );
-    $query->execute([$zone['zone_id'],$zone['project_id'],(int)$zone['active'],$zone['source_revision']]);
+    $query->execute([$zone['zone_id'],$zone['project_id'],(int)$zone['active'],$zone['source_revision'], ...$geometry]);
     $changed = $query->rowCount() > 0;
     if (!$changed) {
       $read = $this->db->prepare('SELECT project_id, active, source_revision FROM office_onsite_canonical_zones WHERE zone_id = ?');
