@@ -68,6 +68,7 @@ try {
   ]);
   if (getenv('OFFICE_ONSITE_NATIVE_BUILDING_ZONES_VERIFIED') === 'enabled') {
     if (getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_NATIVE_BUILDING_ZONES_SCHEMA_VERIFIED') !== 'enabled'
       || getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') !== 'enabled') {
       throw new RuntimeException('Native building zones schema not verified');
     }
