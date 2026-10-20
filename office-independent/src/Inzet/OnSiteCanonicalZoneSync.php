@@ -38,7 +38,7 @@ final class OnSiteCanonicalZoneSync {
         || !is_numeric($geometry[1]) || !is_numeric($geometry[2]) || !is_numeric($geometry[3])
         || !is_finite((float)$geometry[1]) || !is_finite((float)$geometry[2]) || !is_finite((float)$geometry[3])
         || abs((float)$geometry[1]) > 90 || abs((float)$geometry[2]) > 180
-        || (float)$geometry[3] <= 0 || (float)$geometry[3] > 1000) {
+        || (float)$geometry[3] <= 0 || (float)$geometry[3] > 5000) {
         throw new InvalidArgumentException('invalid_zone_geometry');
       }
     } else {
