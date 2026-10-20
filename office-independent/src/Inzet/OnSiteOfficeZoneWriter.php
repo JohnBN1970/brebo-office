@@ -27,15 +27,18 @@ final class OnSiteOfficeZoneWriter {
     if (($this->authorizedProject)($projectId) !== true) {
       throw new InvalidArgumentException('unauthorized_office_project');
     }
-    // Serialize writers for this zone using the existing row lock. New-zone creation
-    // still requires a separately coordinated ID allocator before public wiring.
+    // This boundary edits existing zones only. Creating new zones requires
+    // a dedicated database-issued identity; never accept caller-chosen IDs.
     $this->db->beginTransaction();
     try {
     $current = $this->db->prepare('SELECT source_revision FROM office_onsite_canonical_zones WHERE zone_id = ? FOR UPDATE');
     $current->execute([$zoneId]);
     $revision = $current->fetchColumn();
+    if ($revision === false) {
+      throw new RuntimeException('office_zone_create_not_supported');
+    }
     $expectedRevision = $zone['expected_revision'] ?? null;
-    if (!is_int($expectedRevision) || $expectedRevision < 0 || ($revision === false ? 0 : (int) $revision) !== $expectedRevision) {
+    if (!is_int($expectedRevision) || $expectedRevision < 0 || (int) $revision !== $expectedRevision) {
       throw new RuntimeException('stale_office_zone_revision');
     }
     $zone['source_revision'] = $expectedRevision + 1;
