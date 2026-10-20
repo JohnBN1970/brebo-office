@@ -913,8 +913,18 @@ Bron: actuele `develop`-commits tot en met #1333 (13 oktober 2026) en het Office
 
 ### Huidige exacte stoppositie
 
-Laatste **bevestigde groene** commit: `b04b19dd6980bf811297a7eed33ee0b373102f09`. De daaropvolgende poging om `OnSiteOfficeCircleCreateService.php` toe te voegen heeft **geen bevestigd GitHub-commitresultaat** en het bestand was bij de continuïteitscontrole niet aanwezig op de werkbranch. Behandel deze service daarom als **nog te bouwen**, niet als afgerond. Er is geen publiek schrijfendpoint en geen databasewijziging bevestigd.
+Historische stoppositie vóór de vervolgstap hieronder: groene commit `b04b19dd6980bf811297a7eed33ee0b373102f09`; de service was toen nog niet gebouwd. De actuele code-/CI-status staat in de aanvulling van 20 oktober hieronder. Er is nog geen publiek schrijfendpoint of databasewijziging bevestigd.
 
 ### Brede Office-roadmap blijft van kracht
 
 Projecten, Gebouwen, Inzet, Calculatie, Finance, Inkoop, Planning, Documenten, Intake, MJOP en outputgenerator blijven afzonderlijke acceptatieketens. Deze groene Inzet-tests zijn geen bewijs dat BREBO Office als geheel productie-gereed is. Gebruik geen totaalpercentage zonder actuele module-inventaris, runtime- en end-to-end-bewijs. De eerder genoemde 20 november 2026 blijft een **voorlopige streefdatum**, geen vastgestelde livegang.
+
+## Vervolg 20 oktober 2026 — transactionele cirkelservice
+
+- PR #1408 is inmiddels gemerged in `develop` als `d62eda59cbd3f763945e88902cd55d1f2a5dc867`; de eerdere draftstatus hierboven is historisch. PR #1407 blijft open als concept en is niet door deze vervolgstap gemerged.
+- Nieuwe concept-PR [#1409](https://github.com/JohnBN1970/brebo-office/pull/1409), branch `integration/office-circle-create-service-20261020`, bouwt rechtstreeks op deze actuele `develop`.
+- `OnSiteOfficeCircleCreateService` is nu gebouwd: geverifieerde Office-operatorcontext, server-side projectselectie, strikte cirkelvelden en actuele actieve account-/manage-/locatiecontrole. Account en projectlidmaatschap worden vergrendeld binnen dezelfde transactie als ID-toewijzing en zoneopslag. De bestaande creator controleert project- en gebouwrechten nu binnen zijn transactie.
+- **CI-bewijs:** [Office Inzet MySQL integration, run 328](https://github.com/JohnBN1970/brebo-office/actions/runs/39411781892) is groen op codecommit `b1707068711ad5ff3eb9378edc211208ee1168e8`. Inclusief de nieuwe positieve/negatieve create-, rollback-, canonical-zonelees- en TTL-tests en de bestaande regressies.
+- **Geen runtimebewijs:** geen Hostinger-schema gecontroleerd, geen migratie, opslagroute, testdeploy, productie- of iPhone-aanpassing uitgevoerd. De service is niet idempotent en mag niet rechtstreeks als publiek POST-endpoint worden gebruikt.
+- **Volgende poorten:** daadwerkelijk Office-testschema controleren; Office-native herkomst en verversingsbeleid vaststellen; sessiegebonden POST/CSRF, payloadlimiet, same-origin en dubbele-requestbescherming testen; daarna kaart aansluiten, afzonderlijke testdeploy en browser-/bootstrapacceptatie. De 24-uurs TTL blijft intact.
+- Details en exacte begrenzing: `docs/OFFICE_CIRCLE_CREATE_SERVICE_2026-10-20.md`. Geen merge of productie-deploy zonder afzonderlijke vrijgave.
