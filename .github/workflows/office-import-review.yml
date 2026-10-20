@@ -1,0 +1,36 @@
+name: Office import review integration
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - '.github/workflows/office-import-review.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite
+          coverage: none
+      - name: Lint imported review slice
+        run: |
+          for file in office-independent/src/Inzet/OfficeInzet*Review*.php office-independent/public/office-inzet-import-review.php office-independent/bin/init-inzet-review-store.php office-independent/deployment/hostinger/office-test-index.php office-independent/tests/inzet-*-smoke.php office-independent/tests/OfficeInzetReview*Test.php; do
+            php -l "$file"
+          done
+      - name: Review source, filters, decisions and audit
+        run: |
+          php office-independent/tests/inzet-source-label-smoke.php
+          php office-independent/tests/inzet-review-filters-smoke.php
+          php office-independent/tests/inzet-review-decision-smoke.php
+          php office-independent/tests/inzet-review-cycle-smoke.php
+          php office-independent/tests/OfficeInzetReviewIdentityTest.php
+          php office-independent/tests/OfficeInzetReviewEndpointTest.php
+

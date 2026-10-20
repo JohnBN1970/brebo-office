@@ -918,3 +918,7 @@ Laatste **bevestigde groene** commit: `b04b19dd6980bf811297a7eed33ee0b373102f09`
 ### Brede Office-roadmap blijft van kracht
 
 Projecten, Gebouwen, Inzet, Calculatie, Finance, Inkoop, Planning, Documenten, Intake, MJOP en outputgenerator blijven afzonderlijke acceptatieketens. Deze groene Inzet-tests zijn geen bewijs dat BREBO Office als geheel productie-gereed is. Gebruik geen totaalpercentage zonder actuele module-inventaris, runtime- en end-to-end-bewijs. De eerder genoemde 20 november 2026 blijft een **voorlopige streefdatum**, geen vastgestelde livegang.
+
+## Hervatting #1407 na merge #1408 — 20 oktober 2026
+
+#1408 is gemerged als d62eda59cbd3f763945e88902cd55d1f2a5dc867. Een lokale samenvoegproef met #1407 gaf 24 conflicten, waaronder onverenigbare OnSite-opslag- en eventcontracten. De proef is afgebroken. De vervolgbranch integration/office-1407-1408-20261020 neemt uitsluitend de bronreview selectief over en behoudt de Office-native keten van develop. Exacte tekstuele beoordelaar-ID's, loginbinding, CSRF, revisies en audit-rollback zijn lokaal getest. Volledige branchconsolidatie, CI-acceptatie en Hostinger/browseracceptatie zijn daarmee niet bewezen. Zie docs/OFFICE_1407_1408_REVIEW_INTEGRATION_2026-10-20.md voor scope, tests en de fail-closed schema-eis voor bestaande beslissingenstores. Geen merge, deploy, productieaanpassing of iPhone-build.
