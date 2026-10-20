@@ -5,6 +5,7 @@ require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSchema.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneRepository.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSync.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneImport.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteVerifiedProjectMapping.php';
 $dsn = getenv('OFFICE_INZET_TEST_DSN');
 if (!is_string($dsn) || !str_contains($dsn,'dbname=office_inzet_ci')) throw new RuntimeException('Dedicated MySQL CI database required');
 $db = new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFICE_INZET_TEST_PASSWORD'),[
@@ -67,7 +68,10 @@ try {
   $geometryConflictRejected = $exception->getMessage() === 'Conflicting zone revision';
 }
 if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException('Equal-revision conflicting geometry not rejected');
-$import = new \Brebo\Office\Inzet\OnSiteCanonicalZoneImport($sync, static fn (string $sourceProjectId): ?string => $sourceProjectId === '77' ? '17' : null);
+$db->exec(\\Brebo\\Office\\Inzet\\OnSiteVerifiedProjectMapping::schema());
+$db->exec("INSERT INTO office_onsite_project_mapping(source_project_id,office_project_id,verified) VALUES (77,17,1),(78,18,0)");
+$mapping = new \\Brebo\\Office\\Inzet\\OnSiteVerifiedProjectMapping($db);
+$import = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneImport($sync, $mapping->resolver());
 $unverifiedRejected = false;
 try {
   $import->import(['zone_id'=>21,'source_project_id'=>78,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125 ]);
