@@ -42,6 +42,7 @@ final class OfficeInzetReviewDecisionRepository {
       revision INTEGER NOT NULL,
       recorded_at TEXT NOT NULL
     )');
+    $this->assertReviewerSchema();
   }
 
   /**
@@ -55,15 +56,7 @@ final class OfficeInzetReviewDecisionRepository {
     string|int $reviewerId,
     int $expectedRevision
   ): array {
-    // Old INTEGER-affinity stores can silently coerce text IDs such as "01".
-    // Require the reviewed TEXT schema; never migrate an existing store via HTTP.
-    foreach (['inzet_review_decisions', 'inzet_review_decision_audit'] as $table) {
-      $columns = $this->db->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
-      $reviewerColumns = array_values(array_filter($columns, static fn(array $column): bool => $column['name'] === 'reviewer_id'));
-      if (count($reviewerColumns) !== 1 || strtoupper($reviewerColumns[0]['type']) !== 'TEXT') {
-        throw new \LogicException('Exact reviewer identity requires the TEXT decision schema.');
-      }
-    }
+    $this->assertReviewerSchema();
     $reviewerId = (string)$reviewerId;
     if ($issueId < 1 || $reviewerId === '' || strlen($reviewerId) > 128 || $expectedRevision < 0
       || !in_array($action, self::ACTIONS, true)) {
@@ -123,6 +116,18 @@ final class OfficeInzetReviewDecisionRepository {
     } catch (\Throwable $e) {
       try { $this->db->exec('ROLLBACK'); } catch (\PDOException $rollbackFailure) { /* Transaction already ended. */ }
       throw $e;
+    }
+  }
+
+  private function assertReviewerSchema(): void {
+    // Old INTEGER-affinity stores can silently coerce text IDs such as "01".
+    // Require the reviewed TEXT schema; never migrate an existing store via HTTP.
+    foreach (['inzet_review_decisions', 'inzet_review_decision_audit'] as $table) {
+      $columns = $this->db->query('PRAGMA table_info(' . $table . ')')->fetchAll(PDO::FETCH_ASSOC);
+      $reviewerColumns = array_values(array_filter($columns, static fn(array $column): bool => $column['name'] === 'reviewer_id'));
+      if (count($reviewerColumns) !== 1 || strtoupper($reviewerColumns[0]['type']) !== 'TEXT') {
+        throw new \LogicException('Exact reviewer identity requires the TEXT decision schema.');
+      }
     }
   }
 
