@@ -32,13 +32,22 @@ if (!$check('17','8')) throw new RuntimeException('Valid refreshed zone not auth
 $sync = new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db);
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>false,'source_revision'=>6]);
 if ($check('17','8') || $check('18','8')) throw new RuntimeException('Newer inactive zone still authorized');
-$sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>5]);
+$sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>5,'zone_name'=>'Werkzone','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
 if ($check('17','8')) throw new RuntimeException('Stale zone revision restored access');
-$sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>7]);
+$sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>7,'zone_name'=>'Nieuwe zone','latitude'=>51.6,'longitude'=>4.4,'radius_metres'=>150]);
 if (!$check('18','8') || $check('17','8')) throw new RuntimeException('Project zone reassignment not enforced');
+$geometry = $db->query("SELECT zone_name, latitude, longitude, radius_metres FROM office_onsite_canonical_zones WHERE zone_id = 8")->fetch(PDO::FETCH_ASSOC);
+if ($geometry['zone_name'] !== 'Nieuwe zone' || abs((float)$geometry['latitude'] - 51.6) > 0.000001 || abs((float)$geometry['radius_metres'] - 150) > 0.01) throw new RuntimeException('New revision geometry not synchronized');
+$invalidGeometryRejected = false;
+try {
+  $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>true,'source_revision'=>8,'zone_name'=>'','latitude'=>51.6,'longitude'=>4.4,'radius_metres'=>150]);
+} catch (InvalidArgumentException $exception) {
+  $invalidGeometryRejected = $exception->getMessage() === 'invalid_zone_geometry';
+}
+if (!$invalidGeometryRejected || !$check('18','8')) throw new RuntimeException('Invalid geometry changed active zone');
 $conflictRejected = false;
 try {
-  $sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>7]);
+  $sync->apply(['zone_id'=>'8','project_id'=>'17','active'=>true,'source_revision'=>7,'zone_name'=>'Werkzone','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
 } catch (RuntimeException $exception) {
   $conflictRejected = $exception->getMessage() === 'Conflicting zone revision';
 }
