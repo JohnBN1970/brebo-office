@@ -5,6 +5,7 @@ import hashlib
 import json
 import pathlib
 import re
+import textwrap
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--output-dir", required=True)
@@ -28,6 +29,7 @@ def fragment(path):
 installer = fragment(repo / "office-independent/deployment/hostinger/OfficeZoneTestDeployment.php")
 readiness = fragment(repo / "office-independent/src/Buildings/OfficeBuildingZoneReadiness.php")
 encoded = base64.b64encode(json.dumps(files, ensure_ascii=False, separators=(",", ":")).encode()).decode()
+encoded_php = "'" + "' .\n    '".join(textwrap.wrap(encoded, 120)) + "'"
 wrapper = r'''
 namespace Brebo\Office\Deployment;
 if (PHP_SAPI!=='cli') {http_response_code(404);exit;}
@@ -37,12 +39,18 @@ try {
   $router='/home/u213420663/domains/brebobv.nl/public_html/office-test/index.php';
   $config=$base.'/config/config.php';
   if (!is_file($config)) throw new \RuntimeException('test_configuration_not_found');
-  $files=json_decode(base64_decode('__PAYLOAD__',true),true,512,JSON_THROW_ON_ERROR);
-  $guard=static function(array $c):void {
+  $files=json_decode(base64_decode(__PAYLOAD__,true),true,512,JSON_THROW_ON_ERROR);
+  $guard=static function(array $c) use ($root):void {
     if (($c['OFFICE_INTAKE_DB_USER'] ?? '')!=='u213420663_office_test'
       || ($c['OFFICE_PUBLIC_HOST'] ?? '')!=='brebobv.nl'
       || !preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$c['OFFICE_INTAKE_PDO_DSN'] ?? '')) {
       throw new \RuntimeException('isolated_test_database_and_host_required');
+    }
+    foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php',
+      'WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $dependency) {
+      $path=$root.'/src/Intake/'.$dependency;
+      if (!is_file($path) || realpath($path)!==$path) throw new \RuntimeException('existing_session_dependency_unavailable:'.$dependency);
+      token_get_all(file_get_contents($path),TOKEN_PARSE);
     }
     $db=new \PDO($c['OFFICE_INTAKE_PDO_DSN'],$c['OFFICE_INTAKE_DB_USER'],$c['OFFICE_INTAKE_DB_PASSWORD'] ?? '',
       [\PDO::ATTR_ERRMODE=>\PDO::ERRMODE_EXCEPTION,\PDO::ATTR_EMULATE_PREPARES=>false]);
@@ -63,7 +71,7 @@ try {
   exit(1);
 }
 '''
-source = "<?php\ndeclare(strict_types=1);\n" + installer + "\n" + readiness + "\n" + wrapper.replace("__PAYLOAD__", encoded)
+source = "<?php\ndeclare(strict_types=1);\n" + installer + "\n" + readiness + "\n" + wrapper.replace("__PAYLOAD__", encoded_php)
 name = "office-zone-testdeploy-20261020.php"
 package = out / name
 package.write_text(source, encoding="utf-8", newline="\n")
