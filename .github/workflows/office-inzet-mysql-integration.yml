@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
+      - 'office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteProjectMapSeedTest.php'
       - 'office-independent/tests/OfficeOnSiteCircleInputTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
@@ -190,6 +191,16 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeDeviceManagementRepository.php
           php -l office-independent/tests/OfficeOnSiteActivationMySqlTest.php
           php office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+
+      - name: Office project map authorization MySQL regression
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeProjectMapRepository.php
+          php -l office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php
+          php office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php
 
       - name: Office project map seed regression
         run: |
