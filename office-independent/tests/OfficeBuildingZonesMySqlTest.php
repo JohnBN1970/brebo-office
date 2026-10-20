@@ -37,6 +37,19 @@ if (count($zones->forProject('17',$projectAccess))!==1 || count($zones->forProje
 $adapter = new \Brebo\Office\Inzet\OnSiteBuildingZoneAccess($zones,$projectAccess);
 if (!$adapter->callback()('17',$zoneId) || !$adapter->callback()('18',$zoneId)
   || $adapter->callback()('19',$zoneId)) throw new RuntimeException('Project zone authorization incorrect');
+// A valid project assignment alone must not grant access to an unrelated building zone.
+$otherAccess = static fn(string $id): bool => $id===$two;
+$otherZoneId = $zones->create(['building_id'=>$two,'zone_name'=>'Achterterrein','latitude'=>51.51,'longitude'=>4.31,'radius_metres'=>100],$otherAccess);
+if ($adapter->callback()('17',$otherZoneId) || !$adapter->callback()('18',$otherZoneId)) {
+  throw new RuntimeException('Unlinked building zone accessible from project');
+}
+// Disabling a building zone must revoke all project memberships immediately.
+$db->prepare('UPDATE office_building_zones SET active=0 WHERE id=?')->execute([$zoneId]);
+if ($adapter->callback()('17',$zoneId) || $adapter->callback()('18',$zoneId)) {
+  throw new RuntimeException('Inactive building zone still authorizes presence');
+}
+$db->prepare('UPDATE office_building_zones SET active=1 WHERE id=?')->execute([$zoneId]);
+if (!$adapter->callback()('17',$zoneId)) throw new RuntimeException('Reactivated zone not accessible');
 $db->exec('UPDATE office_project_buildings SET project_id=19 WHERE project_id=17');
 if ($adapter->callback()('17',$zoneId)) throw new RuntimeException('Removed project link retained zone access');
 $denied = false;
