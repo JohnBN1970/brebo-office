@@ -10,14 +10,20 @@ $db = new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFI
   PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION
 ]);
 foreach (\Brebo\Office\Inzet\OnSiteCanonicalZoneSchema::statements() as $sql) $db->exec($sql);
-$db->exec("INSERT INTO office_onsite_canonical_zones(zone_id,project_id,active,source_revision)
-  VALUES (8,17,1,5),(9,17,0,5),(10,18,1,2)");
+$db->exec("INSERT INTO office_onsite_canonical_zones(zone_id,project_id,active,source_revision,zone_name,latitude,longitude,radius_metres)
+  VALUES (8,17,1,5,'Werkzone',51.5000000,4.3000000,125),(9,17,0,5,'Inactief',51.5000000,4.3000000,125),(10,18,1,2,'Ander project',51.5000000,4.3000000,125)");
 $repo = new \Brebo\Office\Inzet\OnSiteCanonicalZoneRepository($db);
 $check = $repo->callback();
 if (!$check('17','8') || $check('17','9') || $check('17','10')
   || $check('18','8') || $check('17','11')) {
   throw new RuntimeException('Canonical zone projection authorized incorrectly');
 }
+$db->exec("UPDATE office_onsite_canonical_zones SET synchronized_at = UTC_TIMESTAMP() - INTERVAL 25 HOUR WHERE zone_id = 8");
+if ($check('17','8')) throw new RuntimeException('Expired zone still authorized');
+$db->exec("UPDATE office_onsite_canonical_zones SET synchronized_at = UTC_TIMESTAMP(), radius_metres = NULL WHERE zone_id = 8");
+if ($check('17','8')) throw new RuntimeException('Zone without geometry still authorized');
+$db->exec("UPDATE office_onsite_canonical_zones SET radius_metres = 125 WHERE zone_id = 8");
+if (!$check('17','8')) throw new RuntimeException('Valid refreshed zone not authorized');
 $sync = new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db);
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>false,'source_revision'=>6]);
 if ($check('17','8') || $check('18','8')) throw new RuntimeException('Newer inactive zone still authorized');
