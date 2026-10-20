@@ -6,6 +6,7 @@ require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneRepository.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSync.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneImport.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteVerifiedProjectMapping.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteOfficeZoneWriter.php';
 $dsn = getenv('OFFICE_INZET_TEST_DSN');
 if (!is_string($dsn) || !str_contains($dsn,'dbname=office_inzet_ci')) throw new RuntimeException('Dedicated MySQL CI database required');
 $db = new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFICE_INZET_TEST_PASSWORD'),[
@@ -81,4 +82,25 @@ try {
 if (!$unverifiedRejected) throw new RuntimeException('Zone import accepted unverified Office project');
 $import->import(['zone_id'=>21,'source_project_id'=>77,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
 if (!$check('17','21')) throw new RuntimeException('Verified zone import failed');
-echo "Canonical Drupal zone MySQL sync and read projection OK\n";
+$writer = new \Brebo\Office\Inzet\OnSiteOfficeZoneWriter($db, $sync, static fn (string $id): bool => $id === '17');
+$officeZone = ['zone_id'=>'21','project_id'=>'17','expected_revision'=>1,'active'=>true,
+  'zone_name'=>'Office zone','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125];
+if (!$writer->save($officeZone)) throw new RuntimeException('Office zone update failed');
+$officeZone['zone_name'] = 'Stale change';
+$staleRejected = false;
+try {
+  $writer->save($officeZone);
+} catch (RuntimeException $exception) {
+  $staleRejected = $exception->getMessage() === 'stale_office_zone_revision';
+}
+if (!$staleRejected || $db->inTransaction()) throw new RuntimeException('Stale Office edit was not rolled back');
+$officeZone['project_id'] = '18';
+$officeZone['expected_revision'] = 2;
+$unauthorizedRejected = false;
+try {
+  $writer->save($officeZone);
+} catch (InvalidArgumentException $exception) {
+  $unauthorizedRejected = $exception->getMessage() === 'unauthorized_office_project';
+}
+if (!$unauthorizedRejected || !$check('17','21')) throw new RuntimeException('Unauthorized Office edit accepted');
+echo "Canonical zone MySQL sync, Office edits and read projection OK\n";
