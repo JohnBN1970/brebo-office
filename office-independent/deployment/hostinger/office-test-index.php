@@ -62,6 +62,7 @@ $routes = [
   '/office-test/inzet/onsite/activatie-uitgeven' => 'office-onsite-invitation.php',
   '/office-test/inzet/onsite/apparaat-intrekken' => 'office-onsite-device-revoke.php',
   '/office-test/projecten/detail' => 'office-project.php',
+  '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
 ];
 if ($path === '/office-test/inzet/apparaten') {
   require $private . '/public/onsite-devices.php';
