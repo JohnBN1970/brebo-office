@@ -21,7 +21,10 @@ label{display:block;margin:.8rem 0 .3rem;font-weight:600}input{font:inherit;padd
 small{color:#52606d}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f5f8;padding:1rem}
 </style></head><body><h1>Personeelszone - kaartprototype</h1>
 <p>Fictieve testlocatie. Schakel de kaart zelf in; daarna worden kaarttegels geladen bij OpenStreetMap. Er worden geen Office-projectgegevens verstuurd.</p>
-<button id="enable" type="button">Kaart laden</button>
+<label for="project">Office-projectnummer (fictief)</label><input id="project" inputmode="numeric" value="17" pattern="[1-9][0-9]*">
+<label for="project-lat">Projectbreedtegraad (test)</label><input id="project-lat" type="number" min="-90" max="90" step="0.0000001" value="51.5000000">
+<label for="project-lon">Projectlengtegraad (test)</label><input id="project-lon" type="number" min="-180" max="180" step="0.0000001" value="4.3000000">
+<button id="enable" type="button">Kaart laden rond testproject</button>
 <label for="name">Zonenaam</label><input id="name" value="Werkgebied" maxlength="160">
 <label for="radius">Straal: <output id="metres">150</output> meter</label>
 <input id="radius" type="range" min="10" max="5000" step="10" value="150">
@@ -36,6 +39,16 @@ small{color:#52606d}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#
  const metres=document.getElementById('metres'),coordinates=document.getElementById('coordinates');
  const preview=document.getElementById('preview'),result=document.getElementById('result');
  let map,circle,marker,center={lat:51.5,lng:4.3};
+ function projectLocation(){
+   const project=document.getElementById('project').value;
+   const latField=document.getElementById('project-lat'),lonField=document.getElementById('project-lon');
+   const lat=Number(latField.value),lng=Number(lonField.value);
+   if(!/^[1-9][0-9]{0,18}$/.test(project)||latField.value===''||lonField.value===''||
+      !Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){
+     coordinates.textContent='Ongeldige testprojectlocatie of projectnummer.';return false;
+   }
+   center={lat,lng};return true;
+ }
  function render(){
    if(!circle)return;
    circle.setLatLng(center);circle.setRadius(Number(radius.value));marker.setLatLng(center);
@@ -52,9 +65,12 @@ small{color:#52606d}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#
    map.on('click',event=>{center=event.latlng;render()});
    marker.on('dragend',()=>{center=marker.getLatLng();render()});
    radius.addEventListener('input',render);
-   preview.disabled=false;enable.disabled=true;render();
+   preview.disabled=false;enable.disabled=true;
+   for(const id of ['project','project-lat','project-lon'])document.getElementById(id).disabled=true;
+   render();
  }
  enable.addEventListener('click',()=>{
+   if(!projectLocation())return;
    enable.disabled=true;enable.textContent='Kaart wordt geladen...';
    const css=document.createElement('link');css.rel='stylesheet';css.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';document.head.appendChild(css);
    const script=document.createElement('script');script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
@@ -63,7 +79,7 @@ small{color:#52606d}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#
    document.head.appendChild(script);
  });
  preview.addEventListener('click',()=>{
-   result.textContent=JSON.stringify({zone_name:document.getElementById('name').value,
+   result.textContent=JSON.stringify({project_id:document.getElementById('project').value,zone_name:document.getElementById('name').value,
      latitude:center.lat,longitude:center.lng,radius_metres:Number(radius.value),saved:false},null,2);
  });
 })();
