@@ -932,3 +932,6 @@ Projecten, Gebouwen, Inzet, Calculatie, Finance, Inkoop, Planning, Documenten, I
 
 
 SSH-status: de door de gebruiker opgegeven host 77.37.34.160 met account u213420663 is bereikbaar op poort 65002. Batchaanmelding is geweigerd (publickey/password). Er is geen servercommando uitgevoerd en geen schemaresultaat verkregen. Bestaande sleutel of handmatige aanmelding is nog nodig; geen credentials in de repository opslaan.
+
+## Nieuwe runtime-evidentie via Moba — 20 oktober 2026
+De gebruiker heeft twee read-only schemabevragingen uitgevoerd. Vijf basistabellen zijn InnoDB; office_building_zones ontbreekt. Gebouwsleutel: bigint(20) unsigned PRIMARY KEY auto_increment. Bestaande gebouwvelden zijn name/address_line, zonder actiefstatus of coördinaten; Office-account-ID en membership-operator-ID zijn varchar(128). Dit vervangt de eerdere melding dat er geen schemaresultaat beschikbaar was. De code, migratievoorstellen en CI-fixtures worden hierop aangesloten. De nieuwe test gebruikt de fresh-install SQL, een tekstueel manageraccount en rendert de echte kaart zonder project-/gebouwlocatiekolommen. Geen servermigratie of deploy uitgevoerd. Zie docs/OFFICE_TEST_ZONE_SCHEMA_OBSERVATION_2026-10-20.md. Oudere groene runs zijn geen bewijs voor deze nieuwste correctie; volg de actuele PR-head.

@@ -10,7 +10,7 @@ wordt niet de tweede opslagplaats voor nieuwe gebouwzones. De oude
 OnSiteOfficeZoneCreator is ongemoeid gelaten.
 
 Een Office-zone blijft actief tot expliciete inactivatie; toegang vereist steeds
-een actief gebouw en de actuele project-gebouwrelatie. Externe canonical-zone-
+een bestaand gebouw en de actuele project-gebouwrelatie. Externe canonical-zone-
 projecties behouden hun bestaande 24-uurs TTL. Deze PR past die readers, de
 mobiele bootstrap en de geregistreerde iPhone niet aan. De huidige bootstrap
 leest nog de oude projectie: een volledig mobiele gebouwketen is dus nog niet
@@ -65,7 +65,7 @@ aanvraagidentiteiten niet verloren gaan.
 OfficeOnSiteCircleCreateServiceMySqlTest controleert gebouwopslag/teruglezen,
 herhaalde en gelijktijdige aanvragen, gewijzigd herhaalverzoek, sessie-/project-/
 gebouwgebonden CSRF, verlopen tokens, reader/inactief/onbekend account,
-ingetrokken rechten of gebouwkoppeling, ontbrekend/inactief gebouw, vervalste
+ingetrokken rechten of gebouwkoppeling, ontbrekend gebouw, vervalste
 velden, ongeldige geometrie, methode/herkomst/contenttype/payload, SQL-rollback,
 behoud van caller-transacties en weigering zonder de unieke index.
 De bestaande gebouwzone- en presence-regressies blijven in dezelfde workflow.
@@ -75,3 +75,6 @@ gereviewde testmigratie en deploy, browser-smoke op de kaart en daarna een eigen
 acceptatieslice voor gebouwzones in de mobiele bootstrap/presence-compositie.
 Geen merge, productieaanpassing of iPhone-build zonder afzonderlijke vrijgave.
 
+
+## Correctie na de werkelijke schemacontrole
+De read-only Moba-uitvoer bevestigt dat de zonetabel ontbreekt en dat account-ID’s tekst zijn. Het gebouwregister gebruikt name/address_line en heeft geen actiefstatus of coördinaten. De adapter en CI-fixtures zijn hierop aangepast; er worden geen extra mastervelden toegevoegd. De kaart gebruikt een bestaande zone of expliciet ingevuld middelpunt. Details en bewijslimieten: docs/OFFICE_TEST_ZONE_SCHEMA_OBSERVATION_2026-10-20.md. Voor deze lege zonetabelinstallatie geldt office-building-zone-create-review.sql. Het oudere ALTER-voorstel is alleen voor een reeds bestaande tabel. Er is nog geen testmigratie/deploy uitgevoerd. De nieuwe tests renderen de echte kaart met een tekstueel account-ID en zonder locatiekolommen, controleren de formulierbevestiging en valideren het uitgevoerde JavaScript.

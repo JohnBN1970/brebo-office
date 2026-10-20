@@ -22,7 +22,7 @@ final class OfficeBuildingZoneReadiness {
       $report['nullable ascii request column '.$column]=($c['COLUMN_TYPE'] ?? '')==='char(64)'
         && ($c['IS_NULLABLE'] ?? '')==='YES' && ($c['COLLATION_NAME'] ?? '')==='ascii_bin';
     }
-    $report['database issued zone identity']=($columns['id']['COLUMN_TYPE'] ?? '')==='bigint unsigned'
+    $report['database issued zone identity']=preg_match('/^bigint(?:\\([0-9]+\\))? unsigned$/D', $columns['id']['COLUMN_TYPE'] ?? '')===1
       && str_contains($columns['id']['EXTRA'] ?? '', 'auto_increment');
     $indexes=$db->query("SELECT INDEX_NAME,NON_UNIQUE,GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) AS cols,
       SUM(SUB_PART IS NOT NULL) AS prefixes
@@ -46,7 +46,7 @@ final class OfficeBuildingZoneReadiness {
     }
     try {
       $db->query("SELECT z.id,z.building_id,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.active,z.revision,
-        z.request_key,z.request_fingerprint,b.active,a.active,m.permission,p.id
+        z.request_key,z.request_fingerprint,b.name,b.address_line,b.postal_code,b.city,a.active,m.permission,p.id
         FROM office_building_zones z JOIN office_buildings b ON b.id=z.building_id
         JOIN office_project_buildings pb ON pb.building_id=b.id JOIN office_projects p ON p.id=pb.project_id
         JOIN office_project_memberships m ON m.project_id=p.id JOIN office_operator_accounts a ON a.id=m.operator_id LIMIT 0");

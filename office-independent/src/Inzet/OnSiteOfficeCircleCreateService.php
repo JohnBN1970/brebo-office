@@ -22,7 +22,7 @@ final class OnSiteOfficeCircleCreateService {
     if (array_diff(array_keys($input), $allowed) !== []) {
       throw new InvalidArgumentException('office_circle_unknown_fields');
     }
-    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $operator->operatorId)
+    if (($operator->operatorId === '' || strlen($operator->operatorId) > 128)
       || !preg_match('/^[1-9][0-9]{0,18}$/D', $projectId)) {
       throw new InvalidArgumentException('invalid_office_circle_context');
     }
@@ -35,7 +35,7 @@ final class OnSiteOfficeCircleCreateService {
         INNER JOIN office_project_buildings pb ON pb.project_id=p.id
         INNER JOIN office_buildings b ON b.id=pb.building_id
         WHERE a.id=? AND a.active=1 AND m.permission='manage'
-          AND p.id=? AND b.id=? AND b.active=1 LIMIT 1 FOR UPDATE");
+          AND p.id=? AND b.id=? LIMIT 1 FOR UPDATE");
       $query->execute([$operator->operatorId, $projectId, $buildingId]);
       return $query->fetchColumn() !== false;
     };

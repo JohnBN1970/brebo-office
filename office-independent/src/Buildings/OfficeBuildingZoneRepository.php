@@ -14,7 +14,7 @@ use RuntimeException;
 final class OfficeBuildingZoneRepository {
   public function __construct(private PDO $db) {}
 
-  /** Create a zone only for an active building authorized by the caller. */
+  /** Create a zone only for an existing building authorized by the caller. */
   public function create(array $zone, \Closure $authorizedBuilding, ?string $requestKey = null): string {
     $buildingId=$zone['building_id']??null;
     $name=$zone['zone_name']??null;
@@ -35,7 +35,7 @@ final class OfficeBuildingZoneRepository {
     $this->db->beginTransaction();
     try {
       if ($authorizedBuilding($buildingId)!==true) throw new InvalidArgumentException('unauthorized_building_zone');
-      $lock=$this->db->prepare('SELECT id FROM office_buildings WHERE id=? AND active=1 FOR UPDATE');
+      $lock=$this->db->prepare('SELECT id FROM office_buildings WHERE id=? FOR UPDATE');
       $lock->execute([$buildingId]);
       if ($lock->fetchColumn()===false) throw new InvalidArgumentException('building_not_found');
       $values=[trim($name),(float)$lat,(float)$lon,(float)$radius,$buildingId];
@@ -77,18 +77,18 @@ final class OfficeBuildingZoneRepository {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D',$projectId)
       || $authorizedProject($projectId)!==true) throw new InvalidArgumentException('unauthorized_project_zones');
     $stmt=$this->db->prepare(
-      'SELECT z.id,z.building_id,b.building_name,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.revision
+      'SELECT z.id,z.building_id,b.name AS building_name,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.revision
        FROM office_project_buildings pb
-       INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
+       INNER JOIN office_buildings b ON b.id=pb.building_id
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
-       WHERE pb.project_id=? ORDER BY b.building_name,z.id'
+       WHERE pb.project_id=? ORDER BY b.name,z.id'
     );
     $stmt->execute([$projectId]);
     return $stmt->fetchAll(PDO::FETCH_ASSOC);
   }
 
   /**
-   * Return one active zone only if it belongs to an active building
+   * Return one active zone only if it belongs to an existing building
    * associated with an authorized project.
    */
   public function forProjectZone(string $projectId,string $zoneId, \Closure $authorizedProject): ?array {
@@ -98,7 +98,7 @@ final class OfficeBuildingZoneRepository {
     $stmt=$this->db->prepare(
       'SELECT z.id,z.building_id,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.revision
        FROM office_project_buildings pb
-       INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
+       INNER JOIN office_buildings b ON b.id=pb.building_id
        INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
        WHERE pb.project_id=? AND z.id=? LIMIT 1'
     );
