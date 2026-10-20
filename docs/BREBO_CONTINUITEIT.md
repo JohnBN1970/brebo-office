@@ -6,7 +6,7 @@ Dit document voorkomt dat de BREBO Office-ontwikkeling bij een volle of nieuwe c
 
 Het is geen vervanging van het Proceshandboek, CIM, Appendix A, roadmap, UI Design System of wijzigingsregister.
 
-**Actuele statusherijking: 14 oktober 2026.** Historische detailstand hieronder bevat onderdelen met peildatum 7 oktober 2026.
+**Actuele statusherijking: 20 oktober 2026 (OnSite/Inzet-aanvulling onderaan).** Historische detailstand hieronder bevat onderdelen met peildatum 7 oktober 2026.
 
 ## Startvolgorde voor iedere nieuwe ontwikkelsessie
 
@@ -880,3 +880,41 @@ Bron: actuele `develop`-commits tot en met #1333 (13 oktober 2026) en het Office
 6. **Productiepoort:** pas gereed na groene CI, review-schoon PR, gecontroleerde deploy, release-SHA, echte gebruikers-/projectsmokes, back-up en herstelcontrole.
 
 **Planning:** 20 november 2026 is uitsluitend een voorlopige streefdatum voor integrale acceptatie, geen toezegging of vastgestelde livegang. Herplan na de P0-inventaris. Geen nieuwe hostingupgrade, symlinks of secrets in de repository; bestaande login/CRM en publieke website behouden.
+
+
+## Actuele aanvulling — 20 oktober 2026 — Office-native Inzet / OnSite personeelszone
+
+**Leidend voor deze ontwikkelketen; vervangt oudere deelstatussen over de OnSite-kaart.**
+
+### Werkbasis en grenzen
+
+- Repository: `JohnBN1970/brebo-office`; werkbranch: `integration/office-working-chains-20261018`; draft PR [#1408](https://github.com/JohnBN1970/brebo-office/pull/1408) richting `develop`.
+- Drupal bevat in deze keten uitsluitend fictieve projectgegevens. Ook Office-test werkt met fictieve data. De nieuwe Office-native keten mag **geen Drupal-projectidentiteit of -locatie** als bron van waarheid gebruiken. Productiegegevens worden later afzonderlijk ingericht.
+- Geen merge, productie-deploy, productiemigratie, aanpassing van geregistreerde iPhone of tweede iOS-buildstraat zonder afzonderlijke vrijgave.
+- `/office-test` is een afzonderlijke Hostinger-testrouter; functionaliteit in GitHub is **niet** hetzelfde als gedeployed of operationeel in de browser.
+
+### Bevestigd gebouwd en getest
+
+- Office-native projectkaartseed: `OnSiteOfficeProjectMapSeed`, met projectnummer, WGS84-coördinaten en strikte validatie.
+- `OnSiteOfficeProjectMapRepository::forManager()`: uitsluitend actieve Office-operatoren met `manage`-projectlidmaatschap; weigert andere projecten of ontbrekende locatie.
+- MySQL-regressietest `OfficeOnSiteProjectMapRepositoryMySqlTest.php` inclusief positieve en negatieve autorisatiegevallen. Het ontbreken van coördinaten geeft terecht `InvalidArgumentException`; de test vangt die gecontroleerd af.
+- Test-only route `/office-test/inzet/projectkaart?id=...` via `office-test-index.php`, met Office-sessie, HTTPS/hostcontrole, featureflag `OFFICE_TEST_PROJECT_MAP_COORDINATES_VERIFIED` en server-side managercontrole. Link vanuit het Office-projectdossier alleen voor beheerders.
+- Interactieve kaart op `office-onsite-project-map.php`: startlocatie uit geautoriseerd Office-project, kaartbibliotheek/OSM-tegels pas na expliciete klik, verplaatsbaar middelpunt, straal 10–5.000 meter, zonenaam en JSON-preview; **geen opslag**. De externe kaartprovider kan bij inschakeling de bekeken regio zien.
+- Bestaande bouwstenen: `OnSiteOfficeCircleInput::forAuthorizedProject()`, `OnSiteOfficeZoneCreator`, `OnSiteCanonicalZoneSync`. De creator is nog **niet** via de kaart aan een schrijfendpoint gekoppeld.
+- CI voor commit [`b04b19d`](https://github.com/JohnBN1970/brebo-office/commit/b04b19dd6980bf811297a7eed33ee0b373102f09): **vier workflows groen**, te weten PHP quality gate, Office Inzet MySQL integration, Office identity mapping gate en BREBO Project Render Smoke.
+
+### Openstaande punten / eerstvolgende uitvoering
+
+1. **Schema-gate:** controleer eerst de daadwerkelijke Office-testtabellen en migratievoorstellen: projectvelden `latitude`/`longitude`, `office_onsite_zone_identity`, `office_onsite_canonical_zones` en bijbehorende sleutels. `OfficeProjectMapLocationSchema::reviewSql()` is alleen een voorstel; er is geen migratie uitgevoerd.
+2. **Schrijfgrens:** implementeer en test een expliciete server-side create-service/POST-route met ingelogde operator uit de Office-sessie, `manage`-rechten op het geselecteerde Office-project, CSRF-beveiliging, POST- en payloadlimieten, `OnSiteOfficeCircleInput::forAuthorizedProject()`, transacties en fail-closed foutpaden. Nooit vertrouwen op door de browser aangeleverde operator-ID, zone-ID of revisie.
+3. **Herkomst/TTL:** `OnSiteCanonicalZoneSync` is historisch beschreven als Drupal-projectieschrijver. Definieer aantoonbaar Office-native herkomst en levensduur van zones; verzwak niet zomaar de bestaande 24-uurs TTL van externe projecties.
+4. **Integratietest:** test met uitsluitend fictieve Office-projecten: beheerder toegestaan, lezer geweigerd, inactieve operator geweigerd, ander project geweigerd, ongeldige cirkel geweigerd, CSRF geweigerd, geldige create eenmaal opgeslagen en zichtbaar via de bedoelde OnSite-bootstrap. Test rollback en dubbele requests.
+5. **Acceptatie:** CI groen + review + afzonderlijke testdeploy + browser-smoke op `/office-test`; pas daarna een gecontroleerd besluit over productie en de iPhone-keten.
+
+### Huidige exacte stoppositie
+
+Laatste **bevestigde groene** commit: `b04b19dd6980bf811297a7eed33ee0b373102f09`. De daaropvolgende poging om `OnSiteOfficeCircleCreateService.php` toe te voegen heeft **geen bevestigd GitHub-commitresultaat** en het bestand was bij de continuïteitscontrole niet aanwezig op de werkbranch. Behandel deze service daarom als **nog te bouwen**, niet als afgerond. Er is geen publiek schrijfendpoint en geen databasewijziging bevestigd.
+
+### Brede Office-roadmap blijft van kracht
+
+Projecten, Gebouwen, Inzet, Calculatie, Finance, Inkoop, Planning, Documenten, Intake, MJOP en outputgenerator blijven afzonderlijke acceptatieketens. Deze groene Inzet-tests zijn geen bewijs dat BREBO Office als geheel productie-gereed is. Gebruik geen totaalpercentage zonder actuele module-inventaris, runtime- en end-to-end-bewijs. De eerder genoemde 20 november 2026 blijft een **voorlopige streefdatum**, geen vastgestelde livegang.

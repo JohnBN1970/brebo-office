@@ -131,11 +131,16 @@ struct OnSiteAPIClient {
 
     func recordPresence(event: CrewPresenceEvent, deviceToken: String) async throws {
         let formatter = ISO8601DateFormatter()
-        let body: [String: String] = [
-            "project_id": event.projectId,
-            "zone_id": event.zoneId,
-            "kind": event.kind == .enteredProject ? "in" : "out",
-            "occurred_at": formatter.string(from: event.occurredAt),
+        // Reuse the event's stable UUID for idempotent retries.
+        // Office requires an envelope, not a flat presence payload.
+        let body: [String: Any] = [
+            "event_id": event.id.uuidString,
+            "event": [
+                "project_id": event.projectId,
+                "zone_id": event.zoneId,
+                "kind": event.kind == .enteredProject ? "in" : "out",
+                "occurred_at": formatter.string(from: event.occurredAt),
+            ],
         ]
         let _: OnSitePresenceResponse = try await authorizedPost(
             path: "/api/onsite/v1/presence",
@@ -144,8 +149,15 @@ struct OnSiteAPIClient {
         )
     }
 
+    private func endpointURL(_ path: String) -> URL {
+        // Preserve a configured /office-test prefix while keeping API paths stable.
+        let prefix = baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let suffix = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        return baseURL.deletingLastPathComponent().appending(path: prefix.isEmpty ? suffix : prefix + "/" + suffix)
+    }
+
     private func authorizedGet<T: Decodable>(path: String, deviceToken: String) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "GET"
         request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
@@ -155,9 +167,9 @@ struct OnSiteAPIClient {
     private func authorizedPost<T: Decodable>(
         path: String,
         deviceToken: String,
-        body: [String: String]
+        body: [String: Any]
     ) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(deviceToken)", forHTTPHeaderField: "Authorization")
@@ -180,7 +192,7 @@ struct OnSiteAPIClient {
     }
 
     private func post<T: Decodable>(path: String, body: [String: String]) async throws -> T {
-        let url = baseURL.appending(path: path)
+        let url = endpointURL(path)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

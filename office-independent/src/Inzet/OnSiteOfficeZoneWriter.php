@@ -1,0 +1,64 @@
+<?php
+declare(strict_types=1);
+
+namespace Brebo\Office\Inzet;
+
+use InvalidArgumentException;
+use PDO;
+use RuntimeException;
+
+/**
+ * Office-owned zone edits. Never imports Drupal fixtures into real projects.
+ * A trusted callback must verify the Office project and editor. No public route is wired.
+ */
+final class OnSiteOfficeZoneWriter {
+  public function __construct(private PDO $db, private OnSiteCanonicalZoneSync $sync, private \Closure $authorizedProject) {}
+
+  /** @param array<string,mixed> $zone */
+  public function save(array $zone): bool {
+    $projectId = $zone['project_id'] ?? null;
+    $zoneId = $zone['zone_id'] ?? null;
+    if (!is_string($projectId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $projectId)
+      || !is_string($zoneId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $zoneId)) {
+      throw new InvalidArgumentException('invalid_office_zone_identity');
+    }
+    // Project identity and editor permission must be verified against the actual Office project store.
+    // The Inzet schema does not define an office_inzet_projects table.
+    if (($this->authorizedProject)($projectId) !== true) {
+      throw new InvalidArgumentException('unauthorized_office_project');
+    }
+    // This boundary edits existing zones only. Creating new zones requires
+    // a dedicated database-issued identity; never accept caller-chosen IDs.
+    if ($this->db->inTransaction()) {
+      throw new RuntimeException('office_zone_nested_transaction');
+    }
+    $this->db->beginTransaction();
+    try {
+    $current = $this->db->prepare('SELECT project_id, source_revision FROM office_onsite_canonical_zones WHERE zone_id = ? FOR UPDATE');
+    $current->execute([$zoneId]);
+    $stored = $current->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($stored)) {
+      throw new RuntimeException('office_zone_create_not_supported');
+    }
+    if ((string) $stored['project_id'] !== $projectId) {
+      throw new InvalidArgumentException('office_zone_project_mismatch');
+    }
+    $revision = (int) $stored['source_revision'];
+    $expectedRevision = $zone['expected_revision'] ?? null;
+    if (!is_int($expectedRevision) || $expectedRevision < 0 || (int) $revision !== $expectedRevision) {
+      throw new RuntimeException('stale_office_zone_revision');
+    }
+    if ($expectedRevision === PHP_INT_MAX) {
+      throw new RuntimeException('office_zone_revision_exhausted');
+    }
+    $zone['source_revision'] = $expectedRevision + 1;
+    $saved = $this->sync->apply($zone);
+    if (!$saved) throw new RuntimeException('office_zone_write_not_applied');
+    $this->db->commit();
+    return true;
+    } catch (\Throwable $exception) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $exception;
+    }
+  }
+}

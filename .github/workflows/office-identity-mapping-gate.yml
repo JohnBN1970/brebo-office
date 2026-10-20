@@ -1,0 +1,142 @@
+name: Office identity mapping gate
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php'
+      - 'office-independent/tests/OfficeInzetIdentityMappingGuardTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetProjectIdentityGuard.php'
+      - 'office-independent/tests/OfficeInzetProjectIdentityGuardTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetVerifiedAssignmentResolver.php'
+      - 'office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetIdentityTargetVerifier.php'
+      - 'office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetVerifiedAssignmentEligibility.php'
+      - 'office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetVerifiedAssignmentPreflight.php'
+      - 'office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetVerifiedShiftCommand.php'
+      - 'office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php'
+      - 'office-independent/tests/OfficeInzetShiftCommandTest.php'
+      - 'office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetWeekShiftReadRepository.php'
+      - 'office-independent/tests/OfficeInzetWeekShiftOperatorTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetPlanningWorkbench.php'
+      - 'office-independent/src/Inzet/OfficeInzetWeekPlanning.php'
+      - 'office-independent/tests/OfficeInzetPlanningWorkbenchTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftForm.php'
+      - 'office-independent/tests/OfficeInzetShiftFormTest.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftWriter.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftCommand.php'
+      - 'office-independent/public/office-inzet-shift-create.php'
+      - 'office-independent/public/office-projects.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - 'office-independent/src/Inzet/OfficeInzetSessionCsrf.php'
+      - 'office-independent/src/Inzet/OfficeInzetLocalTime.php'
+      - 'office-independent/src/Inzet/OfficeInzetAuthenticatedShiftAction.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftSubmission.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftCsrf.php'
+      - 'office-independent/src/Inzet/OfficeInzetShiftPostHandler.php'
+      - 'office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php'
+      - 'office-independent/src/Intake/OfficeMount.php'
+      - 'office-independent/src/Inzet/OfficeInzetDashboard.php'
+      - 'office-independent/src/Intake/WebsiteCrmOperatorContext.php'
+      - 'office-independent/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmSessionRepository.php'
+      - 'office-independent/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php'
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/public/office-login.php'
+      - 'office-independent/public/office-logout.php'
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/public/crm-new-requests.php'
+      - 'office-independent/public/onsite-devices.php'
+      - 'office-independent/public/onsite-activate.php'
+      - 'office-independent/public/onsite-bootstrap.php'
+      - 'office-independent/public/onsite-presence.php'
+      - 'office-independent/tests/OfficeInzetHttpWiringTest.php'
+      - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
+      - 'office-independent/tests/OfficeInzetBrowserJourneyTest.php'
+      - '.github/workflows/office-identity-mapping-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  identity-mapping:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/src/Inzet/OfficeInzetIdentityMappingGuard.php
+          php -l office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+          php -l office-independent/src/Inzet/OfficeInzetProjectIdentityGuard.php
+          php -l office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
+          php -l office-independent/src/Inzet/OfficeInzetVerifiedAssignmentResolver.php
+          php -l office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php
+          php -l office-independent/src/Inzet/OfficeInzetIdentityTargetVerifier.php
+          php -l office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php
+          php -l office-independent/src/Inzet/OfficeInzetVerifiedAssignmentEligibility.php
+          php -l office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php
+          php -l office-independent/src/Inzet/OfficeInzetVerifiedAssignmentPreflight.php
+          php -l office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php
+          php -l office-independent/src/Inzet/OfficeInzetVerifiedShiftCommand.php
+          php -l office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
+          php -l office-independent/tests/OfficeInzetShiftCommandTest.php
+          php -l office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php
+          php -l office-independent/src/Inzet/OfficeInzetWeekShiftReadRepository.php
+          php -l office-independent/tests/OfficeInzetWeekShiftOperatorTest.php
+          php -l office-independent/src/Inzet/OfficeInzetPlanningWorkbench.php
+          php -l office-independent/src/Inzet/OfficeInzetWeekPlanning.php
+          php -l office-independent/tests/OfficeInzetPlanningWorkbenchTest.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftForm.php
+          php -l office-independent/tests/OfficeInzetShiftFormTest.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftAssignmentControl.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftWriter.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftCommand.php
+          php -l office-independent/public/office-inzet-shift-create.php
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+          php -l office-independent/src/Inzet/OfficeInzetSessionCsrf.php
+          php -l office-independent/src/Inzet/OfficeInzetLocalTime.php
+          php -l office-independent/src/Inzet/OfficeInzetAuthenticatedShiftAction.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftSubmission.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftCsrf.php
+          php -l office-independent/src/Inzet/OfficeInzetShiftPostHandler.php
+          php -l office-independent/src/Inzet/OfficeInzetManageablePeopleRepository.php
+          php -l office-independent/src/Intake/OfficeMount.php
+          php -l office-independent/src/Inzet/OfficeInzetDashboard.php
+          php -l office-independent/src/Intake/WebsiteCrmOperatorContext.php
+          php -l office-independent/src/Intake/WebsiteCrmOperatorSessionProviderInterface.php
+          php -l office-independent/src/Intake/WebsiteOfficeCrmSessionRepository.php
+          php -l office-independent/src/Intake/WebsiteOfficeCrmCookieSessionProvider.php
+          php -l office-independent/public/office-home.php
+          php -l office-independent/public/office-login.php
+          php -l office-independent/public/office-logout.php
+          php -l office-independent/public/office-project.php
+          php -l office-independent/public/crm-new-requests.php
+          php -l office-independent/public/onsite-devices.php
+          php -l office-independent/public/onsite-activate.php
+          php -l office-independent/public/onsite-bootstrap.php
+          php -l office-independent/public/onsite-presence.php
+          php -l office-independent/tests/OfficeInzetHttpWiringTest.php
+          php -l office-independent/deployment/hostinger/office-inzet-test-preflight.php
+          php -l office-independent/tests/OfficeInzetBrowserJourneyTest.php
+      - name: Fail-closed mapping regression
+        run: |
+          php office-independent/tests/OfficeInzetIdentityMappingGuardTest.php
+          php office-independent/tests/OfficeInzetProjectIdentityGuardTest.php
+          php office-independent/tests/OfficeInzetVerifiedAssignmentResolverTest.php
+          php office-independent/tests/OfficeInzetIdentityTargetVerifierTest.php
+          php office-independent/tests/OfficeInzetVerifiedAssignmentEligibilityTest.php
+          php office-independent/tests/OfficeInzetVerifiedAssignmentPreflightTest.php
+          php office-independent/tests/OfficeInzetVerifiedShiftCommandTest.php
+          php office-independent/tests/OfficeInzetShiftCommandTest.php
+          php office-independent/tests/OfficeInzetVerifiedShiftRoundTripTest.php
+          php office-independent/tests/OfficeInzetWeekShiftOperatorTest.php
+          php office-independent/tests/OfficeInzetPlanningWorkbenchTest.php
+          php office-independent/tests/OfficeInzetShiftFormTest.php
+          php office-independent/tests/OfficeInzetHttpWiringTest.php
+          php office-independent/tests/OfficeInzetBrowserJourneyTest.php

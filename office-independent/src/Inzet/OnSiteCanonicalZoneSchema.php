@@ -1,0 +1,34 @@
+<?php
+declare(strict_types=1);
+
+namespace Brebo\Office\Inzet;
+
+/**
+ * Review-only Office-native zone schema. Drupal data is fictional and is not a production source.
+ * Location fields remain nullable until verified coordinates are saved in Office.
+ * Never serve incomplete zone geometry to the mobile geofence client.
+ * The allocator is review-only: legacy/imported zone IDs can overlap with
+ * AUTO_INCREMENT values. Do not enable creation until ID namespace isolation
+ * and a collision-safe allocation transaction have been tested.
+ */
+final class OnSiteCanonicalZoneSchema {
+  public static function statements(): array {
+    return [
+      "CREATE TABLE office_onsite_zone_identity (\n        zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY\n      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+      "CREATE TABLE office_onsite_canonical_zones (
+        zone_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
+        project_id BIGINT UNSIGNED NOT NULL,
+        building_id BIGINT UNSIGNED NULL,
+        active TINYINT(1) NOT NULL,
+        zone_name VARCHAR(160) NULL,
+        latitude DECIMAL(10,7) NULL,
+        longitude DECIMAL(10,7) NULL,
+        radius_metres DECIMAL(9,2) NULL,
+        source_revision BIGINT UNSIGNED NOT NULL,
+        synchronized_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_onsite_zone_project_active (project_id, active),
+        INDEX idx_onsite_zone_project_building (project_id, building_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
+    ];
+  }
+}

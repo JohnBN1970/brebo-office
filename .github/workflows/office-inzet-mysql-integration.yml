@@ -1,0 +1,250 @@
+name: Office Inzet MySQL integration
+
+on:
+  pull_request:
+    paths:
+      - 'office-independent/src/Inzet/**'
+      - 'office-independent/src/Buildings/**'
+      - 'office-independent/tests/OfficeBuildingZonesMySqlTest.php'
+      - 'office-independent/tests/OfficeBuildingPresenceEndToEndMySqlTest.php'
+      - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
+      - 'office-independent/tests/OfficeInzetPersonnel*.php'
+      - 'office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSiteProjectMapSeedTest.php'
+      - 'office-independent/tests/OfficeOnSiteCircleInputTest.php'
+      - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
+      - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
+      - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
+      - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
+      - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
+      - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php'
+      - 'office-independent/public/onsite-*.php'
+      - 'office-independent/public/office-onsite-invitation.php'
+      - 'web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php'
+      - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
+      - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
+      - 'ios/CrewPOC/Sources/OnSiteAPIClient.swift'
+      - 'office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php'
+      - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
+      - 'office-independent/public/office-inzet-personnel-number.php'
+      - 'office-independent/public/office-onsite-project-map.php'
+      - 'office-independent/public/office-project.php'
+      - 'office-independent/public/office-projects.php'
+      - 'office-independent/deployment/hostinger/office-test-index.php'
+      - '.github/workflows/office-inzet-mysql-integration.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mysql-inzet:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_inzet_ci
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Personnel route and security regression tests
+        run: |
+          for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do
+            php -l "$file"
+          done
+          for file in office-independent/tests/OfficeInzetPersonnel*.php; do
+            php "$file"
+          done
+      - name: OnSite invitation and iOS contract regression
+        run: |
+          php -l web/modules/custom/brebo_inzet/src/Controller/OnSiteInviteController.php
+          php -l office-independent/tests/OfficeOnSiteInvitationContractTest.php
+          php office-independent/tests/OfficeOnSiteInvitationContractTest.php
+      - name: OnSite automatic event validation
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAutomaticEventValidator.php
+          php -l office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
+          php office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php
+      - name: OnSite verified identity and assignment gate
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAssignmentRepository.php
+          php -l office-independent/src/Inzet/OnSiteAssignmentGate.php
+          php -l office-independent/tests/OfficeOnSiteAssignmentGateTest.php
+          php office-independent/tests/OfficeOnSiteAssignmentGateTest.php
+      - name: MySQL transactional Inzet round trip
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: php office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Reset isolated MySQL tables for OnSite authorization fixture
+        env:
+          MYSQL_PWD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root office_inzet_ci -e 'DROP TABLE IF EXISTS office_inzet_availability, office_inzet_shifts, office_inzet_project_team, office_inzet_people'
+      - name: MySQL OnSite team and zone authorization
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeTeamAssignmentRepository.php
+          php -l office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
+          php office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php
+      - name: Reset isolated MySQL tables for OnSite inbox fixture
+        env:
+          MYSQL_PWD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root office_inzet_ci -e 'DROP TABLE IF EXISTS office_inzet_project_team, office_inzet_people'
+      - name: MySQL OnSite automatic inbox idempotency
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteEventInbox.php
+          php -l office-independent/src/Inzet/OnSiteEventInboxSchema.php
+          php -l office-independent/src/Inzet/OnSiteAutomaticIngest.php
+          php -l office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
+          php office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php
+      - name: MySQL authenticated device to automatic event inbox
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteAuthenticatedEventService.php
+          php -l office-independent/src/Inzet/OnSiteDeviceTokenSchema.php
+          php -l office-independent/src/Inzet/OnSiteDeviceTokenRepository.php
+          php -l office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
+          php office-independent/tests/OfficeOnSiteAuthenticatedEventMySqlTest.php
+      - name: MySQL native building presence end-to-end
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/tests/OfficeBuildingPresenceEndToEndMySqlTest.php
+          php office-independent/tests/OfficeBuildingPresenceEndToEndMySqlTest.php
+      - name: OnSite presence transport contract
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceRequestService.php
+          php -l office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
+          php office-independent/tests/OfficeOnSitePresenceRequestServiceTest.php
+      - name: OnSite presence application fail-closed contract
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceApiHandler.php
+          php -l office-independent/src/Inzet/OnSitePresenceApplication.php
+          php -l office-independent/public/onsite-presence.php
+          php -l office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
+          php office-independent/tests/OfficeOnSitePresenceApplicationContractTest.php
+      - name: Canonical Drupal clock zone membership contract
+        run: |
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneMembership.php
+          php -l office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
+          php office-independent/tests/OfficeOnSiteCanonicalZoneMembershipTest.php
+      - name: MySQL canonical Drupal zone read projection
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneSync.php
+          php -l office-independent/src/Inzet/OnSiteCanonicalZoneSchema.php
+          php -l office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
+          php office-independent/tests/OfficeOnSiteCanonicalZoneMySqlTest.php
+      - name: OnSite Drupal activation identity bridge contract
+        run: |
+          php -l office-independent/src/Inzet/OnSiteActivationIdentityBridge.php
+          php -l office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
+          php office-independent/tests/OfficeOnSiteActivationIdentityBridgeTest.php
+
+      - name: OnSite iPhone API URL routing contract
+        run: |
+          php -l office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
+          php office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
+
+      - name: OnSite iPhone bootstrap contract
+        run: |
+          php -l office-independent/tests/OfficeOnSiteBootstrapContractTest.php
+          php office-independent/tests/OfficeOnSiteBootstrapContractTest.php
+
+      - name: Office invitation endpoint and CSRF syntax
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeInvitationCsrf.php
+          php -l office-independent/src/Inzet/OnSiteOfficeInvitationAction.php
+          php -l office-independent/src/Inzet/OnSiteActivationInvitationIssuer.php
+          php -l office-independent/public/office-onsite-invitation.php
+          php -l office-independent/public/office-onsite-device-revoke.php
+          php -l office-independent/public/office-projects.php
+          php -l office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
+          php office-independent/tests/OfficeOnSiteInvitationUiContractTest.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+
+      - name: MySQL Office-native OnSite activation
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteActivationInvitationSchema.php
+          php -l office-independent/src/Inzet/OnSiteActivationService.php
+          php -l office-independent/src/Inzet/OnSiteOfficeDeviceRevocationAction.php
+          php -l office-independent/src/Inzet/OnSiteOfficeDeviceManagementRepository.php
+          php -l office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+          php office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+
+      - name: Office project map route syntax
+        run: |
+          php -l office-independent/public/office-onsite-project-map.php
+          php -l office-independent/public/office-project.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
+
+      - name: Office project map authorization MySQL regression
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeProjectMapRepository.php
+          php -l office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php
+          php office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php
+
+      - name: Office project map seed regression
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeProjectMapSeed.php
+          php -l office-independent/tests/OfficeOnSiteProjectMapSeedTest.php
+          php office-independent/tests/OfficeOnSiteProjectMapSeedTest.php
+
+      - name: Office circle project authorization regression
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeCircleInput.php
+          php -l office-independent/tests/OfficeOnSiteCircleInputTest.php
+          php office-independent/tests/OfficeOnSiteCircleInputTest.php
+
+      - name: OnSite runtime dependency release gate
+        run: |
+          php -l office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
+          php office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php
+
+      - name: Office building zone MySQL integration
+        env:
+          OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          php -l office-independent/src/Buildings/OfficeBuildingZoneRepository.php
+          php -l office-independent/src/Inzet/OnSiteBuildingZoneAccess.php
+          php -l office-independent/tests/OfficeBuildingZonesMySqlTest.php
+          php office-independent/tests/OfficeBuildingZonesMySqlTest.php
