@@ -22,8 +22,9 @@ final class OnSiteVerifiedProjectMapping {
       );
       $query->execute([$sourceProjectId]);
       $officeProjectId = $query->fetchColumn();
-      return is_string($officeProjectId) && preg_match('/^[1-9][0-9]{0,18}$/D', $officeProjectId)
-        ? $officeProjectId : null;
+      if (!is_string($officeProjectId) && !is_int($officeProjectId)) return null;
+      $id = (string) $officeProjectId;
+      return preg_match('/^[1-9][0-9]{0,18}$/D', $id) ? $id : null;
     };
   }
 
