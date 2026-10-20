@@ -54,7 +54,7 @@ try {
     'OnSiteAssignmentGate', 'OnSiteOfficeTeamAssignmentRepository',
     'OnSiteAuthenticatedEventService', 'OnSitePresenceRequestService',
     'OnSitePresenceApiHandler', 'OnSitePresenceApplication',
-    'OnSiteCanonicalZoneRepository',
+    'OnSiteCanonicalZoneRepository', 'OnSiteBuildingZoneAccess',
   ] as $name) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $name . '.php';
   }
@@ -66,13 +66,28 @@ try {
     PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES => false,
   ]);
-  // Projection is only safe once a trusted Drupal sync and project identity mapping
-  // have been explicitly verified. Otherwise keep the endpoint fail-closed.
-  if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
-    || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
-    throw new RuntimeException('OnSite canonical zone source not verified');
+  if (getenv('OFFICE_ONSITE_NATIVE_BUILDING_ZONES_VERIFIED') === 'enabled') {
+    if (getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_ONSITE_SCHEMA_VERIFIED') !== 'enabled') {
+      throw new RuntimeException('Native building zones schema not verified');
+    }
+    require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneRepository.php';
+    $projectExists = static function (string $projectId) use ($db): bool {
+      $statement = $db->prepare('SELECT 1 FROM office_projects WHERE id = ? LIMIT 1');
+      $statement->execute([$projectId]);
+      return $statement->fetchColumn() !== false;
+    };
+    $zones = new \\Brebo\\Office\\Inzet\\OnSiteBuildingZoneAccess(
+      new \\Brebo\\Office\\Buildings\\OfficeBuildingZoneRepository($db), $projectExists
+    );
+  } else {
+    // Legacy projection requires independently verified Drupal sync and mapping.
+    if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
+      throw new RuntimeException('OnSite canonical zone source not verified');
+    }
+    $zones = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneRepository($db);
   }
-  $zones = new \Brebo\Office\Inzet\OnSiteCanonicalZoneRepository($db);
   $result = (new \Brebo\Office\Inzet\OnSitePresenceApplication($db, $zones->callback()))
     ->submit($payload, $match[1]);
   http_response_code($result['status']);
