@@ -4,6 +4,8 @@ on:
   pull_request:
     paths:
       - 'office-independent/src/Inzet/**'
+      - 'office-independent/src/Buildings/**'
+      - 'office-independent/tests/OfficeBuildingZonesMySqlTest.php'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
       - 'office-independent/tests/OfficeOnSiteProjectMapRepositoryMySqlTest.php'
