@@ -45,6 +45,24 @@ final class OfficeBuildingZoneRepository {
     }
   }
 
+  /**
+   * Project-scoped read through the building relation.
+   * The project does not own or duplicate any zone.
+   */
+  public function forProject(string $projectId, \Closure $authorizedProject): array {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D',$projectId)
+      || $authorizedProject($projectId)!==true) throw new InvalidArgumentException('unauthorized_project_zones');
+    $stmt=$this->db->prepare(
+      'SELECT z.id,z.building_id,b.building_name,z.zone_name,z.latitude,z.longitude,z.radius_metres,z.revision
+       FROM office_project_buildings pb
+       INNER JOIN office_buildings b ON b.id=pb.building_id AND b.active=1
+       INNER JOIN office_building_zones z ON z.building_id=b.id AND z.active=1
+       WHERE pb.project_id=? ORDER BY b.building_name,z.id'
+    );
+    $stmt->execute([$projectId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+  }
+
   /** Only zones for the requested, already-authorized building. */
   public function forBuilding(string $buildingId, \Closure $authorizedBuilding): array {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
