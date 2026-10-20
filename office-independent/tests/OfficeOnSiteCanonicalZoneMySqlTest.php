@@ -67,10 +67,10 @@ try {
   $geometryConflictRejected = $exception->getMessage() === 'Conflicting zone revision';
 }
 if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException('Equal-revision conflicting geometry not rejected');
-$import = new \Brebo\Office\Inzet\OnSiteCanonicalZoneImport($sync);
+$import = new \Brebo\Office\Inzet\OnSiteCanonicalZoneImport($sync, static fn (string $sourceProjectId): ?string => $sourceProjectId === '77' ? '17' : null);
 $unverifiedRejected = false;
 try {
-  $import->import(['zone_id'=>21,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125], '');
+  $import->import(['zone_id'=>21,'source_project_id'=>78,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125 ]);
 } catch (InvalidArgumentException $exception) {
   $unverifiedRejected = $exception->getMessage() === 'unverified_office_project';
 }
