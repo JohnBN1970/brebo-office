@@ -7,15 +7,25 @@ use InvalidArgumentException;
 
 /**
  * Boundary for a trusted server-side Drupal zone export.
- * The caller must resolve the Drupal project ID to a verified Office project ID.
+ * The injected trusted resolver must verify the Drupal-to-Office project mapping.
  * No public/mobile endpoint may invoke this adapter.
  */
 final class OnSiteCanonicalZoneImport {
-  public function __construct(private OnSiteCanonicalZoneSync $sync) {}
+  /** @param callable(string):(?string) $resolveVerifiedProjectId */
+  public function __construct(private OnSiteCanonicalZoneSync $sync, private mixed $resolveVerifiedProjectId) {
+    if (!is_callable($resolveVerifiedProjectId)) {
+      throw new InvalidArgumentException('missing_project_mapping_resolver');
+    }
+  }
 
   /** @param array<string,mixed> $source */
-  public function import(array $source, string $verifiedOfficeProjectId): bool {
-    if (!preg_match('/^[1-9][0-9]{0,18}$/D', $verifiedOfficeProjectId)) {
+  public function import(array $source): bool {
+    $sourceProjectId = $source['source_project_id'] ?? null;
+    if (!is_int($sourceProjectId) || $sourceProjectId < 1) {
+      throw new InvalidArgumentException('invalid_source_project');
+    }
+    $verifiedOfficeProjectId = ($this->resolveVerifiedProjectId)((string) $sourceProjectId);
+    if (!is_string($verifiedOfficeProjectId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $verifiedOfficeProjectId)) {
       throw new InvalidArgumentException('unverified_office_project');
     }
     foreach (['zone_id', 'source_revision'] as $key) {
