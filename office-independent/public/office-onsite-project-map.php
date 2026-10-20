@@ -36,7 +36,13 @@ $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOT
 header('Content-Type: text/html; charset=utf-8');
 $latitude=json_encode($seed['latitude'],JSON_THROW_ON_ERROR);
 $longitude=json_encode($seed['longitude'],JSON_THROW_ON_ERROR);
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Startpunt uit geautoriseerde Office-projectlocatie. Kaarttegels worden pas na toestemming geladen. Geen opslag.</p><button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="Werkgebied" required></label><label>Straal: <output id="metres">150</output> meter <input id="radius" type="range" min="10" max="5000" step="10" value="150"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre><small>Alleen testomgeving. Projectlocatie blijft op de Office-server; bij inschakelen ontvangt de kaartprovider wel de opgevraagde kaartregio.</small></section></main><script>
+$zoneWriteEnabled=getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled';
+if ($zoneWriteEnabled) {
+  $zoneCsrf=bin2hex(random_bytes(32));
+  setcookie('office_zone_csrf',$zoneCsrf,['expires'=>time()+1800,'path'=>'/office-test/inzet','secure'=>true,'httponly'=>true,'samesite'=>'Strict']);
+}
+$saveForm=$zoneWriteEnabled ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="csrf" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Startpunt uit geautoriseerde Office-projectlocatie. Kaarttegels worden pas na toestemming geladen. Geen opslag.</p><button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="Werkgebied" required></label><label>Straal: <output id="metres">150</output> meter <input id="radius" type="range" min="10" max="5000" step="10" value="150"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$saveForm.'<small>Alleen testomgeving. Projectlocatie blijft op de Office-server; bij inschakelen ontvangt de kaartprovider wel de opgevraagde kaartregio.</small></section></main><script>
 (()=>{
  const initial={lat:'.$latitude.',lng:'.$longitude.'};
  let center={...initial},map,circle,marker;
@@ -51,7 +57,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   marker=L.marker([center.lat,center.lng],{draggable:true}).addTo(map);
   map.on("click",event=>{center=event.latlng;render();});
   marker.on("dragend",()=>{center=marker.getLatLng();render();});
-  enable.disabled=true;preview.disabled=false;render();
+  enable.disabled=true;preview.disabled=false;const save=document.getElementById("save-zone");if(save)save.disabled=false;render();
  }
  enable.addEventListener("click",()=>{
   enable.disabled=true;status.textContent="Kaart wordt geladen...";
@@ -60,6 +66,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   script.onload=init;script.onerror=()=>{enable.disabled=false;status.textContent="Kaartbibliotheek niet beschikbaar.";};
   document.head.appendChild(script);
  });
+ const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
  preview.addEventListener("click",()=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160){status.textContent="Ongeldige zonenaam (maximaal 160 bytes).";return;}document.getElementById("result").textContent=JSON.stringify({project_id:'.$id.',zone_name:name,latitude:center.lat,longitude:center.lng,radius_metres:Number(radius.value),saved:false},null,2);});
 })();
 </script></body></html>';
