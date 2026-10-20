@@ -56,8 +56,7 @@ Benodigde serverconfig: OFFICE_TEST_ZONE_CSRF_SECRET (minimaal 32 bytes),
 OFFICE_TEST_ZONE_WRITE_ENABLED=enabled en de bestaande Office-test-/sessieflags.
 Zonder deze controles blijft schrijven uitgeschakeld.
 
-De werkelijke Hostinger-controle, schematoepassing en testdeploy zijn nog niet
-uitgevoerd. Het nieuwe schema is uitsluitend in de geïsoleerde CI-database
+De werkelijke Hostinger-controle is via twee read-only Moba-uitvoeren gedeeltelijk bevestigd; schematoepassing en testdeploy zijn nog niet uitgevoerd. Het nieuwe schema is uitsluitend in de geïsoleerde CI-database
 toegepast. Rollback: schrijfroute uitschakelen, metadata behouden zodat
 aanvraagidentiteiten niet verloren gaan.
 
@@ -78,3 +77,5 @@ Geen merge, productieaanpassing of iPhone-build zonder afzonderlijke vrijgave.
 
 ## Correctie na de werkelijke schemacontrole
 De read-only Moba-uitvoer bevestigt dat de zonetabel ontbreekt en dat account-ID’s tekst zijn. Het gebouwregister gebruikt name/address_line en heeft geen actiefstatus of coördinaten. De adapter en CI-fixtures zijn hierop aangepast; er worden geen extra mastervelden toegevoegd. De kaart gebruikt een bestaande zone of expliciet ingevuld middelpunt. Details en bewijslimieten: docs/OFFICE_TEST_ZONE_SCHEMA_OBSERVATION_2026-10-20.md. Voor deze lege zonetabelinstallatie geldt office-building-zone-create-review.sql. Het oudere ALTER-voorstel is alleen voor een reeds bestaande tabel. Er is nog geen testmigratie/deploy uitgevoerd. De nieuwe tests renderen de echte kaart met een tekstueel account-ID en zonder locatiekolommen, controleren de formulierbevestiging en valideren het uitgevoerde JavaScript.
+
+CI-bewijs voor deze schema-aanpassing: codecommit 1e47b4bf74f65fb34abed847bf9422d23957bc4d, groene Office Inzet MySQL integration-run 332: https://github.com/JohnBN1970/brebo-office/actions/runs/39415120537. Daarna zijn alleen de testtrigger, navigatielink en documentatie bijgewerkt; controles op de actuele head blijven vereist.

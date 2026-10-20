@@ -5,6 +5,7 @@ on:
     paths:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/src/Buildings/**'
+      - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
       - 'office-independent/tests/OfficeBuildingZonesMySqlTest.php'
       - 'office-independent/tests/OfficeBuildingPresenceEndToEndMySqlTest.php'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
