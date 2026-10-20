@@ -5,6 +5,7 @@ namespace Brebo\Office\Inzet;
 
 use Brebo\Office\Buildings\OfficeBuildingZoneRepository;
 use Closure;
+use InvalidArgumentException;
 
 /**
  * Adapter for existing Inzet callbacks: zone belongs to a building,
@@ -19,7 +20,12 @@ final class OnSiteBuildingZoneAccess {
   public function isActiveForProject(string $projectId, string $zoneId): bool {
     if (!preg_match('/^[1-9][0-9]{0,18}$/D', $projectId)
       || !preg_match('/^[1-9][0-9]{0,18}$/D', $zoneId)) return false;
-    return $this->zones->forProjectZone($projectId, $zoneId, $this->authorizedProject) !== null;
+    try {
+      return $this->zones->forProjectZone($projectId, $zoneId, $this->authorizedProject) !== null;
+    } catch (InvalidArgumentException $exception) {
+      // Access checks return false rather than propagating authorization errors.
+      return false;
+    }
   }
 
   public function callback(): Closure {
