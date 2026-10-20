@@ -103,6 +103,17 @@ try {
   $unauthorizedRejected = $exception->getMessage() === 'unauthorized_office_project';
 }
 if (!$unauthorizedRejected || !$check('17','21')) throw new RuntimeException('Unauthorized Office edit accepted');
+$crossProjectWriter = new \Brebo\Office\Inzet\OnSiteOfficeZoneWriter($db, $sync, static fn (string $id): bool => in_array($id, ['17','18'], true));
+$crossProjectRejected = false;
+try {
+  $crossProjectWriter->save(['zone_id'=>'21','project_id'=>'18','expected_revision'=>2,
+    'active'=>true,'zone_name'=>'Hijacked','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+} catch (InvalidArgumentException $exception) {
+  $crossProjectRejected = $exception->getMessage() === 'office_zone_project_mismatch';
+}
+if (!$crossProjectRejected || $db->inTransaction() || !$check('17','21') || $check('18','21')) {
+  throw new RuntimeException('Office zone moved across authorized projects');
+}
 $newZoneRejected = false;
 try {
   $writer->save(['zone_id'=>'999999','project_id'=>'17','expected_revision'=>0,
