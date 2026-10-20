@@ -6,6 +6,9 @@ require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneSchema.php';
 require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingRepository.php';
 require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneRepository.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteBuildingZoneAccess.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteAssignmentRepository.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteAssignmentGate.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteAutomaticEventValidator.php';
 
 $dsn = getenv('OFFICE_INZET_TEST_DSN');
 if (!is_string($dsn) || !str_contains($dsn, 'dbname=office_inzet_ci')) {
@@ -50,6 +53,25 @@ if ($adapter->callback()('17',$zoneId) || $adapter->callback()('18',$zoneId)) {
 }
 $db->prepare('UPDATE office_building_zones SET active=1 WHERE id=?')->execute([$zoneId]);
 if (!$adapter->callback()('17',$zoneId)) throw new RuntimeException('Reactivated zone not accessible');
+// Exercise the same validated transition and assignment gate used by device presence.
+$assignment = new class($adapter) implements \Brebo\Office\Inzet\OnSiteAssignmentRepository {
+  public function __construct(private \Brebo\Office\Inzet\OnSiteBuildingZoneAccess $access) {}
+  public function isAssigned(string $employee, string $project, string $zone): bool {
+    return $employee === '42' && in_array($project, ['17','18'], true)
+      && $this->access->isActiveForProject($project, $zone);
+  }
+};
+$gate = new \Brebo\Office\Inzet\OnSiteAssignmentGate($assignment);
+$validator = new \Brebo\Office\Inzet\OnSiteAutomaticEventValidator();
+foreach (['in','out'] as $transition) {
+  $event = $validator->validate(['project_id'=>'17','zone_id'=>$zoneId,
+    'kind'=>$transition,'occurred_at'=>'2026-10-20T08:00:00Z']);
+  if (!$gate->authorize('42',$event) || $gate->authorize('43',$event)) {
+    throw new RuntimeException('Employee assignment gate failed for '.$transition);
+  }
+  $event['zone_id'] = $otherZoneId;
+  if ($gate->authorize('42',$event)) throw new RuntimeException('Unlinked zone accepted for '.$transition);
+}
 $db->exec('UPDATE office_project_buildings SET project_id=19 WHERE project_id=17');
 if ($adapter->callback()('17',$zoneId)) throw new RuntimeException('Removed project link retained zone access');
 $denied = false;
