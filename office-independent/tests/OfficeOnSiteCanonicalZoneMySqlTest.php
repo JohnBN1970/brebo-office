@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSchema.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneRepository.php';
 require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneSync.php';
+require_once dirname(__DIR__) . '/src/Inzet/OnSiteCanonicalZoneImport.php';
 $dsn = getenv('OFFICE_INZET_TEST_DSN');
 if (!is_string($dsn) || !str_contains($dsn,'dbname=office_inzet_ci')) throw new RuntimeException('Dedicated MySQL CI database required');
 $db = new PDO($dsn,(string)getenv('OFFICE_INZET_TEST_USER'),(string)getenv('OFFICE_INZET_TEST_PASSWORD'),[
@@ -66,4 +67,14 @@ try {
   $geometryConflictRejected = $exception->getMessage() === 'Conflicting zone revision';
 }
 if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException('Equal-revision conflicting geometry not rejected');
+$import = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneImport($sync);
+$unverifiedRejected = false;
+try {
+  $import->import(['zone_id'=>21,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125], '');
+} catch (InvalidArgumentException $exception) {
+  $unverifiedRejected = $exception->getMessage() === 'unverified_office_project';
+}
+if (!$unverifiedRejected) throw new RuntimeException('Zone import accepted unverified Office project');
+$import->import(['zone_id'=>21,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125], '17');
+if (!$check('17','21')) throw new RuntimeException('Verified zone import failed');
 echo "Canonical Drupal zone MySQL sync and read projection OK\n";
