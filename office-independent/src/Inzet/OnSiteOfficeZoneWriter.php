@@ -29,6 +29,9 @@ final class OnSiteOfficeZoneWriter {
     }
     // This boundary edits existing zones only. Creating new zones requires
     // a dedicated database-issued identity; never accept caller-chosen IDs.
+    if ($this->db->inTransaction()) {
+      throw new RuntimeException('office_zone_nested_transaction');
+    }
     $this->db->beginTransaction();
     try {
     $current = $this->db->prepare('SELECT project_id, source_revision FROM office_onsite_canonical_zones WHERE zone_id = ? FOR UPDATE');
@@ -44,6 +47,9 @@ final class OnSiteOfficeZoneWriter {
     $expectedRevision = $zone['expected_revision'] ?? null;
     if (!is_int($expectedRevision) || $expectedRevision < 0 || (int) $revision !== $expectedRevision) {
       throw new RuntimeException('stale_office_zone_revision');
+    }
+    if ($expectedRevision === PHP_INT_MAX) {
+      throw new RuntimeException('office_zone_revision_exhausted');
     }
     $zone['source_revision'] = $expectedRevision + 1;
     $saved = $this->sync->apply($zone);
