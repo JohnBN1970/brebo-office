@@ -89,10 +89,22 @@ final class OfficeZoneTestDeployment {
     foreach (['/office-test/inzet/projectkaart','/office-test/inzet/zone/aanmaken'] as $route) {
       if (str_contains($source,$route)) throw new RuntimeException('route_already_present_review_required');
     }
-    if (!preg_match_all('/\$routes\s*=\s*\[/',$source,$matches,PREG_OFFSET_CAPTURE) || count($matches[0])!==1) {
+    $positions=[];$offset=0;$phase=0;
+    foreach (token_get_all($source,TOKEN_PARSE) as $token) {
+      $text=is_array($token) ? $token[1] : $token;
+      $ignored=is_array($token) && in_array($token[0],[T_WHITESPACE,T_COMMENT,T_DOC_COMMENT],true);
+      if (!$ignored) {
+        if (is_array($token) && $token[0]===T_VARIABLE && $text==='$routes') $phase=1;
+        elseif ($phase===1 && $text==='=') $phase=2;
+        elseif ($phase===2 && $text==='[') {$positions[]=$offset+1;$phase=0;}
+        else $phase=0;
+      }
+      $offset+=strlen($text);
+    }
+    if (count($positions)!==1) {
       throw new RuntimeException('route_table_shape_unrecognized');
     }
-    $at=$matches[0][0][1]+strlen($matches[0][0][0]);
+    $at=$positions[0];
     return substr($source,0,$at)."\n  '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',\n"
       ."  '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',".substr($source,$at);
   }

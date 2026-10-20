@@ -9,7 +9,7 @@ $fixture=function():array {
   foreach ([$root.'/src/Project',$root.'/public',dirname($router),dirname($config)] as $dir) mkdir($dir,0700,true);
   $shared=$root.'/src/Project/OfficeNativeProjectAccess.php';
   file_put_contents($shared,"<?php\n// preserved canRead and canManage\n");
-  $routerSource="<?php\n".'$root = '.var_export($root,true).";\n".'$routes = ['."\n '/office-test' => 'office-home.php',\n];\n";
+  $routerSource="<?php\n".'// Do not match a commented $routes = ['."\n".'$root = '.var_export($root,true).";\n".'$routes = ['."\n '/office-test' => 'office-home.php',\n];\n";
   file_put_contents($router,$routerSource);
   $c=['OFFICE_BASE_PATH'=>'/office-test','OFFICE_PRIVATE_ROOT'=>$root,'UNCHANGED_SECRET'=>'do-not-print-fixture-secret',
     'OFFICE_CRM_SESSION_MODE'=>'enabled','OFFICE_NATIVE_PROJECTS_ENABLED'=>'enabled','OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED'=>'enabled'];
