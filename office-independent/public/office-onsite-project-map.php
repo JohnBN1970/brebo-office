@@ -63,8 +63,8 @@ if (getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled') {
 }
 $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-$latitude=json_encode($seed['latitude'],JSON_THROW_ON_ERROR);
-$longitude=json_encode($seed['longitude'],JSON_THROW_ON_ERROR);
+$latitude=json_encode($selectedBuilding!==null && $selectedBuilding['latitude']!==null ? (float)$selectedBuilding['latitude'] : $seed['latitude'],JSON_THROW_ON_ERROR);
+$longitude=json_encode($selectedBuilding!==null && $selectedBuilding['longitude']!==null ? (float)$selectedBuilding['longitude'] : $seed['longitude'],JSON_THROW_ON_ERROR);
 $zoneWriteEnabled=getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled';
 if ($zoneWriteEnabled) {
   $zoneCsrf=bin2hex(random_bytes(32));
