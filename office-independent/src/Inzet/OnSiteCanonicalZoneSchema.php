@@ -4,8 +4,8 @@ declare(strict_types=1);
 namespace Brebo\Office\Inzet;
 
 /**
- * Review-only projection schema; canonical editing stays in brebo_clock_zone.
- * Location fields remain nullable until verified coordinates are migrated.
+ * Review-only Office-native zone schema. Drupal data is fictional and is not a production source.
+ * Location fields remain nullable until verified coordinates are saved in Office.
  * Never serve incomplete zone geometry to the mobile geofence client.
  */
 final class OnSiteCanonicalZoneSchema {
