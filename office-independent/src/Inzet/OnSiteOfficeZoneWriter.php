@@ -27,7 +27,11 @@ final class OnSiteOfficeZoneWriter {
     if (($this->authorizedProject)($projectId) !== true) {
       throw new InvalidArgumentException('unauthorized_office_project');
     }
-    $current = $this->db->prepare('SELECT source_revision FROM office_onsite_canonical_zones WHERE zone_id = ?');
+    // Serialize writers for this zone using the existing row lock. New-zone creation
+    // still requires a separately coordinated ID allocator before public wiring.
+    $this->db->beginTransaction();
+    try {
+    $current = $this->db->prepare('SELECT source_revision FROM office_onsite_canonical_zones WHERE zone_id = ? FOR UPDATE');
     $current->execute([$zoneId]);
     $revision = $current->fetchColumn();
     $expectedRevision = $zone['expected_revision'] ?? null;
@@ -35,6 +39,13 @@ final class OnSiteOfficeZoneWriter {
       throw new RuntimeException('stale_office_zone_revision');
     }
     $zone['source_revision'] = $expectedRevision + 1;
-    return $this->sync->apply($zone);
+    $saved = $this->sync->apply($zone);
+    if (!$saved) throw new RuntimeException('office_zone_write_not_applied');
+    $this->db->commit();
+    return true;
+    } catch (\Throwable $exception) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $exception;
+    }
   }
 }
