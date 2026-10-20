@@ -16,7 +16,7 @@ final class OnSiteCanonicalZoneSync {
   public function __construct(private PDO $db) {}
 
   /**
-   * @param array{zone_id:string,project_id:string,active:bool,source_revision:int} $zone
+   * @param array{zone_id:string,project_id:string,active:bool,source_revision:int,zone_name?:string,latitude?:float|int|string,longitude?:float|int|string,radius_metres?:float|int|string} $zone
    * @return bool true when a newer source revision was persisted
    */
   public function apply(array $zone): bool {
@@ -61,13 +61,17 @@ final class OnSiteCanonicalZoneSync {
     $query->execute([$zone['zone_id'],$zone['project_id'],(int)$zone['active'],$zone['source_revision'], ...$geometry]);
     $changed = $query->rowCount() > 0;
     if (!$changed) {
-      $read = $this->db->prepare('SELECT project_id, active, source_revision FROM office_onsite_canonical_zones WHERE zone_id = ?');
+      $read = $this->db->prepare('SELECT project_id, active, source_revision, zone_name, latitude, longitude, radius_metres FROM office_onsite_canonical_zones WHERE zone_id = ?');
       $read->execute([$zone['zone_id']]);
       $current = $read->fetch(PDO::FETCH_ASSOC);
       if (!is_array($current)) throw new RuntimeException('Zone not found after upsert');
       if ((int)$current['source_revision'] === $zone['source_revision']
         && ((string)$current['project_id'] !== $zone['project_id']
-          || (int)$current['active'] !== (int)$zone['active'])) {
+          || (int)$current['active'] !== (int)$zone['active']
+          || ($zone['active'] && (trim((string)$current['zone_name']) !== trim((string)$geometry[0])
+            || abs((float)$current['latitude'] - (float)$geometry[1]) > 0.00000005
+            || abs((float)$current['longitude'] - (float)$geometry[2]) > 0.00000005
+            || abs((float)$current['radius_metres'] - (float)$geometry[3]) > 0.005)))) {
         throw new RuntimeException('Conflicting zone revision');
       }
     }
