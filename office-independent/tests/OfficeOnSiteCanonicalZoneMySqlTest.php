@@ -19,6 +19,10 @@ if (!$check('17','8') || $check('17','9') || $check('17','10')
   $details = $db->query("SELECT zone_id, project_id, active, zone_name, synchronized_at, latitude, longitude, radius_metres, UTC_TIMESTAMP() AS now_utc FROM office_onsite_canonical_zones ORDER BY zone_id")->fetchAll(PDO::FETCH_ASSOC);
   throw new RuntimeException('Canonical zone projection authorized incorrectly: ' . json_encode(['valid'=>$check('17','8'),'inactive'=>$check('17','9'),'other_zone'=>$check('17','10'),'wrong_project'=>$check('18','8'),'missing'=>$check('17','11'),'rows'=>$details]));
 }
+$db->exec("UPDATE office_onsite_canonical_zones SET zone_name = '   ' WHERE zone_id = 8");
+if ($check('17','8')) throw new RuntimeException('Whitespace-only zone name authorized');
+$db->exec("UPDATE office_onsite_canonical_zones SET zone_name = 'Werkzone' WHERE zone_id = 8");
+if (!$check('17','8')) throw new RuntimeException('Restored zone name not authorized');
 $db->exec("UPDATE office_onsite_canonical_zones SET synchronized_at = UTC_TIMESTAMP() - INTERVAL 25 HOUR WHERE zone_id = 8");
 if ($check('17','8')) throw new RuntimeException('Expired zone still authorized');
 $db->exec("UPDATE office_onsite_canonical_zones SET synchronized_at = UTC_TIMESTAMP(), radius_metres = NULL WHERE zone_id = 8");
