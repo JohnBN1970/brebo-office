@@ -77,8 +77,8 @@ try {
       $statement->execute([$projectId]);
       return $statement->fetchColumn() !== false;
     };
-    $zones = new \\Brebo\\Office\\Inzet\\OnSiteBuildingZoneAccess(
-      new \\Brebo\\Office\\Buildings\\OfficeBuildingZoneRepository($db), $projectExists
+    $zones = new \Brebo\Office\Inzet\OnSiteBuildingZoneAccess(
+      new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db), $projectExists
     );
   } else {
     // Legacy projection requires independently verified Drupal sync and mapping.
@@ -86,7 +86,7 @@ try {
       || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
       throw new RuntimeException('OnSite canonical zone source not verified');
     }
-    $zones = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneRepository($db);
+    $zones = new \Brebo\Office\Inzet\OnSiteCanonicalZoneRepository($db);
   }
   $result = (new \Brebo\Office\Inzet\OnSitePresenceApplication($db, $zones->callback()))
     ->submit($payload, $match[1]);
