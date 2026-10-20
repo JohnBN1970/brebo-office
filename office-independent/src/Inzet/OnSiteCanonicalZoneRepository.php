@@ -20,7 +20,7 @@ final class OnSiteCanonicalZoneRepository {
       'SELECT 1 FROM office_onsite_canonical_zones
        WHERE zone_id = ? AND project_id = ? AND active = 1 AND synchronized_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
          AND latitude BETWEEN -90 AND 90 AND longitude BETWEEN -180 AND 180
-         AND radius_metres > 0 AND radius_metres <= 1000
+         AND radius_metres > 0 AND radius_metres <= 5000
          AND zone_name IS NOT NULL AND CHAR_LENGTH(TRIM(zone_name)) > 0 LIMIT 1'
     );
     $statement->execute([$zoneId,$projectId]);
