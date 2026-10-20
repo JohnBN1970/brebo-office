@@ -46,9 +46,8 @@ try {
   foreach (['WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $file) {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
-  foreach (['OnSiteOfficeCircleInput.php','OnSiteCanonicalZoneSync.php','OnSiteOfficeZoneCreator.php'] as $file) {
-    require_once dirname(__DIR__) . '/src/Inzet/' . $file;
-  }
+  require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingRepository.php';
+  require_once dirname(__DIR__) . '/src/Buildings/OfficeBuildingZoneRepository.php';
   require_once dirname(__DIR__) . '/src/Project/OfficeNativeProjectAccess.php';
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
   if (!is_string($dsn) || $dsn === '') throw new RuntimeException('missing_test_database');
@@ -68,11 +67,27 @@ try {
     http_response_code(403);
     exit('Geen projectbeheerrechten.');
   }
-  $zone = \Brebo\Office\Inzet\OnSiteOfficeCircleInput::forAuthorizedProject($_POST, (string) $projectId);
-  $creator = new \Brebo\Office\Inzet\OnSiteOfficeZoneCreator(
-    $db, new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db), $authorized);
-  $zoneId = $creator->create($zone);
-  header('Location: /office-test/inzet/projectkaart?id=' . $projectId . '&zone_created=' . rawurlencode($zoneId), true, 303);
+  $buildingId = $_POST['building_id'] ?? null;
+  if (!is_string($buildingId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $buildingId)) {
+    throw new InvalidArgumentException('invalid_building_id');
+  }
+  $buildings = new \Brebo\Office\Buildings\OfficeBuildingRepository($db);
+  $authorizedBuilding = static fn(string $id): bool => $authorized((string) $projectId)
+    && $buildings->belongsToProject((string) $projectId, $id);
+  if (!$authorizedBuilding($buildingId)) {
+    http_response_code(403);
+    exit('Gebouw hoort niet bij dit project.');
+  }
+  $zone = [
+    'building_id' => $buildingId,
+    'zone_name' => $_POST['zone_name'] ?? null,
+    'latitude' => $_POST['latitude'] ?? null,
+    'longitude' => $_POST['longitude'] ?? null,
+    'radius_metres' => $_POST['radius_metres'] ?? null,
+  ];
+  $creator = new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db);
+  $zoneId = $creator->create($zone, $authorizedBuilding);
+  header('Location: /office-test/inzet/projectkaart?id=' . $projectId . '&building_id=' . rawurlencode($buildingId) . '&zone_created=' . rawurlencode($zoneId), true, 303);
   exit;
 } catch (InvalidArgumentException $e) {
   http_response_code(400);
