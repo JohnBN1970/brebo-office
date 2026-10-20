@@ -11,6 +11,7 @@ namespace Brebo\Office\Inzet;
 final class OnSiteCanonicalZoneSchema {
   public static function statements(): array {
     return [
+      "CREATE TABLE office_onsite_zone_identity (\n        zone_id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY\n      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
       "CREATE TABLE office_onsite_canonical_zones (
         zone_id BIGINT UNSIGNED NOT NULL PRIMARY KEY,
         project_id BIGINT UNSIGNED NOT NULL,
