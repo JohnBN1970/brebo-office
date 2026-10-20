@@ -29,6 +29,11 @@ $db->exec("UPDATE office_onsite_canonical_zones SET synchronized_at = UTC_TIMEST
 if ($check('17','8')) throw new RuntimeException('Zone without geometry still authorized');
 $db->exec("UPDATE office_onsite_canonical_zones SET radius_metres = 125 WHERE zone_id = 8");
 if (!$check('17','8')) throw new RuntimeException('Valid refreshed zone not authorized');
+$db->exec("UPDATE office_onsite_canonical_zones SET radius_metres = 5000 WHERE zone_id = 8");
+if (!$check('17','8')) throw new RuntimeException('Existing 5000m project zone wrongly rejected');
+$db->exec("UPDATE office_onsite_canonical_zones SET radius_metres = 5001 WHERE zone_id = 8");
+if ($check('17','8')) throw new RuntimeException('Zone radius above 5000m authorized');
+$db->exec("UPDATE office_onsite_canonical_zones SET radius_metres = 125 WHERE zone_id = 8");
 $sync = new \Brebo\Office\Inzet\OnSiteCanonicalZoneSync($db);
 $sync->apply(['zone_id'=>'8','project_id'=>'18','active'=>false,'source_revision'=>6]);
 if ($check('17','8') || $check('18','8')) throw new RuntimeException('Newer inactive zone still authorized');
