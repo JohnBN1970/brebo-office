@@ -103,4 +103,15 @@ try {
   $unauthorizedRejected = $exception->getMessage() === 'unauthorized_office_project';
 }
 if (!$unauthorizedRejected || !$check('17','21')) throw new RuntimeException('Unauthorized Office edit accepted');
+$newZoneRejected = false;
+try {
+  $writer->save(['zone_id'=>'999999','project_id'=>'17','expected_revision'=>0,
+    'active'=>true,'zone_name'=>'Unallocated zone','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
+} catch (RuntimeException $exception) {
+  $newZoneRejected = $exception->getMessage() === 'office_zone_create_not_supported';
+}
+if (!$newZoneRejected || $db->inTransaction() || $check('17','999999')) {
+  throw new RuntimeException('Unallocated Office zone was not rejected safely');
+}
+
 echo "Canonical zone MySQL sync, Office edits and read projection OK\n";
