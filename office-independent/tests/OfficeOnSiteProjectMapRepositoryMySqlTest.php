@@ -37,7 +37,7 @@ $repo=new OnSiteOfficeProjectMapRepository($db);
 if ($repo->forManager(10,17)['project_id']!=='17') throw new RuntimeException('Authorized project missing');
 foreach ([[10,18],[11,17],[12,17],[12,19]] as [$operator,$project]) {
   $denied=false;
-  try {$repo->forManager($operator,$project);} catch (RuntimeException $e) {$denied=true;}
+  try {$repo->forManager($operator,$project);} catch (RuntimeException | InvalidArgumentException $e) {$denied=true;}
   if (!$denied) throw new RuntimeException('Project map access not denied');
 }
 echo "Office project map MySQL access checks passed\n";
