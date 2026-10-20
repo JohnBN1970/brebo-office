@@ -29,6 +29,10 @@ $validations=[
   'lon_range'=>abs((float)$debug['longitude'])<=180,
 ];
 foreach($validations as $check=>$passed) if(!$passed) throw new RuntimeException('Invalid map seed fixture check: '.$check);
+$joined=$db->query("SELECT p.id,p.latitude,p.longitude FROM office_projects p INNER JOIN office_project_memberships m ON m.project_id=p.id INNER JOIN office_operator_accounts a ON a.id=m.operator_id WHERE p.id=17 AND m.operator_id=10 AND m.permission='manage' AND a.active=1 LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+if (!is_array($joined)) throw new RuntimeException('Authorized joined project fixture missing');
+if ($joined != $debug) throw new RuntimeException('Joined project differs from fixture');
+\Brebo\Office\Inzet\OnSiteOfficeProjectMapSeed::fromAuthorizedProject($joined);
 $repo=new OnSiteOfficeProjectMapRepository($db);
 if ($repo->forManager(10,17)['project_id']!=='17') throw new RuntimeException('Authorized project missing');
 foreach ([[10,18],[11,17],[12,17],[12,19]] as [$operator,$project]) {
