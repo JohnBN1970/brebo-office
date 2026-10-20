@@ -17,7 +17,7 @@ if (!is_int($id)) {http_response_code(400);exit('Ongeldig projectnummer.');}
 try {
   foreach (['OfficeMount.php','WebsiteCrmOperatorContext.php','WebsiteCrmOperatorSessionProviderInterface.php','WebsiteOfficeCrmSessionRepository.php','WebsiteOfficeCrmCookieSessionProvider.php'] as $file)
     require_once dirname(__DIR__).'/src/Intake/'.$file;
-  require_once dirname(__DIR__).'/src/Project/OfficeNativeProjectAccess.php';
+  require_once dirname(__DIR__).'/src/Inzet/OnSiteOfficeZoneProjectAccess.php';
   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingRepository.php';
   require_once dirname(__DIR__).'/src/Buildings/OfficeBuildingZoneRepository.php';
   $db=new PDO(getenv('OFFICE_INTAKE_PDO_DSN')?:'',getenv('OFFICE_INTAKE_DB_USER')?:'',getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
@@ -26,7 +26,7 @@ try {
     new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db),$_COOKIE,time());
   $operator=$provider->currentOperator();
   if ($operator===null) {header('Location: /office-test/inloggen',true,302);exit;}
-  if (!(new \Brebo\Office\Project\OfficeNativeProjectAccess($db))->canManage($operator->operatorId,$id)) {
+  if (!(new \Brebo\Office\Inzet\OnSiteOfficeZoneProjectAccess($db))->canManage($operator->operatorId,$id)) {
     throw new RuntimeException('Unauthorized project');
   }
 } catch (InvalidArgumentException | RuntimeException $e) {

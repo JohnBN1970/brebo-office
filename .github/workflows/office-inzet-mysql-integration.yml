@@ -5,7 +5,6 @@ on:
     paths:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/src/Buildings/**'
-      - 'office-independent/src/Project/OfficeNativeProjectAccess.php'
       - 'office-independent/tests/OfficeBuildingZonesMySqlTest.php'
       - 'office-independent/tests/OfficeBuildingPresenceEndToEndMySqlTest.php'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
@@ -34,6 +33,8 @@ on:
       - 'office-independent/public/office-onsite-project-map.php'
       - 'office-independent/public/office-onsite-zone-create.php'
       - 'office-independent/deployment/hostinger/office-building-zone-*'
+      - 'office-independent/deployment/hostinger/OfficeZoneTestDeployment.php'
+      - 'office-independent/tests/OfficeZoneTestDeploymentTest.php'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -46,21 +47,44 @@ permissions:
 jobs:
   mysql-inzet:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - database: MySQL 8
+            image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only
+          - database: MariaDB 11.8
+            image: mariadb:11.8
+            health: healthcheck.sh --connect --innodb_initialized
+    name: Inzet PHP 8.5 / ${{ matrix.database }}
     services:
       mysql:
-        image: mysql:8.0
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: test-root-only
           MYSQL_DATABASE: office_inzet_ci
+          MARIADB_ROOT_PASSWORD: test-root-only
+          MARIADB_DATABASE: office_inzet_ci
         ports:
           - 3306:3306
         options: >-
-          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only"
+          --health-cmd="${{ matrix.health }}"
           --health-interval=10s --health-timeout=5s --health-retries=12
     steps:
       - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_mysql, pdo_sqlite
+          coverage: none
       - name: PHP syntax
         run: php -l office-independent/tests/OfficeInzetMySqlRoundTripTest.php
+      - name: Isolated zone deployment and rollback
+        run: |
+          php -l office-independent/deployment/hostinger/OfficeZoneTestDeployment.php
+          php -l office-independent/tests/OfficeZoneTestDeploymentTest.php
+          php office-independent/tests/OfficeZoneTestDeploymentTest.php
       - name: Personnel route and security regression tests
         run: |
           for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do

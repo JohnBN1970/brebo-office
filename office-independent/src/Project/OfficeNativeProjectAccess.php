@@ -9,8 +9,8 @@ use PDO;
 final class OfficeNativeProjectAccess {
   public function __construct(private PDO $db) {}
 
-  public function canManage(string|int $operatorId, int $projectId): bool {
-    if ((string)$operatorId === '' || strlen((string)$operatorId) > 128 || $projectId < 1) return false;
+  public function canManage(int $operatorId, int $projectId): bool {
+    if ($operatorId < 1 || $projectId < 1) return false;
     $statement = $this->db->prepare(
       "SELECT 1 FROM office_projects p
        INNER JOIN office_project_memberships m ON m.project_id=p.id

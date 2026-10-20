@@ -7,7 +7,7 @@ use Brebo\Office\Inzet\OnSiteOfficeZonePostAction;
 use Brebo\Office\Buildings\OfficeBuildingZoneReadiness;
 use Brebo\Office\Buildings\OfficeBuildingZoneRepository;
 foreach (['Intake/WebsiteCrmOperatorContext','Buildings/OfficeBuildingSchema','Buildings/OfficeBuildingZoneSchema',
-  'Buildings/OfficeBuildingZoneRepository','Buildings/OfficeBuildingZoneReadiness','Project/OfficeNativeProjectAccess',
+  'Buildings/OfficeBuildingZoneRepository','Buildings/OfficeBuildingZoneReadiness','Inzet/OnSiteOfficeZoneProjectAccess',
   'Inzet/OnSiteOfficeCircleCreateService','Inzet/OnSiteOfficeZoneFormToken','Inzet/OnSiteOfficeZonePostAction'] as $class) {
   require_once dirname(__DIR__).'/src/'.$class.'.php';
 }
@@ -54,7 +54,7 @@ OfficeBuildingZoneReadiness::requireReady($db);
 $db->exec('DROP TABLE IF EXISTS office_operator_sessions');
 $db->exec('CREATE TABLE office_operator_sessions (token_hash CHAR(64) PRIMARY KEY,operator_id VARCHAR(128),expires_at DATETIME,revoked_at DATETIME NULL) ENGINE=InnoDB');
 $db->prepare('INSERT INTO office_operator_sessions VALUES (?,?,UTC_TIMESTAMP()+INTERVAL 1 HOUR,NULL)')->execute([hash('sha256',str_repeat('t',48)),'manager-test']);
-$access=new \Brebo\Office\Project\OfficeNativeProjectAccess($db);
+$access=new \Brebo\Office\Inzet\OnSiteOfficeZoneProjectAccess($db);
 if (!$access->canManage('manager-test',17) || $access->canManage('manager-test',18)
   || $access->canManage('inactive-test',17) || $access->canManage('other-test',17)) throw new RuntimeException('Opaque account ID ACL failed');
 $renderer=proc_open([PHP_BINARY,__FILE__,'--render-map'],[['pipe','r'],['pipe','w'],['pipe','w']],$renderPipes);
