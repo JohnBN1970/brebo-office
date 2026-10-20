@@ -13,7 +13,7 @@ use RuntimeException;
  * No public endpoint is wired. DDL is review-only.
  */
 final class OnSiteOfficeZoneCreator {
-  public function __construct(private PDO $db, private OnSiteCanonicalZoneSync $sync, private \Closure $authorizedProject) {}
+  public function __construct(private PDO $db, private OnSiteCanonicalZoneSync $sync, private \Closure $authorizedProject, private ?\Closure $authorizedBuilding = null) {}
 
   /** @param array<string,mixed> $zone */
   public function create(array $zone): string {
@@ -25,6 +25,16 @@ final class OnSiteOfficeZoneCreator {
     }
     if (($this->authorizedProject)($projectId) !== true) {
       throw new InvalidArgumentException('unauthorized_office_project');
+    }
+    // Building binding is fail-closed: a client-supplied building cannot be accepted
+    // without a trusted server-side project/building membership resolver.
+    if (array_key_exists('building_id', $zone)) {
+      $buildingId = $zone['building_id'];
+      if (!is_string($buildingId) || !preg_match('/^[1-9][0-9]{0,18}$/D', $buildingId)
+        || $this->authorizedBuilding === null
+        || ($this->authorizedBuilding)($projectId, $buildingId) !== true) {
+        throw new InvalidArgumentException('unauthorized_office_building');
+      }
     }
     if ($this->db->inTransaction()) {
       throw new RuntimeException('office_zone_nested_transaction');
