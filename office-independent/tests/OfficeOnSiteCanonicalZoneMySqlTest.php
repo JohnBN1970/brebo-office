@@ -68,9 +68,9 @@ try {
   $geometryConflictRejected = $exception->getMessage() === 'Conflicting zone revision';
 }
 if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException('Equal-revision conflicting geometry not rejected');
-$db->exec(\\Brebo\\Office\\Inzet\\OnSiteVerifiedProjectMapping::schema());
+$db->exec(\Brebo\Office\Inzet\OnSiteVerifiedProjectMapping::schema());
 $db->exec("INSERT INTO office_onsite_project_mapping(source_project_id,office_project_id,verified) VALUES (77,17,1),(78,18,0)");
-$mapping = new \\Brebo\\Office\\Inzet\\OnSiteVerifiedProjectMapping($db);
+$mapping = new \Brebo\Office\Inzet\OnSiteVerifiedProjectMapping($db);
 $import = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneImport($sync, $mapping->resolver());
 $unverifiedRejected = false;
 try {
