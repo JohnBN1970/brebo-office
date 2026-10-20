@@ -28,7 +28,7 @@ final class OnSiteBootstrapRepository {
          AND z.synchronized_at >= UTC_TIMESTAMP() - INTERVAL 24 HOUR
          AND z.latitude BETWEEN -90 AND 90
          AND z.longitude BETWEEN -180 AND 180
-         AND z.radius_metres > 0 AND z.radius_metres <= 1000
+         AND z.radius_metres > 0 AND z.radius_metres <= 5000
          AND z.zone_name IS NOT NULL AND CHAR_LENGTH(TRIM(z.zone_name)) > 0
        WHERE t.person_id = ?
        ORDER BY project_id, zone_id'
