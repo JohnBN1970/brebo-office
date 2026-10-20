@@ -6,6 +6,7 @@ on:
       - 'office-independent/src/Inzet/**'
       - 'office-independent/tests/OfficeInzetMySqlRoundTripTest.php'
       - 'office-independent/tests/OfficeInzetPersonnel*.php'
+      - 'office-independent/tests/OfficeOnSiteProjectMapSeedTest.php'
       - 'office-independent/tests/OfficeOnSiteCircleInputTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationContractTest.php'
       - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
@@ -189,6 +190,12 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteOfficeDeviceManagementRepository.php
           php -l office-independent/tests/OfficeOnSiteActivationMySqlTest.php
           php office-independent/tests/OfficeOnSiteActivationMySqlTest.php
+
+      - name: Office project map seed regression
+        run: |
+          php -l office-independent/src/Inzet/OnSiteOfficeProjectMapSeed.php
+          php -l office-independent/tests/OfficeOnSiteProjectMapSeedTest.php
+          php office-independent/tests/OfficeOnSiteProjectMapSeedTest.php
 
       - name: Office circle project authorization regression
         run: |
