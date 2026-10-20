@@ -75,6 +75,6 @@ try {
   $unverifiedRejected = $exception->getMessage() === 'unverified_office_project';
 }
 if (!$unverifiedRejected) throw new RuntimeException('Zone import accepted unverified Office project');
-$import->import(['zone_id'=>21,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125], '17');
+$import->import(['zone_id'=>21,'source_project_id'=>77,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125]);
 if (!$check('17','21')) throw new RuntimeException('Verified zone import failed');
 echo "Canonical Drupal zone MySQL sync and read projection OK\n";
