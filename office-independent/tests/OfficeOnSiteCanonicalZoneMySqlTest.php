@@ -71,7 +71,7 @@ if (!$geometryConflictRejected || !$check('18','8')) throw new RuntimeException(
 $db->exec(\Brebo\Office\Inzet\OnSiteVerifiedProjectMapping::schema());
 $db->exec("INSERT INTO office_onsite_project_mapping(source_project_id,office_project_id,verified) VALUES (77,17,1),(78,18,0)");
 $mapping = new \Brebo\Office\Inzet\OnSiteVerifiedProjectMapping($db);
-$import = new \\Brebo\\Office\\Inzet\\OnSiteCanonicalZoneImport($sync, $mapping->resolver());
+$import = new \Brebo\Office\Inzet\OnSiteCanonicalZoneImport($sync, $mapping->resolver());
 $unverifiedRejected = false;
 try {
   $import->import(['zone_id'=>21,'source_project_id'=>78,'source_revision'=>1,'active'=>true,'zone_name'=>'Import','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>125 ]);
