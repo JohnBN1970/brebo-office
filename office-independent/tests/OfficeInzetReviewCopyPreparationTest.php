@@ -51,6 +51,13 @@ try {
   refuseCopy(fn()=>OfficeInzetReviewCopyPreparation::prepare($config,$private,$web,'unknown.sqlite'),'Unknown tables must not be discarded');
   checkCopy(!file_exists($private.'/unknown.sqlite'),'No output on rejected schema');
   $old->exec('DROP TABLE unrelated_private_data');
+  $old->exec('CREATE TABLE sqlitePrivate(id INTEGER PRIMARY KEY)');
+  refuseCopy(fn()=>OfficeInzetReviewCopyPreparation::prepare($config,$private,$web,'hidden.sqlite'),'SQLite-like non-reserved table names must not be discarded');
+  checkCopy(!file_exists($private.'/hidden.sqlite'),'No output for SQLite-like custom table');
+  $old->exec('DROP TABLE sqlitePrivate');
+  $old->exec('CREATE UNIQUE INDEX extra_policy ON inzet_review_decisions(note)');
+  refuseCopy(fn()=>OfficeInzetReviewCopyPreparation::prepare($config,$private,$web,'policy.sqlite'),'Custom index policy must not be discarded');
+  $old->exec('DROP INDEX extra_policy');
   $process=proc_open([PHP_BINARY,dirname(__DIR__).'/bin/prepare-inzet-review-copy.php','--private-root='.$private,'--document-root='.$web,'--config='.$configPath,'--output-name=cli.sqlite','--create-copy'],[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);
   checkCopy(is_resource($process),'CLI starts'); fclose($pipes[0]);
   $stdout=stream_get_contents($pipes[1]);$stderr=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);$exit=proc_close($process);

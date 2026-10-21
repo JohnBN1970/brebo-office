@@ -47,10 +47,13 @@ final class OfficeInzetReviewCopyPreparation {
     $original=self::openReadOnly($originalPath);
     $source=self::openReadOnly($sourcePath);
     $sourceHash=hash_file('sha256',$sourcePath); $originalHash=hash_file('sha256',$originalPath);
-    $tables=$original->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+    $tables=$original->query("SELECT name FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*' ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
     $expected=array_keys(self::TABLES); sort($expected);
     if ($tables!==$expected) throw new RuntimeException('UNKNOWN_TABLE_REVIEW_REQUIRED');
-    if ((int)$original->query("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('trigger','view') OR (type='index' AND sql IS NOT NULL)")->fetchColumn()!==0) throw new RuntimeException('UNKNOWN_SCHEMA_OBJECT_REVIEW_REQUIRED');
+    if ((int)$original->query("SELECT COUNT(*) FROM sqlite_master WHERE type IN ('trigger','view') OR type='index'")->fetchColumn()!==0) throw new RuntimeException('UNKNOWN_SCHEMA_OBJECT_REVIEW_REQUIRED');
+    foreach ($original->query("SELECT sql FROM sqlite_master WHERE type='table' AND name NOT GLOB 'sqlite_*'")->fetchAll(PDO::FETCH_COLUMN) as $sql) {
+      if (preg_match('/\b(CHECK|REFERENCES|UNIQUE|COLLATE|GENERATED|STRICT)\b/i',$sql)) throw new RuntimeException('UNKNOWN_SCHEMA_OBJECT_REVIEW_REQUIRED');
+    }
     $data=[];
     foreach (self::TABLES as $table=>$columns) {
       $actual=array_column($original->query('PRAGMA table_info('.$table.')')->fetchAll(PDO::FETCH_ASSOC),'name');
