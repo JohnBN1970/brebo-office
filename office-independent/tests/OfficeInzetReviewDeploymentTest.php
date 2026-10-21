@@ -4,6 +4,7 @@ require_once dirname(__DIR__).'/bin/preflight-inzet-review.php';
 require_once dirname(__DIR__).'/bin/prepare-inzet-review-copy.php';
 require_once dirname(__DIR__).'/bin/OfficeInzetReviewTestDeployment.php';
 require_once dirname(__DIR__).'/bin/build-inzet-review-deployment.php';
+require_once dirname(__DIR__).'/src/Inzet/OfficeInzetReviewDecisionRepository.php';
 $root=str_replace('\\','/',sys_get_temp_dir()).'/review-rollout-'.bin2hex(random_bytes(8));mkdir($root,0700);
 function rolloutAssert(bool $ok,string $why):void{if(!$ok)throw new RuntimeException($why);}
 function refused(callable $call,string $why):void{try{$call();}catch(RuntimeException){return;}throw new RuntimeException($why);}
@@ -81,7 +82,20 @@ try{
   $args=[PHP_BINARY,$packageFile,'--rollback='.$h['base'].'/'.$installed['snapshot_id'].'/manifest.json','--private-root='.$h['base'],'--document-root='.$h['web']];
   $process=proc_open($args,[0=>['pipe','r'],1=>['pipe','w'],2=>['pipe','w']],$pipes);fclose($pipes[0]);$out=stream_get_contents($pipes[1]);$err=stream_get_contents($pipes[2]);fclose($pipes[1]);fclose($pipes[2]);$exit=proc_close($process);
   rolloutAssert($exit===0&&$err===''&&json_decode($out,true)['status']==='OFFICE_TEST_REVIEW_ROLLED_BACK'&&hash_file('sha256',$h['configPath'])===$oldConfigHash,'Built package actual rollback: '.$out.$err);
-  echo "Office-test review deployment: read-only check, bounded install, exact config edit, backups, rollback, injected failure and standalone package OK\n";
+  // A UI update keeps the already active TEXT store, including new reviews.
+  $activeRoot=$root.'/active-update';mkdir($activeRoot,0700);$a=fixture($activeRoot,$payload);
+  $prior=$payload;$priorCode="<?php // Previous review page\n";
+  $prior['files']['public/office-inzet-import-review.php']=['base64'=>base64_encode($priorCode),'sha256'=>hash('sha256',$priorCode)];
+  (new OfficeInzetReviewTestDeployment($prior))->install($a['base'],$a['web'],$a['configPath'],$a['copyHash']);
+  $activeDb=new PDO('sqlite:'.$a['copy']);$activeSource=new PDO('sqlite:'.$a['sourcePath']);
+  (new \Brebo\Office\Inzet\OfficeInzetReviewDecisionRepository($activeDb,$activeSource))->save(7,'propose_project',null,'Review since activation','1',1);
+  unset($activeDb,$activeSource);
+  $activeHash=hash_file('sha256',$a['copy']);$activeConfigHash=hash_file('sha256',$a['configPath']);
+  $update=$deploy->install($a['base'],$a['web'],$a['configPath'],$activeHash);
+  rolloutAssert(hash_file('sha256',$a['copy'])===$activeHash && hash_file('sha256',$a['configPath'])===$activeConfigHash,'UI update retains active reviews and config bytes');
+  $deploy->rollback($a['base'],$a['web'],$a['base'].'/'.$update['snapshot_id'].'/manifest.json');
+  rolloutAssert(hash_file('sha256',$a['copy'])===$activeHash && hash_file('sha256',$a['configPath'])===$activeConfigHash,'UI rollback retains active store and new history');
+  echo "Office-test review deployment: read-only check, bounded install, exact config edit, backups, rollback, injected failure, standalone package and active-store update OK\n";
 }finally{
   // Only the verified, randomly named test workspace is removed; never follow links.
   $real=realpath($root);$temp=realpath(sys_get_temp_dir());

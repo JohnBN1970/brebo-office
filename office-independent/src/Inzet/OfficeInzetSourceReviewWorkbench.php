@@ -31,7 +31,7 @@ final class OfficeInzetSourceReviewWorkbench {
     foreach (['person_labels'=>'Te koppelen medewerkers','project_labels'=>'Te koppelen projecten'] as $key=>$label) {
       $items = $report[$key] ?? [];
       if (!is_array($items)) $items = [];
-      $html .= '<details open><summary>'.$escape($label).' ('.count($items).')</summary><ul>';
+      $html .= '<details><summary>'.$escape($label).' ('.count($items).')</summary><ul>';
       foreach (array_slice($items, 0, 150) as $value) {
         $html .= '<li>'.$escape($value).'</li>';
       }
@@ -72,41 +72,48 @@ final class OfficeInzetSourceReviewWorkbench {
     }
     uasort($groups, static fn(array $a, array $b): int => $b['count'] <=> $a['count']);
     if ($groups !== []) {
-      $html .= '<h3>Afwijkingen per werkblad en reden</h3>';
+      $html .= '<details><summary>Afwijkingen per werkblad en reden</summary>';
       $html .= '<p>Groepering van de getoonde controlepunten, niet noodzakelijk alle bronafwijkingen.</p>';
-      $html .= '<table><thead><tr><th>Werkblad</th><th>Reden</th><th>Aantal getoond</th></tr></thead><tbody>';
+      $html .= '<div class="inzet-table-scroll" role="region" aria-label="Groepering van afwijkingen" tabindex="0"><table><thead><tr><th>Werkblad</th><th>Reden</th><th>Aantal getoond</th></tr></thead><tbody>';
       foreach ($groups as $group) {
         $html .= '<tr><td>'.$escape($group['sheet']).'</td><td>'.$escape($group['reason'])
           .'</td><td>'.(int)$group['count'].'</td></tr>';
       }
-      $html .= '</tbody></table>';
+      $html .= '</tbody></table></div></details>';
     }
     if ($issues === []) $html .= '<p>Geen afwijkingen gemeld door deze preflight.</p>';
     else {
-      $html .= '<table><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th><th>Beoordeling</th><th>Actie</th></tr></thead><tbody>';
+      $html .= '<p>Schuif de tabel opzij om alle kolommen te zien. Toelichting is optioneel bij onderzoeken en verplicht bij uitsluiten.</p>';
+      $html .= '<div class="inzet-table-scroll" role="region" aria-label="Controlepunten beoordelen" tabindex="0"><table class="inzet-issues"><thead><tr><th>ID</th><th>Week / blad</th><th>Bronregel</th><th>Medewerker (bron)</th><th>Project (bron)</th><th>Cel</th><th>Reden</th><th>Beoordeling</th><th>Actie</th></tr></thead><tbody>';
+      $actionLabels = ['propose_person'=>'Medewerker onderzoeken', 'propose_project'=>'Project onderzoeken', 'exclude'=>'Uitsluiten'];
       foreach (array_slice($issues, 0, 200) as $issue) {
         if (!is_array($issue)) continue;
+        $issueId = (int)($issue['issue_id'] ?? 0);
+        $decision = $decisions[$issueId] ?? [];
+        $savedAction = (string)($decision['action'] ?? '');
+        $savedNote = (string)($decision['note'] ?? '');
         $html .= '<tr><td>'.$escape($issue['issue_id'] ?? '').'</td><td>'
           .$escape($issue['sheet'] ?? '').'</td><td>'.$escape($issue['source_row'] ?? '').'</td><td>'
           .$escape($issue['person'] ?? '').'</td><td>'.$escape($issue['project'] ?? '').'</td><td>'
            .$escape($issue['cell'] ?? '').'</td><td>'.$escape($issue['reason'] ?? '').'</td><td>'
-           .$escape($decisions[(int)($issue['issue_id'] ?? 0)]['action'] ?? 'Open').'</td><td>';
-        $issueId = (int)($issue['issue_id'] ?? 0);
+           .$escape($actionLabels[$savedAction] ?? ($savedAction === '' ? 'Open' : $savedAction))
+           .($savedNote === '' ? '' : '<p class="inzet-saved-note">'.$escape($savedNote).'</p>').'</td><td>';
         if ($csrf !== null && $issueId > 0) {
           $revision = (int)($decisions[$issueId]['revision'] ?? 0);
-          $html .= '<form method="post" action=""><input type="hidden" name="csrf" value="'.$escape($csrf).'">'
+          $html .= '<form class="inzet-decision-form" method="post" action=""><input type="hidden" name="csrf" value="'.$escape($csrf).'">'
             .'<input type="hidden" name="issue_id" value="'.$issueId.'">'
             .'<input type="hidden" name="revision" value="'.$revision.'">'
-            .'<select name="action" aria-label="Beoordeling voor afwijking '.$issueId.'">'
-            .'<option value="propose_person">Medewerker onderzoeken</option>'
-            .'<option value="propose_project">Project onderzoeken</option>'
-            .'<option value="exclude">Uitsluiten</option></select>'
-            .'<input name="note" maxlength="2000" placeholder="Toelichting" aria-label="Toelichting" required>'
+            .'<select name="action" aria-label="Beoordeling voor afwijking '.$issueId.'">';
+          foreach ($actionLabels as $action=>$label) {
+            $html .= '<option value="'.$action.'"'.($savedAction === $action ? ' selected' : '').'>'.$escape($label).'</option>';
+          }
+          $html .= '</select><label for="note-'.$issueId.'">Toelichting (verplicht bij uitsluiten)</label>'
+            .'<textarea id="note-'.$issueId.'" name="note" maxlength="2000" rows="2">'.$escape($savedNote).'</textarea>'
             .'<button type="submit">Opslaan</button></form>';
         }
         $html .= '</td></tr>';
       }
-      $html .= '</tbody></table>';
+      $html .= '</tbody></table></div>';
     }
     return $html.'</details><p>Alle beslissingen vereisen een bevoegde Office-gebruiker. Factuurvrijgave is niet beschikbaar.</p></section>';
   }

@@ -166,6 +166,9 @@ try {
       if (!is_int($issue) || !is_int($revision) || !is_string($action) || !is_string($note)) {
         http_response_code(400); exit('Ongeldige beoordeling.');
       }
+      if ($action === 'exclude' && trim($note) === '') {
+        http_response_code(422); exit('Toelichting is verplicht bij uitsluiten. Ga terug en vul een toelichting in.');
+      }
       try {
         $decisionRepo->save($issue, $action, null, $note, $operator->operatorId, $revision);
       } catch (InvalidArgumentException|LogicException $invalid) {
@@ -186,7 +189,7 @@ try {
 
   if (!isset($_SESSION['inzet_csrf'])) $_SESSION['inzet_csrf'] = bin2hex(random_bytes(32));
   header('Content-Type: text/html; charset=utf-8');
-  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px Roboto,Arial,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}</style></head><body><main>';
+  echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Urenverantwoording · BREBO Office test</title><style>body{font:16px Roboto,Arial,sans-serif;background:#f4f6f9;color:#182638;margin:0}main{max-width:1100px;margin:30px auto;padding:24px;background:white;border-radius:12px}table{width:100%;border-collapse:collapse}td,th{text-align:left;padding:10px;border-bottom:1px solid #ddd}.inzet-kpis{display:flex;gap:16px;flex-wrap:wrap}.inzet-kpi{padding:16px;border:1px solid #ddd;border-radius:8px}.inzet-kpi span,.inzet-kpi strong{display:block}details{margin:20px 0}li{overflow-wrap:anywhere}*{box-sizing:border-box}main{width:calc(100% - 24px);max-width:1440px}summary{cursor:pointer;font-weight:600}.inzet-table-scroll{max-width:100%;overflow-x:auto;margin:16px 0;border:1px solid #d9dfe8;border-radius:8px}.inzet-issues{min-width:1280px}.inzet-issues th,.inzet-issues td{vertical-align:top}.inzet-issues th{white-space:nowrap;background:#f4f6f9}.inzet-issues td:nth-child(4),.inzet-issues td:nth-child(5){min-width:130px}.inzet-issues td:last-child{min-width:280px}.inzet-decision-form{display:grid;gap:8px;min-width:260px}.inzet-decision-form select,.inzet-decision-form textarea{width:100%;font:inherit;padding:8px;border:1px solid #8895a7;border-radius:4px}.inzet-decision-form textarea{resize:vertical}.inzet-decision-form label{font-size:13px}.inzet-decision-form button{justify-self:start;font:inherit;padding:8px 16px;cursor:pointer}.inzet-saved-note{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px}fieldset{display:flex;flex-wrap:wrap;gap:8px;align-items:center}fieldset input{min-width:0;max-width:100%}@media(max-width:600px){main{padding:12px;margin:12px auto}fieldset{display:grid;grid-template-columns:1fr}fieldset input{width:100%}.inzet-kpis{gap:8px}.inzet-kpi{padding:10px;flex:1 1 130px}}</style></head><body><main>';
   echo '<p><a href="'.htmlspecialchars(\Brebo\Office\Intake\OfficeMount::route('home'), ENT_QUOTES, 'UTF-8').'">← Terug naar Office</a></p>';
   if (isset($decisionRepo) && !$decisionStoreReady) {
     echo '<p>Beoordelingen zijn alleen te lezen totdat de beslissingenopslag is gecontroleerd.</p>';
