@@ -105,14 +105,23 @@ final class OfficeInzetReviewPreflight {
         'worksheets'=>self::identityEvidence($source,'worksheets','id',$sheets),
       ];
       $sourceReady=true;
-      foreach ($result['source_identity'] as $identity) {
-        if (!$identity['single_column_primary_key'] || $identity['null_keys']!==0 || $identity['duplicate_key_groups']!==0) $sourceReady=false;
+      foreach ($result['source_identity'] as $name=>&$identity) {
+        // This immutable import projection is joined by source_row_id, not
+        // written to. Its observed one-to-one join is the required guarantee.
+        $viewJoin=$name==='inzet_source_workbench' && $identity['object_kind']==='view';
+        $uniqueSnapshot=$identity['null_keys']===0 && $identity['duplicate_key_groups']===0;
+        $accepted=$uniqueSnapshot && ($identity['single_column_primary_key'] || $viewJoin);
+        $identity['acceptance']=$accepted ? ($viewJoin ? 'READ_ONLY_VIEW_UNIQUE_IN_SNAPSHOT' : 'SINGLE_COLUMN_PRIMARY_KEY') : 'REVIEW_REQUIRED';
+        if (!$accepted) $sourceReady=false;
       }
+      unset($identity);
       $result['source']=$sourceReady ? 'READY' : 'IDENTITY_KEY_REVIEW_REQUIRED';
       if (!$sourceReady) $result['reason']='SOURCE_IDENTITY_KEY_REVIEW_REQUIRED';
       $result['source_rows']=(int)$source->query('SELECT COUNT(*) FROM inzet_source_workbench')->fetchColumn();
       $result['source_issues']=(int)$source->query('SELECT COUNT(*) FROM review_issues')->fetchColumn();
       $result['issues_without_source_row']=(int)$source->query('SELECT COUNT(*) FROM review_issues i LEFT JOIN inzet_source_workbench s ON s.source_row_id=i.source_row_id WHERE s.source_row_id IS NULL')->fetchColumn();
+      $result['issues_with_null_source_reference']=(int)$source->query('SELECT COUNT(*) FROM review_issues WHERE source_row_id IS NULL')->fetchColumn();
+      $result['issues_with_unresolved_source_reference']=(int)$source->query('SELECT COUNT(*) FROM review_issues i LEFT JOIN inzet_source_workbench s ON s.source_row_id=i.source_row_id WHERE i.source_row_id IS NOT NULL AND s.source_row_id IS NULL')->fetchColumn();
       $reviewer=$config['OFFICE_TEST_INZET_IMPORT_REVIEWER_ID'] ?? null;
       $result['reviewer_configured']=is_string($reviewer) && $reviewer!=='' && strlen($reviewer)<=128;
       $path=$config['OFFICE_TEST_INZET_REVIEW_DECISIONS_SQLITE_PATH'] ?? null;

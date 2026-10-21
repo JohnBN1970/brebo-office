@@ -34,4 +34,5 @@ jobs:
           php office-independent/tests/OfficeInzetReviewIdentityTest.php
           php office-independent/tests/OfficeInzetReviewEndpointTest.php
           php office-independent/tests/OfficeInzetReviewPreflightTest.php
+          php office-independent/tests/OfficeInzetReviewCopyPreparationTest.php
 
