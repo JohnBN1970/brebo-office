@@ -46,6 +46,35 @@ try {
   verifyPreflight($exit===0 && $stderr==='' && json_decode($stdout,true)['status']==='READY_FOR_REVIEW','Standalone CLI report');
   verifyPreflight(!str_contains($stdout,'NEVER_OUTPUT'),'CLI suppresses trusted config output and personal data');
   verifyPreflight([hash_file('sha256',$sourcePath),hash_file('sha256',$decisionPath),glob($private.'/*')]===$beforeCli,'Standalone CLI did not mutate database files or create sidecars');
+  // Real imported workbenches may be views. Report their evidence while
+  // retaining the source gate and still inspecting the separate decision DB.
+  $projectionPath=$private.'/projection.sqlite';
+  copy($sourcePath,$projectionPath);
+  $projection=new PDO('sqlite:'.$projectionPath);
+  $projection->exec('ALTER TABLE inzet_source_workbench RENAME TO imported_rows');
+  $projection->exec('CREATE VIEW inzet_source_workbench AS SELECT * FROM imported_rows');
+  $projectionHash=hash_file('sha256',$projectionPath);
+  $evidence=$run(['OFFICE_TEST_INZET_SQLITE_PATH'=>$projectionPath]);
+  verifyPreflight($evidence['status']==='BLOCKED' && $evidence['reason']==='SOURCE_IDENTITY_KEY_REVIEW_REQUIRED','View does not bypass source gate');
+  verifyPreflight($evidence['source_identity']['inzet_source_workbench']['object_kind']==='view','View identified without exposing definition');
+  verifyPreflight($evidence['source_identity']['inzet_source_workbench']['duplicate_key_groups']===0,'Unique projection measured');
+  verifyPreflight($evidence['decisions']==='TEXT_SCHEMA' && $evidence['decisions_count']===1,'Separate decision schema still inspected');
+  verifyPreflight(hash_file('sha256',$projectionPath)===$projectionHash,'View evidence left source unchanged');
+  $projection->exec('DROP VIEW inzet_source_workbench');
+  $projection->exec('CREATE VIEW inzet_source_workbench AS SELECT * FROM imported_rows UNION ALL SELECT * FROM imported_rows UNION ALL SELECT NULL,4,NULL,NULL');
+  $evidence=$run(['OFFICE_TEST_INZET_SQLITE_PATH'=>$projectionPath]);
+  verifyPreflight($evidence['source_identity']['inzet_source_workbench']['duplicate_key_groups']===1 && $evidence['source_identity']['inzet_source_workbench']['null_keys']===1,'Duplicate and null projection keys counted');
+  $projection->exec('DROP VIEW inzet_source_workbench');
+  $projection->exec('CREATE TABLE inzet_source_workbench(source_row_id INTEGER NOT NULL UNIQUE,row_number INTEGER,person_label TEXT,project_label TEXT)');
+  $projection->exec('INSERT INTO inzet_source_workbench SELECT * FROM imported_rows');
+  $evidence=$run(['OFFICE_TEST_INZET_SQLITE_PATH'=>$projectionPath]);
+  verifyPreflight($evidence['source_identity']['inzet_source_workbench']['single_column_unique_index']===true && $evidence['status']==='BLOCKED','Unique-index alternative reported for review without automatic acceptance');
+  $projection->exec('DROP TABLE inzet_source_workbench');
+  $projection->exec('CREATE TABLE inzet_source_workbench(source_row_id INTEGER,row_number INTEGER,person_label TEXT,project_label TEXT,PRIMARY KEY(source_row_id,row_number))');
+  $projection->exec('INSERT INTO inzet_source_workbench SELECT * FROM imported_rows');
+  $evidence=$run(['OFFICE_TEST_INZET_SQLITE_PATH'=>$projectionPath]);
+  verifyPreflight($evidence['source_identity']['inzet_source_workbench']['primary_key_position']===1 && $evidence['source_identity']['inzet_source_workbench']['primary_key_column_count']===2 && $evidence['status']==='BLOCKED','Composite primary key cannot certify a unique single-column join');
+  unset($projection);
   $decisions->exec("UPDATE inzet_review_decision_audit SET reviewer_id='different-actor'");
   verifyPreflight($run()['audit_mismatches']===1 && $run()['status']==='REVIEW_REQUIRED','Audit divergence detected');
   $decisions->exec("UPDATE inzet_review_decision_audit SET reviewer_id='NEVER_OUTPUT_ACTOR'");

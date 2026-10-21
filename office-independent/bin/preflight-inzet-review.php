@@ -55,6 +55,33 @@ final class OfficeInzetReviewPreflight {
     return $columns;
   }
 
+  /** Inspect only known identity columns; never emit row values or schema SQL. */
+  private static function identityEvidence(PDO $db, string $table, string $key, array $columns): array {
+    $object=$db->prepare('SELECT type FROM sqlite_master WHERE name=?');
+    $object->execute([$table]);
+    $primary=array_filter($columns,static fn(array $column): bool => (int)$column['pk']>0);
+    $singlePrimary=count($primary)===1 && (int)$columns[$key]['pk']===1;
+    $singleUnique=false;
+    foreach ($db->query('PRAGMA index_list('.$table.')')->fetchAll(PDO::FETCH_ASSOC) as $index) {
+      if ((int)$index['unique']!==1 || (int)($index['partial'] ?? 0)!==0) continue;
+      $quoted='"'.str_replace('"','""',$index['name']).'"';
+      $indexed=$db->query('PRAGMA index_info('.$quoted.')')->fetchAll(PDO::FETCH_ASSOC);
+      if (count($indexed)===1 && $indexed[0]['name']===$key) $singleUnique=true;
+    }
+    return [
+      'object_kind'=>$object->fetchColumn() ?: 'unknown',
+      'key_column'=>$key,
+      'declared_type'=>strtoupper($columns[$key]['type']),
+      'primary_key_position'=>(int)$columns[$key]['pk'],
+      'primary_key_column_count'=>count($primary),
+      'single_column_primary_key'=>$singlePrimary,
+      'single_column_unique_index'=>$singleUnique,
+      'row_count'=>(int)$db->query('SELECT COUNT(*) FROM '.$table)->fetchColumn(),
+      'null_keys'=>(int)$db->query('SELECT COUNT(*) FROM '.$table.' WHERE '.$key.' IS NULL')->fetchColumn(),
+      'duplicate_key_groups'=>(int)$db->query('SELECT COUNT(*) FROM (SELECT '.$key.' FROM '.$table.' WHERE '.$key.' IS NOT NULL GROUP BY '.$key.' HAVING COUNT(*)>1)')->fetchColumn(),
+    ];
+  }
+
   /** Only aggregate evidence is returned: never labels, notes, IDs or secrets. */
   public static function inspect(array $config, string $privateRoot, string $documentRoot): array {
     $result=['read_only'=>true,'source'=>'NOT_CHECKED','decisions'=>'NOT_CHECKED'];
@@ -72,10 +99,17 @@ final class OfficeInzetReviewPreflight {
       $issues=self::columns($source,'review_issues',['id','sheet_id','source_row_id','details','issue_code']);
       $rows=self::columns($source,'inzet_source_workbench',['source_row_id','row_number','person_label','project_label']);
       $sheets=self::columns($source,'worksheets',['id','sheet_name']);
-      if ((int)$issues['id']['pk']!==1 || (int)$rows['source_row_id']['pk']!==1 || (int)$sheets['id']['pk']!==1) {
-        throw new RuntimeException('SOURCE_IDENTITY_KEY_REVIEW_REQUIRED');
+      $result['source_identity']=[
+        'review_issues'=>self::identityEvidence($source,'review_issues','id',$issues),
+        'inzet_source_workbench'=>self::identityEvidence($source,'inzet_source_workbench','source_row_id',$rows),
+        'worksheets'=>self::identityEvidence($source,'worksheets','id',$sheets),
+      ];
+      $sourceReady=true;
+      foreach ($result['source_identity'] as $identity) {
+        if (!$identity['single_column_primary_key'] || $identity['null_keys']!==0 || $identity['duplicate_key_groups']!==0) $sourceReady=false;
       }
-      $result['source']='READY';
+      $result['source']=$sourceReady ? 'READY' : 'IDENTITY_KEY_REVIEW_REQUIRED';
+      if (!$sourceReady) $result['reason']='SOURCE_IDENTITY_KEY_REVIEW_REQUIRED';
       $result['source_rows']=(int)$source->query('SELECT COUNT(*) FROM inzet_source_workbench')->fetchColumn();
       $result['source_issues']=(int)$source->query('SELECT COUNT(*) FROM review_issues')->fetchColumn();
       $result['issues_without_source_row']=(int)$source->query('SELECT COUNT(*) FROM review_issues i LEFT JOIN inzet_source_workbench s ON s.source_row_id=i.source_row_id WHERE s.source_row_id IS NULL')->fetchColumn();
@@ -84,7 +118,7 @@ final class OfficeInzetReviewPreflight {
       $path=$config['OFFICE_TEST_INZET_REVIEW_DECISIONS_SQLITE_PATH'] ?? null;
       if (!is_string($path) || $path==='') {
         $result['decisions']='NOT_CONFIGURED';
-        return $result+['status'=>'REVIEW_REQUIRED'];
+        return $result+['status'=>$sourceReady ? 'REVIEW_REQUIRED' : 'BLOCKED'];
       }
       $path=self::privateFile($path,$root,$web);
       if ($path===$sourcePath || (stat($path)['ino']===stat($sourcePath)['ino'] && stat($path)['dev']===stat($sourcePath)['dev'])) {
@@ -111,15 +145,15 @@ final class OfficeInzetReviewPreflight {
       }
       $result['decisions_without_source_issue']=$orphans;
       $result['decisions']=$result['reviewer_column_types']===['TEXT','TEXT'] ? 'TEXT_SCHEMA' : 'SCHEMA_CONVERSION_REVIEW_REQUIRED';
-      $ready=$result['decisions']==='TEXT_SCHEMA' && $result['reviewer_configured']
+      $ready=$sourceReady && $result['decisions']==='TEXT_SCHEMA' && $result['reviewer_configured']
         && $result['audit_mismatches']===0 && $result['duplicate_audit_revisions']===0
         && $result['audit_history_gaps']===0 && $result['audit_without_decision']===0 && $result['unexpected_schema_objects']===0 && $orphans===0;
-      return $result+['status'=>$ready ? 'READY_FOR_REVIEW' : 'REVIEW_REQUIRED'];
+      return $result+['status'=>!$sourceReady ? 'BLOCKED' : ($ready ? 'READY_FOR_REVIEW' : 'REVIEW_REQUIRED')];
     } catch (Throwable $error) {
       // Emit a controlled code only. SQLite errors can contain private paths/data.
       $allowed=['PRIVATE_FILE_REQUIRED','DATABASE_UNREADABLE','SQLITE_FILE_REQUIRED','OFFLINE_SNAPSHOT_REQUIRED','DATABASE_INTEGRITY_FAILED','SCHEMA_COLUMNS_MISSING','OFFICE_TEST_PRIVATE_BOUNDARY_REQUIRED','SOURCE_NOT_CONFIGURED','SOURCE_IDENTITY_KEY_REVIEW_REQUIRED','SOURCE_DECISION_ALIAS_REJECTED','DECISION_IDENTITY_KEY_REVIEW_REQUIRED'];
       $code=in_array($error->getMessage(),$allowed,true) ? $error->getMessage() : 'SCHEMA_INSPECTION_FAILED';
-      return $result+['status'=>'BLOCKED','reason'=>$code];
+      return array_replace($result,['status'=>'BLOCKED','reason'=>$code]);
     }
   }
 }
