@@ -76,3 +76,17 @@ De voorbereide testuitrol bestaat uit een reproduceerbare, zelfstandige PHP-inst
 Bij een fout wordt de oude reviewcode/config hersteld als alle betrokken bestanden nog bekende hashes hebben. --rollback weigert latere onbekende config-/runtime-/routeredits én gewijzigde beslissingen sinds activering, zodat een terugkeer naar de oude opslag nieuw werk niet onzichtbaar maakt. Het verwijdert geen database. Back-ups en het manifest blijven buiten de webroot staan.
 
 Negen lokale tests slagen, inclusief echte uitvoering van het gebouwde pakket: check zonder mutaties, installatie, exact één configwaarde wijzigen met behoud van comments/secrets, behouden router/OnSite/databases, nieuwe bestanden gecontroleerd verwijderen bij herstel, latere edits en nieuwe beoordelingen weigeren, foutinjectie na config-publicatie en CLI-rollback. CI draait dit op PHP 8.3/8.5. Eerst de --check-uitvoer op de echte server beoordelen; nog geen testinstallatie, omschakeling of browseracceptatie bevestigd.
+
+## Office-testactivering bevestigd — 21 oktober 2026
+
+De gebruiker heeft het hash-gecontroleerde testuitrolpakket uitgevoerd. Resultaat: OFFICE_TEST_REVIEW_ACTIVATED, vijf runtimebestanden. Router en gedeelde sessieafhankelijkheden zijn ongewijzigd; bron, originele beslissingenopslag en voorbereide kopie zijn tijdens de uitrol ongewijzigd gebleven. De testconfig verwijst nu naar de geverifieerde TEXT-kopie.
+
+- Uitgerolde packagebroncommit: b891be8b95822fee1b69dc23fb8a268769d5dae7.
+- Installer-SHA256: 1b79df58b728d74b3c88f7e64f2dcc1462e6db9af4c1d40d11d60fe9e29b3969.
+- Herstelsnapshot: review-test-rollout-c5846db80bdb9d15c08b, buiten de webroot onder office_calc_test.
+- Scope: alleen Office-test bronreview; geen productiedeploy, iPhone-build of merge naar develop.
+- Bewijs: door gebruiker teruggekoppelde installeruitvoer. Geen onafhankelijke browseracceptatie of ingediende menselijke PR-review bewezen.
+
+Volgende runtimeacceptatie in de eigen aangemelde browser: /office-test/inzet/importcontrole toont 1.940 bronregels, 85 controlepunten, broncontext en het bestaande besluit. Controleer filteren en opslagknoppen. Op één open testcontrolepunt kan uitsluitend het onderzoekvoorstel 'Medewerker onderzoeken' met een herkenbare testtoelichting worden opgeslagen en na verversen gecontroleerd. Geen uitsluiting of persoons-/projectkoppeling nodig voor deze smoke. Bron blijft ongewijzigd; nieuwe besluiten/audit horen alleen in de actieve kopie. Browserstatus en de bron/auditcontrole na deze handeling blijven nog open.
+
+Het deployment-rollbackcommando is geen algemene gegevensrollback: zodra de actieve kopie nieuwe beoordelingen bevat, weigert het terugschakelen zonder afzonderlijke beoordeling van die nieuwe historie. Laat de herstelsnapshot, originele opslag en kopie daarom staan. De oude packagecheck heeft bovendien een vastgelegde kopiehash van vóór de browser-smoke; gebruik na nieuwe beoordelingen de read-only review-preflight om schema/audit te controleren, niet opnieuw de oorspronkelijke installatiecheck om data gelijk te verwachten.
