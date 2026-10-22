@@ -156,6 +156,8 @@ jobs:
           php -l office-independent/src/Inzet/OnSitePresenceIntervalProjector.php
           php -l office-independent/src/Inzet/OnSitePresenceReviewRepository.php
           php -l office-independent/src/Inzet/OnSitePresenceReviewView.php
+          php -l office-independent/public/office-onsite-presence-review.php
+          php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
           php office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
           php -l office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
