@@ -96,6 +96,16 @@ jobs:
           python3 scripts/build-office-zone-test-update-package.py --output-dir "$RUNNER_TEMP/office-zone-update-package" --commit "$GITHUB_SHA"
           php -l "$RUNNER_TEMP/office-zone-update-package/office-zone-testupdate-20261022.php"
           php -l "$RUNNER_TEMP/office-zone-package/office-zone-testdeploy-20261020.php"
+      - name: Publish Office-test zone update package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-zone-testupdate
+          path: |
+            ${{ runner.temp }}/office-zone-update-package/office-zone-testupdate-20261022.php
+            ${{ runner.temp }}/office-zone-update-package/office-zone-testupdate-manifest.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Personnel route and security regression tests
         run: |
           for file in office-independent/src/Inzet/OfficeInzetPersonnel*.php office-independent/public/office-inzet-personnel-number.php office-independent/deployment/hostinger/office-inzet-test-preflight.php office-independent/tests/OfficeInzetPersonnel*.php; do
