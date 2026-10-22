@@ -69,6 +69,34 @@ final class OfficeBuildingZoneRepository {
     }
   }
 
+  /** Compare-and-swap update; zone identity and building ownership never change. */
+  public function update(string $zoneId, string $buildingId, int $revision, array $changes, \Closure $authorizedBuilding): bool {
+    if (!preg_match('/^[1-9][0-9]{0,18}$/D',$zoneId)
+      || !preg_match('/^[1-9][0-9]{0,18}$/D',$buildingId)
+      || $revision<1 || array_diff(array_keys($changes),['zone_name','latitude','longitude','radius_metres'])!==[]
+      || count($changes)!==4) throw new InvalidArgumentException('invalid_zone_update');
+    $name=$changes['zone_name'];
+    $lat=$changes['latitude'];$lon=$changes['longitude'];$radius=$changes['radius_metres'];
+    if (!is_string($name) || trim($name)==='' || strlen(trim($name))>160
+      || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
+      || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
+      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>1000)
+      throw new InvalidArgumentException('invalid_zone_update');
+    if ($this->db->inTransaction()) throw new RuntimeException('nested_building_zone_transaction');
+    $this->db->beginTransaction();
+    try {
+      if (!$authorizedBuilding($buildingId)) throw new InvalidArgumentException('unauthorized_building_zone');
+      $stmt=$this->db->prepare('UPDATE office_building_zones SET zone_name=?,latitude=?,longitude=?,radius_metres=?,revision=revision+1 WHERE id=? AND building_id=? AND active=1 AND revision=?');
+      $stmt->execute([trim($name),(float)$lat,(float)$lon,(float)$radius,$zoneId,$buildingId,$revision]);
+      $updated=$stmt->rowCount()===1;
+      $this->db->commit();
+      return $updated;
+    } catch (\Throwable $e) {
+      if ($this->db->inTransaction()) $this->db->rollBack();
+      throw $e;
+    }
+  }
+
   /**
    * Project-scoped read through the building relation.
    * The project does not own or duplicate any zone.
