@@ -104,20 +104,23 @@ foreach ($buildings as $building) {
   $buildingOptions.='<option value="'.$escape($building['id']).'"'.($selectedBuilding!==null && (string)$selectedBuilding['id']===(string)$building['id']?' selected':'').'>'.$escape($building['building_name']).'</option>';
 }
 $buildingOptions.='</select></label>';
-$updateForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-update" method="post" action="/office-test/inzet/zone/bewerken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_id" id="update-id"><input type="hidden" name="revision" id="update-revision"><input type="hidden" name="zone_name" id="update-name"><input type="hidden" name="latitude" id="update-lat"><input type="hidden" name="longitude" id="update-lon"><input type="hidden" name="radius_metres" id="update-radius"><button id="update-zone" type="submit" disabled>Wijzigingen opslaan</button></form>' : '';
+$updateForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-update" method="post" action="/office-test/inzet/zone/bewerken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_id" id="update-id"><input type="hidden" name="revision" id="update-revision"><input type="hidden" name="zone_name" id="update-name"><input type="hidden" name="latitude" id="update-lat"><input type="hidden" name="longitude" id="update-lon"><input type="hidden" name="radius_metres" id="update-radius"><button id="update-zone" type="submit" disabled>Wijzigen inschakelen</button></form>' : '';
 $saveForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Gebruik een bestaande gebouwzone of vul een gecontroleerd middelpunt in. Kaarttegels worden pas na inschakelen geladen. Opslag uitsluitend op het geselecteerde gebouw.</p>'.$startInputs.'<button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="'.$escape($existingName).'" required></label><label>Straal: <output id="metres">'.$escape($existingRadius).'</output> meter <input id="radius" type="range" min="10" max="1000" step="10" value="'.$escape($existingRadius).'"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneSelector.$zoneList.$saveForm.$updateForm.'<small>Alleen testomgeving. Bij inschakelen ontvangt de kaartprovider de opgevraagde kaartregio.</small></section></main><script>
 (()=>{
  const zones='.$zoneDataJson.';
- let center=null,map,circle,marker;
+ let center=null,map,circle,marker,editing=false;
  const zoneSelect=document.getElementById("saved-zone");
  const activeZone=()=>zones.find(z=>z.id===zoneSelect.value)||null;
+ const canMove=()=>!activeZone()||editing;
+ const updateButton=document.getElementById("update-zone");
  const enable=document.getElementById("enable"),radius=document.getElementById("radius"),status=document.getElementById("status"),preview=document.getElementById("preview");
  const metres=document.getElementById("metres"),zoneName=document.getElementById("zone-name");
  radius.addEventListener("input",()=>{metres.textContent=radius.value;if(circle)circle.setRadius(Number(radius.value));});
  function render(){circle.setLatLng(center);marker.setLatLng(center);status.textContent="Middelpunt: "+center.lat.toFixed(7)+", "+center.lng.toFixed(7);}
  function selectZone(){
   const z=activeZone(),save=document.getElementById("save-zone");
+  editing=false;
   if(z){
    center={lat:z.lat,lng:z.lng};
    document.getElementById("start-lat").value=z.lat;
@@ -127,8 +130,9 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
    metres.textContent=radius.value;
    if(map){map.setView([z.lat,z.lng],16);circle.setLatLng(center);circle.setRadius(z.radius);marker.setLatLng(center);render();}
   }
-  document.getElementById("zone-view-mode").textContent=z?"Bestaande zone: alleen bekijken. Kies Nieuwe zone voor een nieuwe registratie.":"Nieuwe zone aanmaken.";
+  document.getElementById("zone-view-mode").textContent=z?"Bestaande zone geselecteerd. Klik op Wijzigen inschakelen om de zone te bewerken.":"Nieuwe zone aanmaken.";
   if(save)save.disabled=!map||!!z;
+  if(updateButton)updateButton.disabled=!map||!z;
  }
  zoneSelect.addEventListener("change",selectZone);
  function init(){
@@ -136,8 +140,8 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   L.tileLayer.wms("https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0",{layers:"Actueel_orthoHR",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",maxZoom:19,attribution:"Luchtfoto: PDOK"}).addTo(map);
   circle=L.circle([center.lat,center.lng],{radius:Number(radius.value),color:"#175cd3",fillOpacity:.15}).addTo(map);
   marker=L.marker([center.lat,center.lng],{draggable:true}).addTo(map);
-  map.on("click",event=>{if(activeZone())return;center=event.latlng;render();});
-  marker.on("dragend",()=>{if(activeZone()){marker.setLatLng(center);return;}center=marker.getLatLng();render();});
+  map.on("click",event=>{if(!canMove())return;center=event.latlng;render();});
+  marker.on("dragend",()=>{if(!canMove()){marker.setLatLng(center);return;}center=marker.getLatLng();render();});
   enable.disabled=true;preview.disabled=false;const save=document.getElementById("save-zone");if(save)save.disabled=false;render();selectZone();
  }
  enable.addEventListener("click",()=>{
@@ -150,6 +154,20 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   const script=document.createElement("script");script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
   script.onload=init;script.onerror=()=>{enable.disabled=false;status.textContent="Kaartbibliotheek niet beschikbaar.";};
   document.head.appendChild(script);
+ });
+ const updateForm=document.getElementById("zone-update");
+ if(updateForm)updateForm.addEventListener("submit",event=>{
+  const z=activeZone(),name=zoneName.value.trim();
+  if(!z||!center||!editing||!name||new TextEncoder().encode(name).length>160){event.preventDefault();status.textContent="Selecteer eerst een zone en schakel bewerken in.";return;}
+  document.getElementById("update-id").value=z.id;
+  document.getElementById("update-revision").value=z.revision;
+  document.getElementById("update-name").value=name;
+  document.getElementById("update-lat").value=center.lat.toFixed(7);
+  document.getElementById("update-lon").value=center.lng.toFixed(7);
+  document.getElementById("update-radius").value=radius.value;
+ });
+ if(updateButton)updateButton.addEventListener("click",event=>{
+  if(!editing){event.preventDefault();if(!activeZone()||!map)return;editing=true;updateButton.textContent="Wijzigingen opslaan";document.getElementById("zone-view-mode").textContent="Bewerken actief: verplaats de marker of wijzig de straal, sla daarna op.";}
  });
  const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{if(activeZone()){event.preventDefault();status.textContent="Bestaande zone kan hier niet opnieuw worden opgeslagen.";return;}const name=zoneName.value.trim();if(!center||!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
  preview.addEventListener("click",()=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160){status.textContent="Ongeldige zonenaam (maximaal 160 bytes).";return;}document.getElementById("result").textContent=JSON.stringify({building_id:'.($selectedBuilding!==null ? json_encode((string)$selectedBuilding['id'],JSON_THROW_ON_ERROR) : 'null').',zone_name:name,latitude:center.lat,longitude:center.lng,radius_metres:Number(radius.value),saved:false},null,2);});
