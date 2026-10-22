@@ -38,6 +38,7 @@ $createdZone=null;
 $projectZones=[];
 $buildings=[];
 $selectedBuilding=null;
+$updatedId=filter_var($_GET['zone_updated']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
 $createdId=filter_var($_GET['zone_created']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
 $buildingId=filter_var($_GET['building_id']??null,FILTER_VALIDATE_INT,['options'=>['min_range'=>1]]);
 $zoneWriteEnabled=getenv('OFFICE_TEST_ZONE_WRITE_ENABLED')==='enabled'
@@ -59,7 +60,7 @@ if ($zoneWriteEnabled) {
         && $buildingRepo->belongsToProject((string)$id,$candidate);
       $projectZones=(new \Brebo\Office\Buildings\OfficeBuildingZoneRepository($db))->forBuilding((string)$buildingId,$authorizedBuilding);
       foreach ($projectZones as $row) {
-        if (is_int($createdId) && (string)$row['id']===(string)$createdId) $createdZone=$row;
+        if ((is_int($createdId) && (string)$row['id']===(string)$createdId) || (is_int($updatedId) && (string)$row['id']===(string)$updatedId)) $createdZone=$row;
       }
     }
   } catch (Throwable $e) {
@@ -93,7 +94,7 @@ foreach ($projectZones as $zoneRow) {
 $zoneSelector='<label for="saved-zone">Zone bekijken <select id="saved-zone">'.$zoneOptions.'</select></label><p id="zone-view-mode">Bestaande zones worden alleen getoond; bewerken is nog niet ingeschakeld.</p>';
 $zoneData=[];
 foreach ($projectZones as $zoneRow) {
-  $zoneData[]=['id'=>(string)$zoneRow['id'],'name'=>(string)$zoneRow['zone_name'],'lat'=>(float)$zoneRow['latitude'],'lng'=>(float)$zoneRow['longitude'],'radius'=>(float)$zoneRow['radius_metres']];
+  $zoneData[]=['id'=>(string)$zoneRow['id'],'name'=>(string)$zoneRow['zone_name'],'lat'=>(float)$zoneRow['latitude'],'lng'=>(float)$zoneRow['longitude'],'radius'=>(float)$zoneRow['radius_metres'],'revision'=>(int)$zoneRow['revision']];
 }
 $zoneDataJson=json_encode($zoneData,JSON_THROW_ON_ERROR|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);
 
@@ -103,8 +104,9 @@ foreach ($buildings as $building) {
   $buildingOptions.='<option value="'.$escape($building['id']).'"'.($selectedBuilding!==null && (string)$selectedBuilding['id']===(string)$building['id']?' selected':'').'>'.$escape($building['building_name']).'</option>';
 }
 $buildingOptions.='</select></label>';
+$updateForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-update" method="post" action="/office-test/inzet/zone/bewerken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_id" id="update-id"><input type="hidden" name="revision" id="update-revision"><input type="hidden" name="zone_name" id="update-name"><input type="hidden" name="latitude" id="update-lat"><input type="hidden" name="longitude" id="update-lon"><input type="hidden" name="radius_metres" id="update-radius"><button id="update-zone" type="submit" disabled>Wijzigingen opslaan</button></form>' : '';
 $saveForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Gebruik een bestaande gebouwzone of vul een gecontroleerd middelpunt in. Kaarttegels worden pas na inschakelen geladen. Opslag uitsluitend op het geselecteerde gebouw.</p>'.$startInputs.'<button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="'.$escape($existingName).'" required></label><label>Straal: <output id="metres">'.$escape($existingRadius).'</output> meter <input id="radius" type="range" min="10" max="1000" step="10" value="'.$escape($existingRadius).'"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneSelector.$zoneList.$saveForm.'<small>Alleen testomgeving. Bij inschakelen ontvangt de kaartprovider de opgevraagde kaartregio.</small></section></main><script>
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p>Gebruik een bestaande gebouwzone of vul een gecontroleerd middelpunt in. Kaarttegels worden pas na inschakelen geladen. Opslag uitsluitend op het geselecteerde gebouw.</p>'.$startInputs.'<button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="'.$escape($existingName).'" required></label><label>Straal: <output id="metres">'.$escape($existingRadius).'</output> meter <input id="radius" type="range" min="10" max="1000" step="10" value="'.$escape($existingRadius).'"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneSelector.$zoneList.$saveForm.$updateForm.'<small>Alleen testomgeving. Bij inschakelen ontvangt de kaartprovider de opgevraagde kaartregio.</small></section></main><script>
 (()=>{
  const zones='.$zoneDataJson.';
  let center=null,map,circle,marker;
