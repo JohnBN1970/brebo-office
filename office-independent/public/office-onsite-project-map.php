@@ -114,6 +114,21 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  const metres=document.getElementById("metres"),zoneName=document.getElementById("zone-name");
  radius.addEventListener("input",()=>{metres.textContent=radius.value;if(circle)circle.setRadius(Number(radius.value));});
  function render(){circle.setLatLng(center);marker.setLatLng(center);status.textContent="Middelpunt: "+center.lat.toFixed(7)+", "+center.lng.toFixed(7);}
+ function selectZone(){
+  const z=activeZone(),save=document.getElementById("save-zone");
+  if(z){
+   center={lat:z.lat,lng:z.lng};
+   document.getElementById("start-lat").value=z.lat;
+   document.getElementById("start-lon").value=z.lng;
+   zoneName.value=z.name;
+   radius.value=Math.max(10,Math.min(1000,Math.round(z.radius/10)*10));
+   metres.textContent=radius.value;
+   if(map){map.setView([z.lat,z.lng],16);circle.setLatLng(center);circle.setRadius(z.radius);marker.setLatLng(center);render();}
+  }
+  document.getElementById("zone-view-mode").textContent=z?"Bestaande zone: alleen bekijken. Kies Nieuwe zone voor een nieuwe registratie.":"Nieuwe zone aanmaken.";
+  if(save)save.disabled=!map||!!z;
+ }
+ zoneSelect.addEventListener("change",selectZone);
  function init(){
   map=L.map("map",{scrollWheelZoom:false}).setView([center.lat,center.lng],16);
   L.tileLayer.wms("https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0",{layers:"Actueel_orthoHR",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",maxZoom:19,attribution:"Luchtfoto: PDOK"}).addTo(map);
