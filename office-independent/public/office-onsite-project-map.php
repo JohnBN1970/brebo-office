@@ -86,6 +86,17 @@ foreach ($projectZones as $zoneRow) {
   $zoneList.='<li>Zone '.$escape($zoneRow['id']).': '.$escape($zoneRow['zone_name']).' — '.$escape($zoneRow['radius_metres']).' meter (revisie '.$escape($zoneRow['revision']).')</li>';
 }
 $zoneList.='</ul>';
+$zoneOptions='<option value="">Nieuwe zone</option>';
+foreach ($projectZones as $zoneRow) {
+  $zoneOptions.='<option value="'.$escape($zoneRow['id']).'">'.$escape($zoneRow['zone_name']).' (revisie '.$escape($zoneRow['revision']).')</option>';
+}
+$zoneSelector='<label for="saved-zone">Zone bekijken <select id="saved-zone">'.$zoneOptions.'</select></label><p id="zone-view-mode">Bestaande zones worden alleen getoond; bewerken is nog niet ingeschakeld.</p>';
+$zoneData=[];
+foreach ($projectZones as $zoneRow) {
+  $zoneData[]=['id'=>(string)$zoneRow['id'],'name'=>(string)$zoneRow['zone_name'],'lat'=>(float)$zoneRow['latitude'],'lng'=>(float)$zoneRow['longitude'],'radius'=>(float)$zoneRow['radius_metres']];
+}
+$zoneDataJson=json_encode($zoneData,JSON_THROW_ON_ERROR|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT);
+
 $createdNotice=$createdZone!==null ? '<p role="status">Zone '.$escape($createdZone['zone_name']).' opgeslagen en teruggelezen uit Office-testdatabase (zone '.$escape($createdZone['id']).', revisie '.$escape($createdZone['revision']).').</p>' : '';
 $buildingOptions='<label for="building-select">Gebouw <select id="building-select" onchange="location.href=\'/office-test/inzet/projectkaart?id='.$id.'&building_id=\'+encodeURIComponent(this.value)"><option value="">Selecteer een gebouw</option>';
 foreach ($buildings as $building) {
