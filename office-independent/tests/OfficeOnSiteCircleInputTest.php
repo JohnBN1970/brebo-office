@@ -24,6 +24,16 @@ try {
   $rejected = $exception->getMessage() === 'office_circle_project_not_authorized';
 }
 if (!$rejected) throw new RuntimeException('Missing Office session project accepted');
+// Keep Office circle validation aligned with the iPhone geofence maximum.
+$atLimit=OnSiteOfficeCircleInput::forAuthorizedProject(array_replace($input,['radius_metres'=>1000]),'17');
+if ($atLimit['radius_metres']!==1000.0) throw new RuntimeException('1000 metre zone rejected');
+$tooLarge=false;
+try {
+  OnSiteOfficeCircleInput::forAuthorizedProject(array_replace($input,['radius_metres'=>1000.01]),'17');
+} catch (InvalidArgumentException $exception) {
+  $tooLarge=true;
+}
+if (!$tooLarge) throw new RuntimeException('Circle input accepted radius above 1000 metres');
 $input['zone_id']='99';
 $rejected = false;
 try {
