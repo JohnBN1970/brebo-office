@@ -24,10 +24,10 @@ foreach ([
   'CREATE TEMPORARY TABLE office_onsite_device_tokens (token_hash CHAR(64) PRIMARY KEY,person_id BIGINT NOT NULL,revoked_at DATETIME NULL,expires_at DATETIME NULL)'
 ] as $sql) $db->exec($sql);
 $db->exec("INSERT INTO office_inzet_people VALUES (101,1),(102,1),(103,0)");
-$db->exec("INSERT INTO office_projects VALUES (17,'Testproject'),(18,'Ander project')");
+$db->exec("INSERT INTO office_projects VALUES (17,'Testproject'),(18,'Ander project'),(19,'Gedeeld gebouw')");
 $db->exec("INSERT INTO office_inzet_project_team VALUES (101,17),(102,18),(103,17)");
 $db->exec("INSERT INTO office_buildings VALUES (9,'Testgebouw'),(10,'Ander gebouw')");
-$db->exec("INSERT INTO office_project_buildings VALUES (17,9),(18,10)");
+$db->exec("INSERT INTO office_project_buildings VALUES (17,9),(18,10),(19,9)");
 $db->exec("INSERT INTO office_building_zones VALUES (8,9,'Ingang',51.5000000,4.3000000,100,1),(9,9,'Uitgeschakeld',51.5,4.3,100,0),(10,10,'Niet toegewezen',51.5,4.3,100,1),(11,9,'Te groot',51.5,4.3,1500,1)");
 $token=str_repeat('t',48);
 $db->prepare('INSERT INTO office_onsite_device_tokens (token_hash,person_id) VALUES (?,101)')->execute([hash('sha256',$token)]);
@@ -42,6 +42,24 @@ if ($result['status']!==200 || count($result['body']['projects'])!==1
   || $result['body']['projects'][0]['zones'][0]['id']!=='8') {
   throw new RuntimeException('Bootstrap leaked unauthorized, inactive or oversized zone');
 }
+// The same building may belong to multiple projects, but team membership is mandatory.
+$db->exec('INSERT INTO office_inzet_project_team VALUES (101,19)');
+$shared=$service->bootstrap($token,$load);
+if ($shared['status']!==200 || count($shared['body']['projects'])!==2) {
+  throw new RuntimeException('Shared building assignment not reflected');
+}
+$db->exec('DELETE FROM office_inzet_project_team WHERE person_id=101 AND project_id=19');
+$db->exec('DELETE FROM office_inzet_project_team WHERE person_id=101 AND project_id=17');
+$unassigned=$service->bootstrap($token,$load);
+if ($unassigned['status']!==200 || $unassigned['body']['projects']!==[]) {
+  throw new RuntimeException('Removed team assignment still visible');
+}
+$db->exec('INSERT INTO office_inzet_project_team VALUES (101,17)');
+$db->exec('UPDATE office_onsite_device_tokens SET expires_at=UTC_TIMESTAMP() - INTERVAL 1 MINUTE');
+if ($service->bootstrap($token,$load)['status']!==401) {
+  throw new RuntimeException('Expired device accepted');
+}
+$db->exec('UPDATE office_onsite_device_tokens SET expires_at=NULL');
 $db->exec('UPDATE office_inzet_people SET active=0 WHERE id=101');
 if ($service->bootstrap($token,$load)['status']!==401) throw new RuntimeException('Inactive employee accepted');
 $db->exec('UPDATE office_inzet_people SET active=1 WHERE id=101');
