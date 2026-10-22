@@ -47,9 +47,11 @@ final class OfficeZoneTestUpdate {
     if (is_link($stateFile) || is_link(dirname($stateFile))) throw new RuntimeException('state_symlink');
     $state=json_decode((string)file_get_contents($stateFile),true,512,JSON_THROW_ON_ERROR);
     if (($state['state']??null)!=='enabled') throw new RuntimeException('original_install_not_enabled');
-    if (!hash_equals((string)$state['router_installed'], (string)hash_file('sha256',$this->router))
-      || !hash_equals((string)$state['config_enabled'], (string)hash_file('sha256',$this->config))) {
-      throw new RuntimeException('router_or_configuration_changed');
+    if (!hash_equals((string)$state['router_installed'], (string)hash_file('sha256',$this->router))) {
+      throw new RuntimeException('router_changed');
+    }
+    if (!hash_equals((string)$state['config_enabled'], (string)hash_file('sha256',$this->config))) {
+      $this->verifyTestConfiguration();
     }
     $digest=hash('sha256',json_encode(array_map(static fn(string $source): string => hash('sha256',$source),$this->newFiles),JSON_THROW_ON_ERROR));
     $updateDir=$this->base.'/zone-update-'.substr($digest,0,12);
@@ -102,10 +104,29 @@ final class OfficeZoneTestUpdate {
     return ['status'=>'APPLIED','files'=>count(self::TARGETS),'router'=>'unchanged','config'=>'unchanged','database'=>'unchanged'];
   }
 
+  private function verifyTestConfiguration(): void {
+    $settings=require $this->config;
+    if (!is_array($settings)) throw new RuntimeException('test_configuration_not_array');
+    $get=static function(string $key) use ($settings): ?string {
+      $value=$settings[$key]??getenv($key);
+      return is_string($value)?$value:null;
+    };
+    $dsn=$get('OFFICE_INTAKE_DB_DSN');
+    if ($get('OFFICE_BASE_PATH')!=='/office-test'
+      || $get('OFFICE_PRIVATE_ROOT')!==$this->root
+      || $get('OFFICE_PUBLIC_HOST')!=='brebobv.nl'
+      || $get('OFFICE_INTAKE_DB_USER')!=='u213420663_office_test'
+      || !is_string($dsn)
+      || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)) {
+      throw new RuntimeException('test_configuration_identity_mismatch');
+    }
+  }
+
   private function write(string $path,string $content): void {
     $temp=dirname($path).'/.zone-update-'.bin2hex(random_bytes(10));
     try {
-      if (file_put_contents($temp,$content,LOCK_EX)!==strlen($content) || !chmod($temp,0600) || !rename($temp,$path)) {
+      $permissions=is_file($path)?(fileperms($path)&0777):0600;
+      if (file_put_contents($temp,$content,LOCK_EX)!==strlen($content) || !chmod($temp,$permissions) || !rename($temp,$path)) {
         throw new RuntimeException('update_atomic_write_failed');
       }
     } finally {if (is_file($temp)) unlink($temp);}
