@@ -158,7 +158,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  const updateForm=document.getElementById("zone-update");
  if(updateForm)updateForm.addEventListener("submit",event=>{
   const z=activeZone(),name=zoneName.value.trim();
-  if(!z||!center||!editing||!name||new TextEncoder().encode(name).length>160){event.preventDefault();status.textContent="Selecteer eerst een zone en schakel bewerken in.";return;}
+  if(!z||!center||!editing||!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180||Number(radius.value)<10||Number(radius.value)>1000){event.preventDefault();status.textContent="Selecteer eerst een zone en schakel bewerken in.";return;}
   document.getElementById("update-id").value=z.id;
   document.getElementById("update-revision").value=z.revision;
   document.getElementById("update-name").value=name;
