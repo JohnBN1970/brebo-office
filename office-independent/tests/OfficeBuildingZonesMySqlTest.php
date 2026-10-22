@@ -56,6 +56,30 @@ $otherZoneId = $zones->create(['building_id'=>$two,'zone_name'=>'Achterterrein',
 if ($adapter->callback()('17',$otherZoneId) || !$adapter->callback()('18',$otherZoneId)) {
   throw new RuntimeException('Unlinked building zone accessible from project');
 }
+// Revision-guarded update preserves identity and rejects stale, inactive and unauthorized writes.
+$before=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($before)) throw new RuntimeException('Zone missing before update');
+$initialRevision=(int)$before['revision'];
+$changed=['zone_name'=>'Hoofdingang gewijzigd','latitude'=>'51.501','longitude'=>'4.301','radius_metres'=>'200'];
+if (!$zones->update($zoneId,$one,$initialRevision,$changed,$buildingAccess))
+  throw new RuntimeException('Authorized revision update rejected');
+$after=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($after) || (string)$after['id']!==$zoneId
+  || (int)$after['revision']!==$initialRevision+1
+  || (string)$after['zone_name']!=='Hoofdingang gewijzigd')
+  throw new RuntimeException('Zone update did not retain identity and increment revision');
+if ($zones->update($zoneId,$one,$initialRevision,$changed,$buildingAccess))
+  throw new RuntimeException('Stale revision update accepted');
+$updateDenied=false;
+try {$zones->update($zoneId,$one,$initialRevision+1,$changed,static fn(string $id):bool=>false);}
+catch (InvalidArgumentException $e) {$updateDenied=$e->getMessage()==='unauthorized_building_zone';}
+if (!$updateDenied) throw new RuntimeException('Unauthorized zone update accepted');
+if ($zones->update($zoneId,$two,$initialRevision+1,$changed,$otherAccess))
+  throw new RuntimeException('Zone update crossed building ownership');
+$invalidUpdate=false;
+try {$zones->update($zoneId,$one,$initialRevision+1,[...$changed,'radius_metres'=>'1001'],$buildingAccess);}
+catch (InvalidArgumentException $e) {$invalidUpdate=$e->getMessage()==='invalid_zone_update';}
+if (!$invalidUpdate) throw new RuntimeException('Oversized zone update accepted');
 // Disabling a building zone must revoke all project memberships immediately.
 $db->prepare('UPDATE office_building_zones SET active=0 WHERE id=?')->execute([$zoneId]);
 if ($adapter->callback()('17',$zoneId) || $adapter->callback()('18',$zoneId)) {
