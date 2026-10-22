@@ -111,7 +111,7 @@ final class OfficeZoneTestUpdate {
       $value=$settings[$key]??getenv($key);
       return is_string($value)?$value:null;
     };
-    $dsn=$get('OFFICE_INTAKE_DB_DSN');
+    $dsn=$get('OFFICE_INTAKE_PDO_DSN');
     if ($get('OFFICE_BASE_PATH')!=='/office-test'
       || $get('OFFICE_PRIVATE_ROOT')!==$this->root
       || $get('OFFICE_PUBLIC_HOST')!=='brebobv.nl'
