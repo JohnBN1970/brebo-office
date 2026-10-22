@@ -51,7 +51,7 @@ final class OfficeZoneTestUpdate {
       || !hash_equals((string)$state['config_enabled'], (string)hash_file('sha256',$this->config))) {
       throw new RuntimeException('router_or_configuration_changed');
     }
-    $digest=hash('sha256',json_encode(array_map('hashSha',$this->newFiles),JSON_THROW_ON_ERROR));
+    $digest=hash('sha256',json_encode(array_map(static fn(string $source): string => hash('sha256',$source),$this->newFiles),JSON_THROW_ON_ERROR));
     $updateDir=$this->base.'/zone-update-'.substr($digest,0,12);
     if (is_link($updateDir)) throw new RuntimeException('update_state_symlink');
     $manifest=$updateDir.'/manifest.json';
@@ -111,4 +111,3 @@ final class OfficeZoneTestUpdate {
     } finally {if (is_file($temp)) unlink($temp);}
   }
 }
-function hashSha(string $content): string {return hash('sha256',$content);}
