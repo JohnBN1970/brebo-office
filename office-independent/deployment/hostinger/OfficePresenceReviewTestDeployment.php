@@ -44,7 +44,6 @@ final class OfficePresenceReviewTestDeployment {
     }
     $routerSource=(string)file_get_contents($this->router);
     $anchor="  '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',";
-    $digest=substr(hash('sha256',json_encode(array_map('hash',[]))),0,0);
     $digest=substr(hash('sha256',json_encode(array_map(static fn(string $v):string=>hash('sha256',$v),$this->files),JSON_THROW_ON_ERROR)),0,12);
     $stateDir=$this->base.'/presence-review-'.$digest;
     $manifest=$stateDir.'/manifest.json';
