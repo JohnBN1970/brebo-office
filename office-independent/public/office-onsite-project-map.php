@@ -4,7 +4,7 @@ declare(strict_types=1);
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
-header('Referrer-Policy: no-referrer');
+header('Referrer-Policy: same-origin');
 header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; script-src 'unsafe-inline' https://unpkg.com; img-src data: https://unpkg.com https://service.pdok.nl; connect-src https://service.pdok.nl; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '')!=='GET') {http_response_code(405);header('Allow: GET');exit;}
 if (getenv('OFFICE_BASE_PATH')!=='/office-test' || getenv('OFFICE_NATIVE_PROJECTS_ENABLED')!=='enabled'
