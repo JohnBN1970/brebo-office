@@ -34,7 +34,7 @@ if (!is_string($header) || !preg_match('/^Bearer ([A-Za-z0-9._~+\/-]{32,512})$/D
   $deny(401, 'device_not_linked');
 }
 try {
-  foreach (['OnSiteDeviceTokenRepository','OnSiteBootstrapRepository','OnSiteBootstrapService'] as $name) {
+  foreach (['OnSiteDeviceTokenRepository','OnSiteBootstrapRepository','OnSiteNativeBootstrapRepository','OnSiteBootstrapService'] as $name) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $name . '.php';
   }
   $dsn = getenv('OFFICE_INTAKE_PDO_DSN');
@@ -43,14 +43,23 @@ try {
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES=>false,
   ]);
-  if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
-    || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
-    throw new RuntimeException('OnSite project zones not verified');
+  $native = getenv('OFFICE_ONSITE_NATIVE_BUILDING_ZONES_VERIFIED') === 'enabled';
+  if ($native) {
+    if (getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_NATIVE_BUILDING_ZONES_SCHEMA_VERIFIED') !== 'enabled') {
+      throw new RuntimeException('Native OnSite zones not verified');
+    }
+    $repository = new \\Brebo\\Office\\Inzet\\OnSiteNativeBootstrapRepository($db);
+  } else {
+    if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
+      throw new RuntimeException('OnSite project zones not verified');
+    }
+    $repository = new \\Brebo\\Office\\Inzet\\OnSiteBootstrapRepository($db);
   }
-  $service = new \Brebo\Office\Inzet\OnSiteBootstrapService(
-    new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
+  $service = new \\Brebo\\Office\\Inzet\\OnSiteBootstrapService(
+    new \\Brebo\\Office\\Inzet\\OnSiteDeviceTokenRepository($db)
   );
-  $repository = new \Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
   $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId));
   http_response_code($result['status']);
   echo json_encode($result['body'], JSON_THROW_ON_ERROR);
