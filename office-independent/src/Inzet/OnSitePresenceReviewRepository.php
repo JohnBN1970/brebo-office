@@ -29,10 +29,11 @@ final class OnSitePresenceReviewRepository {
            WHERE a.id=? AND a.active=1 AND m.project_id=?
              AND m.permission='manage'
          )
-       ORDER BY e.occurred_at_utc DESC,e.event_id DESC LIMIT ".(int)$limit
+       ORDER BY e.occurred_at_utc DESC,e.event_id DESC LIMIT ".($limit+1)
     );
     $stmt->execute([$projectId,$operatorId,$projectId]);
     $events=$stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (count($events)>$limit) throw new \RuntimeException('presence_review_window_incomplete');
     return (new OnSitePresenceIntervalProjector())->project($events);
   }
 }
