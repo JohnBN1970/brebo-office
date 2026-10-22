@@ -25,7 +25,7 @@ final class OfficeBuildingZoneRepository {
       || !is_string($name) || trim($name)==='' || strlen(trim($name))>160
       || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
       || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
-      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>5000
+      || abs((float)$lat)>90 || abs((float)$lon)>180 || (float)$radius<=0 || (float)$radius>1000
       || array_key_exists('id',$zone) || array_key_exists('revision',$zone)
       || array_key_exists('project_id',$zone)) throw new InvalidArgumentException('invalid_building_zone');
     if ($requestKey !== null && !preg_match('/^[a-f0-9]{64}$/D', $requestKey)) {
