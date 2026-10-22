@@ -153,6 +153,7 @@ jobs:
       - name: Presence evidence interval projection
         run: |
           php -l office-independent/src/Inzet/OnSitePresenceIntervalProjector.php
+          php -l office-independent/src/Inzet/OnSitePresenceReviewRepository.php
           php -l office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
           php office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
       - name: MySQL transactional Inzet round trip
