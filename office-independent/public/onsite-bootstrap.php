@@ -49,16 +49,16 @@ try {
       || getenv('OFFICE_NATIVE_BUILDING_ZONES_SCHEMA_VERIFIED') !== 'enabled') {
       throw new RuntimeException('Native OnSite zones not verified');
     }
-    $repository = new \Brebo\Office\Inzet\\OnSiteNativeBootstrapRepository($db);
+    $repository = new \Brebo\Office\Inzet\OnSiteNativeBootstrapRepository($db);
   } else {
     if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
       || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
       throw new RuntimeException('OnSite project zones not verified');
     }
-    $repository = new \Brebo\Office\Inzet\\OnSiteBootstrapRepository($db);
+    $repository = new \Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
   }
-  $service = new \Brebo\Office\Inzet\\OnSiteBootstrapService(
-    new \Brebo\Office\Inzet\\OnSiteDeviceTokenRepository($db)
+  $service = new \Brebo\Office\Inzet\OnSiteBootstrapService(
+    new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
   );
   $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId));
   http_response_code($result['status']);
