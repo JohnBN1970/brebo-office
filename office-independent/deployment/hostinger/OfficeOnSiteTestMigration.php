@@ -33,6 +33,14 @@ final class OfficeOnSiteTestMigration {
     }
   }
 
+  /** Creating missing tables must not bring already-gated endpoints online as a side effect. */
+  public static function assertConsumersStopped(array $c, array $environment = []): void {
+    if (($c['OFFICE_ONSITE_SCHEMA_VERIFIED'] ?? '') === 'enabled'
+      || ($environment['OFFICE_ONSITE_SCHEMA_VERIFIED'] ?? '') === 'enabled') {
+      throw new RuntimeException('onsite_schema_gate_must_remain_disabled');
+    }
+  }
+
   public function run(string $mode = '--preflight', ?string $confirmation = null): array {
     if (!in_array($mode, ['--preflight', '--apply', '--postflight', '--rollback-plan'], true)) {
       throw new RuntimeException('unknown_mode');

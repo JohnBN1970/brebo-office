@@ -19,6 +19,10 @@ $config = [
   'OFFICE_INTAKE_PDO_DSN'=>'mysql:host=localhost;dbname=u213420663_office_test;charset=utf8mb4',
 ];
 OfficeOnSiteTestMigration::assertTarget($config);
+OfficeOnSiteTestMigration::assertConsumersStopped($config);
+$enabled=$config; $enabled['OFFICE_ONSITE_SCHEMA_VERIFIED']='enabled';
+rejects(fn()=>OfficeOnSiteTestMigration::assertConsumersStopped($enabled),'Active configured schema gate accepted');
+rejects(fn()=>OfficeOnSiteTestMigration::assertConsumersStopped($config,['OFFICE_ONSITE_SCHEMA_VERIFIED'=>'enabled']),'Active inherited schema gate accepted');
 $local = $config; $local['OFFICE_INTAKE_PDO_DSN'] = str_replace('localhost','127.0.0.1',$local['OFFICE_INTAKE_PDO_DSN']);
 OfficeOnSiteTestMigration::assertTarget($local);
 foreach (['OFFICE_BASE_PATH'=>'/office','OFFICE_PUBLIC_HOST'=>'other.nl', 'OFFICE_PRIVATE_ROOT'=>'/production/private',

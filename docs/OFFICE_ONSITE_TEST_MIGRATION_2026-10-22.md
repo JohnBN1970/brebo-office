@@ -14,6 +14,11 @@ nooit door een webrequest of applicatiebootstrap aangeroepen.
   om een afzonderlijke review van deze begrenzing.
 - Alleen database en account `u213420663_office_test`, lokale MySQL-host en
   `/office-test` op `brebobv.nl`. Geen DSN- of doeloverride via argumenten of environment.
+- Preflight/apply weigeren als de gezamenlijke runtimepoort
+  `OFFICE_ONSITE_SCHEMA_VERIFIED` in config of het CLI-environment al `enabled`
+  is. Laat die poort handmatig uit gedurende dit werk; de migratie wijzigt geen
+  flags. Zo kan het aanmaken van tabellen bestaande endpoints niet als bijeffect
+  activeren. Controleer ook eventuele afzonderlijke webserver-overrides handmatig.
 - `office_inzet_people` moet al bestaan met InnoDB, unsigned bigint primaire
   identiteit en niet-null tinyint `active`. De migratie wijzigt deze tabel nooit.
 - Bestaande doeltabellen moeten exact compatibele kolommen, defaults, sleutels,
