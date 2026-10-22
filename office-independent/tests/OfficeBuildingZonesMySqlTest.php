@@ -85,6 +85,9 @@ $db->prepare('UPDATE office_building_zones SET active=0 WHERE id=?')->execute([$
 if ($adapter->callback()('17',$zoneId) || $adapter->callback()('18',$zoneId)) {
   throw new RuntimeException('Inactive building zone still authorizes presence');
 }
+if ($zones->update($zoneId,$one,$initialRevision+1,$changed,$buildingAccess)) {
+  throw new RuntimeException('Inactive building zone accepted an update');
+}
 $db->prepare('UPDATE office_building_zones SET active=1 WHERE id=?')->execute([$zoneId]);
 if (!$adapter->callback()('17',$zoneId)) throw new RuntimeException('Reactivated zone not accessible');
 // Exercise the same validated transition and assignment gate used by device presence.
