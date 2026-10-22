@@ -15,6 +15,7 @@ foreach ([...OfficeZoneEditTestDeployment::REPLACE,...OfficeZoneEditTestDeployme
 }
 $routerOriginal="<?php\n\$routes = [\n  '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',\n];\n";
 file_put_contents($router,$routerOriginal);
+file_put_contents($base.'/.htaccess',"RewriteEngine On\nRewriteRule ^inzet/zone/bewerken/?$ index.php [END,QSA]\n");
 file_put_contents($config,"<?php\nreturn ".var_export([
  'OFFICE_BASE_PATH'=>'/office-test','OFFICE_PRIVATE_ROOT'=>$root,
  'OFFICE_PUBLIC_HOST'=>'brebobv.nl','OFFICE_INTAKE_DB_USER'=>'u213420663_office_test',
