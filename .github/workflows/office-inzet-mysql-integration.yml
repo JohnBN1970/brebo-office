@@ -17,6 +17,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteInvitationUiContractTest.php'
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
@@ -149,6 +150,11 @@ jobs:
           php -l office-independent/src/Inzet/OnSiteAssignmentGate.php
           php -l office-independent/tests/OfficeOnSiteAssignmentGateTest.php
           php office-independent/tests/OfficeOnSiteAssignmentGateTest.php
+      - name: Presence evidence interval projection
+        run: |
+          php -l office-independent/src/Inzet/OnSitePresenceIntervalProjector.php
+          php -l office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
+          php office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
       - name: MySQL transactional Inzet round trip
         env:
           OFFICE_INZET_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_inzet_ci;charset=utf8mb4
