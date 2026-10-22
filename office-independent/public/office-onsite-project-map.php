@@ -81,7 +81,7 @@ if ($zoneWriteEnabled && $selectedBuilding!==null) {
       (string)$selectedBuilding['id'],getenv('OFFICE_TEST_ZONE_CSRF_SECRET') ?: '',time());
   } catch (Throwable $e) {http_response_code(503);exit('Zoneformulier niet beschikbaar.');}
 }
-$zoneList='<h2>Personeelszones van het gebouw</h2><ul>';
+$zoneList='<h2>Personeelszones van het gebouw</h2><p>Opgeslagen zones zijn hieronder zichtbaar. Bestaande zones bewerken is nog niet ingeschakeld.</p><ul>';
 foreach ($projectZones as $zoneRow) {
   $zoneList.='<li>Zone '.$escape($zoneRow['id']).': '.$escape($zoneRow['zone_name']).' — '.$escape($zoneRow['radius_metres']).' meter (revisie '.$escape($zoneRow['revision']).')</li>';
 }
