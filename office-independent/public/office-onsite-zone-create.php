@@ -67,7 +67,7 @@ try {
   $body=file_get_contents('php://input',false,null,0,4097);
   if (!is_string($body)) throw new RuntimeException('zone_body_unavailable');
   $action=new \Brebo\Office\Inzet\OnSiteOfficeZonePostAction(new \Brebo\Office\Inzet\OnSiteOfficeCircleCreateService($db));
-  $result=$action->handle('POST',$host,$allowed,(string)($_SERVER['HTTP_ORIGIN'] ?? ''),
+  $result=$action->handle('POST',$host,$allowed,$expectedOrigin,
     (string)($_SERVER['CONTENT_TYPE'] ?? ''),$body,$actor,$secret,time());
   header('Location: /office-test/inzet/projectkaart?id='.rawurlencode($result['project_id'])
     .'&building_id='.rawurlencode($result['building_id']).'&zone_created='.rawurlencode($result['zone_id']),true,303);
