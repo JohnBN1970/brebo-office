@@ -63,6 +63,7 @@ $routes = [
   '/office-test/inzet/onsite/apparaat-intrekken' => 'office-onsite-device-revoke.php',
   '/office-test/projecten/detail' => 'office-project.php',
   '/office-test/inzet/projectkaart' => 'office-onsite-project-map.php',
+  '/office-test/inzet/aanwezigheid' => 'office-onsite-presence-review.php',
   '/office-test/inzet/zone/aanmaken' => 'office-onsite-zone-create.php',
   '/office-test/inzet/zone/bewerken' => 'office-onsite-zone-update.php',
 ];
