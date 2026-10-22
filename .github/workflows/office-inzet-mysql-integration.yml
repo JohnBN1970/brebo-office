@@ -89,6 +89,7 @@ jobs:
         run: |
           php office-independent/tests/OfficeInzetShiftCancellationMySqlTest.php
           php office-independent/tests/OfficeInzetShiftReschedulerMySqlTest.php
+          php office-independent/tests/OfficeInzetOperationalReviewMySqlTest.php
       - name: Isolated zone deployment and rollback
         run: |
           php -l office-independent/deployment/hostinger/OfficeZoneTestDeployment.php

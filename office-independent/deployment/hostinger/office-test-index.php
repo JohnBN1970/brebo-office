@@ -58,6 +58,7 @@ $routes = [
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/projecten' => 'office-projects.php',
   '/office-test/inzet/importcontrole' => 'office-inzet-import-review.php',
+  '/office-test/inzet/uren-beoordelen' => 'office-inzet-operational-review.php',
   '/office-test/inzet/dienst/nieuw' => 'office-inzet-shift-create.php',
   '/office-test/inzet/dienst/annuleren' => 'office-inzet-shift-cancel.php',
   '/office-test/inzet/dienst/wijzigen' => 'office-inzet-shift-reschedule.php',

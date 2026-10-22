@@ -62,11 +62,13 @@ final class OperationalInzetStore {
     } catch (\Throwable $e) { $this->db->rollBack(); throw $e; }
   }
 
-  public function decide(string $id, int $expectedRevision, string $state, string $actor, string $reason): void {
+  /** The optional trusted application guard runs inside the decision/audit transaction. */
+  public function decide(string $id, int $expectedRevision, string $state, string $actor, string $reason, ?\Closure $authorize = null): void {
     if (!in_array($state, ['approved','rejected','needs_correction'], true)) throw new RuntimeException('Invalid decision');
     self::nonempty($id, $actor, $reason);
     $this->db->beginTransaction();
     try {
+      if ($authorize !== null) $authorize($this->db);
       $q = $this->db->prepare('UPDATE inzet_registration SET state=?, revision=revision+1, updated_at=? WHERE id=? AND revision=? AND state=\'submitted\'');
       $q->execute([$state,gmdate('c'),$id,$expectedRevision]);
       if ($q->rowCount() !== 1) throw new RuntimeException('Stale or invalid registration state');

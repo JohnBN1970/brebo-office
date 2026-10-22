@@ -73,6 +73,11 @@ $inzetView = \Brebo\Office\Intake\OfficeMount::isTest() && ($_GET['view'] ?? '')
 header('Content-Type: text/html; charset=utf-8');
 echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . ($inzetView ? 'Inzet' : 'Projecten') . ' · BREBO Office</title><style>body{margin:0;background:#f4f6f9;color:#1b2634;font:16px system-ui,sans-serif}main{max-width:1100px;margin:40px auto;padding:0 24px}section{background:#fff;border:1px solid #dbe1e8;border-radius:12px;padding:24px}table{width:100%;border-collapse:collapse}th,td{text-align:left;padding:14px;border-bottom:1px solid #dbe1e8}a{color:#175a91}h1{margin-top:0}.inzet-kpis,.inzet-workflows{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px;margin:20px 0}.inzet-kpi,.inzet-workflow{border:1px solid #dbe1e8;border-radius:12px;padding:18px;background:#f8fafc}.inzet-kpi span,.inzet-kpi small,.inzet-workflow span{display:block;color:#57677b;font-size:13px}.inzet-kpi strong{display:block;font-size:25px;margin:8px 0}.inzet-workflow strong{display:block}.inzet-workflow span{margin:7px 0}.inzet-workflow p{font-size:14px;margin-bottom:0}@media(max-width:600px){table{display:block;overflow-x:auto}}</style></head><body><main><p><a href="' . $escape($base . '/') . '">← Mijn werkplek</a></p><section><h1>' . ($inzetView ? 'Inzet' : 'Projecten') . '</h1><p>' . ($inzetView ? 'Projecten waarvoor je toegang hebt. Selecteer een project om de projectinzet te bekijken. Weekplanning is beschikbaar wanneer de testgegevens zijn vrijgegeven; urenregistratie volgt later.' : 'Projecten waarvoor je toegang hebt.') . '</p>';
 if ($inzetView) {
+  if (getenv('OFFICE_TEST_INZET_OPERATIONAL_REVIEW_ENABLED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_OPERATIONAL_SCHEMA_VERIFIED') === 'enabled'
+    && getenv('OFFICE_TEST_INZET_OPERATIONAL_IDENTITIES_VERIFIED') === 'enabled') {
+    echo '<p><a href="'.$escape($base.'/inzet/uren-beoordelen').'">Ingediende uren beoordelen</a></p>';
+  }
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetDashboard.php';
   echo \Brebo\Office\Inzet\OfficeInzetDashboard::render($projects);
   require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetPlanningWorkbench.php';
