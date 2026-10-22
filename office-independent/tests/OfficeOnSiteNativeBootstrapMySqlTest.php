@@ -31,8 +31,8 @@ $db->exec("INSERT INTO office_project_buildings VALUES (17,9),(18,10)");
 $db->exec("INSERT INTO office_building_zones VALUES (8,9,'Ingang',51.5000000,4.3000000,100,1),(9,9,'Uitgeschakeld',51.5,4.3,100,0),(10,10,'Niet toegewezen',51.5,4.3,100,1),(11,9,'Te groot',51.5,4.3,1500,1)");
 $token=str_repeat('t',48);
 $db->prepare('INSERT INTO office_onsite_device_tokens (token_hash,person_id) VALUES (?,101)')->execute([hash('sha256',$token)]);
-$service=new \\Brebo\\Office\\Inzet\\OnSiteBootstrapService(new \\Brebo\\Office\\Inzet\\OnSiteDeviceTokenRepository($db));
-$repo=new \\Brebo\\Office\\Inzet\\OnSiteNativeBootstrapRepository($db);
+$service=new \Brebo\Office\Inzet\OnSiteBootstrapService(new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db));
+$repo=new \Brebo\Office\Inzet\OnSiteNativeBootstrapRepository($db);
 $load=static fn(string $id):array=>$repo->forEmployee($id);
 $result=$service->bootstrap($token,$load);
 if ($result['status']!==200 || count($result['body']['projects'])!==1
