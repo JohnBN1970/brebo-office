@@ -69,7 +69,7 @@ if ($zoneWriteEnabled) {
 }
 $escape=static fn(mixed $value):string=>htmlspecialchars((string)$value,ENT_QUOTES|ENT_SUBSTITUTE,'UTF-8');
 header('Content-Type: text/html; charset=utf-8');
-$existingZone=$projectZones[0]??null;
+$existingZone=$createdZone??($projectZones[0]??null);
 $latitude=is_array($existingZone) ? (float)$existingZone['latitude'] : null;
 $longitude=is_array($existingZone) ? (float)$existingZone['longitude'] : null;
 $startInputs='<label>Breedtegraad <input id="start-lat" type="number" min="-90" max="90" step="any" value="'.$escape($latitude).'"></label><label>Lengtegraad <input id="start-lon" type="number" min="-180" max="180" step="any" value="'.$escape($longitude).'"></label>';
