@@ -33,6 +33,16 @@ $buildings->linkProject('18',$one,$projectAccess);
 $buildings->linkProject('18',$two,$projectAccess);
 $buildingAccess = static fn(string $id): bool => $id===$one;
 $zoneId = $zones->create(['building_id'=>$one,'zone_name'=>'Hoofdingang','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>150],$buildingAccess);
+// OnSite maximum: 1000 metres is allowed; larger circles must be rejected.
+$maxZoneId=$zones->create(['building_id'=>$one,'zone_name'=>'Grenswaarde','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>1000],$buildingAccess);
+$db->prepare('DELETE FROM office_building_zones WHERE id=?')->execute([$maxZoneId]);
+$oversizedRejected=false;
+try {
+  $zones->create(['building_id'=>$one,'zone_name'=>'Te groot','latitude'=>51.5,'longitude'=>4.3,'radius_metres'=>1000.01],$buildingAccess);
+} catch (InvalidArgumentException $e) {
+  $oversizedRejected=$e->getMessage()==='invalid_building_zone';
+}
+if (!$oversizedRejected) throw new RuntimeException('Building zone radius above 1000 metres accepted');
 if (count($zones->forBuilding($one,$buildingAccess))!==1) throw new RuntimeException('Building zone not found');
 if (count($zones->forProject('17',$projectAccess))!==1 || count($zones->forProject('18',$projectAccess))!==1) {
   throw new RuntimeException('Zone not shared across linked projects');
