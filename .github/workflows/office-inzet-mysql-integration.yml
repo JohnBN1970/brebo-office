@@ -26,6 +26,7 @@ on:
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteInvitationManager.php'
       - 'web/modules/custom/brebo_inzet/src/Service/OnSiteActivationManager.php'
       - 'ios/CrewPOC/Sources/OnSiteAPIClient.swift'
+      - 'office-independent/tests/OfficeOnSiteNativeBootstrapContractTest.php'
       - 'office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php'
       - 'office-independent/deployment/hostinger/office-inzet-test-preflight.php'
       - 'office-independent/public/office-inzet-personnel-number.php'
@@ -174,6 +175,14 @@ jobs:
         run: |
           php -l office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
           php office-independent/tests/OfficeOnSiteIosApiRoutingContractTest.php
+
+      - name: OnSite native bootstrap fail-closed contract
+        run: |
+          php -l office-independent/public/onsite-bootstrap.php
+          php -l office-independent/src/Inzet/OnSiteNativeBootstrapRepository.php
+          php -l office-independent/src/Inzet/OnSiteBootstrapService.php
+          php -l office-independent/tests/OfficeOnSiteNativeBootstrapContractTest.php
+          php office-independent/tests/OfficeOnSiteNativeBootstrapContractTest.php
 
       - name: OnSite iPhone bootstrap contract
         run: |
