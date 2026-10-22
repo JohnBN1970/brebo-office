@@ -60,6 +60,21 @@ if ($first['status']!==202 || $first['body']['duplicate']!==false
   || $repeat['status']!==202 || $repeat['body']['duplicate']!==true) {
   throw new RuntimeException('Building-owned arrival or idempotency failed');
 }
+$current=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($current)) throw new RuntimeException('Zone unavailable before edit');
+$revision=(int)$current['revision'];
+$edit=['zone_name'=>'Testpoort aangepast','latitude'=>'51.501','longitude'=>'4.301','radius_metres'=>'110'];
+$authorized=static fn(string $id):bool=>$id===$buildingId;
+if (!$zones->update($zoneId,$buildingId,$revision,$edit,$authorized))
+  throw new RuntimeException('Active zone edit rejected');
+if ($zones->update($zoneId,$buildingId,$revision,$edit,$authorized))
+  throw new RuntimeException('Stale zone edit accepted');
+$edited=$zones->forProjectZone('17',$zoneId,$projectAccess);
+if (!is_array($edited) || (string)$edited['id']!==$zoneId
+  || (int)$edited['revision']!==$revision+1
+  || (float)$edited['radius_metres']!==110.0
+  || !$membership->isActiveForProject('17',$zoneId))
+  throw new RuntimeException('Edited zone lost its presence authorization');
 $event['kind']='out';
 if ($submit($token,'native_building_departure_0002',$event)['status']!==202) {
   throw new RuntimeException('Building-owned departure failed');
