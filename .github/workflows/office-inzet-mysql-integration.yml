@@ -38,6 +38,7 @@ on:
       - 'office-independent/tests/OfficeZoneTestUpdateTest.php'
       - 'office-independent/deployment/hostinger/OfficeZoneTestUpdate.php'
       - 'scripts/build-office-zone-test-package.py'
+      - 'scripts/build-office-zone-test-update-package.py'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -92,6 +93,8 @@ jobs:
           php -l office-independent/tests/OfficeZoneTestUpdateTest.php
           php office-independent/tests/OfficeZoneTestUpdateTest.php
           python3 scripts/build-office-zone-test-package.py --output-dir "$RUNNER_TEMP/office-zone-package" --commit "$GITHUB_SHA"
+          python3 scripts/build-office-zone-test-update-package.py --output-dir "$RUNNER_TEMP/office-zone-update-package" --commit "$GITHUB_SHA"
+          php -l "$RUNNER_TEMP/office-zone-update-package/office-zone-testupdate-20261022.php"
           php -l "$RUNNER_TEMP/office-zone-package/office-zone-testdeploy-20261020.php"
       - name: Personnel route and security regression tests
         run: |
