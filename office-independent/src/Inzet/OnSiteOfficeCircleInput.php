@@ -41,7 +41,7 @@ final class OnSiteOfficeCircleInput {
       || !is_numeric($lat) || !is_numeric($lon) || !is_numeric($radius)
       || !is_finite((float)$lat) || !is_finite((float)$lon) || !is_finite((float)$radius)
       || abs((float)$lat) > 90 || abs((float)$lon) > 180
-      || (float)$radius <= 0 || (float)$radius > 5000) {
+      || (float)$radius <= 0 || (float)$radius > 1000) {
       throw new InvalidArgumentException('invalid_office_circle');
     }
     return ['project_id'=>$project,'active'=>true,'zone_name'=>trim($name),
