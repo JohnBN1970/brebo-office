@@ -49,6 +49,10 @@ on:
       - 'scripts/build-office-presence-review-test-package.py'
       - 'office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php'
       - 'office-independent/deployment/hostinger/office-onsite-schema-preflight.php'
+      - 'office-independent/deployment/hostinger/OfficeOnSiteTestMigration.php'
+      - 'office-independent/deployment/hostinger/office-onsite-test-migrate.php'
+      - 'office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php'
+      - 'scripts/build-office-onsite-test-migration-package.py'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -113,6 +117,31 @@ jobs:
           php -l "$RUNNER_TEMP/office-zone-package/office-zone-testdeploy-20261020.php"
       - name: Validate read-only OnSite schema preflight
         run: php -l office-independent/deployment/hostinger/office-onsite-schema-preflight.php
+      - name: Isolated manual OnSite migration and identity regression
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_ONSITE_MIGRATION_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_onsite_migration_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root -e 'CREATE DATABASE office_onsite_migration_ci CHARACTER SET utf8mb4'
+          php -l office-independent/deployment/hostinger/OfficeOnSiteTestMigration.php
+          php -l office-independent/deployment/hostinger/office-onsite-test-migrate.php
+          php -l office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
+          php office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
+          python3 scripts/build-office-onsite-test-migration-package.py --output-dir "$RUNNER_TEMP/office-onsite-migration" --commit "$GITHUB_SHA"
+          unzip -q "$RUNNER_TEMP/office-onsite-migration/office-onsite-test-migration-20261022.zip" -d "$RUNNER_TEMP/office-onsite-migration/extracted"
+          find "$RUNNER_TEMP/office-onsite-migration/extracted" -name '*.php' -exec php -l {} \;
+      - name: Publish manual Office-test migration package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-test-migration-20261022
+          path: |
+            ${{ runner.temp }}/office-onsite-migration/*.zip
+            ${{ runner.temp }}/office-onsite-migration/SHA256SUMS.txt
+          if-no-files-found: error
+          retention-days: 14
       - name: Package Office-test presence review
         run: |
           php -l office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php
