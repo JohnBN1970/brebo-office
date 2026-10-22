@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Language is Office-owned and transported as a BCP-47 language tag.
 struct OnSiteLanguage: RawRepresentable, Codable, Equatable, Hashable {

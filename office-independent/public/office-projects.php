@@ -222,7 +222,8 @@ if ($inzetView) {
       $cancelManageIds = [];
       $cancelToken = null;
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
-        && getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled') {
+        && (getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled'
+          || getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled')) {
         $secret = getenv('OFFICE_TEST_INZET_CSRF_SECRET');
         if (is_string($secret) && strlen($secret) >= 32) {
           require_once dirname(__DIR__) . '/src/Inzet/OfficeInzetSessionCsrf.php';
@@ -235,7 +236,9 @@ if ($inzetView) {
         }
       }
       echo \Brebo\Office\Inzet\OfficeInzetPlanningWorkbench::renderWeek(
-        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken, getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled'
+        $shifts, $ids, $year, $week, $projectNames, $cancelManageIds, $cancelToken,
+        getenv('OFFICE_TEST_INZET_SHIFT_RESCHEDULE_ENABLED') === 'enabled',
+        getenv('OFFICE_TEST_INZET_SHIFT_CANCEL_ENABLED') === 'enabled'
       );
       $updatedShift = filter_var($_GET['shift_updated'] ?? null, FILTER_VALIDATE_INT, ['options'=>['min_range'=>1]]);
       if (getenv('OFFICE_TEST_INZET_SHIFT_WRITE_ENABLED') === 'enabled'
@@ -360,7 +363,7 @@ if ($inzetView) {
         static fn(array $project): int => (int)$project['id'], $projects
       );
       $weeks = (new \Brebo\Office\Inzet\OnSiteSupplierWeekReadRepository($db))
-        ->listVisible((int)$operator->operatorId, $authorizedProjectIds);
+        ->listVisible($operator->operatorId, $authorizedProjectIds);
       echo '<section style="margin-top:20px"><h2>Leveranciersweekstaten</h2>';
       if ($weeks === []) {
         echo '<p>Geen toegankelijke leveranciersweekstaten gevonden.</p>';

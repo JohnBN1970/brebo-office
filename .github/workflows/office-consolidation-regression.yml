@@ -1,0 +1,103 @@
+name: Office consolidation regression
+on:
+  pull_request:
+    paths:
+      - 'office-independent/**'
+      - 'ios/CrewPOC/**'
+      - '.github/workflows/office-consolidation-regression.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  portable:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.3', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pdo_sqlite, mbstring
+          coverage: none
+      - name: Lint all Office PHP
+        run: find office-independent -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: All portable Office regressions in isolated processes
+        run: php office-independent/tests/run-office-portable-suite.php
+  restored-foundations:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: mysql:8.0
+            health: mysqladmin ping -h 127.0.0.1 -uroot -ptest-root-only
+          - image: mariadb:11.8
+            health: healthcheck.sh --connect --innodb_initialized
+    services:
+      mysql:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: test-root-only
+          MYSQL_DATABASE: office_consolidation_test
+          MARIADB_ROOT_PASSWORD: test-root-only
+          MARIADB_DATABASE: office_consolidation_test
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="${{ matrix.health }}"
+          --health-interval=10s --health-timeout=5s --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          extensions: pdo_mysql, mbstring
+          coverage: none
+      - name: Restored login, session and CRM database contracts
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_INTAKE_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_consolidation_test;charset=utf8mb4
+          OFFICE_INTAKE_TEST_USER: root
+          OFFICE_INTAKE_TEST_PASSWORD: test-root-only
+        run: |
+          for test_file in WebsiteIntakeReconciliationTest WebsiteIntakeSchemaMigrationTest WebsiteIntakeStoreIntegrationTest WebsiteOfficeCrmSessionIssuerTest WebsiteOfficeLoginControllerTest WebsiteOfficeLoginThrottleTest WebsiteWebsiteOpportunityReadRepositoryTest; do
+            mysql -h 127.0.0.1 -uroot -e 'DROP DATABASE IF EXISTS office_consolidation_test; CREATE DATABASE office_consolidation_test CHARACTER SET utf8mb4'
+            php "office-independent/tests/$test_file.php"
+          done
+      - name: Disposable recent-work schema and retention fixture
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_RECENT_WORK_TEST_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_consolidation_test;charset=utf8mb4
+          OFFICE_RECENT_WORK_TEST_USER: root
+          OFFICE_RECENT_WORK_TEST_PASSWORD: test-root-only
+          OFFICE_RECENT_WORK_TEST_ACK: isolated-test
+          OFFICE_RECENT_WORK_WRITE_ACK: isolated-write-test
+          OFFICE_RECENT_WORK_WRITE_DB: office_consolidation_test
+        run: |
+          mysql -h 127.0.0.1 -uroot office_consolidation_test <<'SQL'
+          CREATE TABLE office_user_recent_work (
+            id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+            operator_id VARCHAR(128) NOT NULL, module VARCHAR(32) NOT NULL,
+            resource_type VARCHAR(64) NOT NULL, resource_id VARCHAR(191) NOT NULL,
+            view_key VARCHAR(64) NOT NULL, position_json JSON NOT NULL, updated_at DATETIME NOT NULL,
+            UNIQUE KEY recent_identity(operator_id,module,resource_type,resource_id,view_key)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+          SQL
+          php office-independent/tests/RecentWorkDatabaseSmoke.php
+          php office-independent/tests/RecentWorkWriteFixture.php
+  iphone:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generate existing iPhone project
+        run: |
+          brew install xcodegen
+          cd ios/CrewPOC
+          xcodegen generate
+      - name: iPhone simulator unit tests (no signing or deployment)
+        run: |
+          simulator_id=$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(x["udid"] for k,v in d["devices"].items() if "iOS" in k for x in v if "iPhone" in x["name"]))')
+          xcodebuild -project ios/CrewPOC/BreboCrewPOC.xcodeproj -scheme BreboCrewPOC -destination "platform=iOS Simulator,id=$simulator_id" -derivedDataPath "$RUNNER_TEMP/crew-build" CODE_SIGNING_ALLOWED=NO test

@@ -27,6 +27,7 @@ struct CrewContentView: View {
             .task {
                 await identityStore.restoreLinkedDevice()
                 syncProjectZones()
+                await presenceUploader.flushPending()
             }
             .onChange(of: identityStore.assignedProjects) {
                 syncProjectZones()
@@ -35,7 +36,8 @@ struct CrewContentView: View {
                 syncProjectZones()
             }
             .onChange(of: locationMonitor.events) {
-                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
+                guard let newest = locationMonitor.events.last else { return }
+                Task { await presenceUploader.uploadNewEvents([newest]) }
             }
             .onOpenURL { url in
                 handleActivationURL(url)

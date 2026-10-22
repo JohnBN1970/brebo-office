@@ -27,6 +27,7 @@ enum OnSiteSecureStore {
     }
 
     static func clear() {
+        if let token = deviceToken() { OnSitePresenceQueue.clear(deviceToken: token) }
         SecItemDelete(query as CFDictionary)
     }
 
