@@ -18,6 +18,7 @@ on:
       - 'office-independent/tests/OfficeOnSiteRuntimeDependencyTest.php'
       - 'office-independent/tests/OfficeOnSiteAutomaticEventValidatorTest.php'
       - 'office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceReviewViewTest.php'
       - 'office-independent/tests/OfficeOnSiteAssignmentGateTest.php'
       - 'office-independent/tests/OfficeOnSiteOfficeTeamAssignmentMySqlTest.php'
       - 'office-independent/tests/OfficeOnSiteEventInboxMySqlTest.php'
@@ -154,6 +155,9 @@ jobs:
         run: |
           php -l office-independent/src/Inzet/OnSitePresenceIntervalProjector.php
           php -l office-independent/src/Inzet/OnSitePresenceReviewRepository.php
+          php -l office-independent/src/Inzet/OnSitePresenceReviewView.php
+          php -l office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
+          php office-independent/tests/OfficeOnSitePresenceReviewViewTest.php
           php -l office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
           php office-independent/tests/OfficeOnSitePresenceIntervalProjectorTest.php
       - name: MySQL transactional Inzet round trip
