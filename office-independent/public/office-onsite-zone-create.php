@@ -19,8 +19,20 @@ if (getenv('OFFICE_BASE_PATH') !== '/office-test'
 }
 $host=$_SERVER['HTTP_HOST'] ?? '';
 $allowed=getenv('OFFICE_PUBLIC_HOST') ?: '';
+$origin=(string)($_SERVER['HTTP_ORIGIN'] ?? '');
+$referer=(string)($_SERVER['HTTP_REFERER'] ?? '');
+$expectedOrigin='https://'.$allowed;
+$refererOrigin='';
+if ($referer !== '') {
+  $parts=parse_url($referer);
+  if (is_array($parts) && ($parts['scheme'] ?? '') === 'https'
+    && isset($parts['host']) && !isset($parts['user']) && !isset($parts['pass'])
+    && !isset($parts['port'])) {
+    $refererOrigin='https://'.$parts['host'];
+  }
+}
 if (!is_string($host) || $allowed === '' || !hash_equals($allowed,$host)
-  || !hash_equals('https://'.$allowed,(string)($_SERVER['HTTP_ORIGIN'] ?? ''))) {
+  || !($origin !== '' ? hash_equals($expectedOrigin,$origin) : hash_equals($expectedOrigin,$refererOrigin))) {
   http_response_code(403); exit('Ongeldige herkomst.');
 }
 if ((int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 4096) {
