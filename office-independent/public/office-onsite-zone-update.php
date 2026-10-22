@@ -41,7 +41,7 @@ try {
   $secret=getenv('OFFICE_TEST_ZONE_CSRF_SECRET')?:'';
   if (strlen($secret)<32) throw new RuntimeException('zone_secret_unavailable');
   $dsn=getenv('OFFICE_INTAKE_PDO_DSN')?:'';
-  if (!preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)
+  if (!preg_match('/^mysql:host=(?:localhost|127\.0\.0\.1);dbname=u213420663_office_test;charset=utf8mb4$/D',$dsn)
     || getenv('OFFICE_INTAKE_DB_USER')!=='u213420663_office_test')
     throw new RuntimeException('zone_database_unavailable');
   $db=new PDO($dsn,getenv('OFFICE_INTAKE_DB_USER'),getenv('OFFICE_INTAKE_DB_PASSWORD')?:'',
