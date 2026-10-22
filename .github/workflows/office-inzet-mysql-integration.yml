@@ -46,6 +46,8 @@ on:
       - 'scripts/build-office-zone-test-package.py'
       - 'scripts/build-office-zone-test-update-package.py'
       - 'scripts/build-office-zone-edit-test-package.py'
+      - 'scripts/build-office-presence-review-test-package.py'
+      - 'office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -108,6 +110,21 @@ jobs:
           python3 scripts/build-office-zone-test-update-package.py --output-dir "$RUNNER_TEMP/office-zone-update-package" --commit "$GITHUB_SHA"
           php -l "$RUNNER_TEMP/office-zone-update-package/office-zone-testupdate-20261022.php"
           php -l "$RUNNER_TEMP/office-zone-package/office-zone-testdeploy-20261020.php"
+      - name: Package Office-test presence review
+        run: |
+          php -l office-independent/deployment/hostinger/OfficePresenceReviewTestDeployment.php
+          python3 scripts/build-office-presence-review-test-package.py --output-dir "$RUNNER_TEMP/office-presence-review-package" --commit "$GITHUB_SHA"
+          php -l "$RUNNER_TEMP/office-presence-review-package/office-presence-review-testdeploy-20261022.php"
+      - name: Publish Office-test presence review package
+        if: matrix.database == 'MariaDB 11.8'
+        uses: actions/upload-artifact@v4
+        with:
+          name: office-presence-review-testdeploy
+          path: |
+            ${{ runner.temp }}/office-presence-review-package/office-presence-review-testdeploy-20261022.php
+            ${{ runner.temp }}/office-presence-review-package/office-presence-review-testdeploy-manifest.json
+          if-no-files-found: error
+          retention-days: 14
       - name: Publish Office-test zone edit extension
         if: matrix.database == 'MariaDB 11.8'
         uses: actions/upload-artifact@v4
