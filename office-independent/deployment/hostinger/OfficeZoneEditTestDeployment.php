@@ -50,6 +50,12 @@ final class OfficeZoneEditTestDeployment {
       throw new RuntimeException('zone_edit_not_isolated');
     if (($cfg['OFFICE_TEST_ZONE_WRITE_ENABLED']??'')!=='enabled'
       || ($cfg['OFFICE_TEST_BUILDING_ZONE_SCHEMA_VERIFIED']??'')!=='enabled') throw new RuntimeException('zone_edit_gate_disabled');
+    // Apache must forward the POST path to this router; PHP route registration alone is insufficient.
+    $htaccess=dirname($this->router).'/.htaccess';
+    if (!is_file($htaccess) || is_link($htaccess)) throw new RuntimeException('zone_edit_htaccess_unavailable');
+    $rewrite=(string)file_get_contents($htaccess);
+    if (!preg_match('~^RewriteRule\\s+\\^inzet/zone/bewerken/\\?\\$\\s+index\\.php\\s+\\[END,QSA\\]\\s*$~m',$rewrite))
+      throw new RuntimeException('zone_edit_apache_rewrite_missing');
     $routerSource=(string)file_get_contents($this->router);
     $routePresent=str_contains($routerSource,self::ROUTE);
     $digest=substr(hash('sha256',json_encode(array_map(static fn(string $v):string=>hash('sha256',$v),$this->files),JSON_THROW_ON_ERROR)),0,12);
