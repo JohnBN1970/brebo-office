@@ -82,7 +82,7 @@ if ($zoneWriteEnabled && $selectedBuilding!==null) {
       (string)$selectedBuilding['id'],getenv('OFFICE_TEST_ZONE_CSRF_SECRET') ?: '',time());
   } catch (Throwable $e) {http_response_code(503);exit('Zoneformulier niet beschikbaar.');}
 }
-$zoneList='<h2>Personeelszones van het gebouw</h2><p>Opgeslagen zones zijn hieronder zichtbaar. Bestaande zones bewerken is nog niet ingeschakeld.</p><ul>';
+$zoneList='<h2>Personeelszones van het gebouw</h2><p>Opgeslagen zones zijn hieronder zichtbaar. Selecteer een zone en schakel de kaart in om deze te bekijken of te bewerken.</p><ul>';
 foreach ($projectZones as $zoneRow) {
   $zoneList.='<li>Zone '.$escape($zoneRow['id']).': '.$escape($zoneRow['zone_name']).' — '.$escape($zoneRow['radius_metres']).' meter (revisie '.$escape($zoneRow['revision']).')</li>';
 }
@@ -91,7 +91,7 @@ $zoneOptions='<option value="">Nieuwe zone</option>';
 foreach ($projectZones as $zoneRow) {
   $zoneOptions.='<option value="'.$escape($zoneRow['id']).'">'.$escape($zoneRow['zone_name']).' (revisie '.$escape($zoneRow['revision']).')</option>';
 }
-$zoneSelector='<label for="saved-zone">Zone bekijken <select id="saved-zone">'.$zoneOptions.'</select></label><p id="zone-view-mode">Bestaande zones worden alleen getoond; bewerken is nog niet ingeschakeld.</p>';
+$zoneSelector='<label for="saved-zone">Zone bekijken <select id="saved-zone">'.$zoneOptions.'</select></label><p id="zone-view-mode">Selecteer een bestaande zone en schakel de kaart in om deze te bewerken.</p>';
 $zoneData=[];
 foreach ($projectZones as $zoneRow) {
   $zoneData[]=['id'=>(string)$zoneRow['id'],'name'=>(string)$zoneRow['zone_name'],'lat'=>(float)$zoneRow['latitude'],'lng'=>(float)$zoneRow['longitude'],'radius'=>(float)$zoneRow['radius_metres'],'revision'=>(int)$zoneRow['revision']];
