@@ -134,9 +134,9 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   L.tileLayer.wms("https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0",{layers:"Actueel_orthoHR",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",maxZoom:19,attribution:"Luchtfoto: PDOK"}).addTo(map);
   circle=L.circle([center.lat,center.lng],{radius:Number(radius.value),color:"#175cd3",fillOpacity:.15}).addTo(map);
   marker=L.marker([center.lat,center.lng],{draggable:true}).addTo(map);
-  map.on("click",event=>{center=event.latlng;render();});
-  marker.on("dragend",()=>{center=marker.getLatLng();render();});
-  enable.disabled=true;preview.disabled=false;const save=document.getElementById("save-zone");if(save)save.disabled=false;render();
+  map.on("click",event=>{if(activeZone())return;center=event.latlng;render();});
+  marker.on("dragend",()=>{if(activeZone()){marker.setLatLng(center);return;}center=marker.getLatLng();render();});
+  enable.disabled=true;preview.disabled=false;const save=document.getElementById("save-zone");if(save)save.disabled=false;render();selectZone();
  }
  enable.addEventListener("click",()=>{
   const latInput=document.getElementById("start-lat"),lonInput=document.getElementById("start-lon");
@@ -148,7 +148,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   script.onload=init;script.onerror=()=>{enable.disabled=false;status.textContent="Kaartbibliotheek niet beschikbaar.";};
   document.head.appendChild(script);
  });
- const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{const name=zoneName.value.trim();if(!center||!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
+ const saveForm=document.getElementById("zone-save");if(saveForm)saveForm.addEventListener("submit",event=>{if(activeZone()){event.preventDefault();status.textContent="Bestaande zone kan hier niet opnieuw worden opgeslagen.";return;}const name=zoneName.value.trim();if(!center||!name||new TextEncoder().encode(name).length>160||!Number.isFinite(center.lat)||!Number.isFinite(center.lng)||Math.abs(center.lat)>90||Math.abs(center.lng)>180){event.preventDefault();status.textContent="Ongeldige zonegegevens.";return;}document.getElementById("save-name").value=name;document.getElementById("save-lat").value=center.lat.toFixed(7);document.getElementById("save-lon").value=center.lng.toFixed(7);document.getElementById("save-radius").value=radius.value;});
  preview.addEventListener("click",()=>{const name=zoneName.value.trim();if(!name||new TextEncoder().encode(name).length>160){status.textContent="Ongeldige zonenaam (maximaal 160 bytes).";return;}document.getElementById("result").textContent=JSON.stringify({building_id:'.($selectedBuilding!==null ? json_encode((string)$selectedBuilding['id'],JSON_THROW_ON_ERROR) : 'null').',zone_name:name,latitude:center.lat,longitude:center.lng,radius_metres:Number(radius.value),saved:false},null,2);});
 })();
 </script></body></html>';
