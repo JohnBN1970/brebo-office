@@ -140,8 +140,9 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  }
  enable.addEventListener("click",()=>{
   const latInput=document.getElementById("start-lat"),lonInput=document.getElementById("start-lon");
-  const lat=Number(latInput.value),lng=Number(lonInput.value);
-  if(!latInput.value.trim()||!lonInput.value.trim()||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){status.textContent="Vul eerst een geldig, gecontroleerd middelpunt in.";return;}
+  const chosen=activeZone();
+  const lat=chosen?chosen.lat:Number(latInput.value),lng=chosen?chosen.lng:Number(lonInput.value);
+  if((!chosen&&(!latInput.value.trim()||!lonInput.value.trim()))||!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180){status.textContent="Vul eerst een geldig, gecontroleerd middelpunt in.";return;}
   center={lat,lng};enable.disabled=true;status.textContent="Kaart wordt geladen...";
   const css=document.createElement("link");css.rel="stylesheet";css.href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";document.head.appendChild(css);
   const script=document.createElement("script");script.src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
