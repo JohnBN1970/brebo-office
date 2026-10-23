@@ -18,8 +18,8 @@ final class OnSitePresenceReviewView {
       $duration = max(0,time()-$startSeconds);
       $html.='<tr><td>'.$escape($item['person_id']??'').'</td><td>'.$escape($item['project_id']??'')
         .'</td><td>'.$escape($item['zone_id']??'').'</td><td>'.$escape($started)
-        .'</td><td>'.$escape(sprintf('%d:%02d:%02d',intdiv($duration,3600),intdiv($duration%3600,60),$duration%60))
-        .'</td><td>Aanwezig (nog niet goedgekeurd)</td></tr>';
+        .'</td><td><time class="onsite-live-duration" data-start="'.$escape($startSeconds).'">'.$escape(sprintf('%d:%02d:%02d',intdiv($duration,3600),intdiv($duration%3600,60),$duration%60))
+        .'</time></td><td>Aanwezig (nog niet goedgekeurd)</td></tr>';
     }
     $html.='</tbody></table><h3>Afgeronde aanwezigheidsintervallen</h3><table><thead><tr>'
       .'<th>Medewerker</th><th>Project</th><th>Zone</th><th>Aankomst</th><th>Vertrek</th><th>Duur</th><th>Status</th>'
