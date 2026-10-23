@@ -55,8 +55,17 @@ workflows:
           xcodegen generate
       - name: Set OnSite build number
         script: |
+          set -euo pipefail
+          # Both OnSite workflows publish nl.brebo.onsite. Use their shared counter.
+          # Apple already has build 13; retain this fixed offset on future builds.
+          if [[ ! "${PROJECT_BUILD_NUMBER:-}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PROJECT_BUILD_NUMBER must be a positive integer" >&2
+            exit 1
+          fi
+          ONSITE_BUILD_NUMBER=$((PROJECT_BUILD_NUMBER + 13))
+          echo "OnSite bundle version: $ONSITE_BUILD_NUMBER"
           cd ios/CrewPOC
-          xcrun agvtool new-version -all "$BUILD_NUMBER"
+          xcrun agvtool new-version -all "$ONSITE_BUILD_NUMBER"
       - name: Build and test OnSite simulator proof
         script: |
           set -euo pipefail
@@ -113,8 +122,17 @@ workflows:
           python3 scripts/configure-onsite-office-test-ios.py
       - name: Set OnSite build number
         script: |
+          set -euo pipefail
+          # Both OnSite workflows publish nl.brebo.onsite. Use their shared counter.
+          # Apple already has build 13; retain this fixed offset on future builds.
+          if [[ ! "${PROJECT_BUILD_NUMBER:-}" =~ ^[1-9][0-9]*$ ]]; then
+            echo "PROJECT_BUILD_NUMBER must be a positive integer" >&2
+            exit 1
+          fi
+          ONSITE_BUILD_NUMBER=$((PROJECT_BUILD_NUMBER + 13))
+          echo "OnSite bundle version: $ONSITE_BUILD_NUMBER"
           cd ios/CrewPOC
-          xcrun agvtool new-version -all "$BUILD_NUMBER"
+          xcrun agvtool new-version -all "$ONSITE_BUILD_NUMBER"
       - name: Build and test OnSite simulator proof
         script: |
           set -euo pipefail
