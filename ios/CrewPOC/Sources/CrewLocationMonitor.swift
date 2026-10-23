@@ -9,6 +9,7 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     private let manager = CLLocationManager()
     private var zonesByIdentifier: [String: CrewProjectZone] = [:]
+    private var activeZoneIds: Set<String> = []
 
     override init() {
         super.init()
