@@ -5,6 +5,7 @@ struct CrewContentView: View {
     @StateObject private var locationMonitor = CrewLocationMonitor()
     @StateObject private var identityStore = OnSiteIdentityStore()
     @StateObject private var presenceUploader = OnSitePresenceUploader()
+    @Environment(\.scenePhase) private var scenePhase
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
     @State private var pendingActivationToken: String?
@@ -27,6 +28,12 @@ struct CrewContentView: View {
             .task {
                 await identityStore.restoreLinkedDevice()
                 syncProjectZones()
+                await presenceUploader.retryPending()
+            }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await presenceUploader.retryPending() }
+                }
             }
             .onChange(of: identityStore.assignedProjects) {
                 syncProjectZones()
@@ -269,6 +276,9 @@ struct CrewContentView: View {
                 GroupBox("Laatste waarneming") {
                     VStack(alignment: .leading, spacing: 6) {
                         Text(lastObservationText)
+                        Text("Wacht op synchronisatie: \(presenceUploader.pendingCount)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                         if let error = presenceUploader.lastError {
                             Text("Synchronisatie: \(error)")
                                 .font(.caption)
