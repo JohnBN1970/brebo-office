@@ -17,10 +17,15 @@ final class OnSitePresenceUploader: ObservableObject {
         }
     }
 
+    func enqueue(_ event: CrewPresenceEvent) {
+        guard !pending.contains(where: { $0.id == event.id }) else { return }
+        pending.append(event)
+        save() // Persist synchronously before any network task can be suspended.
+        Task { await flush() }
+    }
+
     func uploadNewEvents(_ events: [CrewPresenceEvent]) async {
-        let existing = Set(pending.map(\.id))
-        pending.append(contentsOf: events.filter { !existing.contains($0.id) })
-        save()
+        for event in events { enqueue(event) }
         await flush()
     }
 
