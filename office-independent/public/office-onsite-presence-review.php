@@ -5,7 +5,8 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");
+$nonce=base64_encode(random_bytes(18));
+header("Content-Security-Policy: default-src 'none'; script-src 'nonce-".$nonce."'; style-src 'unsafe-inline'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD']??'')!=='GET') {http_response_code(405);header('Allow: GET');exit;}
 if (getenv('OFFICE_BASE_PATH')!=='/office-test'
  || getenv('OFFICE_NATIVE_PROJECTS_ENABLED')!=='enabled'
@@ -52,4 +53,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
  .'<p><a href="/office-test/projecten/detail?id='.$id.'">← Project '.$escape($id).'</a></p>'
  .'<h1>Inzet · project '.$escape($id).'</h1>'
  .\Brebo\Office\Inzet\OnSitePresenceReviewView::render($review)
- .'</main></body></html>';
+ .'</main><script nonce="'.$escape($nonce).'">'
+ .'function updateTimers(){for(const el of document.querySelectorAll(".onsite-live-duration")){const start=Number(el.dataset.start);if(!Number.isFinite(start)||start<=0)continue;const seconds=Math.max(0,Math.floor(Date.now()/1000-start));const h=Math.floor(seconds/3600);const m=Math.floor(seconds%3600/60);const s=seconds%60;el.textContent=[h,m,s].map(n=>String(n).padStart(2,"0")).join(":");}}'
+ .'updateTimers();setInterval(updateTimers,1000);setInterval(()=>{if(!document.hidden)location.reload();},30000);'
+ .'</script></body></html>';
