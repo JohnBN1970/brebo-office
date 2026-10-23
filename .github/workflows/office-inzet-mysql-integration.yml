@@ -52,6 +52,7 @@ on:
       - 'office-independent/deployment/hostinger/OfficeOnSiteTestMigration.php'
       - 'office-independent/deployment/hostinger/office-onsite-test-migrate.php'
       - 'office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php'
+      - 'office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php'
       - 'scripts/build-office-onsite-test-migration-package.py'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
@@ -129,6 +130,8 @@ jobs:
           php -l office-independent/deployment/hostinger/office-onsite-test-migrate.php
           php -l office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
           php office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php
+          php -l office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php
+          php office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php
           python3 scripts/build-office-onsite-test-migration-package.py --output-dir "$RUNNER_TEMP/office-onsite-migration" --commit "$GITHUB_SHA"
           unzip -q "$RUNNER_TEMP/office-onsite-migration/office-onsite-test-migration-20261022.zip" -d "$RUNNER_TEMP/office-onsite-migration/extracted"
           find "$RUNNER_TEMP/office-onsite-migration/extracted" -name '*.php' -exec php -l {} \;

@@ -14,7 +14,8 @@ final class OnSitePresenceReviewRepository {
   public function __construct(private PDO $db) {}
 
   public function forManager(string $operatorId, string $projectId, int $limit=250): array {
-    if (!preg_match('/^[1-9][0-9]{0,18}$/D',$operatorId)
+    // Authenticated Office account IDs are opaque varchar(128), just as in the session and map gates.
+    if ($operatorId === '' || strlen($operatorId)>128
       || !preg_match('/^[1-9][0-9]{0,18}$/D',$projectId)
       || $limit<1 || $limit>500) {
       throw new InvalidArgumentException('invalid_presence_review_context');
