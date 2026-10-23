@@ -46,7 +46,9 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     func locationManager(_ manager: CLLocationManager, didDetermineState state: CLRegionState, for region: CLRegion) {
         switch state {
-        case .inside: states[region.identifier] = .present
+        case .inside:
+            states[region.identifier] = .present
+            // Initial region state is observational only; never invent a boundary crossing.
         case .outside: states[region.identifier] = .outside
         case .unknown: states[region.identifier] = .unknown
         @unknown default: states[region.identifier] = .unknown
