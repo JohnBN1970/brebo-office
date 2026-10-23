@@ -22,7 +22,7 @@ paths = sorted({
     repo / 'ios/CrewPOC/Sources/CrewContentView.swift',
     repo / 'docs/OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md',
 })
-files = {str(p.relative_to(repo)): p.read_bytes() for p in paths}
+files = {str(p.relative_to(repo)): p.read_text(encoding='utf-8').encode('utf-8') for p in paths}
 assert all('OfficeNativeProjectAccess' not in p for p in files)
 manifest = {
     'source_commit': args.commit,
@@ -40,9 +40,12 @@ with zipfile.ZipFile(out / name, 'w', compression=zipfile.ZIP_DEFLATED) as bundl
         entry = zipfile.ZipInfo(path, (2026, 10, 23, 0, 0, 0))
         entry.compress_type = zipfile.ZIP_DEFLATED
         bundle.writestr(entry, data)
-    bundle.writestr('manifest.json', manifest_bytes)
+    entry = zipfile.ZipInfo('manifest.json', (2026, 10, 23, 0, 0, 0))
+    entry.compress_type = zipfile.ZIP_DEFLATED
+    bundle.writestr(entry, manifest_bytes)
 (out / 'manifest.json').write_bytes(manifest_bytes)
 with zipfile.ZipFile(out / name) as bundle:
+    assert all(info.date_time == (2026, 10, 23, 0, 0, 0) for info in bundle.infolist())
     for path, digest in manifest['files'].items():
         assert hashlib.sha256(bundle.read(path)).hexdigest() == digest, path
 print(json.dumps({'package': name, 'files': len(files), 'source_commit': args.commit,
