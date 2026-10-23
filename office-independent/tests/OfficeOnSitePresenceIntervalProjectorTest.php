@@ -13,6 +13,8 @@ $result=$projector->project([
   $event('departure_0000002','out','2026-10-22T09:10:00Z'),
   $event('arrival_0000000003','in','2026-10-22T10:00:00Z'),
 ]);
+if (count($result['active']??[])!==1 || $result['active'][0]['entered_at']!=='2026-10-22T10:00:00Z'
+  || $result['active'][0]['person_id']!=='101') throw new RuntimeException('Open presence not projected');
 if (count($result['intervals'])!==1 || $result['intervals'][0]['elapsed_seconds']!==3600
   || $result['intervals'][0]['status']!=='evidence_only') throw new RuntimeException('Presence interval mismatch');
 $reasons=array_column($result['exceptions'],'reason');
