@@ -116,7 +116,7 @@ $review=new OnSitePresenceReviewRepository($db);
 $evidence=$review->forManager('john:office','17');
 $assert(count($evidence['intervals'])===1 && $evidence['intervals'][0]['status']==='evidence_only'
   && $evidence['intervals'][0]['person_id']==='101' && $evidence['intervals'][0]['elapsed_seconds']===3600,'Evidence projection failed');
-$assert($review->forManager('reader','17')===['intervals'=>[],'exceptions'=>[]],'Reader received evidence');
+$assert($review->forManager('reader','17')===['intervals'=>[],'active'=>[],'exceptions'=>[]],'Reader received evidence');
 $db->exec('UPDATE office_inzet_people SET active=0 WHERE id=101');
 $assert($submit($device,$id,$event)['status']===401,'Inactive employee accepted');
 $db->exec('UPDATE office_inzet_people SET active=1 WHERE id=101');
