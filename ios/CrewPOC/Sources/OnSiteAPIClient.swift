@@ -29,12 +29,12 @@ struct OnSiteVerifiedIdentity: Decodable {
 
 
 
-struct OnSiteBootstrap: Decodable, Equatable {
+struct OnSiteBootstrap: Codable, Equatable {
     let employee: OnSiteBootstrapEmployee
     let projects: [OnSiteBootstrapProject]
 }
 
-struct OnSiteBootstrapEmployee: Decodable, Equatable {
+struct OnSiteBootstrapEmployee: Codable, Equatable {
     let id: String
     let displayName: String
     let language: String
@@ -46,13 +46,13 @@ struct OnSiteBootstrapEmployee: Decodable, Equatable {
     }
 }
 
-struct OnSiteBootstrapProject: Decodable, Identifiable, Equatable {
+struct OnSiteBootstrapProject: Codable, Identifiable, Equatable {
     let id: String
     let name: String
     let zones: [OnSiteBootstrapZone]
 }
 
-struct OnSiteBootstrapZone: Decodable, Identifiable, Equatable {
+struct OnSiteBootstrapZone: Codable, Identifiable, Equatable {
     let id: String
     let name: String
     let latitude: Double

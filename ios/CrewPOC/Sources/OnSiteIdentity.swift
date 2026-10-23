@@ -36,14 +36,44 @@ final class OnSiteIdentityStore: ObservableObject {
     @Published private(set) var errorMessage: String?
     @Published private(set) var assignedProjects: [OnSiteBootstrapProject] = []
 
-    private let apiClient = OnSiteAPIClient()
+    private let apiClient: OnSiteAPIClient
+    private let defaults: UserDefaults
+    private let deviceToken: () -> String?
+    private let clearDeviceToken: () -> Void
     private var activationInProgress = false
     private var redeemedActivationToken: String?
+    private var refreshing = false
+    private let cacheKey = "brebo.onsite.bootstrap.v1"
+
+    init(apiClient: OnSiteAPIClient = OnSiteAPIClient(), defaults: UserDefaults = .standard,
+         deviceToken: @escaping () -> String? = OnSiteSecureStore.deviceToken,
+         clearDeviceToken: @escaping () -> Void = OnSiteSecureStore.clear) {
+        self.apiClient = apiClient
+        self.defaults = defaults
+        self.deviceToken = deviceToken
+        self.clearDeviceToken = clearDeviceToken
+        restoreCachedIdentity()
+    }
+
+    func restoreCachedIdentity() {
+        guard deviceToken() != nil,
+              let data = defaults.data(forKey: cacheKey),
+              let bootstrap = try? JSONDecoder().decode(OnSiteBootstrap.self, from: data) else { return }
+        apply(bootstrap)
+    }
+
+    private func apply(_ bootstrap: OnSiteBootstrap) {
+        let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
+        language = officeLanguage
+        assignedProjects = bootstrap.projects
+        state = .linked(employeeId: bootstrap.employee.id,
+                        displayName: bootstrap.employee.displayName, language: officeLanguage)
+    }
 
     func activate(activationToken: String) async {
         let token = activationToken.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !token.isEmpty, !activationInProgress else { return }
-        if redeemedActivationToken == token, OnSiteSecureStore.deviceToken() != nil {
+        if redeemedActivationToken == token, deviceToken() != nil {
             await refreshBootstrap()
             return
         }
@@ -54,6 +84,9 @@ final class OnSiteIdentityStore: ObservableObject {
         do {
             let activated = try await apiClient.activate(activationToken: token)
             try OnSiteSecureStore.saveDeviceToken(activated.deviceToken)
+            defaults.removeObject(forKey: cacheKey)
+            assignedProjects = []
+            state = .unlinked
             redeemedActivationToken = token
             await refreshBootstrap()
         } catch {
@@ -107,47 +140,36 @@ final class OnSiteIdentityStore: ObservableObject {
     }
 
     func restoreLinkedDevice() async {
-        guard let token = OnSiteSecureStore.deviceToken() else { return }
-        do {
-            let bootstrap = try await apiClient.bootstrap(deviceToken: token)
-            let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
-            language = officeLanguage
-            assignedProjects = bootstrap.projects
-            state = .linked(
-                employeeId: bootstrap.employee.id,
-                displayName: bootstrap.employee.displayName,
-                language: officeLanguage
-            )
-        } catch OnSiteAPIError.unauthorized {
-            OnSiteSecureStore.clear()
-            assignedProjects = []
-            state = .unlinked
-            errorMessage = "Dit apparaat is niet meer gekoppeld."
-        } catch {
-            // Offline or a closed server gate does not invalidate a saved credential.
-            errorMessage = error.localizedDescription
-        }
+        restoreCachedIdentity()
+        await refreshBootstrap()
     }
 
     func refreshBootstrap() async {
-        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        guard !refreshing, let token = deviceToken() else { return }
+        refreshing = true
+        defer { refreshing = false }
         do {
             let bootstrap = try await apiClient.bootstrap(deviceToken: token)
-            let officeLanguage = OnSiteLanguage(rawValue: bootstrap.employee.language) ?? .dutch
-            language = officeLanguage
-            assignedProjects = bootstrap.projects
-            state = .linked(
-                employeeId: bootstrap.employee.id,
-                displayName: bootstrap.employee.displayName,
-                language: officeLanguage
-            )
+            // Do not apply an old request after reset or a new activation.
+            guard token == deviceToken() else { return }
+            if let data = try? JSONEncoder().encode(bootstrap) {
+                defaults.set(data, forKey: cacheKey)
+            }
+            apply(bootstrap)
+            errorMessage = nil
+        } catch OnSiteAPIError.unauthorized {
+            guard token == deviceToken() else { return }
+            reset()
+            errorMessage = "Dit apparaat is niet meer gekoppeld."
         } catch {
+            // Preserve cached identity and zones on network/server failures.
             errorMessage = error.localizedDescription
         }
     }
 
     func reset() {
-        OnSiteSecureStore.clear()
+        defaults.removeObject(forKey: cacheKey)
+        clearDeviceToken()
         assignedProjects = []
         state = .unlinked
         language = .bootstrap()

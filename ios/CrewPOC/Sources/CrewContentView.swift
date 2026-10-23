@@ -2,9 +2,9 @@ import SwiftUI
 import UIKit
 
 struct CrewContentView: View {
-    @StateObject private var locationMonitor = CrewLocationMonitor()
-    @StateObject private var identityStore = OnSiteIdentityStore()
-    @StateObject private var presenceUploader = OnSitePresenceUploader()
+    @ObservedObject private var locationMonitor = OnSiteRuntime.shared.location
+    @ObservedObject private var identityStore = OnSiteRuntime.shared.identity
+    @ObservedObject private var presenceUploader = OnSiteRuntime.shared.uploader
     @Environment(\.scenePhase) private var scenePhase
     @State private var phoneNumber = ""
     @State private var verificationCode = ""
@@ -25,24 +25,12 @@ struct CrewContentView: View {
             }
             .padding()
             .navigationTitle(OnSiteConfiguration.isOfficeTest ? "OnSite · Office-test" : "OnSite")
-            .task {
-                await identityStore.restoreLinkedDevice()
-                syncProjectZones()
-                await presenceUploader.retryPending()
-            }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
-                    Task { await presenceUploader.retryPending() }
+                    OnSiteRuntime.shared.wake(forceRefresh: true)
+                } else if phase == .background {
+                    OnSiteRuntime.shared.scheduleRefresh()
                 }
-            }
-            .onChange(of: identityStore.assignedProjects) {
-                syncProjectZones()
-            }
-            .onChange(of: locationMonitor.authorizationStatus) {
-                syncProjectZones()
-            }
-            .onChange(of: locationMonitor.events) {
-                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
             }
             .onOpenURL { url in
                 handleActivationURL(url)
@@ -64,7 +52,7 @@ struct CrewContentView: View {
             await identityStore.activate(activationToken: token)
             if case .linked = identityStore.state {
                 pendingActivationToken = nil
-                syncProjectZones()
+                OnSiteRuntime.shared.wake(forceRefresh: true)
             }
         }
     }
@@ -293,22 +281,6 @@ struct CrewContentView: View {
                 }
             }
         }
-    }
-
-    private func syncProjectZones() {
-        let zones = identityStore.assignedProjects.flatMap { project in
-            project.zones.map { zone in
-                CrewProjectZone(
-                    id: zone.id,
-                    projectId: project.id,
-                    projectName: project.name,
-                    latitude: zone.latitude,
-                    longitude: zone.longitude,
-                    radiusMetres: zone.radiusMetres
-                )
-            }
-        }
-        locationMonitor.monitor(zones)
     }
 
     private var activePresenceText: String? {
