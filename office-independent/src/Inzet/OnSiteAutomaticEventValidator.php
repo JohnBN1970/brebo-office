@@ -12,6 +12,8 @@ use InvalidArgumentException;
  * or raw location history. Does not authorize, persist or approve time entries.
  */
 final class OnSiteAutomaticEventValidator {
+  /** Optional receipt clock for the live application; pure validation is reused by import tests. */
+  public function __construct(private ?\Closure $receivedAt = null) {}
   /** @return array{project_id:string,zone_id:string,kind:string,occurred_at:string} */
   public function validate(array $event): array {
     foreach (['project_id', 'zone_id', 'kind', 'occurred_at'] as $key) {
@@ -41,6 +43,14 @@ final class OnSiteAutomaticEventValidator {
       $date = new DateTimeImmutable($timestamp);
     } catch (\Exception) {
       throw new InvalidArgumentException('invalid_timestamp');
+    }
+    if ($this->receivedAt !== null) {
+      $receipt = ($this->receivedAt)();
+      if (!$receipt instanceof DateTimeImmutable) throw new \RuntimeException('Invalid trusted receipt clock');
+      $difference = $date->getTimestamp() - $receipt->getTimestamp();
+      if ($difference > 300 || $difference < -604800) {
+        throw new InvalidArgumentException('event_outside_delivery_window');
+      }
     }
     $utc = $date->setTimezone(new DateTimeZone('UTC'));
     return [

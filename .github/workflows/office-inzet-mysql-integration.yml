@@ -55,6 +55,10 @@ on:
       - 'office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php'
       - 'scripts/build-office-onsite-test-migration-package.py'
       - 'scripts/build-office-onsite-integration-test-package.py'
+      - 'scripts/build-office-onsite-runtime-test-update.py'
+      - 'office-independent/deployment/hostinger/OfficeOnSiteRuntimeTestUpdate.php'
+      - 'office-independent/deployment/hostinger/office-onsite-runtime-observed-20261023.json'
+      - 'office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php'
       - 'office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php'
       - 'ios/CrewPOC/Sources/OnSiteIdentity.swift'
       - 'ios/CrewPOC/Sources/OnSiteSecureStore.swift'
@@ -417,6 +421,19 @@ jobs:
           php -l office-independent/tests/OfficeBuildingZonesMySqlTest.php
           php office-independent/tests/OfficeBuildingZonesMySqlTest.php
 
+      - name: Observed Office-test runtime update and rollback regression
+        run: |
+          php -l office-independent/deployment/hostinger/OfficeOnSiteRuntimeTestUpdate.php
+          php -l office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php
+          php office-independent/tests/OfficeOnSiteRuntimeTestUpdateTest.php
+          python3 scripts/build-office-onsite-runtime-test-update.py --output-dir "${{ runner.temp }}/office-onsite-runtime-update" --commit "${{ github.event.pull_request.head.sha || github.sha }}"
+          php -l "${{ runner.temp }}/office-onsite-runtime-update/office-onsite-runtime-testupdate-20261023.php"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-runtime-testupdate-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/office-onsite-runtime-update/*
+          if-no-files-found: error
+          retention-days: 14
       - name: Full verified identity activation presence evidence integration
         env:
           MYSQL_PWD: test-root-only

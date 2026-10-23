@@ -21,6 +21,9 @@ paths = sorted({
     *repo.glob('ios/CrewPOC/Sources/OnSite*.swift'),
     repo / 'ios/CrewPOC/Sources/CrewContentView.swift',
     repo / 'docs/OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md',
+    repo / 'docs/OFFICE_ONSITE_RUNTIME_TEST_UPDATE_2026-10-23.md',
+    repo / 'office-independent/deployment/hostinger/OfficeOnSiteRuntimeTestUpdate.php',
+    repo / 'office-independent/deployment/hostinger/office-onsite-runtime-observed-20261023.json',
 })
 files = {str(p.relative_to(repo)): p.read_text(encoding='utf-8').encode('utf-8') for p in paths}
 assert all('OfficeNativeProjectAccess' not in p for p in files)

@@ -88,7 +88,7 @@ $assert($bootstrap['status']===200 && count($bootstrap['body']['projects'])===1
   && $bootstrap['body']['projects'][0]['id']==='17'
   && $bootstrap['body']['projects'][0]['zones'][0]['id']==='8'
   && $bootstrap['body']['projects'][0]['zones'][0]['radius_metres']===1500.0,'Native bootstrap and presence zone contracts differ');
-$app = new OnSitePresenceApplication($db,$zones->callback());
+$app = new OnSitePresenceApplication($db,$zones->callback(),static fn():DateTimeImmutable=>new DateTimeImmutable('2026-10-23T09:00:00Z'));
 $event = ['project_id'=>'17','zone_id'=>'8','kind'=>'in','occurred_at'=>'2026-10-23T08:00:00Z'];
 $id = '550e8400-e29b-41d4-a716-446655440000'; // Actual iPhone UUID envelope.
 $submit = static fn(string $token,string $eventId,array $e):array=>$app->submit(['event_id'=>$eventId,'event'=>$e],$token);
@@ -103,6 +103,9 @@ foreach ([['project_id'=>'18'],['zone_id'=>'9']] as $change) {
 }
 $assert($submit($device,'550e8400-e29b-41d4-a716-446655440001',$event+['employee_id'=>'42'])['status']===400,'Spoofed employee accepted');
 $assert($submit(str_repeat('z',48),$id,$event)['status']===401,'Unknown token accepted');
+foreach (['2026-10-23T09:05:01Z','2026-10-16T08:59:59Z'] as $outside) {
+  $assert($submit($device,'550e8400-e29b-41d4-a716-446655440003',array_replace($event,['occurred_at'=>$outside]))['status']===422,'Delivery-window protection lost');
+}
 $db->exec('UPDATE office_building_zones SET active=0 WHERE id=8');
 $assert($bootstrapRepo->forEmployee('101',true)===[],'Disabled zone exposed by bootstrap');
 $assert($submit($device,'550e8400-e29b-41d4-a716-446655440001',$event)['status']===422,'Disabled zone accepted');

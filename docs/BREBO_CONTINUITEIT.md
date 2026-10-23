@@ -983,3 +983,33 @@ herstellen met hashcontrole en backup. Bewaar de gedeelde serveradapter met
 canRead én canManage. Concrete acceptatie, resterende benodigde inrichting en
 rollback: docs/OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md. CI-status volgt
 uitsluitend uit de uiteindelijke head/run, nooit uit de oudere groene 56cbed-run.
+
+## Gebruikersbewijs en complete runtime-update — 23 oktober 2026
+
+- Gebruiker bevestigt HERSTEL GESLAAGD voor de review-repository: c74b61db...,
+  gecontroleerde back-up, database/config/flags ongewijzigd.
+- Bronarchieven tonen dat de mobiele serverketen nog de afzonderlijke `onsite_*`
+  authority gebruikt. Er ontbreken canonical Office-componenten en de bestaande
+  methodecontracten verschillen. Alleen de eerste twaalf files plaatsen zou
+  legacy en Office door elkaar laten lopen. Er zijn ook serveraanpassingen aan
+  planning en uren-/leverancierscontrole; die blijven behouden.
+- Eén code-only updater is toegevoegd op dezelfde #1409-branch. Hij controleert
+  de daadwerkelijk aangeleverde bronhashes en plaatst 29 samenhangende bestanden,
+  plus uitsluitend de vijf expliciete test-API-/uitgifteroutes en hun forwarding.
+  De gedeelde adapter met canRead én canManage, gebouwzones, herstelde review,
+  legacy apparaatconsole en ander serverwerk blijven behouden.
+- De consumentpoorten blijven dicht; geen SQL, schema-/config-/flagwijziging,
+  import, provisioning, merge, productiehandeling of iOS-release. De behouden
+  legacy console mag niet als Office-uitgifte worden gebruikt. Persoonsmapping,
+  uitnodigingsschema, formulierintegratie in de werkelijke server-projectpagina
+  en browser-/iPhone-acceptatie blijven afzonderlijk aantoonbaar te voltooien.
+- CI-tests gebruiken synthetische code; de echte geüploade bron wordt uitsluitend
+  lokaal tegen de fingerprints gecontroleerd en niet gepubliceerd. Tests controleren plaatsing,
+  herhaling, rollback, onderbrekingen, locks, drift en behoud van auth/ACL/serverwerk.
+  Procedure: docs/OFFICE_ONSITE_RUNTIME_TEST_UPDATE_2026-10-23.md.
+  Plaatsing van deze updater op Hostinger is nog niet bevestigd.
+
+De live presence-compositieroot behoudt het uit de serverbron vastgestelde
+aanlevervenster van zeven dagen terug/vijf minuten vooruit, met een vertrouwde
+UTC-ontvangstklok. Grensgevallen en daadwerkelijke API-weigering zijn toegevoegd
+aan de tests; dit opent geen flags of oude identity-authority.
