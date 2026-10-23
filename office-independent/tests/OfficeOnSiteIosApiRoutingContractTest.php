@@ -42,8 +42,10 @@ foreach (['activationInProgress','redeemedActivationToken','catch OnSiteAPIError
   'try OnSiteSecureStore.saveDeviceToken'] as $required) {
   if (!str_contains($identity,$required)) throw new RuntimeException('iPhone activation recovery contract missing: '.$required);
 }
-if (!str_contains($view,'TextField("Activatiecode uit Office"') || !str_contains($secure,'SecItemUpdate')) {
-  throw new RuntimeException('Invitation UI or safe credential persistence missing');
+if (!str_contains($view, '.onOpenURL') || !str_contains($view, 'handleActivationURL')
+  || !str_contains($view, 'via WhatsApp') || !str_contains($view, 'OnSiteConfiguration.isOfficeTest')
+  || str_contains($view, 'TextField("Activatiecode uit Office"') || !str_contains($secure, 'SecItemUpdate')) {
+  throw new RuntimeException('WhatsApp activation or safe credential persistence missing');
 }
 $bootstrap = file_get_contents(dirname(__DIR__).'/public/onsite-bootstrap.php');
 $presence = file_get_contents(dirname(__DIR__).'/public/onsite-presence.php');

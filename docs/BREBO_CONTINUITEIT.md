@@ -1013,3 +1013,20 @@ De live presence-compositieroot behoudt het uit de serverbron vastgestelde
 aanlevervenster van zeven dagen terug/vijf minuten vooruit, met een vertrouwde
 UTC-ontvangstklok. Grensgevallen en daadwerkelijke API-weigering zijn toegevoegd
 aan de tests; dit opent geen flags of oude identity-authority.
+
+
+## Actuele aanvulling — 23 oktober 2026 — OnSite WhatsApp-activatie
+
+Office-testacceptatie heeft inmiddels de medewerker-/projectkoppeling, private
+identiteitsmapping, projectgebonden uitnodigingstabel, code-uitgifte en het
+native uitgifteformulier bevestigd. De correctie van de formulierpagina naar
+`Referrer-Policy: same-origin` is op de server uitgevoerd. Dit is nog geen bewijs
+van appactivatie: de gebruiker werkt met TestFlight-build 13 en verwacht de
+bestaande WhatsApp-linkflow.
+
+De code voegt die flow toe aan de native uitgifteroute en bevat een expliciete
+Codemagic Office-testworkflow. Standaardbuilds blijven op hun bestaande endpoint;
+alleen de gekozen testworkflow richt de gegenereerde plist op `/office-test`.
+Serverplaatsing van de WhatsApp-presentatie, echte iOS-build/TestFlight,
+linkactivatie, bootstrap en IN/UIT blijven open. Geen Codemagic-build gestart.
+Zie `OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md` voor grenzen en vervolgstappen.

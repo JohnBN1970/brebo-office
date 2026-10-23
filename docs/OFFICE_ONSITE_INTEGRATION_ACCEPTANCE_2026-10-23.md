@@ -117,3 +117,53 @@ expiry, native bootstrap (ook een straal >1000 m), iPhone-eventenvelop, replay,
 ACL, intrekking en bewijsprojectie. Bestaande iOS/API-routingcontracten controleren
 ook credentialherstel en gelijke native gates. Dat zijn PHP-/broncontracttests,
 geen bewijs van een Swift-build of fysieke iPhone-/browseracceptatie.
+
+
+## WhatsApp-flow en expliciete Office-testbuild — 23 oktober 2026
+
+De gebruiker meldt TestFlight-build 13 en bevestigt dat onboarding via een
+persoonlijke WhatsApp-link verloopt. De bronconfiguratie van de standaardworkflow
+wijst naar `https://sboffice.brebobv.nl`; het buildnummer alleen bewijst niet welke
+commit of server in het geïnstalleerde IPA zit. De bestaande appweergave is geen
+bewijs dat de nieuwe Office-testuitnodiging is ingewisseld.
+
+De uitgifteroute presenteert nu **Deel via WhatsApp**. Het bericht bevat een
+HTTPS-link naar dezelfde Office-testuitgifteroute met `#activation=...`. Het
+fragment wordt op de iPhone lokaal omgezet naar de bestaande
+`brebo-onsite://activate?token=...`-link. GET toont alleen de landingspagina, zonder
+databaseverbinding of tokenverbruik; linkpreviews kunnen dus geen uitnodiging
+inwisselen. De POST behoudt sessie, projectrechten, CSRF, origin en identiteitsmap.
+Het geheim staat niet in de HTTP-query van de landingspagina. Deelknop opent
+WhatsApp voor handmatige selectie en verzending; de server verstuurt niets.
+
+De projectpagina gebruikt `Referrer-Policy: same-origin` zodat de formulier-POST
+zijn gecontroleerde origin kan meesturen. De uitgifte- en landingspagina behouden
+`no-referrer` en `no-store`.
+
+Kies voor deze proef uitsluitend Codemagic-workflow
+`brebo-onsite-office-test-ios` op de branch met deze wijziging. Die genereert het
+Xcode-project, configureert alleen de gegenereerde plist voor
+`https://brebobv.nl/office-test`, geeft de app de zichtbare naam **OnSite Test**, en
+voert daarna de bestaande simulator-, signing- en IPA-stappen uit. Het bestaande
+bundle-ID en URL-schema blijven behouden; de testbuild is dus een update van de
+bestaande app, geen tweede installatie. De standaardworkflow en haar API-server
+blijven ongewijzigd. Codemagic bepaalt het buildnummer; neem niet aan dat het
+volgende nummer 14 is. De codewijziging triggert zelf geen Codemagic-build.
+
+De uitgiftepagina en nieuwe presentatieklasse moeten ook gericht op Office-test
+worden geplaatst voordat de nieuwe WhatsApp-flow daar beschikbaar is. Het oude
+runtime-updatepakket is voor een oudere baseline met gesloten gates en mag niet
+opnieuw over de inmiddels geconfigureerde testomgeving worden uitgevoerd.
+
+Extern nog te bewijzen: geselecteerde broncommit in Codemagic, geslaagde
+simulator-/IPA-build, TestFlight-beschikbaarheid/installatie, juiste API-host in het
+IPA, WhatsApp openen op iPhone, eenmalige activatie, projectbootstrap en IN/UIT.
+Maak pas na installatie en servervoorbereiding een nieuwe uitnodiging aan; de
+Office-code/link blijft 15 minuten geldig. Geen tokens of persoonlijke links in
+logs, screenshots, PR's of acceptatiebewijs opnemen.
+
+Lokale regressies: functionele PHP-uitgifte/landingspagina- en endpointtests
+(inclusief GET zonder database, gesloten gates, verkeerde host en ontbrekende
+POST-origin), JavaScript-linktests en Python-plisttests. De bestaande
+uitnodigings-, iOS/API-route- en runtimecontracttests blijven gelden. Dit is geen
+bewijs van een Xcode-build of fysieke iPhone-acceptatie.

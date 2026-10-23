@@ -223,6 +223,10 @@ struct OnSiteAPIClient {
 }
 
 enum OnSiteConfiguration {
+    static var isOfficeTest: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "OnSiteEnvironment") as? String) == "office-test"
+    }
+
     static var apiBaseURL: URL {
         if let configured = Bundle.main.object(forInfoDictionaryKey: "OnSiteAPIBaseURL") as? String,
            let url = URL(string: configured) {
