@@ -6,15 +6,39 @@ final class OnSitePresenceUploader: ObservableObject {
     @Published private(set) var lastUploadedEventId: UUID?
 
     private let apiClient = OnSiteAPIClient()
-    private var uploaded: Set<UUID> = []
+    private let queueKey = "brebo.onsite.pendingPresenceEvents.v1"
+    private var pending: [CrewPresenceEvent] = []
+    private var uploading = false
+
+    init() {
+        if let data = UserDefaults.standard.data(forKey: queueKey),
+           let decoded = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) {
+            pending = decoded
+        }
+    }
+
+    func enqueue(_ event: CrewPresenceEvent) {
+        guard !pending.contains(where: { $0.id == event.id }) else { return }
+        pending.append(event)
+        save() // Persist synchronously before any network task can be suspended.
+        Task { await flush() }
+    }
 
     func uploadNewEvents(_ events: [CrewPresenceEvent]) async {
-        guard let token = OnSiteSecureStore.deviceToken() else { return }
+        for event in events { enqueue(event) }
+        await flush()
+    }
 
-        for event in events where !uploaded.contains(event.id) {
+    func flush() async {
+        guard !uploading, let token = OnSiteSecureStore.deviceToken() else { return }
+        uploading = true
+        defer { uploading = false }
+
+        while let event = pending.first {
             do {
                 try await apiClient.recordPresence(event: event, deviceToken: token)
-                uploaded.insert(event.id)
+                pending.removeFirst()
+                save()
                 lastUploadedEventId = event.id
                 lastError = nil
             } catch {
@@ -22,5 +46,10 @@ final class OnSitePresenceUploader: ObservableObject {
                 break
             }
         }
+    }
+
+    private func save() {
+        guard let data = try? JSONEncoder().encode(pending) else { return }
+        UserDefaults.standard.set(data, forKey: queueKey)
     }
 }

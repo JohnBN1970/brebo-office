@@ -145,11 +145,12 @@ struct OnSiteAPIClient {
                 "occurred_at": formatter.string(from: event.occurredAt),
             ],
         ]
-        let _: OnSitePresenceResponse = try await authorizedPost(
+        let response: OnSitePresenceResponse = try await authorizedPost(
             path: "/api/onsite/v1/presence",
             deviceToken: deviceToken,
             body: body
         )
+        guard response.ok else { throw OnSiteAPIError.server("presence_not_accepted") }
     }
 
     private func endpointURL(_ path: String) -> URL {

@@ -2,6 +2,7 @@ import SwiftUI
 import UIKit
 
 struct CrewContentView: View {
+    @Environment(\.scenePhase) private var scenePhase
     @StateObject private var locationMonitor = CrewLocationMonitor()
     @StateObject private var identityStore = OnSiteIdentityStore()
     @StateObject private var presenceUploader = OnSitePresenceUploader()
@@ -25,8 +26,12 @@ struct CrewContentView: View {
             .padding()
             .navigationTitle(OnSiteConfiguration.isOfficeTest ? "OnSite · Office-test" : "OnSite")
             .task {
+                locationMonitor.onPresenceEvent = { event in
+                    presenceUploader.enqueue(event)
+                }
                 await identityStore.restoreLinkedDevice()
                 syncProjectZones()
+                await presenceUploader.flush()
             }
             .onChange(of: identityStore.assignedProjects) {
                 syncProjectZones()
@@ -34,8 +39,10 @@ struct CrewContentView: View {
             .onChange(of: locationMonitor.authorizationStatus) {
                 syncProjectZones()
             }
-            .onChange(of: locationMonitor.events) {
-                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
+            .onChange(of: scenePhase) { _, phase in
+                if phase == .active {
+                    Task { await presenceUploader.flush() }
+                }
             }
             .onOpenURL { url in
                 handleActivationURL(url)
