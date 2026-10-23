@@ -5,7 +5,7 @@ header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; script-src 'unsafe-inline' https://unpkg.com; img-src data: https://unpkg.com https://service.pdok.nl; connect-src https://service.pdok.nl https://api.pdok.nl; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline' https://unpkg.com; script-src 'unsafe-inline' https://unpkg.com; img-src data: https://unpkg.com https://service.pdok.nl; connect-src https://service.pdok.nl; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
 if (($_SERVER['REQUEST_METHOD'] ?? '')!=='GET') {http_response_code(405);header('Allow: GET');exit;}
 if (getenv('OFFICE_BASE_PATH')!=='/office-test' || getenv('OFFICE_NATIVE_PROJECTS_ENABLED')!=='enabled'
   || getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED')!=='enabled') {http_response_code(503);exit('Projectkaart niet beschikbaar.');}
@@ -106,10 +106,9 @@ foreach ($buildings as $building) {
 $buildingOptions.='</select></label>';
 $updateForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-update" method="post" action="/office-test/inzet/zone/bewerken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_id" id="update-id"><input type="hidden" name="revision" id="update-revision"><input type="hidden" name="zone_name" id="update-name"><input type="hidden" name="latitude" id="update-lat"><input type="hidden" name="longitude" id="update-lon"><input type="hidden" name="radius_metres" id="update-radius"><button id="update-zone" type="submit" disabled>Wijzigen inschakelen</button></form>' : '';
 $saveForm=$zoneWriteEnabled && $selectedBuilding!==null ? '<form id="zone-save" method="post" action="/office-test/inzet/zone/aanmaken"><input type="hidden" name="form_token" value="'.$escape($zoneCsrf).'"><input type="hidden" name="project_id" value="'.$id.'"><input type="hidden" name="building_id" value="'.$escape($selectedBuilding['id']).'"><input type="hidden" name="zone_name" id="save-name"><input type="hidden" name="latitude" id="save-lat"><input type="hidden" name="longitude" id="save-lon"><input type="hidden" name="radius_metres" id="save-radius"><button id="save-zone" type="submit" disabled>Zone opslaan in testdatabase</button></form>' : '';
-echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p><a href="/office-test/inzet/aanwezigheid?id='.$id.'">Aanwezigheidscontrole bekijken</a></p><p>Gebruik een bestaande gebouwzone of vul een gecontroleerd middelpunt in. Kaarttegels worden pas na inschakelen geladen. Opslag uitsluitend op het geselecteerde gebouw.</p>'<label for="address-search">Zoek gebouwadres <input id="address-search" type="search" maxlength="240" placeholder="Straat, huisnummer, postcode en plaats" autocomplete="street-address"></label><button id="find-address" type="button">Zoek adres via PDOK</button><p id="address-result" role="status" aria-live="polite">Controleer de gevonden locatie op de kaart voordat je opslaat.</p>'.$startInputs.'<button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="'.$escape($existingName).'" required></label><label>Straal: <output id="metres">'.$escape($existingRadius).'</output> meter <input id="radius" type="range" min="10" max="1000" step="10" value="'.$escape($existingRadius).'"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneSelector.$zoneList.$saveForm.$updateForm.'<small>Alleen testomgeving. Bij inschakelen ontvangt de kaartprovider de opgevraagde kaartregio.</small></section></main><script>
+echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Personeelszone · Office</title><style>body{font:16px system-ui;margin:2rem auto;max-width:900px;padding:1rem;color:#243244}section{padding:1.5rem;border:1px solid #ccd5df;border-radius:12px}#map{height:460px;background:#e8eef1;border:1px solid #ccd5df;border-radius:8px}label{display:block;margin:1rem 0}button,input{font:inherit;padding:.5rem}input[type=range]{width:min(100%,500px)}pre{white-space:pre-wrap;overflow-wrap:anywhere}</style></head><body><main><a href="/office-test/projecten/detail?id='.$id.'">← Project</a><section><h1>Personeelszone · project '.$id.'</h1><p><a href="/office-test/inzet/aanwezigheid?id='.$id.'">Aanwezigheidscontrole bekijken</a></p><p>Gebruik een bestaande gebouwzone of vul een gecontroleerd middelpunt in. Kaarttegels worden pas na inschakelen geladen. Opslag uitsluitend op het geselecteerde gebouw.</p>'.$startInputs.'<button id="enable" type="button">Kaart inschakelen</button><label for="zone-name">Zonenaam <input id="zone-name" maxlength="160" value="'.$escape($existingName).'" required></label><label>Straal: <output id="metres">'.$escape($existingRadius).'</output> meter <input id="radius" type="range" min="10" max="1000" step="10" value="'.$escape($existingRadius).'"></label><div id="map" aria-label="Personeelszonekaart"></div><p id="status" aria-live="polite">Kaart uitgeschakeld.</p><button id="preview" type="button" disabled>Toon zonegegevens (niet opslaan)</button><pre id="result">Geen gegevens opgeslagen.</pre>'.$buildingOptions.$createdNotice.$zoneSelector.$zoneList.$saveForm.$updateForm.'<small>Alleen testomgeving. Bij inschakelen ontvangt de kaartprovider de opgevraagde kaartregio.</small></section></main><script>
 (()=>{
  const zones='.$zoneDataJson.';
- const addressSearch=document.getElementById("address-search"),addressResult=document.getElementById("address-result"),findAddress=document.getElementById("find-address");
  let center=null,map,circle,marker,editing=false;
  const zoneSelect=document.getElementById("saved-zone");
  const activeZone=()=>zones.find(z=>z.id===zoneSelect.value)||null;
@@ -138,28 +137,6 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   if(updateButton){updateButton.disabled=!map||!z;updateButton.textContent="Wijzigen inschakelen";}
  }
  zoneSelect.addEventListener("change",selectZone);
- findAddress.addEventListener("click",async()=>{
-  const query=addressSearch.value.trim();
-  if(query.length<5){addressResult.textContent="Vul straat, huisnummer en plaats of postcode in.";return;}
-  if(activeZone()&&!editing){addressResult.textContent="Schakel eerst Wijzigen in om een bestaande zone te verplaatsen.";return;}
-  findAddress.disabled=true;addressResult.textContent="Adres zoeken...";
-  try{
-   const url="https://api.pdok.nl/bzk/locatieserver/search/v3_1/free?q="+encodeURIComponent(query)+"&rows=5";
-   const response=await fetch(url,{method:"GET",mode:"cors",credentials:"omit",cache:"no-store"});
-   if(!response.ok)throw new Error("PDOK niet beschikbaar");
-   const data=await response.json();const docs=data?.response?.docs;
-   if(!Array.isArray(docs)||docs.length===0){addressResult.textContent="Geen adres gevonden. Controleer de invoer.";return;}
-   const match=docs.find(d=>d.type==="adres")||docs[0];
-   const point=/^POINT\\((-?[0-9.]+) (-?[0-9.]+)\\)$/.exec(String(match.centroide_ll||""));
-   if(!point)throw new Error("Geen geldige coördinaten");
-   const lng=Number(point[1]),lat=Number(point[2]);
-   if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180)throw new Error("Ongeldige locatie");
-   center={lat,lng};document.getElementById("start-lat").value=lat.toFixed(7);document.getElementById("start-lon").value=lng.toFixed(7);
-   addressResult.textContent="Gevonden: "+String(match.weergavenaam||query)+". Controleer de cirkel op de kaart en sla pas daarna op.";
-   if(map){map.setView([lat,lng],17);render();}else{status.textContent="Adres gevonden. Klik op Kaart inschakelen om de zone te controleren.";}
-  }catch(e){addressResult.textContent="Adres zoeken mislukt. Probeer opnieuw of gebruik handmatige coördinaten.";}
-  finally{findAddress.disabled=false;}
- });
  function init(){
   map=L.map("map",{scrollWheelZoom:false}).setView([center.lat,center.lng],16);
   L.tileLayer.wms("https://service.pdok.nl/hwh/luchtfotorgb/wms/v1_0",{layers:"Actueel_orthoHR",styles:"",format:"image/jpeg",transparent:false,version:"1.3.0",maxZoom:19,attribution:"Luchtfoto: PDOK"}).addTo(map);
