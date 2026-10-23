@@ -9,7 +9,7 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     private let manager = CLLocationManager()
     private var zonesByIdentifier: [String: CrewProjectZone] = [:]
-    private var activeZoneIds: Set<String> = []
+    private var activeZoneIds: Set<String> = Set(UserDefaults.standard.stringArray(forKey: "brebo.onsite.active-zones.v1") ?? [])
 
     override init() {
         super.init()
