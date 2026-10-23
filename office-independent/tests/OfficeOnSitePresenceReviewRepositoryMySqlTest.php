@@ -26,7 +26,7 @@ foreach (['office-manager:john','0',str_repeat('x',128)] as $id) {
 }
 foreach (['read-only','other-project','inactive','unknown',"' OR 1=1 --"] as $id) {
   $view=$repo->forManager($id,'17');
-  if ($view!==['intervals'=>[],'exceptions'=>[]]) throw new RuntimeException('Unauthorized event disclosure');
+  if ($view!==['intervals'=>[],'active'=>[],'exceptions'=>[]]) throw new RuntimeException('Unauthorized event disclosure');
 }
 foreach ([['','17',250],[str_repeat('x',129),'17',250],['office-manager:john','0',250],['office-manager:john','17',0],['office-manager:john','17',501]] as [$id,$project,$limit]) {
   $denied=false;
@@ -37,5 +37,5 @@ $truncated=false;
 try {$repo->forManager('office-manager:john','17',1);} catch (RuntimeException $e) {$truncated=$e->getMessage()==='presence_review_window_incomplete';}
 if (!$truncated) throw new RuntimeException('Incomplete evidence window accepted');
 $db->prepare('UPDATE office_project_memberships SET permission=? WHERE operator_id=? AND project_id=17')->execute(['read','office-manager:john']);
-if ($repo->forManager('office-manager:john','17')!==['intervals'=>[],'exceptions'=>[]]) throw new RuntimeException('Revoked manage permission retained');
+if ($repo->forManager('office-manager:john','17')!==['intervals'=>[],'active'=>[],'exceptions'=>[]]) throw new RuntimeException('Revoked manage permission retained');
 echo "Presence review opaque accounts, project ACL, inactive accounts and evidence window OK\n";
