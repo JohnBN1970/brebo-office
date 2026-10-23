@@ -7,6 +7,8 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
     @Published private(set) var states: [String: CrewPresenceState] = [:]
     @Published private(set) var events: [CrewPresenceEvent] = []
 
+    var onPresenceEvent: ((CrewPresenceEvent) -> Void)?
+
     private let manager = CLLocationManager()
     private var zonesByIdentifier: [String: CrewProjectZone] = [:]
 
@@ -69,20 +71,16 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         states[region.identifier] = .present
         guard let zone = zonesByIdentifier[region.identifier] else { return }
-        events.append(CrewPresenceEvent(
-            projectId: zone.projectId,
-            zoneId: zone.id,
-            kind: .enteredProject
-        ))
+        let event = CrewPresenceEvent(projectId: zone.projectId, zoneId: zone.id, kind: .enteredProject)
+        onPresenceEvent?(event)
+        events.append(event)
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
         states[region.identifier] = .outside
         guard let zone = zonesByIdentifier[region.identifier] else { return }
-        events.append(CrewPresenceEvent(
-            projectId: zone.projectId,
-            zoneId: zone.id,
-            kind: .leftProject
-        ))
+        let event = CrewPresenceEvent(projectId: zone.projectId, zoneId: zone.id, kind: .leftProject)
+        onPresenceEvent?(event)
+        events.append(event)
     }
 }
