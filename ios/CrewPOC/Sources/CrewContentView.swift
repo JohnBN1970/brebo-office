@@ -26,6 +26,9 @@ struct CrewContentView: View {
             .padding()
             .navigationTitle(OnSiteConfiguration.isOfficeTest ? "OnSite · Office-test" : "OnSite")
             .task {
+                locationMonitor.onPresenceEvent = { event in
+                    presenceUploader.enqueue(event)
+                }
                 await identityStore.restoreLinkedDevice()
                 syncProjectZones()
                 await presenceUploader.flush()
@@ -35,9 +38,6 @@ struct CrewContentView: View {
             }
             .onChange(of: locationMonitor.authorizationStatus) {
                 syncProjectZones()
-            }
-            .onChange(of: locationMonitor.events) {
-                Task { await presenceUploader.uploadNewEvents(locationMonitor.events) }
             }
             .onChange(of: scenePhase) { _, phase in
                 if phase == .active {
