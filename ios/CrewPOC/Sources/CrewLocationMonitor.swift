@@ -48,6 +48,13 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
         events.append(CrewPresenceEvent(projectId: zone.projectId, zoneId: zone.id, kind: .enteredProject))
     }
 
+    private func recordDeparture(for regionId: String) {
+        guard let zone = zonesByIdentifier[regionId] else { return }
+        guard activeZoneIds.remove(regionId) != nil else { return }
+        UserDefaults.standard.set(activeZoneIds.sorted(), forKey: "brebo.onsite.active-zones.v1")
+        events.append(CrewPresenceEvent(projectId: zone.projectId, zoneId: zone.id, kind: .leftProject))
+    }
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         authorizationStatus = manager.authorizationStatus
     }
