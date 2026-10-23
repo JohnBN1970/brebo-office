@@ -10,6 +10,7 @@ final class OnSitePresenceUploader: ObservableObject {
     private let queueKey = "brebo.onsite.pending-presence.v1"
     private var pending: [CrewPresenceEvent] = []
     private var uploading = false
+    private var seenEventIds: Set<UUID> = []
 
     init() {
         restore()
@@ -19,6 +20,7 @@ final class OnSitePresenceUploader: ObservableObject {
         guard let data = UserDefaults.standard.data(forKey: queueKey),
               let events = try? JSONDecoder().decode([CrewPresenceEvent].self, from: data) else { return }
         pending = events
+        seenEventIds.formUnion(events.map(\.id))
         pendingCount = events.count
     }
 
@@ -30,8 +32,8 @@ final class OnSitePresenceUploader: ObservableObject {
     }
 
     func uploadNewEvents(_ events: [CrewPresenceEvent]) async {
-        let existing = Set(pending.map(\.id))
-        let additions = events.filter { !existing.contains($0.id) }
+        let additions = events.filter { !seenEventIds.contains($0.id) }
+        seenEventIds.formUnion(additions.map(\.id))
         if !additions.isEmpty {
             pending.append(contentsOf: additions)
             persist()
