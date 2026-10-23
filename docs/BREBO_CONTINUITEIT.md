@@ -954,3 +954,32 @@ De gebruiker meldt INSTALLED voor pakket a419bce386b9cd93a466647810f0a1181baab87
 
 ## Office-test zoneopslag geactiveerd — gebruikersbewijs
 De gebruiker bevestigt ENABLED voor hetzelfde geverifieerde pakket a419bce386b9cd93a466647810f0a1181baab87a62273545829e77c454db10de: 9 bestanden, schema PASS, zone_write_enabled=true, zone_schema_verified=true, zone_secret_configured=true; shared files en database unchanged. Code en router zijn geïnstalleerd en de testzoneopslag is nu actief. Een Codex-browserpoging naar https://brebobv.nl/office-test/projecten is vóór de applicatie geweigerd met net::ERR_INVALID_AUTH_CREDENTIALS door de extra HTTP-authenticatie. Dat bewijst geen applicatiefout, maar verhindert browseracceptatie vanuit deze browser. De gebruiker moet de kaart-/opslag-/herhaalsmoke in de reeds aangemelde eigen browser uitvoeren. Geen browseracceptatie, merge, productie- of iPhone-release bevestigd.
+
+
+## PR #1409 — integratie identiteit, iPhone en aanwezigheidsbewijs (23 oktober 2026)
+
+De bestaande ontwikkelbranch bouwt voort op 56cbed631366e9e99470046d8b91950ade3c331c.
+De serveranalyse is afgerond; geen nieuwe SQL-diagnostiek of import nodig. Office-test
+heeft nog geen medewerkers of teamtoewijzingen; er is geen geverifieerde mapping
+of fysieke iPhone-/browseracceptatie. De oude review-repositoryhash is bevestigd.
+
+Code: private beoordeelde bronidentiteitsmapping via de bestaande guard/bridge;
+projectgebonden eenmalige uitnodiging en veilige heruitgifte; actuele actieve
+medewerker/team/managercontrole; native gebouwzones voor bootstrap en presence;
+409 bij conflicterende replay; iPhone-codeinvoer, bescherming tegen gelijktijdige
+activatie en behoud van Keychain-token bij offline/503. Geen dubbele registratie,
+Drupal-credentialimport, automatische schema-/flagwijziging, merge of productiehandeling.
+
+Nieuwe integratietest gebruikt de bestaande repositories met aparte CI-database,
+UID 42 → Office 101, projectverlies, replays, expiry, revocation en evidence_only;
+ook gelijktijdige redemption van één code. De bestaande uitnodigingstabel heeft
+nu een expliciete project_id in het reviewvoorstel. De reeds bevestigde twee
+Office-event/device-tabellen vereisen geen nieuwe migratie; dat bewijs bevestigt
+niet automatisch het uitnodigingsschema. Alle activeringspoorten blijven intact.
+
+Het CI-reviewpakket bevat manifest, runtimebron en tests, geen installer. Eerst
+alleen uitpakken buiten de release en de bekende oude review-repository gericht
+herstellen met hashcontrole en backup. Bewaar de gedeelde serveradapter met
+canRead én canManage. Concrete acceptatie, resterende benodigde inrichting en
+rollback: docs/OFFICE_ONSITE_INTEGRATION_ACCEPTANCE_2026-10-23.md. CI-status volgt
+uitsluitend uit de uiteindelijke head/run, nooit uit de oudere groene 56cbed-run.

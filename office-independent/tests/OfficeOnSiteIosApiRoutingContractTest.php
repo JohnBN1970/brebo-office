@@ -34,3 +34,21 @@ foreach (['link/request', 'link/verify'] as $route) {
   }
 }
 echo "OnSite iOS API routing static contract OK; SMS onboarding not exposed in Office test\\n";
+
+$identity = file_get_contents(dirname(__DIR__,2).'/ios/CrewPOC/Sources/OnSiteIdentity.swift');
+$view = file_get_contents(dirname(__DIR__,2).'/ios/CrewPOC/Sources/CrewContentView.swift');
+$secure = file_get_contents(dirname(__DIR__,2).'/ios/CrewPOC/Sources/OnSiteSecureStore.swift');
+foreach (['activationInProgress','redeemedActivationToken','catch OnSiteAPIError.unauthorized',
+  'try OnSiteSecureStore.saveDeviceToken'] as $required) {
+  if (!str_contains($identity,$required)) throw new RuntimeException('iPhone activation recovery contract missing: '.$required);
+}
+if (!str_contains($view,'TextField("Activatiecode uit Office"') || !str_contains($secure,'SecItemUpdate')) {
+  throw new RuntimeException('Invitation UI or safe credential persistence missing');
+}
+$bootstrap = file_get_contents(dirname(__DIR__).'/public/onsite-bootstrap.php');
+$presence = file_get_contents(dirname(__DIR__).'/public/onsite-presence.php');
+foreach (['OFFICE_ONSITE_NATIVE_BUILDING_ZONES_VERIFIED','OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED',
+  'OFFICE_NATIVE_BUILDING_ZONES_SCHEMA_VERIFIED','OFFICE_ONSITE_SCHEMA_VERIFIED'] as $gate) {
+  if (!str_contains($bootstrap,$gate) || !str_contains($presence,$gate)) throw new RuntimeException('Bootstrap/presence gate mismatch: '.$gate);
+}
+echo "iPhone single-use invitation, secure persistence, recovery and native zone gates contract OK\n";

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once dirname(__DIR__).'/deployment/hostinger/OfficeOnSiteTestMigration.php';
 require_once dirname(__DIR__).'/src/Inzet/OnSiteDeviceTokenRepository.php';
+require_once dirname(__DIR__).'/src/Inzet/OnSiteEventReplayConflict.php';
 require_once dirname(__DIR__).'/src/Inzet/OnSiteEventInbox.php';
 use Brebo\Office\Deployment\OfficeOnSiteTestMigration;
 use Brebo\Office\Inzet\OnSiteDeviceTokenRepository;

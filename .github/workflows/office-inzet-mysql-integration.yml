@@ -54,6 +54,11 @@ on:
       - 'office-independent/tests/OfficeOnSiteTestMigrationMySqlTest.php'
       - 'office-independent/tests/OfficeOnSitePresenceReviewRepositoryMySqlTest.php'
       - 'scripts/build-office-onsite-test-migration-package.py'
+      - 'scripts/build-office-onsite-integration-test-package.py'
+      - 'office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php'
+      - 'ios/CrewPOC/Sources/OnSiteIdentity.swift'
+      - 'ios/CrewPOC/Sources/OnSiteSecureStore.swift'
+      - 'ios/CrewPOC/Sources/CrewContentView.swift'
       - 'office-independent/public/office-project.php'
       - 'office-independent/public/office-projects.php'
       - 'office-independent/deployment/hostinger/office-test-index.php'
@@ -411,3 +416,22 @@ jobs:
           php -l office-independent/deployment/hostinger/office-test-index.php
           php -l office-independent/tests/OfficeBuildingZonesMySqlTest.php
           php office-independent/tests/OfficeBuildingZonesMySqlTest.php
+
+      - name: Full verified identity activation presence evidence integration
+        env:
+          MYSQL_PWD: test-root-only
+          OFFICE_ONSITE_FLOW_CI_DSN: mysql:host=127.0.0.1;port=3306;dbname=office_onsite_flow_ci;charset=utf8mb4
+          OFFICE_INZET_TEST_USER: root
+          OFFICE_INZET_TEST_PASSWORD: test-root-only
+        run: |
+          mysql -h 127.0.0.1 -u root -e 'CREATE DATABASE office_onsite_flow_ci'
+          php -l office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php
+          php office-independent/tests/OfficeOnSiteIdentityActivationPresenceMySqlTest.php
+      - name: Build integration review package (no installer or activation)
+        run: python3 scripts/build-office-onsite-integration-test-package.py --output-dir "${{ runner.temp }}/office-onsite-integration" --commit "${{ github.event.pull_request.head.sha || github.sha }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-onsite-integration-${{ strategy.job-index }}
+          path: ${{ runner.temp }}/office-onsite-integration/*
+          if-no-files-found: error
+          retention-days: 14

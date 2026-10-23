@@ -90,9 +90,12 @@ struct OnSiteChallenge: Decodable {
 enum OnSiteAPIError: LocalizedError {
     case invalidResponse
     case server(String)
+    case unauthorized
 
     var errorDescription: String? {
         switch self {
+        case .unauthorized:
+            return "Dit apparaat is niet meer gekoppeld. Vraag een nieuwe activatiecode in Office."
         case .invalidResponse:
             return "Office gaf geen geldige reactie."
         case .server(let message):
@@ -153,7 +156,11 @@ struct OnSiteAPIClient {
         // Preserve a configured /office-test prefix while keeping API paths stable.
         let prefix = baseURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         let suffix = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        return baseURL.deletingLastPathComponent().appending(path: prefix.isEmpty ? suffix : prefix + "/" + suffix)
+        var components = URLComponents(url: baseURL, resolvingAgainstBaseURL: false)!
+        components.path = "/" + (prefix.isEmpty ? suffix : prefix + "/" + suffix)
+        components.query = nil
+        components.fragment = nil
+        return components.url!
     }
 
     private func authorizedGet<T: Decodable>(path: String, deviceToken: String) async throws -> T {
@@ -183,6 +190,7 @@ struct OnSiteAPIClient {
         guard let http = response as? HTTPURLResponse else {
             throw OnSiteAPIError.invalidResponse
         }
+        if http.statusCode == 401 { throw OnSiteAPIError.unauthorized }
         guard 200..<300 ~= http.statusCode else {
             let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             let error = payload?["error"] as? String ?? "request_failed"
@@ -203,6 +211,7 @@ struct OnSiteAPIClient {
             throw OnSiteAPIError.invalidResponse
         }
 
+        if http.statusCode == 401 { throw OnSiteAPIError.unauthorized }
         guard 200..<300 ~= http.statusCode else {
             let payload = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             let error = payload?["error"] as? String ?? "verification_failed"

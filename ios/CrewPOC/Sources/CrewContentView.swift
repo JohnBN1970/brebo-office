@@ -6,6 +6,7 @@ struct CrewContentView: View {
     @StateObject private var identityStore = OnSiteIdentityStore()
     @StateObject private var presenceUploader = OnSitePresenceUploader()
     @State private var phoneNumber = ""
+    @State private var activationCode = ""
     @State private var verificationCode = ""
     @State private var pendingActivationToken: String?
 
@@ -125,6 +126,17 @@ struct CrewContentView: View {
             Label("Eenmalig koppelen", systemImage: "iphone.gen3")
                 .font(.title2.bold())
 
+            TextField("Activatiecode uit Office", text: $activationCode)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .textFieldStyle(.roundedBorder)
+            Button("Activeer dit apparaat") {
+                Task { await identityStore.activate(activationToken: activationCode) }
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(activationCode.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            Text("Vraag een eenmalige code aan je Office-beheerder. Een gebruikte of vervangen code kan niet opnieuw worden gebruikt.")
+                .font(.caption)
             Text("Vul het mobiele nummer in dat bij je medewerkerprofiel in Office staat. Daarna werkt OnSite zonder dagelijkse instellingen.")
                 .foregroundStyle(.secondary)
 

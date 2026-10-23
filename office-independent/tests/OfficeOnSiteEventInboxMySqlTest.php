@@ -11,7 +11,7 @@ foreach ([
   'OnSiteAssignmentRepository.php',
   'OnSiteAssignmentGate.php',
   'OnSiteOfficeTeamAssignmentRepository.php',
-  'OnSiteEventInbox.php',
+  'OnSiteEventReplayConflict.php','OnSiteEventInbox.php',
   'OnSiteEventInboxSchema.php',
   'OnSiteAutomaticIngest.php',
 ] as $file) require_once $base . $file;

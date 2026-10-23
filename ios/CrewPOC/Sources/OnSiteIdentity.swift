@@ -37,15 +37,24 @@ final class OnSiteIdentityStore: ObservableObject {
     @Published private(set) var assignedProjects: [OnSiteBootstrapProject] = []
 
     private let apiClient = OnSiteAPIClient()
+    private var activationInProgress = false
+    private var redeemedActivationToken: String?
 
     func activate(activationToken: String) async {
         let token = activationToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !token.isEmpty else { return }
+        guard !token.isEmpty, !activationInProgress else { return }
+        if redeemedActivationToken == token, OnSiteSecureStore.deviceToken() != nil {
+            await refreshBootstrap()
+            return
+        }
+        activationInProgress = true
+        defer { activationInProgress = false }
 
         errorMessage = nil
         do {
             let activated = try await apiClient.activate(activationToken: token)
-            OnSiteSecureStore.saveDeviceToken(activated.deviceToken)
+            try OnSiteSecureStore.saveDeviceToken(activated.deviceToken)
+            redeemedActivationToken = token
             await refreshBootstrap()
         } catch {
             errorMessage = error.localizedDescription
@@ -82,7 +91,7 @@ final class OnSiteIdentityStore: ObservableObject {
 
         do {
             let verified = try await apiClient.verifyCode(challengeId: challengeId, code: code)
-            OnSiteSecureStore.saveDeviceToken(verified.deviceToken)
+            try OnSiteSecureStore.saveDeviceToken(verified.deviceToken)
             let officeLanguage = OnSiteLanguage(rawValue: verified.language) ?? .dutch
             language = officeLanguage
             state = .linked(
@@ -109,10 +118,13 @@ final class OnSiteIdentityStore: ObservableObject {
                 displayName: bootstrap.employee.displayName,
                 language: officeLanguage
             )
-        } catch {
+        } catch OnSiteAPIError.unauthorized {
             OnSiteSecureStore.clear()
             assignedProjects = []
             state = .unlinked
+            errorMessage = "Dit apparaat is niet meer gekoppeld."
+        } catch {
+            // Offline or a closed server gate does not invalidate a saved credential.
             errorMessage = error.localizedDescription
         }
     }
@@ -139,6 +151,7 @@ final class OnSiteIdentityStore: ObservableObject {
         assignedProjects = []
         state = .unlinked
         language = .bootstrap()
+        redeemedActivationToken = nil
         errorMessage = nil
     }
 }

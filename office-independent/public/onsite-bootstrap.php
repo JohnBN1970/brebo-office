@@ -43,7 +43,13 @@ try {
     PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,
     PDO::ATTR_EMULATE_PREPARES=>false,
   ]);
-  if (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
+  $native = getenv('OFFICE_ONSITE_NATIVE_BUILDING_ZONES_VERIFIED') === 'enabled';
+  if ($native) {
+    if (getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') !== 'enabled'
+      || getenv('OFFICE_NATIVE_BUILDING_ZONES_SCHEMA_VERIFIED') !== 'enabled') {
+      throw new RuntimeException('Native building zones schema not verified');
+    }
+  } elseif (getenv('OFFICE_ONSITE_ZONE_SYNC_VERIFIED') !== 'enabled'
     || getenv('OFFICE_ONSITE_PROJECT_MAPPING_VERIFIED') !== 'enabled') {
     throw new RuntimeException('OnSite project zones not verified');
   }
@@ -51,7 +57,7 @@ try {
     new \Brebo\Office\Inzet\OnSiteDeviceTokenRepository($db)
   );
   $repository = new \Brebo\Office\Inzet\OnSiteBootstrapRepository($db);
-  $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId));
+  $result = $service->bootstrap($match[1], static fn(string $employeeId): array => $repository->forEmployee($employeeId, $native));
   http_response_code($result['status']);
   echo json_encode($result['body'], JSON_THROW_ON_ERROR);
 } catch (Throwable $error) {

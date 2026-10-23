@@ -12,7 +12,7 @@ foreach ([
   'Inzet/OnSiteBuildingZoneAccess.php','Inzet/OnSiteDeviceTokenRepository.php',
   'Inzet/OnSiteAutomaticEventValidator.php','Inzet/OnSiteAssignmentRepository.php',
   'Inzet/OnSiteAssignmentGate.php','Inzet/OnSiteOfficeTeamAssignmentRepository.php',
-  'Inzet/OnSiteEventInbox.php','Inzet/OnSiteAutomaticIngest.php',
+  'Inzet/OnSiteEventReplayConflict.php','Inzet/OnSiteEventInbox.php','Inzet/OnSiteAutomaticIngest.php',
   'Inzet/OnSiteAuthenticatedEventService.php','Inzet/OnSitePresenceRequestService.php',
   'Inzet/OnSitePresenceApiHandler.php'
 ] as $file) require_once $root . $file;

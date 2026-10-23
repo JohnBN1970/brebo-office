@@ -29,6 +29,7 @@ try {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
   foreach (['OnSiteOfficeInvitationCsrf.php','OnSiteActivationInvitationIssuer.php',
+    'OfficeInzetIdentityMappingGuard.php','OnSiteActivationIdentityBridge.php',
     'OnSiteOfficeInvitationAction.php'] as $file) {
     require_once dirname(__DIR__) . '/src/Inzet/' . $file;
   }
@@ -54,11 +55,16 @@ try {
   $action = new \Brebo\Office\Inzet\OnSiteOfficeInvitationAction(
     $db, new \Brebo\Office\Inzet\OnSiteActivationInvitationIssuer($db)
   );
+  $verifiedMap = \Brebo\Office\Inzet\OnSiteActivationIdentityBridge::loadVerifiedMap(
+    getenv('OFFICE_ONSITE_VERIFIED_IDENTITY_MAP_FILE') ?: ''
+  );
+  $personId = \Brebo\Office\Inzet\OnSiteActivationIdentityBridge::verifiedPerson($verifiedMap, $personId);
   $invitation = $action->issue($operator->operatorId, $projectId, $personId);
   header('Content-Type: text/html; charset=utf-8');
   $h = static fn(string $s): string => htmlspecialchars($s, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
   echo '<!doctype html><html lang="nl"><meta charset="utf-8"><title>OnSite-activatie · BREBO Office</title>';
   echo '<body><h1>Eenmalige OnSite-activatie</h1><p>Deel deze code uitsluitend met de gecontroleerde medewerker.</p>';
+  echo '<p>Open de OnSite-app en vul deze code in.</p>';
   echo '<p><code>' . $h($invitation['activation_token']) . '</code></p><p>Geldig tot (UTC): '
     . $h($invitation['expires_at']) . '</p></body></html>';
 } catch (RuntimeException $error) {
