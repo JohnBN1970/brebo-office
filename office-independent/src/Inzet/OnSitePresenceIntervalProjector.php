@@ -65,9 +65,17 @@ final class OnSitePresenceIntervalProjector {
         'status'=>'evidence_only'];
       unset($open[$key]);
     }
+    $active = [];
     foreach ($open as $arrival) {
-      $exceptions[] = ['reason'=>'missing_departure','event_id'=>(string)$arrival['event_id']];
+      $active[] = [
+        'person_id'=>(string)$arrival['person_id'],
+        'project_id'=>(string)$arrival['project_id'],
+        'zone_id'=>(string)$arrival['zone_id'],
+        'arrival_event_id'=>(string)$arrival['event_id'],
+        'entered_at'=>(string)$arrival['occurred_at_utc'],
+        'status'=>'presence_evidence_open',
+      ];
     }
-    return ['intervals'=>$intervals,'exceptions'=>$exceptions];
+    return ['intervals'=>$intervals,'active'=>$active,'exceptions'=>$exceptions];
   }
 }
