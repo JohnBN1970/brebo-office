@@ -75,12 +75,7 @@ final class CrewLocationMonitor: NSObject, ObservableObject, CLLocationManagerDe
 
     func locationManager(_ manager: CLLocationManager, didEnterRegion region: CLRegion) {
         states[region.identifier] = .present
-        guard let zone = zonesByIdentifier[region.identifier] else { return }
-        events.append(CrewPresenceEvent(
-            projectId: zone.projectId,
-            zoneId: zone.id,
-            kind: .enteredProject
-        ))
+        recordArrival(for: region.identifier)
     }
 
     func locationManager(_ manager: CLLocationManager, didExitRegion region: CLRegion) {
