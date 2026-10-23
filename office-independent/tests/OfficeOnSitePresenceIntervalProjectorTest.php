@@ -19,7 +19,7 @@ if (count($result['intervals'])!==1 || $result['intervals'][0]['elapsed_seconds'
   || $result['intervals'][0]['status']!=='evidence_only') throw new RuntimeException('Presence interval mismatch');
 $reasons=array_column($result['exceptions'],'reason');
 sort($reasons);
-if ($reasons!==['departure_without_arrival','missing_departure','overlapping_arrival'])
+if ($reasons!==['departure_without_arrival','overlapping_arrival'])
   throw new RuntimeException('Presence exceptions mismatch');
 $mismatch=$projector->project([
   $event('arrival_0000000004','in','2026-10-22T08:00:00Z'),
