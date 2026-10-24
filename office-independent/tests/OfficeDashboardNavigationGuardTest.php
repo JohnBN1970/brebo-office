@@ -29,7 +29,7 @@ $required = [
   "Mijn projecten",
   "availableCount",
   "module-status",
-  'usort($entries',
+  'Do not reorder modules based on deployment flags.',
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
