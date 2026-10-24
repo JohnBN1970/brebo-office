@@ -68,6 +68,7 @@ $routes = [
   '/office-test/crm/aanvragen/detail' => 'crm-new-requests.php',
   '/office-test/projecten' => 'office-projects.php',
   '/office-test/inzet/dienst/nieuw' => 'office-inzet-shift-create.php',
+  '/office-test/inzet/importcontrole' => 'office-inzet-import-review.php',
   '/office-test/inzet/medewerker/personeelsnummer' => 'office-inzet-personnel-number.php',
   '/office-test/inzet/onsite/activatie-uitgeven' => 'office-onsite-invitation.php',
   '/office-test/inzet/onsite/apparaat-intrekken' => 'office-onsite-device-revoke.php',
