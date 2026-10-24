@@ -142,8 +142,13 @@ jobs:
           grep -q 'Persoonlijke uitnodiging' locked.html
           ! grep -q 'Download voor Android' locked.html
           for path in 'OnSite-Android-test.apk' '?action=download' 'index.html' 'page.php' '.release'; do
-            path_status="$(curl -sS -o /dev/null -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
+            path_status="$(curl -sS -D protected-headers.txt -o protected-response.bin -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
             echo "Protected path $path status: $path_status"
+            if [[ "$path_status" = 200 ]]; then
+              grep -iE '^(content-type|content-length|x-litespeed-cache|age|cf-cache-status):' protected-headers.txt || true
+              echo "Response size: $(wc -c < protected-response.bin)"
+              printf 'Response magic: '; head -c 8 protected-response.bin | od -An -tx1
+            fi
             case "$path" in
               index.html|page.php) [[ "$path_status" = 403 || "$path_status" = 404 ]] ;;
               *) test "$path_status" = 403 ;;
