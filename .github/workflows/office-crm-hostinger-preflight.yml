@@ -1,0 +1,31 @@
+name: Office CRM Hostinger read-only preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Inspect isolated Office-test CRM schema via existing Hostinger SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: 77.37.34.160
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: 65002
+          script_stop: true
+          script: |
+            set -eu
+            ROOT=/home/u213420663/domains/brebobv.nl/office_calc_test
+            PHP=/opt/alt/php83/usr/bin/php
+            PREFLIGHT="$ROOT/release-next/private/deployment/hostinger/office-crm-test-preflight.php"
+            if [ ! -f "$PREFLIGHT" ]; then
+              echo "CRM_PREFLIGHT_NOT_INSTALLED: release-next/private ontbreekt of bevat nog geen preflight"
+              exit 2
+            fi
+            "$PHP" -l "$PREFLIGHT"
+            "$PHP" "$PREFLIGHT"
