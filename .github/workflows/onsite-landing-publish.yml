@@ -1,0 +1,110 @@
+name: Publish OnSite landing page
+on:
+  push:
+    branches: ['deploy/onsite-landing-20261024']
+    paths: ['deployment/onsite-landing/**', '.github/workflows/onsite-landing-publish.yml']
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: brebo-onsite-landing
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+      DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
+            [[ -n "${!name}" ]] || { echo "::error::Missing deployment setting $name"; exit 1; }
+          done
+          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
+          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
+          node --check deployment/onsite-landing/app.js
+      - name: Retrieve verified Android test APK
+        uses: actions/download-artifact@v4
+        with:
+          name: OnSite-Android-test
+          run-id: 40064263647
+          github-token: ${{ github.token }}
+          path: android-artifact
+      - name: Prepare only the landing assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir landing-package
+          cp deployment/onsite-landing/{index.html,style.css,app.js,icon.svg} landing-package/
+          cp android-artifact/outputs/apk/debug/app-debug.apk landing-package/OnSite-Android-test.apk
+          echo 'b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  landing-package/OnSite-Android-test.apk' | sha256sum -c -
+          printf '%s\n' 'BREBO OnSite landing page' > landing-package/.onsite-landing-managed
+          printf '%s\n' "$GITHUB_SHA" > landing-package/release.txt
+          tar -czf onsite-landing.tgz -C landing-package .
+      - name: Authenticate to the existing BREBO host
+        shell: bash
+        run: |
+          set -euo pipefail
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/onsite_key
+          chmod 600 ~/.ssh/onsite_key
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" true
+      - name: Transfer the static page package
+        shell: bash
+        run: |
+          set -euo pipefail
+          scp -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -P "$DEPLOY_PORT" onsite-landing.tgz "$DEPLOY_USER@$DEPLOY_HOST:onsite-landing-$GITHUB_SHA.tgz"
+      - name: Activate only the managed onsite directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "ONSITE_RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
+          set -eEuo pipefail
+          [[ "$ONSITE_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          root="$(realpath -e "$HOME/domains/brebobv.nl/public_html")"
+          [[ -f "$root/index.php" && -d "$root/platform/.git" ]]
+          target="$root/onsite"
+          [[ ! -L "$target" ]]
+          if [[ -e "$target" ]]; then
+            [[ -d "$target" && -f "$target/.onsite-landing-managed" ]] || { echo 'Existing onsite path is unmanaged; refusing overwrite.'; exit 1; }
+          fi
+          archive="$HOME/onsite-landing-$ONSITE_RELEASE_SHA.tgz"
+          [[ -f "$archive" && ! -L "$archive" ]]
+          stage="$(mktemp -d "$root/.onsite-release.XXXXXXXX")"
+          tar -xzf "$archive" -C "$stage" --no-same-owner
+          [[ "$(find "$stage" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 7 ]]
+          [[ -z "$(find "$stage" -mindepth 1 -maxdepth 1 ! -type f)" ]]
+          for file in index.html style.css app.js icon.svg OnSite-Android-test.apk .onsite-landing-managed release.txt; do
+            [[ -s "$stage/$file" && ! -L "$stage/$file" ]]
+            chmod 644 "$stage/$file"
+          done
+          echo "b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  $stage/OnSite-Android-test.apk" | sha256sum -c -
+          chmod 755 "$stage"
+          backup=""
+          if [[ -d "$target" ]]; then
+            install -d -m 700 "$HOME/onsite-landing-backups"
+            backup="$HOME/onsite-landing-backups/$(date -u +%Y%m%dT%H%M%SZ)-$ONSITE_RELEASE_SHA"
+            [[ ! -e "$backup" ]]
+            mv "$target" "$backup"
+          fi
+          trap 'if [[ -n "$backup" && ! -e "$target" ]]; then mv "$backup" "$target"; fi' ERR
+          mv "$stage" "$target"
+          trap - ERR
+          rm -f "$archive"
+          echo 'ONSITE_LANDING_DEPLOYED'
+          REMOTE
+      - name: Verify the public page and APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/ | grep -q 'OnSite installeren'
+          test "$(curl --fail --silent --show-error https://brebobv.nl/onsite/release.txt)" = "$GITHUB_SHA"
+          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/OnSite-Android-test.apk -o downloaded.apk
+          echo 'b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  downloaded.apk' | sha256sum -c -
