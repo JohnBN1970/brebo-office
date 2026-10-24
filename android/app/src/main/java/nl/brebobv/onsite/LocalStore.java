@@ -41,4 +41,3 @@ final class LocalStore extends SQLiteOpenHelper {
     void clearStates() { getWritableDatabase().delete("states",null,null); }
     void clear() { getWritableDatabase().delete("events",null,null);getWritableDatabase().delete("states",null,null); }
 }
-

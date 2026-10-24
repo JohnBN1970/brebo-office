@@ -101,7 +101,7 @@ public final class MainActivity extends Activity {
             text(employee.trim().isEmpty()?"Je toestel is gekoppeld":employee,24,Color.rgb(16,43,42));
             text("AUTOMATISCHE AANWEZIGHEID",12,Color.rgb(38,102,82));
             text("OnSite herkent aankomst en vertrek bij je toegewezen projectzones. Office ontvangt alleen de projectzone en het tijdstip van de melding.",16,Color.DKGRAY);
-            button(Zones.allowed(this)?"Locatie-instellingen openen":"Automatische aanwezigheid instellen",this::enable);
+            button(Zones.allowed(this)?"Locatie-instellingen openen":"Automatische aanwezigheid instellen",()->{if(Zones.allowed(this))settings();else enable();});
             if(Zones.prefs(this).getBoolean("consent",false))
                 button("Automatische aanwezigheid pauzeren",()->{
                     Zones.prefs(this).edit().putBoolean("consent",false).commit();Zones.stop(this);render();
@@ -215,4 +215,3 @@ public final class MainActivity extends Activity {
     }
     private void message(String s) { new AlertDialog.Builder(this).setMessage(s).setPositiveButton("OK",null).show(); }
 }
-

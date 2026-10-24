@@ -6,4 +6,3 @@ public final class RestartReceiver extends BroadcastReceiver {
         SyncWorker.schedule(c);
     }
 }
-

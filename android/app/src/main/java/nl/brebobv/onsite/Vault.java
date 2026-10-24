@@ -37,4 +37,3 @@ final class Vault {
     }
     void clear() { c.getSharedPreferences("vault",0).edit().clear().commit(); }
 }
-

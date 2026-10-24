@@ -41,4 +41,3 @@ final class Api {
         } finally { c.disconnect(); }
     }
 }
-

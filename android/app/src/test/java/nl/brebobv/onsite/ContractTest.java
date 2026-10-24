@@ -45,4 +45,3 @@ public class ContractTest {
     @Test(expected=java.net.MalformedURLException.class) public void refusesCleartext() throws Exception { Api.endpoint("http://example.test","activate"); }
     @Test(expected=java.net.MalformedURLException.class) public void refusesEmbeddedCredentials() throws Exception { Api.endpoint("https://secret@example.test","activate"); }
 }
-

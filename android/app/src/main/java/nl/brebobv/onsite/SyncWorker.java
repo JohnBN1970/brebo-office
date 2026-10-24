@@ -55,4 +55,3 @@ public final class SyncWorker extends Worker {
         return Result.retry();
     }
 }
-

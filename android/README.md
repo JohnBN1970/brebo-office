@@ -53,4 +53,3 @@ Gradle 8.13 en Android Gradle Plugin 8.11.1 zijn vastgezet. De workflow
 Een distributieversie vereist een vaste releasehandtekening en een gekozen verspreidingskanaal.
 De debughandtekening is uitsluitend voor deze testversie. Nog geen Play Store-publicatie
 of verificatie van Android App Links; de bestaande custom activatielink wordt hergebruikt.
-

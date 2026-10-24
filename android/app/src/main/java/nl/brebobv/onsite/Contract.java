@@ -39,4 +39,3 @@ final class Contract {
             .put("project_id",z.projectId()).put("zone_id",z.id()).put("kind",kind).put("occurred_at",time.truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString()));
     }
 }
-

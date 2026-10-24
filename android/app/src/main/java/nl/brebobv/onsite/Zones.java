@@ -46,9 +46,14 @@ final class Zones {
             .setTransitionTypes(Geofence.GEOFENCE_TRANSITION_ENTER|Geofence.GEOFENCE_TRANSITION_EXIT)
             .setNotificationResponsiveness(60000).build());
         // Initial location is not an arrival event. Only observed transitions create evidence.
-        if(!fences.isEmpty()) Tasks.await(client.addGeofences(new GeofencingRequest.Builder().setInitialTrigger(0).addGeofences(fences).build(),intent(c)),30,TimeUnit.SECONDS);
+        if(!fences.isEmpty()) {
+            // Recheck immediately before registration; Android may revoke permission at any time.
+            if(c.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION)!=PackageManager.PERMISSION_GRANTED) { stop(c);return; }
+            try {
+                Tasks.await(client.addGeofences(new GeofencingRequest.Builder().setInitialTrigger(0).addGeofences(fences).build(),intent(c)),30,TimeUnit.SECONDS);
+            } catch(SecurityException revoked) { stop(c);return; }
+        }
         if(!allowed(c)) { stop(c); return; }
         prefs(c).edit().putBoolean("registered",!fences.isEmpty()).putLong("registered_at",System.currentTimeMillis()).putString("registered_snapshot",snapshot).commit();
     }
 }
-
