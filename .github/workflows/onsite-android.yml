@@ -15,7 +15,6 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
       - run: sdkmanager "platforms;android-36" "build-tools;35.0.0"
       - name: Build, contract tests and Android lint
         working-directory: android
@@ -27,4 +26,5 @@ jobs:
             android/app/build/outputs/apk/debug/*.apk
             android/app/build/reports/tests/testDebugUnitTest/
             android/app/build/reports/lint-results-debug.html
+
 

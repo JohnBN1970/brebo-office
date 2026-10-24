@@ -23,6 +23,10 @@ public class ContractTest {
         assertFalse(event.has("employee_id"));
         assertEquals(envelope.toString(),Contract.event(zone,"in",id,Instant.parse("2026-10-24T08:00:00Z")).toString());
     }
+    @Test public void timestampFitsOfficeMicrosecondLimit() throws Exception {
+        JSONObject envelope=Contract.event(Contract.zones(bootstrap(51,100)).get(0),"out","stable-id",Instant.parse("2026-10-24T08:00:00.123456789Z"));
+        assertEquals("2026-10-24T08:00:00.123Z",envelope.getJSONObject("event").getString("occurred_at"));
+    }
     @Test(expected=JSONException.class) public void rejectsInvalidLatitude() throws Exception { Contract.zones(bootstrap(91,100)); }
     @Test(expected=JSONException.class) public void rejectsInvalidRadius() throws Exception { Contract.zones(bootstrap(51,0)); }
     @Test(expected=JSONException.class) public void rejectsDuplicateZones() throws Exception {

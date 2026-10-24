@@ -36,7 +36,7 @@ final class Contract {
     static JSONObject event(Zone z, String kind, String uuid, Instant time) throws JSONException {
         if (!kind.equals("in") && !kind.equals("out")) throw new JSONException("Ongeldige overgang.");
         return new JSONObject().put("event_id",uuid).put("event",new JSONObject()
-            .put("project_id",z.projectId()).put("zone_id",z.id()).put("kind",kind).put("occurred_at",time.toString()));
+            .put("project_id",z.projectId()).put("zone_id",z.id()).put("kind",kind).put("occurred_at",time.truncatedTo(java.time.temporal.ChronoUnit.MILLIS).toString()));
     }
 }
 

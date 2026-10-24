@@ -47,6 +47,7 @@ final class Zones {
             .setNotificationResponsiveness(60000).build());
         // Initial location is not an arrival event. Only observed transitions create evidence.
         if(!fences.isEmpty()) Tasks.await(client.addGeofences(new GeofencingRequest.Builder().setInitialTrigger(0).addGeofences(fences).build(),intent(c)),30,TimeUnit.SECONDS);
+        if(!allowed(c)) { stop(c); return; }
         prefs(c).edit().putBoolean("registered",!fences.isEmpty()).putLong("registered_at",System.currentTimeMillis()).putString("registered_snapshot",snapshot).commit();
     }
 }
