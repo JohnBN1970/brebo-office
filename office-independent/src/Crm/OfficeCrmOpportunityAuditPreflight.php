@@ -36,4 +36,12 @@ final class OfficeCrmOpportunityAuditPreflight {
       'engine' => !$auditExists || $found['office_crm_opportunity_stage_audit'] === 'InnoDB',
     ];
   }
+
+  /** Refuse writes unless both InnoDB tables and the audit columns exist. */
+  public static function requireReady(PDO $db): void {
+    $status = self::inspect($db);
+    if (!$status['opportunities'] || !$status['audit_exists'] || !$status['audit_columns'] || !$status['engine']) {
+      throw new RuntimeException('CRM opportunity audit schema not ready');
+    }
+  }
 }
