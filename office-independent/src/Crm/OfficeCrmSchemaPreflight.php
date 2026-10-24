@@ -44,6 +44,40 @@ final class OfficeCrmSchemaPreflight {
     return ['ready' => $issues === [], 'issues' => $issues];
   }
 
+  /**
+   * Verify the exact existing columns used by manual opportunity insertion.
+   * No schema changes and no business records are read.
+   */
+  public static function requireOpportunityReady(PDO $db): void {
+    $query = $db->prepare(
+      "SELECT COLUMN_NAME, COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
+       FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'office_crm_opportunities'"
+    );
+    $query->execute();
+    $columns = [];
+    foreach ($query->fetchAll(PDO::FETCH_ASSOC) as $row) {
+      $columns[(string)$row['COLUMN_NAME']] = $row;
+    }
+    $types = [
+      'id' => 'bigint', 'title' => 'varchar(255)', 'stage' => 'varchar(32)',
+      'source' => 'varchar(128)', 'estimated_value' => 'decimal(15,2)',
+      'currency' => 'char(3)', 'created_at' => 'timestamp', 'updated_at' => 'timestamp',
+    ];
+    foreach ($types as $name => $type) {
+      if (!isset($columns[$name]) ||
+        !str_starts_with(strtolower((string)$columns[$name]['COLUMN_TYPE']), $type)) {
+        throw new RuntimeException('CRM opportunity schema mismatch: ' . $name);
+      }
+    }
+    if (!str_contains(strtolower((string)$columns['id']['EXTRA']), 'auto_increment')
+      || (string)$columns['title']['IS_NULLABLE'] !== 'NO'
+      || (string)$columns['stage']['IS_NULLABLE'] !== 'NO'
+      || (string)$columns['currency']['IS_NULLABLE'] !== 'NO') {
+      throw new RuntimeException('CRM opportunity schema constraints mismatch');
+    }
+  }
+
   public static function requireReady(PDO $db): void {
     $result = self::inspect($db);
     if (!$result['ready']) {
