@@ -281,6 +281,10 @@ foreach ($labels as $url => $label) {
   $tabs[] = ['key' => $url, 'label' => $label, 'url' => $url, 'enabled' => true];
 }
 $tabs[] = ['key' => '/office-test/crm/aanvragen', 'label' => 'Aanvragen', 'url' => '/office-test/crm/aanvragen', 'enabled' => true];
+// Keep the existing intake route discoverable from the commercial workspace.
+$commercialLinks = $path === '/office-test/crm/kansen'
+  ? '<p class="muted">Binnengekomen aanvragen blijven beschikbaar via <a href="/office-test/crm/aanvragen">Aanvragen</a>. Potentiële relaties staan onder <a href="/office-test/crm/prospects">Prospects</a>.</p>'
+  : '';
 $escape = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 $title = $labels[$path];
 header('Content-Type: text/html; charset=utf-8');
@@ -292,6 +296,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . \Brebo\Office\Ui\OfficeModuleTabs::render($tabs, $path)
   . '<section class="panel"><h2>' . $escape($title) . '</h2>'
   . (($_GET['created'] ?? '') === '1' ? '<p role="status">Registratie opgeslagen.</p>' : '')
+  . $commercialLinks
   . $companyDetailHtml
   . $listHtml
   . ($formHtml !== '' ? $formHtml : '<p class="muted">De CRM-invoer is nog niet vrijgegeven. Bestaande gegevens worden niet gewijzigd.</p>')
