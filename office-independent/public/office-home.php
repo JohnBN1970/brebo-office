@@ -96,7 +96,11 @@ if ($projectsEnabled) {
        WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage') AND a.active=1"
     );
     $countStatement->execute([':operator_id' => $operator->operatorId]);
-    $myProjectCount = (int) $countStatement->fetchColumn();
+    $rawCount = $countStatement->fetchColumn();
+    if ($rawCount === false || !is_numeric($rawCount) || (int)$rawCount < 0) {
+      throw new RuntimeException('Project count unavailable');
+    }
+    $myProjectCount = (int)$rawCount;
     $projectsEnabled = $myProjectCount > 0;
   } catch (Throwable $e) {
     $projectsEnabled = false;
