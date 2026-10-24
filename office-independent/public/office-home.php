@@ -83,6 +83,26 @@ $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
   && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled';
 $projectsUrl = $projectsEnabled ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null;
+if ($projectsEnabled) {
+  // Same active-membership rule as the native project portfolio; never infer access from a role label.
+  try {
+    $membership = $db->prepare(
+      "SELECT 1 FROM office_project_memberships m
+       INNER JOIN office_operator_accounts a ON a.id=m.operator_id
+       WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage')
+         AND a.active=1 LIMIT 1"
+    );
+    $membership->execute([':operator_id' => $operator->operatorId]);
+    $projectsEnabled = $membership->fetchColumn() !== false;
+  } catch (Throwable $e) {
+    // Fail closed if the membership schema is unavailable or cannot be queried.
+    $projectsEnabled = false;
+  }
+}
+if (!$projectsEnabled) {
+  $projectsUrl = null;
+}
+
 $crmEnabled = !\Brebo\Office\Intake\OfficeMount::isTest()
   || (getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled' && getenv('OFFICE_CRM_AUTH_MODE') === 'session_only');
 // canEditCrm controls edit actions, not whether the operator may view CRM.
