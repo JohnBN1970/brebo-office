@@ -12,6 +12,20 @@ use PDO;
 final class OfficeCrmOpportunityReader {
   public function __construct(private PDO $db) {}
 
+  /**
+   * Read-only proof from persisted CRM data, not from user-submitted checkboxes.
+   * Unmapped workflow requirements deliberately remain unverified.
+   * @return array<string,bool>
+   */
+  public function verifiedEvidence(int $opportunityId): array {
+    if ($opportunityId < 1) return [];
+    $query = $this->db->prepare('SELECT source FROM office_crm_opportunities WHERE id = :id LIMIT 1');
+    $query->execute([':id' => $opportunityId]);
+    $row = $query->fetch(PDO::FETCH_ASSOC);
+    if (!is_array($row)) return [];
+    return ['source_recorded' => is_string($row['source'] ?? null) && trim($row['source']) !== ''];
+  }
+
   /** @return list<array{id:int,title:string,stage:string,source:string,value:?string,currency:string,companies:string}> */
   public function list(int $limit = 200): array {
     $limit = max(1, min(200, $limit));
