@@ -30,6 +30,12 @@ try {
         || !preg_match('/(?:^|;)dbname=u213420663_office_test(?:;|$)/', $c['OFFICE_INTAKE_PDO_DSN'] ?? '')) locked(503);
     // This entire runtime, including the APK and PHP session files, is outside public_html.
     $runtime = $domain . '/onsite_landing/releases/' . trim(file_get_contents(__DIR__ . '/.release'));
+    // One deployment-controlled invalidation removes copies of the formerly
+    // public APK from both LiteSpeed and Hostinger's CDN. No public purge API.
+    if (is_file($runtime.'/.purge-cache') && @rename($runtime.'/.purge-cache',$runtime.'/.purge-cache.claimed')) {
+        header('X-LiteSpeed-Purge: *');
+        header('X-LiteSpeed-Purge2: public,*');
+    }
     require $runtime . '/invitation.php';
     ini_set('session.use_strict_mode', '1');
     ini_set('session.use_only_cookies', '1');

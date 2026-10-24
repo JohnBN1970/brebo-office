@@ -83,6 +83,7 @@ jobs:
           cp deployment/onsite-landing/{invitation.php,page.php,install-legacy-redirect.php} package/private/
           cp android-artifact/outputs/apk/debug/app-debug.apk package/private/OnSite-Android-test.apk
           (cd package/private && sha256sum OnSite-Android-test.apk > apk.sha256)
+          printf '%s\n' 'Invalidate the retired public download once during deployment.' > package/private/.purge-cache
           tar -czf onsite-landing.tgz -C package .
       - name: Configure existing host access
         run: |
@@ -112,10 +113,10 @@ jobs:
           stage="$(mktemp -d "$domain/onsite_landing/stage.XXXXXXXX")"
           tar -xzf "$archive" -C "$stage" --no-same-owner
           [[ "$(find "$stage/public" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 9 ]]
-          [[ "$(find "$stage/private" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 5 ]]
+          [[ "$(find "$stage/private" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 6 ]]
           [[ -z "$(find "$stage" -type l)" ]]
           for f in index.php .htaccess style.css app.js gate.js icon.svg OnSite-Android-test.apk .onsite-landing-managed .release; do [[ -s "$stage/public/$f" ]];chmod 644 "$stage/public/$f";done
-          for f in invitation.php page.php install-legacy-redirect.php OnSite-Android-test.apk apk.sha256; do [[ -s "$stage/private/$f" ]];chmod 600 "$stage/private/$f";done
+          for f in invitation.php page.php install-legacy-redirect.php OnSite-Android-test.apk apk.sha256 .purge-cache; do [[ -s "$stage/private/$f" ]];chmod 600 "$stage/private/$f";done
           (cd "$stage/private" && sha256sum -c apk.sha256)
           if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
           "$php_bin" -l "$stage/public/index.php"
@@ -148,7 +149,7 @@ jobs:
             path_status="$(curl -sS -D protected-headers.txt -o protected-response.bin -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
             echo "Protected path $path status: $path_status"
             if [[ "$path_status" = 200 ]]; then
-              grep -iE '^(content-type|content-length|x-litespeed-cache|age|cf-cache-status):' protected-headers.txt || true
+              grep -iE '^(content-type|content-length|server|x-litespeed-cache|x-hcdn-cache-status|age|cache-control|cf-cache-status):' protected-headers.txt || true
               echo "Response size: $(wc -c < protected-response.bin)"
               printf 'Response magic: '; head -c 8 protected-response.bin | od -An -tx1
             fi
