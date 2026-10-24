@@ -9,7 +9,27 @@ if (PHP_SAPI !== 'cli') {
   http_response_code(404);
   exit;
 }
-if (getenv('OFFICE_BASE_PATH') !== '/office-test') {
+// Load the same isolated configuration as the Office-test router, without HTTP routing.
+$configFile = '/home/u213420663/domains/brebobv.nl/office_calc_test/config/config.php';
+if (!is_file($configFile)) {
+  fwrite(STDERR, "Office-test configuratie ontbreekt\n");
+  exit(2);
+}
+$config = require $configFile;
+if (!is_array($config)) {
+  fwrite(STDERR, "Office-test configuratie ongeldig\n");
+  exit(2);
+}
+foreach ($config as $key => $value) {
+  if (!is_string($key) || !is_string($value)) {
+    fwrite(STDERR, "Office-test instelling ongeldig\n");
+    exit(2);
+  }
+  putenv($key . '=' . $value);
+}
+if (getenv('OFFICE_BASE_PATH') !== '/office-test'
+  || getenv('OFFICE_INTAKE_DB_USER') !== 'u213420663_office_test'
+  || !preg_match('/^mysql:host=(?:localhost|127\\.0\\.0\\.1);dbname=u213420663_office_test;charset=utf8mb4$/D', (string)getenv('OFFICE_INTAKE_PDO_DSN'))) {
   fwrite(STDERR, "CRM preflight uitsluitend voor office-test\n");
   exit(2);
 }
