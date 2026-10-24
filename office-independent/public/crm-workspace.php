@@ -231,8 +231,27 @@ if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
       }
       $companyDetailHtml .= '</ul>';
     }
-    // Building and project detail intentionally omitted until record ACL is integrated.
-    $companyDetailHtml .= '<p class="muted">Gebouwen en projecten worden zichtbaar na controle van de betreffende toegangsrechten.</p></section>';
+    // Project details are filtered by the existing Office-native membership ACL.
+    if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
+      && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled'
+      && ctype_digit($operator->operatorId)) {
+      require_once dirname(__DIR__) . '/src/Crm/OfficeCrmAuthorizedProjectReader.php';
+      $authorizedProjects = (new \\Brebo\\Office\\Crm\\OfficeCrmAuthorizedProjectReader($db))
+        ->forCompany((int)$rawId, (int)$operator->operatorId);
+      $companyDetailHtml .= '<h3>Projecten</h3>';
+      if ($authorizedProjects === []) {
+        $companyDetailHtml .= '<p class="muted">Geen toegankelijke gekoppelde projecten.</p>';
+      } else {
+        $companyDetailHtml .= '<ul>';
+        foreach ($authorizedProjects as $project) {
+          $companyDetailHtml .= '<li>' . $eDetail($project['code']) . ' — '
+            . $eDetail($project['title']) . ' (' . $eDetail($project['role']) . ')</li>';
+        }
+        $companyDetailHtml .= '</ul>';
+      }
+    }
+    // Building details remain hidden until building-specific ACL is verified.
+    $companyDetailHtml .= '<p class="muted">Gebouwgegevens blijven afgeschermd totdat de gebouwrechten zijn gecontroleerd.</p></section>';
   } catch (Throwable) {
     http_response_code(503); exit('Bedrijfskaart tijdelijk niet beschikbaar.');
   }
