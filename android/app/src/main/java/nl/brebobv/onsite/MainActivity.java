@@ -74,7 +74,7 @@ public final class MainActivity extends Activity {
         });
         setContentView(scroll);
         text("BREBO  /  OP LOCATIE",12,Color.rgb(38,102,82));
-        TextView title=text("OnSite",38,Color.rgb(16,43,42));title.setTypeface(null,1);
+        TextView title=text("OnSite",38,Color.rgb(16,43,42));title.setTypeface(null,android.graphics.Typeface.BOLD);
         text(BuildConfig.DEBUG?"Android · testversie 0.1":"Android",13,Color.DKGRAY);
         status=text("",15,Color.rgb(16,43,42));
         if(!linked()) {
