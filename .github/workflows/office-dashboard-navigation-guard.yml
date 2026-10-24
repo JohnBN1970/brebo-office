@@ -1,0 +1,19 @@
+name: Office dashboard navigation guard
+on:
+  pull_request:
+    paths:
+      - 'office-independent/public/office-home.php'
+      - 'office-independent/tests/OfficeDashboardNavigationGuardTest.php'
+      - '.github/workflows/office-dashboard-navigation-guard.yml'
+  workflow_dispatch:
+jobs:
+  navigation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PHP syntax
+        run: |
+          php -l office-independent/public/office-home.php
+          php -l office-independent/tests/OfficeDashboardNavigationGuardTest.php
+      - name: Office navigation guards
+        run: php office-independent/tests/OfficeDashboardNavigationGuardTest.php
