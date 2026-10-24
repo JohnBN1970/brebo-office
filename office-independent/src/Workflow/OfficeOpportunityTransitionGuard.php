@@ -22,6 +22,26 @@ final class OfficeOpportunityTransitionGuard {
     }
   }
 
+  /**
+   * Only accept evidence verified by trusted Office server-side repositories.
+   * Never pass user-submitted checkboxes as verified evidence.
+   *
+   * @param array<string,bool> $verifiedEvidence
+   * @return list<string>
+   */
+  public static function verifiedChecks(string $targetStage, array $verifiedEvidence): array {
+    $required = self::requiredChecks($targetStage);
+    if ($required === []) {
+      throw new DomainException('Geen verifieerbare statusvoorwaarden geconfigureerd');
+    }
+    foreach ($required as $check) {
+      if (($verifiedEvidence[$check] ?? false) !== true) {
+        throw new DomainException('Vereiste CRM-controle niet bevestigd');
+      }
+    }
+    return $required;
+  }
+
   /** @return list<string> */
   public static function requiredChecks(string $to): array {
     return OfficeOpportunityWorkflow::stages()[$to]['checks'] ?? [];
