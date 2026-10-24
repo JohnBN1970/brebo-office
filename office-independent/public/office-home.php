@@ -88,6 +88,7 @@ if ($projectsEnabled) {
   try {
     $membership = $db->prepare(
       "SELECT 1 FROM office_project_memberships m
+       INNER JOIN office_projects p ON p.id=m.project_id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id
        WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage')
          AND a.active=1 LIMIT 1"
