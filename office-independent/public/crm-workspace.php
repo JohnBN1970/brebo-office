@@ -77,7 +77,9 @@ if ($method === 'POST') {
   require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
   require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
   try {
-    $action = $path === '/office-test/crm/bedrijven' ? 'create-company' : 'create-contact';
+    $requestedAction = $_POST['action'] ?? null;
+    $action = $path === '/office-test/crm/bedrijven' ? 'create-company'
+      : ($requestedAction === 'link-contact-company' ? 'link-contact-company' : 'create-contact');
     $token = $_POST['csrf_token'] ?? null;
     if (!is_string($token)) throw new DomainException('Invalid CSRF token');
     \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::authorize(
@@ -91,6 +93,16 @@ if ($method === 'POST') {
       $email = $_POST['email'] ?? null;
       if (!is_string($name) || !is_string($email)) throw new InvalidArgumentException('Invalid input');
       $writer->createCompany($name, $email);
+    } elseif ($action === 'link-contact-company') {
+      $contactId = $_POST['contact_id'] ?? null;
+      $companyId = $_POST['company_id'] ?? null;
+      $role = $_POST['role_label'] ?? null;
+      if (!is_string($contactId) || !ctype_digit($contactId)
+        || !is_string($companyId) || !ctype_digit($companyId)
+        || !is_string($role) || strlen($contactId) > 18 || strlen($companyId) > 18) {
+        throw new InvalidArgumentException('Invalid relationship input');
+      }
+      $writer->linkContactToCompany((int)$contactId, (int)$companyId, $role);
     } else {
       $firstName = $_POST['first_name'] ?? null;
       $lastName = $_POST['last_name'] ?? null;
@@ -126,6 +138,36 @@ if ($showForm) {
       . $fields . '<label>E-mailadres <input type="email" name="email" maxlength="255"></label>'
       . '<input type="hidden" name="csrf_token" value="' . $eForm($token) . '">'
       . '<button type="submit">Opslaan</button></form>';
+    if ($path === '/office-test/crm/contactpersonen') {
+      try {
+        require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
+        require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
+        \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
+        $crm = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+        $companies = $crm->companiesForSelection();
+        $contacts = $crm->contactsForSelection();
+        if ($companies !== [] && $contacts !== []) {
+          $companyOptions = '';
+          foreach ($companies as $company) {
+            $companyOptions .= '<option value="' . $company['id'] . '">' . $eForm($company['name']) . '</option>';
+          }
+          $contactOptions = '';
+          foreach ($contacts as $contact) {
+            $contactOptions .= '<option value="' . $contact['id'] . '">' . $eForm($contact['name']) . '</option>';
+          }
+          $linkToken = \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::token($operator, $secret, 'link-contact-company');
+          $formHtml .= '<form method="post" action="' . $eForm($path) . '"><h3>Contactpersoon aan bedrijf koppelen</h3>'
+            . '<label>Contactpersoon <select name="contact_id" required>' . $contactOptions . '</select></label>'
+            . '<label>Bedrijf <select name="company_id" required>' . $companyOptions . '</select></label>'
+            . '<label>Rol <input name="role_label" maxlength="128"></label>'
+            . '<input type="hidden" name="action" value="link-contact-company">'
+            . '<input type="hidden" name="csrf_token" value="' . $eForm($linkToken) . '">'
+            . '<button type="submit">Koppeling opslaan</button></form>';
+        }
+      } catch (Throwable) {
+        // Never expose partial selector data when the CRM schema is unavailable.
+      }
+    }
   }
 }
 
