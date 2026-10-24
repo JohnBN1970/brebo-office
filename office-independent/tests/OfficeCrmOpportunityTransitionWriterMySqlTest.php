@@ -1,8 +1,8 @@
 <?php
 declare(strict_types=1);
 
-// Isolated integration test. Requires a disposable MySQL database explicitly
-// supplied via OFFICE_CRM_TEST_DSN; never uses Office runtime credentials.
+// Isolated integration test using random temporary table names.
+// Requires an explicitly supplied DSN; never reads runtime credentials automatically.
 $dsn = getenv('OFFICE_CRM_TEST_DSN');
 $user = getenv('OFFICE_CRM_TEST_USER');
 $pass = getenv('OFFICE_CRM_TEST_PASSWORD');
@@ -33,10 +33,10 @@ try {
 }
 try {
   $db->exec("INSERT INTO `$opps` (stage) VALUES ('prospect')");
-  $writer = new \Brebo\Office\Crm\OfficeCrmOpportunityTransitionWriter($db);
+  $writer = new \Brebo\Office\Crm\OfficeCrmOpportunityTransitionWriter($db, $opps, $audit);
   $writer->transition(1, 'prospect', 'in_behandeling', ['owner_assigned','scope_reviewed'], 'test-operator');
-  $stage = $db->query('SELECT stage FROM `$opps` WHERE id = 1')->fetchColumn();
-  $count = (int)$db->query('SELECT COUNT(*) FROM `$audit`')->fetchColumn();
+  $stage = $db->query("SELECT stage FROM `$opps` WHERE id = 1")->fetchColumn();
+  $count = (int)$db->query("SELECT COUNT(*) FROM `$audit`")->fetchColumn();
   if ($stage !== 'in_behandeling' || $count !== 1) throw new RuntimeException('Successful transition/audit mismatch');
   try {
     $writer->transition(1, 'prospect', 'offerte', ['offer_recorded'], 'test-operator');
@@ -44,18 +44,18 @@ try {
   } catch (RuntimeException $e) {
     if ($e->getMessage() === 'Stale stage accepted') throw $e;
   }
-  $db->exec('DROP TABLE `$audit`');
+  $db->exec("DROP TABLE `$audit`");
   try {
     $writer->transition(1, 'in_behandeling', 'calculatie', ['calculation_approved'], 'test-operator');
     throw new RuntimeException('Missing audit table accepted');
   } catch (PDOException $e) {
     // Expected: transaction must roll back the opportunity update.
   }
-  if ($db->query('SELECT stage FROM `$opps` WHERE id = 1')->fetchColumn() !== 'in_behandeling') {
+  if ($db->query("SELECT stage FROM `$opps` WHERE id = 1")->fetchColumn() !== 'in_behandeling') {
     throw new RuntimeException('Audit failure did not roll back stage');
   }
   echo "CRM opportunity transaction and rollback: OK\n";
 } finally {
-  $db->exec('DROP TABLE IF EXISTS `$audit`');
-  $db->exec('DROP TABLE IF EXISTS `$opps`');
+  $db->exec("DROP TABLE IF EXISTS `$audit`");
+  $db->exec("DROP TABLE IF EXISTS `$opps`");
 }
