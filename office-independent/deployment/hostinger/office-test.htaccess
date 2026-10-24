@@ -1,0 +1,17 @@
+# BREBO Office test mount: deliberately CLOSED until HTTP authentication is configured.
+# Install only in public_html/office-test, never in the production Office directory.
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+Require all denied
+
+# Before a controlled browser smoke test, replace "Require all denied" with
+# a reviewed host-level Basic Auth/IP access policy; do not remove the gate.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteRule (^|/)\. - [F,L]
+  RewriteRule ^(?:src|bin|tests|vendor|config|\.git)(?:/|$) - [F,L,NC]
+  RewriteRule ^(?:inloggen|uitloggen)/?$ index.php [END,QSA]
+</IfModule>
+<FilesMatch "^(?!index\.php$).+\.php$">
+  Require all denied
+</FilesMatch>

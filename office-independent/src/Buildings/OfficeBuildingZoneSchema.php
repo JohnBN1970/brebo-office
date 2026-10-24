@@ -20,6 +20,9 @@ final class OfficeBuildingZoneSchema {
         radius_metres DECIMAL(9,2) NOT NULL,
         active TINYINT(1) NOT NULL DEFAULT 1,
         revision BIGINT UNSIGNED NOT NULL DEFAULT 1,
+        request_key CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+        request_fingerprint CHAR(64) CHARACTER SET ascii COLLATE ascii_bin NULL,
+        UNIQUE KEY uq_office_building_zone_request (request_key),
         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
         CONSTRAINT fk_office_building_zone_building FOREIGN KEY (building_id)
           REFERENCES office_buildings(id),

@@ -13,7 +13,7 @@ final class OfficeInzetPlanningWorkbench {
    * @param list<array<string,mixed>> $shifts Pre-filtered by server-side project access
    * @param list<int> $authorizedProjectIds
    */
-  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week, array $projectNames = [], array $manageableProjectIds = [], ?string $cancelCsrfToken = null, bool $rescheduleEnabled = false): string {
+  public static function renderWeek(array $shifts, array $authorizedProjectIds, int $year, int $week, array $projectNames = [], array $manageableProjectIds = [], ?string $cancelCsrfToken = null, bool $rescheduleEnabled = false, bool $cancelEnabled = true): string {
     require_once __DIR__ . '/OfficeInzetWeekPlanning.php';
     $rows = OfficeInzetWeekPlanning::rows($shifts, $authorizedProjectIds, $year, $week);
     $escape = static fn(mixed $v): string => htmlspecialchars((string)$v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -69,7 +69,7 @@ final class OfficeInzetPlanningWorkbench {
             . $escape((new \DateTimeImmutable($shift['starts_at'],new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('H:i'))
             . '–' . $escape((new \DateTimeImmutable($shift['ends_at'],new \DateTimeZone('UTC')))->setTimezone(new \DateTimeZone('Europe/Brussels'))->format('H:i'))
             . '</small><small>' . $escape($shift['status']) . '</small>';
-          if ($cancelCsrfToken !== null && preg_match('/^[a-f0-9]{64}$/D', $cancelCsrfToken)
+          if ($cancelEnabled && $cancelCsrfToken !== null && preg_match('/^[a-f0-9]{64}$/D', $cancelCsrfToken)
             && in_array((int)$shift['project_id'], $manageableProjectIds, true)
             && in_array($shift['status'], ['planned','confirmed'], true)
             && (int)($shift['id'] ?? 0) > 0) {
