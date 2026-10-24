@@ -23,7 +23,6 @@ $required = [
   "office_project_memberships",
   "COUNT(DISTINCT p.id)",
   "Project count unavailable",
-  "is_numeric",
   "myProjectCount",
   "myRecentProjects",
   "recentProjectsUnavailable",
