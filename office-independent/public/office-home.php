@@ -85,6 +85,8 @@ $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
 $projectsUrl = $projectsEnabled ? \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten' : null;
 $crmEnabled = !\Brebo\Office\Intake\OfficeMount::isTest()
   || (getenv('OFFICE_TEST_CRM_ENABLED') === 'enabled' && getenv('OFFICE_CRM_AUTH_MODE') === 'session_only');
+// canEditCrm controls edit actions, not whether the operator may view CRM.
+// Do not infer finance, project or organization permissions from this CRM-only flag.
 // Navigation groups are presentation-only. Server-side route authorization remains authoritative.
 $modules = [
   ['Relaties & CRM', 'Aanvragen, klanten en kansen', [['CRM', $crmUrl, $crmEnabled]]],
