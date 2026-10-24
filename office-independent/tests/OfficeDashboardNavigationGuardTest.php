@@ -26,6 +26,8 @@ $required = [
   "is_numeric",
   "myProjectCount",
   "myRecentProjects",
+  "recentProjectsUnavailable",
+  "tijdelijk niet beschikbaar",
   "/projecten/detail?id=",
   "FILTER_VALIDATE_INT",
   "min_range",
