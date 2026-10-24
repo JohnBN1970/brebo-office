@@ -5,107 +5,59 @@ on:
     paths: ['deployment/onsite-landing/**', '.github/workflows/onsite-landing-publish.yml']
 permissions:
   contents: read
-  actions: read
 concurrency:
   group: brebo-onsite-landing
   cancel-in-progress: false
 jobs:
-  publish:
+  protect-and-audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 8
     env:
       DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
       DEPLOY_PORT: ${{ secrets.DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
       DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
     steps:
-      - uses: actions/checkout@v4
-      - name: Check deployment configuration
+      - name: Configure existing host access
         shell: bash
         run: |
           set -euo pipefail
-          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do
-            [[ -n "${!name}" ]] || { echo "::error::Missing deployment setting $name"; exit 1; }
-          done
-          [[ "$DEPLOY_PORT" =~ ^[0-9]+$ ]]
-          [[ "$GITHUB_SHA" =~ ^[0-9a-f]{40}$ ]]
-          node --check deployment/onsite-landing/app.js
-      - name: Retrieve verified Android test APK
-        uses: actions/download-artifact@v4
-        with:
-          name: OnSite-Android-test
-          run-id: 40064263647
-          github-token: ${{ github.token }}
-          path: android-artifact
-      - name: Prepare only the landing assets
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir landing-package
-          cp deployment/onsite-landing/{index.html,style.css,app.js,icon.svg} landing-package/
-          cp android-artifact/outputs/apk/debug/app-debug.apk landing-package/OnSite-Android-test.apk
-          echo 'b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  landing-package/OnSite-Android-test.apk' | sha256sum -c -
-          printf '%s\n' 'BREBO OnSite landing page' > landing-package/.onsite-landing-managed
-          printf '%s\n' "$GITHUB_SHA" > landing-package/release.txt
-          tar -czf onsite-landing.tgz -C landing-package .
-      - name: Authenticate to the existing BREBO host
-        shell: bash
-        run: |
-          set -euo pipefail
+          for name in DEPLOY_HOST DEPLOY_PORT DEPLOY_USER DEPLOY_SSH_KEY; do [[ -n "${!name}" ]]; done
           install -d -m 700 ~/.ssh
           printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/onsite_key
           chmod 600 ~/.ssh/onsite_key
-          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" true
-      - name: Transfer the static page package
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" true
+      - name: Close public access and inspect only token schema
         shell: bash
         run: |
           set -euo pipefail
-          scp -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -P "$DEPLOY_PORT" onsite-landing.tgz "$DEPLOY_USER@$DEPLOY_HOST:onsite-landing-$GITHUB_SHA.tgz"
-      - name: Activate only the managed onsite directory
-        shell: bash
-        run: |
+          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" 'bash -se' <<'REMOTE'
           set -euo pipefail
-          ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$HOME/.ssh/known_hosts" -i ~/.ssh/onsite_key -p "$DEPLOY_PORT" "$DEPLOY_USER@$DEPLOY_HOST" "ONSITE_RELEASE_SHA='$GITHUB_SHA' bash -se" <<'REMOTE'
-          set -eEuo pipefail
-          [[ "$ONSITE_RELEASE_SHA" =~ ^[0-9a-f]{40}$ ]]
           root="$(realpath -e "$HOME/domains/brebobv.nl/public_html")"
-          [[ -f "$root/index.php" && -d "$root/platform/.git" ]]
           target="$root/onsite"
-          [[ ! -L "$target" ]]
-          if [[ -e "$target" ]]; then
-            [[ -d "$target" && -f "$target/.onsite-landing-managed" ]] || { echo 'Existing onsite path is unmanaged; refusing overwrite.'; exit 1; }
-          fi
-          archive="$HOME/onsite-landing-$ONSITE_RELEASE_SHA.tgz"
-          [[ -f "$archive" && ! -L "$archive" ]]
-          stage="$(mktemp -d "$root/.onsite-release.XXXXXXXX")"
-          tar -xzf "$archive" -C "$stage" --no-same-owner
-          [[ "$(find "$stage" -mindepth 1 -maxdepth 1 -type f | wc -l)" -eq 7 ]]
-          [[ -z "$(find "$stage" -mindepth 1 -maxdepth 1 ! -type f)" ]]
-          for file in index.html style.css app.js icon.svg OnSite-Android-test.apk .onsite-landing-managed release.txt; do
-            [[ -s "$stage/$file" && ! -L "$stage/$file" ]]
-            chmod 644 "$stage/$file"
-          done
-          echo "b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  $stage/OnSite-Android-test.apk" | sha256sum -c -
-          chmod 755 "$stage"
-          backup=""
-          if [[ -d "$target" ]]; then
-            install -d -m 700 "$HOME/onsite-landing-backups"
-            backup="$HOME/onsite-landing-backups/$(date -u +%Y%m%dT%H%M%SZ)-$ONSITE_RELEASE_SHA"
-            [[ ! -e "$backup" ]]
-            mv "$target" "$backup"
-          fi
-          trap 'if [[ -n "$backup" && ! -e "$target" ]]; then mv "$backup" "$target"; fi' ERR
-          mv "$stage" "$target"
-          trap - ERR
-          rm -f "$archive"
-          echo 'ONSITE_LANDING_DEPLOYED'
+          [[ -d "$target" && ! -L "$target" && -f "$target/.onsite-landing-managed" ]]
+          printf '%s\n' 'Require all denied' > "$target/.htaccess"
+          chmod 644 "$target/.htaccess"
+          echo 'PUBLIC_ONSITE_ACCESS_CLOSED'
+          if [[ -x /opt/alt/php83/usr/bin/php ]]; then php_bin=/opt/alt/php83/usr/bin/php; else php_bin="$(command -v php)"; fi
+          "$php_bin" <<'PHP'
+          <?php
+          $domain = getenv('HOME') . '/domains/brebobv.nl';
+          $path = $domain . '/office_calc_test/config/config.php';
+          if (!is_file($path)) throw new RuntimeException('Known Office-test config missing');
+          $c = require $path;
+          foreach (['OFFICE_BASE_PATH','OFFICE_PUBLIC_HOST','OFFICE_ONSITE_ACTIVATION_ENABLED','OFFICE_ONSITE_SCHEMA_VERIFIED'] as $k) echo $k . '=' . ($c[$k] ?? 'missing') . PHP_EOL;
+          foreach (array_keys($c) as $k) if (preg_match('/TESTFLIGHT|ONSITE.*INSTALL/i', $k)) echo 'DISTRIBUTION_SETTING=' . $k . PHP_EOL;
+          $dsn = $c['OFFICE_INTAKE_PDO_DSN'] ?? '';
+          if (!preg_match('/(?:^|;)dbname=u213420663_office_test(?:;|$)/', $dsn)) throw new RuntimeException('Refusing non-test database');
+          $db = new PDO($dsn, $c['OFFICE_INTAKE_DB_USER'], $c['OFFICE_INTAKE_DB_PASSWORD'], [PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION]);
+          $q = $db->query("SELECT TABLE_NAME,COLUMN_NAME,DATA_TYPE FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME IN ('office_onsite_activation_invitations','office_inzet_people') ORDER BY TABLE_NAME,ORDINAL_POSITION");
+          foreach ($q->fetchAll(PDO::FETCH_ASSOC) as $r) echo implode('|',$r) . PHP_EOL;
+          PHP
           REMOTE
-      - name: Verify the public page and APK
+      - name: Verify unauthenticated requests are denied
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/ -o landing-live.html
-          grep -q 'OnSite installeren' landing-live.html
-          test "$(curl --fail --silent --show-error https://brebobv.nl/onsite/release.txt)" = "$GITHUB_SHA"
-          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/OnSite-Android-test.apk -o downloaded.apk
-          echo 'b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  downloaded.apk' | sha256sum -c -
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://brebobv.nl/onsite/)" = 403
+          test "$(curl -s -o /dev/null -w '%{http_code}' https://brebobv.nl/onsite/OnSite-Android-test.apk)" = 403
