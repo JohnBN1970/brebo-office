@@ -1,14 +1,15 @@
 <?php
 declare(strict_types=1);
 
-// Test-only CRM workspace. No CRM write endpoints are enabled by this page.
+// Test-only CRM workspace. CRM writes require separate flags, writer ACL and CSRF.
 header('Cache-Control: no-store, private');
 header('X-Content-Type-Options: nosniff');
 header('X-Frame-Options: DENY');
 header('Referrer-Policy: same-origin');
-header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'");
-if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
-  header('Allow: GET'); http_response_code(405); exit;
+header("Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'");
+$method = $_SERVER['REQUEST_METHOD'] ?? '';
+if (!in_array($method, ['GET', 'POST'], true)) {
+  header('Allow: GET, POST'); http_response_code(405); exit;
 }
 if (getenv('OFFICE_BASE_PATH') !== '/office-test'
   || getenv('OFFICE_TEST_CRM_ENABLED') !== 'enabled'
@@ -58,6 +59,76 @@ try {
 } catch (Throwable) {
   http_response_code(503); exit('CRM tijdelijk niet beschikbaar.');
 }
+
+// Writes are deliberately disabled by default, including when the UI is deployed.
+$writeEnabled = getenv('OFFICE_TEST_CRM_WRITE_ENABLED') === 'enabled'
+  && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled';
+$isFormPage = in_array($path, ['/office-test/crm/bedrijven', '/office-test/crm/contactpersonen'], true);
+if ($method === 'POST' && (!$writeEnabled || !$isFormPage)) {
+  http_response_code(503); exit('CRM-invoer is nog niet vrijgegeven.');
+}
+if ($method === 'POST') {
+  $origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+  $secret = getenv('OFFICE_TEST_CRM_CSRF_SECRET');
+  if (!is_string($secret) || strlen($secret) < 32 || !is_string($origin)) {
+    http_response_code(503); exit('CRM-invoer is nog niet geconfigureerd.');
+  }
+  require_once dirname(__DIR__) . '/src/Crm/OfficeCrmWriteGate.php';
+  require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
+  require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
+  try {
+    $action = $path === '/office-test/crm/bedrijven' ? 'create-company' : 'create-contact';
+    $token = $_POST['csrf_token'] ?? null;
+    if (!is_string($token)) throw new DomainException('Invalid CSRF token');
+    \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::authorize(
+      $operator, $method, (string)$host, (string)$allowedHost, $origin,
+      $token, $secret, $action
+    );
+    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
+    $writer = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+    if ($action === 'create-company') {
+      $name = $_POST['name'] ?? null;
+      $email = $_POST['email'] ?? null;
+      if (!is_string($name) || !is_string($email)) throw new InvalidArgumentException('Invalid input');
+      $writer->createCompany($name, $email);
+    } else {
+      $firstName = $_POST['first_name'] ?? null;
+      $lastName = $_POST['last_name'] ?? null;
+      $email = $_POST['email'] ?? null;
+      if (!is_string($firstName) || !is_string($lastName) || !is_string($email)) {
+        throw new InvalidArgumentException('Invalid input');
+      }
+      $writer->createContact($firstName, $lastName, $email);
+    }
+    header('Location: ' . $path . '?created=1', true, 303);
+    exit;
+  } catch (DomainException $exception) {
+    http_response_code(403); exit('Geen toestemming voor deze CRM-actie.');
+  } catch (InvalidArgumentException|RuntimeException $exception) {
+    http_response_code(422); exit('CRM-invoer afgewezen. Controleer de velden en configuratie.');
+  } catch (Throwable $exception) {
+    http_response_code(503); exit('CRM-invoer tijdelijk niet beschikbaar.');
+  }
+}
+$showForm = $writeEnabled && $isFormPage && $operator->canEditCrm;
+$formHtml = '';
+if ($showForm) {
+  $secret = getenv('OFFICE_TEST_CRM_CSRF_SECRET');
+  if (is_string($secret) && strlen($secret) >= 32) {
+    require_once dirname(__DIR__) . '/src/Crm/OfficeCrmWriteGate.php';
+    $action = $path === '/office-test/crm/bedrijven' ? 'create-company' : 'create-contact';
+    $token = \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::token($operator, $secret, $action);
+    $eForm = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    $fields = $action === 'create-company'
+      ? '<label>Bedrijfsnaam <input name="name" maxlength="255" required></label>'
+      : '<label>Voornaam <input name="first_name" maxlength="128" required></label><label>Achternaam <input name="last_name" maxlength="128" required></label>';
+    $formHtml = '<form method="post" action="' . $eForm($path) . '"><h3>Nieuw registreren</h3>'
+      . $fields . '<label>E-mailadres <input type="email" name="email" maxlength="255"></label>'
+      . '<input type="hidden" name="csrf_token" value="' . $eForm($token) . '">'
+      . '<button type="submit">Opslaan</button></form>';
+  }
+}
+
 require_once dirname(__DIR__) . '/src/Ui/OfficeModuleTabs.php';
 $tabs = [];
 foreach ($labels as $url => $label) {
@@ -73,4 +144,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . \Brebo\Office\Ui\OfficeModuleTabs::css()
   . '</style></head><body><div class="shell"><aside class="sidebar"><strong>BREBO Office</strong><nav aria-label="Hoofdnavigatie"><a href="/office-test">Mijn werkplek</a><a class="current" aria-current="page" href="/office-test/crm/bedrijven">Relaties &amp; CRM</a></nav></aside><main class="main"><div class="test">TESTOMGEVING</div><h1>Relaties &amp; CRM</h1>'
   . \Brebo\Office\Ui\OfficeModuleTabs::render($tabs, $path)
-  . '<section class="panel"><h2>' . $escape($title) . '</h2><p class="muted">Nog geen ' . $escape(strtolower($title)) . ' geregistreerd.</p><p>De navigatie is beschikbaar. Registreren, bewerken en koppelen worden aangesloten zodra het Office-native CRM-datamodel en de schrijfrechten zijn gecontroleerd.</p></section></main></div></body></html>';
+  . '<section class="panel"><h2>' . $escape($title) . '</h2>'
+  . (($_GET['created'] ?? '') === '1' ? '<p role="status">Registratie opgeslagen.</p>' : '')
+  . ($formHtml !== '' ? $formHtml : '<p class="muted">De CRM-invoer is nog niet vrijgegeven. Bestaande gegevens worden niet gewijzigd.</p>')
+  . '</section></main></div></body></html>';
