@@ -67,4 +67,15 @@ if (!str_contains($source, 'htmlspecialchars($url, ENT_QUOTES, \'UTF-8\')')) {
 if (!str_contains($source, 'if ($operator === null)')) {
   fwrite(STDERR, "Session guard missing\\n"); exit(1);
 }
+// Assert that all three project queries retain the same membership and active-account ACL.
+preg_match_all('/"SELECT [^"]+ FROM office_projects p\\s+INNER JOIN office_project_memberships m ON m\\.project_id=p\\.id\\s+INNER JOIN office_operator_accounts a ON a\\.id=m\\.operator_id\\s+WHERE m\\.operator_id=:operator_id AND m\\.permission IN \\(\\'read\\',\\'manage\\'\\) AND a\\.active=1"/s', $source, $projectQueries);
+if (count($projectQueries[0]) !== 2) {
+  fwrite(STDERR, "Project count and recent-project queries must share the active-membership ACL\\n");
+  exit(1);
+}
+if (!str_contains($source, '$projectsEnabled = $myProjectCount > 0;')
+  || !str_contains($source, '$projectsEnabled && $myProjectCount !== null')) {
+  fwrite(STDERR, "Project navigation and KPI must follow verified project count\\n");
+  exit(1);
+}
 echo "Office navigation static guards OK\\n";
