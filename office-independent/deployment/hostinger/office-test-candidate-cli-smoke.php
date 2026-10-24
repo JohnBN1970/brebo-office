@@ -39,7 +39,7 @@ PHP;
   unlink($tmp);
   $status = null;
   foreach ($output as $line) {
-    if (preg_match('/^OFFICE_CLI_STATUS=(\\d+)$/', $line, $m)) $status = (int)$m[1];
+    if (preg_match('/OFFICE_CLI_STATUS=(\\d+)\\s*$/', $line, $m)) $status = (int)$m[1];
   }
   $expected = $label === 'UNKNOWN_ROUTE' ? [404] : ($label === 'DIENST_GET' ? [405,503] : [405]);
   $ok = $exit === 0 && in_array($status, $expected, true);
