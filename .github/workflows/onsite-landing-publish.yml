@@ -136,11 +136,15 @@ jobs:
       - name: Verify live unauthenticated access is denied
         run: |
           set -euo pipefail
-          test "$(curl -sS -o locked.html -w '%{http_code}' https://brebobv.nl/onsite/)" = 403
+          root_status="$(curl -sS -o locked.html -w '%{http_code}' https://brebobv.nl/onsite/)"
+          echo "Unauthenticated installation status: $root_status"
+          test "$root_status" = 403
           grep -q 'Persoonlijke uitnodiging' locked.html
           ! grep -q 'Download voor Android' locked.html
           for path in 'OnSite-Android-test.apk' '?action=download' 'index.html' 'page.php' '.release'; do
-            test "$(curl -sS -o /dev/null -w '%{http_code}' "https://brebobv.nl/onsite/$path")" = 403
+            path_status="$(curl -sS -o /dev/null -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
+            echo "Protected path $path status: $path_status"
+            test "$path_status" = 403
           done
           test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://brebobv.nl' -H 'Content-Type: application/json' --data '{"activation_token":"onsite-invalid-verification-fixture"}' 'https://brebobv.nl/onsite/?action=unlock')" = 403
           curl --fail -sS https://brebobv.nl/onsite/gate.js -o gate-live.js
