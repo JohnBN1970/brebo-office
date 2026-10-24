@@ -115,7 +115,7 @@ if (!$projectsEnabled) {
 if ($projectsEnabled) {
   try {
     $recentProjectsStatement = $db->prepare(
-      "SELECT DISTINCT p.id, p.code, p.title FROM office_projects p
+      "SELECT DISTINCT p.id, p.code, p.title, p.status FROM office_projects p
        INNER JOIN office_project_memberships m ON m.project_id=p.id
        INNER JOIN office_operator_accounts a ON a.id=m.operator_id
        WHERE m.operator_id=:operator_id AND m.permission IN ('read','manage') AND a.active=1
@@ -192,7 +192,9 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
     $name = 'Project #' . $projectId;
   }
   $detailUrl = \Brebo\Office\Intake\OfficeMount::basePath() . '/projecten/detail?id=' . $projectId;
-  return '<li><a href="' . htmlspecialchars($detailUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a></li>';
+  $status = trim(is_scalar($project['status'] ?? null) ? (string)$project['status'] : '');
+  $statusLabel = $status !== '' ? ' <small>(' . htmlspecialchars($status, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ')</small>' : '';
+  return '<li><a href="' . htmlspecialchars($detailUrl, ENT_QUOTES, 'UTF-8') . '">' . htmlspecialchars($name, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</a>' . $statusLabel . '</li>';
 }, $myRecentProjects)) . '</ul><p><a href="' . htmlspecialchars((string)$projectsUrl, ENT_QUOTES, 'UTF-8') . '">Bekijk projectoverzicht &rarr;</a></p></section>' : '') . ($recentWork !== [] ? '<section><h2>Mijn laatste werkzaamheden</h2><ul>' . implode('', array_map(static function ($item): string {
   $label = $item->module === 'calculation' ? 'Calculatie' : 'Werkzaamheid';
   return '<li>' . htmlspecialchars($label . ' #' . $item->resourceId, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . ' — Hervatten nog niet beschikbaar</li>';
