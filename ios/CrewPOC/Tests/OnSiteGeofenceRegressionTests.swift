@@ -75,7 +75,7 @@ final class OnSiteGeofenceRegressionTests: XCTestCase {
         monitor.locationManager(manager, didExitRegion: region)
         monitor.locationManager(manager, didExitRegion: region)
         monitor.locationManager(manager, didEnterRegion: region)
-        XCTAssertEqual(monitor.events.map(\\.kind), [.enteredProject, .leftProject, .enteredProject])
+        XCTAssertEqual(monitor.events.map(\.kind), [.enteredProject, .leftProject, .enteredProject])
         XCTAssertEqual(monitor.states[zone.id], .present)
     }
 
