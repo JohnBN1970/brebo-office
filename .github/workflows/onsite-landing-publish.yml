@@ -104,7 +104,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/ | grep -q 'OnSite installeren'
+          curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/ -o landing-live.html
+          grep -q 'OnSite installeren' landing-live.html
           test "$(curl --fail --silent --show-error https://brebobv.nl/onsite/release.txt)" = "$GITHUB_SHA"
           curl --fail --silent --show-error --retry 3 https://brebobv.nl/onsite/OnSite-Android-test.apk -o downloaded.apk
           echo 'b7ac441e8cf2dd6ecc4afcbf4d35d8335c5ab1ff93f945773034629b1fdca049  downloaded.apk' | sha256sum -c -
