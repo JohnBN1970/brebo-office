@@ -99,7 +99,7 @@ if ($projectsEnabled) {
     );
     $countStatement->execute([':operator_id' => $operator->operatorId]);
     $rawCount = $countStatement->fetchColumn();
-    if ($rawCount === false || !is_numeric($rawCount) || (int)$rawCount < 0) {
+    if (!is_int($rawCount) && (!is_string($rawCount) || !ctype_digit($rawCount))) {
       throw new RuntimeException('Project count unavailable');
     }
     $myProjectCount = (int)$rawCount;
