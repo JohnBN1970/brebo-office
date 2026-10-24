@@ -201,7 +201,19 @@ $opportunityHtml = '';
 if ($path === '/office-test/crm/kansen') {
   $eOpportunity = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
   $view = ($_GET['view'] ?? 'list') === 'kanban' ? 'kanban' : 'list';
-  $opportunityHtml = '<nav aria-label="Kansenweergave"><a href="/office-test/crm/kansen?view=list">Lijst</a> · <a href="/office-test/crm/kansen?view=kanban">Kanban</a></nav>';
+  $opportunityHtml = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><nav aria-label="Kansenweergave"><a href="/office-test/crm/kansen?view=list">Lijst</a> · <a href="/office-test/crm/kansen?view=kanban">Kanban</a></nav><a href="/office-test/crm/kansen?view=' . $view . '&amp;new=1" style="display:inline-block;background:#14263b;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:650">+ Nieuwe kans</a></div>';
+  if (($_GET['new'] ?? '') === '1') {
+    $opportunityHtml .= '<section style="border:1px solid #dce4ed;border-radius:10px;padding:20px;margin:18px 0;background:#f8fafc" aria-label="Handmatige kans invoeren"><h3>Nieuwe kans — handmatige invoer</h3><p class="muted">Voorbereiding. Opslaan is nog uitgeschakeld totdat de beveiligde opslag is getest.</p>'
+      . '<form><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">'
+      . '<label>Omschrijving<br><input type="text" maxlength="255" style="width:100%" disabled></label>'
+      . '<label>Bedrijf of contactpersoon (optioneel)<br><input type="text" maxlength="255" style="width:100%" disabled></label>'
+      . '<label>Herkomst<br><input type="text" value="Handmatig" style="width:100%" disabled></label>'
+      . '<label>Verantwoordelijke<br><input type="text" style="width:100%" disabled></label>'
+      . '<label>Projectlocatie (optioneel)<br><input type="text" style="width:100%" disabled></label>'
+      . '<label>Verwachte waarde (optioneel)<br><input type="number" min="0" step="0.01" style="width:100%" disabled></label>'
+      . '<label>Opvolgdatum (optioneel)<br><input type="date" style="width:100%" disabled></label>'
+      . '</div><p><button type="button" disabled>Opslaan — nog niet vrijgegeven</button> <a href="/office-test/crm/kansen?view=' . $view . '">Sluiten</a></p></form></section>';
+  }
   if (getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
     try {
       require_once dirname(__DIR__) . '/src/Crm/OfficeCrmOpportunityReader.php';
