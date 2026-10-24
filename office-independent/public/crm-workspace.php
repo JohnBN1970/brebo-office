@@ -82,12 +82,12 @@ if ($method === 'POST') {
       : ($requestedAction === 'link-contact-company' ? 'link-contact-company' : 'create-contact');
     $token = $_POST['csrf_token'] ?? null;
     if (!is_string($token)) throw new DomainException('Invalid CSRF token');
-    \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::authorize(
+    \Brebo\Office\Crm\OfficeCrmWriteGate::authorize(
       $operator, $method, (string)$host, (string)$allowedHost, $origin,
       $token, $secret, $action
     );
-    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
-    $writer = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+    \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
+    $writer = new \Brebo\Office\Crm\OfficeCrmRepository($db);
     if ($action === 'create-company') {
       $name = $_POST['name'] ?? null;
       $email = $_POST['email'] ?? null;
@@ -129,7 +129,7 @@ if ($showForm) {
   if (is_string($secret) && strlen($secret) >= 32) {
     require_once dirname(__DIR__) . '/src/Crm/OfficeCrmWriteGate.php';
     $action = $path === '/office-test/crm/bedrijven' ? 'create-company' : 'create-contact';
-    $token = \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::token($operator, $secret, $action);
+    $token = \Brebo\Office\Crm\OfficeCrmWriteGate::token($operator, $secret, $action);
     $eForm = static fn(string $value): string => htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
     $fields = $action === 'create-company'
       ? '<label>Bedrijfsnaam <input name="name" maxlength="255" required></label>'
@@ -142,8 +142,8 @@ if ($showForm) {
       try {
         require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
         require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
-        \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
-        $crm = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+        \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
+        $crm = new \Brebo\Office\Crm\OfficeCrmRepository($db);
         $companies = $crm->companiesForSelection();
         $contacts = $crm->contactsForSelection();
         if ($companies !== [] && $contacts !== []) {
@@ -155,7 +155,7 @@ if ($showForm) {
           foreach ($contacts as $contact) {
             $contactOptions .= '<option value="' . $contact['id'] . '">' . $eForm($contact['name']) . '</option>';
           }
-          $linkToken = \\Brebo\\Office\\Crm\\OfficeCrmWriteGate::token($operator, $secret, 'link-contact-company');
+          $linkToken = \Brebo\Office\Crm\OfficeCrmWriteGate::token($operator, $secret, 'link-contact-company');
           $formHtml .= '<form method="post" action="' . $eForm($path) . '"><h3>Contactpersoon aan bedrijf koppelen</h3>'
             . '<label>Contactpersoon <select name="contact_id" required>' . $contactOptions . '</select></label>'
             . '<label>Bedrijf <select name="company_id" required>' . $companyOptions . '</select></label>'
@@ -176,8 +176,8 @@ if ($isFormPage && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
   try {
     require_once dirname(__DIR__) . '/src/Crm/OfficeCrmRepository.php';
     require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
-    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
-    $reader = new \\Brebo\\Office\\Crm\\OfficeCrmRepository($db);
+    \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
+    $reader = new \Brebo\Office\Crm\OfficeCrmRepository($db);
     $isCompany = $path === '/office-test/crm/bedrijven';
     $rows = $isCompany ? $reader->listCompanies() : $reader->listContacts();
     $e = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
@@ -209,8 +209,8 @@ if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
   try {
     require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
     require_once dirname(__DIR__) . '/src/Crm/OfficeCrmCompanyDetailReader.php';
-    \\Brebo\\Office\\Crm\\OfficeCrmSchemaPreflight::requireReady($db);
-    $detailReader = new \\Brebo\\Office\\Crm\\OfficeCrmCompanyDetailReader($db);
+    \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
+    $detailReader = new \Brebo\Office\Crm\OfficeCrmCompanyDetailReader($db);
     $company = $detailReader->company((int)$rawId);
     if ($company === null) {
       http_response_code(404); exit('Bedrijf niet gevonden.');
@@ -234,9 +234,9 @@ if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
     // Project details are filtered by the existing Office-native membership ACL.
     if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
       && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled'
-      && ctype_digit($operator->operatorId)) {
+      && (int)$operator->operatorId > 0) {
       require_once dirname(__DIR__) . '/src/Crm/OfficeCrmAuthorizedProjectReader.php';
-      $authorizedProjects = (new \\Brebo\\Office\\Crm\\OfficeCrmAuthorizedProjectReader($db))
+      $authorizedProjects = (new \Brebo\Office\Crm\OfficeCrmAuthorizedProjectReader($db))
         ->forCompany((int)$rawId, (int)$operator->operatorId);
       $companyDetailHtml .= '<h3>Projecten</h3>';
       if ($authorizedProjects === []) {
@@ -250,8 +250,27 @@ if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
         $companyDetailHtml .= '</ul>';
       }
     }
-    // Building details remain hidden until building-specific ACL is verified.
-    $companyDetailHtml .= '<p class="muted">Gebouwgegevens blijven afgeschermd totdat de gebouwrechten zijn gecontroleerd.</p></section>';
+    // Buildings are only visible via projects with read/manage membership.
+    if (getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
+      && getenv('OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED') === 'enabled'
+      && (int)$operator->operatorId > 0) {
+      require_once dirname(__DIR__) . '/src/Crm/OfficeCrmAuthorizedBuildingReader.php';
+      $authorizedBuildings = (new \Brebo\Office\Crm\OfficeCrmAuthorizedBuildingReader($db))
+        ->forCompany((int)$rawId, (int)$operator->operatorId);
+      $companyDetailHtml .= '<h3>Gebouwen</h3>';
+      if ($authorizedBuildings === []) {
+        $companyDetailHtml .= '<p class="muted">Geen toegankelijke gekoppelde gebouwen.</p>';
+      } else {
+        $companyDetailHtml .= '<ul>';
+        foreach ($authorizedBuildings as $building) {
+          $companyDetailHtml .= '<li>Gebouw #' . (int)$building['id']
+            . ' (' . $eDetail($building['role']) . ')</li>';
+        }
+        $companyDetailHtml .= '</ul>';
+      }
+    }
+
+    $companyDetailHtml .= '</section>';
   } catch (Throwable) {
     http_response_code(503); exit('Bedrijfskaart tijdelijk niet beschikbaar.');
   }
