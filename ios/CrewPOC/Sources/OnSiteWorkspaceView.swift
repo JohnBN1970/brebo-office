@@ -188,6 +188,10 @@ struct OnSiteWorkspaceView: View {
         List {
             Section("Medewerker") {
                 LabeledContent("Naam", value: displayName)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("Naam")
+                    .accessibilityValue(displayName)
+                    .accessibilityIdentifier("onsite.profile.name")
                 LabeledContent("Taal vanuit Office", value: Locale.current.localizedString(forIdentifier: language) ?? language)
             }
             Section("Locatietoegang") {

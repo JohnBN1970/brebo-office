@@ -26,7 +26,9 @@ final class OnSiteNavigationUITests: XCTestCase {
 
         app.tabBars.buttons["Mijn profiel"].tap()
         XCTAssertTrue(app.navigationBars["Mijn profiel"].exists)
-        XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "Alex")).firstMatch.waitForExistence(timeout: 5))
+        let employeeName = app.descendants(matching: .any).matching(identifier: "onsite.profile.name").firstMatch
+        XCTAssertTrue(employeeName.waitForExistence(timeout: 5))
+        XCTAssertEqual(employeeName.value as? String, "Alex")
         capture("05-profiel")
 
         app.tabBars.buttons["Vandaag"].tap()
