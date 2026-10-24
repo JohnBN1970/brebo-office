@@ -14,6 +14,29 @@ use RuntimeException;
 final class OfficeCrmRepository {
   public function __construct(private PDO $db) {}
 
+  /**
+   * Create a manually entered opportunity after the HTTP controller has
+   * authorized the operator and verified CSRF and schema readiness.
+   * @return int New opportunity ID.
+   */
+  public function createManualOpportunity(string $title, ?string $estimatedValue = null): int {
+    $title = trim($title);
+    if ($title === '' || mb_strlen($title, 'UTF-8') > 255) {
+      throw new RuntimeException('Ongeldige kansomschrijving');
+    }
+    $value = $estimatedValue === null ? '' : trim($estimatedValue);
+    if ($value !== '' && (!preg_match('/^(?:0|[1-9][0-9]{0,12})(?:\\.[0-9]{1,2})?$/D', $value)
+      || (float)$value > 9999999999999.99)) {
+      throw new RuntimeException('Ongeldige verwachte waarde');
+    }
+    $stmt = $this->db->prepare(
+      "INSERT INTO office_crm_opportunities (title, stage, source, estimated_value, currency)
+       VALUES (:title, 'prospect', 'Handmatig', :value, 'EUR')"
+    );
+    $stmt->execute([':title' => $title, ':value' => $value === '' ? null : $value]);
+    return (int)$this->db->lastInsertId();
+  }
+
   public function createCompany(string $name, ?string $email = null): int {
     $name = trim($name);
     if ($name === '' || strlen($name) > 255) {
