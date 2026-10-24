@@ -88,11 +88,17 @@ if (is_dir($moduleRoot)) {
     if (!is_array($moduleRoutes)) {
       http_response_code(503); exit('Ongeldige moduleroutes.');
     }
+    $reservedRoutes = [
+      '/office-test/inzet/apparaten',
+      '/office-test/api/onsite/v1/activate',
+      '/office-test/api/onsite/v1/bootstrap',
+      '/office-test/api/onsite/v1/presence',
+    ];
     foreach ($moduleRoutes as $route => $controller) {
       if (!is_string($route) || !preg_match('~^/office-test/[a-z0-9/_-]+$~D', $route)
         || !is_string($controller)
         || !preg_match('/^[a-z][a-z0-9-]*\\.php$/D', $controller)
-        || isset($routes[$route])) {
+        || isset($routes[$route]) || in_array($route, $reservedRoutes, true)) {
         http_response_code(503); exit('Ongeldige of dubbele moduleroute.');
       }
       $target = realpath($private . '/public/' . $controller);
