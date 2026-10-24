@@ -46,6 +46,7 @@ $required = [
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
+  'ctype_digit($rawCount)',
   '$projectsEnabled && $myProjectCount !== null',
   "OFFICE_TEST_INZET_IMPORT_REVIEWER_ID",
   "['Mail', null, false]",
