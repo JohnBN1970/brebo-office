@@ -72,6 +72,40 @@ final class OfficeCrmRepository {
     ], $rows);
   }
 
+  /** @return list<array{id:int,name:string,email:string,contacts:int}> */
+  public function listCompanies(): array {
+    $rows = $this->db->query(
+      'SELECT c.id, c.name, c.email, COUNT(DISTINCT cc.contact_id) AS contacts
+       FROM office_crm_companies c
+       LEFT JOIN office_crm_company_contacts cc ON cc.company_id = c.id
+       GROUP BY c.id, c.name, c.email
+       ORDER BY c.name, c.id LIMIT 200'
+    )->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(static fn(array $r): array => [
+      'id' => (int)$r['id'], 'name' => (string)$r['name'],
+      'email' => (string)($r['email'] ?? ''), 'contacts' => (int)$r['contacts'],
+    ], $rows);
+  }
+
+  /** @return list<array{id:int,name:string,email:string,companies:string}> */
+  public function listContacts(): array {
+    $rows = $this->db->query(
+      "SELECT p.id, p.first_name, p.last_name, p.email,
+        GROUP_CONCAT(DISTINCT c.name ORDER BY c.name SEPARATOR ', ') AS companies
+       FROM office_crm_contacts p
+       LEFT JOIN office_crm_company_contacts cc ON cc.contact_id = p.id
+       LEFT JOIN office_crm_companies c ON c.id = cc.company_id
+       GROUP BY p.id, p.first_name, p.last_name, p.email
+       ORDER BY p.last_name, p.first_name, p.id LIMIT 200"
+    )->fetchAll(PDO::FETCH_ASSOC);
+    return array_map(static fn(array $r): array => [
+      'id' => (int)$r['id'],
+      'name' => trim((string)$r['first_name'] . ' ' . (string)$r['last_name']),
+      'email' => (string)($r['email'] ?? ''),
+      'companies' => (string)($r['companies'] ?? ''),
+    ], $rows);
+  }
+
   private static function optionalEmail(?string $email): ?string {
     $email = $email === null ? null : trim($email);
     if ($email === '') return null;
