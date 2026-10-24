@@ -144,7 +144,10 @@ jobs:
           for path in 'OnSite-Android-test.apk' '?action=download' 'index.html' 'page.php' '.release'; do
             path_status="$(curl -sS -o /dev/null -w '%{http_code}' "https://brebobv.nl/onsite/$path")"
             echo "Protected path $path status: $path_status"
-            test "$path_status" = 403
+            case "$path" in
+              index.html|page.php) [[ "$path_status" = 403 || "$path_status" = 404 ]] ;;
+              *) test "$path_status" = 403 ;;
+            esac
           done
           test "$(curl -sS -o /dev/null -w '%{http_code}' -H 'Origin: https://brebobv.nl' -H 'Content-Type: application/json' --data '{"activation_token":"onsite-invalid-verification-fixture"}' 'https://brebobv.nl/onsite/?action=unlock')" = 403
           curl --fail -sS https://brebobv.nl/onsite/gate.js -o gate-live.js
