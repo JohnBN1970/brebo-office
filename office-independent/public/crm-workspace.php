@@ -41,7 +41,6 @@ try {
     'WebsiteCrmOperatorSessionProviderInterface.php',
     'WebsiteOfficeCrmSessionRepository.php',
     'WebsiteOfficeCrmCookieSessionProvider.php',
-    'WebsiteOfficeCrmAccessPolicy.php',
   ] as $file) {
     require_once dirname(__DIR__) . '/src/Intake/' . $file;
   }
@@ -50,7 +49,10 @@ try {
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
   $provider = new \Brebo\Office\Intake\WebsiteOfficeCrmCookieSessionProvider(
     new \Brebo\Office\Intake\WebsiteOfficeCrmSessionRepository($db), $_COOKIE, time());
-  (new \Brebo\Office\Intake\WebsiteOfficeCrmAccessPolicy($provider))->requireReader();
+  $operator = $provider->currentOperator();
+  if ($operator === null) {
+    http_response_code(401); exit('Meld je opnieuw aan.');
+  }
 } catch (DomainException) {
   http_response_code(403); exit;
 } catch (Throwable) {
