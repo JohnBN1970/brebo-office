@@ -78,7 +78,7 @@ $calcEnabled = getenv('OFFICE_CALC_ENABLED') === 'enabled'
   && getenv('OFFICE_CALC_BROWSER_HANDOFF_ENABLED') === 'enabled'
   && getenv('OFFICE_CALC_SAME_ORIGIN_PROXY_VERIFIED') === 'enabled';
 $queryRouter = parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) === '/index.php';
-$crmUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('crm/aanvragen') : ($queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen');
+$crmUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::basePath() . '/crm/bedrijven' : ($queryRouter ? '/index.php?office_route=crm/aanvragen' : '/office/crm/aanvragen');
 $calcUrl = \Brebo\Office\Intake\OfficeMount::isTest() ? \Brebo\Office\Intake\OfficeMount::route('calc-werkbank') : ($queryRouter ? '/index.php?office_route=calc-werkbank' : '/office/calc-werkbank');
 $projectsEnabled = \Brebo\Office\Intake\OfficeMount::isTest()
   && getenv('OFFICE_NATIVE_PROJECTS_ENABLED') === 'enabled'
