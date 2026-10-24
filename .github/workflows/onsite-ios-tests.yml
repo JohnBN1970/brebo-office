@@ -6,7 +6,7 @@ on:
       - 'scripts/configure-onsite-office-test-ios.py'
       - '.github/workflows/onsite-ios-tests.yml'
   push:
-    branches: ['fix/onsite-presence-durable-queue-20261023']
+    branches: ['fix/onsite-presence-durable-queue-20261023', 'feat/onsite-navigation-20261024']
     paths:
       - 'ios/CrewPOC/**'
       - '.github/workflows/onsite-ios-tests.yml'
@@ -32,8 +32,16 @@ jobs:
           set -euo pipefail
           SIMULATOR_ID="$(xcrun simctl list devices available -j | python3 -c 'import json,sys; d=json.load(sys.stdin)["devices"]; print(next(device["udid"] for runtime, devices in d.items() if "iOS" in runtime for device in devices if device.get("isAvailable") and "iPhone" in device.get("name", "")))')"
           xcodebuild -project ios/CrewPOC/BreboCrewPOC.xcodeproj -scheme BreboCrewPOC -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -configuration Debug -resultBundlePath OnSiteTests.xcresult CODE_SIGNING_ALLOWED=NO build test
+      - name: Export navigation screenshots
+        if: always()
+        run: |
+          if [ -d OnSiteTests.xcresult ]; then
+            xcrun xcresulttool export attachments --path OnSiteTests.xcresult --output-path OnSiteScreenshots || true
+          fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: onsite-ios-test-results
-          path: OnSiteTests.xcresult
+          path: |
+            OnSiteTests.xcresult
+            OnSiteScreenshots
