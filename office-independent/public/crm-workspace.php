@@ -63,7 +63,7 @@ try {
 // Writes are deliberately disabled by default, including when the UI is deployed.
 $writeEnabled = getenv('OFFICE_TEST_CRM_WRITE_ENABLED') === 'enabled'
   && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled';
-$isFormPage = in_array($path, ['/office-test/crm/bedrijven', '/office-test/crm/contactpersonen'], true);
+$isFormPage = in_array($path, ['/office-test/crm/bedrijven', '/office-test/crm/contactpersonen', '/office-test/crm/kansen'], true);
 if ($method === 'POST' && (!$writeEnabled || !$isFormPage)) {
   http_response_code(503); exit('CRM-invoer is nog niet vrijgegeven.');
 }
@@ -78,8 +78,9 @@ if ($method === 'POST') {
   require_once dirname(__DIR__) . '/src/Crm/OfficeCrmSchemaPreflight.php';
   try {
     $requestedAction = $_POST['action'] ?? null;
-    $action = $path === '/office-test/crm/bedrijven' ? 'create-company'
-      : ($requestedAction === 'link-contact-company' ? 'link-contact-company' : 'create-contact');
+    $action = $path === '/office-test/crm/kansen' ? 'create-opportunity'
+      : ($path === '/office-test/crm/bedrijven' ? 'create-company'
+      : ($requestedAction === 'link-contact-company' ? 'link-contact-company' : 'create-contact'));
     $token = $_POST['csrf_token'] ?? null;
     if (!is_string($token)) throw new DomainException('Invalid CSRF token');
     \Brebo\Office\Crm\OfficeCrmWriteGate::authorize(
@@ -88,7 +89,12 @@ if ($method === 'POST') {
     );
     \Brebo\Office\Crm\OfficeCrmSchemaPreflight::requireReady($db);
     $writer = new \Brebo\Office\Crm\OfficeCrmRepository($db);
-    if ($action === 'create-company') {
+    if ($action === 'create-opportunity') {
+      $title = $_POST['title'] ?? null;
+      $value = $_POST['estimated_value'] ?? null;
+      if (!is_string($title) || !is_string($value)) throw new InvalidArgumentException('Invalid opportunity input');
+      $writer->createManualOpportunity($title, $value);
+    } elseif ($action === 'create-company') {
       $name = $_POST['name'] ?? null;
       $email = $_POST['email'] ?? null;
       if (!is_string($name) || !is_string($email)) throw new InvalidArgumentException('Invalid input');
@@ -202,17 +208,26 @@ if ($path === '/office-test/crm/kansen') {
   $eOpportunity = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
   $view = ($_GET['view'] ?? 'list') === 'kanban' ? 'kanban' : 'list';
   $opportunityHtml = '<div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap"><nav aria-label="Kansenweergave"><a href="/office-test/crm/kansen?view=list">Lijst</a> · <a href="/office-test/crm/kansen?view=kanban">Kanban</a></nav><a href="/office-test/crm/kansen?view=' . $view . '&amp;new=1" style="display:inline-block;background:#14263b;color:white;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:650">+ Nieuwe kans</a></div>';
+  $canCreateOpportunity = $writeEnabled && $operator->canEditCrm
+    && is_string(getenv('OFFICE_TEST_CRM_CSRF_SECRET'))
+    && strlen((string)getenv('OFFICE_TEST_CRM_CSRF_SECRET')) >= 32;
   if (($_GET['new'] ?? '') === '1') {
-    $opportunityHtml .= '<section style="border:1px solid #dce4ed;border-radius:10px;padding:20px;margin:18px 0;background:#f8fafc" aria-label="Handmatige kans invoeren"><h3>Nieuwe kans — handmatige invoer</h3><p class="muted">Voorbereiding. Opslaan is nog uitgeschakeld totdat de beveiligde opslag is getest.</p>'
-      . '<form><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px">'
-      . '<label>Omschrijving<br><input type="text" maxlength="255" style="width:100%" disabled></label>'
-      . '<label>Bedrijf of contactpersoon (optioneel)<br><input type="text" maxlength="255" style="width:100%" disabled></label>'
+    $formToken = '';
+    if ($canCreateOpportunity) {
+      require_once dirname(__DIR__) . '/src/Crm/OfficeCrmWriteGate.php';
+      $formToken = \Brebo\Office\Crm\OfficeCrmWriteGate::token($operator, (string)getenv('OFFICE_TEST_CRM_CSRF_SECRET'), 'create-opportunity');
+    }
+    $disabled = $canCreateOpportunity ? '' : ' disabled';
+    $opportunityHtml .= '<section style="border:1px solid #dce4ed;border-radius:10px;padding:20px;margin:18px 0;background:#f8fafc" aria-label="Handmatige kans invoeren"><h3>Nieuwe kans — handmatige invoer</h3>'
+      . ($canCreateOpportunity ? '' : '<p class="muted">Opslaan is nog uitgeschakeld totdat de beveiligde opslag is getest.</p>')
+      . '<form method="post" action="/office-test/crm/kansen"><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px">'
+      . '<label>Omschrijving<br><input name="title" type="text" maxlength="255" required style="width:100%"' . $disabled . '></label>'
       . '<label>Herkomst<br><input type="text" value="Handmatig" style="width:100%" disabled></label>'
-      . '<label>Verantwoordelijke<br><input type="text" style="width:100%" disabled></label>'
-      . '<label>Projectlocatie (optioneel)<br><input type="text" style="width:100%" disabled></label>'
-      . '<label>Verwachte waarde (optioneel)<br><input type="number" min="0" step="0.01" style="width:100%" disabled></label>'
-      . '<label>Opvolgdatum (optioneel)<br><input type="date" style="width:100%" disabled></label>'
-      . '</div><p><button type="button" disabled>Opslaan — nog niet vrijgegeven</button> <a href="/office-test/crm/kansen?view=' . $view . '">Sluiten</a></p></form></section>';
+      . '<label>Verwachte waarde (optioneel)<br><input name="estimated_value" type="number" min="0" max="9999999999999.99" step="0.01" style="width:100%"' . $disabled . '></label>'
+      . '</div><p class="muted">Relatie, verantwoordelijke, locatie en opvolgdatum volgen na verificatie van hun bestaande opslag.</p>'
+      . '<input type="hidden" name="action" value="create-opportunity">'
+      . '<input type="hidden" name="csrf_token" value="' . $eOpportunity($formToken) . '">'
+      . '<p><button type="submit"' . $disabled . '>Kans opslaan</button> <a href="/office-test/crm/kansen?view=' . $view . '">Sluiten</a></p></form></section>';
   }
   if (getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
     try {
