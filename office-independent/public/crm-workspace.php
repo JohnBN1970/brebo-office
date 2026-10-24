@@ -197,6 +197,42 @@ if ($isFormPage && getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
     $listHtml = '<p class="muted">CRM-overzicht nog niet beschikbaar: databasecontrole vereist.</p>';
   }
 }
+$opportunityHtml = '';
+if ($path === '/office-test/crm/kansen') {
+  $eOpportunity = static fn(string $v): string => htmlspecialchars($v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+  $view = ($_GET['view'] ?? 'list') === 'kanban' ? 'kanban' : 'list';
+  $opportunityHtml = '<nav aria-label="Kansenweergave"><a href="/office-test/crm/kansen?view=list">Lijst</a> · <a href="/office-test/crm/kansen?view=kanban">Kanban</a></nav>';
+  if (getenv('OFFICE_TEST_CRM_SCHEMA_VERIFIED') === 'enabled') {
+    try {
+      require_once dirname(__DIR__) . '/src/Crm/OfficeCrmOpportunityReader.php';
+      $opportunities = (new \\Brebo\\Office\\Crm\\OfficeCrmOpportunityReader($db))->list();
+      if ($view === 'list') {
+        $opportunityHtml .= '<div style="overflow-x:auto"><table style="width:100%;text-align:left"><thead><tr><th>Kans</th><th>Status</th><th>Relatie</th><th>Herkomst</th><th>Waarde</th></tr></thead><tbody>';
+        foreach ($opportunities as $item) {
+          $opportunityHtml .= '<tr><td>' . $eOpportunity($item['title']) . '</td><td>' . $eOpportunity($item['stage']) . '</td><td>' . $eOpportunity($item['companies']) . '</td><td>' . $eOpportunity($item['source']) . '</td><td>' . $eOpportunity(($item['value'] ?? '—') . ' ' . $item['currency']) . '</td></tr>';
+        }
+        $opportunityHtml .= '</tbody></table></div>';
+      } else {
+        $groups = [];
+        foreach ($opportunities as $item) $groups[$item['stage']][] = $item;
+        $opportunityHtml .= '<div style="display:flex;gap:12px;overflow-x:auto;padding:12px 0">';
+        foreach ($groups as $stage => $items) {
+          $opportunityHtml .= '<section style="min-width:210px;flex:1;background:#eef2f7;border-radius:10px;padding:12px"><h3>' . $eOpportunity($stage) . ' (' . count($items) . ')</h3>';
+          foreach ($items as $item) {
+            $opportunityHtml .= '<article style="background:white;border:1px solid #dce4ed;border-radius:8px;padding:12px;margin-bottom:8px"><strong>' . $eOpportunity($item['title']) . '</strong><p>' . $eOpportunity($item['companies']) . '</p></article>';
+          }
+          $opportunityHtml .= '</section>';
+        }
+        $opportunityHtml .= '</div>';
+      }
+      if ($opportunities === []) $opportunityHtml .= '<p class="muted">Nog geen kansen geregistreerd.</p>';
+    } catch (Throwable) {
+      $opportunityHtml .= '<p class="muted">Kansenoverzicht tijdelijk niet beschikbaar.</p>';
+    }
+  } else {
+    $opportunityHtml .= '<p class="muted">Kansenoverzicht vereist een geverifieerd CRM-schema.</p>';
+  }
+}
 $companyDetailHtml = '';
 if ($path === '/office-test/crm/bedrijven' && isset($_GET['company_id'])) {
   $rawId = $_GET['company_id'];
@@ -297,6 +333,7 @@ echo '<!doctype html><html lang="nl"><head><meta charset="utf-8"><meta name="vie
   . '<section class="panel"><h2>' . $escape($title) . '</h2>'
   . (($_GET['created'] ?? '') === '1' ? '<p role="status">Registratie opgeslagen.</p>' : '')
   . $commercialLinks
+  . $opportunityHtml
   . $companyDetailHtml
   . $listHtml
   . ($formHtml !== '' ? $formHtml : '<p class="muted">De CRM-invoer is nog niet vrijgegeven. Bestaande gegevens worden niet gewijzigd.</p>')
