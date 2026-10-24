@@ -43,6 +43,7 @@ $required = [
   "m.permission IN ('read','manage')",
   "a.active=1",
   'if (!$projectsEnabled)',
+  '$projectsEnabled && $myProjectCount !== null',
   "OFFICE_TEST_INZET_IMPORT_REVIEWER_ID",
   "['Mail', null, false]",
   "OFFICE_NATIVE_PROJECTS_SCHEMA_VERIFIED",
